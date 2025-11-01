@@ -1,0 +1,22 @@
+# Logs
+/logs
+
+# Temporary files
+*.log
+*.tmp
+
+# Config files
+.env
+config/database.php
+
+# Binary files
+*.jpg
+*.png
+*.mp4
+
+# Generated files
+build/*
+dist/*
+
+node_modules/
+android/

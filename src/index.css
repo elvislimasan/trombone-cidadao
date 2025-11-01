@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === SAFE AREAS PARA CAPACITOR === */
+@layer base {
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Remove qualquer margin/padding padrão do body */
+  html, body, #root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  /* Safe area utilities */
+  .pt-safe {
+    padding-top: var(--safe-area-top);
+  }
+  .pb-safe {
+    padding-bottom: var(--safe-area-bottom);
+  }
+  .pl-safe {
+    padding-left: var(--safe-area-left);
+  }
+  .pr-safe {
+    padding-right: var(--safe-area-right);
+  }
+  
+  .mt-safe {
+    margin-top: var(--safe-area-top);
+  }
+  .mb-safe {
+    margin-bottom: var(--safe-area-bottom);
+  }
+  .ml-safe {
+    margin-left: var(--safe-area-left);
+  }
+  .mr-safe {
+    margin-right: var(--safe-area-right);
+  }
+
+  /* Height que considera safe areas */
+  .h-safe-screen {
+    height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom));
+  }
+  
+  /* Top position com safe area */
+  .top-safe {
+    top: var(--safe-area-top);
+  }
+  
+  /* Bottom position com safe area */
+  .bottom-safe {
+    bottom: var(--safe-area-bottom);
+  }
+}
+
+/* === SEUS ESTILOS ORIGINAIS (MANTIDOS INTACTOS) === */
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* White */
+    --foreground: 222.2 84% 4.9%; /* Black */
+
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 222.2 84% 4.9%; /* Black */
+
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 222.2 84% 4.9%; /* Black */
+
+    --primary: 0 84.2% 60.2%; /* Red */
+    --primary-foreground: 210 20% 98%; /* White */
+
+    --secondary: 47.9 95.8% 53.1%; /* Yellow */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* Black */
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%; /* Black */
+    --foreground: 210 20% 98%; /* White */
+
+    --card: 222.2 84% 4.9%; /* Black */
+    --card-foreground: 210 20% 98%; /* White */
+
+    --popover: 222.2 84% 4.9%; /* Black */
+    --popover-foreground: 210 20% 98%; /* White */
+
+    --primary: 0 84.2% 60.2%; /* Red */
+    --primary-foreground: 210 20% 98%; /* White */
+
+    --secondary: 47.9 95.8% 53.1%; /* Yellow */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* Black */
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.glass-effect {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dark .glass-effect {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gradient-text {
+  background: linear-gradient(to right, var(--tw-gradient-stops));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  @apply from-primary to-secondary;
+}

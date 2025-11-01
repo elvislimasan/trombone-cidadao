@@ -1,0 +1,17 @@
+{
+  "appId": "com.trombonecidadao.app",
+  "appName": "Trombone Cidadão",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    },
+    "StatusBar": {
+
+      "overlaysWebView": false
+    }
+  }
+}

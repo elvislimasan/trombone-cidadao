@@ -1,0 +1,21 @@
+## Pages
+- [- Guia Comercial`}](/directorydetails): No description available
+- [- Guia de Pontos Turísticos](/touristspotdetails): No description available
+- [- Guia de Transportes](/transportdetails): No description available
+- [Admin - Painel de Controle](/admin): Página de administração para moderar conteúdo e gerenciar o site.
+- [Alterar Senha - Trombone Cidadão](/changepassword): No description available
+- [Cadastro - Trombone Cidadão](/register): No description available
+- [Contato - Trombone Cidadão](/contact): Entre em contato com a equipe do Trombone Cidadão.
+- [Enviar Fotos da Obra -](/uploadworkphoto): No description available
+- [Estatísticas - Trombone Cidadão](/stats): Veja as estatísticas detalhadas das solicitações e obras na plataforma Trombone Cidadão.
+- [Login - Trombone Cidadão](/login): Acesse sua conta na plataforma Trombone Cidadão.
+- [Mapa de Obras Públicas - Trombone Cidadão](/publicworks): Acompanhe o andamento das obras públicas em Floresta-PE em um mapa interativo.
+- [Mapa de Pavimentação - Trombone Cidadão](/pavementmap): Acompanhe o status da pavimentação das ruas de Floresta-PE e veja os relatórios.
+- [Meu Painel - Trombone Cidadão](/userdashboard): Gerencie suas broncas e comentários.
+- [Meus Favoritos - Trombone Cidadão](/favorites): No description available
+- [Notícias - Trombone Cidadão](/news): Fique por dentro de todas as novidades sobre a plataforma Trombone Cidadão e o impacto na nossa cidade.
+- [Obras Favoritas - Trombone Cidadão](/favoriteworks): No description available
+- [Recuperar Senha - Trombone Cidadão](/forgotpassword): Recupere o acesso à sua conta na plataforma Trombone Cidadão.
+- [Serviços - Trobone Cidadão](/services): Encontre informações úteis sobre Floresta-PE: pontos turísticos, transportes e guia comercial.
+- [Sobre o Trombone Cidadão](/about): Saiba mais sobre o projeto Trombone Cidadão, nossa missão, visão e como você pode colaborar para uma cidade melhor.
+- [Termos de Uso - Trombone Cidadão](/termsofuse): Leia os termos e condições de uso da plataforma Trombone Cidadão, em conformidade com a LGPD.
