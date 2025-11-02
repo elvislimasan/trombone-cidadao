@@ -50,7 +50,7 @@ const SEO = () => {
   // Base URL automática - fallback para window.location.origin
   const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
   
-  const defaultImage = `${baseUrl}/thumbnail.jpg`;
+  const defaultImage = `${baseUrl}/images/thumbnail.jpg`;
   
   let pageTitle = `${siteName} - Sua bronca tem voz!`;
   let pageDescription = defaultDescription;
