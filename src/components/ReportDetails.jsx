@@ -10,7 +10,8 @@ import MediaViewer from '@/components/MediaViewer';
 import MarkResolvedModal from '@/components/MarkResolvedModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from '@/lib/customSupabaseClient';
-import DynamicSEO from '@/components/DynamicSEO'; // Importe o componente
+import DynamicSEO from './DynamicSeo';
+
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
