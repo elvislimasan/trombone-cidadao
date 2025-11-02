@@ -98,11 +98,28 @@ const ReportDetails = ({
 
   const formatDate = (dateString) => new Date(dateString).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  // Dados para o DynamicSEO
+  // Função para obter a URL da imagem corretamente
+  const getReportImage = () => {
+    if (!report?.photos || report.photos.length === 0) {
+      return null; // Deixa o DynamicSEO usar a defaultImage
+    }
+    
+    const firstPhoto = report.photos[0];
+
+    console.log(firstPhoto);
+    
+    // Tenta diferentes propriedades que podem conter a URL
+    return firstPhoto.url || 
+           firstPhoto.publicUrl || 
+           firstPhoto.photo_url || 
+           firstPhoto.image_url;
+  };
+
+
   const seoData = {
     title: `${report?.title} - Trombone Cidadão`,
     description: report?.description || `Solicitação de ${getCategoryName(report?.category)} em Floresta-PE. Protocolo: ${report?.protocol}`,
-    image: report?.photos?.[0]?.url, // Primeira foto da bronca
+    image: getReportImage(), // Agora usa a função que retorna null se não tiver imagem
     url: `${window.location.origin}/bronca/${report?.id}`,
     type: "article"
   };
@@ -166,25 +183,65 @@ const ReportDetails = ({
   };
 
   const handleShare = async () => {
-    const shareData = {
-      title: `Trombone Cidadão: ${report.title}`,
-      text: `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`,
-      url: `${window.location.origin}/bronca/${report.id}`,
-    };
+  // Pega a imagem da bronca ou usa a padrão
+  const reportImage = getReportImage();
+  const baseUrl = window.location.origin;
+  const defaultImage = `${baseUrl}/images/thumbnail.jpg`;
+  const shareImage = reportImage || defaultImage;
+
+  // Garante que a URL da imagem seja absoluta
+  const getAbsoluteImageUrl = (imgUrl) => {
+    if (!imgUrl) return defaultImage;
+    if (imgUrl.startsWith('http')) return imgUrl;
+    if (imgUrl.startsWith('/')) return `${baseUrl}${imgUrl}`;
+    return `${baseUrl}/${imgUrl}`;
+  };
+
+  const absoluteImageUrl = getAbsoluteImageUrl(shareImage);
+
+  const shareData = {
+    title: `Trombone Cidadão: ${report.title}`,
+    text: `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`,
+    url: `${baseUrl}/bronca/${report.id}`,
+  };
+
+  // Para plataformas que suportam imagens no compartilhamento
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [] })) {
     try {
-      if (navigator.share) {
+      // Tenta baixar a imagem para compartilhar como arquivo
+      const response = await fetch(absoluteImageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], 'bronca-image.jpg', { type: 'image/jpeg' });
+      
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          ...shareData,
+          files: [file]
+        });
+      } else {
+        await navigator.share(shareData);
+      }
+      toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
+    } catch (error) {
+      console.error('Error sharing with image:', error);
+      try {
         await navigator.share(shareData);
         toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
-      } else {
+      } catch (fallbackError) {
         await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
         toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
       }
+    }
+  } else {
+    try {
+      await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+      toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
     } catch (error) {
-      console.error('Error sharing:', error);
+      console.error('Error copying to clipboard:', error);
       toast({ title: "Erro ao compartilhar", description: "Não foi possível compartilhar a solicitação.", variant: "destructive" });
     }
-  };
-
+  }
+};
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!user) {
