@@ -738,15 +738,60 @@ const handleRejectReport = async () => {
               ) : (
                 <>
                   {!isResolutionModeration && (
-                    <>
-                      <Button onClick={handleShare} variant="secondary" className="flex-1 gap-2"><Share2 className="w-4 h-4" />Compartilhar</Button>
-                      {canEdit && <Button onClick={handleEdit} className="bg-blue-600 hover:bg-blue-700 flex-1 gap-2"><Edit className="w-4 h-4" /> Editar</Button>}
-                      {['pending', 'in-progress'].includes(report.status) && <Button onClick={handleMarkResolvedClick} className="bg-green-600 hover:bg-green-700 flex-1 gap-2"><CheckCircle className="w-4 h-4" />Marcar como Resolvido</Button>}
-                      {report.status === 'resolved' && !report.evaluation && <Button onClick={() => setShowEvaluation(true)} variant="outline" className="flex-1 gap-2"><Star className="w-4 h-4" />Avaliar Serviço</Button>}
-                      {report.status === 'resolved' && user?.is_admin && <Button onClick={handleRecurrentClick} variant="outline" className="flex-1 gap-2"><Repeat className="w-4 h-4" />Reincidente</Button>}
-                      {report.status !== 'duplicate' && user?.is_admin && <Button onClick={() => onLink(report)} variant="outline" className="flex-1 gap-2"><LinkIcon className="w-4 h-4" />Vincular Bronca</Button>}
-                      <Button onClick={handleReportError} variant="ghost" className="text-muted-foreground hover:text-primary flex-1 gap-2"><Flag className="w-4 h-4" />Reportar Erro</Button>
-                    </>
+                  <>
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                      <Button onClick={handleShare} variant="secondary" className="gap-2 text-xs sm:text-sm">
+                        <Share2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Compartilhar</span>
+                        <span className="sm:hidden">Compart.</span>
+                      </Button>
+                      
+                      {canEdit && (
+                        <Button onClick={handleEdit} className="bg-blue-600 hover:bg-blue-700 gap-2 text-xs sm:text-sm">
+                          <Edit className="w-4 h-4" />
+                          <span className="hidden sm:inline">Editar</span>
+                          <span className="sm:hidden">Edit.</span>
+                        </Button>
+                      )}
+                      
+                      {['pending', 'in-progress'].includes(report.status) && (
+                        <Button onClick={handleMarkResolvedClick} className="bg-green-600 hover:bg-green-700 gap-2 text-xs sm:text-sm">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="hidden sm:inline">Marcar Resolvido</span>
+                          <span className="sm:hidden">Resolvido</span>
+                        </Button>
+                      )}
+                      
+                      {report.status === 'resolved' && !report.evaluation && (
+                        <Button onClick={() => setShowEvaluation(true)} variant="outline" className="gap-2 text-xs sm:text-sm">
+                          <Star className="w-4 h-4" />
+                          <span className="hidden sm:inline">Avaliar</span>
+                          <span className="sm:hidden">Avaliar</span>
+                        </Button>
+                      )}
+                      
+                      {report.status === 'resolved' && user?.is_admin && (
+                        <Button onClick={handleRecurrentClick} variant="outline" className="gap-2 text-xs sm:text-sm">
+                          <Repeat className="w-4 h-4" />
+                          <span className="hidden sm:inline">Reincidente</span>
+                          <span className="sm:hidden">Rec.</span>
+                        </Button>
+                      )}
+                      
+                      {report.status !== 'duplicate' && user?.is_admin && (
+                        <Button onClick={() => onLink(report)} variant="outline" className="gap-2 text-xs sm:text-sm">
+                          <LinkIcon className="w-4 h-4" />
+                          <span className="hidden sm:inline">Vincular</span>
+                          <span className="sm:hidden">Vinc.</span>
+                        </Button>
+                      )}
+                      
+                      <Button onClick={handleReportError} variant="ghost" className="text-muted-foreground hover:text-primary gap-2 text-xs sm:text-sm col-span-2">
+                        <Flag className="w-4 h-4" />
+                        Reportar Erro
+                      </Button>
+                    </div>
+                  </>
                   )}
                 </>
               )}
