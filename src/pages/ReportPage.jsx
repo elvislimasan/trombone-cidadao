@@ -182,7 +182,7 @@ const ReportPage = () => {
   const seoDescription = report.description || `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}`;
   const seoImage = report.photos && report.photos.length > 0 
     ? report.photos[0].url 
-    : 'https://2162a0c428fcde.lhr.life/thumbnail.png';
+    : 'https://trombone-cidadao.vercel.app/bronca/thumbnail.png';
   const seoUrl = `${window.location.origin}/bronca/${report.id}`;
 
   return (
