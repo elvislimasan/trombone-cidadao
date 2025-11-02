@@ -16,17 +16,28 @@ const Notifications = () => {
   const [loading, setLoading] = useState(true);
   const { notificationsEnabled, toggleNotifications } = useNotifications();
   const [showSettings, setShowSettings] = useState(false);
+  const [realtimeChannel, setRealtimeChannel] = useState(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user || !notificationsEnabled) return;
     
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // Buscar apenas notificações criadas APÓS a última ativação
+    const lastEnabledTime = localStorage.getItem('notifications-last-enabled');
+    let query = supabase
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(10);
+
+    // Filtrar notificações criadas apenas após a última ativação
+    if (lastEnabledTime) {
+      query = query.gte('created_at', lastEnabledTime);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching notifications:', error);
@@ -38,37 +49,73 @@ const Notifications = () => {
     setLoading(false);
   }, [user, notificationsEnabled]);
 
-  // Configurar real-time subscriptions apenas se notificações estiverem habilitadas
+  // Configurar/remover real-time subscriptions baseado no estado
   useEffect(() => {
-    if (!user || !notificationsEnabled) {
-      // Se notificações estão desabilitadas, limpe o contador
-      if (!notificationsEnabled) {
-        setUnreadCount(0);
+    if (!user) return;
+
+    if (notificationsEnabled) {
+      // SALVAR TIMESTAMP DE ATIVAÇÃO
+      const activationTime = new Date().toISOString();
+      localStorage.setItem('notifications-last-enabled', activationTime);
+      
+      // Buscar notificações atuais
+      fetchNotifications();
+
+      // Configurar real-time apenas para notificações FUTURAS
+      const channel = supabase
+        .channel(`notifications:${user.id}`)
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'notifications', 
+          filter: `user_id=eq.${user.id}` 
+        }, (payload) => {
+          // IMPORTANTE: Só aceitar notificações criadas APÓS a ativação
+          const notificationTime = new Date(payload.new.created_at);
+          const activationTime = new Date(localStorage.getItem('notifications-last-enabled'));
+          
+          if (notificationTime >= activationTime) {
+            setNotifications(prev => [payload.new, ...prev.slice(0, 9)]);
+            setUnreadCount(prev => prev + 1);
+          }
+        })
+        .subscribe();
+
+      setRealtimeChannel(channel);
+    } else {
+      // DESATIVAR: remover real-time e limpar notificações
+      if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+        setRealtimeChannel(null);
       }
-      return;
+      setNotifications([]);
+      setUnreadCount(0);
     }
 
-    fetchNotifications();
-
-    const channel = supabase
-      .channel(`notifications:${user?.id}`)
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'notifications', 
-        filter: `user_id=eq.${user?.id}` 
-      }, (payload) => {
-        setNotifications(prev => [payload.new, ...prev.slice(0, 9)]);
-        setUnreadCount(prev => prev + 1);
-      })
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+      }
     };
   }, [user, notificationsEnabled, fetchNotifications]);
 
-  // Resetar para mostrar notificações quando o popover abrir
+  const handleToggleWithTimestamp = async (enabled) => {
+    if (enabled) {
+      // AO ATIVAR: salvar timestamp atual como referência
+      localStorage.setItem('notifications-last-enabled', new Date().toISOString());
+      
+      // Limpar timestamp de desativação se existir
+      localStorage.removeItem('notifications-last-disabled');
+    } else {
+      // AO DESATIVAR: salvar timestamp e limpar notificações
+      localStorage.setItem('notifications-last-disabled', new Date().toISOString());
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+    
+    await toggleNotifications(enabled);
+  };
+
   const handlePopoverOpen = () => {
     setShowSettings(false);
   };
@@ -173,14 +220,14 @@ const Notifications = () => {
               </div>
               <Switch
                 checked={notificationsEnabled}
-                onCheckedChange={toggleNotifications}
+                onCheckedChange={handleToggleWithTimestamp}
                 className="data-[state=checked]:bg-green-500"
               />
             </div>
             
             {!notificationsEnabled && (
               <p className="text-xs text-muted-foreground mt-3 p-2 bg-muted rounded">
-                Quando desativadas, você não receberá novas notificações nem verá contadores.
+                Quando desativadas, você não receberá novas notificações. As notificações criadas durante a desativação não aparecerão quando reativar.
               </p>
             )}
           </div>
@@ -193,7 +240,7 @@ const Notifications = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => toggleNotifications(true)}
+                  onClick={() => handleToggleWithTimestamp(true)}
                 >
                   Ativar Notificações
                 </Button>
