@@ -50,7 +50,7 @@ const SEO = () => {
   const getBaseUrl = () => {
     if (import.meta.env.VITE_APP_URL) return import.meta.env.VITE_APP_URL;
     if (typeof window !== 'undefined') return window.location.origin;
-    return 'https://trombone-cidadao-39i52984n-elvis-limas-projects.vercel.app/';
+    return 'https://trombone-cidadao-39i52984n-elvis-limas-projects.vercel.app';
   };
   
   const baseUrl = getBaseUrl();
@@ -112,7 +112,7 @@ const SEO = () => {
       <meta property="og:site_name" content={siteName} />
       <meta property="og:image" content={pageImage} />
       <meta property="og:image:width" content="1200" />
-      <meta property="og:image:height" content="630" />
+      <meta property="og:image:height" content="600" />
       <meta property="og:image:type" content="image/jpeg" />
       <meta property="og:locale" content="pt_BR" />
       
