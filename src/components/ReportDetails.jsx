@@ -155,52 +155,25 @@ const ReportDetails = ({
     toast({ title: "Reportar Erro", description: "Obrigado por nos avisar. Nossa equipe irá analisar o problema.", variant: "default" });
   };
 
-const handleShare = () => {
-  // ⚠️ USE A URL PÚBLICA (NGROK) AQUI TAMBÉM
-  const shareUrl = `${import.meta.env.VITE_APP_URL}/${report.id}`;
-  
-  const shareText = `🔊 Trombone Cidadão
-
-${report.title}
-
-📋 Protocolo: ${report.protocol}
-📍 Local: ${report.address || 'Floresta-PE'}
-📅 Data: ${new Date(report.created_at).toLocaleDateString('pt-BR')}
-
-${report.description ? `📝 ${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}` : ''}
-
-🔗 ${shareUrl}
-
-💚 Ajude a cobrar uma solução!`;
-
-  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  if (isMobile) {
-    // Mobile - abre app nativo
-    const mobileWhatsappUrl = `whatsapp://send?text=${encodeURIComponent(shareText)}`;
-    window.location.href = mobileWhatsappUrl;
-  } else {
-    // Desktop - abre WhatsApp Web
-    const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
-    
-    // Tenta abrir em popup primeiro
-    const newWindow = window.open(whatsappUrl, 'whatsapp-share', 'width=800,height=600');
-    
-    if (newWindow) {
-      toast({ 
-        title: "WhatsApp aberto! 💚", 
-        description: "Escolha o contato para enviar." 
-      });
-    } else {
-      // Se popup bloqueado, abre em nova aba
-      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-      toast({ 
-        title: "WhatsApp aberto em nova aba! 💚", 
-        description: "Volte aqui após enviar a mensagem." 
-      });
+const handleShare = async () => {
+    const shareData = {
+      title: `Trombone Cidadão: ${report.title}`,
+      text: `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`,
+      url: `${window.location.origin}/bronca/${report.id}`,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
+      } else {
+        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+        toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      toast({ title: "Erro ao compartilhar", description: "Não foi possível compartilhar a solicitação.", variant: "destructive" });
     }
-  }
-};
+  };
 
 const handleSubmitComment = async (e) => {
     e.preventDefault();
