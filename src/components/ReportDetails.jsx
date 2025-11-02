@@ -157,7 +157,7 @@ const ReportDetails = ({
 
 const handleShare = () => {
   // ⚠️ USE A URL PÚBLICA (NGROK) AQUI TAMBÉM
-  const shareUrl = `https://9ef9a160d091a7.lhr.life/bronca/${report.id}`; // Substitua pela sua URL ngrok
+  const shareUrl = `${import.meta.env.VITE_APP_URL}/${report.id}`;
   
   const shareText = `🔊 Trombone Cidadão
 
