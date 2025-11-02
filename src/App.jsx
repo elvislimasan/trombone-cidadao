@@ -40,16 +40,20 @@ import FavoritesPage from '@/pages/FavoritesPage';
 import FavoriteWorksPage from '@/pages/FavoriteWorksPage';
 import ContactPage from '@/pages/ContactPage';
 import TrashPage from '@/pages/admin/TrashPage';
-import {StatusBar} from '@capacitor/status-bar'
 
 const SEO = () => {
   const location = useLocation();
   const siteName = import.meta.env.VITE_APP_NAME || "Trombone Cidadão";
   const defaultDescription = "Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE. Registre, acompanhe e resolva as broncas da sua cidade.";
   
-  // Base URL automática - fallback para window.location.origin
-  const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  // Base URL automática - fallback robusto para Vercel
+  const getBaseUrl = () => {
+    if (import.meta.env.VITE_APP_URL) return import.meta.env.VITE_APP_URL;
+    if (typeof window !== 'undefined') return window.location.origin;
+    return 'https://trombone-cidadao-39i52984n-elvis-limas-projects.vercel.app/';
+  };
   
+  const baseUrl = getBaseUrl();
   const defaultImage = `${baseUrl}/images/thumbnail.jpg`;
   
   let pageTitle = `${siteName} - Sua bronca tem voz!`;
@@ -87,6 +91,10 @@ const SEO = () => {
       pageTitle = `Contato - ${siteName}`;
       pageDescription = "Entre em contato com a equipe do Trombone Cidadão. Envie sua mensagem ou fale conosco pelo WhatsApp.";
       break;
+    case '/admin':
+      pageTitle = `Painel Administrativo - ${siteName}`;
+      pageDescription = "Painel administrativo para gerenciamento da plataforma.";
+      break;
   }
 
   return (
@@ -120,7 +128,6 @@ const SEO = () => {
     </Helmet>
   );
 };
-
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
