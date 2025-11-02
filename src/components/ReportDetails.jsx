@@ -52,7 +52,8 @@ const ReportDetails = ({
   onFavoriteToggle, 
   isModerationView = false,
   isResolutionModeration = false,
-  onResolutionAction 
+  onResolutionAction,
+  
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -154,27 +155,54 @@ const ReportDetails = ({
     toast({ title: "Reportar Erro", description: "Obrigado por nos avisar. Nossa equipe irá analisar o problema.", variant: "default" });
   };
 
-  const handleShare = async () => {
-    const shareData = {
-      title: `Trombone Cidadão: ${report.title}`,
-      text: `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`,
-      url: `${window.location.origin}/bronca/${report.id}`,
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-        toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
-      } else {
-        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-        toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-      toast({ title: "Erro ao compartilhar", description: "Não foi possível compartilhar a solicitação.", variant: "destructive" });
-    }
-  };
+const handleShare = () => {
+  // ⚠️ USE A URL PÚBLICA (NGROK) AQUI TAMBÉM
+  const shareUrl = `https://9ef9a160d091a7.lhr.life/bronca/${report.id}`; // Substitua pela sua URL ngrok
+  
+  const shareText = `🔊 Trombone Cidadão
 
-  const handleSubmitComment = async (e) => {
+${report.title}
+
+📋 Protocolo: ${report.protocol}
+📍 Local: ${report.address || 'Floresta-PE'}
+📅 Data: ${new Date(report.created_at).toLocaleDateString('pt-BR')}
+
+${report.description ? `📝 ${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}` : ''}
+
+🔗 ${shareUrl}
+
+💚 Ajude a cobrar uma solução!`;
+
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // Mobile - abre app nativo
+    const mobileWhatsappUrl = `whatsapp://send?text=${encodeURIComponent(shareText)}`;
+    window.location.href = mobileWhatsappUrl;
+  } else {
+    // Desktop - abre WhatsApp Web
+    const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+    
+    // Tenta abrir em popup primeiro
+    const newWindow = window.open(whatsappUrl, 'whatsapp-share', 'width=800,height=600');
+    
+    if (newWindow) {
+      toast({ 
+        title: "WhatsApp aberto! 💚", 
+        description: "Escolha o contato para enviar." 
+      });
+    } else {
+      // Se popup bloqueado, abre em nova aba
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      toast({ 
+        title: "WhatsApp aberto em nova aba! 💚", 
+        description: "Volte aqui após enviar a mensagem." 
+      });
+    }
+  }
+};
+
+const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!user) {
       toast({ title: "Acesso restrito", description: "Você precisa fazer login para comentar.", variant: "destructive" });
@@ -211,13 +239,19 @@ const ReportDetails = ({
     setIsEditing(true);
   };
 
-  const handleSaveEdit = async () => {
-    setIsSaving(true);
-    await onUpdate(editData);
+// No ReportDetails.js, modifique a chamada do onUpdate para garantir que retorne uma Promise
+const handleSaveEdit = async () => {
+  setIsSaving(true);
+  try {
+    await onUpdate(editData); // Aguarda a atualização
     setIsSaving(false);
     setIsEditing(false);
     setEditData(null);
-  };
+  } catch (error) {
+    setIsSaving(false);
+    // O erro já foi tratado no HomePage
+  }
+};
 
   const handleCancelEdit = () => {
     setIsEditing(false);
@@ -690,10 +724,12 @@ const handleRejectReport = async () => {
                   <Star className={`w-4 h-4 ${report.is_favorited ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                   {report.is_favorited ? 'Favoritado' : 'Favoritar'}
                 </Button>
+          
                 <Button 
                   variant={report.user_has_upvoted ? "default" : "outline"}
-                  onClick={() => onUpvote(report.id)} 
+                  onClick={() => onUpvote(report.id, report.upvotes, report.user_has_upvoted)} 
                   className={`gap-2 ${report.user_has_upvoted ? 'bg-green-500 hover:bg-green-600' : ''}`}
+                  
                 >
                   <ThumbsUp className={`w-4 h-4 ${report.user_has_upvoted ? 'fill-white' : ''}`} />
                   {report.user_has_upvoted ? 'Apoiado' : 'Apoiar'}

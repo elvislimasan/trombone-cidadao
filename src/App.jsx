@@ -50,7 +50,7 @@ const SEO = () => {
   const getBaseUrl = () => {
     if (import.meta.env.VITE_APP_URL) return import.meta.env.VITE_APP_URL;
     if (typeof window !== 'undefined') return window.location.origin;
-    return 'https://trombone-cidadao.vercel.app/';
+    return 'https://trombone-cidadao.vercel.app';
   };
   
   const baseUrl = getBaseUrl();

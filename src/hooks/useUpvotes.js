@@ -1,4 +1,4 @@
-// hooks/useUpvote.js
+// hooks/useUpvote.js - VERSÃO MELHORADA
 import { useState, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -13,20 +13,17 @@ export const useUpvote = () => {
 
   const handleUpvote = useCallback(async (reportId, currentUpvotes = 0, currentUserHasUpvoted = false) => {
     if (!user) {
-      toast({ 
-        title: "Acesso restrito", 
-        description: "Você precisa fazer login para apoiar.", 
-        variant: "destructive" 
-      });
-      navigate('/login');
-      return { success: false, action: null };
+      return { 
+        success: false, 
+        action: null,
+        error: 'Usuário não autenticado' 
+      };
     }
 
     setLoading(true);
 
     try {
-      console.log('Verificando upvote para report:', reportId, 'usuário:', user.id);
-
+  
       // Verificar se o usuário já apoiou esta bronca
       const { data: existingUpvote, error: checkError } = await supabase
         .from('upvotes')
@@ -39,7 +36,6 @@ export const useUpvote = () => {
         throw new Error(`Erro ao verificar apoio: ${checkError.message}`);
       }
 
-      console.log('Upvote existente:', existingUpvote);
 
       let action;
       let newUpvotes;
@@ -47,7 +43,6 @@ export const useUpvote = () => {
 
       // Se já existe um upvote, remover
       if (existingUpvote && existingUpvote.length > 0) {
-        console.log('Removendo upvote existente');
         
         const { error: deleteError } = await supabase
           .from('upvotes')
@@ -64,11 +59,8 @@ export const useUpvote = () => {
         newUpvotes = Math.max(0, currentUpvotes - 1);
         newUserHasUpvoted = false;
         
-        toast({ title: "Apoio removido! 👎" });
-        console.log('Upvote removido com sucesso');
       } else {
-        // Adicionar novo upvote
-        console.log('Adicionando novo upvote');
+
         
         const { error: insertError } = await supabase
           .from('upvotes')
@@ -86,8 +78,6 @@ export const useUpvote = () => {
         newUpvotes = currentUpvotes + 1;
         newUserHasUpvoted = true;
         
-        toast({ title: "Apoio registrado! 👍" });
-        console.log('Upvote adicionado com sucesso');
       }
 
       setLoading(false);
@@ -101,14 +91,13 @@ export const useUpvote = () => {
     } catch (error) {
       console.error('Erro geral no handleUpvote:', error);
       setLoading(false);
-      toast({ 
-        title: "Erro", 
-        description: error.message, 
-        variant: "destructive" 
-      });
-      return { success: false, action: null };
+      return { 
+        success: false, 
+        action: null,
+        error: error.message 
+      };
     }
-  }, [user, toast, navigate]);
+  }, [user]);
 
   return {
     handleUpvote,

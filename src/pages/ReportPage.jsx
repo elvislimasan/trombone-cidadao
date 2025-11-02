@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReportDetails from '@/components/ReportDetails';
+import DynamicSEO from '@/components/DynamicSEO'; // Importe o DynamicSEO
 import { useToast } from '@/components/ui/use-toast';
 import LinkReportModal from '@/components/LinkReportModal';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useUpvote } from '../hooks/useUpvotes';
 
 const ReportPage = () => {
   const { reportId } = useParams();
@@ -119,8 +121,6 @@ const ReportPage = () => {
     fetchReport();
   };
 
-
-
   const handleFavoriteToggle = async (reportId, isFavorited) => {
     if (!user) {
       toast({ title: "Acesso restrito", description: "Você precisa fazer login para favoritar.", variant: "destructive" });
@@ -176,8 +176,25 @@ const ReportPage = () => {
     return null;
   }
 
+  // Preparar dados para SEO
+  const seoTitle = `Bronca: ${report.title} - Trombone Cidadão`;
+  const seoDescription = report.description || `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}`;
+  const seoImage = report.photos && report.photos.length > 0 
+    ? report.photos[0].url 
+    : 'https://2162a0c428fcde.lhr.life/thumbnail.png';
+  const seoUrl = `${window.location.origin}/bronca/${report.id}`;
+
   return (
     <>
+      {/* Meta Tags Dinâmicas para esta bronca */}
+      <DynamicSEO 
+        title={seoTitle}
+        description={seoDescription}
+        image={seoImage}
+        url={seoUrl}
+        type="article"
+      />
+      
       <ReportDetails
         report={report}
         onClose={() => navigate('/')}
@@ -186,6 +203,7 @@ const ReportPage = () => {
         onLink={handleOpenLinkModal}
         onFavoriteToggle={handleFavoriteToggle}
       />
+      
       {showLinkModal && reportToLink && (
         <LinkReportModal
           sourceReport={reportToLink}
