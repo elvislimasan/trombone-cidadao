@@ -23,21 +23,13 @@ const Notifications = () => {
     
     setLoading(true);
     
-    // Buscar apenas notificações criadas APÓS a última ativação
-    const lastEnabledTime = localStorage.getItem('notifications-last-enabled');
-    let query = supabase
+    // Buscar todas as notificações não lidas + últimas 10
+    const { data, error } = await supabase
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(10);
-
-    // Filtrar notificações criadas apenas após a última ativação
-    if (lastEnabledTime) {
-      query = query.gte('created_at', lastEnabledTime);
-    }
-
-    const { data, error } = await query;
+      .limit(20); // Buscar um pouco mais para garantir
 
     if (error) {
       console.error('Error fetching notifications:', error);
@@ -53,16 +45,16 @@ const Notifications = () => {
   useEffect(() => {
     if (!user) return;
 
+    let channel = null;
+
     if (notificationsEnabled) {
-      // SALVAR TIMESTAMP DE ATIVAÇÃO
-      const activationTime = new Date().toISOString();
-      localStorage.setItem('notifications-last-enabled', activationTime);
+      console.log('🔔 Configurando real-time para notificações');
       
       // Buscar notificações atuais
       fetchNotifications();
 
-      // Configurar real-time apenas para notificações FUTURAS
-      const channel = supabase
+      // Configurar real-time para TODAS as notificações futuras
+      channel = supabase
         .channel(`notifications:${user.id}`)
         .on('postgres_changes', { 
           event: 'INSERT', 
@@ -70,19 +62,17 @@ const Notifications = () => {
           table: 'notifications', 
           filter: `user_id=eq.${user.id}` 
         }, (payload) => {
-          // IMPORTANTE: Só aceitar notificações criadas APÓS a ativação
-          const notificationTime = new Date(payload.new.created_at);
-          const activationTime = new Date(localStorage.getItem('notifications-last-enabled'));
-          
-          if (notificationTime >= activationTime) {
-            setNotifications(prev => [payload.new, ...prev.slice(0, 9)]);
-            setUnreadCount(prev => prev + 1);
-          }
+          console.log('📨 Nova notificação recebida:', payload.new);
+          setNotifications(prev => [payload.new, ...prev.slice(0, 19)]);
+          setUnreadCount(prev => prev + 1);
         })
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📡 Status do canal real-time:', status);
+        });
 
       setRealtimeChannel(channel);
     } else {
+      console.log('🔕 Removendo real-time - notificações desativadas');
       // DESATIVAR: remover real-time e limpar notificações
       if (realtimeChannel) {
         supabase.removeChannel(realtimeChannel);
@@ -93,18 +83,19 @@ const Notifications = () => {
     }
 
     return () => {
-      if (realtimeChannel) {
-        supabase.removeChannel(realtimeChannel);
+      if (channel) {
+        console.log('🧹 Limpando canal real-time');
+        supabase.removeChannel(channel);
       }
     };
   }, [user, notificationsEnabled, fetchNotifications]);
 
   const handleToggleWithTimestamp = async (enabled) => {
+    console.log('🔄 Alternando notificações para:', enabled);
+    
     if (enabled) {
-      // AO ATIVAR: salvar timestamp atual como referência
-      localStorage.setItem('notifications-last-enabled', new Date().toISOString());
-      
-      // Limpar timestamp de desativação se existir
+      // AO ATIVAR: buscar notificações recentes
+      // Não usamos timestamp de ativação para não perder notificações existentes
       localStorage.removeItem('notifications-last-disabled');
     } else {
       // AO DESATIVAR: salvar timestamp e limpar notificações
@@ -165,6 +156,10 @@ const Notifications = () => {
     <Popover onOpenChange={(open) => {
       if (open) {
         handlePopoverOpen();
+        // Recarregar notificações quando abrir o popover
+        if (notificationsEnabled && user) {
+          fetchNotifications();
+        }
       }
     }}>
       <PopoverTrigger asChild>
@@ -227,7 +222,7 @@ const Notifications = () => {
             
             {!notificationsEnabled && (
               <p className="text-xs text-muted-foreground mt-3 p-2 bg-muted rounded">
-                Quando desativadas, você não receberá novas notificações. As notificações criadas durante a desativação não aparecerão quando reativar.
+                Quando desativadas, você não receberá novas notificações.
               </p>
             )}
           </div>
