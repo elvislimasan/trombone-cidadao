@@ -183,21 +183,13 @@ const ReportDetails = ({
   };
 
   const handleShare = async () => {
-  // Pega a imagem da bronca ou usa a padrão
+  // Pega a imagem da bronca (URL completa do Supabase)
   const reportImage = getReportImage();
   const baseUrl = window.location.origin;
   const defaultImage = `${baseUrl}/images/thumbnail.jpg`;
+  
+  // Usa a imagem da bronca se disponível, senão usa a padrão
   const shareImage = reportImage || defaultImage;
-
-  // Garante que a URL da imagem seja absoluta
-  const getAbsoluteImageUrl = (imgUrl) => {
-    if (!imgUrl) return defaultImage;
-    if (imgUrl.startsWith('http')) return imgUrl;
-    if (imgUrl.startsWith('/')) return `${baseUrl}${imgUrl}`;
-    return `${baseUrl}/${imgUrl}`;
-  };
-
-  const absoluteImageUrl = getAbsoluteImageUrl(shareImage);
 
   const shareData = {
     title: `Trombone Cidadão: ${report.title}`,
@@ -205,39 +197,25 @@ const ReportDetails = ({
     url: `${baseUrl}/bronca/${report.id}`,
   };
 
-  // Para plataformas que suportam imagens no compartilhamento
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [] })) {
-    try {
-      // Tenta baixar a imagem para compartilhar como arquivo
-      const response = await fetch(absoluteImageUrl);
-      const blob = await response.blob();
-      const file = new File([blob], 'bronca-image.jpg', { type: 'image/jpeg' });
-      
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          ...shareData,
-          files: [file]
-        });
-      } else {
-        await navigator.share(shareData);
-      }
+  // Para WhatsApp, precisamos garantir que a imagem seja acessível publicamente
+  console.log('Compartilhando imagem:', shareImage);
+
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
       toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
-    } catch (error) {
-      console.error('Error sharing with image:', error);
-      try {
-        await navigator.share(shareData);
-        toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
-      } catch (fallbackError) {
-        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-        toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
-      }
+    } else {
+      await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+      toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
     }
-  } else {
+  } catch (error) {
+    console.error('Error sharing:', error);
+    
+    // Fallback: copiar para área de transferência
     try {
       await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
       toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
-    } catch (error) {
-      console.error('Error copying to clipboard:', error);
+    } catch (clipboardError) {
       toast({ title: "Erro ao compartilhar", description: "Não foi possível compartilhar a solicitação.", variant: "destructive" });
     }
   }
