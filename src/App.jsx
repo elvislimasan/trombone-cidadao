@@ -44,12 +44,17 @@ import {StatusBar} from '@capacitor/status-bar'
 
 const SEO = () => {
   const location = useLocation();
-  const siteName = "Trombone Cidadão";
+  const siteName = import.meta.env.VITE_APP_NAME || "Trombone Cidadão";
   const defaultDescription = "Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE. Registre, acompanhe e resolva as broncas da sua cidade.";
-  const baseUrl = "https://seusite.com"; // Replace with your actual domain
-
+  
+  // Base URL automática - fallback para window.location.origin
+  const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  
+  const defaultImage = `${baseUrl}/thumbnail.jpg`;
+  
   let pageTitle = `${siteName} - Sua bronca tem voz!`;
   let pageDescription = defaultDescription;
+  let pageImage = defaultImage;
   const canonicalUrl = `${baseUrl}${location.pathname}`;
 
   // Customize titles and descriptions per route
@@ -86,15 +91,32 @@ const SEO = () => {
 
   return (
     <Helmet>
+      {/* Meta Tags Básicas */}
       <title>{pageTitle}</title>
       <meta name="description" content={pageDescription} />
       <link rel="canonical" href={canonicalUrl} />
+      
+      {/* Open Graph Meta Tags */}
+      <meta property="og:type" content="website" />
       <meta property="og:title" content={pageTitle} />
       <meta property="og:description" content={pageDescription} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:site_name" content={siteName} />
-      <meta property="twitter:title" content={pageTitle} />
-      <meta property="twitter:description" content={pageDescription} />
+      <meta property="og:image" content={pageImage} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:type" content="image/jpeg" />
+      <meta property="og:locale" content="pt_BR" />
+      
+      {/* Twitter Card Meta Tags */}
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={pageTitle} />
+      <meta name="twitter:description" content={pageDescription} />
+      <meta name="twitter:image" content={pageImage} />
+      
+      {/* Meta Tags Adicionais para WhatsApp */}
+      <meta name="twitter:image:alt" content={`Imagem do ${siteName}`} />
+      <meta property="og:image:alt" content={`Imagem do ${siteName}`} />
     </Helmet>
   );
 };

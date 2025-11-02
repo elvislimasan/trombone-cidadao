@@ -9,10 +9,6 @@
 .env
 config/database.php
 
-# Binary files
-*.jpg
-*.png
-*.mp4
 
 # Generated files
 build/*
