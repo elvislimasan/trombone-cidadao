@@ -6,6 +6,7 @@ import '@/index.css';
 import 'leaflet/dist/leaflet.css';
 import { AuthProvider } from '@/contexts/SupabaseAuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { HelmetProvider } from 'react-helmet-async';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -22,7 +23,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <NotificationProvider>
-          <App />
+          <HelmetProvider>
+            <App /> 
+          </HelmetProvider>
         </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>

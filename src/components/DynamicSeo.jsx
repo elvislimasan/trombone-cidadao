@@ -11,13 +11,11 @@ const DynamicSEO = ({
   const siteName = "Trombone Cidadão";
   const baseUrl = "https://trombone-cidadao.vercel.app"; // ⚠️ SUBSTITUA PELO SEU DOMÍNIO REAL
   
-  // Escolha UMA das opções abaixo para defaultImage:
-  
   // Opção 1: Placeholder online (funciona imediatamente)
-//   const defaultImage = "https://via.placeholder.com/1200x630/3B82F6/FFFFFF?text=Trombone+Cidadão";
+  const defaultImage = "https://via.placeholder.com/1200x630/3B82F6/FFFFFF?text=Trombone+Cidadão";
   
   // Opção 2: Imagem local (se você criar uma)
-  const defaultImage = `${baseUrl}/thumbnail.png`;
+  // const defaultImage = `${baseUrl}/thumbnail.png`;
   
   // Opção 3: Logo do projeto
   // const defaultImage = `${baseUrl}/logo.png`;
