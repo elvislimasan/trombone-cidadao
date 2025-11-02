@@ -247,19 +247,44 @@ export default defineConfig({
 		allowedHosts: true,
 	},
 	resolve: {
-  		extensions: ['.js', '.jsx', '.tsx', '.ts', '.json'], // .js primeiro
+  		extensions: ['.js', '.jsx', '.tsx', '.ts', '.json'],
   		alias: {
     			'@': path.resolve(__dirname, './src'),
   			},
-		},
+	},
+	// 🔥 CONFIGURAÇÃO ADICIONADA PARA RESOLVER O PROBLEMA DAS IMAGENS
+	publicDir: 'public',
 	build: {
+		outDir: 'dist',
+		assetsDir: 'assets',
+		// Garante que os arquivos da pasta public sejam copiados
+		copyPublicDir: true,
 		rollupOptions: {
+			// Configuração para arquivos estáticos
+			output: {
+				assetFileNames: (assetInfo) => {
+					const info = assetInfo.name.split('.');
+					const ext = info[info.length - 1];
+					
+					// Mantém os nomes originais para arquivos da pasta public
+					if (/\.(webp|png|jpe?g|svg|gif|ico|json|xml|txt)$/.test(assetInfo.name)) {
+						return `assets/[name]-[hash].${ext}`;
+					}
+					return `assets/[name]-[hash].[ext]`;
+				}
+			},
 			external: [
 				'@babel/parser',
 				'@babel/traverse',
 				'@babel/generator',
 				'@babel/types'
 			]
+		}
+	},
+	// Configuração específica para preview (Vercel)
+	preview: {
+		headers: {
+			'Cache-Control': 'public, max-age=31536000, immutable',
 		}
 	}
 });
