@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReportDetails from '@/components/ReportDetails';
-import DynamicSEO from '@/components/DynamicSEO'; // Importe o DynamicSEO
+
 import { useToast } from '@/components/ui/use-toast';
 import LinkReportModal from '@/components/LinkReportModal';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useUpvote } from '../hooks/useUpvotes';
+import DynamicSEO from '../components/DynamicSeo';
 
 const ReportPage = () => {
   const { reportId } = useParams();
