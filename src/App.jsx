@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Toaster } from '@/components/ui/toaster';
+import {Toaster as SonnerToast} from 'sonner'
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
@@ -40,6 +41,7 @@ import FavoritesPage from '@/pages/FavoritesPage';
 import FavoriteWorksPage from '@/pages/FavoriteWorksPage';
 import ContactPage from '@/pages/ContactPage';
 import TrashPage from '@/pages/admin/TrashPage';
+import NotificationPreferences from './pages/NotificationPreferences';
 
 const SEO = () => {
   const location = useLocation();
@@ -186,11 +188,13 @@ function App() {
             <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
             <Route path="/admin/broncas" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
             <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
+            <Route path="/settings/notifications" element={<NotificationPreferences />} />
           </Routes>
         </main>
         <Footer />
         <BottomNav />
         <Toaster />
+        <SonnerToast position="top-right" richColors />
       </div>
     </>
   );

@@ -189,15 +189,17 @@ const Notifications = () => {
                 Marcar todas como lidas
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setShowSettings(!showSettings)}
-              title="Configurações de notificação"
-            >
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            asChild
+            title="Configurações de notificação"
+          >
+            <Link to="/settings/notifications">
               <Settings className="h-4 w-4" />
-            </Button>
+            </Link>
+          </Button>
           </div>
         </div>
 
