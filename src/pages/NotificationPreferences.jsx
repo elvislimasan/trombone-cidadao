@@ -23,7 +23,12 @@ import {
   VolumeX,
   Trash2,
   Database,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  RefreshCcw,
+  UserCheck,
+  Camera,
+  Wrench
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Separator } from '../components/ui/separator';
@@ -34,7 +39,12 @@ const DEFAULT_PREFERENCES = {
   reports: true,
   works: true,
   comments: true,
-  system: false
+  system: true,
+  moderation_update: true,
+  status_update: true,
+  moderation_required: true,
+  resolution_submission: true,
+  work_update: true
 };
 
 const NotificationPreferences = () => {
@@ -103,10 +113,38 @@ const NotificationPreferences = () => {
  const notificationTypes = [
   {
     id: 'reports',
-    name: 'Relatórios',
-    description: 'Novos relatórios e atualizações na sua área',
+    name: 'Broncas',
+    description: 'Novas broncas e atualizações de denúncias na sua área',
     icon: AlertTriangle,
     enabled: safePreferences.reports
+  },
+  {
+    id: 'moderation_update',
+    name: 'Status da Bronca',
+    description: 'Atualizações no status de moderação das suas broncas',
+    icon: FileText,
+    enabled: safePreferences.moderation_update
+  },
+  {
+    id: 'status_update',
+    name: 'Atualização de Status',
+    description: 'Mudanças no status das suas broncas (pendente, em análise, resolvida)',
+    icon: RefreshCcw,
+    enabled: safePreferences.status_update
+  },
+  {
+    id: 'moderation_required',
+    name: 'Moderação Necessária',
+    description: 'Alertas quando uma bronca precisa de moderação urgente',
+    icon: UserCheck,
+    enabled: safePreferences.moderation_required
+  },
+  {
+    id: 'resolution_submission',
+    name: 'Resolução Enviada',
+    description: 'Notificações quando uma resolução é enviada para suas broncas',
+    icon: Camera,
+    enabled: safePreferences.resolution_submission
   },
   {
     id: 'works',
@@ -116,19 +154,25 @@ const NotificationPreferences = () => {
     enabled: safePreferences.works
   },
   {
+    id: 'work_update',
+    name: 'Atualização de Obra',
+    description: 'Mudanças e progressos em obras públicas',
+    icon: Wrench,
+    enabled: safePreferences.work_update
+  },
+  {
     id: 'comments',
     name: 'Comentários',
     description: 'Respostas e menções nos seus comentários',
     icon: MessageSquare,
     enabled: safePreferences.comments
   },
-  // 🔥 ADICIONAR: Tipo System
   {
     id: 'system',
     name: 'Sistema',
     description: 'Notificações importantes do sistema',
     icon: Shield,
-    enabled: safePreferences.system // ✅ Agora vai aparecer e persistir
+    enabled: safePreferences.system
   }
 ];
 

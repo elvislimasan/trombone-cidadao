@@ -89,8 +89,9 @@ export const NotificationProvider = ({ children }) => {
     try {
       const options = {
         body: notification.message,
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
+        icon: '/logo.png',
+        badge: '/logo.png',
+        color: '#4a2121', // Cor de fundo rgb(74, 33, 33)
         data: {
           url: getNotificationUrl(notification),
           notificationId: notification.id
@@ -119,8 +120,9 @@ export const NotificationProvider = ({ children }) => {
           notification: {
             title: getNotificationTitle(notification.type),
             body: notification.message,
-            icon: '/icons/icon-192x192.png',
-            badge: '/icons/badge-72x72.png',
+            icon: '/logo.png',
+            badge: '/logo.png',
+            color: '#4a2121', // Cor de fundo rgb(74, 33, 33)
             data: {
               url: getNotificationUrl(notification),
               notificationId: notification.id,
@@ -514,8 +516,9 @@ export const NotificationProvider = ({ children }) => {
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('Teste do Trombone Cidadão', {
             body: 'Esta é uma notificação de teste do Service Worker',
-            icon: '/icons/icon-192x192.png',
-            badge: '/icons/badge-72x72.png',
+            icon: '/logo.png',
+            badge: '/logo.png',
+            color: '#4a2121', // Cor de fundo rgb(74, 33, 33)
             vibrate: [100, 50, 100],
             data: {
               url: '/',
@@ -532,8 +535,9 @@ export const NotificationProvider = ({ children }) => {
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Teste do Trombone Cidadão', {
           body: 'Esta é uma notificação de teste local',
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/badge-72x72.png',
+          icon: '/logo.png',
+          badge: '/logo.png',
+          color: '#4a2121', // Cor de fundo rgb(74, 33, 33)
           vibrate: [100, 50, 100],
           data: {
             url: '/',
@@ -561,14 +565,15 @@ export const NotificationProvider = ({ children }) => {
           notification: {
             title: title,
             body: body,
-            icon: '/icons/icon-192x192.png',
-            badge: '/icons/badge-72x72.png',
+            icon: '/logo.png',
+            badge: '/logo.png',
             data: {
               url: '/',
               test: true,
               forced: true
             },
             tag: 'forced-' + Date.now(),
+            color: '#4a2121', // Cor de fundo rgb(74, 33, 33)
             vibrate: [100, 50, 100],
             timestamp: Date.now()
           }
@@ -579,8 +584,9 @@ export const NotificationProvider = ({ children }) => {
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(title, {
           body: body,
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/badge-72x72.png',
+          icon: '/logo.png',
+          badge: '/logo.png',
+          color: '#4a2121', // Cor de fundo rgb(74, 33, 33)
           vibrate: [100, 50, 100],
           data: {
             url: '/',
