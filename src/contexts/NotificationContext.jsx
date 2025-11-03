@@ -504,15 +504,96 @@ export const NotificationProvider = ({ children }) => {
     if (!pushSupported) return false;
     
     try {
+      // Tentar via Service Worker primeiro (funciona mesmo com site fechado)
       if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
           type: 'TEST_NOTIFICATION'
         });
+        
+        // Também enviar notificação local para garantir que aparece
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Teste do Trombone Cidadão', {
+            body: 'Esta é uma notificação de teste do Service Worker',
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/badge-72x72.png',
+            vibrate: [100, 50, 100],
+            data: {
+              url: '/',
+              test: true
+            },
+            tag: 'test-notification-' + Date.now()
+          });
+        }
+        
         return true;
       }
+      
+      // Fallback: notificação local se Service Worker não disponível
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Teste do Trombone Cidadão', {
+          body: 'Esta é uma notificação de teste local',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png',
+          vibrate: [100, 50, 100],
+          data: {
+            url: '/',
+            test: true
+          },
+          tag: 'test-notification-local-' + Date.now()
+        });
+        return true;
+      }
+      
       return false;
     } catch (error) {
       console.error('Error testing notification:', error);
+      return false;
+    }
+  };
+
+  // Forçar notificação push (para testes)
+  const forcePushNotification = async (title = 'Teste Forçado', body = 'Esta é uma notificação forçada para testes') => {
+    try {
+      // Via Service Worker (funciona mesmo com site fechado)
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_PUSH_NOTIFICATION',
+          notification: {
+            title: title,
+            body: body,
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/badge-72x72.png',
+            data: {
+              url: '/',
+              test: true,
+              forced: true
+            },
+            tag: 'forced-' + Date.now(),
+            vibrate: [100, 50, 100],
+            timestamp: Date.now()
+          }
+        });
+      }
+      
+      // Também enviar notificação local
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, {
+          body: body,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png',
+          vibrate: [100, 50, 100],
+          data: {
+            url: '/',
+            test: true,
+            forced: true
+          },
+          tag: 'forced-local-' + Date.now()
+        });
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error forcing push notification:', error);
       return false;
     }
   };
@@ -585,6 +666,7 @@ export const NotificationProvider = ({ children }) => {
     togglePushNotifications,
     updatePreferences: updateUserPreferences,
     testNotification,
+    forcePushNotification, // 🔥 Nova função para forçar notificações
     loading,
     handleNewNotification, // 🔥 Exportar função para uso externo
     isSubscribed: !!subscription, // 🔥 Adicionar propriedade que Header.jsx está tentando usar

@@ -24,8 +24,26 @@ web-push generate-vapid-keys
 ```
 
 Isso gerará duas chaves:
-- **Public Key**: Use no frontend (`VITE_VAPID_PUBLIC_KEY`)
-- **Private Key**: Use na Edge Function (`VAPID_PRIVATE_KEY`)
+- **Public Key**: Use no frontend (`VITE_VAPID_PUBLIC_KEY`) **E** no backend (`VAPID_PUBLIC_KEY`)
+- **Private Key**: Use **APENAS** na Edge Function (`VAPID_PRIVATE_KEY`) - **NUNCA no frontend!**
+
+**⚠️ IMPORTANTE sobre as VAPID Keys:**
+
+1. **VAPID_PUBLIC_KEY deve ser a MESMA**:
+   - ✅ Frontend: `VITE_VAPID_PUBLIC_KEY` (arquivo `.env`)
+   - ✅ Backend: `VAPID_PUBLIC_KEY` (Supabase Edge Functions)
+   - **Ambas devem ser EXATAMENTE a mesma chave!**
+
+2. **VAPID_PRIVATE_KEY é SECRETA**:
+   - ✅ Backend: `VAPID_PRIVATE_KEY` (Supabase Edge Functions)
+   - ❌ **NUNCA** no frontend (arquivo `.env`) - é segredo!
+   - ❌ **NUNCA** no código do cliente - é segredo!
+
+3. **VAPID_EMAIL:**
+- O email que você usar ao gerar as chaves **DEVE ser o mesmo** usado na variável `VAPID_EMAIL`
+- Formato: `mailto:seu-email@exemplo.com` (com `mailto:` na frente)
+- Pode ser qualquer email válido, mas recomendado usar um email do seu domínio/organização
+- Este email identifica quem está enviando as notificações push
 
 ### Opção B: Usando Site Online
 
@@ -52,9 +70,12 @@ xyzABC...suas_chaves_aqui
 3. Vá em **Settings** → **Edge Functions**
 4. Configure as seguintes variáveis de ambiente:
 
-   - **VAPID_PUBLIC_KEY**: Cole a Public Key gerada
-   - **VAPID_PRIVATE_KEY**: Cole a Private Key gerada
-   - **VAPID_EMAIL**: Email usado ao gerar as VAPID keys (ex: `mailto:seu-email@exemplo.com`)
+   - **VAPID_PUBLIC_KEY**: Cole a Public Key gerada (deve ser a MESMA do frontend)
+   - **VAPID_PRIVATE_KEY**: Cole a Private Key gerada (NUNCA no frontend - é segredo!)
+   - **VAPID_EMAIL**: Email usado ao gerar as VAPID keys (formato: `mailto:seu-email@exemplo.com`)
+     - **⚠️ IMPORTANTE**: Deve ser o MESMO email usado ao gerar as chaves!
+     - Pode ser qualquer email válido (ex: `mailto:contato@seudominio.com`)
+     - Recomendado usar um email do seu domínio/organização
    - **SUPABASE_URL**: Sua URL do Supabase (geralmente já configurada)
    - **SUPABASE_SERVICE_ROLE_KEY**: Sua Service Role Key (geralmente já configurada)
 
@@ -213,6 +234,10 @@ No arquivo `.env` do seu projeto, adicione:
 ```env
 VITE_VAPID_PUBLIC_KEY=sua-public-key-aqui
 ```
+
+**⚠️ IMPORTANTE:**
+- Use a **MESMA** Public Key que configurou no Supabase (`VAPID_PUBLIC_KEY`)
+- **NÃO** adicione a Private Key no `.env` - ela é segredo e só vai no Supabase!
 
 ### 5.2 Verificar se o Service Worker está Configurado
 
