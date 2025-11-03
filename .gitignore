@@ -16,3 +16,8 @@ dist/*
 
 node_modules/
 android/
+
+# Supabase CLI temporary files
+supabase/.temp/
+supabase/.branches/
+supabase/.templates/
