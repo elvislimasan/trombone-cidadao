@@ -4,7 +4,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import { useCache } from '@/hooks/useCache';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '../components/ui/badge';
+
 import { Switch } from '../components/ui/switch';
 import { 
   Bell, 
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Separator } from '../components/ui/separator';
+import { Badge } from '../components/ui/badge';
 
 // Valores padrão para evitar undefined
 const DEFAULT_PREFERENCES = {
