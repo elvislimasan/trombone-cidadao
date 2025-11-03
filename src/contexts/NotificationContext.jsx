@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 
@@ -12,12 +12,16 @@ export const useNotifications = () => {
   return context;
 };
 
-// Valores padrão para as preferências
 const DEFAULT_PREFERENCES = {
   reports: true,
   works: true,
   comments: true,
-  system: false
+  system: true,
+  moderation_update: true,
+  status_update: true,
+  moderation_required: true,
+  resolution_submission: true,
+  work_update: true
 };
 
 export const NotificationProvider = ({ children }) => {
@@ -28,30 +32,215 @@ export const NotificationProvider = ({ children }) => {
   const [subscription, setSubscription] = useState(null);
   const [notificationPreferences, setNotificationPreferences] = useState(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(true);
+  const [realtimeChannel, setRealtimeChannel] = useState(null); // 🔥 Canal real-time no contexto
+  
+  // 🔥 Usar refs para acessar valores atualizados dentro dos handlers
+  const notificationsEnabledRef = useRef(notificationsEnabled);
+  const pushEnabledRef = useRef(pushEnabled);
+  const subscriptionRef = useRef(subscription);
+  const notificationPreferencesRef = useRef(notificationPreferences);
+  
+  // Atualizar refs quando os valores mudarem
+  useEffect(() => {
+    notificationsEnabledRef.current = notificationsEnabled;
+  }, [notificationsEnabled]);
+  
+  useEffect(() => {
+    pushEnabledRef.current = pushEnabled;
+  }, [pushEnabled]);
+  
+  useEffect(() => {
+    subscriptionRef.current = subscription;
+  }, [subscription]);
+  
+  useEffect(() => {
+    notificationPreferencesRef.current = notificationPreferences;
+  }, [notificationPreferences]);
 
-  // Verificar se o navegador suporta notificações push
+  // Helper functions
+  const getNotificationTitle = (type) => {
+    const titles = {
+      'moderation_update': '📋 Status da Bronca',
+      'status_update': '🔄 Atualização de Status',
+      'moderation_required': '👮 Moderação Necessária',
+      'resolution_submission': '📸 Resolução Enviada',
+      'work_update': '🏗️ Atualização de Obra',
+      'system': '🔔 Trombone Cidadão'
+    };
+    return titles[type] || '🔔 Trombone Cidadão';
+  };
+
+  const getNotificationUrl = (notification) => {
+    if (notification.report_id) {
+      return `/bronca/${notification.report_id}`;
+    }
+    if (notification.work_id) {
+      return `/obras-publicas/${notification.work_id}`;
+    }
+    return '/notificacoes';
+  };
+
+  // Mostrar notificação local
+  const showLocalNotification = (notification) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+      return;
+    }
+
+    try {
+      const options = {
+        body: notification.message,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/badge-72x72.png',
+        data: {
+          url: getNotificationUrl(notification),
+          notificationId: notification.id
+        },
+        vibrate: [100, 50, 100],
+        tag: notification.id
+      };
+
+      new Notification(getNotificationTitle(notification.type), options);
+    } catch (error) {
+      console.error('Erro ao mostrar notificação local:', error);
+    }
+  };
+
+  // Enviar notificação push
+  const sendPushNotification = useCallback(async (notification) => {
+    const currentSubscription = subscriptionRef.current;
+    if (!currentSubscription) {
+      return;
+    }
+
+    try {
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_PUSH_NOTIFICATION',
+          notification: {
+            title: getNotificationTitle(notification.type),
+            body: notification.message,
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/badge-72x72.png',
+            data: {
+              url: getNotificationUrl(notification),
+              notificationId: notification.id,
+              type: notification.type
+            },
+            vibrate: [100, 50, 100],
+            tag: notification.id,
+            timestamp: Date.now()
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao enviar notificação push:', error);
+    }
+  }, []);
+
+  // 🔥 CONFIGURAR REAL-TIME NO CONTEXTO (SEMPRE ATIVO)
+  const setupRealtimeNotifications = useCallback(() => {
+    if (!user || !notificationsEnabledRef.current) {
+      return;
+    }
+
+    // Remover canal existente
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+      setRealtimeChannel(null);
+    }
+
+    // Criar novo canal real-time
+    const channel = supabase
+      .channel(`context-notifications:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        async (payload) => {
+          const notification = payload.new;
+          
+          // 🔥 Usar refs para acessar valores ATUALIZADOS
+          const currentNotificationsEnabled = notificationsEnabledRef.current;
+          const currentPushEnabled = pushEnabledRef.current;
+          const currentSubscription = subscriptionRef.current;
+          const currentPreferences = notificationPreferencesRef.current;
+
+          // Verificar se notificações estão habilitadas
+          if (!currentNotificationsEnabled) {
+            return;
+          }
+
+          // Verificar preferências do tipo de notificação
+          const notificationType = notification.type || 'system';
+          const isTypeEnabled = currentPreferences[notificationType] !== undefined 
+            ? currentPreferences[notificationType] 
+            : true;
+          
+          if (!isTypeEnabled) {
+            return;
+          }
+
+          // Se push está habilitado, enviar notificação push
+          if (currentPushEnabled && currentSubscription) {
+            await sendPushNotification(notification);
+          }
+
+          // Mostrar notificação no site (local)
+          showLocalNotification(notification);
+          
+          // 🔥 Disparar evento customizado para atualizar componentes
+          window.dispatchEvent(new CustomEvent('new-notification', {
+            detail: notification
+          }));
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Erro no canal real-time do Context');
+        } else if (status === 'TIMED_OUT') {
+          console.error('Timeout no canal real-time do Context');
+        }
+      });
+
+    setRealtimeChannel(channel);
+    
+    return channel;
+  }, [user, sendPushNotification]);
+
+  // Verificar suporte a push
   useEffect(() => {
     const checkSupport = () => {
       const supported = 'serviceWorker' in navigator && 'PushManager' in window;
-      console.log('🔔 Push notifications supported:', supported);
       setPushSupported(supported);
-      
-      if (supported) {
-        checkPushSubscription();
-      }
     };
-
     checkSupport();
   }, []);
 
-  // Carregar preferências do usuário
+  // Migrar preferências antigas
+  const migrateOldPreferences = (preferences) => {
+    if (!preferences) return DEFAULT_PREFERENCES;
+    
+    if (preferences.system === undefined) {
+      return {
+        ...DEFAULT_PREFERENCES,
+        ...preferences,
+        system: true
+      };
+    }
+    
+    return preferences;
+  };
+
+  // Carregar preferências
   const loadUserPreferences = async () => {
-    console.log('🔔 Carregando preferências do usuário...');
     setLoading(true);
     
     try {
       if (!user) {
-        console.log('🔔 Usuário não logado, usando localStorage');
         const preference = localStorage.getItem('notifications-enabled');
         const pushPreference = localStorage.getItem('push-enabled');
         const preferences = localStorage.getItem('notification-preferences');
@@ -59,12 +248,12 @@ export const NotificationProvider = ({ children }) => {
         if (preference !== null) setNotificationsEnabled(JSON.parse(preference));
         if (pushPreference !== null) setPushEnabled(JSON.parse(pushPreference));
         if (preferences !== null) {
-          setNotificationPreferences(JSON.parse(preferences));
+          const migratedPreferences = migrateOldPreferences(JSON.parse(preferences));
+          setNotificationPreferences(migratedPreferences);
         } else {
           setNotificationPreferences(DEFAULT_PREFERENCES);
         }
       } else {
-        console.log('🔔 Buscando preferências do Supabase para usuário:', user.id);
         const { data, error } = await supabase
           .from('user_preferences')
           .select('*')
@@ -73,7 +262,6 @@ export const NotificationProvider = ({ children }) => {
 
         if (error && error.code === 'PGRST116') {
           // Criar preferências padrão
-          console.log('🔔 Criando preferências padrão no Supabase');
           const defaultPreferences = {
             user_id: user.id,
             notifications_enabled: true,
@@ -93,22 +281,15 @@ export const NotificationProvider = ({ children }) => {
             setNotificationPreferences(newData.notification_preferences || DEFAULT_PREFERENCES);
           }
         } else if (data) {
-          console.log('🔔 Preferências carregadas do Supabase');
           setNotificationsEnabled(data.notifications_enabled);
           setPushEnabled(data.push_enabled);
-          setNotificationPreferences(data.notification_preferences || DEFAULT_PREFERENCES);
+          
+          const migratedPreferences = migrateOldPreferences(data.notification_preferences);
+          setNotificationPreferences(migratedPreferences || DEFAULT_PREFERENCES);
         }
       }
     } catch (error) {
-      console.error('Error loading user preferences:', error);
-      // Fallback para localStorage em caso de erro
-      const preference = localStorage.getItem('notifications-enabled');
-      const pushPreference = localStorage.getItem('push-enabled');
-      const preferences = localStorage.getItem('notification-preferences');
-      
-      if (preference !== null) setNotificationsEnabled(JSON.parse(preference));
-      if (pushPreference !== null) setPushEnabled(JSON.parse(pushPreference));
-      if (preferences !== null) setNotificationPreferences(JSON.parse(preferences));
+      console.error('Error loading preferences:', error);
     } finally {
       setLoading(false);
     }
@@ -116,22 +297,28 @@ export const NotificationProvider = ({ children }) => {
 
   // Verificar subscription push existente
   const checkPushSubscription = useCallback(async () => {
-    if (!pushSupported) return;
+    if (!pushSupported) {
+      return;
+    }
 
     try {
-      console.log('🔔 Verificando subscription push existente...');
       const registration = await navigator.serviceWorker.ready;
       const existingSubscription = await registration.pushManager.getSubscription();
       
-      console.log('🔔 Subscription encontrada:', !!existingSubscription);
       setSubscription(existingSubscription);
-      setPushEnabled(!!existingSubscription);
+      
+      // Sincronizar estado
+      if (existingSubscription && !pushEnabled) {
+        setPushEnabled(true);
+      } else if (!existingSubscription && pushEnabled) {
+        setPushEnabled(false);
+      }
     } catch (error) {
       console.error('Error checking push subscription:', error);
     }
-  }, [pushSupported]);
+  }, [pushSupported, pushEnabled]);
 
-  // Solicitar permissão e subscrever para push
+  // Subscrever para push
   const subscribeToPush = async () => {
     if (!pushSupported) {
       alert('Seu navegador não suporta notificações push.');
@@ -139,148 +326,101 @@ export const NotificationProvider = ({ children }) => {
     }
 
     try {
-      console.log('🔔 Solicitando permissão para notificações...');
-      // Solicitar permissão
       const permission = await Notification.requestPermission();
-      console.log('🔔 Permissão concedida:', permission);
       
       if (permission !== 'granted') {
         alert('Permissão para notificações foi negada.');
         return false;
       }
 
-      // Obter chave VAPID do ambiente VITE
       const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-      console.log('🔔 VAPID Public Key:', vapidPublicKey ? 'Encontrada' : 'Não encontrada');
-      
       if (!vapidPublicKey) {
-        console.error('VAPID public key not found in environment variables');
-        alert('Erro de configuração: chave VAPID não encontrada. Configure VITE_VAPID_PUBLIC_KEY no seu .env');
+        alert('Erro de configuração: chave VAPID não encontrada.');
         return false;
       }
 
-      // Registrar service worker (pode já estar registrado, mas é seguro chamar novamente)
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('🔔 Service Worker registrado:', registration);
-      
-      // Subscrever para push
-      const subscription = await registration.pushManager.subscribe({
+      const registration = await navigator.serviceWorker.ready;
+      const newSubscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
       });
 
-      console.log('🔔 Subscription criada com sucesso');
-      setSubscription(subscription);
+      setSubscription(newSubscription);
       setPushEnabled(true);
 
-      // Enviar subscription para o servidor
-      await savePushSubscription(subscription);
-
+      // Salvar subscription
+      await savePushSubscription(newSubscription);
+      
       return true;
     } catch (error) {
-      console.error('Error subscribing to push:', error);
-      
-      if (error.name === 'NotAllowedError') {
-        alert('Permissão para notificações foi negada. Por favor, permita notificações nas configurações do seu navegador.');
-      } else if (error.name === 'AbortError') {
-        alert('A operação foi abortada. Tente novamente.');
-      } else {
-        alert('Erro ao ativar notificações push: ' + error.message);
-      }
-      
+      console.error('Error subscribing:', error);
+      alert('Erro ao ativar notificações: ' + error.message);
       return false;
     }
   };
 
-  // Cancelar subscription push
+  // Cancelar subscription
   const unsubscribeFromPush = async () => {
     if (!subscription) {
-      console.log('🔔 Nenhuma subscription para cancelar');
       return;
     }
 
     try {
-      console.log('🔔 Cancelando subscription push...');
       await subscription.unsubscribe();
       setSubscription(null);
       setPushEnabled(false);
-
-      // Remover subscription do servidor
       await deletePushSubscription();
-      console.log('🔔 Subscription cancelada com sucesso');
     } catch (error) {
-      console.error('Error unsubscribing from push:', error);
+      console.error('Error unsubscribing:', error);
     }
   };
 
-  // Salvar subscription no servidor
+  // Salvar subscription
   const savePushSubscription = async (subscription) => {
     if (!user) {
-      console.log('🔔 Usuário não logado, salvando subscription no localStorage');
       localStorage.setItem('push-subscription', JSON.stringify(subscription));
       return;
     }
 
     try {
-      console.log('🔔 Salvando subscription no Supabase...');
-      const { error } = await supabase
+      await supabase
         .from('push_subscriptions')
         .upsert({
           user_id: user.id,
           subscription: subscription,
           created_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
         });
-
-      if (error) {
-        console.error('Error saving push subscription:', error);
-        // Fallback para localStorage
-        localStorage.setItem('push-subscription', JSON.stringify(subscription));
-      } else {
-        console.log('🔔 Subscription salva no Supabase com sucesso');
-        localStorage.removeItem('push-subscription');
-      }
     } catch (error) {
-      console.error('Error in savePushSubscription:', error);
+      console.error('Error saving subscription:', error);
       localStorage.setItem('push-subscription', JSON.stringify(subscription));
     }
   };
 
-  // Remover subscription do servidor
+  // Deletar subscription
   const deletePushSubscription = async () => {
     if (!user) {
-      console.log('🔔 Usuário não logado, removendo subscription do localStorage');
       localStorage.removeItem('push-subscription');
       return;
     }
 
     try {
-      console.log('🔔 Removendo subscription do Supabase...');
-      const { error } = await supabase
+      await supabase
         .from('push_subscriptions')
         .delete()
         .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error deleting push subscription:', error);
-      } else {
-        console.log('🔔 Subscription removida do Supabase com sucesso');
-      }
-      localStorage.removeItem('push-subscription');
     } catch (error) {
-      console.error('Error in deletePushSubscription:', error);
-      localStorage.removeItem('push-subscription');
+      console.error('Error deleting subscription:', error);
     }
+    localStorage.removeItem('push-subscription');
   };
 
   // Atualizar preferências
   const updateUserPreferences = async (updates) => {
-    console.log('🔔 Atualizando preferências:', updates);
-    
-    // Garantir que notificationPreferences nunca seja undefined
-    const currentPreferences = notificationPreferences || DEFAULT_PREFERENCES;
-    const newPreferences = { ...currentPreferences, ...updates };
+    const newPreferences = { 
+      ...DEFAULT_PREFERENCES,
+      ...notificationPreferences, 
+      ...updates 
+    };
     
     setNotificationPreferences(newPreferences);
 
@@ -290,51 +430,38 @@ export const NotificationProvider = ({ children }) => {
     }
 
     try {
-      const { error } = await supabase
+      await supabase
         .from('user_preferences')
         .upsert({ 
           user_id: user.id, 
-          notification_preferences: newPreferences,
-          updated_at: new Date().toISOString()
+          notification_preferences: newPreferences 
         });
-
-      if (error) {
-        console.error('Error updating preferences:', error);
-        // Fallback para localStorage
-        localStorage.setItem('notification-preferences', JSON.stringify(newPreferences));
-      } else {
-        localStorage.removeItem('notification-preferences');
-      }
     } catch (error) {
-      console.error('Error in updateUserPreferences:', error);
+      console.error('Error updating preferences:', error);
       localStorage.setItem('notification-preferences', JSON.stringify(newPreferences));
     }
   };
 
-  // Toggle notificações push
+  // Toggle push
   const togglePushNotifications = async (enabled) => {
-    console.log('🔔 Alternando notificações push para:', enabled);
-    
     if (enabled) {
-      await subscribeToPush();
+      const success = await subscribeToPush();
+      if (success) {
+        setPushEnabled(true);
+      }
     } else {
       await unsubscribeFromPush();
+      setPushEnabled(false);
     }
 
-    // Atualizar no banco de dados/localStorage
+    // Atualizar estado no banco
     if (user) {
-      try {
-        await supabase
-          .from('user_preferences')
-          .upsert({ 
-            user_id: user.id, 
-            push_enabled: enabled,
-            updated_at: new Date().toISOString()
-          });
-      } catch (error) {
-        console.error('Error updating push enabled:', error);
-        localStorage.setItem('push-enabled', JSON.stringify(enabled));
-      }
+      await supabase
+        .from('user_preferences')
+        .upsert({ 
+          user_id: user.id, 
+          push_enabled: enabled 
+        });
     } else {
       localStorage.setItem('push-enabled', JSON.stringify(enabled));
     }
@@ -343,9 +470,16 @@ export const NotificationProvider = ({ children }) => {
   // Toggle notificações gerais
   const toggleNotifications = async (enabled) => {
     const newValue = typeof enabled === 'boolean' ? enabled : !notificationsEnabled;
-    console.log('🔔 Alternando notificações gerais para:', newValue);
     
     setNotificationsEnabled(newValue);
+
+    // 🔥 RECONFIGURAR REAL-TIME quando notificações são alternadas
+    if (user && newValue) {
+      setupRealtimeNotifications();
+    } else if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+      setRealtimeChannel(null);
+    }
 
     if (!user) {
       localStorage.setItem('notifications-enabled', JSON.stringify(newValue));
@@ -353,74 +487,94 @@ export const NotificationProvider = ({ children }) => {
     }
 
     try {
-      const { error } = await supabase
+      await supabase
         .from('user_preferences')
         .upsert({ 
           user_id: user.id, 
-          notifications_enabled: newValue,
-          updated_at: new Date().toISOString()
+          notifications_enabled: newValue 
         });
-
-      if (error) {
-        console.error('Error updating notifications:', error);
-        localStorage.setItem('notifications-enabled', JSON.stringify(newValue));
-      } else {
-        localStorage.removeItem('notifications-enabled');
-      }
     } catch (error) {
-      console.error('Error in toggleNotifications:', error);
+      console.error('Error updating notifications:', error);
       localStorage.setItem('notifications-enabled', JSON.stringify(newValue));
     }
   };
 
-  // Testar notificações
+  // Testar notificação
   const testNotification = async () => {
-    if (!pushSupported) {
-      console.log('🔔 Push não suportado, não é possível testar');
-      return false;
-    }
+    if (!pushSupported) return false;
     
     try {
-      console.log('🔔 Enviando notificação de teste...');
-      
       if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
           type: 'TEST_NOTIFICATION'
         });
-        console.log('🔔 Mensagem de teste enviada para o Service Worker');
         return true;
-      } else {
-        console.log('🔔 Service Worker não está controlado');
-        return false;
       }
+      return false;
     } catch (error) {
       console.error('Error testing notification:', error);
       return false;
     }
   };
 
-  // Carregar preferências quando o usuário mudar
+  // 🔥 EFEITO PRINCIPAL: Configurar real-time quando usuário loga ou quando notificações são ativadas
   useEffect(() => {
-    console.log('🔔 Usuário alterado, recarregando preferências');
+    if (user && notificationsEnabled) {
+      setupRealtimeNotifications();
+    } else {
+      // Se notificações desativadas ou usuário saiu, limpar canal
+      if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+        setRealtimeChannel(null);
+      }
+    }
+
+    return () => {
+      // Cleanup do real-time
+      if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+        setRealtimeChannel(null);
+      }
+    };
+  }, [user, notificationsEnabled, setupRealtimeNotifications]);
+
+  // Efeitos secundários
+  useEffect(() => {
     loadUserPreferences();
   }, [user]);
 
-  // Carregar subscription do localStorage se não houver usuário
   useEffect(() => {
-    if (!user && pushSupported) {
-      const savedSubscription = localStorage.getItem('push-subscription');
-      if (savedSubscription) {
-        try {
-          const subscription = JSON.parse(savedSubscription);
-          setSubscription(subscription);
-          setPushEnabled(true);
-          console.log('🔔 Subscription carregada do localStorage');
-        } catch (error) {
-          console.error('Error loading subscription from localStorage:', error);
-        }
-      }
+    if (pushSupported) {
+      checkPushSubscription();
     }
-  }, [user, pushSupported]);
+  }, [pushSupported, checkPushSubscription]);
+
+  // 🔥 Função para lidar com novas notificações (para uso externo)
+  const handleNewNotification = useCallback((notification) => {
+    // Verificar se notificações estão habilitadas
+    if (!notificationsEnabledRef.current) {
+      return;
+    }
+
+    // Verificar preferências do tipo de notificação
+    const notificationType = notification.type || 'system';
+    const currentPreferences = notificationPreferencesRef.current;
+    const isTypeEnabled = currentPreferences[notificationType] !== undefined 
+      ? currentPreferences[notificationType] 
+      : true;
+    
+    if (!isTypeEnabled) {
+      return;
+    }
+
+    // Se push está habilitado, enviar notificação push
+    if (pushEnabledRef.current && subscriptionRef.current) {
+      sendPushNotification(notification);
+    }
+
+    // Mostrar notificação no site (local)
+    showLocalNotification(notification);
+  }, [sendPushNotification]);
 
   const value = {
     notificationsEnabled,
@@ -431,10 +585,11 @@ export const NotificationProvider = ({ children }) => {
     togglePushNotifications,
     updatePreferences: updateUserPreferences,
     testNotification,
-    loading
+    loading,
+    handleNewNotification, // 🔥 Exportar função para uso externo
+    isSubscribed: !!subscription, // 🔥 Adicionar propriedade que Header.jsx está tentando usar
+    isLoading: loading // 🔥 Adicionar propriedade que Header.jsx está tentando usar
   };
-
-  console.log('🔔 NotificationContext value:', value);
 
   return (
     <NotificationContext.Provider value={value}>
@@ -443,20 +598,11 @@ export const NotificationProvider = ({ children }) => {
   );
 };
 
-// Helper function para converter chave VAPID
 function urlBase64ToUint8Array(base64String) {
-  if (!base64String) {
-    throw new Error('Base64 string is required');
-  }
-
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
-
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
-
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }

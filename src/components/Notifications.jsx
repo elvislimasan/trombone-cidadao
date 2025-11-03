@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Bell, BellOff, Circle, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,88 +14,178 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const { notificationsEnabled, toggleNotifications } = useNotifications();
+  const { 
+    notificationsEnabled, 
+    toggleNotifications,
+    handleNewNotification // 🔥 Função do contexto para novas notificações
+  } = useNotifications();
+  
   const [showSettings, setShowSettings] = useState(false);
-  const [realtimeChannel, setRealtimeChannel] = useState(null);
+  const realtimeChannelRef = useRef(null); // 🔥 Usar ref para evitar loop infinito
 
   const fetchNotifications = useCallback(async () => {
-    if (!user || !notificationsEnabled) return;
+    if (!user || !notificationsEnabled) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     
-    // Buscar todas as notificações não lidas + últimas 10
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(20); // Buscar um pouco mais para garantir
+      .limit(20);
 
     if (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('Erro ao buscar notificações:', error);
+      setLoading(false);
     } else {
-      setNotifications(data);
-      const unread = data.filter(n => !n.is_read).length;
+      setNotifications(data || []);
+      const unread = (data || []).filter(n => !n.is_read).length;
       setUnreadCount(unread);
+      setLoading(false);
     }
-    setLoading(false);
   }, [user, notificationsEnabled]);
 
-  // Configurar/remover real-time subscriptions baseado no estado
+  // 🔥 Buscar notificações quando componente monta ou quando usuário/notificações mudam
   useEffect(() => {
-    if (!user) return;
-
-    let channel = null;
-
-    if (notificationsEnabled) {
-      console.log('🔔 Configurando real-time para notificações');
-      
-      // Buscar notificações atuais
+    if (user && notificationsEnabled) {
       fetchNotifications();
-
-      // Configurar real-time para TODAS as notificações futuras
-      channel = supabase
-        .channel(`notifications:${user.id}`)
-        .on('postgres_changes', { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'notifications', 
-          filter: `user_id=eq.${user.id}` 
-        }, (payload) => {
-          console.log('📨 Nova notificação recebida:', payload.new);
-          setNotifications(prev => [payload.new, ...prev.slice(0, 19)]);
-          setUnreadCount(prev => prev + 1);
-        })
-        .subscribe((status) => {
-          console.log('📡 Status do canal real-time:', status);
-        });
-
-      setRealtimeChannel(channel);
     } else {
-      console.log('🔕 Removendo real-time - notificações desativadas');
-      // DESATIVAR: remover real-time e limpar notificações
-      if (realtimeChannel) {
-        supabase.removeChannel(realtimeChannel);
-        setRealtimeChannel(null);
-      }
       setNotifications([]);
       setUnreadCount(0);
+      setLoading(false);
     }
-
-    return () => {
-      if (channel) {
-        console.log('🧹 Limpando canal real-time');
-        supabase.removeChannel(channel);
-      }
-    };
   }, [user, notificationsEnabled, fetchNotifications]);
 
-  const handleToggleWithTimestamp = async (enabled) => {
-    console.log('🔄 Alternando notificações para:', enabled);
+  // 🔥 Função para adicionar nova notificação ao estado
+  const addNewNotification = useCallback((newNotification) => {
+    // Adicionar nova notificação no início da lista
+    setNotifications(prev => {
+      // Verificar se já existe (evitar duplicatas)
+      if (prev.some(n => n.id === newNotification.id)) {
+        return prev;
+      }
+      return [newNotification, ...prev].slice(0, 20);
+    });
     
+    // Atualizar contador de não lidas
+    if (!newNotification.is_read) {
+      setUnreadCount(prev => prev + 1);
+    }
+  }, []);
+
+  // 🔥 Configurar subscription real-time para atualizar automaticamente
+  useEffect(() => {
+    if (!user || !notificationsEnabled) {
+      // Limpar canal se existir
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+      return;
+    }
+
+    // Remover canal existente antes de criar um novo
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+
+    // Criar canal real-time para atualizar lista automaticamente
+    const channel = supabase
+      .channel(`notifications-component:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        async (payload) => {
+          addNewNotification(payload.new);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // Atualizar notificação na lista
+          setNotifications(prev =>
+            prev.map(n => n.id === payload.new.id ? payload.new : n)
+          );
+          
+          // Atualizar contador de não lidas
+          if (payload.new.is_read) {
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          } else {
+            // Se uma notificação foi marcada como não lida
+            setUnreadCount(prev => {
+              // Verificar se já estava contada
+              const wasRead = payload.old?.is_read;
+              return wasRead ? prev + 1 : prev;
+            });
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Erro no canal real-time do componente Notifications');
+        } else if (status === 'TIMED_OUT') {
+          console.error('Timeout no canal real-time do componente Notifications');
+        }
+      });
+
+    realtimeChannelRef.current = channel;
+
+    // 🔥 Listener para eventos customizados do contexto
+    const handleCustomNotification = (event) => {
+      const notification = event.detail;
+      
+      // Verificar se é para o usuário atual
+      if (notification.user_id === user.id) {
+        addNewNotification(notification);
+      }
+    };
+
+    window.addEventListener('new-notification', handleCustomNotification);
+
+    // 🔥 Fallback: verificar periodicamente se há novas notificações (caso o real-time falhe)
+    const checkInterval = setInterval(() => {
+      if (user && notificationsEnabled) {
+        fetchNotifications();
+      }
+    }, 30000); // Verificar a cada 30 segundos
+
+    return () => {
+      // Cleanup: remover canal quando componente desmonta ou dependências mudam
+      if (channel) {
+        supabase.removeChannel(channel);
+        realtimeChannelRef.current = null;
+      }
+      
+      // Remover listener de eventos customizados
+      window.removeEventListener('new-notification', handleCustomNotification);
+      
+      // Limpar intervalo de verificação
+      clearInterval(checkInterval);
+    };
+  }, [user, notificationsEnabled, addNewNotification, fetchNotifications]);
+
+
+  const handleToggleWithTimestamp = async (enabled) => {
     if (enabled) {
       // AO ATIVAR: buscar notificações recentes
-      // Não usamos timestamp de ativação para não perder notificações existentes
       localStorage.removeItem('notifications-last-disabled');
     } else {
       // AO DESATIVAR: salvar timestamp e limpar notificações
@@ -156,7 +246,7 @@ const Notifications = () => {
     <Popover onOpenChange={(open) => {
       if (open) {
         handlePopoverOpen();
-        // Recarregar notificações quando abrir o popover
+        // Recarregar notificações quando abrir o popover (para garantir dados atualizados)
         if (notificationsEnabled && user) {
           fetchNotifications();
         }
@@ -185,21 +275,26 @@ const Notifications = () => {
           <h4 className="font-medium text-sm">Notificações</h4>
           <div className="flex items-center gap-2">
             {unreadCount > 0 && notificationsEnabled && (
-              <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={handleMarkAllAsRead}>
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="h-auto p-0 text-xs" 
+                onClick={handleMarkAllAsRead}
+              >
                 Marcar todas como lidas
               </Button>
             )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            asChild
-            title="Configurações de notificação"
-          >
-            <Link to="/settings/notifications">
-              <Settings className="h-4 w-4" />
-            </Link>
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              asChild
+              title="Configurações de notificação"
+            >
+              <Link to="/settings/notifications">
+                <Settings className="h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </div>
 

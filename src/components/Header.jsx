@@ -12,7 +12,6 @@ import Notifications from '@/components/Notifications';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
-
 const Header = () => {
   const { user, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -20,7 +19,12 @@ const Header = () => {
   const [logoUrl, setLogoUrl] = useState('logo.webp');
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
   const location = useLocation();
-  const { notificationsEnabled, toggleNotifications} = useNotifications();
+  const { 
+    notificationsEnabled, 
+    toggleNotifications,
+    pushEnabled,
+    loading
+  } = useNotifications();
 
   const fetchSiteSettings = useCallback(async () => {
     const { data, error } = await supabase
@@ -37,6 +41,15 @@ const Header = () => {
       setMenuSettings(data.menu_settings || defaultMenuSettings);
     }
   }, []);
+
+  // Função para lidar com a mudança do switch
+  const handleToggleNotifications = async () => {
+    try {
+      await toggleNotifications();
+    } catch (error) {
+      console.error('Erro ao alternar notificações:', error);
+    }
+  };
 
   useEffect(() => {
     fetchSiteSettings();
@@ -140,7 +153,7 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/favoritos" className="flex items-center"><LucideIcons.Star className="mr-2 h-4 w-4" /><span>Broncas Favoritas</span></Link>
                   </DropdownMenuItem>
-                   <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild>
                     <Link to="/obras-favoritas" className="flex items-center"><LucideIcons.HardHat className="mr-2 h-4 w-4" /><span>Obras Favoritas</span></Link>
                   </DropdownMenuItem>
                   {user.is_admin && (
@@ -149,15 +162,25 @@ const Header = () => {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                  <DropdownMenuItem 
                     className="flex items-center justify-between"
-                    onSelect={(e) => e.preventDefault()} // Isso previne o fechamento do menu ao clicar no switch
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleToggleNotifications();
+                    }}
+                    disabled={loading}
                   >
-                    <span>Notificações</span>
+                    <div className="flex flex-col">
+                      <span>Notificações do Site</span>
+                      <span className="text-xs text-muted-foreground">
+                        {notificationsEnabled ? 'Ativadas' : 'Desativadas'}
+                      </span>
+                    </div>
                     <Switch
                       checked={notificationsEnabled}
-                      onCheckedChange={toggleNotifications}
+                      onCheckedChange={handleToggleNotifications}
                       size="sm"
+                      disabled={loading}
                     />
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -166,7 +189,6 @@ const Header = () => {
                     <span>Sair</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
-                
               </DropdownMenu>
             </>
           ) : (
@@ -211,7 +233,17 @@ const Header = () => {
               </nav>
               <div className="flex flex-col items-center gap-4 mt-8">
                 {user ? (
-                  <Button onClick={signOut} variant="outline" className="w-full">Sair</Button>
+                  <>
+                    <div className="flex items-center justify-between w-full px-4 py-2">
+                      <span>Notificações do Site</span>
+                      <Switch
+                        checked={notificationsEnabled}
+                        onCheckedChange={handleToggleNotifications}
+                        disabled={loading}
+                      />
+                    </div>
+                    <Button onClick={signOut} variant="outline" className="w-full">Sair</Button>
+                  </>
                 ) : (
                   <>
                     <Button asChild variant="outline" className="w-full"><Link to="/login">Entrar</Link></Button>

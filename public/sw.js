@@ -10,17 +10,14 @@ const urlsToCache = [
 
 // Install: Open cache and add static assets.
 self.addEventListener('install', event => {
-  console.log('Service Worker: Installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache and caching static assets');
         return cache.addAll(urlsToCache).catch(error => {
-          console.log('Cache addAll error:', error);
+          console.error('Cache addAll error:', error);
         });
       })
       .then(() => {
-        console.log('Service Worker: Skip waiting');
         return self.skipWaiting();
       })
   );
@@ -28,20 +25,17 @@ self.addEventListener('install', event => {
 
 // Activate: Clean up old caches.
 self.addEventListener('activate', event => {
-  console.log('Service Worker: Activating...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cache => {
           if (cache !== CACHE_NAME) {
-            console.log('Service Worker: clearing old cache', cache);
             return caches.delete(cache);
           }
           return null;
         })
       );
     }).then(() => {
-      console.log('Service Worker: Claiming clients');
       return self.clients.claim();
     })
   );
@@ -69,7 +63,7 @@ self.addEventListener('fetch', event => {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then(cache => {
               cache.put(request, responseToCache).catch(err => {
-                console.log('Cache put error for navigation:', err);
+                console.error('Cache put error for navigation:', err);
               });
             });
           }
@@ -96,14 +90,13 @@ self.addEventListener('fetch', event => {
               const responseToCache = networkResponse.clone();
               caches.open(CACHE_NAME).then(cache => {
                 cache.put(request, responseToCache).catch(err => {
-                  console.log('Cache put error for asset:', err);
+                  console.error('Cache put error for asset:', err);
                 });
               });
             }
             return networkResponse;
           })
-          .catch(error => {
-            console.log('Network failed, using cache:', error);
+          .catch(() => {
             return cachedResponse;
           });
 
@@ -117,19 +110,14 @@ self.addEventListener('fetch', event => {
 
 // Handle incoming push notifications
 self.addEventListener('push', function(event) {
-  console.log('Service Worker: Push event received', event);
-  
   if (!event.data) {
-    console.log('Service Worker: Push event but no data');
     return;
   }
 
   let data;
   try {
     data = event.data.json();
-    console.log('Service Worker: Push data parsed', data);
   } catch (error) {
-    console.log('Service Worker: Push data is not JSON, using text');
     data = {
       title: 'Trombone Cidadão',
       body: event.data.text() || 'Nova notificação',
@@ -155,19 +143,14 @@ self.addEventListener('push', function(event) {
     timestamp: data.timestamp || Date.now()
   };
 
-  console.log('Service Worker: Showing notification with options', options);
-
   event.waitUntil(
     self.registration.showNotification(data.title || 'Trombone Cidadão', options)
-      .then(() => console.log('Service Worker: Notification shown successfully'))
       .catch(error => console.error('Service Worker: Error showing notification', error))
   );
 });
 
 // Handle notification clicks
 self.addEventListener('notificationclick', function(event) {
-  console.log('Service Worker: Notification click received', event.notification);
-  
   event.notification.close();
 
   const urlToOpen = event.notification.data?.url || '/';
@@ -178,16 +161,12 @@ self.addEventListener('notificationclick', function(event) {
       type: 'window',
       includeUncontrolled: true 
     }).then(windowClients => {
-      console.log('Service Worker: Found window clients', windowClients.length);
-      
       // Check if there's already a window open with the target URL
       for (let client of windowClients) {
         const clientUrl = new URL(client.url);
         const targetUrl = new URL(urlToOpen, self.location.origin);
         
         if (clientUrl.pathname === targetUrl.pathname && 'focus' in client) {
-          console.log('Service Worker: Focusing existing window');
-          
           // Mark notification as read if we have an ID
           if (notificationId) {
             self.clients.get(client.id).then(activeClient => {
@@ -204,7 +183,6 @@ self.addEventListener('notificationclick', function(event) {
       
       // If no window found, open a new one
       if (clients.openWindow) {
-        console.log('Service Worker: Opening new window to', urlToOpen);
         return clients.openWindow(urlToOpen).then(newClient => {
           if (notificationId && newClient) {
             setTimeout(() => {
@@ -224,15 +202,11 @@ self.addEventListener('notificationclick', function(event) {
 
 // Handle push subscription changes
 self.addEventListener('pushsubscriptionchange', function(event) {
-  console.log('Service Worker: Push subscription changed', event);
-  
   event.waitUntil(
     self.registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: event.oldSubscription ? event.oldSubscription.options.applicationServerKey : undefined
     }).then(function(subscription) {
-      console.log('Service Worker: New subscription obtained', subscription);
-      
       // Send new subscription to server
       return fetch('/api/push/subscription', {
         method: 'POST',
@@ -249,7 +223,6 @@ self.addEventListener('pushsubscriptionchange', function(event) {
         if (!response.ok) {
           throw new Error('Failed to update subscription on server');
         }
-        console.log('Service Worker: Subscription updated on server');
       });
     }).catch(error => {
       console.error('Service Worker: Error during push subscription change', error);
@@ -259,9 +232,7 @@ self.addEventListener('pushsubscriptionchange', function(event) {
 
 // Handle messages from the main thread
 self.addEventListener('message', function(event) {
-  console.log('Service Worker: Message received', event.data);
-  
-  const { type, payload } = event.data;
+  const { type, notification, payload } = event.data;
   
   switch (type) {
     case 'SKIP_WAITING':
@@ -294,29 +265,49 @@ self.addEventListener('message', function(event) {
       break;
 
     case 'CLEAR_CACHE':
-      caches.delete(CACHE_NAME).then(() => {
-        console.log('Cache cleared');
-      });
+      caches.delete(CACHE_NAME);
       break;
-      
-    default:
-      console.log('Service Worker: Unknown message type', type);
+
+    case 'SHOW_PUSH_NOTIFICATION':
+      if (notification) {
+        self.registration.showNotification(
+          notification.title,
+          {
+            body: notification.body,
+            icon: notification.icon,
+            badge: notification.badge,
+            data: notification.data,
+            vibrate: notification.vibrate,
+            tag: notification.tag,
+            requireInteraction: false,
+            actions: [
+              {
+                action: 'open',
+                title: 'Abrir'
+              },
+              {
+                action: 'close',
+                title: 'Fechar'
+              }
+            ]
+          }
+        ).catch(error => {
+          console.error('Service Worker: Erro ao exibir notificação:', error);
+        });
+      }
+      break;
   }
 });
 
 // Background sync for offline actions
 self.addEventListener('sync', function(event) {
-  console.log('Service Worker: Background sync event', event.tag);
-  
   if (event.tag === 'background-sync') {
     event.waitUntil(doBackgroundSync());
   }
 });
-
 async function doBackgroundSync() {
   try {
     // Implementar sincronização de dados offline aqui
-    console.log('Service Worker: Background sync completed');
   } catch (error) {
     console.error('Service Worker: Background sync failed', error);
   }

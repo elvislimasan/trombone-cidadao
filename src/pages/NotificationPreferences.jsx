@@ -100,36 +100,37 @@ const NotificationPreferences = () => {
     }
   };
 
-  const notificationTypes = [
-    {
-      id: 'reports',
-      name: 'Relatórios',
-      description: 'Novos relatórios e atualizações na sua área',
-      icon: AlertTriangle,
-      enabled: safePreferences.reports // Usar safePreferences
-    },
-    {
-      id: 'works',
-      name: 'Obras Públicas',
-      description: 'Atualizações em obras que você segue',
-      icon: Construction,
-      enabled: safePreferences.works // Usar safePreferences
-    },
-    {
-      id: 'comments',
-      name: 'Comentários',
-      description: 'Respostas e menções nos seus comentários',
-      icon: MessageSquare,
-      enabled: safePreferences.comments // Usar safePreferences
-    },
-    {
-      id: 'system',
-      name: 'Sistema',
-      description: 'Notificações importantes do sistema',
-      icon: Shield,
-      enabled: safePreferences.system // Usar safePreferences
-    }
-  ];
+ const notificationTypes = [
+  {
+    id: 'reports',
+    name: 'Relatórios',
+    description: 'Novos relatórios e atualizações na sua área',
+    icon: AlertTriangle,
+    enabled: safePreferences.reports
+  },
+  {
+    id: 'works',
+    name: 'Obras Públicas',
+    description: 'Atualizações em obras que você segue',
+    icon: Construction,
+    enabled: safePreferences.works
+  },
+  {
+    id: 'comments',
+    name: 'Comentários',
+    description: 'Respostas e menções nos seus comentários',
+    icon: MessageSquare,
+    enabled: safePreferences.comments
+  },
+  // 🔥 ADICIONAR: Tipo System
+  {
+    id: 'system',
+    name: 'Sistema',
+    description: 'Notificações importantes do sistema',
+    icon: Shield,
+    enabled: safePreferences.system // ✅ Agora vai aparecer e persistir
+  }
+];
 
   // Calcular tipos ativos de forma segura
   const activeTypesCount = Object.values(safePreferences).filter(Boolean).length;
