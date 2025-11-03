@@ -20,7 +20,22 @@ webpush.setVapidDetails(
 // Enviar push notification usando Web Push Protocol
 async function sendPushNotification(
   subscription,
-  notification
+  notification: {
+    title: string;
+    body: string;
+    icon?: string;
+    badge?: string;
+    image?: string;
+    url?: string;
+    notificationId?: string;
+    type?: string;
+    vibrate?: number[];
+    actions?: Array<{ action: string; title: string; icon?: string }>;
+    requireInteraction?: boolean;
+    sound?: string;
+    silent?: boolean;
+    color?: string;
+  }
 ) {
   try {
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
@@ -35,19 +50,25 @@ async function sendPushNotification(
       throw new Error("Subscription inválida: faltam campos obrigatórios");
     }
 
-    // Criar payload da notificação
+    // Criar payload da notificação personalizado
     const payload = JSON.stringify({
       title: notification.title,
       body: notification.body,
-      icon: notification.icon || "/icons/icon-192x192.png",
-      badge: notification.badge || "/icons/badge-72x72.png",
+      icon: notification.icon || "/logo.png",
+      badge: notification.badge || "/logo.png",
+      image: notification.image, // Imagem grande (opcional)
       data: {
         url: notification.url || "/",
         notificationId: notification.notificationId,
         type: notification.type,
       },
       tag: notification.notificationId || "default",
-      vibrate: [100, 50, 100],
+      vibrate: notification.vibrate || [100, 50, 100],
+      actions: notification.actions || [],
+      requireInteraction: notification.requireInteraction || false,
+      sound: notification.sound, // Opcional
+      silent: notification.silent || false,
+      color: notification.color || "#4a2121", // Cor de fundo (rgb(74, 33, 33) em hexadecimal)
       timestamp: Date.now(),
     });
 
@@ -124,17 +145,69 @@ serve(async (req) => {
       );
     }
 
+    // Personalizar notificação baseada no tipo
+    const getNotificationIcon = (type: string) => {
+      const icons: Record<string, string> = {
+        'moderation_update': '/icons/status-icon.png',
+        'status_update': '/icons/update-icon.png',
+        'moderation_required': '/icons/moderation-icon.png',
+        'resolution_submission': '/icons/resolution-icon.png',
+        'work_update': '/icons/work-icon.png',
+        'reports': '/icons/report-icon.png',
+        'comments': '/icons/comment-icon.png',
+        'system': '/logo.png'
+      };
+      return icons[type] || '/logo.png';
+    };
+
+    const getNotificationVibration = (type: string) => {
+      const vibrations: Record<string, number[]> = {
+        'moderation_required': [300, 100, 300, 100, 300], // Urgente
+        'reports': [200, 100, 200], // Normal-alto
+        'status_update': [100, 50, 100], // Normal
+        'system': [100, 50, 100] // Normal
+      };
+      return vibrations[type] || [100, 50, 100];
+    };
+
+    const getNotificationActions = (type: string) => {
+      if (type === 'resolution_submission') {
+        return [
+          { action: 'view', title: '👁️ Ver Resolução' },
+          { action: 'approve', title: '✅ Aprovar' },
+          { action: 'reject', title: '❌ Rejeitar' }
+        ];
+      }
+      if (type === 'moderation_required') {
+        return [
+          { action: 'moderate', title: '🔧 Moderar' },
+          { action: 'view', title: '👁️ Ver' }
+        ];
+      }
+      return [
+        { action: 'open', title: 'Abrir' },
+        { action: 'close', title: 'Fechar' }
+      ];
+    };
+
     // Enviar notificação para todas as subscriptions do usuário
     const results = await Promise.allSettled(
       subscriptions.map((sub) =>
         sendPushNotification(sub.subscription, {
           title: notification.title || "Trombone Cidadão",
           body: notification.body || notification.message || "Nova notificação",
-          icon: notification.icon,
-          badge: notification.badge,
+          icon: notification.icon || getNotificationIcon(notification.type || 'system'),
+          badge: notification.badge || '/logo.png',
+          image: notification.image, // Imagem grande (opcional)
           url: notification.url,
           notificationId: notification.id,
           type: notification.type,
+          vibrate: notification.vibrate || getNotificationVibration(notification.type || 'system'),
+          actions: notification.actions || getNotificationActions(notification.type || 'system'),
+          requireInteraction: notification.requireInteraction || (notification.type === 'moderation_required'),
+          sound: notification.sound, // Opcional
+          silent: notification.silent || false,
+          color: notification.color || "#4a2121" // Cor de fundo rgb(74, 33, 33)
         })
       )
     );

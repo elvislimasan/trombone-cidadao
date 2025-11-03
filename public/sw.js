@@ -4,8 +4,7 @@ const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
+  '/logo.png',
 ];
 
 // Install: Open cache and add static assets.
@@ -121,15 +120,15 @@ self.addEventListener('push', function(event) {
     data = {
       title: 'Trombone Cidadão',
       body: event.data.text() || 'Nova notificação',
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/badge-72x72.png'
+      icon: '/logo.png',
+      badge: '/logo.png'
     };
   }
 
   const options = {
     body: data.body || 'Nova notificação disponível',
-    icon: data.icon || '/icons/icon-192x192.png',
-    badge: data.badge || '/icons/badge-72x72.png',
+    icon: data.icon || '/logo.png',
+    badge: data.badge || '/logo.png',
     image: data.image,
     data: {
       url: data.url || '/',
@@ -140,7 +139,9 @@ self.addEventListener('push', function(event) {
     requireInteraction: data.requireInteraction || false,
     tag: data.tag || 'default',
     vibrate: [100, 50, 100],
-    timestamp: data.timestamp || Date.now()
+    timestamp: data.timestamp || Date.now(),
+    // Cor de fundo/tema da notificação (rgb(74, 33, 33) em hexadecimal)
+    color: data.color || '#4a2121'
   };
 
   event.waitUntil(
@@ -149,55 +150,90 @@ self.addEventListener('push', function(event) {
   );
 });
 
-// Handle notification clicks
+// Handle notification clicks e ações
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
-  const urlToOpen = event.notification.data?.url || '/';
-  const notificationId = event.notification.data?.notificationId;
+  const action = event.action;
+  const data = event.notification.data || {};
+  const urlToOpen = data.url || '/';
+  const notificationId = data.notificationId;
+  const type = data.type;
 
-  event.waitUntil(
-    clients.matchAll({ 
-      type: 'window',
-      includeUncontrolled: true 
-    }).then(windowClients => {
-      // Check if there's already a window open with the target URL
-      for (let client of windowClients) {
-        const clientUrl = new URL(client.url);
-        const targetUrl = new URL(urlToOpen, self.location.origin);
-        
-        if (clientUrl.pathname === targetUrl.pathname && 'focus' in client) {
-          // Mark notification as read if we have an ID
-          if (notificationId) {
-            self.clients.get(client.id).then(activeClient => {
-              activeClient.postMessage({
-                type: 'MARK_NOTIFICATION_READ',
-                notificationId: notificationId
-              });
-            });
-          }
+  // Handler de ações personalizadas
+  if (action === 'approve' && data.resolutionId) {
+    // Aprovar resolução
+    event.waitUntil(
+      fetch(`/api/resolutions/${data.resolutionId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(() => {
+        return clients.openWindow(urlToOpen);
+      })
+    );
+  } else if (action === 'reject' && data.resolutionId) {
+    // Rejeitar resolução
+    event.waitUntil(
+      fetch(`/api/resolutions/${data.resolutionId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(() => {
+        return clients.openWindow(urlToOpen);
+      })
+    );
+  } else if (action === 'moderate') {
+    // Abrir página de moderação
+    event.waitUntil(
+      clients.openWindow('/admin/moderation')
+    );
+  } else if (action === 'close' || action === 'dismiss') {
+    // Apenas fechar notificação
+    event.notification.close();
+  } else {
+    // Ação padrão: abrir URL (view, open, ou nenhuma ação)
+    event.waitUntil(
+      clients.matchAll({ 
+        type: 'window',
+        includeUncontrolled: true 
+      }).then(windowClients => {
+        // Check if there's already a window open with the target URL
+        for (let client of windowClients) {
+          const clientUrl = new URL(client.url);
+          const targetUrl = new URL(urlToOpen, self.location.origin);
           
-          return client.focus();
-        }
-      }
-      
-      // If no window found, open a new one
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen).then(newClient => {
-          if (notificationId && newClient) {
-            setTimeout(() => {
-              newClient.postMessage({
-                type: 'MARK_NOTIFICATION_READ',
-                notificationId: notificationId
+          if (clientUrl.pathname === targetUrl.pathname && 'focus' in client) {
+            // Mark notification as read if we have an ID
+            if (notificationId) {
+              self.clients.get(client.id).then(activeClient => {
+                activeClient.postMessage({
+                  type: 'MARK_NOTIFICATION_READ',
+                  notificationId: notificationId
+                });
               });
-            }, 1000);
+            }
+            
+            return client.focus();
           }
-        });
-      }
-    }).catch(error => {
-      console.error('Service Worker: Error handling notification click', error);
-    })
-  );
+        }
+        
+        // If no window found, open a new one
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen).then(newClient => {
+            if (notificationId && newClient) {
+              setTimeout(() => {
+                newClient.postMessage({
+                  type: 'MARK_NOTIFICATION_READ',
+                  notificationId: notificationId
+                });
+              }, 1000);
+            }
+          });
+        }
+      }).catch(error => {
+        console.error('Service Worker: Error handling notification click', error);
+      })
+    );
+  }
 });
 
 // Handle push subscription changes
@@ -254,8 +290,9 @@ self.addEventListener('message', function(event) {
     case 'TEST_NOTIFICATION':
       self.registration.showNotification('Teste do Trombone Cidadão', {
         body: 'Esta é uma notificação de teste do Service Worker',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
+        icon: '/logo.png',
+        badge: '/logo.png',
+        color: '#4a2121', // Cor de fundo rgb(74, 33, 33)
         vibrate: [100, 50, 100],
         data: {
           url: '/',
@@ -276,6 +313,7 @@ self.addEventListener('message', function(event) {
             body: notification.body,
             icon: notification.icon,
             badge: notification.badge,
+            color: notification.color || '#4a2121', // Cor de fundo rgb(74, 33, 33)
             data: notification.data,
             vibrate: notification.vibrate,
             tag: notification.tag,
