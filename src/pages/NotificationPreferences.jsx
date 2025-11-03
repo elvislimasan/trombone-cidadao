@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useCache } from '@/hooks/useCache';
-import { Button } from '@/components/ui/button';
+import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
+import { Switch } from '../components/ui/switch';
+import { Separator } from '../components/ui/separator';
+import { Badge } from '../components/ui/badge';
 import { 
   Bell, 
   BellOff, 
