@@ -53,8 +53,6 @@ const ReportDetails = ({
   onLink, 
   onFavoriteToggle, 
   isModerationView = false,
-  isResolutionModeration = false,
-  onResolutionAction,
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -349,10 +347,46 @@ const ReportDetails = ({
     toast({ title: `Bronca marcada como ${updatedReport.is_recurrent ? 'reincidente' : 'não reincidente'}.` });
   };
 
-  const handleResolutionAction = (action) => {
-    if (onResolutionAction) {
-      onResolutionAction(report, action);
+  const handleResolutionAction = async (action) => {
+    if (!user || !user.is_admin) {
+      toast({
+        title: "Acesso restrito",
+        description: "Apenas administradores podem moderar resoluções.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    let updateData = {};
+    
+    if (action === 'approved') {
+      updateData = { 
+        status: 'resolved',
+        resolved_at: new Date().toISOString()
+      };
+    } else if (action === 'rejected') {
+      updateData = { 
+        status: 'pending',
+        resolution_submission: null
+      };
+    }
+
+    try {
+      await onUpdate({ id: report.id, ...updateData });
+      const actionText = action === 'approved' ? 'aprovada' : 'rejeitada';
+      toast({ 
+        title: `Resolução ${actionText} com sucesso!`,
+        description: action === 'approved' 
+          ? 'A bronca foi marcada como resolvida.' 
+          : 'A bronca voltou para o status pendente.'
+      });
       onClose();
+    } catch (error) {
+      toast({ 
+        title: "Erro ao processar resolução", 
+        description: error.message, 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -404,6 +438,8 @@ const ReportDetails = ({
   const canEdit = user && (user.is_admin || (user.id === report.author_id && report.moderation_status === 'pending_approval'));
   const canChangeStatus = user && (user.is_admin || user.user_type === 'public_official');
   const canModerate = user && user.is_admin; // Apenas admins podem moderar
+  // Determina se há resolução pendente para moderação (apenas para admins)
+  const isResolutionModeration = canModerate && report.status === 'pending_resolution' && report.resolution_submission;
 
   const allMedia = [
     ...(report.photos || []).map(p => ({ ...p, type: 'photo' })),
@@ -452,30 +488,69 @@ const ReportDetails = ({
           </div>
 
           <div className="p-6 space-y-6">
-            {/* ... (resto do conteúdo do modal permanece igual) ... */}
+            {/* Seção de Moderação de Bronca (para admins) */}
+            {canModerate && !isEditing  && (report.moderation_status === 'pending_approval' || report.moderation_status === 'rejected') && (
+              <div className={`p-4 rounded-lg border ${report.moderation_status === 'pending_approval' ? 'bg-yellow-900/20 border-yellow-700' : 'bg-red-900/20 border-red-700'}`}>
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Shield className={`w-5 h-5 ${report.moderation_status === 'pending_approval' ? 'text-yellow-400' : 'text-red-400'}`} /> 
+                  Moderação de Bronca
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {report.moderation_status === 'pending_approval' 
+                    ? 'Esta bronca está aguardando aprovação. Revise o conteúdo e decida se deve ser publicada.'
+                    : 'Esta bronca foi rejeitada. Você pode reavaliar e aprová-la se necessário.'}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleApproveReport}
+                    className="bg-green-600 hover:bg-green-700 flex-1 gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    {report.moderation_status === 'rejected' ? 'Reaprovar Bronca' : 'Aprovar Bronca'}
+                  </Button>
+                  {report.moderation_status === 'pending_approval' && (
+                    <Button
+                      onClick={handleRejectReport}
+                      variant="outline"
+                      className="text-red-600 border-red-600 hover:bg-red-50 flex-1 gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Rejeitar Bronca
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             
             {/* Seção de Moderação de Resolução */}
-            {isResolutionModeration && report.resolution_submission && (
+            {isResolutionModeration && (
               <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-700">
                 <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-blue-400" /> Moderação de Resolução
                 </h3>
                 <div className="space-y-4">
-                  <div className="bg-muted p-3 rounded-lg space-y-2">
-                    <p className="text-sm">
-                      <strong>Resolução enviada por:</strong> {report.resolution_submission.userName}
-                    </p>
-                    <p className="text-sm">
-                      <strong>Enviado em:</strong> {formatDate(report.resolution_submission.submittedAt)}
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowResolutionImage(true)}
-                      className="gap-2 w-full"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Ver Foto da Resolução
-                    </Button>
+                  <div className="bg-muted p-3 rounded-lg space-y-3">
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        <strong>Resolução enviada por:</strong> {report.resolution_submission.userName}
+                      </p>
+                      <p className="text-sm">
+                        <strong>Enviado em:</strong> {formatDate(report.resolution_submission.submittedAt)}
+                      </p>
+                    </div>
+                    {report.resolution_submission.photoUrl && (
+                      <div className="mt-3">
+                        <img 
+                          src={report.resolution_submission.photoUrl} 
+                          alt="Foto da resolução enviada" 
+                          className="rounded-lg w-full max-w-md mx-auto cursor-pointer hover:opacity-90 transition-opacity border border-border"
+                          onClick={() => setShowResolutionImage(true)}
+                        />
+                        <p className="text-xs text-center text-muted-foreground mt-2">
+                          Clique na imagem para ampliar
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex gap-2">
@@ -499,7 +574,32 @@ const ReportDetails = ({
               </div>
             )}
 
-                       {canChangeStatus && !isEditing && !isResolutionModeration && report.moderation_status === 'approved' && (
+            {/* Foto da Resolução - Mostrar para todos quando houver resolução pendente (exceto na seção de moderação) */}
+            {!isEditing && !isResolutionModeration && report.resolution_submission && report.status === 'pending_resolution' && (
+              <div className="p-3 bg-yellow-900/20 rounded-lg border border-yellow-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Hourglass className="w-4 h-4 text-yellow-400" />
+                    <span className="text-sm text-muted-foreground">
+                      Foto de resolução enviada e aguardando aprovação
+                    </span>
+                  </div>
+                  {report.resolution_submission.photoUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowResolutionImage(true)}
+                      className="gap-2 text-xs"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Ver foto da resolução
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {canChangeStatus && !isEditing && !isResolutionModeration && report.moderation_status === 'approved' && (
               <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-700">
                 <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Shield className="w-5 h-5 text-blue-400" /> Painel de Gestão</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -627,19 +727,54 @@ const ReportDetails = ({
               </div>
             )}
 
-            {report.status === 'resolved' && report.resolution_submission && (
-              <div>
-                <h3 className="font-semibold text-foreground mb-3">Prova da Resolução</h3>
-                <div className="p-4 bg-green-500/10 rounded-lg">
-                  <img 
-                    src={report.resolution_submission.photoUrl} 
-                    alt="Prova da resolução" 
-                    className="rounded-lg w-full max-w-sm mx-auto cursor-pointer"
-                    onClick={() => setShowResolutionImage(true)}
-                  />
-                  <p className="text-sm text-center mt-2 text-muted-foreground">
-                    Resolvido em {formatDate(report.resolved_at)} por {report.resolution_submission.userName}.
-                  </p>
+            {/* Foto da Resolução - Mostrar para todos quando estiver resolvida */}
+            {!isEditing && !isResolutionModeration && report.status === 'resolved' && report.resolution_submission && (
+              <div className="p-3 bg-green-500/10 rounded-lg border border-green-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <span className="text-sm text-muted-foreground">
+                      Resolvido em {formatDate(report.resolved_at)} por {report.resolution_submission.userName}
+                    </span>
+                  </div>
+                  {report.resolution_submission.photoUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowResolutionImage(true)}
+                      className="gap-2 text-xs"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Ver foto da resolução
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Foto da Resolução - Mostrar para todos em outros status (caso haja resolução submetida mas não aprovada/rejeitada) */}
+            {!isEditing && !isResolutionModeration && report.resolution_submission && 
+             report.status !== 'pending_resolution' && 
+             report.status !== 'resolved' && (
+              <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm text-muted-foreground">
+                      Foto de resolução disponível
+                    </span>
+                  </div>
+                  {report.resolution_submission.photoUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowResolutionImage(true)}
+                      className="gap-2 text-xs"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Ver foto da resolução
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -758,7 +893,8 @@ const ReportDetails = ({
                         </Button>
                       )}
                       
-                      {['pending', 'in-progress'].includes(report.status) && (
+                      {['pending', 'in-progress'].includes(report.status) && 
+                       !report.resolution_submission && (
                         <Button onClick={handleMarkResolvedClick} className="bg-green-600 hover:bg-green-700 gap-2 text-xs sm:text-sm">
                           <CheckCircle className="w-4 h-4" />
                           <span className="hidden sm:inline">Marcar Resolvido</span>

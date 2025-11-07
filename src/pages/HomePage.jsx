@@ -61,6 +61,7 @@ function HomePage() {
           is_recurrent,
           resolved_at,
           linked_to,
+          resolution_submission,
           category:categories(name, icon),
           author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config),
           upvotes:upvotes(count),
@@ -96,6 +97,8 @@ function HomePage() {
         photos: (r.report_media || []).filter(m => m.type === 'photo'),
         videos: (r.report_media || []).filter(m => m.type === 'video'),
         is_favorited: user ? r.favorite_reports.some(fav => fav.user_id === user.id) : false,
+        // Preservar resolution_submission se existir
+        resolution_submission: r.resolution_submission || null,
       }));
       
       setReports(formattedData);
@@ -140,56 +143,121 @@ function HomePage() {
   useEffect(() => {
     fetchInitialData();
     
+    let channel = null;
+    let pollingInterval = null;
+    let appStateListener = null;
+    
     // Configurar realtime subscription
-    const channel = supabase.channel('realtime reports')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'reports',
-          filter: 'moderation_status=eq.approved'
-        }, 
-        (payload) => {
-       
-          fetchReports();
+    try {
+      channel = supabase.channel('realtime reports')
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'reports',
+            filter: 'moderation_status=eq.approved'
+          }, 
+          (payload) => {
+            fetchReports();
+          }
+        )
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'upvotes'
+          },
+          (payload) => {
+            fetchReports();
+          }
+        )
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'comments'
+          },
+          (payload) => {
+            fetchReports();
+          }
+        )
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'report_media'
+          },
+          (payload) => {
+            fetchReports();
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('[HomePage] Erro na subscription realtime, usando polling como fallback');
+          }
+        });
+    } catch (error) {
+      console.error('[HomePage] Erro ao configurar subscription realtime:', error);
+    }
+
+    // Fallback: Polling periódico para garantir atualização (especialmente no app nativo)
+    const startPolling = () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+      // Atualizar a cada 30 segundos
+      pollingInterval = setInterval(() => {
+        fetchReports();
+      }, 30000);
+    };
+
+    // Iniciar polling
+    startPolling();
+
+    // Listener para quando o app volta ao foreground (Capacitor)
+    const setupAppStateListener = async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const { Capacitor } = await import('@capacitor/core');
+        
+        if (Capacitor.isNativePlatform()) {
+          appStateListener = await App.addListener('appStateChange', async ({ isActive }) => {
+            if (isActive) {
+              // Quando o app volta ao foreground, atualizar dados imediatamente
+              setTimeout(() => {
+                fetchReports();
+              }, 500);
+            }
+          });
         }
-      )
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'upvotes'
-        },
-        (payload) => {
+      } catch (error) {
+        // Capacitor não disponível ou não é app nativo, ignorar
+      }
+    };
+    setupAppStateListener();
+
+    // Listener para quando a página fica visível (Web e Capacitor)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Quando a página fica visível, atualizar dados
+        setTimeout(() => {
           fetchReports();
-        }
-      )
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'comments'
-        },
-        (payload) => {
-          
-          fetchReports();
-        }
-      )
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'report_media'
-        },
-        (payload) => {
-       
-          fetchReports();
-        }
-      )
-      .subscribe();
+        }, 500);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+      if (appStateListener) {
+        appStateListener.remove();
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchInitialData, fetchReports]);
 
