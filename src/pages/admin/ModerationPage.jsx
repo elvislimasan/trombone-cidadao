@@ -284,8 +284,6 @@ const ModerationPage = () => {
           onLink={() => {}}
           onFavoriteToggle={() => {}}
           isModerationView={true}
-          isResolutionModeration={isResolutionModeration}
-          onResolutionAction={handleAction}
         />
       )}
     </>

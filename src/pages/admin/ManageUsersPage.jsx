@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, User, Briefcase, Shield } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Briefcase, Shield, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -27,21 +27,6 @@ const UserEditModal = ({ user, onSave, onClose }) => {
 
   const handleSave = () => {
     onSave({ ...user, name, user_type: userType, is_admin: isAdmin });
-  };
-
-    const handleUpvote = async (id) => {
-    if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
-      navigate('/login');
-      return;
-    }
-    const { error } = await supabase.rpc('increment_upvotes', { report_id_param: id });
-    if (error) {
-      toast({ title: "Erro ao apoiar", description: error.message, variant: "destructive" });
-    } else {
-      fetchReport();
-      toast({ title: "Apoio registrado! 👍" });
-    }
   };
 
   if (!user) return null;
@@ -91,9 +76,83 @@ const ManageUsersPage = () => {
   const [selectedReport, setSelectedReport] = useState(null);
 
   const fetchUsers = useCallback(async () => {
-    const { data, error } = await supabase.from('profiles').select('*');
-    if (error) toast({ title: "Erro ao buscar usuários", description: error.message, variant: "destructive" });
-    else setUsers(data);
+    // Buscar dados dos perfis (incluindo telefone)
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*');
+    
+    if (profilesError) {
+      toast({ title: "Erro ao buscar usuários", description: profilesError.message, variant: "destructive" });
+      return;
+    }
+
+    // Buscar e-mails dos usuários via função RPC
+    // Nota: É necessário criar uma função RPC no Supabase chamada 'get_user_emails'
+    // que retorne os e-mails dos usuários. Veja instruções no final deste arquivo.
+    let usersWithEmails = profilesData.map(profile => ({
+      ...profile,
+      email: null, // Será preenchido pela função RPC se existir
+    }));
+
+    try {
+      // Tentar buscar e-mails usando função RPC
+      const userIds = profilesData.map(p => p.id);
+      console.log('[ManageUsers] Buscando e-mails para', userIds.length, 'usuários');
+      
+      const { data: emailsData, error: emailsError } = await supabase
+        .rpc('get_user_emails', { user_ids: userIds });
+
+      if (emailsError) {
+        console.error('[ManageUsers] Erro ao buscar e-mails:', emailsError);
+        // Não mostrar toast para não poluir a interface, apenas log
+      } else if (emailsData && Array.isArray(emailsData)) {
+        console.log('[ManageUsers] E-mails recebidos:', emailsData.length, 'registros');
+        console.log('[ManageUsers] Dados dos e-mails:', JSON.stringify(emailsData, null, 2));
+        
+        // Criar um mapa de user_id -> email (usando string para comparação de UUID)
+        // A função retorna 'user_id' ao invés de 'id'
+        const emailMap = {};
+        emailsData.forEach(item => {
+          // A função pode retornar 'id' ou 'user_id', tentar ambos
+          const userId = item.user_id || item.id;
+          if (item && userId) {
+            // Normalizar IDs para string para comparação
+            const userIdStr = String(userId);
+            emailMap[userIdStr] = item.email || null;
+            console.log('[ManageUsers] Mapeando e-mail:', userIdStr, '->', item.email || '(vazio)');
+          }
+        });
+
+        console.log('[ManageUsers] Mapa de e-mails criado com', Object.keys(emailMap).length, 'entradas');
+        console.log('[ManageUsers] IDs no mapa:', Object.keys(emailMap));
+        console.log('[ManageUsers] IDs dos perfis:', profilesData.map(p => String(p.id)));
+
+        // Adicionar e-mails aos perfis
+        usersWithEmails = profilesData.map(profile => {
+          const profileIdStr = String(profile.id);
+          const email = emailMap[profileIdStr] || null;
+          if (email) {
+            console.log('[ManageUsers] ✅ E-mail encontrado para', profile.name, ':', email);
+          } else {
+            console.log('[ManageUsers] ❌ E-mail não encontrado para', profile.name, '(ID:', profileIdStr, ')');
+          }
+          return {
+            ...profile,
+            email: email,
+          };
+        });
+        
+        console.log('[ManageUsers] Usuários processados:', usersWithEmails.length);
+        console.log('[ManageUsers] Usuários com e-mail:', usersWithEmails.filter(u => u.email).map(u => ({ name: u.name, email: u.email })));
+      } else {
+        console.warn('[ManageUsers] Função RPC retornou dados inválidos. Tipo:', typeof emailsData, 'Valor:', emailsData);
+      }
+    } catch (error) {
+      // Se a função RPC não existir ou houver erro, apenas mostrar telefone
+      console.error('[ManageUsers] Erro ao chamar função RPC get_user_emails:', error);
+    }
+
+    setUsers(usersWithEmails);
   }, [toast]);
 
   const fetchReports = useCallback(async () => {
@@ -171,7 +230,7 @@ const ManageUsersPage = () => {
                   <div key={user.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
                     <div className="flex items-center gap-4">
                       <img src={user.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold flex items-center gap-2">
                           {user.name}
                           {user.is_admin && <Shield className="w-4 h-4 text-tc-yellow" title="Administrador" />}
@@ -180,6 +239,30 @@ const ManageUsersPage = () => {
                           <UserTypeIcon className="w-3 h-3" />
                           {userTypeDisplay[user.user_type]?.text}
                         </p>
+                        <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
+                          {user.email ? (
+                            <div className="flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              <span title={user.email}>{user.email}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-muted-foreground/50">
+                              <Mail className="w-3 h-3" />
+                              <span>E-mail não disponível</span>
+                            </div>
+                          )}
+                          {user.phone ? (
+                            <div className="flex items-center gap-1">
+                              <Phone className="w-3 h-3" />
+                              <span>{user.phone}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-muted-foreground/50">
+                              <Phone className="w-3 h-3" />
+                              <span>Telefone não disponível</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex-shrink-0 flex gap-2">
@@ -234,7 +317,7 @@ const ManageUsersPage = () => {
           report={selectedReport}
           onClose={() => setSelectedReport(null)}
           onUpdate={handleUpdateReport}
-          onUpvote={ handleUpvote}
+          onUpvote={() => {}}
           onLink={() => {}}
         />
       )}
