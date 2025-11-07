@@ -30,26 +30,26 @@ const Notifications = () => {
       setLoading(false);
       return;
     }
-    
-    setLoading(true);
-    
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
+  
+  setLoading(true);
+  
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20);
 
-    if (error) {
+  if (error) {
       console.error('Erro ao buscar notificações:', error);
       setLoading(false);
-    } else {
+  } else {
       setNotifications(data || []);
       const unread = (data || []).filter(n => !n.is_read).length;
-      setUnreadCount(unread);
+    setUnreadCount(unread);
       setLoading(false);
-    }
-  }, [user, notificationsEnabled]);
+  }
+}, [user, notificationsEnabled]);
 
   // 🔥 Buscar notificações quando componente monta ou quando usuário/notificações mudam
   useEffect(() => {

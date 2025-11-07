@@ -1,23 +1,220 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Testing
+/coverage
+*.lcov
+
+# Production
+/build
+/dist
+/.next
+/out
+
+# Misc
+.DS_Store
+*.pem
+Thumbs.db
+desktop.ini
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Local env files
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
+# Vercel
+.vercel
+
+# Typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
 # Logs
-/logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
 
 # Temporary files
-*.log
 *.tmp
+*.temp
+*.cache
+.cache/
+.parcel-cache/
+.temp/
+.tmp/
 
-# Config files
-.env
-config/database.php
+# Build files
+build/
+dist/
+*.tsbuildinfo
 
-
-# Generated files
-build/*
-dist/*
-
-node_modules/
+# Capacitor
 android/
+ios/
+.capacitor/
+capacitor.config.json.bak
 
-# Supabase CLI temporary files
+# Android
+*.apk
+*.aab
+*.ap_
+*.aab
+local.properties
+*.keystore
+*.jks
+keystore.properties
+google-services.json
+proguard/
+*.iml
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# iOS
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.app.dSYM
+*.app
+Pods/
+DerivedData/
+*.xcworkspace
+!default.xcworkspace
+*.xcuserdata
+*.xcuserdatad
+*.xcuserstate
+project.xcworkspace
+xcuserdata/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Supabase
 supabase/.temp/
 supabase/.branches/
 supabase/.templates/
+supabase/.env
+supabase/.env.local
+
+# Firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+.firebaserc
+firebase.json
+google-services.json
+GoogleService-Info.plist
+
+# Config files sensíveis
+config/database.php
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Service Account / Credenciais
+*service-account*.json
+*serviceAccount*.json
+*credentials*.json
+FIREBASE_SERVICE_ACCOUNT*.json
+FIREBASE_SERVICE_ACCOUNT*.txt
+FIREBASE_SERVICE_ACCOUNT_JSON*.txt
+*-credentials.json
+*-keys.json
+
+# Package manager locks (manter apenas um)
+# yarn.lock
+# package-lock.json
+# pnpm-lock.yaml
+
+# Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Storybook
+storybook-static/
+
+# Vite
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# PWA
+sw.js.map
+workbox-*.js
+workbox-*.js.map
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ESLint
+.eslintcache
+
+# Prettier
+.prettierignore
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Scripts Windows - Manter scripts de build (são úteis para a equipe)
+# Os scripts de build não contêm informações sensíveis, apenas comandos padrão
+!build-standalone.bat
+!build-standalone-windows.bat
+!create-keystore.bat
+# Se houver scripts com credenciais hardcoded, adicione aqui:
+# script-com-credenciais.bat

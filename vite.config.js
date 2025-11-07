@@ -251,12 +251,22 @@ export default defineConfig({
   		alias: {
     			'@': path.resolve(__dirname, './src'),
   			},
+		// 🔥 Forçar que React seja sempre resolvido como módulo ESM para lazy loading
+		dedupe: ['react', 'react-dom'],
+	},
+	optimizeDeps: {
+		// 🔥 Garantir que React seja pré-empacotado corretamente
+		include: ['react', 'react-dom', 'react-leaflet'],
+		exclude: ['@babel/parser', '@babel/traverse', '@babel/generator', '@babel/types']
 	},
 	// 🔥 CONFIGURAÇÃO ADICIONADA PARA RESOLVER O PROBLEMA DAS IMAGENS
 	publicDir: 'public',
 	build: {
 		outDir: 'dist',
 		assetsDir: 'assets',
+		target: 'es2015', // ✅ TARGET OTIMIZADO PARA CAPACITOR
+		// ✅ FORÇAR REBUILD SEMPRE (evita cache)
+		emptyOutDir: true, // Sempre limpar dist antes de buildar
 		// Garante que os arquivos da pasta public sejam copiados
 		copyPublicDir: true,
 		rollupOptions: {

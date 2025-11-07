@@ -1,11 +1,9 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -76,27 +74,27 @@ export const AuthProvider = ({ children }) => {
       } 
     });
     if (error) {
-      toast({ title: "Erro no cadastro", description: error.message, variant: "destructive" });
+      console.error("Erro no cadastro:", error.message);
     }
     return { authUser, error };
-  }, [toast]);
+  }, []);
 
   const signIn = useCallback(async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast({ title: "Erro no login", description: error.message, variant: "destructive" });
+      console.error("Erro no login:", error.message);
     }
     return { error };
-  }, [toast]);
+  }, []);
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error && error.message !== 'Session from session_id claim in JWT does not exist') {
-      toast({ title: "Erro ao sair", description: error.message, variant: "destructive" });
+      console.error("Erro ao sair:", error.message);
     }
     setUser(null); // Ensure user state is cleared regardless of this specific error
     return { error };
-  }, [toast]);
+  }, []);
 
   const value = {
     signUp,

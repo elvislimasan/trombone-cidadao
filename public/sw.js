@@ -45,26 +45,57 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Não cachear requests de dados ou API
-  if (url.origin.includes('supabase.co') || 
-      request.method !== 'GET' || 
-      request.headers.get('accept')?.includes('json')) {
-    return; // Deixa passar para a rede
+  // 🔥 Não interceptar requests de extensões, chrome-extension, ou schemes não suportados
+  if (url.protocol === 'chrome-extension:' || 
+      url.protocol === 'chrome:' ||
+      url.protocol === 'moz-extension:' ||
+      url.protocol === 'safari-extension:' ||
+      url.protocol === 'edge-extension:' ||
+      !url.protocol.startsWith('http')) {
+    // Deixa passar direto para a rede sem interceptação
+    return;
   }
 
-  // Strategy 1: Para navegações (páginas)
+  // Não interceptar requests de API, Supabase, ou métodos não-GET
+  if (url.origin.includes('supabase.co') || 
+      url.origin.includes('openstreetmap.org') ||
+      request.method !== 'GET' || 
+      request.headers.get('accept')?.includes('application/json')) {
+    // Deixa passar direto para a rede sem interceptação
+    return;
+  }
+
+  // Strategy 1: Para navegações (páginas HTML)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then(response => {
-          // Só cachear se a resposta for válida
-          if (response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(request, responseToCache).catch(err => {
-                console.error('Cache put error for navigation:', err);
+          // 🔥 Verificar se o request pode ser cacheado
+          const requestUrl = new URL(request.url);
+          const canCache = requestUrl.protocol.startsWith('http') && 
+                          !requestUrl.protocol.includes('extension') &&
+                          response.status === 200 && 
+                          response.type === 'basic';
+          
+          // Só cachear se a resposta for válida e clonável E se o request pode ser cacheado
+          if (canCache) {
+            try {
+              // Clonar ANTES de usar a response
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME).then(cache => {
+                cache.put(request, responseToCache).catch(err => {
+                  // Silenciar erros de cache para recursos não suportados
+                  if (!err.message.includes('unsupported') && !err.message.includes('chrome-extension')) {
+                    console.error('Cache put error for navigation:', err);
+                  }
+                });
               });
-            });
+            } catch (cloneError) {
+              // Silenciar erros de clone para recursos não suportados
+              if (!cloneError.message.includes('unsupported') && !cloneError.message.includes('chrome-extension')) {
+                console.error('Cache clone error for navigation:', cloneError);
+              }
+            }
           }
           return response;
         })
@@ -81,26 +112,47 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(request)
       .then(cachedResponse => {
-        // Sempre buscar da rede para atualizar o cache
-        const fetchPromise = fetch(request)
+        // Se já tem no cache, retornar imediatamente
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        // Buscar da rede e cachear
+        return fetch(request)
           .then(networkResponse => {
-            // Só cachear se a resposta for válida
-            if (networkResponse.status === 200) {
-              const responseToCache = networkResponse.clone();
-              caches.open(CACHE_NAME).then(cache => {
-                cache.put(request, responseToCache).catch(err => {
-                  console.error('Cache put error for asset:', err);
+            // 🔥 Verificar se o request pode ser cacheado (não pode ser chrome-extension, etc)
+            const requestUrl = new URL(request.url);
+            const canCache = requestUrl.protocol.startsWith('http') && 
+                            !requestUrl.protocol.includes('extension') &&
+                            networkResponse.status === 200 && 
+                            networkResponse.type === 'basic';
+            
+            // Só cachear se a resposta for válida e clonável E se o request pode ser cacheado
+            if (canCache) {
+              try {
+                // Clonar ANTES de retornar a response
+                const responseToCache = networkResponse.clone();
+                caches.open(CACHE_NAME).then(cache => {
+                  cache.put(request, responseToCache).catch(err => {
+                    // Silenciar erros de cache para recursos não suportados (extensions, etc)
+                    if (!err.message.includes('unsupported') && !err.message.includes('chrome-extension')) {
+                      console.error('Cache put error for asset:', err);
+                    }
+                  });
                 });
-              });
+              } catch (cloneError) {
+                // Silenciar erros de clone para recursos não suportados
+                if (!cloneError.message.includes('unsupported') && !cloneError.message.includes('chrome-extension')) {
+                  console.error('Cache clone error for asset:', cloneError);
+                }
+              }
             }
             return networkResponse;
           })
           .catch(() => {
-            return cachedResponse;
+            // Se falhar na rede e não tiver cache, retornar erro
+            return cachedResponse || new Response('Network error', { status: 408 });
           });
-
-        // Retornar cache imediatamente se disponível, senão aguardar rede
-        return cachedResponse || fetchPromise;
       })
   );
 });
@@ -191,48 +243,48 @@ self.addEventListener('notificationclick', function(event) {
     event.notification.close();
   } else {
     // Ação padrão: abrir URL (view, open, ou nenhuma ação)
-    event.waitUntil(
-      clients.matchAll({ 
-        type: 'window',
-        includeUncontrolled: true 
-      }).then(windowClients => {
-        // Check if there's already a window open with the target URL
-        for (let client of windowClients) {
-          const clientUrl = new URL(client.url);
-          const targetUrl = new URL(urlToOpen, self.location.origin);
-          
-          if (clientUrl.pathname === targetUrl.pathname && 'focus' in client) {
-            // Mark notification as read if we have an ID
-            if (notificationId) {
-              self.clients.get(client.id).then(activeClient => {
-                activeClient.postMessage({
-                  type: 'MARK_NOTIFICATION_READ',
-                  notificationId: notificationId
-                });
-              });
-            }
-            
-            return client.focus();
-          }
-        }
+  event.waitUntil(
+    clients.matchAll({ 
+      type: 'window',
+      includeUncontrolled: true 
+    }).then(windowClients => {
+      // Check if there's already a window open with the target URL
+      for (let client of windowClients) {
+        const clientUrl = new URL(client.url);
+        const targetUrl = new URL(urlToOpen, self.location.origin);
         
-        // If no window found, open a new one
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen).then(newClient => {
-            if (notificationId && newClient) {
-              setTimeout(() => {
-                newClient.postMessage({
-                  type: 'MARK_NOTIFICATION_READ',
-                  notificationId: notificationId
-                });
-              }, 1000);
-            }
-          });
+        if (clientUrl.pathname === targetUrl.pathname && 'focus' in client) {
+          // Mark notification as read if we have an ID
+          if (notificationId) {
+            self.clients.get(client.id).then(activeClient => {
+              activeClient.postMessage({
+                type: 'MARK_NOTIFICATION_READ',
+                notificationId: notificationId
+              });
+            });
+          }
+          
+          return client.focus();
         }
-      }).catch(error => {
-        console.error('Service Worker: Error handling notification click', error);
-      })
-    );
+      }
+      
+      // If no window found, open a new one
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen).then(newClient => {
+          if (notificationId && newClient) {
+            setTimeout(() => {
+              newClient.postMessage({
+                type: 'MARK_NOTIFICATION_READ',
+                notificationId: notificationId
+              });
+            }, 1000);
+          }
+        });
+      }
+    }).catch(error => {
+      console.error('Service Worker: Error handling notification click', error);
+    })
+  );
   }
 });
 

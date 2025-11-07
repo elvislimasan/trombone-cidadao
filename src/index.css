@@ -5,18 +5,60 @@
 /* === SAFE AREAS PARA CAPACITOR === */
 @layer base {
   :root {
-    --safe-area-top: env(safe-area-inset-top, 0px);
-    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-area-left: env(safe-area-inset-left, 0px);
-    --safe-area-right: env(safe-area-inset-right, 0px);
+    /* ✅ VARIÁVEIS CSS PARA SAFE AREAS (compatível com iOS e Android) */
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    
+    /* Manter compatibilidade com nomes anteriores */
+    --safe-area-top: var(--sat);
+    --safe-area-bottom: var(--sab);
+    --safe-area-left: var(--sal);
+    --safe-area-right: var(--sar);
+  }
+  
+  /* Garantir que as variáveis sejam aplicadas mesmo em produção */
+  html {
+    box-sizing: border-box;
+  }
+  
+  html * {
+    box-sizing: border-box;
   }
 
   /* Remove qualquer margin/padding padrão do body */
-  html, body, #root {
+  html {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
+    /* Garantir que o viewport respeite safe areas */
+    overflow-x: hidden;
+  }
+  
+  /* Remove qualquer margin/padding padrão do body */
+  body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    /* Garantir que o viewport respeite safe areas */
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  /* #root deve ocupar toda a tela */
+  #root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height para mobile */
+    /* Safe areas NÃO aplicadas aqui - serão aplicadas nos componentes individuais */
+    box-sizing: border-box;
+    position: relative;
+    overflow-x: hidden;
   }
 }
 

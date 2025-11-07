@@ -34,8 +34,20 @@ const LoginPage = () => {
           description: "Login realizado com sucesso. 🎉",
         });
         navigate('/'); // Redirect to HomePage
+      } else {
+        toast({
+          title: "Erro no login",
+          description: secondError.message || "Não foi possível fazer login. Verifique suas credenciais.",
+          variant: "destructive",
+        });
       }
-    } else if (!error) {
+    } else if (error) {
+      toast({
+        title: "Erro no login",
+        description: error.message || "Não foi possível fazer login. Verifique suas credenciais.",
+        variant: "destructive",
+      });
+    } else {
       toast({
         title: `Bem-vindo(a) de volta!`,
         description: "Login realizado com sucesso. 🎉",

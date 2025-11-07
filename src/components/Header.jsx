@@ -17,6 +17,7 @@ const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [siteName, setSiteName] = useState('Trombone Cidadão');
   const [logoUrl, setLogoUrl] = useState('logo.webp');
+  const [logoError, setLogoError] = useState(false);
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
   const location = useLocation();
   const { 
@@ -39,6 +40,8 @@ const Header = () => {
       setSiteName(data.site_name || 'Trombone Cidadão');
       setLogoUrl(data.logo_url || 'logo.webp');
       setMenuSettings(data.menu_settings || defaultMenuSettings);
+      // Resetar logoError quando buscar nova configuração
+      setLogoError(false);
     }
   }, []);
 
@@ -111,10 +114,33 @@ const Header = () => {
   };
 
   return (
-    <header style={headerStyle} className="fixed top-0 left-0 right-0 z-[1001] border-b pt-safe mt-safe">
-      <div className="container mx-auto px-4 h-16 flex justify-between items-center">
+    <header 
+      style={{
+        ...headerStyle, 
+        top: 0,
+        paddingTop: 'calc(var(--safe-area-top))',
+        height: 'calc(4rem + var(--safe-area-top))',
+        marginTop: 0
+      }} 
+      className="fixed left-0 right-0 z-[1001] border-b"
+    >
+      <div className="container mx-auto px-4 h-16 flex justify-between items-center" style={{ marginTop: 0 }}>
         <Link to="/" className="flex items-center gap-3">
-          <img src={logoUrl || 'logo.webp'} alt={siteName} className="h-10 w-auto" />
+          <img 
+            src={logoError ? 'logo.png' : (logoUrl || 'logo.webp')} 
+            alt={siteName} 
+            className="h-10 w-auto"
+            onError={(e) => {
+              if (!logoError) {
+                setLogoError(true);
+                // Tentar logo.png como fallback
+                e.target.src = 'logo.png';
+              } else {
+                // Se logo.png também falhar, usar um placeholder ou deixar vazio
+                e.target.style.display = 'none';
+              }
+            }}
+          />
           <span className="font-bold text-xl">{siteName}</span>
         </Link>
 
@@ -162,6 +188,9 @@ const Header = () => {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings/notifications" className="flex items-center"><LucideIcons.Settings className="mr-2 h-4 w-4" /><span>Preferências de Notificações</span></Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="flex items-center justify-between"
                     onSelect={(e) => {
@@ -214,7 +243,11 @@ const Header = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{backgroundColor: menuSettings.colors.background}}
+            style={{
+              backgroundColor: menuSettings.colors.background,
+              paddingTop: 'var(--safe-area-top)',
+              paddingBottom: 'var(--safe-area-bottom)'
+            }}
             className="fixed inset-0 z-[1000] lg:hidden"
           >
             <motion.div
@@ -234,6 +267,12 @@ const Header = () => {
               <div className="flex flex-col items-center gap-4 mt-8">
                 {user ? (
                   <>
+                    <Button asChild variant="outline" className="w-full">
+                      <Link to="/settings/notifications" className="flex items-center justify-center gap-2">
+                        <LucideIcons.Settings className="h-4 w-4" />
+                        <span>Preferências de Notificações</span>
+                      </Link>
+                    </Button>
                     <div className="flex items-center justify-between w-full px-4 py-2">
                       <span>Notificações do Site</span>
                       <Switch
