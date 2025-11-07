@@ -147,9 +147,9 @@ function App() {
   return (
     <>
       <SEO />
-      <div className="min-h-screen bg-background text-foreground flex flex-col pt-safe">
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
         <Header />
-        <main className="pt-16 flex-grow pb-20 lg:pb-0">
+        <main className="flex-grow pb-20 lg:pb-0" style={{ paddingTop: 'calc(4rem + var(--safe-area-top))', paddingBottom: 'calc(4rem + var(--safe-area-bottom))' }}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/cadastro" element={<RegisterPage />} />

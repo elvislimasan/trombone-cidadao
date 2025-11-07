@@ -75,7 +75,15 @@ const BottomNav = () => {
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border z-[900] lg:hidden pb-safe">
+      <div 
+        className="fixed left-0 right-0 bg-card border-t border-border z-[900] lg:hidden" 
+        style={{ 
+          bottom: 0,
+          paddingBottom: 'var(--safe-area-bottom)',
+          height: 'calc(4rem + var(--safe-area-bottom))',
+          marginBottom: 0
+        }}
+      >
         <div className="container mx-auto h-full">
           <div className="flex justify-around items-center h-full">
             {navItems.map((item) => {

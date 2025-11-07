@@ -197,7 +197,7 @@ export const NotificationProvider = ({ children }) => {
         .from('push_subscriptions')
         .upsert({
           user_id: user.id,
-          subscription: subscription,
+          subscription_details: subscription,
           created_at: new Date().toISOString()
         }, {
           onConflict: 'user_id'

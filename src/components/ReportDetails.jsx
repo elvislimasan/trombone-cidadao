@@ -105,8 +105,6 @@ const ReportDetails = ({
     }
     
     const firstPhoto = report.photos[0];
-
-    console.log(firstPhoto);
     
     // Tenta diferentes propriedades que podem conter a URL
     return firstPhoto.url || 
@@ -196,9 +194,6 @@ const ReportDetails = ({
     text: `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`,
     url: `${baseUrl}/bronca/${report.id}`,
   };
-
-  // Para WhatsApp, precisamos garantir que a imagem seja acessível publicamente
-  console.log('Compartilhando imagem:', shareImage);
 
   try {
     if (navigator.share) {

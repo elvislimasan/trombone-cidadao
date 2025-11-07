@@ -10,7 +10,6 @@
       "launchShowDuration": 0
     },
     "StatusBar": {
-
       "overlaysWebView": false
     }
   }

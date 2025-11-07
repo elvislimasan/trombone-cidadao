@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCache } from '@/hooks/useCache';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +50,7 @@ const DEFAULT_PREFERENCES = {
 
 const NotificationPreferences = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     notificationsEnabled,
     pushEnabled,
@@ -60,6 +62,9 @@ const NotificationPreferences = () => {
     testNotification,
     loading
   } = useNotifications();
+  
+  // Verificar se o usuário é admin
+  const isAdmin = user?.is_admin === true;
 
   const { clearCache, getCacheStatus } = useCache();
   const [testing, setTesting] = useState(false);
@@ -110,75 +115,97 @@ const NotificationPreferences = () => {
     }
   };
 
- const notificationTypes = [
-  {
-    id: 'reports',
-    name: 'Broncas',
-    description: 'Novas broncas e atualizações de denúncias na sua área',
-    icon: AlertTriangle,
-    enabled: safePreferences.reports
-  },
-  {
-    id: 'moderation_update',
-    name: 'Status da Bronca',
-    description: 'Atualizações no status de moderação das suas broncas',
-    icon: FileText,
-    enabled: safePreferences.moderation_update
-  },
-  {
-    id: 'status_update',
-    name: 'Atualização de Status',
-    description: 'Mudanças no status das suas broncas (pendente, em análise, resolvida)',
-    icon: RefreshCcw,
-    enabled: safePreferences.status_update
-  },
-  {
-    id: 'moderation_required',
-    name: 'Moderação Necessária',
-    description: 'Alertas quando uma bronca precisa de moderação urgente',
-    icon: UserCheck,
-    enabled: safePreferences.moderation_required
-  },
-  {
-    id: 'resolution_submission',
-    name: 'Resolução Enviada',
-    description: 'Notificações quando uma resolução é enviada para suas broncas',
-    icon: Camera,
-    enabled: safePreferences.resolution_submission
-  },
-  {
-    id: 'works',
-    name: 'Obras Públicas',
-    description: 'Atualizações em obras que você segue',
-    icon: Construction,
-    enabled: safePreferences.works
-  },
-  {
-    id: 'work_update',
-    name: 'Atualização de Obra',
-    description: 'Mudanças e progressos em obras públicas',
-    icon: Wrench,
-    enabled: safePreferences.work_update
-  },
-  {
-    id: 'comments',
-    name: 'Comentários',
-    description: 'Respostas e menções nos seus comentários',
-    icon: MessageSquare,
-    enabled: safePreferences.comments
-  },
-  {
-    id: 'system',
-    name: 'Sistema',
-    description: 'Notificações importantes do sistema',
-    icon: Shield,
-    enabled: safePreferences.system
-  }
-];
+  // Filtrar tipos de notificação baseado em permissões
+  // 🔥 IMPORTANTE: Usar useMemo para recalcular quando safePreferences mudar
+  const allNotificationTypes = React.useMemo(() => [
+    {
+      id: 'reports',
+      name: 'Broncas',
+      description: 'Novas broncas e atualizações de denúncias na sua área',
+      icon: AlertTriangle,
+      adminOnly: false
+    },
+    {
+      id: 'moderation_update',
+      name: 'Status da Bronca',
+      description: 'Atualizações no status de moderação das suas broncas',
+      icon: FileText,
+      adminOnly: false
+    },
+    {
+      id: 'status_update',
+      name: 'Atualização de Status',
+      description: 'Mudanças no status das suas broncas (pendente, em análise, resolvida)',
+      icon: RefreshCcw,
+      adminOnly: false
+    },
+    {
+      id: 'moderation_required',
+      name: 'Moderação Necessária',
+      description: 'Alertas quando uma bronca precisa de moderação urgente',
+      icon: UserCheck,
+      adminOnly: true // Apenas para admins
+    },
+    {
+      id: 'resolution_submission',
+      name: 'Resolução Enviada',
+      description: 'Notificações quando uma resolução é enviada para suas broncas',
+      icon: Camera,
+      adminOnly: false
+    },
+    {
+      id: 'works',
+      name: 'Obras Públicas',
+      description: 'Atualizações em obras que você segue',
+      icon: Construction,
+      adminOnly: false
+    },
+    {
+      id: 'work_update',
+      name: 'Atualização de Obra',
+      description: 'Mudanças e progressos em obras públicas',
+      icon: Wrench,
+      adminOnly: false
+    },
+    {
+      id: 'comments',
+      name: 'Comentários',
+      description: 'Respostas e menções nos seus comentários',
+      icon: MessageSquare,
+      adminOnly: false
+    },
+    {
+      id: 'system',
+      name: 'Sistema',
+      description: 'Notificações importantes do sistema',
+      icon: Shield,
+      adminOnly: false
+    }
+  ].map(type => {
+    // 🔥 IMPORTANTE: Buscar valor atualizado das preferências
+    // Se não existir na preferência, usar false (não enabled)
+    const preferenceValue = safePreferences[type.id];
+    const isEnabled = preferenceValue === true || preferenceValue === 'true';
+    
+    return {
+      ...type,
+      enabled: isEnabled
+    };
+  }), [safePreferences]);
+  
+  // Filtrar apenas tipos visíveis para o usuário atual
+  const notificationTypes = React.useMemo(() => allNotificationTypes.filter(type => {
+    // Se for adminOnly, mostrar apenas para admins
+    if (type.adminOnly && !isAdmin) {
+      return false;
+    }
+    return true;
+  }), [allNotificationTypes, isAdmin]);
 
   // Calcular tipos ativos de forma segura
   const activeTypesCount = Object.values(safePreferences).filter(Boolean).length;
   const totalTypesCount = Object.keys(safePreferences).length;
+
 
   if (loading) {
     return (
@@ -220,73 +247,6 @@ const NotificationPreferences = () => {
       </div>
 
       <div className="space-y-6">
-        {/* Status Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Status das Notificações
-            </CardTitle>
-            <CardDescription>
-              Estado atual das suas configurações de notificação
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className={`p-4 rounded-lg border-2 ${
-                notificationsEnabled 
-                  ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
-                  : 'border-red-500 bg-red-50 dark:bg-red-950/20'
-              }`}>
-                <div className="flex items-center gap-3">
-                  {notificationsEnabled ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600" />
-                  ) : (
-                    <XCircle className="h-6 w-6 text-red-600" />
-                  )}
-                  <div>
-                    <p className="font-semibold">Notificações do Site</p>
-                    <p className="text-sm text-muted-foreground">
-                      {notificationsEnabled ? 'Ativadas' : 'Desativadas'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`p-4 rounded-lg border-2 ${
-                pushEnabled 
-                  ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
-                  : 'border-gray-300 bg-gray-50 dark:bg-gray-950/20'
-              }`}>
-                <div className="flex items-center gap-3">
-                  {pushEnabled ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600" />
-                  ) : (
-                    <BellOff className="h-6 w-6 text-gray-500" />
-                  )}
-                  <div>
-                    <p className="font-semibold">Notificações Push</p>
-                    <p className="text-sm text-muted-foreground">
-                      {pushEnabled ? 'Ativadas' : pushSupported ? 'Desativadas' : 'Não suportado'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-lg border bg-card">
-                <div className="flex items-center gap-3">
-                  <Volume2 className="h-6 w-6 text-blue-600" />
-                  <div>
-                    <p className="font-semibold">Tipos Ativos</p>
-                    <p className="text-sm text-muted-foreground">
-                      {activeTypesCount} de {totalTypesCount}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Configurações Principais */}
         <Card>
@@ -380,7 +340,7 @@ const NotificationPreferences = () => {
               <Switch
                 checked={pushEnabled}
                 onCheckedChange={togglePushNotifications}
-                disabled={!pushSupported || !notificationsEnabled}
+                disabled={!pushSupported || !notificationsEnabled || loading}
                 className="data-[state=checked]:bg-green-500"
               />
             </div>
@@ -435,11 +395,32 @@ const NotificationPreferences = () => {
                     </div>
                   </div>
                   <Switch
-                    checked={type.enabled && notificationsEnabled}
-                    onCheckedChange={(checked) => 
-                      updatePreferences({ [type.id]: checked })
-                    }
-                    disabled={!notificationsEnabled}
+                    checked={!!type.enabled && !!notificationsEnabled}
+                    onCheckedChange={async (checked) => {
+                      try {
+                        console.log(`🔔 [PREF UI] Atualizando ${type.id} de ${type.enabled} para ${checked}`);
+                        console.log('🔔 [PREF UI] Preferências atuais:', safePreferences);
+                        const update = { [type.id]: checked };
+                        console.log('🔔 [PREF UI] Update object:', update);
+                        
+                        await updatePreferences(update);
+                        
+                        console.log(`✅ [PREF UI] ${type.id} atualizado com sucesso`);
+                        console.log('🔔 [PREF UI] Preferências após atualização (do contexto):', notificationPreferences);
+                        
+                        toast.success(
+                          checked 
+                            ? `${type.name} habilitado` 
+                            : `${type.name} desabilitado`,
+                          { duration: 2000 }
+                        );
+                      } catch (error) {
+                        console.error(`❌ [PREF UI] Erro ao atualizar ${type.id}:`, error);
+                        console.error('❌ [PREF UI] Stack trace:', error.stack);
+                        toast.error(`Erro ao atualizar ${type.name}. Verifique o console.`, { duration: 4000 });
+                      }
+                    }}
+                    disabled={!notificationsEnabled || loading}
                     className="data-[state=checked]:bg-blue-500"
                   />
                 </div>
@@ -552,23 +533,6 @@ const NotificationPreferences = () => {
           </CardContent>
         </Card>
 
-        {/* Ações */}
-        <div className="flex gap-4 justify-end pt-6 border-t">
-          <Button
-            variant="outline"
-            onClick={() => navigate(-1)}
-          >
-            Voltar
-          </Button>
-          <Button
-            onClick={() => {
-              toast.success('Configurações salvas com sucesso!');
-              navigate(-1);
-            }}
-          >
-            Salvar Configurações
-          </Button>
-        </div>
       </div>
     </div>
   );
