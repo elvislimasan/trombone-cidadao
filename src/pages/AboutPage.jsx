@@ -49,9 +49,8 @@ const AboutPage = () => {
 
       <div className="grid md:grid-cols-2 gap-10 items-center mb-16">
         <motion.div variants={itemVariants}>
-          {/* Replaced img-replace with static image URL for consistent display */}
           <img
-            src="https://horizons-cdn.hostinger.com/eff1a4c5-4884-43cf-92e9-e90f584b8f04/1274cc605ab732520a8934d0187a7a17.png"
+            src="/logo.png"
             alt="Trombone Cidadão Logo"
             className="w-64 h-64 mx-auto object-contain"
           />

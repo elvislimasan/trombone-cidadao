@@ -170,6 +170,11 @@ const ProfilePage = () => {
                 Sair
               </Button>
             </div>
+            <Link to="/excluir-conta" className="w-full mt-4">
+              <Button variant="outline" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20">
+                Excluir Conta
+              </Button>
+            </Link>
           </motion.div>
 
           <motion.div

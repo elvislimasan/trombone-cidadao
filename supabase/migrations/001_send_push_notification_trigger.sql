@@ -69,24 +69,15 @@ BEGIN
 
   -- Verificar se o tipo de notificação está habilitado
   IF user_preferences IS NOT NULL AND jsonb_typeof(user_preferences) = 'object' THEN
-    -- Log detalhado das preferências
-    RAISE NOTICE '[PUSH] Verificando preferências para type=%: user_preferences=%', NEW.type, user_preferences;
-    
     notification_type_enabled := COALESCE(
       (user_preferences->>COALESCE(NEW.type, 'system'))::boolean,
       true
     );
     
-    RAISE NOTICE '[PUSH] Tipo de notificação % está % para user_id=%', NEW.type, 
-      CASE WHEN notification_type_enabled THEN 'habilitado' ELSE 'desabilitado' END, 
-      NEW.user_id;
-    
     IF notification_type_enabled IS FALSE THEN
       RAISE NOTICE '[PUSH] Tipo de notificação desabilitado para user_id=%: type=%', NEW.user_id, NEW.type;
       RETURN NEW;
     END IF;
-  ELSE
-    RAISE NOTICE '[PUSH] user_preferences é NULL ou não é objeto para user_id=%', NEW.user_id;
   END IF;
 
   -- Preparar dados da notificação

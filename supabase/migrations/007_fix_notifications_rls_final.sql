@@ -1,8 +1,64 @@
--- Função para criar notificações quando reports são criados ou atualizados
--- Esta função cria notificações na tabela notifications, que então dispara o trigger send_push_notification
+-- =====================================================
+-- CORREÇÃO FINAL: RLS da tabela notifications
+-- =====================================================
+-- Este script corrige o problema de "column user_id does not exist"
+-- A solução é garantir que a política INSERT não tente acessar user_id
 
--- Função para criar notificação quando um report é criado
--- 🔥 IMPORTANTE: SECURITY DEFINER permite que a função contorne RLS
+-- 1. Verificar se a coluna user_id existe na tabela
+SELECT 
+    column_name,
+    data_type,
+    is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'notifications'
+  AND column_name = 'user_id';
+
+-- 2. Dropar TODAS as políticas existentes
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can manage their own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can delete their own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "System can insert notifications" ON public.notifications;
+DROP POLICY IF EXISTS "System can create notifications" ON public.notifications;
+
+-- 3. Recriar política para SELECT (visualizar)
+CREATE POLICY "Users can view their own notifications"
+    ON public.notifications
+    AS PERMISSIVE
+    FOR SELECT
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+-- 4. Recriar política para UPDATE (atualizar)
+CREATE POLICY "Users can update their own notifications"
+    ON public.notifications
+    AS PERMISSIVE
+    FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+-- 5. Recriar política para DELETE (deletar)
+CREATE POLICY "Users can delete their own notifications"
+    ON public.notifications
+    AS PERMISSIVE
+    FOR DELETE
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+-- 6. Criar política para INSERT (inserir via funções SECURITY DEFINER)
+-- 🔥 IMPORTANTE: Usar AS PERMISSIVE e WITH CHECK (true) sem referência a user_id
+-- Isso permite que funções SECURITY DEFINER insiram notificações
+-- A política não deve tentar acessar user_id no contexto do INSERT
+CREATE POLICY "System can create notifications"
+    ON public.notifications
+    AS PERMISSIVE
+    FOR INSERT
+    TO public
+    WITH CHECK (true);
+
+-- 7. Garantir que as funções têm SECURITY DEFINER e SET search_path
 CREATE OR REPLACE FUNCTION create_notification_on_report_created()
 RETURNS TRIGGER 
 SECURITY DEFINER
@@ -22,7 +78,7 @@ BEGIN
     LOOP
       notification_message := 'Nova bronca criada: ' || COALESCE(NEW.title, 'Sem título');
       
-      INSERT INTO notifications (user_id, type, message, report_id)
+      INSERT INTO public.notifications (user_id, type, message, report_id)
       VALUES (notification_user_id, 'reports', notification_message, NEW.id);
     END LOOP;
   EXCEPTION
@@ -40,7 +96,7 @@ BEGIN
     LOOP
       notification_message := 'Nova bronca criada: ' || COALESCE(NEW.title, 'Sem título');
       
-      INSERT INTO notifications (user_id, type, message, report_id)
+      INSERT INTO public.notifications (user_id, type, message, report_id)
       VALUES (notification_user_id, 'reports', notification_message, NEW.id);
     END LOOP;
   EXCEPTION
@@ -53,8 +109,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Função para criar notificação quando um report é atualizado
--- 🔥 IMPORTANTE: SECURITY DEFINER permite que a função contorne RLS
 CREATE OR REPLACE FUNCTION create_notification_on_report_updated()
 RETURNS TRIGGER 
 SECURITY DEFINER
@@ -72,7 +126,7 @@ BEGIN
     notification_message := 'O status da sua bronca "' || NEW.title || '" foi atualizado para: ' || NEW.status;
     
     -- Criar notificação para o autor do report
-    INSERT INTO notifications (user_id, type, message, report_id)
+    INSERT INTO public.notifications (user_id, type, message, report_id)
     VALUES (NEW.author_id, notification_type, notification_message, NEW.id);
   END IF;
   
@@ -82,20 +136,8 @@ BEGIN
     notification_message := 'Uma resolução foi submetida para sua bronca "' || NEW.title || '"';
     
     -- Criar notificação para o autor do report
-    INSERT INTO notifications (user_id, type, message, report_id)
+    INSERT INTO public.notifications (user_id, type, message, report_id)
     VALUES (NEW.author_id, notification_type, notification_message, NEW.id);
-    
-    -- Criar notificação para administradores (para moderação)
-    -- (descomente se quiser notificar admins)
-    /*
-    FOR notification_user_id IN 
-      SELECT id FROM auth.users 
-      WHERE raw_user_meta_data->>'role' = 'admin'
-    LOOP
-      INSERT INTO notifications (user_id, type, message, report_id)
-      VALUES (notification_user_id, 'moderation_required', notification_message, NEW.id);
-    END LOOP;
-    */
   END IF;
   
   -- 3. Se o moderation_status mudou (aprovado/rejeitado)
@@ -111,7 +153,7 @@ BEGIN
     END IF;
     
     -- Criar notificação para o autor do report
-    INSERT INTO notifications (user_id, type, message, report_id)
+    INSERT INTO public.notifications (user_id, type, message, report_id)
     VALUES (NEW.author_id, notification_type, notification_message, NEW.id);
   END IF;
   
@@ -119,27 +161,55 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger para criar notificação quando um report é criado
+-- 8. Criar triggers (se não existirem)
 DROP TRIGGER IF EXISTS trigger_create_notification_on_report_created ON reports;
 CREATE TRIGGER trigger_create_notification_on_report_created
   AFTER INSERT ON reports
   FOR EACH ROW
   EXECUTE FUNCTION create_notification_on_report_created();
 
--- Trigger para criar notificação quando um report é atualizado
 DROP TRIGGER IF EXISTS trigger_create_notification_on_report_updated ON reports;
 CREATE TRIGGER trigger_create_notification_on_report_updated
   AFTER UPDATE ON reports
   FOR EACH ROW
   EXECUTE FUNCTION create_notification_on_report_updated();
 
--- Comentários para documentação
-COMMENT ON FUNCTION create_notification_on_report_created() IS 
-  'Função que cria notificações quando um report é criado';
-COMMENT ON FUNCTION create_notification_on_report_updated() IS 
-  'Função que cria notificações quando um report é atualizado (mudanças de status, resolução, moderação)';
-COMMENT ON TRIGGER trigger_create_notification_on_report_created ON reports IS
-  'Trigger que cria notificações quando um novo report é criado';
-COMMENT ON TRIGGER trigger_create_notification_on_report_updated ON reports IS
-  'Trigger que cria notificações quando um report é atualizado';
+-- 9. Verificar se as políticas foram criadas corretamente
+SELECT 
+    policyname,
+    cmd,
+    roles,
+    qual,
+    with_check,
+    permissive
+FROM pg_policies
+WHERE tablename = 'notifications'
+ORDER BY policyname;
+
+-- 10. Verificar se as funções têm SECURITY DEFINER
+SELECT 
+    proname as function_name,
+    prosecdef as is_security_definer,
+    proconfig as search_path_config
+FROM pg_proc
+WHERE proname IN (
+    'create_notification_on_report_created',
+    'create_notification_on_report_updated'
+)
+ORDER BY proname;
+
+-- 11. Verificar se os triggers existem
+SELECT 
+    trigger_name,
+    event_manipulation,
+    event_object_table
+FROM information_schema.triggers
+WHERE event_object_schema = 'public'
+  AND event_object_table = 'reports'
+  AND trigger_name IN (
+    'trigger_create_notification_on_report_created',
+    'trigger_create_notification_on_report_updated'
+  )
+ORDER BY trigger_name;
+
 

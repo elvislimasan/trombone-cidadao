@@ -14,7 +14,7 @@ const DynamicSEO = ({
   // URL base para imagens - fallback robusto
   const getBaseUrl = () => {
     if (typeof window !== 'undefined') return window.location.origin;
-    return 'https://trombone-cidadao.vercel.app';
+    return 'https://trombonecidadao.com.br';
   };
   
   const baseUrl = getBaseUrl();

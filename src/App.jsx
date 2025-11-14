@@ -42,6 +42,7 @@ import FavoriteWorksPage from '@/pages/FavoriteWorksPage';
 import ContactPage from '@/pages/ContactPage';
 import TrashPage from '@/pages/admin/TrashPage';
 import NotificationPreferences from './pages/NotificationPreferences';
+import DeleteAccountPage from './pages/DeleteAccountPage';
 
 const SEO = () => {
   const location = useLocation();
@@ -52,7 +53,7 @@ const SEO = () => {
   const getBaseUrl = () => {
     if (import.meta.env.VITE_APP_URL) return import.meta.env.VITE_APP_URL;
     if (typeof window !== 'undefined') return window.location.origin;
-    return 'https://trombone-cidadao.vercel.app';
+    return 'https://trombonecidadao.com.br';
   };
   
   const baseUrl = getBaseUrl();
@@ -175,6 +176,7 @@ function App() {
             <Route path="/obras-favoritas" element={<PrivateRoute><FavoriteWorksPage /></PrivateRoute>} />
             <Route path="/painel-usuario" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
             <Route path="/alterar-senha" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
+            <Route path="/excluir-conta" element={<PrivateRoute><DeleteAccountPage /></PrivateRoute>} />
             
             <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
             <Route path="/admin/moderacao/:type" element={<AdminRoute><ModerationPage /></AdminRoute>} />
