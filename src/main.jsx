@@ -6,6 +6,7 @@ import '@/index.css';
 import 'leaflet/dist/leaflet.css';
 import { AuthProvider } from '@/contexts/SupabaseAuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { MapModeProvider } from './contexts/MapModeContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
@@ -210,9 +211,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <NotificationProvider>
-          <HelmetProvider>
-            <App /> 
-          </HelmetProvider>
+          <MapModeProvider>
+            <HelmetProvider>
+              <App /> 
+            </HelmetProvider>
+          </MapModeProvider>
         </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>

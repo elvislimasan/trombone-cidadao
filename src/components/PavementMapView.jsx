@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
+import { useMapScrollLock } from '@/hooks/useMapScrollLock';
+import { useMapModeToggle } from '@/contexts/MapModeContext';
+import MapModeToggle from '@/components/MapModeToggle';
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
@@ -12,10 +15,16 @@ const MapController = ({ mapRef }) => {
   return null;
 };
 
+const MapScrollLock = ({ mode }) => {
+  useMapScrollLock(mode);
+  return null;
+};
+
 const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const [selectedStreet, setSelectedStreet] = useState(null);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const mapRef = useRef();
+  const { mode } = useMapModeToggle();
 
   useImperativeHandle(ref, () => ({
     goToLocation: (location) => {
@@ -90,6 +99,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
     <div className="w-full h-full bg-secondary rounded-lg overflow-hidden relative">
       <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
         <MapController mapRef={mapRef} />
+        <MapScrollLock mode={mode} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -110,6 +120,10 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
           </Marker>
         ))}
       </MapContainer>
+
+      <div className="absolute top-4 right-4 z-[1000]">
+        <MapModeToggle />
+      </div>
 
       <AnimatePresence>
         {selectedStreet && (

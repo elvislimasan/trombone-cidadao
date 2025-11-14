@@ -17,7 +17,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatPhone, validateEmail } from "@/lib/utils";
 
 const Combobox = ({ options, value, onSelect, placeholder, emptyText, disabled = false }) => {
   const [open, setOpen] = useState(false);
@@ -134,10 +134,13 @@ const RegisterPage = () => {
 
     const selectedCity = cities.find(c => c.id === parseInt(data.city_id));
 
+    // Remove formatação do telefone antes de salvar (apenas números)
+    const phoneNumbers = data.phone ? data.phone.replace(/\D/g, '') : '';
+
     const { error } = await signUp(data.email, data.password, {
       data: {
         name: data.name,
-        phone: data.phone,
+        phone: phoneNumbers,
         city: selectedCity ? selectedCity.name : null,
         state_id: data.state_id,
         city_id: data.city_id,
@@ -196,12 +199,67 @@ const RegisterPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" {...register("email", { required: "Email é obrigatório" })} />
+                    <Controller
+                      name="email"
+                      control={control}
+                      rules={{ 
+                        required: "Email é obrigatório",
+                        validate: (value) => {
+                          if (!value) return "Email é obrigatório";
+                          if (!validateEmail(value)) {
+                            return "Email inválido. Use o formato: exemplo@email.com";
+                          }
+                          return true;
+                        }
+                      }}
+                      render={({ field }) => (
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="seu@email.com"
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            field.onChange(e.target.value);
+                          }}
+                          onBlur={field.onBlur}
+                          className={errors.email ? 'border-destructive' : ''}
+                        />
+                      )}
+                    />
                     {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Telefone</Label>
-                    <Input id="phone" type="tel" {...register("phone", { required: "Telefone é obrigatório" })} />
+                    <Controller
+                      name="phone"
+                      control={control}
+                      rules={{ 
+                        required: "Telefone é obrigatório",
+                        validate: (value) => {
+                          const numbers = value ? value.replace(/\D/g, '') : '';
+                          if (numbers.length < 10) {
+                            return "Telefone deve ter pelo menos 10 dígitos";
+                          }
+                          if (numbers.length > 11) {
+                            return "Telefone deve ter no máximo 11 dígitos";
+                          }
+                          return true;
+                        }
+                      }}
+                      render={({ field }) => (
+                        <Input
+                          id="phone"
+                          type="tel"
+                          placeholder="(87) 99999-9999"
+                          value={formatPhone(field.value || '')}
+                          onChange={(e) => {
+                            const formatted = formatPhone(e.target.value);
+                            field.onChange(formatted);
+                          }}
+                          maxLength={15}
+                        />
+                      )}
+                    />
                     {errors.phone && <p className="text-red-500 text-sm">{errors.phone.message}</p>}
                   </div>
                 </div>

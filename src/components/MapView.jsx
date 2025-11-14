@@ -4,6 +4,9 @@ import { ThumbsUp, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
+import { useMapScrollLock } from '@/hooks/useMapScrollLock';
+import { useMapModeToggle } from '@/contexts/MapModeContext';
+import MapModeToggle from '@/components/MapModeToggle';
 
 const getCategoryIcon = (category) => {
   const icons = {
@@ -53,6 +56,8 @@ const createMarkerIcon = (category, status) => {
 };
 
 const MapView = ({ reports, onReportClick, onUpvote }) => {
+  const { mode } = useMapModeToggle();
+
   const formatDate = (dateString) => {
     if (!dateString || isNaN(new Date(dateString))) return 'Data inválida';
     return new Date(dateString).toLocaleDateString('pt-BR');
@@ -71,6 +76,14 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
     return null;
   };
 
+  const MapScrollLock = () => {
+    useMapScrollLock(mode);
+    useEffect(() => {
+      console.log('[MapView] Modo atual:', mode);
+    }, [mode]);
+    return null;
+  };
+
   return (
     <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
       <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
@@ -79,6 +92,7 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapFlyTo />
+        <MapScrollLock />
         {reports.map((report) => {
           const location = report.location;
           if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
@@ -113,6 +127,9 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
           );
         })}
       </MapContainer>
+      <div className="absolute top-4 right-4 z-[1000]">
+        <MapModeToggle />
+      </div>
       <div className="absolute bottom-4 left-4 bg-card/80 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[1000]">
         <h4 className="font-semibold text-sm mb-2">Legenda</h4>
         <div className="space-y-1 text-xs">

@@ -10,10 +10,18 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { useMapScrollLock } from '@/hooks/useMapScrollLock';
+import { useMapModeToggle } from '@/contexts/MapModeContext';
+import MapModeToggle from '@/components/MapModeToggle';
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
   mapRef.current = map;
+  return null;
+};
+
+const MapScrollLock = ({ mode }) => {
+  useMapScrollLock(mode);
   return null;
 };
 
@@ -25,6 +33,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { mode } = useMapModeToggle();
 
   const fetchWorkMedia = useCallback(async (workId) => {
     if (!workId) return;
@@ -154,6 +163,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
     <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
       <MapContainer center={isSingleWorkView && selectedWork.location ? [selectedWork.location.lat, selectedWork.location.lng] : FLORESTA_COORDS} zoom={isSingleWorkView ? 17 : INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
         <MapController mapRef={mapRef} />
+        <MapScrollLock mode={mode} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -288,6 +298,10 @@ const WorksMapView = forwardRef(({ works }, ref) => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <div className="absolute top-4 right-4 z-[1000]">
+        <MapModeToggle />
+      </div>
 
       {!isSingleWorkView && (
         <div className="absolute bottom-4 left-4 bg-card/80 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[1000]">

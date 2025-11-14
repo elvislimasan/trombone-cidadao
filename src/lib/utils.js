@@ -49,6 +49,30 @@ export function formatCnpj(cnpj) {
   return cnpj;
 };
 
+export function formatPhone(phone) {
+  if (!phone) return '';
+  // Remove tudo que não é número
+  const numbers = phone.replace(/\D/g, '');
+  // Limita a 11 dígitos (DDD + 9 dígitos)
+  const limited = numbers.slice(0, 11);
+  
+  // Formata: (87) 99999-9999
+  if (limited.length <= 2) {
+    return limited.length > 0 ? `(${limited}` : '';
+  } else if (limited.length <= 7) {
+    return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+  } else {
+    return `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
+  }
+}
+
+export function validateEmail(email) {
+  if (!email) return false;
+  // Regex mais robusta para validação de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
 export function formatTimeAgo(dateString) {
   if (!dateString) return 'Data não informada';
   

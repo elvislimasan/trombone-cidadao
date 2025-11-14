@@ -118,6 +118,32 @@
   }
 }
 
+/* === MELHORIAS DE NAVEGAÇÃO PARA MAPAS NO MOBILE === */
+/* Quando o mapa está em modo scroll-locked, melhora a experiência de scroll */
+.leaflet-scroll-locked {
+  pointer-events: none !important;
+  touch-action: pan-y !important;
+}
+
+/* Garante que o scroll funcione suavemente em páginas com mapas */
+@media (max-width: 768px) {
+  /* Melhora o scroll em containers com mapas - permite scroll vertical e pinch zoom */
+  .leaflet-container {
+    touch-action: pan-y pinch-zoom;
+  }
+  
+  /* Permite scroll vertical mesmo quando o dedo está sobre o mapa */
+  .leaflet-container.leaflet-touch {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Quando scroll-locked, desabilita completamente interações do mapa */
+  .leaflet-scroll-locked .leaflet-interactive,
+  .leaflet-scroll-locked .leaflet-clickable {
+    pointer-events: none !important;
+  }
+}
+
 /* === SEUS ESTILOS ORIGINAIS (MANTIDOS INTACTOS) === */
 @layer base {
   :root {
