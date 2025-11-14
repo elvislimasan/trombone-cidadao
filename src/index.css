@@ -125,6 +125,13 @@
   touch-action: pan-y !important;
 }
 
+/* Permite que marcadores recebam eventos mesmo quando o mapa está bloqueado */
+.leaflet-scroll-locked .leaflet-marker-icon,
+.leaflet-scroll-locked .leaflet-marker-shadow {
+  pointer-events: auto !important;
+  touch-action: auto !important;
+}
+
 /* Garante que o scroll funcione suavemente em páginas com mapas */
 @media (max-width: 768px) {
   /* Melhora o scroll em containers com mapas - permite scroll vertical e pinch zoom */
@@ -137,9 +144,9 @@
     -webkit-overflow-scrolling: touch;
   }
   
-  /* Quando scroll-locked, desabilita completamente interações do mapa */
-  .leaflet-scroll-locked .leaflet-interactive,
-  .leaflet-scroll-locked .leaflet-clickable {
+  /* Quando scroll-locked, desabilita completamente interações do mapa, exceto marcadores */
+  .leaflet-scroll-locked .leaflet-interactive:not(.leaflet-marker-icon),
+  .leaflet-scroll-locked .leaflet-clickable:not(.leaflet-marker-icon) {
     pointer-events: none !important;
   }
 }

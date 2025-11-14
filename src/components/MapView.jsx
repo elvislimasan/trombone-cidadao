@@ -103,6 +103,12 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
               key={report.id}
               position={[location.lat, location.lng]}
               icon={createMarkerIcon(report.category, report.status)}
+              eventHandlers={{
+                dblclick: (e) => {
+                  e.originalEvent.stopPropagation();
+                  onReportClick(report);
+                },
+              }}
             >
               <Popup>
                 <div className="w-64">
@@ -130,7 +136,7 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
       <div className="absolute top-4 right-4 z-[1000]">
         <MapModeToggle />
       </div>
-      <div className="absolute left-4 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto bottom-20 lg:bottom-4">
+      <div className="absolute left-2 sm:left-4 bottom-2 sm:bottom-3 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto">
         <h4 className="font-semibold text-sm mb-2.5">Legenda</h4>
         <div className="space-y-1.5 text-xs">
           <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('pending')}}></div><span className="truncate">Pendente</span></div>
