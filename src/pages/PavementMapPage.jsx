@@ -34,7 +34,9 @@ const PavementMapPage = () => {
   const { toast } = useToast();
 
   const fetchStreets = useCallback(async () => {
-    const { data, error } = await supabase.from('pavement_streets').select('*, bairro:bairros(name)');
+    const { data, error } = await supabase
+      .from('pavement_streets')
+      .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)');
     if (error) {
       toast({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     } else {

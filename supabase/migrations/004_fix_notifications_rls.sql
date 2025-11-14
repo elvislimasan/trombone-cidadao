@@ -1,5 +1,5 @@
--- Função para criar notificações quando reports são criados ou atualizados
--- Esta função cria notificações na tabela notifications, que então dispara o trigger send_push_notification
+-- Correção: Adicionar SECURITY DEFINER às funções que criam notificações
+-- Isso permite que as funções contornem RLS ao inserir notificações
 
 -- Função para criar notificação quando um report é criado
 -- 🔥 IMPORTANTE: SECURITY DEFINER permite que a função contorne RLS
@@ -84,18 +84,6 @@ BEGIN
     -- Criar notificação para o autor do report
     INSERT INTO notifications (user_id, type, message, report_id)
     VALUES (NEW.author_id, notification_type, notification_message, NEW.id);
-    
-    -- Criar notificação para administradores (para moderação)
-    -- (descomente se quiser notificar admins)
-    /*
-    FOR notification_user_id IN 
-      SELECT id FROM auth.users 
-      WHERE raw_user_meta_data->>'role' = 'admin'
-    LOOP
-      INSERT INTO notifications (user_id, type, message, report_id)
-      VALUES (notification_user_id, 'moderation_required', notification_message, NEW.id);
-    END LOOP;
-    */
   END IF;
   
   -- 3. Se o moderation_status mudou (aprovado/rejeitado)
@@ -119,27 +107,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger para criar notificação quando um report é criado
-DROP TRIGGER IF EXISTS trigger_create_notification_on_report_created ON reports;
-CREATE TRIGGER trigger_create_notification_on_report_created
-  AFTER INSERT ON reports
-  FOR EACH ROW
-  EXECUTE FUNCTION create_notification_on_report_created();
-
--- Trigger para criar notificação quando um report é atualizado
-DROP TRIGGER IF EXISTS trigger_create_notification_on_report_updated ON reports;
-CREATE TRIGGER trigger_create_notification_on_report_updated
-  AFTER UPDATE ON reports
-  FOR EACH ROW
-  EXECUTE FUNCTION create_notification_on_report_updated();
+-- 🔥 IMPORTANTE: Criar política RLS para permitir INSERT via funções SECURITY DEFINER
+-- Esta política permite que funções com SECURITY DEFINER insiram notificações
+-- Nota: Funções SECURITY DEFINER executam com privilégios do dono da função,
+-- então esta política permite que elas insiram notificações mesmo com RLS habilitado
+DROP POLICY IF EXISTS "System can insert notifications" ON public.notifications;
+CREATE POLICY "System can insert notifications"
+    ON public.notifications
+    FOR INSERT
+    TO authenticated, anon, service_role
+    WITH CHECK (true);  -- Permite qualquer inserção (funções SECURITY DEFINER podem inserir)
 
 -- Comentários para documentação
 COMMENT ON FUNCTION create_notification_on_report_created() IS 
-  'Função que cria notificações quando um report é criado';
+  'Função que cria notificações quando um report é criado. Usa SECURITY DEFINER para contornar RLS.';
 COMMENT ON FUNCTION create_notification_on_report_updated() IS 
-  'Função que cria notificações quando um report é atualizado (mudanças de status, resolução, moderação)';
-COMMENT ON TRIGGER trigger_create_notification_on_report_created ON reports IS
-  'Trigger que cria notificações quando um novo report é criado';
-COMMENT ON TRIGGER trigger_create_notification_on_report_updated ON reports IS
-  'Trigger que cria notificações quando um report é atualizado';
+  'Função que cria notificações quando um report é atualizado. Usa SECURITY DEFINER para contornar RLS.';
+COMMENT ON POLICY "System can insert notifications" ON public.notifications IS 
+  'Política RLS que permite inserção de notificações via funções SECURITY DEFINER';
 

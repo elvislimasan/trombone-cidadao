@@ -71,7 +71,7 @@ const LoginPage = () => {
           <Card className="w-full max-w-md shadow-2xl bg-card border-border">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4">
-                <img src="https://horizons-cdn.hostinger.com/eff1a4c5-4884-43cf-92e9-e90f584b8f04/1274cc605ab732520a8934d0187a7a17.png" alt="Trombone Cidadão Logo" className="w-20 h-20" />
+                <img src="/logo.png" alt="Trombone Cidadão Logo" className="w-20 h-20" />
               </div>
               <CardTitle className="text-3xl font-bold text-tc-red">Acessar Conta</CardTitle>
               <CardDescription>Use seu e-mail e senha para entrar.</CardDescription>

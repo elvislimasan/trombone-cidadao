@@ -11,7 +11,12 @@ const VAPID_EMAIL = rawVapidEmail && !rawVapidEmail.startsWith("mailto:")
   : rawVapidEmail;
 
 // 🔥 FCM HTTP v1 API Configuration
-const FIREBASE_PROJECT_ID = Deno.env.get("FIREBASE_PROJECT_ID") || "trombone-cidadao";
+// ⚠️ IMPORTANTE: O project_id deve corresponder ao token FCM
+// O token FCM é gerado com base no project_id do google-services.json do app Android
+// Se o google-services.json usa "trombone-cidadao-572b5", usar esse
+// Se o google-services.json usa "trombone-cidadao", usar esse
+// A variável de ambiente FIREBASE_PROJECT_ID tem PRIORIDADE sobre o Service Account JSON
+const FIREBASE_PROJECT_ID = Deno.env.get("FIREBASE_PROJECT_ID") || "trombone-cidadao-572b5";
 const FIREBASE_SERVICE_ACCOUNT = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
 const FIREBASE_PRIVATE_KEY = Deno.env.get("FIREBASE_PRIVATE_KEY");
 const FIREBASE_CLIENT_EMAIL = Deno.env.get("FIREBASE_CLIENT_EMAIL");
@@ -68,6 +73,18 @@ async function getFCMAccessToken(): Promise<string> {
       if (typeof serviceAccount.client_email !== 'string') {
         console.error("[FCM] client_email não é uma string. Tipo:", typeof serviceAccount.client_email);
         throw new Error("FCM client_email no FIREBASE_SERVICE_ACCOUNT não é uma string válida");
+      }
+      
+      // Log do Service Account sendo usado
+      console.log(`📧 [FCM] Client email: ${serviceAccount.client_email}`);
+      console.log(`🏢 [FCM] Project ID do Service Account: ${serviceAccount.project_id || 'NÃO DEFINIDO'}`);
+      console.log(`🏢 [FCM] Project ID da variável de ambiente: ${FIREBASE_PROJECT_ID || 'NÃO DEFINIDO'}`);
+      
+      // Verificar se o project_id do Service Account corresponde ao da variável de ambiente
+      if (serviceAccount.project_id && FIREBASE_PROJECT_ID && serviceAccount.project_id !== FIREBASE_PROJECT_ID) {
+        console.warn(`⚠️ [FCM] ATENÇÃO: Project ID do Service Account (${serviceAccount.project_id}) é diferente da variável de ambiente (${FIREBASE_PROJECT_ID})`);
+        console.warn(`⚠️ [FCM] O código vai usar o project_id da variável de ambiente (${FIREBASE_PROJECT_ID}) para enviar notificações`);
+        console.warn(`⚠️ [FCM] MAS o Service Account precisa ter permissões no projeto ${FIREBASE_PROJECT_ID}`);
       }
       
       // Usar project_id do JSON se disponível, senão usar variável de ambiente
@@ -222,24 +239,45 @@ async function sendFCMNotification(
   }
 ): Promise<{ success: boolean; error?: string; token?: string }> {
   try {
-    // Obter project_id do Service Account ou usar variável de ambiente
-    let projectId = FIREBASE_PROJECT_ID || "trombone-cidadao";
+    // 🔥 IMPORTANTE: O project_id deve corresponder ao token FCM
+    // Se o google-services.json usa "trombone-cidadao-572b5", usar esse
+    // Se o google-services.json usa "trombone-cidadao", usar esse
+    // O token FCM é gerado com base no project_id do google-services.json
+    let projectId = null;
     
-    // Se tiver Service Account, tentar obter project_id do JSON
-    if (FIREBASE_SERVICE_ACCOUNT) {
+    // Prioridade 1: Variável de ambiente FIREBASE_PROJECT_ID (mais confiável)
+    if (FIREBASE_PROJECT_ID) {
+      projectId = FIREBASE_PROJECT_ID;
+      console.log(`🏢 [FCM] Usando project_id da variável de ambiente: ${projectId}`);
+    }
+    
+    // Prioridade 2: Service Account JSON (pode ser do projeto antigo ou novo)
+    if (!projectId && FIREBASE_SERVICE_ACCOUNT) {
       try {
         const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
         if (serviceAccount.project_id) {
           projectId = serviceAccount.project_id;
+          console.log(`🏢 [FCM] Usando project_id do Service Account: ${projectId}`);
+          console.log(`⚠️ [FCM] ATENÇÃO: Verifique se este project_id corresponde ao google-services.json do app!`);
         }
       } catch (e) {
-        // Usar variável de ambiente como fallback
+        console.warn("⚠️ [FCM] Não foi possível obter project_id do Service Account:", e.message);
       }
+    }
+    
+    // Prioridade 3: Fallback para o projeto novo (que está no google-services.json)
+    if (!projectId) {
+      projectId = "trombone-cidadao-572b5";
+      console.log(`🏢 [FCM] Usando project_id padrão (fallback): ${projectId}`);
     }
     
     if (!projectId) {
       throw new Error("FIREBASE_PROJECT_ID não configurado e não encontrado no Service Account JSON");
     }
+    
+    console.log(`🔍 [FCM] Project ID final: ${projectId}`);
+    console.log(`🔍 [FCM] Token FCM (primeiros 20 chars): ${fcmToken.substring(0, 20)}...`);
+    console.log(`🔍 [FCM] URL FCM: https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`);
 
     // Obter access token
     const accessToken = await getFCMAccessToken();
@@ -274,24 +312,52 @@ async function sendFCMNotification(
     };
 
     // Enviar via FCM HTTP v1 API
-    // NOTA: projectId já foi obtido anteriormente (linha 176)
-    const response = await fetch(
-      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-      {
+    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+    console.log(`📨 [FCM] Enviando mensagem FCM para projeto: ${projectId}`);
+    console.log(`📡 [FCM] Fazendo requisição para: ${fcmUrl}`);
+    
+    const response = await fetch(fcmUrl, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(message),
-      }
-    );
+      });
+
+    console.log(`📡 [FCM] Resposta FCM: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`❌ [FCM] Erro FCM: ${errorText}`);
+      console.error(`❌ [FCM] Status: ${response.status}`);
+      console.error(`❌ [FCM] Project ID usado: ${projectId}`);
+      console.error(`❌ [FCM] Token FCM (primeiros 30 chars): ${fcmToken.substring(0, 30)}...`);
+      
       let errorData;
       try {
         errorData = JSON.parse(errorText);
+        
+        // Se for SenderId mismatch, dar dica mais clara
+        if (errorData?.error?.details?.[0]?.errorCode === "SENDER_ID_MISMATCH") {
+          console.error(`❌ [FCM] SENDER_ID_MISMATCH detectado!`);
+          console.error(`❌ [FCM] O project_id usado (${projectId}) não corresponde ao token FCM`);
+          console.error(`❌ [FCM] Verifique se o google-services.json do app Android usa o mesmo project_id`);
+          console.error(`❌ [FCM] Verifique se a variável FIREBASE_PROJECT_ID no Supabase está correta`);
+          console.error(`❌ [FCM] O google-services.json tem project_id: trombone-cidadao-572b5`);
+          console.error(`❌ [FCM] Configure FIREBASE_PROJECT_ID=trombone-cidadao-572b5 no Supabase`);
+        }
+        
+        // Se for erro de permissão, dar dica mais clara
+        if (response.status === 403 && errorData?.error?.code === 403) {
+          console.error(`❌ [FCM] ERRO DE PERMISSÃO detectado!`);
+          console.error(`❌ [FCM] O Service Account não tem permissão para enviar mensagens FCM no projeto ${projectId}`);
+          console.error(`❌ [FCM] Verifique se o Service Account tem a role "Firebase Cloud Messaging API Admin"`);
+          console.error(`❌ [FCM] Verifique se o Service Account é do projeto correto (${projectId})`);
+          console.error(`❌ [FCM] O client_email do Service Account deve terminar com @${projectId}.iam.gserviceaccount.com`);
+          console.error(`❌ [FCM] Acesse: https://console.cloud.google.com/iam-admin/iam?project=${projectId}`);
+          console.error(`❌ [FCM] Encontre o Service Account e adicione a role "Firebase Cloud Messaging API Admin"`);
+        }
       } catch {
         errorData = { error: { message: errorText } };
       }

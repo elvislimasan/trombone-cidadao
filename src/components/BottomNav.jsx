@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ReportModal from '@/components/ReportModal';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
+import { Capacitor } from '@capacitor/core';
 
 const BottomNav = () => {
   const location = useLocation();
@@ -12,6 +13,14 @@ const BottomNav = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showReportModal, setShowReportModal] = useState(false);
+
+  const isAndroidNative = typeof Capacitor !== 'undefined'
+    && Capacitor.isNativePlatform()
+    && Capacitor.getPlatform() === 'android';
+
+  if (isAndroidNative && !user) {
+    return null;
+  }
 
   const handleNewReportClick = () => {
     if (user) {

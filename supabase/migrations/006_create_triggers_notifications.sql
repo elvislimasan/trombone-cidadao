@@ -1,8 +1,14 @@
--- Função para criar notificações quando reports são criados ou atualizados
--- Esta função cria notificações na tabela notifications, que então dispara o trigger send_push_notification
+-- =====================================================
+-- CRIAR TRIGGERS PARA NOTIFICAÇÕES EM PRODUÇÃO
+-- =====================================================
+-- Este script cria os triggers que faltam em produção
+-- Comparando com dev, os triggers trigger_create_notification_on_report_created
+-- e trigger_create_notification_on_report_updated não existem em prod
+
+-- 1. Verificar se as funções existem e têm SECURITY DEFINER
+-- (As funções já devem existir, mas vamos garantir)
 
 -- Função para criar notificação quando um report é criado
--- 🔥 IMPORTANTE: SECURITY DEFINER permite que a função contorne RLS
 CREATE OR REPLACE FUNCTION create_notification_on_report_created()
 RETURNS TRIGGER 
 SECURITY DEFINER
@@ -54,7 +60,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Função para criar notificação quando um report é atualizado
--- 🔥 IMPORTANTE: SECURITY DEFINER permite que a função contorne RLS
 CREATE OR REPLACE FUNCTION create_notification_on_report_updated()
 RETURNS TRIGGER 
 SECURITY DEFINER
@@ -84,18 +89,6 @@ BEGIN
     -- Criar notificação para o autor do report
     INSERT INTO notifications (user_id, type, message, report_id)
     VALUES (NEW.author_id, notification_type, notification_message, NEW.id);
-    
-    -- Criar notificação para administradores (para moderação)
-    -- (descomente se quiser notificar admins)
-    /*
-    FOR notification_user_id IN 
-      SELECT id FROM auth.users 
-      WHERE raw_user_meta_data->>'role' = 'admin'
-    LOOP
-      INSERT INTO notifications (user_id, type, message, report_id)
-      VALUES (notification_user_id, 'moderation_required', notification_message, NEW.id);
-    END LOOP;
-    */
   END IF;
   
   -- 3. Se o moderation_status mudou (aprovado/rejeitado)
@@ -119,6 +112,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- 2. Criar triggers (se não existirem)
 -- Trigger para criar notificação quando um report é criado
 DROP TRIGGER IF EXISTS trigger_create_notification_on_report_created ON reports;
 CREATE TRIGGER trigger_create_notification_on_report_created
@@ -133,13 +127,45 @@ CREATE TRIGGER trigger_create_notification_on_report_updated
   FOR EACH ROW
   EXECUTE FUNCTION create_notification_on_report_updated();
 
+-- 3. Verificar se os triggers foram criados
+SELECT 
+    trigger_name,
+    event_manipulation,
+    event_object_table,
+    action_statement,
+    action_timing
+FROM information_schema.triggers
+WHERE event_object_schema = 'public'
+  AND event_object_table = 'reports'
+  AND trigger_name IN (
+    'trigger_create_notification_on_report_created',
+    'trigger_create_notification_on_report_updated'
+  )
+ORDER BY trigger_name;
+
+-- 4. Verificar se as funções têm SECURITY DEFINER
+SELECT 
+    proname as function_name,
+    prosecdef as is_security_definer,
+    CASE 
+        WHEN prosecdef THEN '✅ SIM - Tem SECURITY DEFINER'
+        ELSE '❌ NÃO - Não tem SECURITY DEFINER'
+    END as status
+FROM pg_proc
+WHERE proname IN (
+    'create_notification_on_report_created',
+    'create_notification_on_report_updated'
+)
+ORDER BY proname;
+
 -- Comentários para documentação
 COMMENT ON FUNCTION create_notification_on_report_created() IS 
-  'Função que cria notificações quando um report é criado';
+  'Função que cria notificações quando um report é criado. Usa SECURITY DEFINER para contornar RLS.';
 COMMENT ON FUNCTION create_notification_on_report_updated() IS 
-  'Função que cria notificações quando um report é atualizado (mudanças de status, resolução, moderação)';
+  'Função que cria notificações quando um report é atualizado. Usa SECURITY DEFINER para contornar RLS.';
 COMMENT ON TRIGGER trigger_create_notification_on_report_created ON reports IS
   'Trigger que cria notificações quando um novo report é criado';
 COMMENT ON TRIGGER trigger_create_notification_on_report_updated ON reports IS
   'Trigger que cria notificações quando um report é atualizado';
+
 

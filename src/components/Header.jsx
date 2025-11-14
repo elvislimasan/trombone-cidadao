@@ -16,7 +16,7 @@ const Header = () => {
   const { user, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [siteName, setSiteName] = useState('Trombone Cidadão');
-  const [logoUrl, setLogoUrl] = useState('logo.webp');
+  const [logoUrl, setLogoUrl] = useState('/logo.png');
   const [logoError, setLogoError] = useState(false);
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
   const location = useLocation();
@@ -38,7 +38,7 @@ const Header = () => {
       console.error("Error fetching site settings:", error);
     } else if (data) {
       setSiteName(data.site_name || 'Trombone Cidadão');
-      setLogoUrl(data.logo_url || 'logo.webp');
+      setLogoUrl(data.logo_url || '/logo.png');
       setMenuSettings(data.menu_settings || defaultMenuSettings);
       // Resetar logoError quando buscar nova configuração
       setLogoError(false);
@@ -127,14 +127,14 @@ const Header = () => {
       <div className="container mx-auto px-4 h-16 flex justify-between items-center" style={{ marginTop: 0 }}>
         <Link to="/" className="flex items-center gap-3">
           <img 
-            src={logoError ? 'logo.png' : (logoUrl || 'logo.webp')} 
+            src={logoError ? '/logo.png' : (logoUrl || '/logo.png')} 
             alt={siteName} 
             className="h-10 w-auto"
             onError={(e) => {
               if (!logoError) {
                 setLogoError(true);
                 // Tentar logo.png como fallback
-                e.target.src = 'logo.png';
+                e.target.src = '/logo.png';
               } else {
                 // Se logo.png também falhar, usar um placeholder ou deixar vazio
                 e.target.style.display = 'none';

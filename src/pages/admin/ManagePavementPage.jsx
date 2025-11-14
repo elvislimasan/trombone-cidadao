@@ -171,7 +171,7 @@ const ManagePavementPage = () => {
   const fetchStreets = useCallback(async () => {
     const { data, error } = await supabase
       .from('pavement_streets')
-      .select('*, bairro:bairros(name)')
+      .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)')
       .order('updated_at', { ascending: false });
     if (error) toast({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     else setStreets(data.map(s => ({...s, bairro_name: s.bairro?.name})));
