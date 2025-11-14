@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import WorksStatsReports from '@/components/WorksStatsReports';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -89,7 +91,8 @@ const ReportsStats = () => {
     fetchStats();
   }, [fetchStats]);
 
-  const handleDownloadPdf = () => {
+  // Função auxiliar para gerar o PDF
+  const generatePdf = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("Relatório de Broncas - Trombone Cidadão", 14, 22);
@@ -168,12 +171,101 @@ const ReportsStats = () => {
       doc.text("Não há broncas pendentes ou em andamento para relatar.", 14, yPosition);
     }
     
-    doc.save(`relatorio_broncas_${new Date().toISOString().split('T')[0]}.pdf`);
-    
-    toast({
-      title: "Relatório gerado!",
-      description: "O download do seu PDF foi iniciado.",
+    return doc;
+  };
+
+  // Função para converter PDF para base64
+  const pdfToBase64 = async (doc) => {
+    return new Promise((resolve, reject) => {
+      try {
+        const pdfBlob = doc.output('blob');
+        const reader = new FileReader();
+        
+        reader.onloadend = () => {
+          const base64Data = reader.result.split(',')[1];
+          resolve(base64Data);
+        };
+        
+        reader.onerror = () => {
+          reject(new Error('Erro ao converter PDF para base64'));
+        };
+        
+        reader.readAsDataURL(pdfBlob);
+      } catch (error) {
+        reject(error);
+      }
     });
+  };
+
+  // Função para baixar o PDF (salvar na pasta Downloads)
+  const handleDownloadPdf = async () => {
+    try {
+      const doc = generatePdf();
+      const fileName = `relatorio_broncas_${new Date().toISOString().split('T')[0]}.pdf`;
+      const isNative = Capacitor.isNativePlatform();
+      
+      if (isNative) {
+        try {
+          // Converter PDF para base64
+          const base64Data = await pdfToBase64(doc);
+          const platform = Capacitor.getPlatform();
+          
+          // No Android, salvar na pasta Downloads do app (acessível pelo gerenciador de arquivos)
+          // No Android 10+, não podemos escrever diretamente na pasta Downloads pública sem Media Store
+          // Usaremos Directory.Documents que é acessível e funciona como área de Downloads do app
+          let downloadPath = fileName;
+          let directory = Directory.Documents;
+          
+          if (platform === 'android') {
+            // Criar uma subpasta "Download" dentro de Documents para simular a pasta Downloads
+            directory = Directory.Documents;
+            downloadPath = `Download/${fileName}`;
+          } else if (platform === 'ios') {
+            // No iOS, usar Documents que é acessível pelo Files app
+            directory = Directory.Documents;
+            downloadPath = fileName;
+          }
+          
+          // Salvar o arquivo
+          await Filesystem.writeFile({
+            path: downloadPath,
+            data: base64Data,
+            directory: directory,
+            recursive: true,
+          });
+          
+          // Mensagem de sucesso
+          toast({
+            title: "Download concluído!",
+            description: platform === 'android' 
+              ? "Relatório salvo na pasta Download. Acesse o gerenciador de arquivos para encontrar."
+              : "Relatório salvo! Acesse o app Arquivos para encontrar o arquivo.",
+          });
+        } catch (error) {
+          console.error('Erro ao salvar PDF:', error);
+          toast({
+            title: "Erro ao baixar relatório",
+            description: "Não foi possível salvar o relatório. Tente novamente.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        // No web: usar download direto
+        doc.save(fileName);
+        
+        toast({
+          title: "Download concluído!",
+          description: "O download do seu PDF foi iniciado.",
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      toast({
+        title: "Erro ao gerar relatório",
+        description: error.message || "Não foi possível gerar o relatório. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const statCards = [

@@ -1101,15 +1101,32 @@
   dependencies:
     tslib "^2.1.0"
 
+"@capacitor/filesystem@^7.1.4":
+  version "7.1.4"
+  resolved "https://registry.npmjs.org/@capacitor/filesystem/-/filesystem-7.1.4.tgz"
+  integrity sha512-BdUnOVulHAtruW2GeC9o7e9LO5aFcVYqNn3dLypJSOck/WipUFNfI0QWoUS0FVGeqBbDJgFGi3zjXJx0lzbDkA==
+  dependencies:
+    "@capacitor/synapse" "^1.0.3"
+
 "@capacitor/push-notifications@^7.0.3":
   version "7.0.3"
   resolved "https://registry.npmjs.org/@capacitor/push-notifications/-/push-notifications-7.0.3.tgz"
   integrity sha512-4qt5dRVBkHzq202NEoj3JC+S+zQCrZ1FJh7sjkICy/i1iEos+VaoB3bie8eWDQ2LTARktB4+k2xkdpu8pcVo/g==
 
+"@capacitor/share@^7.0.2":
+  version "7.0.2"
+  resolved "https://registry.npmjs.org/@capacitor/share/-/share-7.0.2.tgz"
+  integrity sha512-VyNPo/9831xnL17IMDeft5yNdBjoKNb451P95sRcr69hulRDqHc+kndqOVaMXnaA6IyBdWnnFv/n1HUf4cXpGw==
+
 "@capacitor/status-bar@^7.0.3":
   version "7.0.3"
   resolved "https://registry.npmjs.org/@capacitor/status-bar/-/status-bar-7.0.3.tgz"
   integrity sha512-JyRpVnKwHij9hgPWolF6PK+HT3e2HSPjN11/h2OmKxq8GAdPGARFLv+97eZl0pvuvm0Kka/LpiLb5whXISBg7Q==
+
+"@capacitor/synapse@^1.0.3":
+  version "1.0.4"
+  resolved "https://registry.npmjs.org/@capacitor/synapse/-/synapse-1.0.4.tgz"
+  integrity sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==
 
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
