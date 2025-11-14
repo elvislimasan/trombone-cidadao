@@ -1,13 +1,13 @@
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
-import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench } from 'lucide-react';
+import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatCnpj } from '@/lib/utils';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
@@ -140,11 +140,13 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   };
 
   const DetailItem = ({ icon: Icon, label, value }) => (
-    <div className="flex items-start text-xs">
-      <Icon className="w-4 h-4 mr-2 mt-0.5 text-muted-foreground flex-shrink-0" />
-      <div>
-        <span className="font-semibold text-foreground">{label}:</span>
-        <span className="text-muted-foreground ml-1">{value || 'Não informado'}</span>
+    <div className="flex items-start gap-3 p-3.5 rounded-xl hover:bg-muted/30 transition-colors border border-transparent hover:border-border/50">
+      <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10">
+        <Icon className="w-5 h-5 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-muted-foreground mb-1.5">{label}</p>
+        <p className="text-sm font-medium text-foreground break-words leading-relaxed">{value || 'Não informado'}</p>
       </div>
     </div>
   );
@@ -185,134 +187,212 @@ const WorksMapView = forwardRef(({ works }, ref) => {
 
       <AnimatePresence>
         {selectedWork && (
-          <motion.div
-            initial={{ opacity: 0, x: '100%' }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: '100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="absolute top-4 right-4 bg-card rounded-xl shadow-2xl border border-border max-w-sm z-[1000] w-full flex flex-col max-h-[calc(100%-2rem)]"
-          >
-            <div className="flex-shrink-0 p-4 border-b border-border">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h3 className="font-semibold text-foreground">{selectedWork.title}</h3>
-                  <div className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusInfo(selectedWork.status).color}`}>
-                    {React.createElement(getStatusInfo(selectedWork.status).icon, { className: "w-3 h-3" })}
-                    {getStatusInfo(selectedWork.status).text}
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[2000]" 
+              onClick={() => setSelectedWork(null)}
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }} 
+                animate={{ scale: 1, opacity: 1 }} 
+                exit={{ scale: 0.9, opacity: 0 }} 
+                className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto border border-border" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-border">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-2xl font-bold text-foreground mb-3">{selectedWork.title}</h2>
+                      <div className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold text-white shadow-md ${getStatusInfo(selectedWork.status).color}`}>
+                        {React.createElement(getStatusInfo(selectedWork.status).icon, { className: "w-4 h-4" })}
+                        {getStatusInfo(selectedWork.status).text}
+                      </div>
+                      {selectedWork.description && (
+                        <p className="text-muted-foreground text-sm mt-3 leading-relaxed">{selectedWork.description}</p>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => setSelectedWork(null)} 
+                      className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors flex-shrink-0 ml-4"
+                      aria-label="Fechar"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
-                <button onClick={() => setSelectedWork(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
-              </div>
-              <p className="text-muted-foreground text-sm">{selectedWork.description}</p>
-            </div>
-            
-            <div className="flex-grow overflow-y-auto">
-              <Tabs defaultValue="details" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 m-2">
-                  <TabsTrigger value="details"><Info className="w-4 h-4" /></TabsTrigger>
-                  <TabsTrigger value="photos"><Camera className="w-4 h-4" /></TabsTrigger>
-                  <TabsTrigger value="videos"><Video className="w-4 h-4" /></TabsTrigger>
-                  <TabsTrigger value="docs"><FileText className="w-4 h-4" /></TabsTrigger>
-                </TabsList>
-                <TabsContent value="details" className="p-4 text-sm">
-                  <div className="space-y-3">
+                <div className="p-6 space-y-6">
+                  <Tabs defaultValue="details" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4 mb-6 gap-2 bg-muted/40 p-1.5 rounded-xl">
+                      <TabsTrigger value="details" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><Info className="w-4 h-4" /></TabsTrigger>
+                      <TabsTrigger value="photos" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><Camera className="w-4 h-4" /></TabsTrigger>
+                      <TabsTrigger value="videos" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><Video className="w-4 h-4" /></TabsTrigger>
+                      <TabsTrigger value="docs" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><FileText className="w-4 h-4" /></TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="details" className="space-y-6">
+                      <div className="space-y-6">
                     {selectedWork.execution_percentage > 0 && (
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs font-semibold text-foreground">Execução</span>
-                          <span className="text-xs font-bold text-tc-red">{selectedWork.execution_percentage}%</span>
+                      <div className="bg-muted/30 rounded-xl p-5 border border-border/50 shadow-sm">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-sm font-semibold text-foreground">Progresso da Execução</span>
+                          <span className="text-sm font-bold text-tc-red">{selectedWork.execution_percentage}%</span>
                         </div>
-                        <div className="w-full bg-muted rounded-full h-2.5">
-                          <div className="bg-tc-red h-2.5 rounded-full" style={{ width: `${selectedWork.execution_percentage}%` }}></div>
+                        <div className="w-full bg-muted rounded-full h-3.5 overflow-hidden">
+                          <div className="bg-tc-red h-3.5 rounded-full transition-all" style={{ width: `${selectedWork.execution_percentage}%` }}></div>
                         </div>
                       </div>
                     )}
-                    <DetailItem icon={DollarSign} label="Valor Total" value={formatCurrency(selectedWork.total_value)} />
-                    <DetailItem icon={DollarSign} label="Valor Gasto" value={formatCurrency(selectedWork.amount_spent)} />
-                    <DetailItem icon={Building} label="Construtora" value={selectedWork.contractor?.name} />
-                    <DetailItem icon={Landmark} label="Fonte do Recurso" value={getFundingSourceText(selectedWork.funding_source)} />
-                    {selectedWork.parliamentary_amendment?.has && (
-                      <DetailItem icon={UserCheck} label="Emenda Parlamentar" value={selectedWork.parliamentary_amendment.author} />
+                    
+                    {/* Seção: Valores */}
+                    <div className="space-y-2.5">
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Valores</h4>
+                      <DetailItem icon={DollarSign} label="Valor Total" value={formatCurrency(selectedWork.total_value)} />
+                      <DetailItem icon={DollarSign} label="Valor Gasto" value={formatCurrency(selectedWork.amount_spent)} />
+                    </div>
+
+                    {/* Seção: Construtora */}
+                    <div className="space-y-2.5">
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Construtora</h4>
+                      <DetailItem icon={Building} label="Nome" value={selectedWork.contractor?.name} />
+                      {selectedWork.contractor?.cnpj && (
+                        <DetailItem icon={FileCheck} label="CNPJ" value={formatCnpj(selectedWork.contractor.cnpj)} />
+                      )}
+                    </div>
+
+                    {/* Seção: Recursos */}
+                    <div className="space-y-2.5">
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Recursos</h4>
+                      <DetailItem icon={Landmark} label="Fonte do Recurso" value={getFundingSourceText(selectedWork.funding_source)} />
+                      {selectedWork.parliamentary_amendment?.has && (
+                        <DetailItem icon={UserCheck} label="Emenda Parlamentar" value={selectedWork.parliamentary_amendment.author} />
+                      )}
+                    </div>
+
+                    {/* Seção: Cronograma */}
+                    <div className="space-y-2.5">
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Cronograma</h4>
+                      <DetailItem icon={Calendar} label="Data de Início" value={formatDate(selectedWork.start_date)} />
+                      {selectedWork.execution_period_days && <DetailItem icon={Clock} label="Prazo de Execução" value={`${selectedWork.execution_period_days} dias`} />}
+                      {selectedWork.status === 'in-progress' && <DetailItem icon={Calendar} label="Previsão de Conclusão" value={formatDate(selectedWork.expected_end_date)} />}
+                      {selectedWork.status === 'completed' && <DetailItem icon={Calendar} label="Data de Inauguração" value={formatDate(selectedWork.inauguration_date)} />}
+                      {(selectedWork.status === 'stalled' || selectedWork.status === 'unfinished') && <DetailItem icon={Calendar} label="Data de Paralisação" value={formatDate(selectedWork.stalled_date)} />}
+                      <DetailItem icon={Calendar} label="Última Atualização" value={formatDate(selectedWork.last_update)} />
+                    </div>
+
+                    {/* Seção: Outras Informações */}
+                    {selectedWork.other_details && (
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Outras Informações</h4>
+                        <DetailItem icon={ListChecks} label="Detalhes Adicionais" value={selectedWork.other_details} />
+                      </div>
                     )}
-                    <DetailItem icon={Calendar} label="Início" value={formatDate(selectedWork.start_date)} />
-                    {selectedWork.execution_period_days && <DetailItem icon={Clock} label="Prazo de Execução" value={`${selectedWork.execution_period_days} dias`} />}
-                    {selectedWork.status === 'in-progress' && <DetailItem icon={Calendar} label="Previsão" value={formatDate(selectedWork.expected_end_date)} />}
-                    {selectedWork.status === 'completed' && <DetailItem icon={Calendar} label="Inauguração" value={formatDate(selectedWork.inauguration_date)} />}
-                    {selectedWork.status === 'stalled' && <DetailItem icon={Calendar} label="Paralisação" value={formatDate(selectedWork.stalled_date)} />}
-                    {selectedWork.status === 'unfinished' && <DetailItem icon={Calendar} label="Paralisação" value={formatDate(selectedWork.stalled_date)} />} {/* Assuming stalled_date for unfinished */}
-                    <DetailItem icon={Calendar} label="Última Atualização" value={formatDate(selectedWork.last_update)} />
-                    {selectedWork.other_details && <DetailItem icon={ListChecks} label="Outros Detalhes" value={selectedWork.other_details} />}
-                  </div>
-                </TabsContent>
-                <TabsContent value="photos" className="p-4">
-                  {loadingMedia ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin" /> : (
-                    <div className="grid grid-cols-2 gap-2">
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="photos" className="space-y-4">
+                  {loadingMedia ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 pb-3">
                       {photos.length > 0 ? photos.map((photo, index) => (
-                        <img key={index} src={photo.url} alt={photo.name} className="w-full h-auto rounded-md object-cover aspect-square" />
-                      )) : <p className="col-span-2 text-xs text-muted-foreground text-center">Nenhuma foto disponível.</p>}
+                        <img key={index} src={photo.url} alt={photo.name} className="w-full h-auto rounded-xl object-cover aspect-square shadow-sm hover:shadow-md transition-shadow" />
+                      )) : (
+                        <div className="col-span-2 text-center py-12">
+                          <Camera className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                          <p className="text-sm text-muted-foreground">Nenhuma foto disponível.</p>
+                        </div>
+                      )}
                     </div>
                   )}
-                </TabsContent>
-                <TabsContent value="videos" className="p-4">
-                  {loadingMedia ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin" /> : (
-                    <div className="space-y-4">
+                    </TabsContent>
+                    <TabsContent value="videos" className="space-y-4">
+                  {loadingMedia ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pb-3">
                       {videos.length > 0 ? videos.map((video, index) => {
                         if (video.type === 'video_url') {
                           const embedUrl = getYouTubeEmbedUrl(video.url);
                           return embedUrl ? (
-                            <div key={index} className="aspect-video rounded-lg overflow-hidden">
+                            <div key={index} className="aspect-video rounded-xl overflow-hidden shadow-sm">
                               <iframe className="w-full h-full" src={embedUrl} title={video.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
                             </div>
                           ) : (
-                            <a key={index} href={video.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-tc-red hover:underline">
-                              <Video className="w-4 h-4" /> Ver vídeo {index + 1} (link externo)
+                            <a key={index} href={video.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-tc-red hover:underline p-3.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+                              <Video className="w-5 h-5" /> Ver vídeo {index + 1} (link externo)
                             </a>
                           );
                         }
                         return (
-                          <video key={index} controls src={video.url} className="w-full rounded-lg" />
+                          <video key={index} controls src={video.url} className="w-full rounded-xl shadow-sm" />
                         );
-                      }) : <p className="text-xs text-muted-foreground text-center">Nenhum vídeo disponível.</p>}
+                      }) : (
+                        <div className="text-center py-12">
+                          <Video className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                          <p className="text-sm text-muted-foreground">Nenhum vídeo disponível.</p>
+                        </div>
+                      )}
                     </div>
                   )}
-                </TabsContent>
-                <TabsContent value="docs" className="p-4">
-                  {loadingMedia ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin" /> : (
-                    <div className="space-y-2">
+                    </TabsContent>
+                    <TabsContent value="docs" className="space-y-2.5">
+                  {loadingMedia ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 pb-3">
                       {documents.length > 0 ? documents.map((doc, index) => (
-                        <a key={index} href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-tc-red hover:underline p-2 rounded-md hover:bg-muted">
-                          <FileText className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{doc.name || `Documento ${index + 1}`}</span>
+                        <a key={index} href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-tc-red hover:underline p-3.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+                          <FileText className="w-5 h-5 flex-shrink-0" /> 
+                          <span className="truncate flex-1">{doc.name || `Documento ${index + 1}`}</span>
                         </a>
-                      )) : <p className="text-xs text-muted-foreground text-center">Nenhum documento disponível.</p>}
+                      )) : (
+                        <div className="text-center py-12">
+                          <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                          <p className="text-sm text-muted-foreground">Nenhum documento disponível.</p>
+                        </div>
+                      )}
                     </div>
                   )}
-                </TabsContent>
-              </Tabs>
-            </div>
-            <div className="flex-shrink-0 p-4 border-t border-border">
-              <button onClick={() => handleDetailsClick(selectedWork)} className="w-full bg-tc-red text-white py-2 px-4 rounded-lg font-semibold hover:bg-tc-red/90 transition-colors flex items-center justify-center gap-2">
-                <Info className="w-4 h-4" />
-                Ver Mais Detalhes
-              </button>
-            </div>
-          </motion.div>
+                    </TabsContent>
+                  </Tabs>
+                  
+                  <div className="flex flex-col md:flex-row gap-3 pt-4 border-t border-border">
+                    <button 
+                      onClick={() => handleDetailsClick(selectedWork)} 
+                      className="w-full bg-tc-red text-white py-3.5 px-5 rounded-xl font-semibold hover:bg-tc-red/90 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Info className="w-5 h-5" />
+                      Ver Mais Detalhes
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
-      <div className="absolute top-4 right-4 z-[1000]">
+      <div className="absolute top-4 right-4 z-[900]">
         <MapModeToggle />
       </div>
 
       {!isSingleWorkView && (
-        <div className="absolute bottom-4 left-4 bg-card/80 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[1000]">
-          <h4 className="font-semibold text-sm mb-2">Legenda</h4>
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-purple-500 rounded-full"></div><span>Prevista</span></div>
-            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-orange-500 rounded-full"></div><span>Licitada</span></div>
-            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-blue-500 rounded-full"></div><span>Em Andamento</span></div>
-            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-amber-500 rounded-full"></div><span>Paralisada</span></div>
-            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-red-500 rounded-full"></div><span>Inacabada</span></div>
-            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-green-500 rounded-full"></div><span>Concluída</span></div>
+        <div className="absolute left-4 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto bottom-20 lg:bottom-4">
+          <h4 className="font-semibold text-sm mb-2.5">Legenda</h4>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-purple-500 rounded-full flex-shrink-0"></div><span className="truncate">Prevista</span></div>
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-orange-500 rounded-full flex-shrink-0"></div><span className="truncate">Licitada</span></div>
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-blue-500 rounded-full flex-shrink-0"></div><span className="truncate">Em Andamento</span></div>
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-amber-500 rounded-full flex-shrink-0"></div><span className="truncate">Paralisada</span></div>
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0"></div><span className="truncate">Inacabada</span></div>
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-green-500 rounded-full flex-shrink-0"></div><span className="truncate">Concluída</span></div>
           </div>
         </div>
       )}

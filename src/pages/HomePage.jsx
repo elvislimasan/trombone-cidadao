@@ -721,7 +721,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
 };
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 py-6 overflow-visible">
       <motion.div 
         initial={{ y: 50, opacity: 0 }} 
         animate={{ y: 0, opacity: 1 }} 
@@ -738,54 +738,97 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
         initial={{ y: 50, opacity: 0 }} 
         animate={{ y: 0, opacity: 1 }} 
         transition={{ delay: 0.4 }} 
-        className="mt-8"
+        className="mt-8 overflow-visible"
       >
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 relative z-[1000]">
-          <div className="flex items-center gap-2 bg-card p-1 rounded-lg border border-border">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 relative z-[1000] overflow-visible">
+          <div className="flex items-center gap-2 bg-card/95 backdrop-blur-sm p-1.5 rounded-lg border border-border shadow-md">
             <Button 
               variant={viewMode === 'map' ? 'default' : 'ghost'} 
               onClick={() => setViewMode('map')} 
-              className={`gap-2 ${viewMode === 'map' ? 'bg-tc-yellow text-tc-black hover:bg-tc-yellow/90' : 'text-muted-foreground hover:bg-muted'}`}
+              size="sm"
+              className={`gap-2 transition-all ${viewMode === 'map' ? 'bg-tc-yellow text-tc-black hover:bg-tc-yellow/90 shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             >
-              <MapIcon className="w-4 h-4" /> Mapa
+              <MapIcon className="w-4 h-4" /> 
+              <span className="hidden sm:inline">Mapa</span>
             </Button>
             <Button 
               variant={viewMode === 'list' ? 'default' : 'ghost'} 
               onClick={() => setViewMode('list')} 
-              className={`gap-2 ${viewMode === 'list' ? 'bg-tc-yellow text-tc-black hover:bg-tc-yellow/90' : 'text-muted-foreground hover:bg-muted'}`}
+              size="sm"
+              className={`gap-2 transition-all ${viewMode === 'list' ? 'bg-tc-yellow text-tc-black hover:bg-tc-yellow/90 shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             >
-              <List className="w-4 h-4" /> Lista
+              <List className="w-4 h-4" /> 
+              <span className="hidden sm:inline">Lista</span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2 text-muted-foreground hover:bg-muted">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="gap-2 text-muted-foreground hover:bg-muted hover:text-foreground border-border transition-all"
+                >
                   <Filter className="w-4 h-4" />
                   <span className="hidden md:inline">Filtrar</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64 bg-card text-foreground border border-border">
-                <DropdownMenuLabel className="text-tc-red">Status</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-border" />
-                <DropdownMenuRadioGroup value={filter.status} onValueChange={(value) => setFilter(f => ({...f, status: value}))}>
-                  <DropdownMenuRadioItem value="active">Ativas (Pendentes/Em Andamento)</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="pending">Pendentes</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="in-progress">Em Andamento</DropdownMenuRadioItem>
-                  {user && <DropdownMenuRadioItem value="my-resolved">Minhas Resolvidas</DropdownMenuRadioItem>}
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator className="bg-border" />
-                <DropdownMenuLabel className="text-tc-red">Categoria</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-border" />
-                <DropdownMenuRadioGroup value={filter.category} onValueChange={(value) => setFilter(f => ({...f, category: value}))}>
-                  <DropdownMenuRadioItem value="all">Todas as Categorias</DropdownMenuRadioItem>
-                  {categories.map(cat => (
-                    <DropdownMenuRadioItem key={cat.id} value={cat.id} className="flex justify-between items-center">
-                      <span>{cat.icon} {cat.name}</span>
-                      <span className="text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5">
-                        {categoryCounts[cat.id] || 0}
-                      </span>
+              <DropdownMenuContent 
+                align="end" 
+                side="bottom"
+                alignOffset={-5}
+                sideOffset={8}
+                className="w-72 max-h-[calc(100vh-8rem)] overflow-y-auto bg-card text-foreground border border-border shadow-xl rounded-lg p-2 z-[1500]"
+                style={{ 
+                  maxHeight: 'calc(100vh - 8rem)',
+                  overflowY: 'auto'
+                }}
+              >
+                <div className="space-y-1">
+                  <DropdownMenuLabel className="text-tc-red font-bold text-base px-3 py-2.5">Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-border" />
+                  <DropdownMenuRadioGroup value={filter.status} onValueChange={(value) => setFilter(f => ({...f, status: value}))}>
+                    <DropdownMenuRadioItem value="active" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
+                      <span className="text-sm">Ativas (Pendentes/Em Andamento)</span>
                     </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
+                    <DropdownMenuRadioItem value="pending" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
+                      <span className="text-sm">Pendentes</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="in-progress" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
+                      <span className="text-sm">Em Andamento</span>
+                    </DropdownMenuRadioItem>
+                    {user && (
+                      <DropdownMenuRadioItem value="my-resolved" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
+                        <span className="text-sm">Minhas Resolvidas</span>
+                      </DropdownMenuRadioItem>
+                    )}
+                  </DropdownMenuRadioGroup>
+                </div>
+                <DropdownMenuSeparator className="bg-border my-2" />
+                <div className="space-y-1">
+                  <DropdownMenuLabel className="text-tc-red font-bold text-base px-3 py-2.5">Categoria</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-border" />
+                  <DropdownMenuRadioGroup value={filter.category} onValueChange={(value) => setFilter(f => ({...f, category: value}))}>
+                    <DropdownMenuRadioItem value="all" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
+                      <span className="text-sm">Todas as Categorias</span>
+                    </DropdownMenuRadioItem>
+                    {categories.map(cat => (
+                      <DropdownMenuRadioItem 
+                        key={cat.id} 
+                        value={cat.id} 
+                        className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <div className="flex justify-between items-center gap-3 w-full">
+                          <span className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="text-base flex-shrink-0">{cat.icon}</span>
+                            <span className="text-sm truncate">{cat.name}</span>
+                          </span>
+                          <span className="text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 flex-shrink-0 font-semibold">
+                            {categoryCounts[cat.id] || 0}
+                          </span>
+                        </div>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
