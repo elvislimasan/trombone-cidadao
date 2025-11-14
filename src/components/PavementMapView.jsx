@@ -114,6 +114,10 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
               click: () => {
                 handleSelectStreet(street);
               },
+              dblclick: (e) => {
+                e.originalEvent.stopPropagation();
+                handleSelectStreet(street);
+              },
             }}
           >
             <Popup>{street.name}</Popup>

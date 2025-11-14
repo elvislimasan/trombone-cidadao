@@ -178,6 +178,10 @@ const WorksMapView = forwardRef(({ works }, ref) => {
             icon={createWorkMarkerIcon(work.status)}
             eventHandlers={{
               click: () => setSelectedWork(work),
+              dblclick: (e) => {
+                e.originalEvent.stopPropagation();
+                setSelectedWork(work);
+              },
             }}
           >
             <Popup>{work.title}</Popup>
@@ -384,7 +388,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       </div>
 
       {!isSingleWorkView && (
-        <div className="absolute left-4 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto bottom-20 lg:bottom-4">
+        <div className="absolute left-2 sm:left-4 bottom-2 sm:bottom-3 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto">
           <h4 className="font-semibold text-sm mb-2.5">Legenda</h4>
           <div className="space-y-1.5 text-xs">
             <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-purple-500 rounded-full flex-shrink-0"></div><span className="truncate">Prevista</span></div>
