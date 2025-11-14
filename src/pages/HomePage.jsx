@@ -740,7 +740,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
         transition={{ delay: 0.4 }} 
         className="mt-8"
       >
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 relative z-40">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 relative z-[1000]">
           <div className="flex items-center gap-2 bg-card p-1 rounded-lg border border-border">
             <Button 
               variant={viewMode === 'map' ? 'default' : 'ghost'} 
