@@ -104,6 +104,18 @@
   .bottom-safe {
     bottom: var(--safe-area-bottom);
   }
+  
+  /* Toast viewport - padding-top no mobile considerando header e safe area */
+  .toast-viewport-mobile {
+    padding-top: calc(4rem + var(--safe-area-top, 0px) + 1rem) !important;
+  }
+  
+  /* No desktop, o toast está no bottom-right, então resetar padding-top */
+  @media (min-width: 640px) {
+    .toast-viewport-mobile {
+      padding-top: 0 !important;
+    }
+  }
 }
 
 /* === SEUS ESTILOS ORIGINAIS (MANTIDOS INTACTOS) === */
