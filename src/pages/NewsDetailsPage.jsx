@@ -18,6 +18,7 @@ const NewsDetailsPage = () => {
   const navigate = useNavigate();
   const [newsItem, setNewsItem] = useState(null);
   const [newComment, setNewComment] = useState('');
+  const [gallery, setGallery] = useState([]);
   const [mediaViewerState, setMediaViewerState] = useState({ isOpen: false, startIndex: 0 });
 
   const fetchNewsDetails = useCallback(async () => {
@@ -32,6 +33,19 @@ const NewsDetailsPage = () => {
       navigate('/noticias');
     } else {
       setNewsItem(data);
+    }
+
+    // Buscar galeria de imagens
+    const { data: mediaData, error: mediaError } = await supabase
+      .from('news_image')
+      .select('*')
+      .eq('news_id', newsId)
+      .order('created_at', { ascending: false });
+
+    if (mediaError) {
+      toast({ title: "Erro ao buscar galeria", description: mediaError.message, variant: "destructive" });
+    } else {
+      setGallery(mediaData || []);
     }
   }, [newsId, toast, navigate]);
 
@@ -99,7 +113,8 @@ const NewsDetailsPage = () => {
   };
 
   const openMediaViewer = (index) => {
-    setMediaViewerState({ isOpen: true, startIndex: index });
+    const galleryMedia = gallery.map(item => ({ url: item.url, type: 'photo' }));
+    setMediaViewerState({ isOpen: true, startIndex: index, items: galleryMedia });
   };
 
   if (!newsItem) {
@@ -107,7 +122,6 @@ const NewsDetailsPage = () => {
   }
 
   const videoEmbedUrl = newsItem.video_url ? (getYoutubeEmbedUrl(newsItem.video_url) || getInstagramEmbedUrl(newsItem.video_url)) : null;
-  const galleryMedia = (newsItem.gallery || []).map(url => ({ url, type: 'photo' }));
 
   return (
     <>
@@ -149,15 +163,15 @@ const NewsDetailsPage = () => {
             </div>
           )}
 
-          {galleryMedia.length > 0 && (
+          {gallery.length > 0 && (
             <div className="my-12">
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><ImageIcon className="w-6 h-6 text-primary" /> Galeria de Fotos</h2>
               <Carousel className="w-full" opts={{ align: "start", loop: true }}>
                 <CarouselContent className="-ml-4">
-                  {galleryMedia.map((media, index) => (
-                    <CarouselItem key={index} className="pl-4 md:basis-1/2 lg:basis-1/3">
+                  {gallery.map((item, index) => (
+                    <CarouselItem key={item.id} className="pl-4 md:basis-1/2 lg:basis-1/3">
                       <button onClick={() => openMediaViewer(index)} className="w-full aspect-video rounded-lg overflow-hidden border border-border group bg-background flex items-center justify-center relative">
-                        <img alt={`Galeria ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" src={media.url} />
+                        <img alt={item.name || `Galeria ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" src={item.url} />
                       </button>
                     </CarouselItem>
                   ))}
@@ -202,11 +216,11 @@ const NewsDetailsPage = () => {
           </Card>
         </motion.article>
       </div>
-      {mediaViewerState.isOpen && (
+      {mediaViewerState.isOpen && mediaViewerState.items && (
         <MediaViewer
-          media={galleryMedia}
+          media={mediaViewerState.items}
           startIndex={mediaViewerState.startIndex}
-          onClose={() => setMediaViewerState({ isOpen: false, startIndex: 0 })}
+          onClose={() => setMediaViewerState({ isOpen: false, startIndex: 0, items: [] })}
         />
       )}
     </>
