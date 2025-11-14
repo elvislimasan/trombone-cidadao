@@ -15,18 +15,40 @@ import { supabase } from '@/lib/customSupabaseClient';
 
 const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [formData, setFormData] = useState(null);
+  const [galleryFiles, setGalleryFiles] = useState([]);
+  const [existingGallery, setExistingGallery] = useState([]);
+  const [removedGalleryIds, setRemovedGalleryIds] = useState([]);
   const featuredImageInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
   useEffect(() => {
     if (newsItem) {
       setFormData({
-        gallery: [],
-        comments: [],
         ...newsItem
       });
+      setGalleryFiles([]); // Resetar galeria ao abrir modal
+      setRemovedGalleryIds([]);
+      
+      // Buscar imagens existentes da galeria
+      if (newsItem.id) {
+        supabase
+          .from('news_image')
+          .select('*')
+          .eq('news_id', newsItem.id)
+          .order('created_at', { ascending: false })
+          .then(({ data, error }) => {
+            if (!error && data) {
+              setExistingGallery(data);
+            }
+          });
+      } else {
+        setExistingGallery([]);
+      }
     } else {
       setFormData(null);
+      setGalleryFiles([]);
+      setExistingGallery([]);
+      setRemovedGalleryIds([]);
     }
   }, [newsItem]);
 
@@ -48,25 +70,31 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 
   const handleGalleryChange = (e) => {
     const files = Array.from(e.target.files);
-    const filePromises = files.map(file => {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-      });
-    });
-    Promise.all(filePromises).then(images => {
-      setFormData(prev => ({ ...prev, gallery: [...(prev.gallery || []), ...images] }));
-    });
+    setGalleryFiles(prev => [...prev, ...files.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name
+    }))]);
   };
 
   const removeGalleryImage = (index) => {
-    setFormData(prev => ({ ...prev, gallery: prev.gallery.filter((_, i) => i !== index) }));
+    setGalleryFiles(prev => {
+      const removed = prev[index];
+      if (removed?.preview) {
+        URL.revokeObjectURL(removed.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const removeExistingImage = (imageId) => {
+    setExistingGallery(prev => prev.filter(img => img.id !== imageId));
+    setRemovedGalleryIds(prev => [...prev, imageId]);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
+    onSave(formData, galleryFiles, removedGalleryIds);
   };
 
   if (!formData) return null;
@@ -112,18 +140,77 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
               </div>
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">Galeria</Label>
+              <Label className="text-right pt-2">Galeria de Imagens</Label>
               <div className="col-span-3">
-                <input type="file" accept="image/*" multiple ref={galleryInputRef} onChange={handleGalleryChange} className="hidden" />
-                <Button type="button" variant="outline" onClick={() => galleryInputRef.current.click()}><ImageIcon className="w-4 h-4 mr-2" /> Adicionar à Galeria</Button>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(formData.gallery || []).map((img, index) => (
-                    <div key={index} className="relative">
-                      <img src={img} alt={`Galeria ${index}`} className="h-24 w-24 object-cover rounded-md" />
-                      <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={() => removeGalleryImage(index)}><X className="w-4 h-4" /></Button>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  ref={galleryInputRef} 
+                  onChange={handleGalleryChange} 
+                  className="hidden" 
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => galleryInputRef.current.click()}
+                >
+                  <ImageIcon className="w-4 h-4 mr-2" /> Adicionar Imagens à Galeria
+                </Button>
+                
+                {/* Imagens existentes */}
+                {existingGallery.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm text-muted-foreground mb-2">Imagens já cadastradas:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {existingGallery.map((item) => (
+                        <div key={item.id} className="relative">
+                          <img 
+                            src={item.url} 
+                            alt={item.name || 'Imagem da galeria'} 
+                            className="h-24 w-24 object-cover rounded-md border border-border" 
+                          />
+                          <Button 
+                            type="button" 
+                            variant="destructive" 
+                            size="icon" 
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full" 
+                            onClick={() => removeExistingImage(item.id)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {/* Novas imagens (preview) */}
+                {galleryFiles.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm text-muted-foreground mb-2">Novas imagens a adicionar:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {galleryFiles.map((item, index) => (
+                        <div key={index} className="relative">
+                          <img 
+                            src={item.preview} 
+                            alt={`Preview ${index}`} 
+                            className="h-24 w-24 object-cover rounded-md border border-border" 
+                          />
+                          <Button 
+                            type="button" 
+                            variant="destructive" 
+                            size="icon" 
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full" 
+                            onClick={() => removeGalleryImage(index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -158,29 +245,141 @@ const ManageNewsPage = () => {
     fetchNewsAndComments();
   }, [fetchNewsAndComments]);
 
-  const handleSaveNews = async (newsToSave) => {
-    const { id, ...dataToSave } = newsToSave;
+  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = []) => {
+    const { id, comments, ...dataToSave } = newsToSave;
+    
+    // Remove campos que não existem na tabela news
+    // Apenas campos válidos da tabela news serão salvos
+    const validFields = ['title', 'source', 'date', 'description', 'body', 'image_url', 'link', 'video_url'];
+    const filteredData = Object.keys(dataToSave)
+      .filter(key => validFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = dataToSave[key];
+        return obj;
+      }, {});
+    
     let error;
+    let savedNewsId;
+
     if (id) {
-      ({ error } = await supabase.from('news').update(dataToSave).eq('id', id));
+      ({ error } = await supabase.from('news').update(filteredData).eq('id', id));
+      savedNewsId = id;
     } else {
-      ({ error } = await supabase.from('news').insert(dataToSave));
+      const { data, error: insertError } = await supabase.from('news').insert(filteredData).select().single();
+      error = insertError;
+      savedNewsId = data?.id;
     }
 
     if (error) {
       toast({ title: "Erro ao salvar notícia", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: `Notícia ${id ? 'atualizada' : 'adicionada'} com sucesso!` });
-      fetchNewsAndComments();
+      return;
     }
+
+    // Remover imagens marcadas para exclusão
+    if (removedGalleryIds.length > 0) {
+      for (const imageId of removedGalleryIds) {
+        // Buscar URL da imagem para remover do storage
+        const { data: imageData } = await supabase
+          .from('news_image')
+          .select('url')
+          .eq('id', imageId)
+          .single();
+
+        if (imageData) {
+          try {
+            const url = new URL(imageData.url);
+            const filePath = url.pathname.split('/news-images/')[1];
+            if (filePath) {
+              await supabase.storage.from('news-images').remove([decodeURIComponent(filePath)]);
+            }
+          } catch (e) {
+            console.warn("Erro ao remover arquivo do storage:", e);
+          }
+        }
+
+        // Remover do banco
+        await supabase.from('news_image').delete().eq('id', imageId);
+      }
+    }
+
+    // Upload da galeria após salvar a notícia
+    if (savedNewsId && galleryFiles.length > 0) {
+      try {
+        const uploadPromises = galleryFiles.map(async ({ file }) => {
+          const filePath = `news/${savedNewsId}/${Date.now()}-${file.name}`;
+          
+          // Upload para storage
+          const { error: uploadError } = await supabase.storage
+            .from('news-images')
+            .upload(filePath, file);
+
+          if (uploadError) {
+            throw new Error(`Erro no upload de ${file.name}: ${uploadError.message}`);
+          }
+
+          // Obter URL pública
+          const { data: { publicUrl } } = supabase.storage
+            .from('news-images')
+            .getPublicUrl(filePath);
+
+          // Salvar no banco
+          const { error: dbError } = await supabase
+            .from('news_image')
+            .insert({
+              news_id: savedNewsId,
+              url: publicUrl,
+              type: 'image',
+              name: file.name
+            });
+
+          if (dbError) {
+            throw new Error(`Erro ao salvar ${file.name}: ${dbError.message}`);
+          }
+        });
+
+        await Promise.all(uploadPromises);
+      } catch (uploadError) {
+        toast({ 
+          title: "Notícia salva, mas houve erro no upload da galeria", 
+          description: uploadError.message, 
+          variant: "destructive" 
+        });
+      }
+    }
+
+    toast({ title: `Notícia ${id ? 'atualizada' : 'adicionada'} com sucesso!` });
+    fetchNewsAndComments();
     setEditingNews(null);
   };
 
   const handleAddNew = () => {
-    setEditingNews({ id: null, title: '', source: '', date: new Date().toISOString().split('T')[0], image_url: '', link: '#', description: '', body: '', gallery: [], video_url: '' });
+    setEditingNews({ id: null, title: '', source: '', date: new Date().toISOString().split('T')[0], image_url: '', link: '#', description: '', body: '', video_url: '' });
   };
 
   const handleDeleteNews = async (newsId) => {
+    // Buscar URLs das imagens da galeria
+    const { data: media } = await supabase
+      .from('news_image')
+      .select('url')
+      .eq('news_id', newsId);
+
+    // Remover do storage
+    if (media && media.length > 0) {
+      const paths = media.map(m => {
+        try {
+          const url = new URL(m.url);
+          return url.pathname.split('/news-images/')[1];
+        } catch {
+          return null;
+        }
+      }).filter(Boolean);
+
+      if (paths.length > 0) {
+        await supabase.storage.from('news-images').remove(paths);
+      }
+    }
+
+    // Deletar notícia (cascade deleta registros em news_image)
     const { error } = await supabase.from('news').delete().eq('id', newsId);
     if (error) {
       toast({ title: "Erro ao remover notícia", description: error.message, variant: "destructive" });
