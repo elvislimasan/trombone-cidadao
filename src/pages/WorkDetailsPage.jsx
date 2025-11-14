@@ -7,8 +7,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, DollarSign, HardHat, PauseCircle, CheckCircle, MapPin, Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { ArrowLeft, Calendar, DollarSign, HardHat, PauseCircle, CheckCircle, MapPin, Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, FileCheck } from 'lucide-react';
+import { formatCurrency, formatCnpj } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -27,7 +27,7 @@ const WorkDetailsPage = () => {
     setLoading(true);
     const { data: workData, error: workError } = await supabase
       .from('public_works')
-      .select('*, work_category:work_categories(name), work_area:work_areas(name), bairro:bairros(name)')
+      .select('*, work_category:work_categories(name), work_area:work_areas(name), bairro:bairros(name), contractor:contractor_id(id, name, cnpj)')
       .eq('id', workId)
       .single();
 
@@ -170,6 +170,7 @@ const WorkDetailsPage = () => {
     { icon: Calendar, label: 'Previsão de Conclusão', value: work.expected_end_date ? new Date(work.expected_end_date).toLocaleDateString('pt-BR') : null },
     { icon: Calendar, label: 'Data da Inauguração', value: work.inauguration_date ? new Date(work.inauguration_date).toLocaleDateString('pt-BR') : null },
     { icon: Building, label: 'Construtora', value: work.contractor?.name },
+    { icon: FileCheck, label: 'CNPJ', value: work.contractor?.cnpj ? formatCnpj(work.contractor.cnpj) : null },
     { icon: Landmark, label: 'Fontes de Recurso', value: work.funding_source?.join(', ') },
     { icon: Clock, label: 'Prazo de Execução', value: work.execution_period_days ? `${work.execution_period_days} dias` : null },
     { icon: PauseCircle, label: 'Data de Paralisação', value: work.stalled_date ? new Date(work.stalled_date).toLocaleDateString('pt-BR') : null },
@@ -182,9 +183,9 @@ const WorkDetailsPage = () => {
   const MediaSection = ({ title, items, icon: Icon, onOpen }) => {
     if (items.length === 0) return null;
     return (
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><Icon className="w-6 h-6 text-primary" /> {title}</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      <div className="mb-6 sm:mb-8">
+        <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center gap-2"><Icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> {title}</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
           {items.map((item, index) => {
             const isVideoUrl = item.type === 'video_url';
             let thumbnailUrl = item.url;
@@ -218,16 +219,16 @@ const WorkDetailsPage = () => {
   const DocumentSection = ({ items }) => {
     if (items.length === 0) return null;
     return (
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><FileText className="w-6 h-6 text-primary" /> Documentos</h3>
+      <div className="mb-6 sm:mb-8">
+        <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center gap-2"><FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> Documentos</h3>
         <div className="space-y-2">
           {items.map(doc => (
-            <div key={doc.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-              <div className="flex-grow">
-                <p className="font-medium">{doc.name}</p>
-                {doc.description && <p className="text-sm text-muted-foreground">{doc.description}</p>}
+            <div key={doc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
+              <div className="flex-grow min-w-0">
+                <p className="font-medium text-sm sm:text-base break-words">{doc.name}</p>
+                {doc.description && <p className="text-xs sm:text-sm text-muted-foreground break-words">{doc.description}</p>}
               </div>
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="flex-shrink-0 w-full sm:w-auto">
                 <a href={doc.url} target="_blank" rel="noopener noreferrer" download>
                   <Download className="mr-2 h-4 w-4" /> Baixar
                 </a>
@@ -242,13 +243,13 @@ const WorkDetailsPage = () => {
   const RelatedLinksSection = ({ links }) => {
     if (!links || links.length === 0) return null;
     return (
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><Link2 className="w-6 h-6 text-primary" /> Matérias e Links</h3>
+      <div className="mb-6 sm:mb-8">
+        <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center gap-2"><Link2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> Matérias e Links</h3>
         <div className="space-y-2">
           {links.map((link, index) => (
             <a key={index} href={link.url} target="_blank" rel="noopener noreferrer" className="block p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-              <p className="font-medium text-primary">{link.title}</p>
-              <p className="text-sm text-muted-foreground truncate">{link.url}</p>
+              <p className="font-medium text-primary text-sm sm:text-base break-words">{link.title}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground break-all">{link.url}</p>
             </a>
           ))}
         </div>
@@ -271,62 +272,62 @@ const WorkDetailsPage = () => {
         />
       )}
 
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-4 sm:py-6 md:py-12 pb-24 lg:pb-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="mb-8 flex justify-between items-center">
-            <Button asChild variant="ghost">
-              <Link to="/obras-publicas"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar para todas as obras</Link>
+          <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <Button asChild variant="ghost" className="text-sm">
+              <Link to="/obras-publicas"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Link>
             </Button>
-            <Button variant="outline" onClick={handleFavoriteToggle} className="gap-2">
+            <Button variant="outline" onClick={handleFavoriteToggle} className="gap-2 text-sm">
               <Star className={`w-4 h-4 transition-colors ${isFavorited ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
               {isFavorited ? 'Favoritado' : 'Favoritar'}
             </Button>
           </div>
 
           <Card className="overflow-hidden">
-            <CardHeader className="bg-muted/50 p-6">
+            <CardHeader className="bg-muted/50 p-4 sm:p-6">
               <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
-                <div>
-                  <div className="flex items-center gap-4 mb-2">
-                    {work.work_category?.name && <span className="text-sm font-semibold bg-primary/10 text-primary px-2 py-1 rounded">{work.work_category.name}</span>}
-                    {work.work_area?.name && <span className="flex items-center gap-2 text-sm font-semibold bg-secondary text-secondary-foreground px-2 py-1 rounded"><AreaIcon className="w-4 h-4" /> {work.work_area.name}</span>}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    {work.work_category?.name && <span className="text-xs sm:text-sm font-semibold bg-primary/10 text-primary px-2 py-1 rounded">{work.work_category.name}</span>}
+                    {work.work_area?.name && <span className="flex items-center gap-2 text-xs sm:text-sm font-semibold bg-secondary text-secondary-foreground px-2 py-1 rounded"><AreaIcon className="w-3 h-3 sm:w-4 sm:h-4" /> {work.work_area.name}</span>}
                   </div>
-                  <CardTitle className="text-3xl font-bold text-tc-red">{work.title}</CardTitle>
-                  {work.description && <CardDescription className="mt-2 text-lg">{work.description}</CardDescription>}
+                  <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-tc-red leading-tight">{work.title}</CardTitle>
+                  {work.description && <CardDescription className="mt-2 text-sm sm:text-base md:text-lg">{work.description}</CardDescription>}
                 </div>
-                <div className={`flex-shrink-0 flex items-center gap-2 text-lg font-semibold p-2 rounded-md ${statusInfo.color}`}>
-                  <statusInfo.icon className="h-6 w-6" />
+                <div className={`flex-shrink-0 flex items-center gap-2 text-sm sm:text-base md:text-lg font-semibold p-2 rounded-md ${statusInfo.color}`}>
+                  <statusInfo.icon className="h-5 w-5 sm:h-6 sm:w-6" />
                   <span>{statusInfo.text}</span>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               {work.execution_percentage > 0 && (
                 <div className="mb-6">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium">Progresso da Obra</span>
-                    <span className="font-bold text-tc-red">{work.execution_percentage}%</span>
+                    <span className="font-medium text-sm sm:text-base">Progresso da Obra</span>
+                    <span className="font-bold text-tc-red text-sm sm:text-base">{work.execution_percentage}%</span>
                   </div>
                   <Progress value={work.execution_percentage} className="h-3" />
                 </div>
               )}
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
                 {details.map((detail, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="bg-primary/10 p-2 rounded-md">
-                      <detail.icon className="h-5 w-5 text-primary" />
+                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors border border-transparent hover:border-border/50">
+                    <div className="bg-primary/10 p-2 rounded-md flex-shrink-0">
+                      <detail.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">{detail.label}</p>
-                      <p className="font-semibold">{detail.value}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">{detail.label}</p>
+                      <p className="font-semibold text-sm sm:text-base break-words leading-relaxed">{detail.value}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Galeria e Documentos</h2>
+              <div className="pb-4">
+                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Galeria e Documentos</h2>
                 {media.length > 0 || (work.related_links && work.related_links.length > 0) ? (
                   <>
                     <MediaSection title="Fotos" items={photos} icon={ImageIcon} onOpen={openViewer} />
@@ -335,7 +336,7 @@ const WorkDetailsPage = () => {
                     <RelatedLinksSection links={work.related_links} />
                   </>
                 ) : (
-                  <p className="text-muted-foreground text-center py-8 border-2 border-dashed rounded-lg">Nenhuma mídia, documento ou link disponível para esta obra.</p>
+                  <p className="text-muted-foreground text-center py-8 border-2 border-dashed rounded-lg text-sm sm:text-base">Nenhuma mídia, documento ou link disponível para esta obra.</p>
                 )}
               </div>
             </CardContent>

@@ -130,12 +130,12 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
       <div className="absolute top-4 right-4 z-[1000]">
         <MapModeToggle />
       </div>
-      <div className="absolute bottom-4 left-4 bg-card/80 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[1000]">
-        <h4 className="font-semibold text-sm mb-2">Legenda</h4>
-        <div className="space-y-1 text-xs">
-          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full" style={{backgroundColor: getStatusColor('pending')}}></div><span>Pendente</span></div>
-          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full" style={{backgroundColor: getStatusColor('in-progress')}}></div><span>Em Andamento</span></div>
-          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full" style={{backgroundColor: getStatusColor('resolved')}}></div><span>Resolvido</span></div>
+      <div className="absolute left-4 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto bottom-20 lg:bottom-4">
+        <h4 className="font-semibold text-sm mb-2.5">Legenda</h4>
+        <div className="space-y-1.5 text-xs">
+          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('pending')}}></div><span className="truncate">Pendente</span></div>
+          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('in-progress')}}></div><span className="truncate">Em Andamento</span></div>
+          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('resolved')}}></div><span className="truncate">Resolvido</span></div>
         </div>
       </div>
     </div>
