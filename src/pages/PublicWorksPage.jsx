@@ -200,7 +200,7 @@ const PublicWorksPage = () => {
         <p className="mt-2 text-lg text-muted-foreground">Acompanhe com transparência o que está sendo construído na cidade de Floresta-PE</p>
       </motion.div>
 
-      <Card className="mb-6 p-4">
+      <Card className="mb-6 p-4 relative z-[1000]">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="relative md:col-span-2 lg:col-span-5">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />

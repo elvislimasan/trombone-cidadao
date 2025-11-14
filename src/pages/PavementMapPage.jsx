@@ -192,7 +192,7 @@ const PavementMapPage = () => {
           </motion.div>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="bg-card border border-border rounded-lg p-4 mb-8">
+        <motion.div variants={itemVariants} className="bg-card border border-border rounded-lg p-4 mb-8 relative z-[1000]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div>
               <Label htmlFor="search" className="text-sm font-medium text-muted-foreground">Pesquisar por rua ou bairro</Label>
@@ -208,7 +208,7 @@ const PavementMapPage = () => {
               <Label className="text-sm font-medium text-muted-foreground">Filtrar por Status</Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="outline" className="w-full justify-between"><span>{getFilterLabel()}</span><Filter className="w-4 h-4 text-muted-foreground" /></Button></DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-card text-foreground border border-border z-[1000]">
+                <DropdownMenuContent className="w-56 bg-card text-foreground border border-border">
                   <DropdownMenuLabel className="text-tc-red">Status</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuRadioGroup value={statusFilter} onValueChange={setStatusFilter}>
