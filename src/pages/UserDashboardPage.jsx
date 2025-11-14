@@ -191,10 +191,28 @@ const UserDashboardPage = () => {
         </motion.div>
 
         <Tabs defaultValue="reports" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-lg">
-            <TabsTrigger value="reports" className="gap-2"><FileText className="w-4 h-4" /> Minhas Broncas</TabsTrigger>
-            <TabsTrigger value="comments" className="gap-2"><MessageSquare className="w-4 h-4" /> Meus Comentários</TabsTrigger>
-            <TabsTrigger value="guide" className="gap-2"><PlusCircle className="w-4 h-4" /> Colaborar com o Guia</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-lg p-1 gap-1 h-auto">
+            <TabsTrigger 
+              value="reports" 
+              className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
+            >
+              <FileText className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> 
+              <span className="truncate ml-0.5 sm:ml-0">Broncas</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="comments" 
+              className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
+            >
+              <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> 
+              <span className="truncate ml-0.5 sm:ml-0">Comentários</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="guide" 
+              className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
+            >
+              <PlusCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> 
+              <span className="truncate ml-0.5 sm:ml-0">Guias</span>
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="reports" className="mt-8 relative min-h-[300px]">
