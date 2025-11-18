@@ -145,12 +145,15 @@ const ReportDetails = ({
     const baseUrl = getBaseUrl();
     const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
     
-    // Se não tiver fotos, retorna a thumbnail padrão
-    if (!report?.photos || report.photos.length === 0) {
+    // Se report não existir ou não tiver fotos, retorna a thumbnail padrão
+    if (!report || !report.photos || report.photos.length === 0) {
       return defaultThumbnail;
     }
     
     const firstPhoto = report.photos[0];
+    if (!firstPhoto) {
+      return defaultThumbnail;
+    }
     
     // Tenta diferentes propriedades que podem conter a URL
     const imageUrl = firstPhoto.url || 
@@ -178,13 +181,15 @@ const ReportDetails = ({
   }, [report?.photos, report?.id]); // Recalcula quando as fotos ou o ID mudarem
 
   const seoData = useMemo(() => {
-    const reportImage = getReportImage;
+    const baseUrl = getBaseUrl();
+    const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
+    const reportImage = report ? getReportImage : defaultThumbnail;
     
     return {
-      title: `${report?.title} - Trombone Cidadão`,
-      description: report?.description || `Solicitação de ${getCategoryName(report?.category)} em Floresta-PE. Protocolo: ${report?.protocol}`,
+      title: report?.title ? `${report.title} - Trombone Cidadão` : 'Trombone Cidadão',
+      description: report?.description || `Solicitação de ${getCategoryName(report?.category)} em Floresta-PE. Protocolo: ${report?.protocol || ''}`,
       image: reportImage, // Retorna a imagem da bronca ou thumbnail padrão
-      url: `${getBaseUrl()}/bronca/${report?.id}`,
+      url: `${baseUrl}/bronca/${report?.id || ''}`,
       type: "article"
     };
   }, [report?.title, report?.description, report?.category, report?.protocol, report?.id, report?.photos, getReportImage]);
@@ -636,9 +641,7 @@ const ReportDetails = ({
 
   // Forçar atualização das meta tags quando o modal abrir
   useEffect(() => {
-    if (!report?.id) return;
-    
-    // Obter a imagem diretamente do useMemo
+    // Sempre atualizar meta tags, mesmo se report ainda não carregou (usará thumbnail padrão)
     const reportImage = getReportImage;
     
     if (!reportImage) {

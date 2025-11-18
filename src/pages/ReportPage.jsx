@@ -226,12 +226,16 @@ const ReportPage = () => {
     const baseUrl = getBaseUrl();
     const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
     
-    // Se não tiver fotos, retorna a thumbnail padrão
-    if (!report?.photos || report.photos.length === 0) {
+    // Se report não existir ou não tiver fotos, retorna a thumbnail padrão
+    if (!report || !report.photos || report.photos.length === 0) {
       return defaultThumbnail;
     }
     
     const firstPhoto = report.photos[0];
+    if (!firstPhoto) {
+      return defaultThumbnail;
+    }
+    
     const imageUrl = firstPhoto.url || firstPhoto.publicUrl || firstPhoto.photo_url || firstPhoto.image_url;
     
     // Se não encontrar URL, retorna a thumbnail padrão
@@ -250,15 +254,18 @@ const ReportPage = () => {
     return absoluteUrl;
   }, [report?.photos, report?.id]); // Recalcula quando as fotos ou o ID mudarem
 
-  const seoTitle = `Bronca: ${report.title} - Trombone Cidadão`;
-  const seoDescription = report.description || `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}`;
-  const seoImage = getReportImage; // Agora é um valor memoizado, não uma função
-  const seoUrl = `${getBaseUrl()}/bronca/${report.id}`;
+  const baseUrl = getBaseUrl();
+  const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
+  const seoTitle = report?.title ? `Bronca: ${report.title} - Trombone Cidadão` : 'Trombone Cidadão';
+  const seoDescription = report?.description || `Confira esta solicitação em Floresta-PE: "${report?.title || ''}". Protocolo: ${report?.protocol || ''}`;
+  const seoImage = report ? getReportImage : defaultThumbnail; // Sempre retorna uma imagem
+  const seoUrl = `${baseUrl}/bronca/${report?.id || ''}`;
 
   // Forçar atualização das meta tags quando a página carregar
   // Isso garante que as meta tags estejam corretas quando o WhatsApp fizer o fetch
   useEffect(() => {
-    if (!report?.id || !seoImage) return;
+    // Sempre atualizar meta tags, mesmo se report ainda não carregou (usará thumbnail padrão)
+    if (!seoImage) return;
     
     const updateMetaTags = () => {
       // Remover todas as meta tags de imagem existentes
@@ -332,7 +339,7 @@ const ReportPage = () => {
       {/* Meta Tags Dinâmicas para esta bronca */}
       {/* Usar key única para garantir que o Helmet sobrescreva as meta tags do App.jsx */}
       <DynamicSEO 
-        key={`report-page-${report.id}`}
+        key={`report-page-${report?.id || 'loading'}`}
         title={seoTitle}
         description={seoDescription}
         image={seoImage}
