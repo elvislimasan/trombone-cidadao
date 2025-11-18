@@ -643,7 +643,8 @@ const ReportDetails = ({
   // Forçar atualização das meta tags quando o modal abrir
   useEffect(() => {
     // Sempre atualizar meta tags, mesmo se report ainda não carregou (usará thumbnail padrão)
-    const reportImage = getReportImage;
+    // Garantir que sempre há uma imagem (thumbnail padrão se necessário)
+    const reportImage = getReportImage || `${baseUrl}/images/thumbnail.jpg`;
     
     if (!reportImage) {
       return;

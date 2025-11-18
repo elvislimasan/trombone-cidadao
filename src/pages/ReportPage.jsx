@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReportDetails from '@/components/ReportDetails';
 import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
 import LinkReportModal from '@/components/LinkReportModal';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -95,18 +96,23 @@ const ReportPage = () => {
       }
     }
     
+    // Garantir que sempre há uma imagem válida
+    if (!reportImage || reportImage.trim() === '') {
+      reportImage = defaultThumbnail;
+    }
+    
     const reportTitle = report?.title || '';
     const reportDescription = report?.description || '';
     const reportProtocol = report?.protocol || '';
-    const reportId = report?.id || '';
+    const currentReportId = report?.id || reportId || '';
     
     return {
       title: reportTitle ? `Bronca: ${reportTitle} - Trombone Cidadão` : 'Trombone Cidadão',
       description: reportDescription || `Confira esta solicitação em Floresta-PE: "${reportTitle}". Protocolo: ${reportProtocol}`,
-      image: reportImage,
-      url: `${baseUrl}/bronca/${reportId}`,
+      image: reportImage, // Sempre retorna uma imagem válida
+      url: `${baseUrl}/bronca/${currentReportId}`,
     };
-  }, [baseUrl, report?.title, report?.description, report?.protocol, report?.id, reportPhotos]);
+  }, [baseUrl, report?.title, report?.description, report?.protocol, report?.id, reportId, reportPhotos]);
 
   const seoTitle = seoData.title;
   const seoDescription = seoData.description;
@@ -117,7 +123,9 @@ const ReportPage = () => {
   // Isso garante que as meta tags estejam corretas quando o WhatsApp fizer o fetch
   useEffect(() => {
     // Sempre atualizar meta tags, mesmo se report ainda não carregou (usará thumbnail padrão)
-    if (!seoImage) return;
+    // Garantir que sempre há uma imagem (thumbnail padrão se necessário)
+    const imageToUse = seoImage || `${baseUrl}/images/thumbnail.jpg`;
+    if (!imageToUse) return;
     
     const updateMetaTags = () => {
       // Remover todas as meta tags de imagem existentes
@@ -141,15 +149,15 @@ const ReportPage = () => {
       
       // Criar novas meta tags com a imagem correta
       const metaTags = [
-        { property: 'property', value: 'og:image', content: seoImage },
-        { property: 'property', value: 'og:image:url', content: seoImage },
+        { property: 'property', value: 'og:image', content: imageToUse },
+        { property: 'property', value: 'og:image:url', content: imageToUse },
         { property: 'property', value: 'og:image:width', content: '1200' },
         { property: 'property', value: 'og:image:height', content: '630' },
         { property: 'property', value: 'og:image:type', content: 'image/jpeg' },
-        { property: 'property', value: 'og:image:alt', content: seoTitle },
-        { property: 'name', value: 'twitter:image', content: seoImage },
-        { property: 'name', value: 'twitter:image:alt', content: seoTitle },
-        { property: 'name', value: 'image', content: seoImage },
+        { property: 'property', value: 'og:image:alt', content: seoTitle || 'Trombone Cidadão' },
+        { property: 'name', value: 'twitter:image', content: imageToUse },
+        { property: 'name', value: 'twitter:image:alt', content: seoTitle || 'Trombone Cidadão' },
+        { property: 'name', value: 'image', content: imageToUse },
       ];
       
       metaTags.forEach(({ property, value, content }) => {
@@ -162,12 +170,12 @@ const ReportPage = () => {
       // Criar link image_src
       const imageSrcLink = document.createElement('link');
       imageSrcLink.setAttribute('rel', 'image_src');
-      imageSrcLink.setAttribute('href', seoImage);
+      imageSrcLink.setAttribute('href', imageToUse);
       document.head.insertBefore(imageSrcLink, document.head.firstChild);
       
       // Garantir que og:image seja a primeira
       const ogImage = document.querySelector('meta[property="og:image"]');
-      if (ogImage && ogImage.getAttribute('content') === seoImage) {
+      if (ogImage && ogImage.getAttribute('content') === imageToUse) {
         document.head.insertBefore(ogImage, document.head.firstChild);
       }
       
@@ -338,14 +346,8 @@ const ReportPage = () => {
     setReportToLink(null);
   };
 
-  if (loading) {
-    return <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50"><p>Carregando...</p></div>;
-  }
-
-  if (!report) {
-    return null;
-  }
-
+  // Sempre renderizar DynamicSEO para garantir que as meta tags estejam presentes
+  // Mesmo quando loading ou report é null, para que a thumbnail padrão apareça
   return (
     <>
       {/* Meta Tags Dinâmicas para esta bronca */}
@@ -354,27 +356,46 @@ const ReportPage = () => {
         key={`report-page-${report?.id || 'loading'}`}
         title={seoTitle}
         description={seoDescription}
-        image={seoImage}
-        url={seoUrl}
+        image={seoImage || `${baseUrl}/images/thumbnail.jpg`}
+        url={seoUrl || `${baseUrl}/bronca/${reportId}`}
         type="article"
       />
-      
-      <ReportDetails
-        report={report}
-        onClose={() => navigate('/')}
-        onUpdate={handleUpdateReport}
-        onUpvote={() => handleUpvote(report.id, report.upvotes, report.user_has_upvoted)}
-        onLink={handleOpenLinkModal}
-        onFavoriteToggle={handleFavoriteToggle}
-      />
-      
-      {showLinkModal && reportToLink && (
-        <LinkReportModal
-          sourceReport={reportToLink}
-          allReports={allReports}
-          onClose={() => setShowLinkModal(false)}
-          onLink={handleLinkReport}
-        />
+
+      {loading && (
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <p>Carregando...</p>
+        </div>
+      )}
+
+      {!loading && !report && (
+        <div className="container mx-auto px-4 py-12 text-center">
+          <h1 className="text-2xl font-bold">Bronca não encontrada</h1>
+          <Button asChild className="mt-4">
+            <Link to="/">Voltar para Home</Link>
+          </Button>
+        </div>
+      )}
+
+      {!loading && report && (
+        <>
+          <ReportDetails
+            report={report}
+            onClose={() => navigate('/')}
+            onUpdate={handleUpdateReport}
+            onUpvote={() => handleUpvote(report.id, report.upvotes, report.user_has_upvoted)}
+            onLink={handleOpenLinkModal}
+            onFavoriteToggle={handleFavoriteToggle}
+          />
+          
+          {showLinkModal && reportToLink && (
+            <LinkReportModal
+              sourceReport={reportToLink}
+              allReports={allReports}
+              onClose={() => setShowLinkModal(false)}
+              onLink={handleLinkReport}
+            />
+          )}
+        </>
       )}
     </>
   );

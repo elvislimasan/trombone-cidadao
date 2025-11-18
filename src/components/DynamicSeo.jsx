@@ -63,12 +63,16 @@ const DynamicSEO = ({
   const isDefaultThumbnail = image && typeof image === 'string' && image.includes('thumbnail.jpg');
   
   // Usa a imagem da bronca se disponível, senão usa a padrão
-  const seoImage = image || defaultImage;
+  // Garantir que sempre há uma imagem válida
+  let seoImage = image || defaultImage;
+  if (!seoImage || seoImage.trim() === '') {
+    seoImage = defaultImage;
+  }
   
   // Garante que a URL da imagem seja absoluta
   const getAbsoluteImageUrl = (imgUrl) => {
     // Se não houver URL, retorna a thumbnail padrão
-    if (!imgUrl) {
+    if (!imgUrl || imgUrl.trim() === '') {
       return defaultImage;
     }
     
@@ -87,6 +91,9 @@ const DynamicSEO = ({
   };
 
   const absoluteImageUrl = getAbsoluteImageUrl(seoImage);
+  
+  // Garantir que a URL final seja válida
+  const finalImageUrl = absoluteImageUrl || defaultImage;
 
   return (
     <Helmet>
@@ -98,8 +105,8 @@ const DynamicSEO = ({
       {/* Usar prioritizeSeoTags para garantir que estas meta tags tenham prioridade */}
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
-      <meta property="og:image" content={absoluteImageUrl} />
-      <meta property="og:image:url" content={absoluteImageUrl} />
+      <meta property="og:image" content={finalImageUrl} />
+      <meta property="og:image:url" content={finalImageUrl} />
       <meta property="og:image:type" content="image/jpeg" />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
@@ -113,14 +120,14 @@ const DynamicSEO = ({
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={absoluteImageUrl} />
+      <meta name="twitter:image" content={finalImageUrl} />
       <meta name="twitter:image:alt" content={title} />
       
       {/* WhatsApp e outras redes sociais usam Open Graph */}
-      <meta name="image" content={absoluteImageUrl} />
+      <meta name="image" content={finalImageUrl} />
       
       {/* Meta tag adicional para garantir que a imagem seja usada */}
-      <link rel="image_src" href={absoluteImageUrl} />
+      <link rel="image_src" href={finalImageUrl} />
       
       {/* Deep Links - App Links (Android) e Universal Links (iOS) */}
       {/* Isso faz com que o link abra no app se estiver instalado */}
@@ -149,7 +156,7 @@ const DynamicSEO = ({
           "@type": "Article",
           "headline": title,
           "description": description,
-          "image": absoluteImageUrl,
+          "image": finalImageUrl,
           "url": url
         })}
       </script>
