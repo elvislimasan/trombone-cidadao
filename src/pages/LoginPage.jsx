@@ -51,25 +51,25 @@ const LoginPage = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await signIn(email, password);
+    const { error } = await signIn(email, password);
       
-      if (error && error.message === "Email not confirmed") {
-        // Try again silently for the user
-        const { error: secondError } = await signIn(email, password);
-        if (!secondError) {
-          toast({
-            title: `Bem-vindo(a) de volta!`,
-            description: "Login realizado com sucesso. 🎉",
-          });
+    if (error && error.message === "Email not confirmed") {
+      // Try again silently for the user
+      const { error: secondError } = await signIn(email, password);
+      if (!secondError) {
+        toast({
+          title: `Bem-vindo(a) de volta!`,
+          description: "Login realizado com sucesso. 🎉",
+        });
           navigate('/');
-        } else {
+      } else {
           setErrors({
             email: '',
             password: '',
             general: secondError.message || "Não foi possível fazer login. Verifique suas credenciais.",
-          });
-        }
-      } else if (error) {
+        });
+      }
+    } else if (error) {
         // Verificar tipo de erro
         const errorMessage = error.message || "Não foi possível fazer login. Verifique suas credenciais.";
         
@@ -89,7 +89,7 @@ const LoginPage = () => {
             email: '',
             password: 'E-mail ou senha incorretos',
             general: '',
-          });
+      });
         } else {
           // Outros erros (conexão, servidor, etc.): mostrar no campo geral
           setErrors({
@@ -98,11 +98,11 @@ const LoginPage = () => {
             general: errorMessage,
           });
         }
-      } else {
-        toast({
-          title: `Bem-vindo(a) de volta!`,
-          description: "Login realizado com sucesso. 🎉",
-        });
+    } else {
+      toast({
+        title: `Bem-vindo(a) de volta!`,
+        description: "Login realizado com sucesso. 🎉",
+      });
         navigate('/');
       }
     } catch (error) {
@@ -172,12 +172,12 @@ const LoginPage = () => {
                     </Link>
                   </div>
                   <div className="relative">
-                    <Input
-                      id="password"
+                  <Input
+                    id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Digite sua senha"
-                      required
-                      value={password}
+                    required
+                    value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
                         if (errors.password) {
@@ -186,7 +186,7 @@ const LoginPage = () => {
                       }}
                       className={`${errors.password ? 'border-destructive' : ''} pr-10`}
                       style={{ paddingRight: '2.5rem' }}
-                    />
+                  />
                     <Button
                       type="button"
                       variant="ghost"

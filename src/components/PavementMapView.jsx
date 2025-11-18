@@ -154,7 +154,14 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                 <p className="text-xs text-muted-foreground mt-1">Ano da Pavimentação: {new Date(selectedStreet.paving_date).getFullYear()}</p>
               )}
               {selectedStreet.work_id && (
-                <button onClick={() => onWorkClick(selectedStreet.work_id)} className="mt-3 text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onWorkClick(selectedStreet.work_id);
+                  }} 
+                  className="mt-3 text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2"
+                  style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                >
                   <HardHat className="w-4 h-4" /> Ver detalhes da obra
                 </button>
               )}

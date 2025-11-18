@@ -199,20 +199,20 @@ const WorksMapView = forwardRef(({ works }, ref) => {
               className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[2000]" 
               onClick={() => setSelectedWork(null)}
             >
-              <motion.div 
+          <motion.div
                 initial={{ scale: 0.9, opacity: 0 }} 
                 animate={{ scale: 1, opacity: 1 }} 
                 exit={{ scale: 0.9, opacity: 0 }} 
                 className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto border border-border" 
                 onClick={(e) => e.stopPropagation()}
-              >
+          >
                 <div className="p-6 border-b border-border">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <h2 className="text-2xl font-bold text-foreground mb-3">{selectedWork.title}</h2>
                       <div className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold text-white shadow-md ${getStatusInfo(selectedWork.status).color}`}>
                         {React.createElement(getStatusInfo(selectedWork.status).icon, { className: "w-4 h-4" })}
-                        {getStatusInfo(selectedWork.status).text}
+                    {getStatusInfo(selectedWork.status).text}
                       </div>
                       {selectedWork.description && (
                         <p className="text-muted-foreground text-sm mt-3 leading-relaxed">{selectedWork.description}</p>
@@ -228,13 +228,13 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                   </div>
                 </div>
                 <div className="p-6 space-y-6">
-                  <Tabs defaultValue="details" className="w-full">
+              <Tabs defaultValue="details" className="w-full">
                     <TabsList className="grid w-full grid-cols-4 mb-6 gap-2 bg-muted/40 p-1.5 rounded-xl">
                       <TabsTrigger value="details" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><Info className="w-4 h-4" /></TabsTrigger>
                       <TabsTrigger value="photos" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><Camera className="w-4 h-4" /></TabsTrigger>
                       <TabsTrigger value="videos" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><Video className="w-4 h-4" /></TabsTrigger>
                       <TabsTrigger value="docs" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><FileText className="w-4 h-4" /></TabsTrigger>
-                    </TabsList>
+                </TabsList>
                     <TabsContent value="details" className="space-y-6">
                       <div className="space-y-6">
                     {selectedWork.execution_percentage > 0 && (
@@ -252,8 +252,8 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                     {/* Seção: Valores */}
                     <div className="space-y-2.5">
                       <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Valores</h4>
-                      <DetailItem icon={DollarSign} label="Valor Total" value={formatCurrency(selectedWork.total_value)} />
-                      <DetailItem icon={DollarSign} label="Valor Gasto" value={formatCurrency(selectedWork.amount_spent)} />
+                    <DetailItem icon={DollarSign} label="Valor Total" value={formatCurrency(selectedWork.total_value)} />
+                    <DetailItem icon={DollarSign} label="Valor Gasto" value={formatCurrency(selectedWork.amount_spent)} />
                     </div>
 
                     {/* Seção: Construtora */}
@@ -268,21 +268,21 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                     {/* Seção: Recursos */}
                     <div className="space-y-2.5">
                       <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Recursos</h4>
-                      <DetailItem icon={Landmark} label="Fonte do Recurso" value={getFundingSourceText(selectedWork.funding_source)} />
-                      {selectedWork.parliamentary_amendment?.has && (
-                        <DetailItem icon={UserCheck} label="Emenda Parlamentar" value={selectedWork.parliamentary_amendment.author} />
-                      )}
+                    <DetailItem icon={Landmark} label="Fonte do Recurso" value={getFundingSourceText(selectedWork.funding_source)} />
+                    {selectedWork.parliamentary_amendment?.has && (
+                      <DetailItem icon={UserCheck} label="Emenda Parlamentar" value={selectedWork.parliamentary_amendment.author} />
+                    )}
                     </div>
 
                     {/* Seção: Cronograma */}
                     <div className="space-y-2.5">
                       <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Cronograma</h4>
                       <DetailItem icon={Calendar} label="Data de Início" value={formatDate(selectedWork.start_date)} />
-                      {selectedWork.execution_period_days && <DetailItem icon={Clock} label="Prazo de Execução" value={`${selectedWork.execution_period_days} dias`} />}
+                    {selectedWork.execution_period_days && <DetailItem icon={Clock} label="Prazo de Execução" value={`${selectedWork.execution_period_days} dias`} />}
                       {selectedWork.status === 'in-progress' && <DetailItem icon={Calendar} label="Previsão de Conclusão" value={formatDate(selectedWork.expected_end_date)} />}
                       {selectedWork.status === 'completed' && <DetailItem icon={Calendar} label="Data de Inauguração" value={formatDate(selectedWork.inauguration_date)} />}
                       {(selectedWork.status === 'stalled' || selectedWork.status === 'unfinished') && <DetailItem icon={Calendar} label="Data de Paralisação" value={formatDate(selectedWork.stalled_date)} />}
-                      <DetailItem icon={Calendar} label="Última Atualização" value={formatDate(selectedWork.last_update)} />
+                    <DetailItem icon={Calendar} label="Última Atualização" value={formatDate(selectedWork.last_update)} />
                     </div>
 
                     {/* Seção: Outras Informações */}
@@ -292,8 +292,8 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                         <DetailItem icon={ListChecks} label="Detalhes Adicionais" value={selectedWork.other_details} />
                       </div>
                     )}
-                      </div>
-                    </TabsContent>
+                  </div>
+                </TabsContent>
                     <TabsContent value="photos" className="space-y-4">
                   {loadingMedia ? (
                     <div className="flex items-center justify-center py-12">
@@ -311,7 +311,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                       )}
                     </div>
                   )}
-                    </TabsContent>
+                </TabsContent>
                     <TabsContent value="videos" className="space-y-4">
                   {loadingMedia ? (
                     <div className="flex items-center justify-center py-12">
@@ -343,7 +343,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                       )}
                     </div>
                   )}
-                    </TabsContent>
+                </TabsContent>
                     <TabsContent value="docs" className="space-y-2.5">
                   {loadingMedia ? (
                     <div className="flex items-center justify-center py-12">
@@ -364,21 +364,25 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                       )}
                     </div>
                   )}
-                    </TabsContent>
-                  </Tabs>
+                </TabsContent>
+              </Tabs>
                   
                   <div className="flex flex-col md:flex-row gap-3 pt-4 border-t border-border">
                     <button 
-                      onClick={() => handleDetailsClick(selectedWork)} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDetailsClick(selectedWork);
+                      }} 
                       className="w-full bg-tc-red text-white py-3.5 px-5 rounded-xl font-semibold hover:bg-tc-red/90 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                      style={{ pointerEvents: 'auto', touchAction: 'auto' }}
                     >
                       <Info className="w-5 h-5" />
-                      Ver Mais Detalhes
-                    </button>
-                  </div>
+                Ver Mais Detalhes
+              </button>
+            </div>
                 </div>
               </motion.div>
-            </motion.div>
+          </motion.div>
           </>
         )}
       </AnimatePresence>

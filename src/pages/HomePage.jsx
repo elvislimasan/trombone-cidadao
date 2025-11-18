@@ -742,7 +742,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
         transition={{ delay: 0.4 }} 
         className="mt-8 overflow-visible"
       >
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 relative z-[1000] overflow-visible">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 relative z-[800] overflow-visible">
           <div className="flex items-center gap-2 bg-card/95 backdrop-blur-sm p-1.5 rounded-lg border border-border shadow-md">
             <Button 
               variant={viewMode === 'map' ? 'default' : 'ghost'} 
@@ -778,7 +778,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                 side="bottom"
                 alignOffset={-5}
                 sideOffset={8}
-                className="w-72 max-h-[calc(100vh-8rem)] overflow-y-auto bg-card text-foreground border border-border shadow-xl rounded-lg p-2 z-[1500]"
+                className="w-72 max-h-[calc(100vh-8rem)] overflow-y-auto bg-card text-foreground border border-border shadow-xl rounded-lg p-2 z-[850]"
                 style={{ 
                   maxHeight: 'calc(100vh - 8rem)',
                   overflowY: 'auto'
@@ -786,8 +786,8 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
               >
                 <div className="space-y-1">
                   <DropdownMenuLabel className="text-tc-red font-bold text-base px-3 py-2.5">Status</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuRadioGroup value={filter.status} onValueChange={(value) => setFilter(f => ({...f, status: value}))}>
+                <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuRadioGroup value={filter.status} onValueChange={(value) => setFilter(f => ({...f, status: value}))}>
                     <DropdownMenuRadioItem value="active" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
                       <span className="text-sm">Ativas (Pendentes/Em Andamento)</span>
                     </DropdownMenuRadioItem>
@@ -802,17 +802,17 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                         <span className="text-sm">Minhas Resolvidas</span>
                       </DropdownMenuRadioItem>
                     )}
-                  </DropdownMenuRadioGroup>
+                </DropdownMenuRadioGroup>
                 </div>
                 <DropdownMenuSeparator className="bg-border my-2" />
                 <div className="space-y-1">
                   <DropdownMenuLabel className="text-tc-red font-bold text-base px-3 py-2.5">Categoria</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuRadioGroup value={filter.category} onValueChange={(value) => setFilter(f => ({...f, category: value}))}>
+                <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuRadioGroup value={filter.category} onValueChange={(value) => setFilter(f => ({...f, category: value}))}>
                     <DropdownMenuRadioItem value="all" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
                       <span className="text-sm">Todas as Categorias</span>
                     </DropdownMenuRadioItem>
-                    {categories.map(cat => (
+                  {categories.map(cat => (
                       <DropdownMenuRadioItem 
                         key={cat.id} 
                         value={cat.id} 
@@ -824,12 +824,12 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                             <span className="text-sm truncate">{cat.name}</span>
                           </span>
                           <span className="text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 flex-shrink-0 font-semibold">
-                            {categoryCounts[cat.id] || 0}
-                          </span>
+                        {categoryCounts[cat.id] || 0}
+                      </span>
                         </div>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>

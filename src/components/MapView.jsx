@@ -123,7 +123,15 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
                       <ThumbsUp className="w-3 h-3" />
                       <span>{report.upvotes}</span>
                     </Button>
-                    <Button size="sm" onClick={() => onReportClick(report)} className="bg-primary hover:bg-primary/90">
+                    <Button 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReportClick(report);
+                      }} 
+                      className="bg-primary hover:bg-primary/90"
+                      style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                    >
                       Ver Detalhes
                     </Button>
                   </div>
