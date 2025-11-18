@@ -193,7 +193,8 @@ const ReportDetails = ({
   }, [baseUrl, report?.title, report?.description, report?.category, report?.protocol, report?.id, reportPhotos]);
   
   // getReportImage para uso no useEffect (calculado separadamente)
-  const getReportImage = seoData.image;
+  // Garantir fallback para thumbnail padrão
+  const getReportImage = seoData.image || `${baseUrl}/images/thumbnail.jpg`;
 
   const handleMarkResolvedClick = () => {
     if (!user) {
@@ -256,8 +257,22 @@ const ReportDetails = ({
   const handleShare = async () => {
     // Pega a imagem da bronca (URL completa e absoluta)
     // getReportImage já retorna a thumbnail padrão se não houver imagem
-    const shareImageUrl = getReportImage; // Agora é um valor memoizado, não uma função
-    const baseUrl = getBaseUrl();
+    let shareImageUrl = getReportImage || `${baseUrl}/images/thumbnail.jpg`;
+    
+    // Garantir que a URL seja absoluta e válida
+    if (!shareImageUrl || shareImageUrl.trim() === '') {
+      shareImageUrl = `${baseUrl}/images/thumbnail.jpg`;
+    }
+    
+    // Se não começar com http, adicionar baseUrl
+    if (!shareImageUrl.startsWith('http')) {
+      if (shareImageUrl.startsWith('/')) {
+        shareImageUrl = `${baseUrl}${shareImageUrl}`;
+      } else {
+        shareImageUrl = `${baseUrl}/${shareImageUrl}`;
+      }
+    }
+    
     const shareUrl = `${baseUrl}/bronca/${report.id}`;
     const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
     const fullShareText = `${shareText} ${shareUrl}`;
@@ -266,11 +281,16 @@ const ReportDetails = ({
     // IMPORTANTE: Garantir que as meta tags estejam atualizadas antes de compartilhar
     // Forçar atualização imediatamente antes de compartilhar
     const updateMetaTagsBeforeShare = () => {
-      // Remover todas as meta tags de imagem existentes
+      // Remover TODAS as meta tags de imagem existentes
       const selectorsToRemove = [
         'meta[property="og:image"]',
         'meta[property="og:image:url"]',
+        'meta[property="og:image:width"]',
+        'meta[property="og:image:height"]',
+        'meta[property="og:image:type"]',
+        'meta[property="og:image:alt"]',
         'meta[name="twitter:image"]',
+        'meta[name="twitter:image:alt"]',
         'meta[name="image"]',
         'link[rel="image_src"]',
       ];
@@ -279,34 +299,50 @@ const ReportDetails = ({
         document.querySelectorAll(selector).forEach(el => el.remove());
       });
       
-      // Criar nova meta tag og:image com a imagem correta
-      const ogImage = document.createElement('meta');
-      ogImage.setAttribute('property', 'og:image');
-      ogImage.setAttribute('content', shareImageUrl);
-      document.head.insertBefore(ogImage, document.head.firstChild);
+      // Criar TODAS as meta tags necessárias com a imagem correta
+      const metaTags = [
+        { property: 'property', value: 'og:image', content: shareImageUrl },
+        { property: 'property', value: 'og:image:url', content: shareImageUrl },
+        { property: 'property', value: 'og:image:width', content: '1200' },
+        { property: 'property', value: 'og:image:height', content: '630' },
+        { property: 'property', value: 'og:image:type', content: 'image/jpeg' },
+        { property: 'property', value: 'og:image:alt', content: report?.title || 'Trombone Cidadão' },
+        { property: 'name', value: 'twitter:image', content: shareImageUrl },
+        { property: 'name', value: 'twitter:image:alt', content: report?.title || 'Trombone Cidadão' },
+        { property: 'name', value: 'image', content: shareImageUrl },
+      ];
       
-      // Criar og:image:url
-      const ogImageUrl = document.createElement('meta');
-      ogImageUrl.setAttribute('property', 'og:image:url');
-      ogImageUrl.setAttribute('content', shareImageUrl);
-      document.head.appendChild(ogImageUrl);
-      
-      // Criar twitter:image
-      const twitterImage = document.createElement('meta');
-      twitterImage.setAttribute('name', 'twitter:image');
-      twitterImage.setAttribute('content', shareImageUrl);
-      document.head.appendChild(twitterImage);
+      metaTags.forEach(({ property, value, content }) => {
+        const element = document.createElement('meta');
+        element.setAttribute(property, value);
+        element.setAttribute('content', content);
+        document.head.insertBefore(element, document.head.firstChild);
+      });
       
       // Criar link image_src
       const imageSrc = document.createElement('link');
       imageSrc.setAttribute('rel', 'image_src');
       imageSrc.setAttribute('href', shareImageUrl);
-      document.head.appendChild(imageSrc);
+      document.head.insertBefore(imageSrc, document.head.firstChild);
       
+      // Garantir que og:image seja a PRIMEIRA meta tag no head
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage) {
+        document.head.insertBefore(ogImage, document.head.firstChild);
+      }
+      
+      // Log para debug (remover em produção)
+      console.log('Meta tags atualizadas antes de compartilhar:', {
+        shareImageUrl,
+        shareUrl,
+        ogImage: document.querySelector('meta[property="og:image"]')?.getAttribute('content'),
+      });
     };
     
-    // Atualizar meta tags antes de compartilhar
+    // Atualizar meta tags antes de compartilhar (múltiplas vezes para garantir)
     updateMetaTagsBeforeShare();
+    setTimeout(updateMetaTagsBeforeShare, 50);
+    setTimeout(updateMetaTagsBeforeShare, 200);
 
     try {
       // Tentar usar Capacitor Share primeiro (app nativo)
