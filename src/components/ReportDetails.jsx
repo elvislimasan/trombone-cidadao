@@ -143,6 +143,12 @@ const ReportDetails = ({
   // Base URL memoizada para evitar recálculos
   const baseUrl = useMemo(() => getBaseUrl(), []);
   
+  // Normalizar report.photos para garantir que seja sempre um array
+  const reportPhotos = useMemo(() => {
+    if (!report || !report.photos) return [];
+    return Array.isArray(report.photos) ? report.photos : [];
+  }, [report?.photos]);
+  
   // Função para obter a URL da imagem corretamente (calculada diretamente no seoData)
   const seoData = useMemo(() => {
     const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
@@ -150,8 +156,8 @@ const ReportDetails = ({
     // Calcular a imagem diretamente aqui para evitar dependências circulares
     let reportImage = defaultThumbnail;
     
-    if (report && report.photos && report.photos.length > 0) {
-      const firstPhoto = report.photos[0];
+    if (reportPhotos && reportPhotos.length > 0) {
+      const firstPhoto = reportPhotos[0];
       if (firstPhoto) {
         const imageUrl = firstPhoto.url || 
                firstPhoto.publicUrl || 
@@ -171,14 +177,20 @@ const ReportDetails = ({
       }
     }
     
+    const reportTitle = report?.title || '';
+    const reportDescription = report?.description || '';
+    const reportCategory = report?.category || null;
+    const reportProtocol = report?.protocol || '';
+    const reportId = report?.id || '';
+    
     return {
-      title: report?.title ? `${report.title} - Trombone Cidadão` : 'Trombone Cidadão',
-      description: report?.description || `Solicitação de ${getCategoryName(report?.category)} em Floresta-PE. Protocolo: ${report?.protocol || ''}`,
+      title: reportTitle ? `${reportTitle} - Trombone Cidadão` : 'Trombone Cidadão',
+      description: reportDescription || `Solicitação de ${getCategoryName(reportCategory)} em Floresta-PE. Protocolo: ${reportProtocol}`,
       image: reportImage, // Retorna a imagem da bronca ou thumbnail padrão
-      url: `${baseUrl}/bronca/${report?.id || ''}`,
+      url: `${baseUrl}/bronca/${reportId}`,
       type: "article"
     };
-  }, [baseUrl, report?.title, report?.description, report?.category, report?.protocol, report?.id, report?.photos]);
+  }, [baseUrl, report?.title, report?.description, report?.category, report?.protocol, report?.id, reportPhotos]);
   
   // getReportImage para uso no useEffect (calculado separadamente)
   const getReportImage = seoData.image;
@@ -791,8 +803,7 @@ const ReportDetails = ({
       timers.forEach(timer => clearTimeout(timer));
       observer.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report?.id, report?.photos, baseUrl, getReportImage]);
+  }, [report?.id, reportPhotos, baseUrl, getReportImage]);
 
   return (
     <>
