@@ -204,7 +204,6 @@ export const NotificationProvider = ({ children }) => {
         });
 
       if (error) throw error;
-      console.log('Push subscription saved to database');
     } catch (error) {
       console.error('Error saving push subscription:', error);
     }
@@ -221,7 +220,6 @@ export const NotificationProvider = ({ children }) => {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      console.log('Push subscription removed from database');
     } catch (error) {
       console.error('Error deleting push subscription:', error);
     }

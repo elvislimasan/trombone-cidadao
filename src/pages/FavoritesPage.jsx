@@ -30,10 +30,12 @@ const FavoritesPage = () => {
       .select(`
         report:reports (
           *,
+          pole_number,
           category:categories(name, icon),
-          author:profiles!reports_author_id_fkey(name),
+          author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config),
           upvotes:upvotes(count),
-          comments:comments(count)
+          comments:comments(count),
+          report_media(*)
         )
       `)
       .eq('user_id', user.id);
@@ -51,6 +53,8 @@ const FavoritesPage = () => {
         upvotes: fav.report.upvotes[0]?.count || 0,
         comments_count: fav.report.comments[0]?.count || 0,
         is_favorited: true,
+        photos: (fav.report.report_media || []).filter(m => m.type === 'photo'),
+        videos: (fav.report.report_media || []).filter(m => m.type === 'video'),
       }));
       setFavoriteReports(formattedData);
     }

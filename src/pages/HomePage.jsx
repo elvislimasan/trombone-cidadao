@@ -194,7 +194,6 @@ function HomePage() {
         )
         .subscribe((status) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('[HomePage] Erro na subscription realtime, usando polling como fallback');
           }
         });
     } catch (error) {

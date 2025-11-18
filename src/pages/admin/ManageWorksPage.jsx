@@ -552,7 +552,7 @@ const WorkMediaManager = ({ workId }) => {
         await supabase.storage.from('work-media').remove([decodeURIComponent(filePath)]);
       }
     } catch (e) {
-      console.warn("Could not parse or delete file from storage:", e.message);
+      // Erro ao parsear ou deletar arquivo do storage
     }
 
     toast({ title: "Mídia removida!" });

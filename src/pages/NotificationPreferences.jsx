@@ -398,15 +398,10 @@ const NotificationPreferences = () => {
                     checked={!!type.enabled && !!notificationsEnabled}
                     onCheckedChange={async (checked) => {
                       try {
-                        console.log(`🔔 [PREF UI] Atualizando ${type.id} de ${type.enabled} para ${checked}`);
-                        console.log('🔔 [PREF UI] Preferências atuais:', safePreferences);
                         const update = { [type.id]: checked };
-                        console.log('🔔 [PREF UI] Update object:', update);
                         
                         await updatePreferences(update);
                         
-                        console.log(`✅ [PREF UI] ${type.id} atualizado com sucesso`);
-                        console.log('🔔 [PREF UI] Preferências após atualização (do contexto):', notificationPreferences);
                         
                         toast.success(
                           checked 

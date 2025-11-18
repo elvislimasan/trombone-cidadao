@@ -8,7 +8,6 @@ export const useCache = () => {
         await Promise.all(
           cacheNames.map(cacheName => caches.delete(cacheName))
         );
-        console.log('All caches cleared');
         return true;
       } catch (error) {
         console.error('Error clearing cache:', error);

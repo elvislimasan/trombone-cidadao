@@ -22,7 +22,6 @@ export const useMapScrollLock = (mode = 'map') => {
     const mapContainer = map.getContainer();
     if (!mapContainer) return;
 
-    console.log('[MapScrollLock] Modo alterado para:', mode);
 
     // Limpa qualquer timeout pendente
     if (timeoutRef.current) {
@@ -40,7 +39,6 @@ export const useMapScrollLock = (mode = 'map') => {
       map.doubleClickZoom.disable();
       map.scrollWheelZoom.disable();
       mapContainer.classList.add('leaflet-scroll-locked');
-      console.log('[MapScrollLock] Interações do mapa desabilitadas (modo scroll)');
     } else {
       // Força habilitar todas as interações
       map.dragging.enable();
@@ -48,7 +46,6 @@ export const useMapScrollLock = (mode = 'map') => {
       map.doubleClickZoom.enable();
       map.scrollWheelZoom.enable();
       mapContainer.classList.remove('leaflet-scroll-locked');
-      console.log('[MapScrollLock] Interações do mapa habilitadas (modo map)');
     }
   }, [mode, map]);
 

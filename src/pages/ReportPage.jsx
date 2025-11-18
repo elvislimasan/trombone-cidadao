@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReportDetails from '@/components/ReportDetails';
-
+import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/components/ui/use-toast';
 import LinkReportModal from '@/components/LinkReportModal';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -179,17 +179,160 @@ const ReportPage = () => {
   }
 
   // Preparar dados para SEO
+  // Função para obter URL base correta (não localhost no app)
+  const getBaseUrl = () => {
+    let baseUrl;
+    
+    // 1. Prioridade: Variável de ambiente (configurada no Vercel)
+    if (import.meta.env.VITE_APP_URL) {
+      baseUrl = import.meta.env.VITE_APP_URL;
+    }
+    // 2. Se estiver no app nativo, sempre usar produção
+    else if (Capacitor.isNativePlatform()) {
+      baseUrl = 'https://trombonecidadao.com.br';
+    }
+    // 3. Se estiver no navegador, detectar automaticamente o ambiente
+    else if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      
+      // Se for localhost, usar localhost
+      if (origin.includes('localhost')) {
+        baseUrl = origin;
+      }
+      // Se for Vercel (dev), usar Vercel
+      else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
+        baseUrl = origin;
+      }
+      // Se for domínio de produção, usar produção
+      else if (origin.includes('trombonecidadao.com.br')) {
+        baseUrl = 'https://trombonecidadao.com.br';
+      }
+      // Fallback: usar a origem atual
+      else {
+        baseUrl = origin;
+      }
+    }
+    // 4. Fallback final: produção
+    else {
+      baseUrl = 'https://trombonecidadao.com.br';
+    }
+    
+    // Remover barra final se existir para evitar barras duplas
+    return baseUrl.replace(/\/$/, '');
+  };
+
+  // Função para obter imagem da bronca (memoizada para garantir que recalcule quando as fotos mudarem)
+  const getReportImage = useMemo(() => {
+    const baseUrl = getBaseUrl();
+    const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
+    
+    // Se não tiver fotos, retorna a thumbnail padrão
+    if (!report?.photos || report.photos.length === 0) {
+      return defaultThumbnail;
+    }
+    
+    const firstPhoto = report.photos[0];
+    const imageUrl = firstPhoto.url || firstPhoto.publicUrl || firstPhoto.photo_url || firstPhoto.image_url;
+    
+    // Se não encontrar URL, retorna a thumbnail padrão
+    if (!imageUrl) {
+      return defaultThumbnail;
+    }
+    
+    // Garante que a URL seja absoluta
+    let absoluteUrl;
+    if (imageUrl.startsWith('http')) {
+      absoluteUrl = imageUrl;
+    } else {
+      absoluteUrl = `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+    }
+    
+    return absoluteUrl;
+  }, [report?.photos, report?.id]); // Recalcula quando as fotos ou o ID mudarem
+
   const seoTitle = `Bronca: ${report.title} - Trombone Cidadão`;
   const seoDescription = report.description || `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}`;
-  const seoImage = report.photos && report.photos.length > 0 
-    ? report.photos[0].url 
-    : 'https://trombonecidadao.com.br/bronca/thumbnail.png';
-  const seoUrl = `${window.location.origin}/bronca/${report.id}`;
+  const seoImage = getReportImage; // Agora é um valor memoizado, não uma função
+  const seoUrl = `${getBaseUrl()}/bronca/${report.id}`;
+
+  // Forçar atualização das meta tags quando a página carregar
+  // Isso garante que as meta tags estejam corretas quando o WhatsApp fizer o fetch
+  useEffect(() => {
+    if (!report?.id || !seoImage) return;
+    
+    const updateMetaTags = () => {
+      // Remover todas as meta tags de imagem existentes
+      const selectorsToRemove = [
+        'meta[property="og:image"]',
+        'meta[property="og:image:url"]',
+        'meta[property="og:image:width"]',
+        'meta[property="og:image:height"]',
+        'meta[property="og:image:type"]',
+        'meta[property="og:image:alt"]',
+        'meta[name="twitter:image"]',
+        'meta[name="twitter:image:alt"]',
+        'meta[name="image"]',
+        'link[rel="image_src"]',
+      ];
+      
+      selectorsToRemove.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => el.remove());
+      });
+      
+      // Criar novas meta tags com a imagem correta
+      const metaTags = [
+        { property: 'property', value: 'og:image', content: seoImage },
+        { property: 'property', value: 'og:image:url', content: seoImage },
+        { property: 'property', value: 'og:image:width', content: '1200' },
+        { property: 'property', value: 'og:image:height', content: '630' },
+        { property: 'property', value: 'og:image:type', content: 'image/jpeg' },
+        { property: 'property', value: 'og:image:alt', content: report.title },
+        { property: 'name', value: 'twitter:image', content: seoImage },
+        { property: 'name', value: 'twitter:image:alt', content: report.title },
+        { property: 'name', value: 'image', content: seoImage },
+      ];
+      
+      metaTags.forEach(({ property, value, content }) => {
+        const element = document.createElement('meta');
+        element.setAttribute(property, value);
+        element.setAttribute('content', content);
+        document.head.insertBefore(element, document.head.firstChild);
+      });
+      
+      // Criar link image_src
+      const imageSrcLink = document.createElement('link');
+      imageSrcLink.setAttribute('rel', 'image_src');
+      imageSrcLink.setAttribute('href', seoImage);
+      document.head.insertBefore(imageSrcLink, document.head.firstChild);
+      
+      // Garantir que og:image seja a primeira
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage && ogImage.getAttribute('content') === seoImage) {
+        document.head.insertBefore(ogImage, document.head.firstChild);
+      }
+      
+    };
+    
+    // Atualizar imediatamente e após delays
+    updateMetaTags();
+    const timers = [
+      setTimeout(updateMetaTags, 100),
+      setTimeout(updateMetaTags, 500),
+      setTimeout(updateMetaTags, 1000),
+    ];
+    
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+    };
+  }, [report?.id, seoImage, report?.title]);
 
   return (
     <>
       {/* Meta Tags Dinâmicas para esta bronca */}
+      {/* Usar key única para garantir que o Helmet sobrescreva as meta tags do App.jsx */}
       <DynamicSEO 
+        key={`report-page-${report.id}`}
         title={seoTitle}
         description={seoDescription}
         image={seoImage}
