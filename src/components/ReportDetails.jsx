@@ -481,6 +481,11 @@ const ReportDetails = ({
                   )}
                   <p className="text-muted-foreground">{getCategoryName(isEditing ? editData.category_id : report.category)}</p>
                   <p className="text-xs text-muted-foreground mt-1">Protocolo: {report.protocol}</p>
+                  {report.category === 'iluminacao' && report.pole_number && (
+                    <p className="text-xs font-semibold text-primary mt-1 flex items-center gap-1">
+                      N° do Poste: {report.pole_number}
+                    </p>
+                  )}
                 </div>
               </div>
               <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
@@ -804,8 +809,14 @@ const ReportDetails = ({
                 {comments.length > 0 ? (
                   comments.map(comment => (
                     <div key={comment.id} className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{comment.author?.name?.charAt(0) || '?'}</div>
-                      <div className="flex-1 bg-background p-3 rounded-lg"><div className="flex items-center justify-between"><p className="font-semibold text-sm text-foreground">{comment.author?.name || 'Anônimo'}</p><p className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</p></div><p className="text-sm text-muted-foreground mt-1">{comment.text}</p></div>
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0">{comment.author?.name?.charAt(0) || '?'}</div>
+                      <div className="flex-1 min-w-0 bg-background p-3 rounded-lg">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="font-semibold text-sm text-foreground truncate">{comment.author?.name || 'Anônimo'}</p>
+                          <p className="text-xs text-muted-foreground flex-shrink-0">{formatDate(comment.created_at)}</p>
+                        </div>
+                        <p className="text-sm text-muted-foreground break-words">{comment.text}</p>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -814,8 +825,14 @@ const ReportDetails = ({
               </div>
               {user ? (
                 <form onSubmit={handleSubmitComment} className="mt-4 flex gap-2">
-                  <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Adicione seu comentário..." className="flex-1 bg-background px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" />
-                  <Button type="submit" size="icon" className="bg-primary hover:bg-primary/90"><Send className="w-4 h-4" /></Button>
+                  <input 
+                    type="text" 
+                    value={newComment} 
+                    onChange={(e) => setNewComment(e.target.value)} 
+                    placeholder="Adicione seu comentário..." 
+                    className="flex-1 min-w-0 bg-background px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm" 
+                  />
+                  <Button type="submit" size="icon" className="bg-primary hover:bg-primary/90 flex-shrink-0"><Send className="w-4 h-4" /></Button>
                 </form>
               ) : (
                 <div className="mt-4 text-center p-4 bg-muted rounded-lg">
@@ -826,25 +843,30 @@ const ReportDetails = ({
               )}
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-background rounded-lg">
-              <div className="flex items-center space-x-2">
-                <ThumbsUp className={`w-5 h-5 ${report.user_has_upvoted ? 'text-green-500 fill-green-500' : 'text-secondary'}`} />
-                <span className="font-medium">{report.upvotes} apoios</span>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-background rounded-lg">
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <ThumbsUp className={`w-4 h-4 sm:w-5 sm:h-5 ${report.user_has_upvoted ? 'text-green-500 fill-green-500' : 'text-secondary'}`} />
+                <span className="font-medium text-sm sm:text-base">{report.upvotes} apoios</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => onFavoriteToggle(report.id, report.is_favorited)} className="gap-2">
-                  <Star className={`w-4 h-4 ${report.is_favorited ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                  {report.is_favorited ? 'Favoritado' : 'Favoritar'}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  onClick={() => onFavoriteToggle(report.id, report.is_favorited)} 
+                  className="gap-1 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm px-2 sm:px-4"
+                  size="sm"
+                >
+                  <Star className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${report.is_favorited ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                  <span className="truncate">{report.is_favorited ? 'Favoritado' : 'Favoritar'}</span>
                 </Button>
           
                 <Button 
                   variant={report.user_has_upvoted ? "default" : "outline"}
                   onClick={() => onUpvote(report.id, report.upvotes, report.user_has_upvoted)} 
-                  className={`gap-2 ${report.user_has_upvoted ? 'bg-green-500 hover:bg-green-600' : ''}`}
-                  
+                  className={`gap-1 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm px-2 sm:px-4 ${report.user_has_upvoted ? 'bg-green-500 hover:bg-green-600' : ''}`}
+                  size="sm"
                 >
-                  <ThumbsUp className={`w-4 h-4 ${report.user_has_upvoted ? 'fill-white' : ''}`} />
-                  {report.user_has_upvoted ? 'Apoiado' : 'Apoiar'}
+                  <ThumbsUp className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${report.user_has_upvoted ? 'fill-white' : ''}`} />
+                  <span className="truncate">{report.user_has_upvoted ? 'Apoiado' : 'Apoiar'}</span>
                 </Button>
               </div>
             </div>

@@ -52,7 +52,7 @@ const compressImage = (file, quality = 0.7) => {
 };
 
 const ReportModal = ({ onClose, onSubmit }) => {
-  const [formData, setFormData] = useState({ title: '', description: '', category: '', address: '', location: null, photos: [], videos: [] });
+  const [formData, setFormData] = useState({ title: '', description: '', category: '', address: '', location: null, photos: [], videos: [], pole_number: '' });
   const { toast } = useToast();
   const { user } = useAuth();
   const photoGalleryInputRef = useRef(null);
@@ -278,6 +278,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
       toast({ title: "Endereço Obrigatório", description: "Por favor, preencha o endereço de referência.", variant: "destructive" });
       return;
     }
+    if (formData.photos.length === 0) {
+      toast({ title: "Imagem Obrigatória", description: "Por favor, adicione pelo menos uma foto da bronca.", variant: "destructive" });
+      return;
+    }
+    if (formData.category === 'iluminacao' && (!formData.pole_number || formData.pole_number.trim() === '')) {
+      toast({ title: "Número do Poste Obrigatório", description: "Por favor, informe o número do poste apagado.", variant: "destructive" });
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -309,7 +317,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
         address: '', 
         location: null, 
         photos: [], 
-        videos: [] 
+        videos: [],
+        pole_number: ''
       });
       
       // Fechar modal apenas em caso de sucesso
@@ -350,7 +359,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
       address: '', 
       location: null, 
       photos: [], 
-      videos: [] 
+      videos: [],
+      pole_number: ''
     });
     onClose();
   };
@@ -386,13 +396,30 @@ const ReportModal = ({ onClose, onSubmit }) => {
             <label className="block text-sm font-medium text-foreground mb-2">Categoria *</label>
             <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
               {categories.map((c) => (
-                <button key={c.id} type="button" onClick={() => setFormData({ ...formData, category: c.id })} className={`p-3 rounded-lg border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : 'border-border hover:border-accent'}`}>
+                <button key={c.id} type="button" onClick={() => setFormData({ ...formData, category: c.id, pole_number: c.id !== 'iluminacao' ? '' : formData.pole_number })} className={`p-3 rounded-lg border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : 'border-border hover:border-accent'}`}>
                   <div className="text-2xl mb-1">{c.icon}</div>
                   <div className="text-xs font-medium">{c.name}</div>
                 </button>
               ))}
             </div>
           </div>
+
+          {formData.category === 'iluminacao' && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Número do Poste <span className="text-destructive">*</span>
+              </label>
+              <input 
+                type="text" 
+                value={formData.pole_number} 
+                onChange={(e) => setFormData({ ...formData, pole_number: e.target.value })} 
+                className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" 
+                placeholder="Ex: 1234 ou P-5678" 
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">Informe o número identificador do poste apagado. Este número é essencial para a resolução do problema.</p>
+            </div>
+          )}
 
           <div>
             <div className="flex justify-between items-center mb-2">
@@ -415,13 +442,18 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-foreground">Mídia</label>
+              <label className="block text-sm font-medium text-foreground">
+                Mídia <span className="text-destructive">*</span>
+              </label>
               {(formData.photos.length > 0 || formData.videos.length > 0) && (
                 <span className="text-xs text-muted-foreground">
                   {formData.photos.length} foto{formData.photos.length !== 1 ? 's' : ''} • {formData.videos.length} vídeo{formData.videos.length !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
+            {formData.photos.length === 0 && (
+              <p className="text-xs text-destructive mb-2">Pelo menos uma foto é obrigatória</p>
+            )}
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <input 

@@ -169,3 +169,4 @@ COMMENT ON TRIGGER trigger_create_notification_on_report_updated ON reports IS
   'Trigger que cria notificações quando um report é atualizado';
 
 
+

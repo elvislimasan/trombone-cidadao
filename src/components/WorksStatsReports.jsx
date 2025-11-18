@@ -11,13 +11,13 @@ const StatCard = ({ icon: Icon, title, value, color, tooltipText }) => (
   <TooltipProvider>
     <Tooltip>
       <TooltipTrigger asChild>
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-            <Icon className={`w-5 h-5 ${color || 'text-muted-foreground'}`} />
+        <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground truncate flex-1 min-w-0 pr-2">{title}</CardTitle>
+            <Icon className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${color || 'text-muted-foreground'}`} />
           </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${color || 'text-foreground'}`}>{value}</p>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <p className={`text-base sm:text-lg md:text-xl font-bold ${color || 'text-foreground'} break-words leading-tight`}>{value}</p>
           </CardContent>
         </Card>
       </TooltipTrigger>
@@ -154,7 +154,7 @@ const WorksStatsReports = ({ works }) => {
       animate="visible"
       className="space-y-8"
     >
-      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <StatCard icon={DollarSign} title="Investimento Total" value={formatCurrency(totalInvestment)} tooltipText="Valor total orçado para todas as obras." />
         <StatCard icon={AlertCircle} title="Investimento Parado" value={formatCurrency(totalStalledValue)} color="text-amber-500" tooltipText="Valor total de obras atualmente paralisadas ou inacabadas." />
         <StatCard icon={HardHat} title="Obras em Andamento" value={statusCounts['in-progress']} color="text-blue-500" />
@@ -163,34 +163,38 @@ const WorksStatsReports = ({ works }) => {
         <StatCard icon={CheckCircle} title="Obras Concluídas" value={statusCounts.completed} color="text-green-500" />
       </motion.div>
 
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        <Card className="lg:col-span-3">
-          <CardHeader><CardTitle>Obras por Categoria</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={categoryBarData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--muted-foreground))" />
-                <RechartsTooltip cursor={{ fill: 'hsl(var(--accent))' }} content={<CustomTooltip />} />
-                <Bar dataKey="value" name="Quantidade" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">
+        <Card className="lg:col-span-3 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6"><CardTitle className="text-base sm:text-lg">Obras por Categoria</CardTitle></CardHeader>
+          <CardContent className="p-2 sm:p-4 sm:pb-6">
+            <div className="w-full h-[250px] sm:h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={categoryBarData} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--muted-foreground))" />
+                  <RechartsTooltip cursor={{ fill: 'hsl(var(--accent))' }} content={<CustomTooltip />} />
+                  <Bar dataKey="value" name="Quantidade" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Fontes de Recurso</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" labelLine={false} outerRadius={80} fill="#8884d8" dataKey="value" nameKey="name">
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
-                  ))}
-                </Pie>
-                <RechartsTooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ color: 'hsl(var(--foreground))', fontSize: '12px' }} />
-              </PieChart>
-            </ResponsiveContainer>
+        <Card className="lg:col-span-2 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6"><CardTitle className="text-base sm:text-lg">Fontes de Recurso</CardTitle></CardHeader>
+          <CardContent className="p-2 sm:p-4 sm:pb-6">
+            <div className="w-full h-[250px] sm:h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" labelLine={false} outerRadius={70} fill="#8884d8" dataKey="value" nameKey="name">
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ color: 'hsl(var(--foreground))', fontSize: '11px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
@@ -199,35 +203,39 @@ const WorksStatsReports = ({ works }) => {
         <Card>
           <CardHeader><CardTitle>Tabela de Obras</CardTitle></CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead onClick={() => requestSort('title')} className="cursor-pointer hover:bg-muted">
-                      <div className="flex items-center gap-2">Título {getSortIcon('title')}</div>
-                    </TableHead>
-                    <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted">
-                      <div className="flex items-center gap-2">Status {getSortIcon('status')}</div>
-                    </TableHead>
-                    <TableHead onClick={() => requestSort('total_value')} className="cursor-pointer hover:bg-muted text-right">
-                      <div className="flex items-center justify-end gap-2">Valor {getSortIcon('total_value')}</div>
-                    </TableHead>
-                    <TableHead onClick={() => requestSort('execution_percentage')} className="cursor-pointer hover:bg-muted text-right">
-                      <div className="flex items-center justify-end gap-2">% Concluído {getSortIcon('execution_percentage')}</div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedWorks.map((work) => (
-                    <TableRow key={work.id}>
-                      <TableCell className="font-medium">{work.title}</TableCell>
-                      <TableCell>{getStatusBadge(work.status)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(work.total_value || 0)}</TableCell>
-                      <TableCell className="text-right">{work.execution_percentage || 0}%</TableCell>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead onClick={() => requestSort('title')} className="cursor-pointer hover:bg-muted min-w-[150px]">
+                        <div className="flex items-center gap-2">Título {getSortIcon('title')}</div>
+                      </TableHead>
+                      <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted">
+                        <div className="flex items-center gap-2">Status {getSortIcon('status')}</div>
+                      </TableHead>
+                      <TableHead onClick={() => requestSort('total_value')} className="cursor-pointer hover:bg-muted text-right">
+                        <div className="flex items-center justify-end gap-2">Valor {getSortIcon('total_value')}</div>
+                      </TableHead>
+                      <TableHead onClick={() => requestSort('execution_percentage')} className="cursor-pointer hover:bg-muted text-right">
+                        <div className="flex items-center justify-end gap-2 whitespace-nowrap">% Concluído {getSortIcon('execution_percentage')}</div>
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedWorks.map((work) => (
+                      <TableRow key={work.id}>
+                        <TableCell className="font-medium min-w-[150px] max-w-[300px]">
+                          <p className="truncate" title={work.title}>{work.title}</p>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{getStatusBadge(work.status)}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap text-sm sm:text-base">{formatCurrency(work.total_value || 0)}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap">{work.execution_percentage || 0}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </CardContent>
         </Card>

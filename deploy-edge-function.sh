@@ -68,3 +68,4 @@ echo "Acesse: https://app.supabase.com - Edge Functions - Settings - Environment
 echo ""
 
 
+

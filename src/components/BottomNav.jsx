@@ -38,7 +38,7 @@ const BottomNav = () => {
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
     if (!user) return;
 
-    const { title, description, category, address, location } = newReportData;
+    const { title, description, category, address, location, pole_number } = newReportData;
     
     const { data, error } = await supabase
       .from('reports')
@@ -50,6 +50,7 @@ const BottomNav = () => {
         location: `POINT(${location.lng} ${location.lat})`,
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
+        pole_number: category === 'iluminacao' ? pole_number : null,
       })
       .select('id')
       .single();

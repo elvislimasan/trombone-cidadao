@@ -27,6 +27,7 @@ const ReportPage = () => {
       .from('reports')
       .select(`
         *, 
+        pole_number,
         category:categories(name, icon), 
         author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), 
         comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), 
