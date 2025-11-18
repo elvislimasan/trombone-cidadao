@@ -191,7 +191,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                     <p className="text-sm text-muted-foreground mb-2">Novas imagens a adicionar:</p>
                     <div className="flex flex-wrap gap-2">
                       {galleryFiles.map((item, index) => (
-                        <div key={index} className="relative">
+                    <div key={index} className="relative">
                           <img 
                             src={item.preview} 
                             alt={`Preview ${index}`} 
@@ -206,9 +206,9 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                           >
                             <X className="w-4 h-4" />
                           </Button>
-                        </div>
-                      ))}
                     </div>
+                  ))}
+                </div>
                   </div>
                 )}
               </div>
@@ -347,8 +347,8 @@ const ManageNewsPage = () => {
       }
     }
 
-    toast({ title: `Notícia ${id ? 'atualizada' : 'adicionada'} com sucesso!` });
-    fetchNewsAndComments();
+      toast({ title: `Notícia ${id ? 'atualizada' : 'adicionada'} com sucesso!` });
+      fetchNewsAndComments();
     setEditingNews(null);
   };
 

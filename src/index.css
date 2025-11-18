@@ -132,6 +132,24 @@
   touch-action: auto !important;
 }
 
+/* Permite que Popups e seus conteúdos funcionem mesmo quando o mapa está bloqueado */
+.leaflet-scroll-locked .leaflet-popup,
+.leaflet-scroll-locked .leaflet-popup-content-wrapper,
+.leaflet-scroll-locked .leaflet-popup-content,
+.leaflet-scroll-locked .leaflet-popup-tip {
+  pointer-events: auto !important;
+  touch-action: auto !important;
+}
+
+/* Permite que botões e elementos clicáveis dentro de Popups funcionem */
+.leaflet-scroll-locked .leaflet-popup button,
+.leaflet-scroll-locked .leaflet-popup a,
+.leaflet-scroll-locked .leaflet-popup [role="button"] {
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  cursor: pointer !important;
+}
+
 /* Garante que o scroll funcione suavemente em páginas com mapas */
 @media (max-width: 768px) {
   /* Melhora o scroll em containers com mapas - permite scroll vertical e pinch zoom */
@@ -144,11 +162,49 @@
     -webkit-overflow-scrolling: touch;
   }
   
-  /* Quando scroll-locked, desabilita completamente interações do mapa, exceto marcadores */
-  .leaflet-scroll-locked .leaflet-interactive:not(.leaflet-marker-icon),
-  .leaflet-scroll-locked .leaflet-clickable:not(.leaflet-marker-icon) {
+  /* Quando scroll-locked, desabilita completamente interações do mapa, exceto marcadores e popups */
+  .leaflet-scroll-locked .leaflet-interactive:not(.leaflet-marker-icon):not(.leaflet-popup),
+  .leaflet-scroll-locked .leaflet-clickable:not(.leaflet-marker-icon):not(.leaflet-popup) {
     pointer-events: none !important;
   }
+  
+  /* Garante que modais e botões de detalhes funcionem mesmo com mapa travado */
+  /* Modais fixos e seus botões - sempre funcionam independente do mapa */
+  .fixed button,
+  .fixed [role="button"],
+  .fixed a,
+  /* Elementos absolutos com z-index alto (modais) */
+  [class*="absolute"][class*="z-"] button,
+  [class*="absolute"][class*="z-"] [role="button"],
+  [class*="absolute"][class*="z-"] a {
+    pointer-events: auto !important;
+    touch-action: auto !important;
+  }
+  
+  /* Botões em popups do Leaflet - sempre funcionam */
+  .leaflet-popup button,
+  .leaflet-popup [role="button"],
+  .leaflet-popup a {
+    pointer-events: auto !important;
+    touch-action: auto !important;
+  }
+}
+
+/* Regra global para garantir que botões de detalhes sempre funcionem */
+/* Todos os botões que não estão dentro do container do mapa diretamente */
+body > * button:not(.leaflet-container button),
+body > * a:not(.leaflet-container a) {
+  pointer-events: auto !important;
+  touch-action: auto !important;
+}
+
+/* Regra específica para botões em modais e overlays */
+.fixed button,
+.fixed a,
+[class*="absolute"][class*="z-"] button,
+[class*="absolute"][class*="z-"] a {
+  pointer-events: auto !important;
+  touch-action: auto !important;
 }
 
 /* === SEUS ESTILOS ORIGINAIS (MANTIDOS INTACTOS) === */

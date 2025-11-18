@@ -212,9 +212,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <NotificationProvider>
           <MapModeProvider>
-            <HelmetProvider>
-              <App /> 
-            </HelmetProvider>
+          <HelmetProvider>
+            <App /> 
+          </HelmetProvider>
           </MapModeProvider>
         </NotificationProvider>
       </AuthProvider>

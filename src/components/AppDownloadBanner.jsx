@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Smartphone } from 'lucide-react';
+import { X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Capacitor } from '@capacitor/core';
 
@@ -85,7 +85,22 @@ const AppDownloadBanner = () => {
             <div className="flex items-center justify-between gap-2 sm:gap-4">
               <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                 <div className="flex-shrink-0">
-                  <Smartphone className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <img 
+                    src="/logo.png" 
+                    alt="Trombone Cidadão" 
+                    className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
+                    onError={(e) => {
+                      // Fallback para ícone se logo não carregar
+                      e.target.style.display = 'none';
+                      const parent = e.target.parentElement;
+                      if (parent && !parent.querySelector('.fallback-icon')) {
+                        const icon = document.createElement('div');
+                        icon.className = 'fallback-icon';
+                        icon.innerHTML = '<svg class="w-8 h-8 sm:w-10 sm:h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/></svg>';
+                        parent.appendChild(icon);
+                      }
+                    }}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs sm:text-sm font-semibold leading-tight">
