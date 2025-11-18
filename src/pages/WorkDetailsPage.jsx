@@ -12,6 +12,78 @@ import { formatCurrency, formatCnpj } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
+// Componente para gerar thumbnail de vídeo direto (movido para fora para evitar problemas com hooks)
+const VideoThumbnail = React.memo(({ videoUrl, alt, className }) => {
+  const [thumbnail, setThumbnail] = useState(null);
+  const [error, setError] = useState(false);
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (!videoUrl) return;
+
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.src = videoUrl;
+    
+    const handleLoadedMetadata = () => {
+      try {
+        video.currentTime = 0.1;
+      } catch (e) {
+        setError(true);
+      }
+    };
+
+    const handleSeeked = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 400;
+        canvas.height = video.videoHeight || 300;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setThumbnail(thumbnailUrl);
+      } catch (e) {
+        setError(true);
+      }
+    };
+
+    const handleError = () => {
+      setError(true);
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('seeked', handleSeeked);
+    video.addEventListener('error', handleError);
+    
+    videoRef.current = video;
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        videoRef.current.removeEventListener('seeked', handleSeeked);
+        videoRef.current.removeEventListener('error', handleError);
+        videoRef.current.src = '';
+        videoRef.current.load();
+      }
+    };
+  }, [videoUrl]);
+
+  if (error || !thumbnail) {
+    return (
+      <div className={`${className} bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center`}>
+        <Video className="h-12 w-12 text-gray-400" />
+      </div>
+    );
+  }
+
+  return <img src={thumbnail} alt={alt} className={className} />;
+});
+
+VideoThumbnail.displayName = 'VideoThumbnail';
+
 const WorkDetailsPage = () => {
   const { workId } = useParams();
   const { toast } = useToast();
@@ -143,75 +215,6 @@ const WorkDetailsPage = () => {
     }
   };
 
-  // Componente para gerar thumbnail de vídeo direto
-  const VideoThumbnail = ({ videoUrl, alt, className }) => {
-    const [thumbnail, setThumbnail] = useState(null);
-    const [error, setError] = useState(false);
-    const videoRef = useRef(null);
-
-    useEffect(() => {
-      if (!videoUrl) return;
-
-      const video = document.createElement('video');
-      video.crossOrigin = 'anonymous';
-      video.preload = 'metadata';
-      video.muted = true; // Necessário para alguns navegadores
-      video.playsInline = true;
-      video.src = videoUrl;
-      
-      const handleLoadedMetadata = () => {
-        try {
-          video.currentTime = 0.1; // Capturar frame no início do vídeo
-        } catch (e) {
-          setError(true);
-        }
-      };
-
-      const handleSeeked = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth || 400;
-          canvas.height = video.videoHeight || 300;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8);
-          setThumbnail(thumbnailUrl);
-        } catch (e) {
-          setError(true);
-        }
-      };
-
-      const handleError = () => {
-        setError(true);
-      };
-
-      video.addEventListener('loadedmetadata', handleLoadedMetadata);
-      video.addEventListener('seeked', handleSeeked);
-      video.addEventListener('error', handleError);
-      
-      videoRef.current = video;
-
-      return () => {
-        if (videoRef.current) {
-          videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
-          videoRef.current.removeEventListener('seeked', handleSeeked);
-          videoRef.current.removeEventListener('error', handleError);
-          videoRef.current.src = '';
-          videoRef.current.load();
-        }
-      };
-    }, [videoUrl]);
-
-    if (error || !thumbnail) {
-      return (
-        <div className={`${className} bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center`}>
-          <Video className="h-12 w-12 text-gray-400" />
-        </div>
-      );
-    }
-
-    return <img src={thumbnail} alt={alt} className={className} />;
-  };
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Carregando detalhes da obra...</div>;
