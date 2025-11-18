@@ -21,6 +21,11 @@ const SiteSettingsPage = () => {
   const [logoUrl, setLogoUrl] = useState('');
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
   const [footerSettings, setFooterSettings] = useState(defaultFooterSettings);
+  const [contactSettings, setContactSettings] = useState({
+    whatsapp: '5587999488360',
+    email: 'contato@trombonecidadao.com.br',
+    phone: '(87) 99948-8360',
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
@@ -38,6 +43,11 @@ const SiteSettingsPage = () => {
       setLogoUrl(data.logo_url || '');
       setMenuSettings(data.menu_settings || defaultMenuSettings);
       setFooterSettings(data.footer_settings || defaultFooterSettings);
+      setContactSettings(data.contact_settings || {
+        whatsapp: '5587999488360',
+        email: 'contato@trombonecidadao.com.br',
+        phone: '(87) 99948-8360',
+      });
     }
     setLoading(false);
   }, [toast]);
@@ -55,6 +65,7 @@ const SiteSettingsPage = () => {
         logo_url: logoUrl, 
         menu_settings: menuSettings,
         footer_settings: footerSettings,
+        contact_settings: contactSettings,
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
 
@@ -219,12 +230,42 @@ const SiteSettingsPage = () => {
                 <div className="space-y-2"><Label>Descrição Curta</Label><Textarea value={footerSettings.description} onChange={(e) => handleFooterChange('description', e.target.value)} /></div>
                 <div className="space-y-2"><Label>Texto de Copyright</Label><Input value={footerSettings.copyrightText} onChange={(e) => handleFooterChange('copyrightText', e.target.value)} /></div>
                 
-                <Card><CardHeader><CardTitle>Contato</CardTitle></CardHeader><CardContent className="space-y-4">
+                <Card><CardHeader><CardTitle>Contato (Rodapé)</CardTitle></CardHeader><CardContent className="space-y-4">
                   <div className="flex items-center space-x-2"><Switch id="contact-visible" checked={footerSettings.contact.isVisible} onCheckedChange={(c) => handleFooterContactChange('isVisible', c)} /><Label htmlFor="contact-visible">Exibir Seção de Contato</Label></div>
                   <div className="space-y-2"><Label>Título</Label><Input value={footerSettings.contact.title} onChange={(e) => handleFooterContactChange('title', e.target.value)} /></div>
                   <div className="space-y-2"><Label>Email</Label><Input type="email" value={footerSettings.contact.email} onChange={(e) => handleFooterContactChange('email', e.target.value)} /></div>
                   <div className="space-y-2"><Label>Telefone</Label><Input value={footerSettings.contact.phone} onChange={(e) => handleFooterContactChange('phone', e.target.value)} /></div>
                   <div className="space-y-2"><Label>Endereço</Label><Input value={footerSettings.contact.address} onChange={(e) => handleFooterContactChange('address', e.target.value)} /></div>
+                </CardContent></Card>
+                
+                <Card><CardHeader><CardTitle>Página de Contato</CardTitle></CardHeader><CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>WhatsApp (apenas números, ex: 5587999488360)</Label>
+                    <Input 
+                      value={contactSettings.whatsapp} 
+                      onChange={(e) => setContactSettings(prev => ({ ...prev, whatsapp: e.target.value }))} 
+                      placeholder="5587999488360"
+                    />
+                    <p className="text-xs text-muted-foreground">Número do WhatsApp para contato direto (formato internacional sem +)</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>E-mail de Contato</Label>
+                    <Input 
+                      type="email" 
+                      value={contactSettings.email} 
+                      onChange={(e) => setContactSettings(prev => ({ ...prev, email: e.target.value }))} 
+                      placeholder="contato@trombonecidadao.com.br"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Telefone (formato exibido)</Label>
+                    <Input 
+                      value={contactSettings.phone} 
+                      onChange={(e) => setContactSettings(prev => ({ ...prev, phone: e.target.value }))} 
+                      placeholder="(87) 99948-8360"
+                    />
+                    <p className="text-xs text-muted-foreground">Formato de exibição do telefone na página</p>
+                  </div>
                 </CardContent></Card>
 
                 <Card><CardHeader><CardTitle>Redes Sociais</CardTitle></CardHeader><CardContent className="space-y-4">

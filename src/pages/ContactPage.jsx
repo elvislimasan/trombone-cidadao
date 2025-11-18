@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Send, MessageSquare, Mail, Phone } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/customSupabaseClient';
 
 const ContactPage = () => {
   const { toast } = useToast();
@@ -17,6 +18,27 @@ const ContactPage = () => {
     subject: '',
     message: '',
   });
+  const [contactSettings, setContactSettings] = useState({
+    whatsapp: '5587999488360',
+    email: 'trombonecidadao@gmail.com',
+    phone: '(87) 99948-8360',
+  });
+
+  const fetchContactSettings = useCallback(async () => {
+    const { data } = await supabase
+      .from('site_config')
+      .select('contact_settings')
+      .eq('id', 1)
+      .single();
+
+    if (data?.contact_settings) {
+      setContactSettings(data.contact_settings);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchContactSettings();
+  }, [fetchContactSettings]);
 
   const handleInputChange = (e) => {
     const { id, value } = e.target;
@@ -25,15 +47,39 @@ const ContactPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Since there's no backend to send email, we'll just show a toast.
+    // Criar mensagem formatada para WhatsApp
+    const whatsappMessage = `Olá! Gostaria de entrar em contato através do site Trombone Cidadão.
+
+*Nome:* ${formData.name}
+*E-mail:* ${formData.email}
+*Assunto:* ${formData.subject}
+
+*Mensagem:*
+${formData.message}`;
+
+    const phoneNumber = contactSettings.whatsapp || '5587999488360';
+    const encodedMessage = encodeURIComponent(whatsappMessage);
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    
+    // Abrir WhatsApp
+    window.open(whatsappUrl, '_blank');
+    
+    // Limpar formulário
+    setFormData({
+      name: '',
+      email: '',
+      subject: '',
+      message: '',
+    });
+    
     toast({
-      title: '🚧 Funcionalidade em construção!',
-      description: 'O envio de e-mail ainda não foi implementado. Por favor, use o botão do WhatsApp para entrar em contato. 🚀',
+      title: 'Mensagem enviada!',
+      description: 'Você será redirecionado para o WhatsApp para finalizar o envio.',
     });
   };
 
   const handleWhatsAppClick = () => {
-    const phoneNumber = '5587999999999'; // Substitua pelo número de telefone real
+    const phoneNumber = contactSettings.whatsapp || '5587999488360';
     const message = encodeURIComponent('Olá! Gostaria de entrar em contato através do site Trombone Cidadão.');
     window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
   };
@@ -139,10 +185,10 @@ const ContactPage = () => {
                 </CardHeader>
                 <CardContent>
                     <p className="text-muted-foreground">
-                        E-mail: <a href="mailto:contato@trombonecidadao.com.br" className="text-primary hover:underline">contato@trombonecidadao.com.br</a>
+                        E-mail: <a href={`mailto:${contactSettings.email}`} className="text-primary hover:underline">{contactSettings.email}</a>
                     </p>
                     <p className="text-muted-foreground mt-2">
-                        Telefone: <span className="text-primary">(87) 99999-9999</span>
+                        Telefone: <span className="text-primary">{contactSettings.phone}</span>
                     </p>
                 </CardContent>
             </Card>
