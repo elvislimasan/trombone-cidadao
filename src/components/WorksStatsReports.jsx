@@ -17,7 +17,7 @@ const StatCard = ({ icon: Icon, title, value, color, tooltipText }) => (
             <Icon className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${color || 'text-muted-foreground'}`} />
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
-            <p className={`text-base sm:text-lg md:text-xl font-bold ${color || 'text-foreground'} break-words leading-tight`}>{value}</p>
+            <p className={`text-xs sm:text-sm md:text-base font-bold ${color || 'text-foreground'} whitespace-nowrap overflow-hidden text-ellipsis leading-tight`} title={value}>{value}</p>
           </CardContent>
         </Card>
       </TooltipTrigger>
@@ -83,10 +83,24 @@ const WorksStatsReports = ({ works }) => {
     return acc;
   }, { 'in-progress': 0, 'completed': 0, 'stalled': 0, 'planned': 0, 'tendered': 0, 'unfinished': 0 });
 
+  // Função para traduzir e normalizar fontes de recurso
+  const getFundingSourceName = (source) => {
+    const sourceMap = { 
+      federal: 'Federal', 
+      state: 'Estadual', 
+      estadual: 'Estadual',
+      municipal: 'Municipal',
+      unknown: null
+    };
+    const normalized = sourceMap[source?.toLowerCase()];
+    return normalized || (source ? source.charAt(0).toUpperCase() + source.slice(1) : null);
+  };
+
   const fundingData = works.reduce((acc, work) => {
     const sources = Array.isArray(work.funding_source) && work.funding_source.length > 0 ? work.funding_source : ['unknown'];
     sources.forEach(source => {
-      const sourceName = source.charAt(0).toUpperCase() + source.slice(1);
+      const sourceName = getFundingSourceName(source);
+      if (!sourceName) return; // Ignorar 'unknown' e valores nulos
       if (!acc[sourceName]) {
         acc[sourceName] = { name: sourceName, value: 0, isCurrency: true };
       }

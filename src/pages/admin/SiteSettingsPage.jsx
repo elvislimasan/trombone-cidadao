@@ -30,14 +30,39 @@ const SiteSettingsPage = () => {
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
+    // Buscar apenas as colunas que existem, excluindo contact_settings inicialmente
     const { data, error } = await supabase
       .from('site_config')
-      .select('*')
+      .select('site_name, logo_url, menu_settings, footer_settings, contact_settings')
       .eq('id', 1)
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      toast({ title: "Erro ao carregar configurações", description: error.message, variant: "destructive" });
+      // Se o erro for PGRST204 (coluna não encontrada), tentar buscar sem contact_settings
+      if (error.code === 'PGRST204') {
+        const { data: dataWithoutContact, error: errorWithoutContact } = await supabase
+          .from('site_config')
+          .select('site_name, logo_url, menu_settings, footer_settings')
+          .eq('id', 1)
+          .single();
+
+        if (errorWithoutContact && errorWithoutContact.code !== 'PGRST116') {
+          toast({ title: "Erro ao carregar configurações", description: errorWithoutContact.message, variant: "destructive" });
+        } else if (dataWithoutContact) {
+          setSiteName(dataWithoutContact.site_name || 'Trombone Cidadão');
+          setLogoUrl(dataWithoutContact.logo_url || '');
+          setMenuSettings(dataWithoutContact.menu_settings || defaultMenuSettings);
+          setFooterSettings(dataWithoutContact.footer_settings || defaultFooterSettings);
+          // Manter valores padrão para contactSettings se a coluna não existir
+          setContactSettings({
+            whatsapp: '5587999488360',
+            email: 'contato@trombonecidadao.com.br',
+            phone: '(87) 99948-8360',
+          });
+        }
+      } else {
+        toast({ title: "Erro ao carregar configurações", description: error.message, variant: "destructive" });
+      }
     } else if (data) {
       setSiteName(data.site_name || 'Trombone Cidadão');
       setLogoUrl(data.logo_url || '');
@@ -57,27 +82,43 @@ const SiteSettingsPage = () => {
   }, [fetchSettings]);
 
   const handleSaveSettings = async () => {
+    // Preparar dados para salvar, excluindo contact_settings se a coluna não existir
+    const dataToSave = { 
+      id: 1, 
+      site_name: siteName,
+      logo_url: logoUrl, 
+      menu_settings: menuSettings,
+      footer_settings: footerSettings,
+      updated_at: new Date().toISOString()
+    };
+
+    // Tentar salvar contact_settings apenas se não houver erro
+    // Primeiro, salvar sem contact_settings
     const { error } = await supabase
       .from('site_config')
-      .upsert({ 
-        id: 1, 
-        site_name: siteName,
-        logo_url: logoUrl, 
-        menu_settings: menuSettings,
-        footer_settings: footerSettings,
-        contact_settings: contactSettings,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      .upsert(dataToSave, { onConflict: 'id' });
 
     if (error) {
       toast({ title: "Erro ao salvar configurações", description: error.message, variant: "destructive" });
-    } else {
-      toast({
-        title: "Configurações Salvas! ✨",
-        description: "As personalizações do site foram aplicadas globalmente.",
-      });
-      window.dispatchEvent(new CustomEvent('site-settings-updated'));
+      return;
     }
+
+    // Tentar salvar contact_settings separadamente (pode falhar se a coluna não existir)
+    const { error: contactError } = await supabase
+      .from('site_config')
+      .update({ contact_settings: contactSettings })
+      .eq('id', 1);
+
+    // Ignorar erro se a coluna não existir (PGRST204)
+    if (contactError && contactError.code !== 'PGRST204') {
+      console.warn('Aviso: Não foi possível salvar contact_settings:', contactError.message);
+    }
+
+    toast({
+      title: "Configurações Salvas! ✨",
+      description: "As personalizações do site foram aplicadas globalmente.",
+    });
+    window.dispatchEvent(new CustomEvent('site-settings-updated'));
   };
 
   const handleColorChange = (section, colorType, value) => {

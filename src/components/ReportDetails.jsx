@@ -1,7 +1,7 @@
-import React, { useState, useRef, lazy, Suspense, useEffect, useMemo } from 'react';
+import React, { useState, useRef, lazy, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye } from 'lucide-react';
+import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -16,6 +16,78 @@ import { Share } from '@capacitor/share';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
+
+// Componente para gerar thumbnail de vídeo
+const VideoThumbnail = React.memo(({ videoUrl, alt, className }) => {
+  const [thumbnail, setThumbnail] = useState(null);
+  const [error, setError] = useState(false);
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (!videoUrl) return;
+
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.src = videoUrl;
+    
+    const handleLoadedMetadata = () => {
+      try {
+        video.currentTime = 0.1;
+      } catch (e) {
+        setError(true);
+      }
+    };
+
+    const handleSeeked = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 400;
+        canvas.height = video.videoHeight || 300;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setThumbnail(thumbnailUrl);
+      } catch (e) {
+        setError(true);
+      }
+    };
+
+    const handleError = () => {
+      setError(true);
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('seeked', handleSeeked);
+    video.addEventListener('error', handleError);
+    
+    videoRef.current = video;
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        videoRef.current.removeEventListener('seeked', handleSeeked);
+        videoRef.current.removeEventListener('error', handleError);
+        videoRef.current.src = '';
+        videoRef.current.load();
+      }
+    };
+  }, [videoUrl]);
+
+  if (error || !thumbnail) {
+    return (
+      <div className={`${className} bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center`}>
+        <Video className="h-8 w-8 text-gray-400" />
+      </div>
+    );
+  }
+
+  return <img src={thumbnail} alt={alt} className={className} />;
+});
+
+VideoThumbnail.displayName = 'VideoThumbnail';
 
 const compressImage = (file, quality = 0.7) => {
   return new Promise((resolve, reject) => {
@@ -1073,7 +1145,7 @@ const ReportDetails = ({
 
             {(allMedia.length > 0 || isEditing) && (
               <div>
-                <h3 className="font-semibold text-foreground mb-3">Imagens da Bronca</h3>
+                <h3 className="font-semibold text-foreground mb-3">Imagens e Vídeos da Bronca</h3>
                 <Carousel className="w-full" opts={{ align: "start", loop: false }}>
                   <CarouselContent className="-ml-2">
                     {(isEditing ? editingMedia : allMedia).map((media, index) => (
@@ -1087,9 +1159,17 @@ const ReportDetails = ({
                             {media.type === 'photo' ? (
                               <img alt={`Mídia ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" src={media.url} />
                             ) : (
-                              <div className="text-center text-muted-foreground p-2 flex flex-col items-center justify-center h-full">
-                                <Video className="w-8 h-8 mx-auto" />
-                                <p className="text-xs mt-2 truncate">{media.name || `Vídeo ${index + 1}`}</p>
+                              <div className="relative w-full h-full">
+                                <VideoThumbnail 
+                                  videoUrl={media.url} 
+                                  alt={media.name || `Vídeo ${index + 1}`} 
+                                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                                  <div className="bg-white/90 rounded-full p-3 shadow-lg group-hover:scale-110 transition-transform">
+                                    <Play className="w-6 h-6 text-foreground fill-foreground" />
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </button>
