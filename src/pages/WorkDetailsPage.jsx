@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -143,6 +143,76 @@ const WorkDetailsPage = () => {
     }
   };
 
+  // Componente para gerar thumbnail de vídeo direto
+  const VideoThumbnail = ({ videoUrl, alt, className }) => {
+    const [thumbnail, setThumbnail] = useState(null);
+    const [error, setError] = useState(false);
+    const videoRef = useRef(null);
+
+    useEffect(() => {
+      if (!videoUrl) return;
+
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.preload = 'metadata';
+      video.muted = true; // Necessário para alguns navegadores
+      video.playsInline = true;
+      video.src = videoUrl;
+      
+      const handleLoadedMetadata = () => {
+        try {
+          video.currentTime = 0.1; // Capturar frame no início do vídeo
+        } catch (e) {
+          setError(true);
+        }
+      };
+
+      const handleSeeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 400;
+          canvas.height = video.videoHeight || 300;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8);
+          setThumbnail(thumbnailUrl);
+        } catch (e) {
+          setError(true);
+        }
+      };
+
+      const handleError = () => {
+        setError(true);
+      };
+
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+      video.addEventListener('seeked', handleSeeked);
+      video.addEventListener('error', handleError);
+      
+      videoRef.current = video;
+
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          videoRef.current.removeEventListener('seeked', handleSeeked);
+          videoRef.current.removeEventListener('error', handleError);
+          videoRef.current.src = '';
+          videoRef.current.load();
+        }
+      };
+    }, [videoUrl]);
+
+    if (error || !thumbnail) {
+      return (
+        <div className={`${className} bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center`}>
+          <Video className="h-12 w-12 text-gray-400" />
+        </div>
+      );
+    }
+
+    return <img src={thumbnail} alt={alt} className={className} />;
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Carregando detalhes da obra...</div>;
   }
@@ -188,8 +258,12 @@ const WorkDetailsPage = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
           {items.map((item, index) => {
             const isVideoUrl = item.type === 'video_url';
+            const isDirectVideo = item.type === 'video' && !isVideoUrl;
             let thumbnailUrl = item.url;
-            if (isVideoUrl) thumbnailUrl = getYoutubeThumbnail(item.url);
+            
+            if (isVideoUrl) {
+              thumbnailUrl = getYoutubeThumbnail(item.url);
+            }
 
             return (
               <motion.div
@@ -198,8 +272,20 @@ const WorkDetailsPage = () => {
                 onClick={() => onOpen(items, index)}
                 whileHover={{ scale: 1.05 }}
               >
-                <div className="aspect-square">
-                  <img src={thumbnailUrl || 'https://placehold.co/400x400/000000/FFFFFF/png?text=Media'} alt={item.name} className="w-full h-full object-cover" />
+                <div className="aspect-square relative">
+                  {isDirectVideo ? (
+                    <VideoThumbnail 
+                      videoUrl={item.url} 
+                      alt={item.name || 'Vídeo'} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img 
+                      src={thumbnailUrl || 'https://placehold.co/400x400/000000/FFFFFF/png?text=Media'} 
+                      alt={item.name} 
+                      className="w-full h-full object-cover" 
+                    />
+                  )}
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Icon className="h-10 w-10 text-white" />
                   </div>
