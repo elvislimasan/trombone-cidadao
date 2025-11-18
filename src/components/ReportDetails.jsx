@@ -140,50 +140,36 @@ const ReportDetails = ({
     return baseUrl.replace(/\/$/, '');
   };
 
-  // Função para obter a URL da imagem corretamente
-  const getReportImage = useMemo(() => {
-    const baseUrl = getBaseUrl();
-    const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
-    
-    // Se report não existir ou não tiver fotos, retorna a thumbnail padrão
-    if (!report || !report.photos || report.photos.length === 0) {
-      return defaultThumbnail;
-    }
-    
-    const firstPhoto = report.photos[0];
-    if (!firstPhoto) {
-      return defaultThumbnail;
-    }
-    
-    // Tenta diferentes propriedades que podem conter a URL
-    const imageUrl = firstPhoto.url || 
-           firstPhoto.publicUrl || 
-           firstPhoto.photo_url || 
-           firstPhoto.image_url;
-    
-    // Se não encontrar URL, retorna a thumbnail padrão
-    if (!imageUrl) {
-      return defaultThumbnail;
-    }
-    
-    // Garante que a URL seja absoluta
-    let absoluteUrl;
-    if (imageUrl.startsWith('http')) {
-      absoluteUrl = imageUrl;
-    } else if (imageUrl.startsWith('/')) {
-      absoluteUrl = `${baseUrl}${imageUrl}`;
-    } else {
-      absoluteUrl = `${baseUrl}/${imageUrl}`;
-    }
-    
-    // Retorna a URL absoluta (se houver erro ao carregar, o DynamicSEO usará fallback)
-    return absoluteUrl;
-  }, [report?.photos, report?.id]); // Recalcula quando as fotos ou o ID mudarem
-
+  // Base URL memoizada para evitar recálculos
+  const baseUrl = useMemo(() => getBaseUrl(), []);
+  
+  // Função para obter a URL da imagem corretamente (calculada diretamente no seoData)
   const seoData = useMemo(() => {
-    const baseUrl = getBaseUrl();
     const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
-    const reportImage = report ? getReportImage : defaultThumbnail;
+    
+    // Calcular a imagem diretamente aqui para evitar dependências circulares
+    let reportImage = defaultThumbnail;
+    
+    if (report && report.photos && report.photos.length > 0) {
+      const firstPhoto = report.photos[0];
+      if (firstPhoto) {
+        const imageUrl = firstPhoto.url || 
+               firstPhoto.publicUrl || 
+               firstPhoto.photo_url || 
+               firstPhoto.image_url;
+        
+        if (imageUrl) {
+          // Garante que a URL seja absoluta
+          if (imageUrl.startsWith('http')) {
+            reportImage = imageUrl;
+          } else if (imageUrl.startsWith('/')) {
+            reportImage = `${baseUrl}${imageUrl}`;
+          } else {
+            reportImage = `${baseUrl}/${imageUrl}`;
+          }
+        }
+      }
+    }
     
     return {
       title: report?.title ? `${report.title} - Trombone Cidadão` : 'Trombone Cidadão',
@@ -192,7 +178,10 @@ const ReportDetails = ({
       url: `${baseUrl}/bronca/${report?.id || ''}`,
       type: "article"
     };
-  }, [report?.title, report?.description, report?.category, report?.protocol, report?.id, report?.photos, getReportImage]);
+  }, [baseUrl, report?.title, report?.description, report?.category, report?.protocol, report?.id, report?.photos]);
+  
+  // getReportImage para uso no useEffect (calculado separadamente)
+  const getReportImage = seoData.image;
 
   const handleMarkResolvedClick = () => {
     if (!user) {
@@ -802,7 +791,8 @@ const ReportDetails = ({
       timers.forEach(timer => clearTimeout(timer));
       observer.disconnect();
     };
-  }, [report?.id, getReportImage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report?.id, report?.photos, baseUrl, getReportImage]);
 
   return (
     <>
