@@ -120,12 +120,26 @@ const WorksMapView = forwardRef(({ works }, ref) => {
     });
   };
 
-  const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
+  const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : null;
   
   const getFundingSourceText = (sources) => {
-    if (!sources || sources.length === 0) return 'Não informada';
-    const sourceMap = { federal: 'Federal', state: 'Estadual', municipal: 'Municipal' };
-    return sources.map(s => sourceMap[s] || s).join(', ');
+    if (!sources || sources.length === 0) return null;
+    const sourceMap = { 
+      federal: 'Federal', 
+      state: 'Estadual', 
+      estadual: 'Estadual', // Adicionar para caso já esteja traduzido
+      municipal: 'Municipal',
+      unknown: null // Ignorar 'unknown'
+    };
+    // Remover duplicatas e valores nulos/undefined, traduzir e filtrar
+    const uniqueSources = [...new Set(sources)]
+      .map(s => sourceMap[s?.toLowerCase()] || s)
+      .filter(s => s && s !== 'unknown' && s !== null && s !== undefined);
+    
+    // Remover duplicatas novamente após tradução (caso tenha "state" e "estadual" juntos)
+    const finalSources = [...new Set(uniqueSources)];
+    
+    return finalSources.length > 0 ? finalSources.join(', ') : null;
   };
 
   const getYouTubeEmbedUrl = (url) => {
@@ -139,17 +153,23 @@ const WorksMapView = forwardRef(({ works }, ref) => {
     return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
   };
 
-  const DetailItem = ({ icon: Icon, label, value }) => (
-    <div className="flex items-start gap-3 p-3.5 rounded-xl hover:bg-muted/30 transition-colors border border-transparent hover:border-border/50">
-      <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10">
-        <Icon className="w-5 h-5 text-primary" />
+  const DetailItem = ({ icon: Icon, label, value }) => {
+    // Não renderizar se o valor for vazio, null, undefined, "N/A", "Não informado" ou string vazia
+    const isEmpty = !value || value === 'N/A' || value === 'Não informado' || value === 'Não informada' || (typeof value === 'string' && value.trim() === '');
+    if (isEmpty) return null;
+    
+    return (
+      <div className="flex items-start gap-3 p-3.5 rounded-xl hover:bg-muted/30 transition-colors border border-transparent hover:border-border/50">
+        <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10">
+          <Icon className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-muted-foreground mb-1.5">{label}</p>
+          <p className="text-sm font-medium text-foreground break-words leading-relaxed">{value}</p>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-muted-foreground mb-1.5">{label}</p>
-        <p className="text-sm font-medium text-foreground break-words leading-relaxed">{value || 'Não informado'}</p>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const handleDetailsClick = (work) => {
     navigate(`/obras-publicas/${work.id}`);
@@ -250,40 +270,48 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                     )}
                     
                     {/* Seção: Valores */}
-                    <div className="space-y-2.5">
-                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Valores</h4>
-                    <DetailItem icon={DollarSign} label="Valor Total" value={formatCurrency(selectedWork.total_value)} />
-                    <DetailItem icon={DollarSign} label="Valor Gasto" value={formatCurrency(selectedWork.amount_spent)} />
-                    </div>
+                    {(selectedWork.total_value || selectedWork.amount_spent) && (
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Valores</h4>
+                        <DetailItem icon={DollarSign} label="Valor Total" value={selectedWork.total_value ? formatCurrency(selectedWork.total_value) : null} />
+                        <DetailItem icon={DollarSign} label="Valor Gasto" value={selectedWork.amount_spent ? formatCurrency(selectedWork.amount_spent) : null} />
+                      </div>
+                    )}
 
                     {/* Seção: Construtora */}
-                    <div className="space-y-2.5">
-                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Construtora</h4>
-                      <DetailItem icon={Building} label="Nome" value={selectedWork.contractor?.name} />
-                      {selectedWork.contractor?.cnpj && (
-                        <DetailItem icon={FileCheck} label="CNPJ" value={formatCnpj(selectedWork.contractor.cnpj)} />
-                      )}
-                    </div>
+                    {(selectedWork.contractor?.name || selectedWork.contractor?.cnpj) && (
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Construtora</h4>
+                        <DetailItem icon={Building} label="Nome" value={selectedWork.contractor?.name} />
+                        {selectedWork.contractor?.cnpj && (
+                          <DetailItem icon={FileCheck} label="CNPJ" value={formatCnpj(selectedWork.contractor.cnpj)} />
+                        )}
+                      </div>
+                    )}
 
                     {/* Seção: Recursos */}
-                    <div className="space-y-2.5">
-                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Recursos</h4>
-                    <DetailItem icon={Landmark} label="Fonte do Recurso" value={getFundingSourceText(selectedWork.funding_source)} />
-                    {selectedWork.parliamentary_amendment?.has && (
-                      <DetailItem icon={UserCheck} label="Emenda Parlamentar" value={selectedWork.parliamentary_amendment.author} />
+                    {(selectedWork.funding_source?.length > 0 || selectedWork.parliamentary_amendment?.has) && (
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Recursos</h4>
+                        <DetailItem icon={Landmark} label="Fonte do Recurso" value={getFundingSourceText(selectedWork.funding_source)} />
+                        {selectedWork.parliamentary_amendment?.has && (
+                          <DetailItem icon={UserCheck} label="Emenda Parlamentar" value={selectedWork.parliamentary_amendment.author} />
+                        )}
+                      </div>
                     )}
-                    </div>
 
                     {/* Seção: Cronograma */}
-                    <div className="space-y-2.5">
-                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Cronograma</h4>
-                      <DetailItem icon={Calendar} label="Data de Início" value={formatDate(selectedWork.start_date)} />
-                    {selectedWork.execution_period_days && <DetailItem icon={Clock} label="Prazo de Execução" value={`${selectedWork.execution_period_days} dias`} />}
-                      {selectedWork.status === 'in-progress' && <DetailItem icon={Calendar} label="Previsão de Conclusão" value={formatDate(selectedWork.expected_end_date)} />}
-                      {selectedWork.status === 'completed' && <DetailItem icon={Calendar} label="Data de Inauguração" value={formatDate(selectedWork.inauguration_date)} />}
-                      {(selectedWork.status === 'stalled' || selectedWork.status === 'unfinished') && <DetailItem icon={Calendar} label="Data de Paralisação" value={formatDate(selectedWork.stalled_date)} />}
-                    <DetailItem icon={Calendar} label="Última Atualização" value={formatDate(selectedWork.last_update)} />
-                    </div>
+                    {(selectedWork.start_date || selectedWork.execution_period_days || selectedWork.expected_end_date || selectedWork.inauguration_date || selectedWork.stalled_date || selectedWork.last_update) && (
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Cronograma</h4>
+                        <DetailItem icon={Calendar} label="Data de Início" value={selectedWork.start_date ? formatDate(selectedWork.start_date) : null} />
+                        {selectedWork.execution_period_days && <DetailItem icon={Clock} label="Prazo de Execução" value={`${selectedWork.execution_period_days} dias`} />}
+                        {selectedWork.status === 'in-progress' && <DetailItem icon={Calendar} label="Previsão de Conclusão" value={selectedWork.expected_end_date ? formatDate(selectedWork.expected_end_date) : null} />}
+                        {selectedWork.status === 'completed' && <DetailItem icon={Calendar} label="Data de Inauguração" value={selectedWork.inauguration_date ? formatDate(selectedWork.inauguration_date) : null} />}
+                        {(selectedWork.status === 'stalled' || selectedWork.status === 'unfinished') && <DetailItem icon={Calendar} label="Data de Paralisação" value={selectedWork.stalled_date ? formatDate(selectedWork.stalled_date) : null} />}
+                        <DetailItem icon={Calendar} label="Última Atualização" value={selectedWork.last_update ? formatDate(selectedWork.last_update) : null} />
+                      </div>
+                    )}
 
                     {/* Seção: Outras Informações */}
                     {selectedWork.other_details && (

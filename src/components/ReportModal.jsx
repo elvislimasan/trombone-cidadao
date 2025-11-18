@@ -3,6 +3,9 @@ import { motion } from 'framer-motion';
 import { X, Camera, Video, Trash2, MapPin, Image as ImageIcon, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { Capacitor } from '@capacitor/core';
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { FLORESTA_COORDS } from '@/config/mapConfig';
@@ -53,6 +56,7 @@ const compressImage = (file, quality = 0.7) => {
 
 const ReportModal = ({ onClose, onSubmit }) => {
   const [formData, setFormData] = useState({ title: '', description: '', category: '', address: '', location: null, photos: [], videos: [], pole_number: '' });
+  const [errors, setErrors] = useState({});
   const { toast } = useToast();
   const { user } = useAuth();
   const photoGalleryInputRef = useRef(null);
@@ -178,6 +182,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
           [fileType]: [...prev[fileType], { file: processedFile, name: processedFile.name, preview: fileType === 'photos' ? URL.createObjectURL(processedFile) : null }]
         }));
         
+        // Limpar erro de fotos se houver
+        if (fileType === 'photos' && errors.photos) {
+          setErrors(prev => ({ ...prev, photos: undefined }));
+        }
+        
       } catch (error) {
         console.error("Error processing file:", error);
         toast({ 
@@ -188,6 +197,140 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }
     }
     e.target.value = null;
+  };
+
+  // Função para converter base64/URL em File object
+  const base64ToFile = async (base64String, fileName, mimeType) => {
+    // Se for uma URL (webPath do Capacitor), buscar como blob
+    if (base64String.startsWith('http://') || base64String.startsWith('https://') || base64String.startsWith('file://')) {
+      try {
+        const response = await fetch(base64String);
+        const blob = await response.blob();
+        return new File([blob], fileName, { type: mimeType });
+      } catch (error) {
+        throw new Error('Erro ao carregar imagem da câmera');
+      }
+    }
+    
+    // Se for base64 data URL
+    const base64Data = base64String.includes(',') ? base64String.split(',')[1] : base64String;
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new File([byteArray], fileName, { type: mimeType });
+  };
+
+  // Função para tirar foto usando a câmera nativa ou web
+  const handleTakePhoto = async () => {
+    try {
+      // Verificar se está no app nativo
+      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Camera')) {
+        // Usar câmera nativa do Capacitor
+        // Usar Uri para melhor compatibilidade entre iOS e Android
+        const image = await CapacitorCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Uri, // Uri retorna webPath que funciona melhor
+          source: CameraSource.Camera, // IMPORTANTE: Forçar câmera, não galeria
+          correctOrientation: true,
+          saveToGallery: false,
+        });
+
+        // Converter a foto em File object
+        const timestamp = Date.now();
+        const fileName = `photo_${timestamp}.jpg`;
+        
+        let photoFile;
+        
+        // Uri geralmente retorna webPath (iOS e Android modernos)
+        if (image.webPath) {
+          try {
+            // Buscar a imagem usando fetch
+            const response = await fetch(image.webPath);
+            if (!response.ok) {
+              throw new Error('Erro ao carregar imagem da câmera');
+            }
+            const blob = await response.blob();
+            photoFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: timestamp });
+          } catch (fetchError) {
+            console.error('Erro ao buscar webPath:', fetchError);
+            // Tentar usar Capacitor.convertFileSrc se fetch falhar
+            const convertedPath = Capacitor.convertFileSrc(image.webPath);
+            const response = await fetch(convertedPath);
+            const blob = await response.blob();
+            photoFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: timestamp });
+          }
+        } else if (image.base64String) {
+          // Fallback: usar base64String se webPath não estiver disponível
+          photoFile = await base64ToFile(`data:image/jpeg;base64,${image.base64String}`, fileName, 'image/jpeg');
+        } else if (image.dataUrl) {
+          // Fallback: usar dataUrl se disponível
+          photoFile = await base64ToFile(image.dataUrl, fileName, 'image/jpeg');
+        } else if (image.path) {
+          // Fallback: tentar ler do filesystem
+          try {
+            const fileData = await Filesystem.readFile({
+              path: image.path,
+              directory: Directory.Data,
+            });
+            photoFile = await base64ToFile(`data:image/jpeg;base64,${fileData.data}`, fileName, 'image/jpeg');
+          } catch (fsError) {
+            console.error('Erro ao ler do filesystem:', fsError);
+            throw new Error('Não foi possível processar a imagem da câmera');
+          }
+        } else {
+          throw new Error('Formato de imagem não suportado');
+        }
+
+        // Processar e adicionar a foto
+        try {
+          const compressedFile = await compressImage(photoFile);
+          
+          setFormData(prev => ({
+            ...prev,
+            photos: [...prev.photos, { 
+              file: compressedFile, 
+              name: compressedFile.name, 
+              preview: URL.createObjectURL(compressedFile) 
+            }]
+          }));
+          
+          // Limpar erro de fotos se houver
+          if (errors.photos) {
+            setErrors(prev => ({ ...prev, photos: undefined }));
+          }
+          
+          toast({ 
+            title: "Foto adicionada! 📸", 
+            description: "A foto foi capturada e anexada com sucesso." 
+          });
+        } catch (error) {
+          console.error("Error processing photo:", error);
+          toast({ 
+            title: "Erro ao processar foto", 
+            description: error.message || "Não foi possível processar a foto capturada.", 
+            variant: "destructive" 
+          });
+        }
+      } else {
+        // No web, usar input file com capture
+        photoCameraInputRef.current?.click();
+      }
+    } catch (error) {
+      console.error("Error taking photo:", error);
+      // Se o usuário cancelar, não mostrar erro
+      const errorMessage = error.message || error.toString();
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancelled')) {
+        toast({ 
+          title: "Erro ao abrir câmera", 
+          description: "Não foi possível abrir a câmera. Tente novamente ou selecione uma foto da galeria.", 
+          variant: "destructive" 
+        });
+      }
+    }
   };
 
   const removeFile = (fileType, index) => {
@@ -265,28 +408,47 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Limpar erros anteriores
+    const newErrors = {};
+    let hasErrors = false;
+    
     // Validações
     if (!formData.title || !formData.category) {
-      toast({ title: "Campos obrigatórios", description: "Por favor, preencha título e categoria.", variant: "destructive" });
-      return;
+      if (!formData.title) newErrors.title = "Por favor, preencha o título da bronca.";
+      if (!formData.category) newErrors.category = "Por favor, selecione uma categoria.";
+      hasErrors = true;
     }
     if (!formData.location) {
-      toast({ title: "Localização Obrigatória", description: "Por favor, marque o local da bronca no mapa.", variant: "destructive" });
-      return;
+      newErrors.location = "Por favor, marque o local da bronca no mapa.";
+      hasErrors = true;
     }
     if (!formData.address || formData.address.trim() === '') {
-      toast({ title: "Endereço Obrigatório", description: "Por favor, preencha o endereço de referência.", variant: "destructive" });
-      return;
+      newErrors.address = "Por favor, preencha o endereço de referência.";
+      hasErrors = true;
     }
     if (formData.photos.length === 0) {
-      toast({ title: "Imagem Obrigatória", description: "Por favor, adicione pelo menos uma foto da bronca.", variant: "destructive" });
-      return;
+      newErrors.photos = "Por favor, adicione pelo menos uma foto da bronca.";
+      hasErrors = true;
     }
     if (formData.category === 'iluminacao' && (!formData.pole_number || formData.pole_number.trim() === '')) {
-      toast({ title: "Número do Poste Obrigatório", description: "Por favor, informe o número do poste apagado.", variant: "destructive" });
+      newErrors.pole_number = "Por favor, informe o número do poste apagado.";
+      hasErrors = true;
+    }
+    
+    if (hasErrors) {
+      setErrors(newErrors);
+      // Fazer scroll para o primeiro erro
+      const firstErrorField = Object.keys(newErrors)[0];
+      const errorElement = document.querySelector(`[data-error-field="${firstErrorField}"]`);
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        errorElement.focus();
+      }
       return;
     }
     
+    // Limpar erros se tudo estiver válido
+    setErrors({});
     setIsSubmitting(true);
     
     try {
@@ -351,18 +513,22 @@ const ReportModal = ({ onClose, onSubmit }) => {
         URL.revokeObjectURL(photo.preview);
       }
     });
-    // Resetar formulário
-    setFormData({ 
-      title: '', 
-      description: '', 
-      category: '', 
-      address: '', 
-      location: null, 
-      photos: [], 
-      videos: [],
-      pole_number: ''
-    });
-    onClose();
+      // Resetar formulário
+      setFormData({ 
+        title: '', 
+        description: '', 
+        category: '', 
+        address: '', 
+        location: null, 
+        photos: [], 
+        videos: [],
+        pole_number: ''
+      });
+      
+      // Limpar erros
+      setErrors({});
+      
+      onClose();
   };
 
   return (
@@ -389,19 +555,46 @@ const ReportModal = ({ onClose, onSubmit }) => {
               <label className="block text-sm font-medium text-foreground">Título da Bronca *</label>
               <span className="text-xs text-muted-foreground">{formData.title.length}/65</span>
             </div>
-            <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} maxLength="65" className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Ex: Buraco na Rua Principal" required />
+            <input 
+              type="text" 
+              value={formData.title} 
+              onChange={(e) => {
+                setFormData({ ...formData, title: e.target.value });
+                if (errors.title) setErrors(prev => ({ ...prev, title: undefined }));
+              }}
+              data-error-field="title"
+              maxLength="65" 
+              className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.title ? 'border-destructive' : 'border-input'}`}
+              placeholder="Ex: Buraco na Rua Principal" 
+              required 
+            />
+            {errors.title && (
+              <p className="text-xs text-destructive mt-1">{errors.title}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Categoria *</label>
             <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
               {categories.map((c) => (
-                <button key={c.id} type="button" onClick={() => setFormData({ ...formData, category: c.id, pole_number: c.id !== 'iluminacao' ? '' : formData.pole_number })} className={`p-3 rounded-lg border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : 'border-border hover:border-accent'}`}>
+                <button 
+                  key={c.id} 
+                  type="button" 
+                  data-error-field="category"
+                  onClick={() => {
+                    setFormData({ ...formData, category: c.id, pole_number: c.id !== 'iluminacao' ? '' : formData.pole_number });
+                    if (errors.category) setErrors(prev => ({ ...prev, category: undefined }));
+                  }} 
+                  className={`p-3 rounded-lg border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : errors.category ? 'border-destructive' : 'border-border hover:border-accent'}`}
+                >
                   <div className="text-2xl mb-1">{c.icon}</div>
                   <div className="text-xs font-medium">{c.name}</div>
                 </button>
               ))}
             </div>
+            {errors.category && (
+              <p className="text-xs text-destructive mt-1">{errors.category}</p>
+            )}
           </div>
 
           {formData.category === 'iluminacao' && (
@@ -412,12 +605,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
               <input 
                 type="text" 
                 value={formData.pole_number} 
-                onChange={(e) => setFormData({ ...formData, pole_number: e.target.value })} 
-                className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" 
+                onChange={(e) => {
+                  setFormData({ ...formData, pole_number: e.target.value });
+                  if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                }}
+                data-error-field="pole_number"
+                className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.pole_number ? 'border-destructive' : 'border-input'}`}
                 placeholder="Ex: 1234 ou P-5678" 
                 required
               />
-              <p className="text-xs text-muted-foreground mt-1">Informe o número identificador do poste apagado. Este número é essencial para a resolução do problema.</p>
+              {errors.pole_number ? (
+                <p className="text-xs text-destructive mt-1">{errors.pole_number}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Informe o número identificador do poste apagado. Este número é essencial para a resolução do problema.</p>
+              )}
             </div>
           )}
 
@@ -432,12 +633,35 @@ const ReportModal = ({ onClose, onSubmit }) => {
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><MapPin className="w-4 h-4" /> Localização *</label>
             <p className="text-xs text-muted-foreground mb-2">Ajuste o marcador para o local exato da bronca.</p>
-            <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
+            <div data-error-field="location" className={`h-64 w-full rounded-lg overflow-hidden border ${errors.location ? 'border-destructive' : 'border-input'}`}>
               <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} />
+                <LocationPickerMap 
+                  onLocationChange={(newLocation) => {
+                    handleLocationChange(newLocation);
+                    if (errors.location) setErrors(prev => ({ ...prev, location: undefined }));
+                  }} 
+                  initialPosition={formData.location} 
+                />
               </Suspense>
             </div>
-            <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full bg-background px-4 py-3 border border-input rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Endereço de referência (ex: Rua da Floresta, 123)" required />
+            {errors.location && (
+              <p className="text-xs text-destructive mt-1">{errors.location}</p>
+            )}
+            <input 
+              type="text" 
+              value={formData.address} 
+              onChange={(e) => {
+                setFormData({ ...formData, address: e.target.value });
+                if (errors.address) setErrors(prev => ({ ...prev, address: undefined }));
+              }}
+              data-error-field="address"
+              className={`w-full bg-background px-4 py-3 border rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent ${errors.address ? 'border-destructive' : 'border-input'}`}
+              placeholder="Endereço de referência (ex: Rua da Floresta, 123)" 
+              required 
+            />
+            {errors.address && (
+              <p className="text-xs text-destructive mt-1">{errors.address}</p>
+            )}
           </div>
 
           <div>
@@ -451,10 +675,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 </span>
               )}
             </div>
-            {formData.photos.length === 0 && (
-              <p className="text-xs text-destructive mb-2">Pelo menos uma foto é obrigatória</p>
+            {errors.photos && (
+              <p className="text-xs text-destructive mb-2">{errors.photos}</p>
             )}
-            <div className="space-y-3">
+            {formData.photos.length === 0 && !errors.photos && (
+              <p className="text-xs text-muted-foreground mb-2">Pelo menos uma foto é obrigatória</p>
+            )}
+            <div className="space-y-3" data-error-field="photos">
               <div className="grid grid-cols-2 gap-3">
                 <input 
                   type="file" 
@@ -477,7 +704,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  onClick={() => photoCameraInputRef.current?.click()} 
+                  onClick={handleTakePhoto}
                   className="h-20 flex-col gap-1"
                   disabled={isSubmitting}
                 >

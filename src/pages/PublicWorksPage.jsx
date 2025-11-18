@@ -281,9 +281,9 @@ const PublicWorksPage = () => {
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground space-y-1">
-                        <p><strong>Valor:</strong> {formatCurrency(work.total_value)}</p>
-                        <p><strong>Construtora:</strong> {work.contractor?.name || 'N/A'}</p>
-                        <p><strong>Última Atualização:</strong> {formatTimeAgo(work.last_update)}</p>
+                        {work.total_value && <p><strong>Valor:</strong> {formatCurrency(work.total_value)}</p>}
+                        {work.contractor?.name && <p><strong>Construtora:</strong> {work.contractor.name}</p>}
+                        {work.last_update && <p><strong>Última Atualização:</strong> {formatTimeAgo(work.last_update)}</p>}
                       </div>
                     </CardContent>
                     <div className="p-4 border-t flex gap-2">

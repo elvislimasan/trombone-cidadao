@@ -25,11 +25,17 @@ const ContactPage = () => {
   });
 
   const fetchContactSettings = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('site_config')
       .select('contact_settings')
       .eq('id', 1)
       .single();
+
+    // Se a coluna contact_settings não existir (PGRST204), usar valores padrão
+    if (error && error.code === 'PGRST204') {
+      // Manter valores padrão já definidos no estado inicial
+      return;
+    }
 
     if (data?.contact_settings) {
       setContactSettings(data.contact_settings);

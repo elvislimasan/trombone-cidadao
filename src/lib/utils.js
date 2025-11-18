@@ -6,8 +6,8 @@ export function cn(...inputs) {
 }
 
 export function formatCurrency(value, currencySymbol = true) {
-  if (typeof value !== 'number') {
-    return 'N/A';
+  if (typeof value !== 'number' || value === null || value === undefined || isNaN(value)) {
+    return null;
   }
   const options = {
     style: 'currency',

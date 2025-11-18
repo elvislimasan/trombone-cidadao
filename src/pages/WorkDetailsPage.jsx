@@ -234,6 +234,27 @@ const WorkDetailsPage = () => {
   const statusInfo = getStatusInfo(work.status);
   const AreaIcon = getAreaIcon(work.work_area?.name);
 
+  // Função para traduzir e remover duplicatas das fontes de recurso
+  const getFundingSourceText = (sources) => {
+    if (!sources || sources.length === 0) return null;
+    const sourceMap = { 
+      federal: 'Federal', 
+      state: 'Estadual', 
+      estadual: 'Estadual', // Adicionar para caso já esteja traduzido
+      municipal: 'Municipal',
+      unknown: null // Ignorar 'unknown'
+    };
+    // Remover duplicatas e valores nulos/undefined, traduzir e filtrar
+    const uniqueSources = [...new Set(sources)]
+      .map(s => sourceMap[s?.toLowerCase()] || s)
+      .filter(s => s && s !== 'unknown' && s !== null && s !== undefined);
+    
+    // Remover duplicatas novamente após tradução (caso tenha "state" e "estadual" juntos)
+    const finalSources = [...new Set(uniqueSources)];
+    
+    return finalSources.length > 0 ? finalSources.join(', ') : null;
+  };
+
   const details = [
     { icon: Home, label: 'Bairro', value: work.bairro?.name },
     { icon: DollarSign, label: 'Valor Total', value: work.total_value ? formatCurrency(work.total_value) : null },
@@ -244,7 +265,7 @@ const WorkDetailsPage = () => {
     { icon: Calendar, label: 'Data da Inauguração', value: work.inauguration_date ? new Date(work.inauguration_date).toLocaleDateString('pt-BR') : null },
     { icon: Building, label: 'Construtora', value: work.contractor?.name },
     { icon: FileCheck, label: 'CNPJ', value: work.contractor?.cnpj ? formatCnpj(work.contractor.cnpj) : null },
-    { icon: Landmark, label: 'Fontes de Recurso', value: work.funding_source?.join(', ') },
+    { icon: Landmark, label: 'Fontes de Recurso', value: getFundingSourceText(work.funding_source) },
     { icon: Clock, label: 'Prazo de Execução', value: work.execution_period_days ? `${work.execution_period_days} dias` : null },
     { icon: PauseCircle, label: 'Data de Paralisação', value: work.stalled_date ? new Date(work.stalled_date).toLocaleDateString('pt-BR') : null },
   ].filter(d => d.value);
