@@ -6,6 +6,7 @@ import {Toaster as SonnerToast} from 'sonner'
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
+import AppDownloadBanner from '@/components/AppDownloadBanner';
 import HomePage from '@/pages/HomePage';
 import AboutPage from '@/pages/AboutPage';
 import StatsPage from '@/pages/StatsPage';
@@ -150,7 +151,8 @@ function App() {
       <SEO />
       <div className="min-h-screen bg-background text-foreground flex flex-col">
         <Header />
-        <main className="flex-grow pb-20 lg:pb-0" style={{ paddingTop: 'calc(4rem + var(--safe-area-top))', paddingBottom: 'calc(4rem + var(--safe-area-bottom))' }}>
+        <AppDownloadBanner />
+        <main className="flex-grow pb-20 lg:pb-0" style={{ paddingTop: 'calc(4rem + var(--safe-area-top) + var(--app-banner-height, 0px))', paddingBottom: 'calc(4rem + var(--safe-area-bottom))' }}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/cadastro" element={<RegisterPage />} />

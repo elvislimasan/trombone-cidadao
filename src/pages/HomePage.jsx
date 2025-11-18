@@ -62,6 +62,7 @@ function HomePage() {
           resolved_at,
           linked_to,
           resolution_submission,
+          pole_number,
           category:categories(name, icon),
           author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config),
           upvotes:upvotes(count),
@@ -316,7 +317,7 @@ function HomePage() {
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
     if (!user) return;
 
-    const { title, description, category, address, location } = newReportData;
+    const { title, description, category, address, location, pole_number } = newReportData;
  
     const { data, error } = await supabase
       .from('reports')
@@ -328,6 +329,7 @@ function HomePage() {
         location: `POINT(${location.lng} ${location.lat})`,
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
+        pole_number: category === 'iluminacao' ? pole_number : null,
       })
       .select('id', 'title')
       .single();

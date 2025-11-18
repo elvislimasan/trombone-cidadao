@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, Upload, Paperclip, MapPin, Image as ImageIcon, Video, Link2, Info, Wrench } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, Upload, Paperclip, MapPin, Image as ImageIcon, Video, Link2, Info, Wrench, Search, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,6 +16,182 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
+
+// Componente de Filtros com tratamento de erros
+const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap }) => {
+  const [hasError, setHasError] = React.useState(false);
+
+  React.useEffect(() => {
+    setHasError(false);
+  }, [filters, workOptions]);
+
+  if (hasError) {
+    return (
+      <div className="pt-3 sm:pt-4 border-t">
+        <p className="text-sm text-destructive">Erro ao carregar filtros. Tente recarregar a página.</p>
+      </div>
+    );
+  }
+
+  try {
+    if (!workOptions || !statusMap) {
+      return (
+        <div className="pt-3 sm:pt-4 border-t">
+          <p className="text-sm text-muted-foreground">Carregando filtros...</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t">
+        <FilterSelect
+          id="filter-status"
+          label="Status"
+          value={filters.status || ''}
+          onValueChange={(value) => {
+            try {
+              setFilters(prev => ({ ...prev, status: value }));
+            } catch (error) {
+              console.error('Erro ao alterar filtro de status:', error);
+              setHasError(true);
+            }
+          }}
+          options={Object.entries(statusMap).map(([value, label]) => ({ value, label }))}
+          placeholder="Todos"
+        />
+
+        <FilterSelect
+          id="filter-category"
+          label="Categoria"
+          value={filters.category || ''}
+          onValueChange={(value) => {
+            try {
+              setFilters(prev => ({ ...prev, category: value }));
+            } catch (error) {
+              console.error('Erro ao alterar filtro de categoria:', error);
+              setHasError(true);
+            }
+          }}
+          options={(workOptions.categories || []).map(cat => ({ value: cat.id, label: cat.name }))}
+          placeholder="Todas"
+        />
+
+        <FilterSelect
+          id="filter-bairro"
+          label="Bairro"
+          value={filters.bairro || ''}
+          onValueChange={(value) => {
+            try {
+              setFilters(prev => ({ ...prev, bairro: value }));
+            } catch (error) {
+              console.error('Erro ao alterar filtro de bairro:', error);
+              setHasError(true);
+            }
+          }}
+          options={(workOptions.bairros || []).map(b => ({ value: b.id, label: b.name }))}
+          placeholder="Todos"
+        />
+
+        <FilterSelect
+          id="filter-area"
+          label="Área"
+          value={filters.area || ''}
+          onValueChange={(value) => {
+            try {
+              setFilters(prev => ({ ...prev, area: value }));
+            } catch (error) {
+              console.error('Erro ao alterar filtro de área:', error);
+              setHasError(true);
+            }
+          }}
+          options={(workOptions.areas || []).map(a => ({ value: a.id, label: a.name }))}
+          placeholder="Todas"
+        />
+
+        <FilterSelect
+          id="filter-contractor"
+          label="Construtora"
+          value={filters.contractor || ''}
+          onValueChange={(value) => {
+            try {
+              setFilters(prev => ({ ...prev, contractor: value }));
+            } catch (error) {
+              console.error('Erro ao alterar filtro de construtora:', error);
+              setHasError(true);
+            }
+          }}
+          options={(workOptions.contractors || []).map(c => ({ value: c.id, label: c.name }))}
+          placeholder="Todas"
+        />
+      </div>
+    );
+  } catch (error) {
+    console.error('Erro ao renderizar filtros:', error);
+    setHasError(true);
+    return (
+      <div className="pt-3 sm:pt-4 border-t">
+        <p className="text-sm text-destructive">Erro ao carregar filtros. Tente recarregar a página.</p>
+      </div>
+    );
+  }
+});
+FiltersSection.displayName = 'FiltersSection';
+
+// Componente individual de Select com tratamento de erros
+const FilterSelect = React.memo(({ id, label, value, onValueChange, options, placeholder }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  if (!Array.isArray(options)) {
+    return null;
+  }
+
+  // Converter valor vazio para undefined para mostrar placeholder
+  const selectValue = value === '' ? undefined : value;
+
+  const handleValueChange = (newValue) => {
+    // Converter undefined de volta para string vazia
+    onValueChange(newValue === undefined ? '' : newValue);
+  };
+
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        value={selectValue}
+        onValueChange={handleValueChange}
+        onOpenChange={setIsOpen}
+      >
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent 
+          className="z-[1500] max-h-[200px] overflow-y-auto"
+          position="popper"
+          sideOffset={5}
+        >
+          {options
+            .filter(option => {
+              // Filtrar valores inválidos
+              if (option.value === null || option.value === undefined || option.value === '') {
+                return false;
+              }
+              const optionValue = String(option.value);
+              return optionValue !== '' && optionValue !== 'undefined' && optionValue !== 'null';
+            })
+            .map(option => {
+              const optionValue = String(option.value);
+              return (
+                <SelectItem key={optionValue} value={optionValue}>
+                  {option.label || 'Sem nome'}
+                </SelectItem>
+              );
+            })}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+});
+FilterSelect.displayName = 'FilterSelect';
 
 const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   const [formData, setFormData] = useState(null);
@@ -408,7 +584,7 @@ const WorkMediaManager = ({ workId }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {media.map(m => (
               <Card key={m.id} className="relative group overflow-hidden">
-                <a href={m.url} target="_blank" rel="noopener noreferrer" className="block h-32 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <a href={m.url} target="_blank" rel="noopener noreferrer" className="flex h-32 bg-slate-100 dark:bg-slate-800 items-center justify-center">
                   {m.type === 'image' ? <img src={m.url} alt={m.name} className="w-full h-full object-cover" /> : getFileIcon(m.type)}
                 </a>
                 <p className="text-xs p-2 truncate" title={m.name}>{m.name}</p>
@@ -428,6 +604,16 @@ const ManageWorksPage = () => {
   const [workOptions, setWorkOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
   const [editingWork, setEditingWork] = useState(null);
   const [deletingWork, setDeletingWork] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    status: '',
+    category: '',
+    bairro: '',
+    area: '',
+    contractor: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
 
   const fetchData = useCallback(async () => {
     const { data, error } = await supabase.from('public_works').select(`
@@ -538,43 +724,192 @@ const ManageWorksPage = () => {
     'completed': 'Concluída',
   };
 
+  // Filtrar obras
+  const filteredWorks = (works || []).filter(work => {
+    if (!work) return false;
+    
+    try {
+      // Busca por texto (título e descrição)
+      const matchesSearch = !searchTerm || 
+        (work.title && work.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (work.description && work.description.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      // Filtros
+      const matchesStatus = !filters.status || work.status === filters.status;
+      const matchesCategory = !filters.category || work.work_category_id === filters.category;
+      const matchesBairro = !filters.bairro || work.bairro_id === filters.bairro;
+      const matchesArea = !filters.area || work.work_area_id === filters.area;
+      const matchesContractor = !filters.contractor || work.contractor_id === filters.contractor;
+
+      return matchesSearch && matchesStatus && matchesCategory && matchesBairro && matchesArea && matchesContractor;
+    } catch (error) {
+      console.error('Erro ao filtrar obra:', error, work);
+      return false;
+    }
+  });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilters({
+      status: '',
+      category: '',
+      bairro: '',
+      area: '',
+      contractor: ''
+    });
+  };
+
+  const hasActiveFilters = searchTerm || Object.values(filters).some(v => v !== '');
+
+  // Error boundary para evitar tela branca
+  if (!workOptions) {
+    return (
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-12">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Carregando opções...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Helmet>
         <title>Gerenciar Obras Públicas - Admin</title>
         <meta name="description" content="Adicione, edite ou remova obras públicas." />
       </Helmet>
-      <div className="container mx-auto px-4 py-12">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center justify-between gap-4 mb-12">
-          <div className="flex items-center gap-4">
-            <Link to="/admin"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Gerenciar Obras Públicas</h1>
-              <p className="mt-2 text-lg text-muted-foreground">Adicione, edite ou remova obras do mapa.</p>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-12">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8 md:mb-12">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <Link to="/admin"><Button variant="outline" size="icon" className="flex-shrink-0"><ArrowLeft className="w-4 h-4" /></Button></Link>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-tc-red truncate">Gerenciar Obras Públicas</h1>
+              <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg text-muted-foreground">Adicione, edite ou remova obras do mapa.</p>
             </div>
           </div>
-           <div className="flex gap-2">
-            <Link to="/admin/obras/opcoes"><Button variant="outline">Gerenciar Opções</Button></Link>
-            <Button onClick={handleAddNewWork} className="gap-2"><PlusCircle className="w-4 h-4" /> Adicionar Obra</Button>
+           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Link to="/admin/obras/opcoes"><Button variant="outline" size="sm" className="text-xs sm:text-sm">Gerenciar Opções</Button></Link>
+            <Button onClick={handleAddNewWork} size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm"><PlusCircle className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Adicionar Obra</span><span className="sm:hidden">Adicionar</span></Button>
           </div>
         </motion.div>
-        <Card>
-          <CardHeader><CardTitle>Obras Cadastradas</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {works.map(work => (
-                <div key={work.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
-                  <div>
-                    <p className="font-semibold">{work.title}</p>
-                    <p className="text-sm text-muted-foreground">Status: {statusMap[work.status] || work.status}</p>
+        
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-lg sm:text-xl">Buscar e Filtrar</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    try {
+                      setIsLoadingFilters(true);
+                      setShowFilters(!showFilters);
+                      // Pequeno delay para garantir que o estado foi atualizado
+                      setTimeout(() => setIsLoadingFilters(false), 100);
+                    } catch (error) {
+                      console.error('Erro ao alternar filtros:', error);
+                      setIsLoadingFilters(false);
+                    }
+                  }}
+                  disabled={isLoadingFilters}
+                  className="gap-1 sm:gap-2 text-xs sm:text-sm flex-shrink-0"
+                >
+                  <SlidersHorizontal className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{showFilters ? 'Ocultar' : 'Mostrar'} Filtros</span>
+                  <span className="sm:hidden">{showFilters ? 'Ocultar' : 'Filtros'}</span>
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
+            {/* Campo de busca */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por título ou descrição..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 text-sm sm:text-base"
+              />
+            </div>
+
+            {/* Filtros */}
+            {showFilters && workOptions && (
+              <FiltersSection
+                filters={filters}
+                setFilters={setFilters}
+                workOptions={workOptions}
+                statusMap={statusMap}
+              />
+            )}
+
+            {/* Botão limpar filtros */}
+            {hasActiveFilters && (
+              <div className="flex justify-end pt-2 sm:pt-3 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="gap-1 sm:gap-2 text-xs sm:text-sm"
+                >
+                  <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                  Limpar Filtros
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="text-lg sm:text-xl">
+                Obras Cadastradas
+                {filteredWorks.length !== works.length && (
+                  <span className="text-xs sm:text-sm font-normal text-muted-foreground ml-1 sm:ml-2 block sm:inline">
+                    ({filteredWorks.length} de {works.length})
+                  </span>
+                )}
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 overflow-hidden">
+            {filteredWorks.length === 0 ? (
+              <div className="text-center py-8 sm:py-12">
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  {hasActiveFilters 
+                    ? 'Nenhuma obra encontrada com os filtros aplicados.' 
+                    : 'Nenhuma obra cadastrada.'}
+                </p>
+                {hasActiveFilters && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="mt-4 gap-1 sm:gap-2 text-xs sm:text-sm"
+                  >
+                    <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                    Limpar Filtros
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2 sm:space-y-3">
+                {filteredWorks.map(work => (
+                <div key={work.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 sm:p-4 bg-background rounded-lg border gap-3 sm:gap-4 overflow-hidden">
+                  <div className="min-w-0 flex-1 overflow-hidden w-full sm:w-auto">
+                    <p className="font-semibold text-sm sm:text-base break-words line-clamp-2">{work.title}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">Status: {statusMap[work.status] || work.status}</p>
                   </div>
-                  <div className="flex-shrink-0 flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => setEditingWork(work)}><Edit className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingWork(work)}><Trash2 className="w-4 h-4" /></Button>
+                  <div className="flex-shrink-0 flex gap-2 w-full sm:w-auto justify-end sm:justify-start">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0" onClick={() => setEditingWork(work)}><Edit className="w-3 h-3 sm:w-4 sm:h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10 text-red-500 hover:text-red-600 flex-shrink-0" onClick={() => setDeletingWork(work)}><Trash2 className="w-3 h-3 sm:w-4 sm:h-4" /></Button>
                   </div>
                 </div>
               ))}
-            </div>
+               </div>
+             )}
           </CardContent>
         </Card>
       </div>
