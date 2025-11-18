@@ -293,7 +293,7 @@ const ManageNewsPage = () => {
               await supabase.storage.from('news-images').remove([decodeURIComponent(filePath)]);
             }
           } catch (e) {
-            console.warn("Erro ao remover arquivo do storage:", e);
+            // Erro ao remover arquivo do storage
           }
         }
 

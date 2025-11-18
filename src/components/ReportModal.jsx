@@ -64,7 +64,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   useEffect(() => {
     // Solicita a geolocalização ao montar o componente
     if (!navigator.geolocation) {
-      console.warn("Geolocalização não é suportada pelo navegador");
+      // Geolocalização não é suportada pelo navegador
       return;
     }
 
@@ -83,7 +83,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         }));
       },
       (error) => {
-        console.warn("Não foi possível obter a geolocalização:", error.message);
+        // Não foi possível obter a geolocalização
         // Usar coordenadas padrão de Floresta-PE como fallback [lat, lng]
         const defaultLocation = { lat: FLORESTA_COORDS[0], lng: FLORESTA_COORDS[1] };
         setFormData(prev => ({ 

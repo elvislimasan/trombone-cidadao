@@ -30,7 +30,7 @@ if (Capacitor.isNativePlatform()) {
             safeAreaTop = `${statusBarHeight}px`;
           }
         } catch (e) {
-          console.warn('[Safe Areas] Erro ao obter StatusBar:', e);
+          // Erro silencioso ao obter StatusBar
         }
       }
       
@@ -54,7 +54,7 @@ if (Capacitor.isNativePlatform()) {
             safeAreaTop = topValue;
           }
         } catch (e) {
-          console.warn('[Safe Areas] Erro ao obter CSS env():', e);
+          // Erro silencioso ao obter CSS env()
         }
       }
       
@@ -72,7 +72,7 @@ if (Capacitor.isNativePlatform()) {
             safeAreaTop = '0px';
           }
         } catch (e) {
-          console.warn('[Safe Areas] Erro ao calcular manualmente:', e);
+          // Erro silencioso ao calcular manualmente
           safeAreaTop = '0px'; // Sem fallback
         }
       }

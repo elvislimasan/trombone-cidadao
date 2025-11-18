@@ -97,7 +97,6 @@ const ManageUsersPage = () => {
     try {
       // Tentar buscar e-mails usando função RPC
       const userIds = profilesData.map(p => p.id);
-      console.log('[ManageUsers] Buscando e-mails para', userIds.length, 'usuários');
       
       const { data: emailsData, error: emailsError } = await supabase
         .rpc('get_user_emails', { user_ids: userIds });
@@ -106,8 +105,6 @@ const ManageUsersPage = () => {
         console.error('[ManageUsers] Erro ao buscar e-mails:', emailsError);
         // Não mostrar toast para não poluir a interface, apenas log
       } else if (emailsData && Array.isArray(emailsData)) {
-        console.log('[ManageUsers] E-mails recebidos:', emailsData.length, 'registros');
-        console.log('[ManageUsers] Dados dos e-mails:', JSON.stringify(emailsData, null, 2));
         
         // Criar um mapa de user_id -> email (usando string para comparação de UUID)
         // A função retorna 'user_id' ao invés de 'id'
@@ -119,33 +116,21 @@ const ManageUsersPage = () => {
             // Normalizar IDs para string para comparação
             const userIdStr = String(userId);
             emailMap[userIdStr] = item.email || null;
-            console.log('[ManageUsers] Mapeando e-mail:', userIdStr, '->', item.email || '(vazio)');
           }
         });
 
-        console.log('[ManageUsers] Mapa de e-mails criado com', Object.keys(emailMap).length, 'entradas');
-        console.log('[ManageUsers] IDs no mapa:', Object.keys(emailMap));
-        console.log('[ManageUsers] IDs dos perfis:', profilesData.map(p => String(p.id)));
 
         // Adicionar e-mails aos perfis
         usersWithEmails = profilesData.map(profile => {
           const profileIdStr = String(profile.id);
           const email = emailMap[profileIdStr] || null;
-          if (email) {
-            console.log('[ManageUsers] ✅ E-mail encontrado para', profile.name, ':', email);
-          } else {
-            console.log('[ManageUsers] ❌ E-mail não encontrado para', profile.name, '(ID:', profileIdStr, ')');
-          }
           return {
             ...profile,
             email: email,
           };
         });
         
-        console.log('[ManageUsers] Usuários processados:', usersWithEmails.length);
-        console.log('[ManageUsers] Usuários com e-mail:', usersWithEmails.filter(u => u.email).map(u => ({ name: u.name, email: u.email })));
       } else {
-        console.warn('[ManageUsers] Função RPC retornou dados inválidos. Tipo:', typeof emailsData, 'Valor:', emailsData);
       }
     } catch (error) {
       // Se a função RPC não existir ou houver erro, apenas mostrar telefone
@@ -156,9 +141,19 @@ const ManageUsersPage = () => {
   }, [toast]);
 
   const fetchReports = useCallback(async () => {
-    const { data, error } = await supabase.from('reports').select('*, author:author_id(name, avatar_url, avatar_config, avatar_type), category:category_id(name), comments:comments(*, author:author_id(name, avatar_url, avatar_config, avatar_type))');
-    if (error) toast({ title: "Erro ao buscar broncas", description: error.message, variant: "destructive" });
-    else setReports(data);
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*, pole_number, author:author_id(name, avatar_url, avatar_config, avatar_type), category:category_id(name), comments:comments(*, author:author_id(name, avatar_url, avatar_config, avatar_type)), report_media(*)');
+    if (error) {
+      toast({ title: "Erro ao buscar broncas", description: error.message, variant: "destructive" });
+    } else {
+      const formattedData = (data || []).map(r => ({
+        ...r,
+        photos: (r.report_media || []).filter(m => m.type === 'photo'),
+        videos: (r.report_media || []).filter(m => m.type === 'video'),
+      }));
+      setReports(formattedData);
+    }
   }, [toast]);
 
   useEffect(() => {

@@ -16,7 +16,7 @@ export const useMapModeToggle = (defaultMode = 'map') => {
         }
       }
     } catch (e) {
-      console.warn('Erro ao acessar localStorage:', e);
+      // Erro silencioso ao acessar localStorage
     }
     return defaultMode;
   });
@@ -28,14 +28,13 @@ export const useMapModeToggle = (defaultMode = 'map') => {
         localStorage.setItem('mapInteractionMode', mode);
       }
     } catch (e) {
-      console.warn('Erro ao salvar no localStorage:', e);
+      // Erro silencioso ao salvar no localStorage
     }
   }, [mode]);
 
   const toggleMode = useCallback(() => {
     setMode(prev => {
       const newMode = prev === 'map' ? 'scroll' : 'map';
-      console.log('[MapModeToggle] Alternando modo:', prev, '->', newMode);
       return newMode;
     });
   }, []);

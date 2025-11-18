@@ -79,7 +79,6 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
   const MapScrollLock = () => {
     useMapScrollLock(mode);
     useEffect(() => {
-      console.log('[MapView] Modo atual:', mode);
     }, [mode]);
     return null;
   };

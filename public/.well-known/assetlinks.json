@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.trombonecidadao.app",
+      "sha256_cert_fingerprints": [
+        "2991FBD294F05D4F8CA22D5903F302FEDC6789D2F7DEC74D85E79BAE1022176F"
+      ]
+    }
+  }
+]
+

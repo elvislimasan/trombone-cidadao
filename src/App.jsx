@@ -1,8 +1,9 @@
-import React from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Toaster } from '@/components/ui/toaster';
 import {Toaster as SonnerToast} from 'sonner'
+import { Capacitor } from '@capacitor/core';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
@@ -50,10 +51,34 @@ const SEO = () => {
   const siteName = import.meta.env.VITE_APP_NAME || "Trombone Cidadão";
   const defaultDescription = "Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE. Registre, acompanhe e resolva as broncas da sua cidade.";
   
-  // Base URL automática - fallback robusto para Vercel
+  // Base URL automática - detecta automaticamente o ambiente
   const getBaseUrl = () => {
-    if (import.meta.env.VITE_APP_URL) return import.meta.env.VITE_APP_URL;
-    if (typeof window !== 'undefined') return window.location.origin;
+    // 1. Prioridade: Variável de ambiente (configurada no Vercel)
+    if (import.meta.env.VITE_APP_URL) {
+      return import.meta.env.VITE_APP_URL.replace(/\/$/, '');
+    }
+    
+    // 2. Se estiver no navegador, detectar automaticamente
+    if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      
+      // Se for localhost, usar localhost
+      if (origin.includes('localhost')) {
+        return origin;
+      }
+      // Se for Vercel (dev), usar Vercel
+      if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
+        return origin;
+      }
+      // Se for domínio de produção, usar produção
+      if (origin.includes('trombonecidadao.com.br')) {
+        return 'https://trombonecidadao.com.br';
+      }
+      // Fallback: usar a origem atual
+      return origin;
+    }
+    
+    // 3. Fallback final: produção
     return 'https://trombonecidadao.com.br';
   };
   
@@ -64,6 +89,10 @@ const SEO = () => {
   let pageDescription = defaultDescription;
   let pageImage = defaultImage;
   const canonicalUrl = `${baseUrl}${location.pathname}`;
+
+  // IMPORTANTE: Se estiver em uma página de bronca, não definir og:image aqui
+  // Deixa o DynamicSEO da página de bronca definir a imagem correta
+  const isReportPage = location.pathname.startsWith('/bronca/');
 
   // Customize titles and descriptions per route
   switch (location.pathname) {
@@ -114,21 +143,22 @@ const SEO = () => {
       <meta property="og:description" content={pageDescription} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:site_name" content={siteName} />
-      <meta property="og:image" content={pageImage} />
-      <meta property="og:image:width" content="1200" />
-      <meta property="og:image:height" content="600" />
-      <meta property="og:image:type" content="image/jpeg" />
+      {/* IMPORTANTE: Só definir og:image se NÃO for página de bronca
+          Quando for página de bronca, o DynamicSEO define a imagem correta */}
+      {!isReportPage && <meta property="og:image" content={pageImage} />}
+      {!isReportPage && <meta property="og:image:width" content="1200" />}
+      {!isReportPage && <meta property="og:image:height" content="600" />}
+      {!isReportPage && <meta property="og:image:type" content="image/jpeg" />}
+      {!isReportPage && <meta property="og:image:alt" content={`Imagem do ${siteName}`} />}
       <meta property="og:locale" content="pt_BR" />
       
       {/* Twitter Card Meta Tags */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={pageTitle} />
       <meta name="twitter:description" content={pageDescription} />
-      <meta name="twitter:image" content={pageImage} />
-      
-      {/* Meta Tags Adicionais para WhatsApp */}
-      <meta name="twitter:image:alt" content={`Imagem do ${siteName}`} />
-      <meta property="og:image:alt" content={`Imagem do ${siteName}`} />
+      {/* IMPORTANTE: NÃO definir twitter:image aqui se não for página de bronca */}
+      {!isReportPage && <meta name="twitter:image" content={pageImage} />}
+      {!isReportPage && <meta name="twitter:image:alt" content={`Imagem do ${siteName}`} />}
     </Helmet>
   );
 };
@@ -146,6 +176,80 @@ const AdminRoute = ({ children }) => {
 };
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // ✅ Handler para Deep Links (App Links)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let urlListener = null;
+
+    const handleDeepLink = (url) => {
+      try {
+        // Extrair o ID da bronca da URL
+        // Formatos suportados:
+        // - trombonecidadao://bronca/[ID]
+        // - https://trombone-cidadao.vercel.app/bronca/[ID]
+        // - https://trombonecidadao.com.br/bronca/[ID]
+        
+        let reportId = null;
+        
+        // Verificar se é um deep link customizado
+        if (url.includes('trombonecidadao://bronca/')) {
+          reportId = url.split('trombonecidadao://bronca/')[1]?.split('?')[0]?.split('#')[0];
+        }
+        // Verificar se é um link HTTPS
+        else if (url.includes('/bronca/')) {
+          reportId = url.split('/bronca/')[1]?.split('?')[0]?.split('#')[0];
+        }
+        
+        if (reportId) {
+          // Navegar para a página da bronca
+          if (location.pathname !== `/bronca/${reportId}`) {
+            navigate(`/bronca/${reportId}`, { replace: true });
+          }
+        }
+      } catch (error) {
+        // Erro silencioso - deep link não funcionou
+      }
+    };
+
+    const handleAppUrl = async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        
+        // Verificar URL quando o app abre (app foi aberto por um link)
+        try {
+          const appUrl = await App.getLaunchUrl();
+          if (appUrl?.url) {
+            // Delay pequeno para garantir que o router está pronto
+            setTimeout(() => {
+              handleDeepLink(appUrl.url);
+            }, 500);
+          }
+        } catch (error) {
+          // getLaunchUrl pode falhar se não houver URL, isso é normal
+        }
+
+        // Listener para quando o app recebe uma URL enquanto está aberto
+        urlListener = App.addListener('appUrlOpen', (event) => {
+          handleDeepLink(event.url);
+        });
+      } catch (error) {
+        // Erro silencioso ao configurar deep links
+      }
+    };
+
+    handleAppUrl();
+
+    return () => {
+      if (urlListener) {
+        urlListener.remove();
+      }
+    };
+  }, [navigate, location.pathname]);
+
   return (
     <>
       <SEO />

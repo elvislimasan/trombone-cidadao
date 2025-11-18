@@ -17,7 +17,6 @@ const MapModeToggle = ({ className = '' }) => {
   const handleClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[MapModeToggle] Botão clicado, modo atual:', mode);
     toggleMode();
   };
 

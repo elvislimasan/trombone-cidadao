@@ -1,4 +1,4 @@
-import React, { useState, useRef, lazy, Suspense, useEffect } from 'react';
+import React, { useState, useRef, lazy, Suspense, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye } from 'lucide-react';
@@ -11,6 +11,8 @@ import MarkResolvedModal from '@/components/MarkResolvedModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from '@/lib/customSupabaseClient';
 import DynamicSEO from './DynamicSeo';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -96,29 +98,96 @@ const ReportDetails = ({
 
   const formatDate = (dateString) => new Date(dateString).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+  // Função para obter a URL base correta (não localhost no app)
+  const getBaseUrl = () => {
+    let baseUrl;
+    
+    // 1. Prioridade: Variável de ambiente (configurada no Vercel)
+    if (import.meta.env.VITE_APP_URL) {
+      baseUrl = import.meta.env.VITE_APP_URL;
+    }
+    // 2. Se estiver no app nativo, sempre usar produção
+    else if (Capacitor.isNativePlatform()) {
+      baseUrl = 'https://trombonecidadao.com.br';
+    }
+    // 3. Se estiver no navegador, detectar automaticamente o ambiente
+    else if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      
+      // Se for localhost, usar localhost
+      if (origin.includes('localhost')) {
+        baseUrl = origin;
+      }
+      // Se for Vercel (dev), usar Vercel
+      else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
+        baseUrl = origin;
+      }
+      // Se for domínio de produção, usar produção
+      else if (origin.includes('trombonecidadao.com.br')) {
+        baseUrl = 'https://trombonecidadao.com.br';
+      }
+      // Fallback: usar a origem atual
+      else {
+        baseUrl = origin;
+      }
+    }
+    // 4. Fallback final: produção
+    else {
+      baseUrl = 'https://trombonecidadao.com.br';
+    }
+    
+    // Remover barra final se existir para evitar barras duplas
+    return baseUrl.replace(/\/$/, '');
+  };
+
   // Função para obter a URL da imagem corretamente
-  const getReportImage = () => {
+  const getReportImage = useMemo(() => {
+    const baseUrl = getBaseUrl();
+    const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
+    
+    // Se não tiver fotos, retorna a thumbnail padrão
     if (!report?.photos || report.photos.length === 0) {
-      return null; // Deixa o DynamicSEO usar a defaultImage
+      return defaultThumbnail;
     }
     
     const firstPhoto = report.photos[0];
     
     // Tenta diferentes propriedades que podem conter a URL
-    return firstPhoto.url || 
+    const imageUrl = firstPhoto.url || 
            firstPhoto.publicUrl || 
            firstPhoto.photo_url || 
            firstPhoto.image_url;
-  };
+    
+    // Se não encontrar URL, retorna a thumbnail padrão
+    if (!imageUrl) {
+      return defaultThumbnail;
+    }
+    
+    // Garante que a URL seja absoluta
+    let absoluteUrl;
+    if (imageUrl.startsWith('http')) {
+      absoluteUrl = imageUrl;
+    } else if (imageUrl.startsWith('/')) {
+      absoluteUrl = `${baseUrl}${imageUrl}`;
+    } else {
+      absoluteUrl = `${baseUrl}/${imageUrl}`;
+    }
+    
+    // Retorna a URL absoluta (se houver erro ao carregar, o DynamicSEO usará fallback)
+    return absoluteUrl;
+  }, [report?.photos, report?.id]); // Recalcula quando as fotos ou o ID mudarem
 
-
-  const seoData = {
-    title: `${report?.title} - Trombone Cidadão`,
-    description: report?.description || `Solicitação de ${getCategoryName(report?.category)} em Floresta-PE. Protocolo: ${report?.protocol}`,
-    image: getReportImage(), // Agora usa a função que retorna null se não tiver imagem
-    url: `${window.location.origin}/bronca/${report?.id}`,
-    type: "article"
-  };
+  const seoData = useMemo(() => {
+    const reportImage = getReportImage;
+    
+    return {
+      title: `${report?.title} - Trombone Cidadão`,
+      description: report?.description || `Solicitação de ${getCategoryName(report?.category)} em Floresta-PE. Protocolo: ${report?.protocol}`,
+      image: reportImage, // Retorna a imagem da bronca ou thumbnail padrão
+      url: `${getBaseUrl()}/bronca/${report?.id}`,
+      type: "article"
+    };
+  }, [report?.title, report?.description, report?.category, report?.protocol, report?.id, report?.photos, getReportImage]);
 
   const handleMarkResolvedClick = () => {
     if (!user) {
@@ -179,40 +248,146 @@ const ReportDetails = ({
   };
 
   const handleShare = async () => {
-  // Pega a imagem da bronca (URL completa do Supabase)
-  const reportImage = getReportImage();
-  const baseUrl = window.location.origin;
-  const defaultImage = `${baseUrl}/images/thumbnail.jpg`;
-  
-  // Usa a imagem da bronca se disponível, senão usa a padrão
-  const shareImage = reportImage || defaultImage;
+    // Pega a imagem da bronca (URL completa e absoluta)
+    // getReportImage já retorna a thumbnail padrão se não houver imagem
+    const shareImageUrl = getReportImage; // Agora é um valor memoizado, não uma função
+    const baseUrl = getBaseUrl();
+    const shareUrl = `${baseUrl}/bronca/${report.id}`;
+    const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
+    const fullShareText = `${shareText} ${shareUrl}`;
 
-  const shareData = {
-    title: `Trombone Cidadão: ${report.title}`,
-    text: `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`,
-    url: `${baseUrl}/bronca/${report.id}`,
-  };
-
-  try {
-    if (navigator.share) {
-      await navigator.share(shareData);
-      toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
-    } else {
-      await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-      toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
-    }
-  } catch (error) {
-    console.error('Error sharing:', error);
     
-    // Fallback: copiar para área de transferência
+    // IMPORTANTE: Garantir que as meta tags estejam atualizadas antes de compartilhar
+    // Forçar atualização imediatamente antes de compartilhar
+    const updateMetaTagsBeforeShare = () => {
+      // Remover todas as meta tags de imagem existentes
+      const selectorsToRemove = [
+        'meta[property="og:image"]',
+        'meta[property="og:image:url"]',
+        'meta[name="twitter:image"]',
+        'meta[name="image"]',
+        'link[rel="image_src"]',
+      ];
+      
+      selectorsToRemove.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => el.remove());
+      });
+      
+      // Criar nova meta tag og:image com a imagem correta
+      const ogImage = document.createElement('meta');
+      ogImage.setAttribute('property', 'og:image');
+      ogImage.setAttribute('content', shareImageUrl);
+      document.head.insertBefore(ogImage, document.head.firstChild);
+      
+      // Criar og:image:url
+      const ogImageUrl = document.createElement('meta');
+      ogImageUrl.setAttribute('property', 'og:image:url');
+      ogImageUrl.setAttribute('content', shareImageUrl);
+      document.head.appendChild(ogImageUrl);
+      
+      // Criar twitter:image
+      const twitterImage = document.createElement('meta');
+      twitterImage.setAttribute('name', 'twitter:image');
+      twitterImage.setAttribute('content', shareImageUrl);
+      document.head.appendChild(twitterImage);
+      
+      // Criar link image_src
+      const imageSrc = document.createElement('link');
+      imageSrc.setAttribute('rel', 'image_src');
+      imageSrc.setAttribute('href', shareImageUrl);
+      document.head.appendChild(imageSrc);
+      
+    };
+    
+    // Atualizar meta tags antes de compartilhar
+    updateMetaTagsBeforeShare();
+
     try {
-      await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-      toast({ title: "Link copiado! 📋", description: "O link da bronca foi copiado para sua área de transferência." });
-    } catch (clipboardError) {
-      toast({ title: "Erro ao compartilhar", description: "Não foi possível compartilhar a solicitação.", variant: "destructive" });
+      // Tentar usar Capacitor Share primeiro (app nativo)
+      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
+        // No app nativo, compartilhar o link (a imagem aparecerá como thumbnail via meta tags)
+        const shareData = {
+          title: `Trombone Cidadão: ${report.title}`,
+          text: shareText, // Texto sem URL para evitar duplicação
+          url: shareUrl, // URL sempre incluída - a imagem aparecerá como thumbnail via Open Graph
+        };
+
+        await Share.share(shareData);
+        toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
+        return;
+      }
+
+      // Tentar usar Web Share API (navegadores modernos)
+      if (navigator.share) {
+        // IMPORTANTE: Priorizar o link. A imagem aparecerá como thumbnail via meta tags Open Graph
+        // Não incluir files, pois isso pode fazer o navegador ignorar o URL
+        const webShareData = {
+          title: `Trombone Cidadão: ${report.title}`,
+          text: shareText, // Texto sem URL para evitar duplicação
+          url: shareUrl, // URL sempre incluída - a imagem aparecerá como thumbnail via Open Graph
+        };
+        
+        // Verificar se pode compartilhar com URL (sempre deve poder)
+        if (navigator.canShare && !navigator.canShare(webShareData)) {
+          // Continuar mesmo assim, alguns navegadores não implementam canShare corretamente
+        }
+        
+        await navigator.share(webShareData);
+        toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
+        return;
+      }
+
+      // Fallback: abrir WhatsApp diretamente ou copiar link
+      const whatsappNumber = '5587999488360';
+      const whatsappMessage = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+      
+      // Tentar abrir WhatsApp
+      window.open(whatsappUrl, '_blank');
+      
+      // Também copiar para área de transferência como backup
+      try {
+        await navigator.clipboard.writeText(fullShareText);
+        toast({ 
+          title: "Abrindo WhatsApp... 📱", 
+          description: "Link também copiado para área de transferência. A imagem aparecerá como preview do link." 
+        });
+      } catch (clipboardError) {
+        toast({ 
+          title: "Abrindo WhatsApp... 📱", 
+          description: "Compartilhe a bronca pelo WhatsApp. A imagem aparecerá como preview do link." 
+        });
+      }
+    } catch (error) {
+      // Se o usuário cancelar, não mostrar erro
+      if (error.name === 'AbortError') {
+        return;
+      }
+      
+      console.error('Error sharing:', error);
+      
+      // Fallback: abrir WhatsApp diretamente
+      try {
+        const whatsappNumber = '5587999488360';
+        const whatsappMessage = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
+        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+        window.open(whatsappUrl, '_blank');
+        
+        // Também copiar para área de transferência
+        await navigator.clipboard.writeText(fullShareText);
+        toast({ 
+          title: "Abrindo WhatsApp... 📱", 
+          description: "Link também copiado para área de transferência. A imagem aparecerá como preview do link." 
+        });
+      } catch (fallbackError) {
+        toast({ 
+          title: "Erro ao compartilhar", 
+          description: "Não foi possível compartilhar a solicitação. Tente copiar o link manualmente.", 
+          variant: "destructive" 
+        });
+      }
     }
-  }
-};
+  };
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!user) {
@@ -459,10 +634,178 @@ const ReportDetails = ({
 
   const comments = Array.isArray(report.comments) ? report.comments : [];
 
+  // Forçar atualização das meta tags quando o modal abrir
+  useEffect(() => {
+    if (!report?.id) return;
+    
+    // Obter a imagem diretamente do useMemo
+    const reportImage = getReportImage;
+    
+    if (!reportImage) {
+      return;
+    }
+    
+    // Atualizar imediatamente
+    const updateMetaTags = () => {
+      
+      // PRIMEIRO: Remover TODAS as meta tags de imagem existentes para evitar conflitos
+      const selectorsToRemove = [
+        'meta[property="og:image"]',
+        'meta[property="og:image:url"]',
+        'meta[property="og:image:width"]',
+        'meta[property="og:image:height"]',
+        'meta[property="og:image:type"]',
+        'meta[property="og:image:alt"]',
+        'meta[name="twitter:image"]',
+        'meta[name="twitter:image:alt"]',
+        'meta[name="image"]',
+        'link[rel="image_src"]',
+      ];
+      
+      selectorsToRemove.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+          el.remove();
+        });
+      });
+      
+      // SEGUNDO: Criar novas meta tags com a imagem correta
+      const metaTags = [
+        { property: 'property', value: 'og:image', content: reportImage },
+        { property: 'property', value: 'og:image:url', content: reportImage },
+        { property: 'property', value: 'og:image:width', content: '1200' },
+        { property: 'property', value: 'og:image:height', content: '630' },
+        { property: 'property', value: 'og:image:type', content: 'image/jpeg' },
+        { property: 'property', value: 'og:image:alt', content: report?.title || 'Bronca' },
+        { property: 'name', value: 'twitter:image', content: reportImage },
+        { property: 'name', value: 'twitter:image:alt', content: report?.title || 'Bronca' },
+        { property: 'name', value: 'image', content: reportImage },
+      ];
+      
+      metaTags.forEach(({ property, value, content }) => {
+        const element = document.createElement('meta');
+        element.setAttribute(property, value);
+        element.setAttribute('content', content);
+        document.head.appendChild(element);
+      });
+      
+      // Criar link image_src
+      const imageSrcLink = document.createElement('link');
+      imageSrcLink.setAttribute('rel', 'image_src');
+      imageSrcLink.setAttribute('href', reportImage);
+      document.head.appendChild(imageSrcLink);
+      
+      // TERCEIRO: Garantir que a meta tag og:image seja a PRIMEIRA no <head>
+      // WhatsApp e outras redes sociais geralmente pegam a primeira meta tag
+      const ogImageElement = document.querySelector('meta[property="og:image"]');
+      if (ogImageElement && ogImageElement.getAttribute('content') === reportImage) {
+        // Mover para o início do <head> se não estiver lá
+        const firstChild = document.head.firstChild;
+        if (firstChild !== ogImageElement) {
+          document.head.insertBefore(ogImageElement, firstChild);
+        }
+      }
+      
+      // Verificar se ainda há alguma meta tag com thumbnail padrão e remover
+      const allOgImages = document.querySelectorAll('meta[property="og:image"]');
+      allOgImages.forEach((el) => {
+        const content = el.getAttribute('content');
+        if (content && (content.includes('thumbnail.jpg') || content !== reportImage)) {
+          el.remove();
+        }
+      });
+      
+      // Garantir que há apenas UMA meta tag og:image com a imagem correta
+      const remainingOgImages = document.querySelectorAll('meta[property="og:image"]');
+      if (remainingOgImages.length === 0) {
+        const newOgImage = document.createElement('meta');
+        newOgImage.setAttribute('property', 'og:image');
+        newOgImage.setAttribute('content', reportImage);
+        document.head.insertBefore(newOgImage, document.head.firstChild);
+      } else if (remainingOgImages.length > 1) {
+        // Manter apenas a primeira e remover as outras
+        for (let i = 1; i < remainingOgImages.length; i++) {
+          remainingOgImages[i].remove();
+        }
+      }
+      
+      // Verificação final e limpeza
+      const finalOgImage = document.querySelector('meta[property="og:image"]');
+      if (finalOgImage) {
+        const finalContent = finalOgImage.getAttribute('content');
+        
+        // Se ainda contém thumbnail, forçar atualização
+        if (finalContent?.includes('thumbnail.jpg') && finalContent !== reportImage) {
+          finalOgImage.setAttribute('content', reportImage);
+          // Mover para o início
+          document.head.insertBefore(finalOgImage, document.head.firstChild);
+        }
+      } else {
+        // Se não encontrou, criar novamente
+        const newOgImage = document.createElement('meta');
+        newOgImage.setAttribute('property', 'og:image');
+        newOgImage.setAttribute('content', reportImage);
+        document.head.insertBefore(newOgImage, document.head.firstChild);
+      }
+      
+      // Verificação final após delay para garantir que não foi sobrescrito
+      setTimeout(() => {
+        const checkOgImage = document.querySelector('meta[property="og:image"]');
+        if (checkOgImage) {
+          const checkContent = checkOgImage.getAttribute('content');
+          if (checkContent !== reportImage && checkContent?.includes('thumbnail.jpg')) {
+            checkOgImage.setAttribute('content', reportImage);
+            document.head.insertBefore(checkOgImage, document.head.firstChild);
+          }
+        }
+      }, 1500);
+    };
+    
+    // Atualizar imediatamente
+    updateMetaTags();
+    
+    // Atualizar após delays para garantir que sobrescreva qualquer coisa do App.jsx
+    // Usar intervalos maiores para garantir que o App.jsx já renderizou
+    const timers = [
+      setTimeout(updateMetaTags, 50),
+      setTimeout(updateMetaTags, 200),
+      setTimeout(updateMetaTags, 500),
+      setTimeout(updateMetaTags, 1000),
+      setTimeout(updateMetaTags, 2000),
+    ];
+    
+    // Usar MutationObserver para detectar quando meta tags são alteradas e atualizar novamente
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList' || mutation.type === 'attributes') {
+          const ogImage = document.querySelector('meta[property="og:image"]');
+          if (ogImage && ogImage.getAttribute('content') !== reportImage && !ogImage.getAttribute('content')?.includes('thumbnail.jpg')) {
+            // Se a meta tag foi alterada e não é a nossa imagem, atualizar novamente
+            updateMetaTags();
+          }
+        }
+      });
+    });
+    
+    // Observar mudanças no <head>
+    observer.observe(document.head, {
+      childList: true,
+      attributes: true,
+      attributeFilter: ['content', 'href'],
+      subtree: true,
+    });
+    
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+      observer.disconnect();
+    };
+  }, [report?.id, getReportImage]);
+
   return (
     <>
       {/* DynamicSEO - Isso atualizará as meta tags quando o modal abrir */}
-      <DynamicSEO {...seoData} />
+      {/* Usar key única para garantir que o Helmet sobrescreva as meta tags do App.jsx */}
+      <DynamicSEO key={`report-${report?.id}`} {...seoData} />
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[2000]" onClick={onClose}>
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto border border-border" onClick={(e) => e.stopPropagation()}>

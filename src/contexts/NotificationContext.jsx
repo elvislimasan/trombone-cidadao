@@ -231,7 +231,7 @@ export const NotificationProvider = ({ children }) => {
         try {
           capacitorSupported = Capacitor.isPluginAvailable('PushNotifications');
         } catch (e) {
-          console.warn('[FCM] Erro ao verificar Capacitor:', e);
+          // Erro silencioso ao verificar Capacitor
         }
       }
       
@@ -330,7 +330,7 @@ export const NotificationProvider = ({ children }) => {
           }
         } else if (error) {
           // 🔥 Outro tipo de erro - tentar criar mesmo assim
-          console.warn('[PREF] Erro ao buscar preferências:', error);
+          // Erro ao buscar preferências
           
           const isAdmin = user?.is_admin === true;
           let initialPreferences = { ...DEFAULT_PREFERENCES };
@@ -370,7 +370,7 @@ export const NotificationProvider = ({ children }) => {
             setNotificationPreferences(finalPreferences);
           } else {
             // Se mesmo assim falhar, definir no estado local
-            console.warn('[PREF] Não foi possível criar preferências no banco, usando estado local');
+            // Não foi possível criar preferências no banco, usando estado local
             setNotificationsEnabled(true);
             setPushEnabled(false);
             setNotificationPreferences(initialPreferences);
@@ -387,7 +387,7 @@ export const NotificationProvider = ({ children }) => {
             try {
               prefsFromDb = JSON.parse(prefsFromDb);
             } catch (e) {
-              console.warn('⚠️ [PREF] Erro ao parsear notification_preferences:', e);
+              // Erro ao parsear notification_preferences
               prefsFromDb = {};
             }
           }
@@ -533,12 +533,12 @@ export const NotificationProvider = ({ children }) => {
   // 🔥 Salvar token FCM (para Capacitor)
   const saveFCMToken = useCallback(async (token) => {
     if (!user) {
-      console.warn('[FCM] Usuário não logado, não é possível salvar token FCM');
+      // Usuário não logado, não é possível salvar token FCM
       return;
     }
 
     if (!token) {
-      console.warn('[FCM] Token FCM vazio, não é possível salvar');
+      // Token FCM vazio, não é possível salvar
       return;
     }
 
@@ -700,7 +700,6 @@ export const NotificationProvider = ({ children }) => {
           setPushEnabled(true);
           
           // Atualizar push_enabled no banco quando permissão já está concedida
-          console.log('[FCM] Permissão já concedida, atualizando push_enabled no banco...');
           const { data: prefData, error: prefError } = await supabase
             .from('user_preferences')
             .upsert({ 
@@ -941,7 +940,7 @@ export const NotificationProvider = ({ children }) => {
     const requiredKeys = Object.keys(DEFAULT_PREFERENCES);
     const missingKeys = requiredKeys.filter(key => !(key in newPreferences));
     if (missingKeys.length > 0) {
-      console.warn('⚠️ [PREF] Chaves faltando nas preferências:', missingKeys);
+      // Chaves faltando nas preferências, adicionando valores padrão
       // Adicionar chaves faltando com valores padrão
       missingKeys.forEach(key => {
         newPreferences[key] = DEFAULT_PREFERENCES[key];
@@ -983,7 +982,7 @@ export const NotificationProvider = ({ children }) => {
             try {
               parsedPrefs = JSON.parse(savedPreferences);
             } catch (e) {
-              console.warn('⚠️ [PREF] Erro ao parsear preferências salvas:', e);
+              // Erro ao parsear preferências salvas
               parsedPrefs = newPreferences;
             }
           }
@@ -997,7 +996,7 @@ export const NotificationProvider = ({ children }) => {
             // Atualizar ref imediatamente
             notificationPreferencesRef.current = finalPrefs;
           } else {
-            console.warn('⚠️ [PREF] Preferências salvas como objeto vazio! Tentando novamente...');
+            // Preferências salvas como objeto vazio! Tentando novamente
             // Tentar novamente com estrutura explícita
             const retryResult = await supabase
               .from('user_preferences')
@@ -1032,7 +1031,7 @@ export const NotificationProvider = ({ children }) => {
           }
         } else {
           // Se não retornou dados, manter estado local atualizado
-          console.warn('⚠️ [PREF] Nenhum dado retornado do banco, mantendo estado local');
+          // Nenhum dado retornado do banco, mantendo estado local
           setNotificationPreferences(newPreferences);
           notificationPreferencesRef.current = newPreferences;
         }
