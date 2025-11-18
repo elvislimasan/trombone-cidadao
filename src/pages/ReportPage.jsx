@@ -221,45 +221,44 @@ const ReportPage = () => {
     return baseUrl.replace(/\/$/, '');
   };
 
-  // Função para obter imagem da bronca (memoizada para garantir que recalcule quando as fotos mudarem)
-  const getReportImage = useMemo(() => {
-    const baseUrl = getBaseUrl();
+  // Base URL memoizada para evitar recálculos
+  const baseUrl = useMemo(() => getBaseUrl(), []);
+  
+  // Calcular imagem e dados SEO diretamente
+  const seoData = useMemo(() => {
     const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
     
-    // Se report não existir ou não tiver fotos, retorna a thumbnail padrão
-    if (!report || !report.photos || report.photos.length === 0) {
-      return defaultThumbnail;
+    // Calcular a imagem diretamente aqui
+    let reportImage = defaultThumbnail;
+    
+    if (report && report.photos && report.photos.length > 0) {
+      const firstPhoto = report.photos[0];
+      if (firstPhoto) {
+        const imageUrl = firstPhoto.url || firstPhoto.publicUrl || firstPhoto.photo_url || firstPhoto.image_url;
+        
+        if (imageUrl) {
+          // Garante que a URL seja absoluta
+          if (imageUrl.startsWith('http')) {
+            reportImage = imageUrl;
+          } else {
+            reportImage = `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+          }
+        }
+      }
     }
     
-    const firstPhoto = report.photos[0];
-    if (!firstPhoto) {
-      return defaultThumbnail;
-    }
-    
-    const imageUrl = firstPhoto.url || firstPhoto.publicUrl || firstPhoto.photo_url || firstPhoto.image_url;
-    
-    // Se não encontrar URL, retorna a thumbnail padrão
-    if (!imageUrl) {
-      return defaultThumbnail;
-    }
-    
-    // Garante que a URL seja absoluta
-    let absoluteUrl;
-    if (imageUrl.startsWith('http')) {
-      absoluteUrl = imageUrl;
-    } else {
-      absoluteUrl = `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
-    }
-    
-    return absoluteUrl;
-  }, [report?.photos, report?.id]); // Recalcula quando as fotos ou o ID mudarem
+    return {
+      title: report?.title ? `Bronca: ${report.title} - Trombone Cidadão` : 'Trombone Cidadão',
+      description: report?.description || `Confira esta solicitação em Floresta-PE: "${report?.title || ''}". Protocolo: ${report?.protocol || ''}`,
+      image: reportImage,
+      url: `${baseUrl}/bronca/${report?.id || ''}`,
+    };
+  }, [baseUrl, report?.title, report?.description, report?.protocol, report?.id, report?.photos]);
 
-  const baseUrl = getBaseUrl();
-  const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
-  const seoTitle = report?.title ? `Bronca: ${report.title} - Trombone Cidadão` : 'Trombone Cidadão';
-  const seoDescription = report?.description || `Confira esta solicitação em Floresta-PE: "${report?.title || ''}". Protocolo: ${report?.protocol || ''}`;
-  const seoImage = report ? getReportImage : defaultThumbnail; // Sempre retorna uma imagem
-  const seoUrl = `${baseUrl}/bronca/${report?.id || ''}`;
+  const seoTitle = seoData.title;
+  const seoDescription = seoData.description;
+  const seoImage = seoData.image; // Sempre retorna uma imagem
+  const seoUrl = seoData.url;
 
   // Forçar atualização das meta tags quando a página carregar
   // Isso garante que as meta tags estejam corretas quando o WhatsApp fizer o fetch
@@ -332,7 +331,7 @@ const ReportPage = () => {
     return () => {
       timers.forEach(timer => clearTimeout(timer));
     };
-  }, [report?.id, seoImage, report?.title]);
+  }, [report?.id, report?.photos, seoImage, report?.title, baseUrl]);
 
   return (
     <>

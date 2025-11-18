@@ -124,19 +124,22 @@ const DynamicSEO = ({
       
       {/* Deep Links - App Links (Android) e Universal Links (iOS) */}
       {/* Isso faz com que o link abra no app se estiver instalado */}
-      {(() => {
-        const reportId = url.split('/bronca/')[1] || '';
+      {url && url.includes('/bronca/') && (() => {
+        const reportId = url.split('/bronca/')[1]?.split('?')[0]?.split('#')[0] || '';
+        if (!reportId) return null;
         const deepLinkUrl = `trombonecidadao://bronca/${reportId}`;
-        return [
-          <meta key="al-android-name" property="al:android:app_name" content="Trombone Cidadão" />,
-          <meta key="al-android-package" property="al:android:package" content="com.trombonecidadao.app" />,
-          <meta key="al-android-url" property="al:android:url" content={deepLinkUrl} />,
-          <meta key="al-ios-name" property="al:ios:app_name" content="Trombone Cidadão" />,
-          <meta key="al-ios-store-id" property="al:ios:app_store_id" content="" />,
-          <meta key="al-ios-url" property="al:ios:url" content={deepLinkUrl} />,
-          <meta key="al-web-url" property="al:web:url" content={url} />,
-          <meta key="al-web-fallback" property="al:web:should_fallback" content="true" />
-        ];
+        return (
+          <>
+            <meta property="al:android:app_name" content="Trombone Cidadão" />
+            <meta property="al:android:package" content="com.trombonecidadao.app" />
+            <meta property="al:android:url" content={deepLinkUrl} />
+            <meta property="al:ios:app_name" content="Trombone Cidadão" />
+            <meta property="al:ios:app_store_id" content="" />
+            <meta property="al:ios:url" content={deepLinkUrl} />
+            <meta property="al:web:url" content={url} />
+            <meta property="al:web:should_fallback" content="true" />
+          </>
+        );
       })()}
       
       {/* JSON-LD para SEO estruturado */}
