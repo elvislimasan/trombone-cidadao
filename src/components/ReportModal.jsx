@@ -64,6 +64,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const videoGalleryInputRef = useRef(null);
   const videoCameraInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTakingPhoto, setIsTakingPhoto] = useState(false); // Flag para indicar que está tirando foto
 
   useEffect(() => {
     // Solicita a geolocalização ao montar o componente
@@ -116,6 +117,40 @@ const ReportModal = ({ onClose, onSubmit }) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Executar apenas na desmontagem
+
+  // Listener para quando o app volta ao foreground (para preservar o estado quando a câmera é aberta)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let appStateListener = null;
+
+    const setupAppStateListener = async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        
+        appStateListener = await App.addListener('appStateChange', async ({ isActive }) => {
+          // Quando o app volta ao foreground após tirar foto, garantir que o estado seja preservado
+          if (isActive && isTakingPhoto) {
+            console.log('App voltou ao foreground durante captura de foto');
+            // Aguardar um pouco para garantir que a câmera terminou
+            setTimeout(() => {
+              setIsTakingPhoto(false);
+            }, 1000);
+          }
+        });
+      } catch (error) {
+        console.error('Erro ao configurar listener de app state:', error);
+      }
+    };
+
+    setupAppStateListener();
+
+    return () => {
+      if (appStateListener) {
+        appStateListener.remove();
+      }
+    };
+  }, [isTakingPhoto]);
 
   const categories = [
     { id: 'iluminacao', name: 'Iluminação', icon: '💡' },
@@ -225,15 +260,18 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
   // Função para tirar foto usando a câmera nativa ou web
   const handleTakePhoto = async () => {
+    // Marcar que está tirando foto para evitar que o modal feche
+    setIsTakingPhoto(true);
+    
     try {
       // Verificar se está no app nativo
       if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Camera')) {
         // Usar câmera nativa do Capacitor
-        // Usar Uri para melhor compatibilidade entre iOS e Android
+        // Usar Base64 para melhor compatibilidade e evitar problemas com webPath
         const image = await CapacitorCamera.getPhoto({
           quality: 90,
           allowEditing: false,
-          resultType: CameraResultType.Uri, // Uri retorna webPath que funciona melhor
+          resultType: CameraResultType.Base64, // Usar Base64 para garantir que a imagem seja capturada
           source: CameraSource.Camera, // IMPORTANTE: Forçar câmera, não galeria
           correctOrientation: true,
           saveToGallery: false,
@@ -245,8 +283,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
         
         let photoFile;
         
-        // Uri geralmente retorna webPath (iOS e Android modernos)
-        if (image.webPath) {
+        // Priorizar base64String (mais confiável)
+        if (image.base64String) {
+          photoFile = await base64ToFile(`data:image/jpeg;base64,${image.base64String}`, fileName, 'image/jpeg');
+        } else if (image.dataUrl) {
+          // Fallback: usar dataUrl se disponível
+          photoFile = await base64ToFile(image.dataUrl, fileName, 'image/jpeg');
+        } else if (image.webPath) {
+          // Fallback: tentar usar webPath
           try {
             // Buscar a imagem usando fetch
             const response = await fetch(image.webPath);
@@ -258,17 +302,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
           } catch (fetchError) {
             console.error('Erro ao buscar webPath:', fetchError);
             // Tentar usar Capacitor.convertFileSrc se fetch falhar
-            const convertedPath = Capacitor.convertFileSrc(image.webPath);
-            const response = await fetch(convertedPath);
-            const blob = await response.blob();
-            photoFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: timestamp });
+            try {
+              const convertedPath = Capacitor.convertFileSrc(image.webPath);
+              const response = await fetch(convertedPath);
+              const blob = await response.blob();
+              photoFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: timestamp });
+            } catch (convertError) {
+              console.error('Erro ao converter webPath:', convertError);
+              throw new Error('Não foi possível processar a imagem da câmera');
+            }
           }
-        } else if (image.base64String) {
-          // Fallback: usar base64String se webPath não estiver disponível
-          photoFile = await base64ToFile(`data:image/jpeg;base64,${image.base64String}`, fileName, 'image/jpeg');
-        } else if (image.dataUrl) {
-          // Fallback: usar dataUrl se disponível
-          photoFile = await base64ToFile(image.dataUrl, fileName, 'image/jpeg');
         } else if (image.path) {
           // Fallback: tentar ler do filesystem
           try {
@@ -282,26 +325,36 @@ const ReportModal = ({ onClose, onSubmit }) => {
             throw new Error('Não foi possível processar a imagem da câmera');
           }
         } else {
-          throw new Error('Formato de imagem não suportado');
+          throw new Error('Formato de imagem não suportado. Nenhum dado de imagem foi retornado.');
         }
 
         // Processar e adicionar a foto
         try {
           const compressedFile = await compressImage(photoFile);
           
-          setFormData(prev => ({
-            ...prev,
-            photos: [...prev.photos, { 
+          // Garantir que o estado seja atualizado corretamente
+          setFormData(prev => {
+            const newPhotos = [...prev.photos, { 
               file: compressedFile, 
               name: compressedFile.name, 
               preview: URL.createObjectURL(compressedFile) 
-            }]
-          }));
+            }];
+            
+            console.log('Foto adicionada ao estado. Total de fotos:', newPhotos.length);
+            
+            return {
+              ...prev,
+              photos: newPhotos
+            };
+          });
           
           // Limpar erro de fotos se houver
           if (errors.photos) {
             setErrors(prev => ({ ...prev, photos: undefined }));
           }
+          
+          // Aguardar um pouco para garantir que o estado foi atualizado
+          await new Promise(resolve => setTimeout(resolve, 100));
           
           toast({ 
             title: "Foto adicionada! 📸", 
@@ -323,13 +376,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
       console.error("Error taking photo:", error);
       // Se o usuário cancelar, não mostrar erro
       const errorMessage = error.message || error.toString();
-      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancelled')) {
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancelled') && !errorMessage.includes('User cancelled')) {
         toast({ 
           title: "Erro ao abrir câmera", 
           description: "Não foi possível abrir a câmera. Tente novamente ou selecione uma foto da galeria.", 
           variant: "destructive" 
         });
       }
+    } finally {
+      // Sempre resetar a flag quando terminar (sucesso ou erro)
+      setIsTakingPhoto(false);
     }
   };
 
@@ -502,8 +558,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
   };
 
   const handleClose = () => {
-    // Não permitir fechar durante o envio
-    if (isSubmitting) {
+    // Não permitir fechar durante o envio ou enquanto está tirando foto
+    if (isSubmitting || isTakingPhoto) {
       return;
     }
     
