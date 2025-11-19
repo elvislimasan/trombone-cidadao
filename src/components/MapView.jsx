@@ -140,7 +140,7 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
           );
         })}
       </MapContainer>
-      <div className="absolute top-4 right-4 z-[1000]">
+      <div className="absolute top-4 right-4 z-[800]">
         <MapModeToggle />
       </div>
       <div className="absolute left-2 sm:left-4 bottom-2 sm:bottom-3 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto">

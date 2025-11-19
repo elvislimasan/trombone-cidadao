@@ -125,7 +125,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
         ))}
       </MapContainer>
 
-      <div className="absolute top-4 right-4 z-[1000]">
+      <div className="absolute top-4 right-4 z-[800]">
         <MapModeToggle />
       </div>
 

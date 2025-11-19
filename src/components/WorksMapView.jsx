@@ -415,7 +415,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
         )}
       </AnimatePresence>
 
-      <div className="absolute top-4 right-4 z-[900]">
+      <div className="absolute top-4 right-4 z-[800]">
         <MapModeToggle />
       </div>
 

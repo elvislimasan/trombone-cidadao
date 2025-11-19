@@ -207,6 +207,20 @@ body > * a:not(.leaflet-container a) {
   touch-action: auto !important;
 }
 
+/* === AJUSTES PARA CONTROLES DO LEAFLET NÃO SOBREPOREM O BOTTOM NAV === */
+/* Controles de zoom do Leaflet - z-index menor que o BottomNav (900) */
+.leaflet-control-zoom {
+  z-index: 800 !important;
+}
+
+/* Ajustar posição dos controles de zoom no mobile para não sobrepor o BottomNav */
+@media (max-width: 1024px) {
+  .leaflet-control-zoom {
+    bottom: calc(4rem + var(--safe-area-bottom, 0px) + 0.5rem) !important;
+    top: auto !important;
+  }
+}
+
 /* === SEUS ESTILOS ORIGINAIS (MANTIDOS INTACTOS) === */
 @layer base {
   :root {
