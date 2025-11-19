@@ -31,8 +31,8 @@ const ContactPage = () => {
       .eq('id', 1)
       .single();
 
-    // Se a coluna contact_settings não existir (PGRST204), usar valores padrão
-    if (error && error.code === 'PGRST204') {
+    // Se a coluna contact_settings não existir (PGRST204 ou 42703), usar valores padrão
+    if (error && (error.code === 'PGRST204' || error.code === '42703')) {
       // Manter valores padrão já definidos no estado inicial
       return;
     }

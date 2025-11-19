@@ -33,47 +33,37 @@ const SiteSettingsPage = () => {
     // Buscar apenas as colunas que existem, excluindo contact_settings inicialmente
     const { data, error } = await supabase
       .from('site_config')
-      .select('site_name, logo_url, menu_settings, footer_settings, contact_settings')
+      .select('site_name, logo_url, menu_settings, footer_settings')
       .eq('id', 1)
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      // Se o erro for PGRST204 (coluna não encontrada), tentar buscar sem contact_settings
-      if (error.code === 'PGRST204') {
-        const { data: dataWithoutContact, error: errorWithoutContact } = await supabase
-          .from('site_config')
-          .select('site_name, logo_url, menu_settings, footer_settings')
-          .eq('id', 1)
-          .single();
-
-        if (errorWithoutContact && errorWithoutContact.code !== 'PGRST116') {
-          toast({ title: "Erro ao carregar configurações", description: errorWithoutContact.message, variant: "destructive" });
-        } else if (dataWithoutContact) {
-          setSiteName(dataWithoutContact.site_name || 'Trombone Cidadão');
-          setLogoUrl(dataWithoutContact.logo_url || '');
-          setMenuSettings(dataWithoutContact.menu_settings || defaultMenuSettings);
-          setFooterSettings(dataWithoutContact.footer_settings || defaultFooterSettings);
-          // Manter valores padrão para contactSettings se a coluna não existir
-          setContactSettings({
-            whatsapp: '5587999488360',
-            email: 'contato@trombonecidadao.com.br',
-            phone: '(87) 99948-8360',
-          });
-        }
-      } else {
-        toast({ title: "Erro ao carregar configurações", description: error.message, variant: "destructive" });
-      }
+      toast({ title: "Erro ao carregar configurações", description: error.message, variant: "destructive" });
     } else if (data) {
       setSiteName(data.site_name || 'Trombone Cidadão');
       setLogoUrl(data.logo_url || '');
       setMenuSettings(data.menu_settings || defaultMenuSettings);
       setFooterSettings(data.footer_settings || defaultFooterSettings);
-      setContactSettings(data.contact_settings || {
+    }
+
+    // Tentar buscar contact_settings separadamente (pode não existir)
+    const { data: contactData, error: contactError } = await supabase
+      .from('site_config')
+      .select('contact_settings')
+      .eq('id', 1)
+      .single();
+
+    if (!contactError && contactData?.contact_settings) {
+      setContactSettings(contactData.contact_settings);
+    } else {
+      // Usar valores padrão se a coluna não existir
+      setContactSettings({
         whatsapp: '5587999488360',
         email: 'contato@trombonecidadao.com.br',
         phone: '(87) 99948-8360',
       });
     }
+
     setLoading(false);
   }, [toast]);
 
@@ -92,15 +82,30 @@ const SiteSettingsPage = () => {
       updated_at: new Date().toISOString()
     };
 
-    // Tentar salvar contact_settings apenas se não houver erro
-    // Primeiro, salvar sem contact_settings
-    const { error } = await supabase
+    // Verificar se menuSettings tem os dados corretos
+    const noticiasItem = menuSettings.items.find(item => item.path === '/noticias');
+    if (noticiasItem) {
+      console.log('Notícias isVisible antes de salvar:', noticiasItem.isVisible);
+    }
+
+    // Salvar configurações principais (sem contact_settings)
+    const { data: savedData, error } = await supabase
       .from('site_config')
-      .upsert(dataToSave, { onConflict: 'id' });
+      .upsert(dataToSave, { onConflict: 'id' })
+      .select()
+      .single();
 
     if (error) {
       toast({ title: "Erro ao salvar configurações", description: error.message, variant: "destructive" });
       return;
+    }
+
+    // Verificar se foi salvo corretamente
+    if (savedData?.menu_settings) {
+      const savedNoticiasItem = savedData.menu_settings.items?.find(item => item.path === '/noticias');
+      if (savedNoticiasItem) {
+        console.log('Notícias isVisible após salvar:', savedNoticiasItem.isVisible);
+      }
     }
 
     // Tentar salvar contact_settings separadamente (pode falhar se a coluna não existir)
@@ -109,8 +114,8 @@ const SiteSettingsPage = () => {
       .update({ contact_settings: contactSettings })
       .eq('id', 1);
 
-    // Ignorar erro se a coluna não existir (PGRST204)
-    if (contactError && contactError.code !== 'PGRST204') {
+    // Ignorar erro se a coluna não existir (PGRST204 ou 42703)
+    if (contactError && contactError.code !== 'PGRST204' && contactError.code !== '42703') {
       console.warn('Aviso: Não foi possível salvar contact_settings:', contactError.message);
     }
 
@@ -118,7 +123,12 @@ const SiteSettingsPage = () => {
       title: "Configurações Salvas! ✨",
       description: "As personalizações do site foram aplicadas globalmente.",
     });
+    
+    // Disparar evento para atualizar componentes que usam essas configurações
     window.dispatchEvent(new CustomEvent('site-settings-updated'));
+    
+    // Recarregar as configurações para garantir sincronização
+    await fetchSettings();
   };
 
   const handleColorChange = (section, colorType, value) => {
