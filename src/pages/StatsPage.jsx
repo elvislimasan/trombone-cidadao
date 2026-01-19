@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import WorksStatsReports from '@/components/WorksStatsReports';
@@ -13,6 +13,8 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { FileOpener } from '@capacitor-community/file-opener';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -35,6 +37,7 @@ const ReportsStats = () => {
   const [categoryData, setCategoryData] = useState([]);
   const [statusData, setStatusData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
   const COLORS = ['#ef4444', '#f97316', '#3b82f6', '#8b5cf6', '#ec4899', '#facc15'];
@@ -90,6 +93,44 @@ const ReportsStats = () => {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  // Listener para abrir o arquivo quando clicar na notificação
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let notificationListener = null;
+
+    const setupListener = async () => {
+      notificationListener = await LocalNotifications.addListener('localNotificationActionPerformed', async (notification) => {
+        const filePath = notification.notification.extra?.filePath;
+        const contentType = notification.notification.extra?.contentType;
+        
+        if (filePath) {
+          try {
+            await FileOpener.open({
+              filePath: filePath,
+              contentType: contentType || 'application/pdf'
+            });
+          } catch (error) {
+            console.error('Erro ao abrir arquivo:', error);
+            toast({
+              title: "Erro ao abrir arquivo",
+              description: "Não foi possível abrir o relatório.",
+              variant: "destructive",
+            });
+          }
+        }
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (notificationListener) {
+        notificationListener.remove();
+      }
+    };
+  }, [toast]);
 
   // Função auxiliar para gerar o PDF
   const generatePdf = () => {
@@ -199,6 +240,7 @@ const ReportsStats = () => {
 
   // Função para baixar o PDF (salvar na pasta Downloads)
   const handleDownloadPdf = async () => {
+    setDownloading(true);
     try {
       const doc = generatePdf();
       const fileName = `relatorio_broncas_${new Date().toISOString().split('T')[0]}.pdf`;
@@ -206,6 +248,12 @@ const ReportsStats = () => {
       
       if (isNative) {
         try {
+          // Solicitar permissão para notificações se necessário
+          const permissionStatus = await LocalNotifications.checkPermissions();
+          if (permissionStatus.display !== 'granted') {
+            await LocalNotifications.requestPermissions();
+          }
+
           // Converter PDF para base64
           const base64Data = await pdfToBase64(doc);
           const platform = Capacitor.getPlatform();
@@ -227,19 +275,40 @@ const ReportsStats = () => {
           }
           
           // Salvar o arquivo
-          await Filesystem.writeFile({
+          const result = await Filesystem.writeFile({
             path: downloadPath,
             data: base64Data,
             directory: directory,
             recursive: true,
           });
+
+          // Obter o caminho completo do arquivo (URI)
+          const uriResult = await Filesystem.getUri({
+            directory: directory,
+            path: downloadPath
+          });
+          const fileUri = uriResult.uri;
           
-          // Mensagem de sucesso
+          // Agendar notificação local
+          // ID deve ser um int Java (max 2147483647), Date.now() é muito grande
+          const notificationId = Math.floor(Date.now() % 2147483647);
+          
+          await LocalNotifications.schedule({
+            notifications: [{
+              title: "Download Concluído",
+              body: `Relatório salvo com sucesso. Toque para abrir.`,
+              id: notificationId,
+              schedule: { at: new Date(Date.now() + 100) },
+              extra: {
+                filePath: fileUri,
+                contentType: 'application/pdf'
+              }
+            }]
+          });
+
+          // Mensagem de sucesso (mantendo o toast como feedback imediato)
           toast({
             title: "Download concluído!",
-            description: platform === 'android' 
-              ? "Relatório salvo na pasta Download. Acesse o gerenciador de arquivos para encontrar."
-              : "Relatório salvo! Acesse o app Arquivos para encontrar o arquivo.",
           });
         } catch (error) {
           console.error('Erro ao salvar PDF:', error);
@@ -265,6 +334,8 @@ const ReportsStats = () => {
         description: error.message || "Não foi possível gerar o relatório. Tente novamente.",
         variant: "destructive",
       });
+    } finally {
+      setTimeout(() => setDownloading(false), 1000);
     }
   };
 
@@ -282,9 +353,18 @@ const ReportsStats = () => {
   return (
     <div className="space-y-8">
       <div className="flex justify-end">
-        <Button onClick={handleDownloadPdf}>
-          <Download className="mr-2 h-4 w-4" />
-          Baixar Relatório
+        <Button onClick={handleDownloadPdf} disabled={downloading}>
+          {downloading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Baixando...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Baixar Relatório
+            </>
+          )}
         </Button>
       </div>
       <motion.div

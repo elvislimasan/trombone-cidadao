@@ -11,6 +11,15 @@
     },
     "StatusBar": {
       "overlaysWebView": false
+    },
+    "Camera": {
+      "enableZoom": true,
+      "quality": 70,
+      "allowEditing": false,
+      "resultType": "uri"
     }
+  },
+  "ios": {
+    "contentInset": "automatic"
   }
 }

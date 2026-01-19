@@ -6,8 +6,14 @@ import { Button } from '@/components/ui/button';
 const MediaViewer = ({ media, startIndex, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   const currentItem = media[currentIndex];
+
+  // Reset video error when changing slides
+  useEffect(() => {
+    setVideoError(false);
+  }, [currentIndex]);
 
   const goToPrevious = (e) => {
     e.stopPropagation();
@@ -128,7 +134,7 @@ const MediaViewer = ({ media, startIndex, onClose }) => {
                 transition={{ duration: 0.2 }}
                 className="w-full h-full"
               >
-                {currentItem.type === 'photo' ? (
+                {(currentItem.type === 'photo' || currentItem.type === 'image') ? (
                   <img
                     src={currentItem.url}
                     alt={currentItem.name || `Mídia ${currentIndex + 1}`}
@@ -144,17 +150,33 @@ const MediaViewer = ({ media, startIndex, onClose }) => {
                     allowFullScreen
                   ></iframe>
                 ) : (
-                  <video controls autoPlay className="w-full h-full object-contain">
-                    <source src={currentItem.url} />
-                    Seu navegador não suporta o player de vídeo.
-                  </video>
+                  videoError ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-white bg-black/50 rounded-lg">
+                      <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+                      <p className="text-lg font-semibold">Erro ao reproduzir vídeo</p>
+                      <p className="text-sm text-gray-400 mt-2">Não foi possível carregar este vídeo.</p>
+                    </div>
+                  ) : (
+                    <video 
+                      controls 
+                      autoPlay 
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        console.error("Video playback error:", e);
+                        setVideoError(true);
+                      }}
+                    >
+                      <source src={currentItem.url} />
+                      Seu navegador não suporta o player de vídeo.
+                    </video>
+                  )
                 )}
               </motion.div>
             </AnimatePresence>
           </div>
 
           <div className="absolute bottom-4 text-center text-white z-[2001]">
-            <p className="text-lg">{currentItem.name || `${currentItem.type === 'photo' ? 'Foto' : 'Vídeo'} ${currentIndex + 1}`}</p>
+            <p className="text-lg">{currentItem.name || `${(currentItem.type === 'photo' || currentItem.type === 'image') ? 'Foto' : 'Vídeo'} ${currentIndex + 1}`}</p>
             <p className="text-sm text-gray-400">{currentIndex + 1} de {media.length}</p>
           </div>
         </motion.div>

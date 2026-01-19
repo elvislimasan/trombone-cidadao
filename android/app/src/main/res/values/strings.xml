@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Trombone Cidadão</string>
+    <string name="title_activity_main">Trombone Cidadão</string>
+    <string name="package_name">com.trombonecidadao.app</string>
+    <string name="custom_url_scheme">com.trombonecidadao.app</string>
+</resources>

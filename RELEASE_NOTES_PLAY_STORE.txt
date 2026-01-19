@@ -1,0 +1,14 @@
+<pt-BR>
+
+Melhorias na navegação do app
+
+Correções de funcionalidades (Broncas, Obras e Notícias)
+
+• Câmera funciona corretamente ao registrar broncas
+• Miniaturas de vídeo nas broncas com ícone de play
+• Interface mais limpa no mapa de obras (campos vazios removidos)
+• Fontes de recurso traduzidas automaticamente
+• Valores de investimento exibidos corretamente
+• Correção ao ativar notícias nas configurações
+
+</pt-BR>

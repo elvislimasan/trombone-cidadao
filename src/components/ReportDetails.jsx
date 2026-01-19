@@ -13,6 +13,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import DynamicSEO from './DynamicSeo';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -78,8 +79,9 @@ const VideoThumbnail = React.memo(({ videoUrl, alt, className }) => {
 
   if (error || !thumbnail) {
     return (
-      <div className={`${className} bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center`}>
-        <Video className="h-8 w-8 text-gray-400" />
+      <div className={`${className} bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center border border-gray-200 dark:border-gray-700`}>
+        <Video className="h-10 w-10 text-gray-400 mb-1" />
+        <span className="text-[10px] text-gray-500 font-medium">Vídeo</span>
       </div>
     );
   }
@@ -117,6 +119,31 @@ const compressImage = (file, quality = 0.7) => {
     };
     reader.onerror = error => reject(error);
   });
+};
+
+const getThumbnailUrl = (url) => {
+  if (!url) return '';
+  // Se for blob ou data (preview local), retorna direto
+  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+  
+  // Se já for uma URL otimizada do wsrv, retorna ela
+  if (url.includes('wsrv.nl')) return url;
+
+  try {
+     // Usa wsrv.nl para garantir thumbnail de QUALQUER imagem pública
+     // Isso resolve o problema de imagens antigas do Supabase que não suportam transformação nativa
+     // ou que possuem formatos de URL diferentes.
+     const cleanUrl = url.split('?')[0];
+     
+     // w=500&h=500: Tamanho do thumbnail
+     // fit=cover: Recorte inteligente
+     // q=60: Qualidade otimizada
+     // output=webp: Formato moderno
+     return `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=500&h=500&fit=cover&q=60&output=webp`;
+  } catch (e) {
+    console.error('Erro ao gerar thumbnail:', e);
+  }
+  return url;
 };
 
 const ReportDetails = ({ 
@@ -215,10 +242,12 @@ const ReportDetails = ({
   // Base URL memoizada para evitar recálculos
   const baseUrl = useMemo(() => getBaseUrl(), []);
   
-  // Normalizar report.photos para garantir que seja sempre um array
+  // Normalizar report.photos para garantir que seja sempre um array e ordenar por data de criação
   const reportPhotos = useMemo(() => {
     if (!report || !report.photos) return [];
-    return Array.isArray(report.photos) ? report.photos : [];
+    const photos = Array.isArray(report.photos) ? report.photos : [];
+    // Ordenar por created_at para consistência (primeira foto é a primeira enviada)
+    return [...photos].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
   }, [report?.photos]);
   
   // Função para obter a URL da imagem corretamente (calculada diretamente no seoData)
@@ -229,12 +258,14 @@ const ReportDetails = ({
     let reportImage = defaultThumbnail;
     
     if (reportPhotos && reportPhotos.length > 0) {
-      const firstPhoto = reportPhotos[0];
-      if (firstPhoto) {
-        const imageUrl = firstPhoto.url || 
-               firstPhoto.publicUrl || 
-               firstPhoto.photo_url || 
-               firstPhoto.image_url;
+      // Encontrar a primeira foto com URL válida
+      const firstValidPhoto = reportPhotos.find(p => p.url || p.publicUrl || p.photo_url || p.image_url);
+      
+      if (firstValidPhoto) {
+        const imageUrl = firstValidPhoto.url || 
+           firstValidPhoto.publicUrl || 
+           firstValidPhoto.photo_url || 
+           firstValidPhoto.image_url;
         
         if (imageUrl) {
           // Garante que a URL seja absoluta
@@ -244,6 +275,14 @@ const ReportDetails = ({
             reportImage = `${baseUrl}${imageUrl}`;
           } else {
             reportImage = `${baseUrl}/${imageUrl}`;
+          }
+          
+          // Otimizações para compartilhamento usando wsrv.nl (Proxy de redimensionamento robusto)
+          try {
+             const cleanUrl = reportImage.split('?')[0];
+             reportImage = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=600&h=315&fit=cover&q=60&output=jpg`;
+          } catch (e) {
+             console.error('Erro ao processar URL da imagem:', e);
           }
         }
       }
@@ -260,8 +299,8 @@ const ReportDetails = ({
       description: reportDescription || `Solicitação de ${getCategoryName(reportCategory)} em Floresta-PE. Protocolo: ${reportProtocol}`,
       image: reportImage, // Retorna a imagem da bronca ou thumbnail padrão
       url: `${baseUrl}/bronca/${reportId}`,
-      type: "article"
-    };
+    type: "article"
+  };
   }, [baseUrl, report?.title, report?.description, report?.category, report?.protocol, report?.id, reportPhotos]);
   
   // getReportImage para uso no useEffect (calculado separadamente)
@@ -287,8 +326,30 @@ const ReportDetails = ({
       toast({ title: "Nenhuma foto selecionada", description: "Por favor, selecione uma foto para enviar.", variant: "destructive" });
       return;
     }
+    // Converter para WEBP para reduzir tamanho mantendo qualidade
+    let uploadFile = photoFile;
+    try {
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(photoFile);
+      });
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = dataUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
+      uploadFile = new File([blob], (photoFile.name || 'resolution') .replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
+    } catch (_) {}
     const filePath = `${user.id}/${report.id}/resolution-${Date.now()}`;
-    const { error: uploadError } = await supabase.storage.from('reports-media').upload(filePath, photoFile);
+    const { error: uploadError } = await supabase.storage.from('reports-media').upload(filePath, uploadFile);
 
     if (uploadError) {
       toast({ title: "Erro no upload da foto", description: uploadError.message, variant: "destructive" });
@@ -345,9 +406,31 @@ const ReportDetails = ({
       }
     }
     
-    const shareUrl = `${baseUrl}/bronca/${report.id}`;
+    // URL para compartilhamento (Proxy do Vercel para Edge Function)
+    // Isso garante que o link seja amigável (trombonecidadao.com.br/share/...) e tenha a imagem correta (via Edge Function)
+    
+    // Forçar URL de produção se estiver em localhost para garantir que o link funcione
+    let shareBaseUrl = baseUrl;
+    if (shareBaseUrl.includes('localhost')) {
+        shareBaseUrl = 'https://trombonecidadao.com.br';
+    }
+    
+    // Link "bonito" que passa pelo Vercel Rewrite -> Edge Function -> Redirecionamento
+    const shareUrl = `${shareBaseUrl}/share/bronca/${report.id}`;
+    
+    console.log('Generating Share URL:', shareUrl);
+
+    // Se a imagem não for válida, use a thumbnail padrão
+    if (!shareImageUrl || shareImageUrl.includes('thumbnail.jpg')) {
+        console.warn('Sharing with default thumbnail because no valid report image was found.');
+    } else {
+        console.log('Sharing with report image:', shareImageUrl);
+    }
+
     const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
-    const fullShareText = `${shareText} ${shareUrl}`;
+    const fullShareText = `${shareText} ${shareUrl}`; 
+
+
 
     
     // IMPORTANTE: Garantir que as meta tags estejam atualizadas antes de compartilhar
@@ -419,11 +502,12 @@ const ReportDetails = ({
     try {
       // Tentar usar Capacitor Share primeiro (app nativo)
       if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
-        // No app nativo, compartilhar o link (a imagem aparecerá como thumbnail via meta tags)
+        
+        // No app nativo, compartilhar o link (a imagem aparecerá como thumbnail via meta tags geradas pela Edge Function)
         const shareData = {
           title: `Trombone Cidadão: ${report.title}`,
-          text: shareText, // Texto sem URL para evitar duplicação
-          url: shareUrl, // URL sempre incluída - a imagem aparecerá como thumbnail via Open Graph
+          text: shareText, 
+          url: shareUrl, 
         };
 
         await Share.share(shareData);
@@ -432,7 +516,7 @@ const ReportDetails = ({
       }
 
       // Tentar usar Web Share API (navegadores modernos)
-      if (navigator.share) {
+    if (navigator.share) {
         // IMPORTANTE: Priorizar o link. A imagem aparecerá como thumbnail via meta tags Open Graph
         // Não incluir files, pois isso pode fazer o navegador ignorar o URL
         const webShareData = {
@@ -447,7 +531,7 @@ const ReportDetails = ({
         }
         
         await navigator.share(webShareData);
-        toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
+      toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
         return;
       }
 
@@ -471,15 +555,15 @@ const ReportDetails = ({
           title: "Abrindo WhatsApp... 📱", 
           description: "Compartilhe a bronca pelo WhatsApp. A imagem aparecerá como preview do link." 
         });
-      }
-    } catch (error) {
+    }
+  } catch (error) {
       // Se o usuário cancelar, não mostrar erro
       if (error.name === 'AbortError') {
         return;
       }
       
-      console.error('Error sharing:', error);
-      
+    console.error('Error sharing:', error);
+    
       // Fallback: abrir WhatsApp diretamente
       try {
         const whatsappNumber = '5587999488360';
@@ -499,9 +583,9 @@ const ReportDetails = ({
           description: "Não foi possível compartilhar a solicitação. Tente copiar o link manualmente.", 
           variant: "destructive" 
         });
-      }
     }
-  };
+  }
+};
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!user) {
@@ -571,19 +655,25 @@ const ReportDetails = ({
     const mediaKey = fileType === 'photos' ? 'newPhotos' : 'newVideos';
 
     for (const file of files) {
-      if (fileType === 'photos' && file.size > 10 * 1024 * 1024) {
-        toast({ title: "Imagem muito grande!", description: "Use imagens de até 10MB.", variant: "destructive" });
-        continue;
-      }
-      if (fileType === 'videos' && file.size > 50 * 1024 * 1024) {
-        toast({ title: "Vídeo muito grande!", description: "Use vídeos de até 50MB.", variant: "destructive" });
-        continue;
-      }
-
+      // Remoção de bloqueios rígidos de tamanho.
+      // O sistema deve tentar processar qualquer tamanho e falhar graciosamente se necessário.
+      
       try {
         let processedFile = file;
+        
+        // Apenas alertar se for muito grande, mas tentar processar
+        if (fileType === 'photos' && file.size > 20 * 1024 * 1024) {
+             console.warn('Imagem grande detectada, processamento pode levar alguns segundos.');
+             toast({ title: "Processando imagem grande...", description: "Aguarde enquanto otimizamos sua foto." });
+        }
+
         if (fileType === 'photos') {
           processedFile = await compressImage(file);
+        }
+        
+        // Se ainda for vídeo muito grande após (tentativa de) validação, avisar
+        if (fileType === 'videos' && file.size > 200 * 1024 * 1024) {
+           toast({ title: "Vídeo muito grande", description: "O upload pode demorar.", variant: "default" });
         }
         
         setEditData(prev => ({
@@ -592,7 +682,8 @@ const ReportDetails = ({
         }));
         
       } catch (error) {
-        toast({ title: "Erro ao processar arquivo", variant: "destructive" });
+        console.error("Erro ao processar arquivo:", error);
+        toast({ title: "Erro ao processar arquivo", description: "Tente um arquivo menor ou diferente.", variant: "destructive" });
       }
     }
   };
@@ -1157,7 +1248,7 @@ const ReportDetails = ({
                             className="w-full h-full"
                           >
                             {media.type === 'photo' ? (
-                              <img alt={`Mídia ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" src={media.url} />
+                              <img alt={`Mídia ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" src={getThumbnailUrl(media.url)} />
                             ) : (
                               <div className="relative w-full h-full">
                                 <VideoThumbnail 
@@ -1483,3 +1574,4 @@ const ReportDetails = ({
 };
 
 export default ReportDetails;
+     

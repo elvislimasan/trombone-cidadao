@@ -18,9 +18,10 @@ const BottomNav = () => {
     && Capacitor.isNativePlatform()
     && Capacitor.getPlatform() === 'android';
 
-  if (isAndroidNative && !user) {
-    return null;
-  }
+  // Remove check that hides BottomNav on Android when not logged in
+  // if (isAndroidNative && !user) {
+  //   return null;
+  // }
 
   const handleNewReportClick = () => {
     if (user) {
@@ -61,7 +62,17 @@ const BottomNav = () => {
     }
 
     if (uploadMediaCallback) {
-      await uploadMediaCallback(data.id);
+      try {
+        await uploadMediaCallback(data.id);
+      } catch (uploadError) {
+        console.error("Erro no upload de mídia, removendo bronca:", uploadError);
+        
+        // Rollback: remover a bronca criada se o upload falhar
+        await supabase.from('reports').delete().eq('id', data.id);
+        
+        // Repassar o erro para ser tratado no modal
+        throw uploadError;
+      }
     }
 
     toast({ title: "Bronca enviada para moderação! 📬", description: "Sua solicitação será analisada antes de ser publicada." });

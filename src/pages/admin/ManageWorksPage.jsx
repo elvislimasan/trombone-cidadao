@@ -506,8 +506,31 @@ const WorkMediaManager = ({ workId }) => {
     setUploading(true);
 
     const uploadPromises = Array.from(files).map(async (file) => {
-      const filePath = `works/${workId}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, file);
+      let uploadFile = file;
+      if (file.type && file.type.startsWith('image')) {
+        try {
+          const dataUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(file);
+          });
+          const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = reject;
+            image.src = dataUrl;
+          });
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
+          uploadFile = new File([blob], file.name.replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
+        } catch (_) {}
+      }
+      const filePath = `works/${workId}/${Date.now()}-${uploadFile.name}`;
+      const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
       
       if (uploadError) {
         toast({ title: `Erro no upload de ${file.name}`, description: uploadError.message, variant: "destructive" });
