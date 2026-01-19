@@ -1513,9 +1513,25 @@ export const NotificationProvider = ({ children }) => {
             localNotification.onclick = (event) => {
               try {
                 event.preventDefault();
+                
+                // Verificar se navegação está bloqueada (durante processamento de foto/vídeo)
+                if (window.__BLOCK_NAVIGATION__) {
+                  console.log('[FCM] Navegação bloqueada durante processamento de mídia');
+                  localNotification.close();
+                  return;
+                }
+                
                 const url = event.notification.data?.url || '/notificacoes';
+                // Usar evento customizado para navegação sem recarregar
+                // O App.jsx pode escutar este evento e usar React Router
                 if (window.location.pathname !== url) {
-                  window.location.href = url;
+                  window.dispatchEvent(new CustomEvent('navigate-to', { detail: { url } }));
+                  // Fallback: usar window.location apenas se o evento não for tratado
+                  setTimeout(() => {
+                    if (!window.__BLOCK_NAVIGATION__ && window.location.pathname !== url) {
+                      window.location.href = url;
+                    }
+                  }, 100);
                 }
                 localNotification.close();
               } catch (error) {
@@ -1591,9 +1607,22 @@ export const NotificationProvider = ({ children }) => {
         work_id: notificationData.work_id
       }) || '/notificacoes';
       
-      // Navegar para a URL da notificação
+      // Verificar se não está em processo de captura (evitar recarregar durante foto/vídeo)
+      // Verificar flag global de bloqueio de navegação
+      if (window.__BLOCK_NAVIGATION__) {
+        console.log('[FCM] Navegação bloqueada durante processamento de mídia');
+        return;
+      }
+      
+      // Usar evento customizado para navegação sem recarregar
       if (window.location.pathname !== url) {
-        window.location.href = url;
+        window.dispatchEvent(new CustomEvent('navigate-to', { detail: { url } }));
+        // Fallback: usar window.location apenas se o evento não for tratado
+        setTimeout(() => {
+          if (!window.__BLOCK_NAVIGATION__ && window.location.pathname !== url) {
+            window.location.href = url;
+          }
+        }, 100);
       }
     });
 
@@ -1622,10 +1651,10 @@ export const NotificationProvider = ({ children }) => {
         appStateListener = await App.addListener('appStateChange', async ({ isActive }) => {
           // Quando app volta ao foreground, verificar permissão e sincronizar
           if (isActive) {
-            // Aguardar um pouco para garantir que o sistema atualizou a permissão
+            // Aguardar mais tempo para não interferir com processamento de foto/vídeo
             setTimeout(async () => {
               await syncPushPermission();
-            }, 500);
+            }, 2000); // Aumentado para 2 segundos
           }
         });
       } catch (error) {
@@ -1650,7 +1679,7 @@ export const NotificationProvider = ({ children }) => {
 
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        // Aguardar um pouco para garantir que o sistema atualizou a permissão
+        // Aguardar mais tempo para não interferir com processamento de foto/vídeo
         setTimeout(async () => {
           if (isCapacitor && Capacitor.isNativePlatform()) {
             await syncPushPermission();

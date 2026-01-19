@@ -41,6 +41,25 @@ function HomePage() {
   const viewContainerRef = useRef(null);
   const { handleUpvote, loading } = useUpvote();
 
+  // ✅ Recuperação de Estado: Abrir modal se houver foto pendente (pós-crash)
+  useEffect(() => {
+    const handleOpenModal = () => {
+      console.log('👐 Abrindo modal de report com foto recuperada');
+      setShowReportModal(true);
+    };
+
+    window.addEventListener('open-report-modal-with-photo', handleOpenModal);
+    
+    // Verificar se JÁ existe uma foto pendente (caso o evento tenha disparado antes da montagem)
+    if (window.__PENDING_RESTORED_PHOTO__) {
+      setTimeout(handleOpenModal, 500);
+    }
+
+    return () => {
+      window.removeEventListener('open-report-modal-with-photo', handleOpenModal);
+    };
+  }, []);
+
   // Função para buscar reports
   const fetchReports = useCallback(async () => {
     try {
@@ -223,10 +242,11 @@ function HomePage() {
         if (Capacitor.isNativePlatform()) {
           appStateListener = await App.addListener('appStateChange', async ({ isActive }) => {
             if (isActive) {
-              // Quando o app volta ao foreground, atualizar dados imediatamente
+              // Aguardar um pouco antes de atualizar para não interferir com processamento de foto/vídeo
+              // Isso evita conflitos quando o app volta do background durante captura
               setTimeout(() => {
                 fetchReports();
-              }, 500);
+              }, 2000); // Aumentado para 2 segundos para dar tempo do processamento
             }
           });
         }
@@ -239,10 +259,10 @@ function HomePage() {
     // Listener para quando a página fica visível (Web e Capacitor)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Quando a página fica visível, atualizar dados
+        // Aguardar um pouco antes de atualizar para não interferir com processamento de foto/vídeo
         setTimeout(() => {
           fetchReports();
-        }, 500);
+        }, 2000); // Aumentado para 2 segundos para dar tempo do processamento
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);

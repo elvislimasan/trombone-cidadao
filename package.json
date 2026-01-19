@@ -19,6 +19,7 @@
     "android:build-release": "npm run build:clean && npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
     "android:build-aab": "npm run build:clean && npx cap sync && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
     "android:install": "npm run android:build && adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
+    "adb:install": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
     "android:clean": "cd android && gradlew.bat clean",
     "android:sync": "npm run build:clean && npx cap sync",
     "capacitor:sync": "npx cap sync",
@@ -31,12 +32,17 @@
     "build:standalone:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat bundleRelease"
   },
   "dependencies": {
+    "@capacitor-community/camera-preview": "^7.0.2",
+    "@capacitor-community/file-opener": "^8.0.0",
+    "@capacitor-community/media": "^8.0.1",
     "@capacitor/android": "^7.4.4",
     "@capacitor/app": "^7.1.0",
     "@capacitor/camera": "^7.0.2",
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
     "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/local-notifications": "^7.0.4",
+    "@capacitor/preferences": "^7.0.3",
     "@capacitor/push-notifications": "^7.0.3",
     "@capacitor/share": "^7.0.2",
     "@capacitor/status-bar": "^7.0.3",
@@ -97,6 +103,7 @@
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.3",
     "terser": "^5.39.0",
+    "typescript": "^5.9.3",
     "vite": "^4.4.5"
   }
 }

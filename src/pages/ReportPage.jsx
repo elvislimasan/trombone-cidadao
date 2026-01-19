@@ -92,6 +92,12 @@ const ReportPage = () => {
           } else {
             reportImage = `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
           }
+          
+          // Otimizações para compartilhamento usando wsrv.nl
+          try {
+             const cleanUrl = reportImage.split('?')[0];
+             reportImage = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=600&h=315&fit=cover&q=60&output=jpg`;
+          } catch (e) { console.error(e); }
         }
       }
     }
@@ -224,30 +230,70 @@ const ReportPage = () => {
       return;
     }
     
-    const formattedData = {
-      ...data,
-      location: data.location ? { lat: data.location.coordinates[1], lng: data.location.coordinates[0] } : null,
-      category: data.category_id,
-      categoryName: data.category?.name,
-      categoryIcon: data.category?.icon,
-      authorName: data.author?.name || 'Anônimo',
-      authorAvatar: data.author?.avatar_url,
-      photos: (data.report_media || []).filter(m => m.type === 'photo'),
-      videos: (data.report_media || []).filter(m => m.type === 'video'),
-      comments: (data.comments || []).filter(c => c.moderation_status === 'approved').map(c => ({
-        ...c,
-        authorName: c.author?.name || 'Anônimo'
-      })),
-      upvotes: data.upvotes[0]?.count || 0,
-      is_favorited: user ? data.favorite_reports.some(fav => fav.user_id === user.id) : false,
-    };
-    setReport(formattedData);
+      const formattedData = {
+        ...data,
+        location: data.location ? { lat: data.location.coordinates[1], lng: data.location.coordinates[0] } : null,
+        category: data.category_id,
+        categoryName: data.category?.name,
+        categoryIcon: data.category?.icon,
+        authorName: data.author?.name || 'Anônimo',
+        authorAvatar: data.author?.avatar_url,
+        photos: (data.report_media || [])
+          .filter(m => m.type === 'photo')
+          .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)),
+        videos: (data.report_media || []).filter(m => m.type === 'video'),
+        comments: (data.comments || []).filter(c => c.moderation_status === 'approved').map(c => ({
+          ...c,
+          authorName: c.author?.name || 'Anônimo'
+        })),
+        upvotes: data.upvotes[0]?.count || 0,
+        is_favorited: user ? data.favorite_reports.some(fav => fav.user_id === user.id) : false,
+      };
+      setReport(formattedData);
     setLoading(false);
   }, [reportId, navigate, toast, user]);
 
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
+
+  // Tentar abrir o app automaticamente se estiver instalado (apenas mobile web)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() || !reportId) return;
+
+    // Verificar se é mobile
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isAndroid = /android/i.test(userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+    if (isAndroid || isIOS) {
+      // Prevenir loop infinito se o usuário voltou do app ou se falhar
+      const hasTriedOpen = sessionStorage.getItem(`tried_open_app_${reportId}`);
+      if (hasTriedOpen) return;
+      
+      sessionStorage.setItem(`tried_open_app_${reportId}`, 'true');
+
+      const deepLink = `trombonecidadao://bronca/${reportId}`;
+      
+      // Tentar abrir via iframe (menos intrusivo que window.location)
+      const iframe = document.createElement('iframe');
+      iframe.style.border = 'none';
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      iframe.style.display = 'none';
+      
+      // Adicionar ao body para tentar disparar o intent
+      document.body.appendChild(iframe);
+      iframe.src = deepLink;
+      
+      // Limpeza de segurança
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 3000);
+    }
+  }, [reportId]);
 
   const handleUpdateReport = async (editData) => {
     const { id, title, description, address, location, category_id, newPhotos, newVideos, removedMedia, status, is_recurrent, evaluation, resolution_submission, moderation_status } = editData;
@@ -360,7 +406,7 @@ const ReportPage = () => {
         url={seoUrl || `${baseUrl}/bronca/${reportId}`}
         type="article"
       />
-
+      
       {loading && (
         <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
           <p>Carregando...</p>
@@ -378,22 +424,22 @@ const ReportPage = () => {
 
       {!loading && report && (
         <>
-          <ReportDetails
-            report={report}
-            onClose={() => navigate('/')}
-            onUpdate={handleUpdateReport}
-            onUpvote={() => handleUpvote(report.id, report.upvotes, report.user_has_upvoted)}
-            onLink={handleOpenLinkModal}
-            onFavoriteToggle={handleFavoriteToggle}
-          />
-          
-          {showLinkModal && reportToLink && (
-            <LinkReportModal
-              sourceReport={reportToLink}
-              allReports={allReports}
-              onClose={() => setShowLinkModal(false)}
-              onLink={handleLinkReport}
-            />
+      <ReportDetails
+        report={report}
+        onClose={() => navigate('/')}
+        onUpdate={handleUpdateReport}
+        onUpvote={() => handleUpvote(report.id, report.upvotes, report.user_has_upvoted)}
+        onLink={handleOpenLinkModal}
+        onFavoriteToggle={handleFavoriteToggle}
+      />
+      
+      {showLinkModal && reportToLink && (
+        <LinkReportModal
+          sourceReport={reportToLink}
+          allReports={allReports}
+          onClose={() => setShowLinkModal(false)}
+          onLink={handleLinkReport}
+        />
           )}
         </>
       )}

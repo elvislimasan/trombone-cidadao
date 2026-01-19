@@ -4,6 +4,8 @@ import { Helmet } from 'react-helmet';
 import { Toaster } from '@/components/ui/toaster';
 import {Toaster as SonnerToast} from 'sonner'
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Preferences } from '@capacitor/preferences';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
@@ -34,6 +36,7 @@ import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useToast } from '@/components/ui/use-toast';
 import ReportPage from '@/pages/ReportPage';
 import WorkDetailsPage from '@/pages/WorkDetailsPage';
 import ModerationPage from '@/pages/admin/ModerationPage';
@@ -178,6 +181,128 @@ const AdminRoute = ({ children }) => {
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
+
+  // ✅ Handler para Restauração de Estado (Android Activity Killed)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const setupListener = async () => {
+      // 1. Listener padrão do Capacitor para restauração de plugin
+      await CapacitorApp.addListener('appRestoredResult', (data) => {
+        console.log('🔄 App restaurado com resultado (Global):', data);
+        
+        // Feedback visual imediato
+        toast({
+           title: "Restaurando aplicativo...",
+           description: "Recuperando sua sessão após uso da câmera.",
+           duration: 3000
+        });
+        
+        // Verificar se é resultado de foto
+        if ((data.pluginId === 'VideoProcessor' && data.methodName === 'capturePhoto') || 
+            (data.pluginId === 'Camera' && (data.methodName === 'getPhoto' || data.methodName === 'pickImages'))) {
+          
+          if (data.success && data.data) {
+            console.log('📸 Foto recuperada após morte da Activity!');
+            
+            // Salvar dados globalmente para o Modal recuperar
+            window.__PENDING_RESTORED_PHOTO__ = data.data;
+            
+            // Disparar evento para abrir o modal na Home
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-report-modal-with-photo'));
+              if (window.location.pathname !== '/') {
+                navigate('/', { replace: true });
+              }
+            }, 1000);
+          } else {
+             console.warn('⚠️ App restaurado mas sem dados de sucesso:', data);
+             // Se falhou o plugin, tenta abrir o modal para verificar rascunho
+             setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('open-report-modal-with-photo'));
+             }, 1000);
+          }
+        }
+      });
+
+      // 2. Verificação de Segurança: Checar se existe rascunho salvo (caso appRestoredResult falhe)
+      try {
+        const { value } = await Preferences.get({ key: 'report_draft' });
+        if (value) {
+            console.log('📦 Rascunho encontrado na inicialização! Tentando restaurar...');
+            // Se encontrou rascunho, significa que o app morreu durante o form
+            // Vamos forçar a abertura do modal
+            setTimeout(() => {
+                 window.dispatchEvent(new CustomEvent('open-report-modal-with-photo'));
+            }, 1500); // Delay um pouco maior para garantir carga
+        }
+      } catch (e) {
+        console.error('Erro ao verificar rascunho:', e);
+      }
+    };
+    
+    setupListener();
+  }, [navigate, toast]);
+
+  // ✅ Handler para navegação via eventos customizados (sem recarregar)
+  useEffect(() => {
+    const handleNavigateTo = (event) => {
+      try {
+        // Verificar se navegação está bloqueada (durante processamento de foto/vídeo)
+        if (window.__BLOCK_NAVIGATION__) {
+          console.log('Navegação bloqueada durante processamento de mídia');
+          return;
+        }
+        
+        const { url } = event.detail;
+        if (url && window.location.pathname !== url) {
+          // Usar React Router para navegar sem recarregar
+          navigate(url, { replace: false });
+        }
+      } catch (error) {
+        console.error('Erro ao navegar via evento:', error);
+      }
+    };
+
+    window.addEventListener('navigate-to', handleNavigateTo);
+
+    return () => {
+      window.removeEventListener('navigate-to', handleNavigateTo);
+    };
+  }, [navigate]);
+
+  // ✅ Guardas globais para evitar reload durante erros de mídia
+  useEffect(() => {
+    const handleGlobalError = (event) => {
+      const msg = event.error?.message || event.error?.toString() || '';
+      const isMediaRelated = msg.includes('Memory') || msg.includes('blob') || msg.includes('File');
+      if (window.__BLOCK_MODAL_CLOSE__ || window.__BLOCK_NAVIGATION__ || isMediaRelated) {
+        event.preventDefault?.();
+        return false;
+      }
+      return undefined;
+    };
+
+    const handleGlobalRejection = (event) => {
+      const msg = event.reason?.message || event.reason?.toString() || '';
+      const isMediaRelated = msg.includes('Memory') || msg.includes('blob') || msg.includes('File');
+      if (window.__BLOCK_MODAL_CLOSE__ || window.__BLOCK_NAVIGATION__ || isMediaRelated) {
+        event.preventDefault?.();
+        return false;
+      }
+      return undefined;
+    };
+
+    window.addEventListener('error', handleGlobalError, true);
+    window.addEventListener('unhandledrejection', handleGlobalRejection);
+    return () => {
+      window.removeEventListener('error', handleGlobalError, true);
+      window.removeEventListener('unhandledrejection', handleGlobalRejection);
+    };
+  }, []);
+
+  const launchUrlProcessed = React.useRef(false);
 
   // ✅ Handler para Deep Links (App Links)
   useEffect(() => {
@@ -206,12 +331,15 @@ function App() {
         
         if (reportId) {
           // Navegar para a página da bronca
-          if (location.pathname !== `/bronca/${reportId}`) {
+          // Usar window.location.pathname para evitar dependência do hook location
+          if (!window.location.pathname.includes(`/bronca/${reportId}`)) {
+            console.log(`🔗 Deep Link detectado: Navegando para bronca ${reportId}`);
             navigate(`/bronca/${reportId}`, { replace: true });
           }
         }
       } catch (error) {
         // Erro silencioso - deep link não funcionou
+        console.error('Erro ao processar deep link:', error);
       }
     };
 
@@ -220,24 +348,30 @@ function App() {
         const { App } = await import('@capacitor/app');
         
         // Verificar URL quando o app abre (app foi aberto por um link)
-        try {
-          const appUrl = await App.getLaunchUrl();
-          if (appUrl?.url) {
-            // Delay pequeno para garantir que o router está pronto
-            setTimeout(() => {
-              handleDeepLink(appUrl.url);
-            }, 500);
+        // Usar ref para garantir que só verificamos uma vez por sessão
+        if (!launchUrlProcessed.current) {
+          launchUrlProcessed.current = true;
+          try {
+            const appUrl = await App.getLaunchUrl();
+            if (appUrl?.url) {
+              console.log('🚀 App iniciado via URL:', appUrl.url);
+              // Delay pequeno para garantir que o router está pronto
+              setTimeout(() => {
+                handleDeepLink(appUrl.url);
+              }, 500);
+            }
+          } catch (error) {
+            // getLaunchUrl pode falhar se não houver URL, isso é normal
           }
-        } catch (error) {
-          // getLaunchUrl pode falhar se não houver URL, isso é normal
         }
 
         // Listener para quando o app recebe uma URL enquanto está aberto
-        urlListener = App.addListener('appUrlOpen', (event) => {
+        urlListener = await App.addListener('appUrlOpen', (event) => {
+          console.log('🔗 App recebeu URL (appUrlOpen):', event.url);
           handleDeepLink(event.url);
         });
       } catch (error) {
-        // Erro silencioso ao configurar deep links
+        console.error('Erro ao configurar deep links:', error);
       }
     };
 
@@ -245,10 +379,10 @@ function App() {
 
     return () => {
       if (urlListener) {
-        urlListener.remove();
+        Promise.resolve(urlListener).then(listener => listener && listener.remove && listener.remove());
       }
     };
-  }, [navigate, location.pathname]);
+  }, [navigate]); // Remover location.pathname para evitar loops
 
   return (
     <>

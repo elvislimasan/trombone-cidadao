@@ -1,6 +1,10 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # Redirect /share/bronca/ID to Supabase Edge Function
+  RewriteRule ^share/bronca/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-preview?id=$1 [R=302,L]
+  
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]

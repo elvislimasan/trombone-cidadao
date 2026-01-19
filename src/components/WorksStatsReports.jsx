@@ -186,10 +186,10 @@ const WorksStatsReports = ({ works }) => {
                 <BarChart data={categoryBarData} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                   <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                   <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--muted-foreground))" />
-                  <RechartsTooltip cursor={{ fill: 'hsl(var(--accent))' }} content={<CustomTooltip />} />
-                  <Bar dataKey="value" name="Quantidade" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+                <RechartsTooltip cursor={{ fill: 'hsl(var(--accent))' }} content={<CustomTooltip />} />
+                <Bar dataKey="value" name="Quantidade" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -198,16 +198,16 @@ const WorksStatsReports = ({ works }) => {
           <CardContent className="p-2 sm:p-4 sm:pb-6">
             <div className="w-full h-[250px] sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+              <PieChart>
                   <Pie data={pieData} cx="50%" cy="50%" labelLine={false} outerRadius={70} fill="#8884d8" dataKey="value" nameKey="name">
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip content={<CustomTooltip />} />
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ color: 'hsl(var(--foreground))', fontSize: '11px' }} />
-                </PieChart>
-              </ResponsiveContainer>
+              </PieChart>
+            </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -219,36 +219,36 @@ const WorksStatsReports = ({ works }) => {
           <CardContent>
             <div className="overflow-x-auto -mx-4 sm:mx-0">
               <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
+              <Table>
+                <TableHeader>
+                  <TableRow>
                       <TableHead onClick={() => requestSort('title')} className="cursor-pointer hover:bg-muted min-w-[150px]">
-                        <div className="flex items-center gap-2">Título {getSortIcon('title')}</div>
-                      </TableHead>
-                      <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted">
-                        <div className="flex items-center gap-2">Status {getSortIcon('status')}</div>
-                      </TableHead>
-                      <TableHead onClick={() => requestSort('total_value')} className="cursor-pointer hover:bg-muted text-right">
-                        <div className="flex items-center justify-end gap-2">Valor {getSortIcon('total_value')}</div>
-                      </TableHead>
-                      <TableHead onClick={() => requestSort('execution_percentage')} className="cursor-pointer hover:bg-muted text-right">
+                      <div className="flex items-center gap-2">Título {getSortIcon('title')}</div>
+                    </TableHead>
+                    <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted">
+                      <div className="flex items-center gap-2">Status {getSortIcon('status')}</div>
+                    </TableHead>
+                    <TableHead onClick={() => requestSort('total_value')} className="cursor-pointer hover:bg-muted text-right">
+                      <div className="flex items-center justify-end gap-2">Valor {getSortIcon('total_value')}</div>
+                    </TableHead>
+                    <TableHead onClick={() => requestSort('execution_percentage')} className="cursor-pointer hover:bg-muted text-right">
                         <div className="flex items-center justify-end gap-2 whitespace-nowrap">% Concluído {getSortIcon('execution_percentage')}</div>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedWorks.map((work) => (
-                      <TableRow key={work.id}>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedWorks.map((work) => (
+                    <TableRow key={work.id}>
                         <TableCell className="font-medium min-w-[150px] max-w-[300px]">
                           <p className="truncate" title={work.title}>{work.title}</p>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">{getStatusBadge(work.status)}</TableCell>
                         <TableCell className="text-right whitespace-nowrap text-sm sm:text-base">{formatCurrency(work.total_value || 0)}</TableCell>
                         <TableCell className="text-right whitespace-nowrap">{work.execution_percentage || 0}%</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
               </div>
             </div>
           </CardContent>

@@ -306,12 +306,35 @@ const ManageNewsPage = () => {
     if (savedNewsId && galleryFiles.length > 0) {
       try {
         const uploadPromises = galleryFiles.map(async ({ file }) => {
-          const filePath = `news/${savedNewsId}/${Date.now()}-${file.name}`;
+          let uploadFile = file;
+          if (file.type && file.type.startsWith('image')) {
+            try {
+              const dataUrl = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+              });
+              const img = await new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = reject;
+                image.src = dataUrl;
+              });
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
+              uploadFile = new File([blob], file.name.replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
+            } catch (_) {}
+          }
+          const filePath = `news/${savedNewsId}/${Date.now()}-${uploadFile.name}`;
           
           // Upload para storage
           const { error: uploadError } = await supabase.storage
             .from('news-images')
-            .upload(filePath, file);
+            .upload(filePath, uploadFile);
 
           if (uploadError) {
             throw new Error(`Erro no upload de ${file.name}: ${uploadError.message}`);
@@ -329,7 +352,7 @@ const ManageNewsPage = () => {
               news_id: savedNewsId,
               url: publicUrl,
               type: 'image',
-              name: file.name
+              name: uploadFile.name
             });
 
           if (dbError) {

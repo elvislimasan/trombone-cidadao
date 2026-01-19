@@ -76,10 +76,33 @@ const UploadWorkPhotoPage = () => {
     setIsUploading(true);
 
     const uploadPromises = files.map(async ({ file }) => {
-      const fileName = `${user.id}/${Date.now()}_${file.name}`;
+      let uploadFile = file;
+      if (file.type && file.type.startsWith('image')) {
+        try {
+          const dataUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(file);
+          });
+          const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = reject;
+            image.src = dataUrl;
+          });
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
+          uploadFile = new File([blob], file.name.replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
+        } catch (_) {}
+      }
+      const fileName = `${user.id}/${Date.now()}_${uploadFile.name}`;
       const { error: uploadError } = await supabase.storage
         .from('work-media')
-        .upload(fileName, file);
+        .upload(fileName, uploadFile);
 
       if (uploadError) {
         throw uploadError;
@@ -95,7 +118,7 @@ const UploadWorkPhotoPage = () => {
           work_id: workId,
           url: publicUrl,
           type: file.type.startsWith('image') ? 'image' : 'video',
-          name: file.name,
+          name: uploadFile.name,
         });
 
       if (dbError) {

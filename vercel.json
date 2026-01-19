@@ -1,5 +1,12 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/share/bronca/:id",
+      "destination": "https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-preview?id=:id"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

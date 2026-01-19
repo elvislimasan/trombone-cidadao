@@ -255,41 +255,91 @@ const Header = () => {
               animate={{ y: 0 }}
               exit={{ y: '-100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="container mx-auto px-4 pt-24 pb-8 flex flex-col h-full"
+              className="container mx-auto px-4 pt-12 pb-8 flex flex-col h-full overflow-y-auto"
             >
-              <nav className="flex flex-col items-center justify-center flex-grow gap-6 text-center">
-                {visibleMenuItems.map(item => (
-                  <NavLink key={item.path} to={item.path} className={mobileNavLinkClass} style={({isActive}) => isActive ? {color: '#dc2626'} : {color: menuSettings.colors.text}}>
-                    {item.name}
-                  </NavLink>
-                ))}
-              </nav>
-              <div className="flex flex-col items-center gap-4 mt-8">
+              <div className="flex flex-col items-center gap-4 mb-4 w-full shrink-0 relative z-50">
                 {user ? (
-                  <>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/settings/notifications" className="flex items-center justify-center gap-2">
-                        <LucideIcons.Settings className="h-4 w-4" />
-                        <span>Preferências de Notificações</span>
+                  <div className="w-full max-w-sm mx-auto bg-white/5 rounded-xl p-4 border border-white/10 backdrop-blur-sm flex flex-col gap-3">
+                    <div className="flex items-center gap-3 mb-1">
+                      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 ring-2 ring-white/20">
+                        {getAvatarComponent(user)}
+                      </div>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="font-bold text-lg truncate text-foreground">{user.name || 'Usuário'}</span>
+                        <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+                      </div>
+                    </div>
+                    
+                    {/* <div className="h-px w-full bg-white/10 my-1" /> */}
+                    
+                    {/* <Button asChild variant="ghost" className="w-full justify-start hover:bg-white/10">
+                      <Link to="/settings/notifications" className="flex items-center gap-3">
+                        <div className="p-1.5 bg-white/10 rounded-md">
+                          <LucideIcons.Settings className="h-4 w-4" />
+                        </div>
+                        <span>Configurar Notificações</span>
                       </Link>
-                    </Button>
-                    <div className="flex items-center justify-between w-full px-4 py-2">
-                      <span>Notificações do Site</span>
+                    </Button> */}
+                    
+                    {/* <div className="flex items-center justify-between w-full px-4 py-2 rounded-md bg-black/20">
+                      <span className="text-sm font-medium">Notificações do Site</span>
                       <Switch
                         checked={notificationsEnabled}
                         onCheckedChange={handleToggleNotifications}
                         disabled={loading}
                       />
-                    </div>
-                    <Button onClick={signOut} variant="outline" className="w-full">Sair</Button>
-                  </>
+                    </div> */}
+                  </div>
                 ) : (
-                  <>
-                    <Button asChild variant="outline" className="w-full"><Link to="/login">Entrar</Link></Button>
-                    <Button asChild className="w-full"><Link to="/cadastro">Cadastre-se</Link></Button>
-                  </>
+                  <div className="flex flex-col gap-3 w-full max-w-sm mx-auto p-4 rounded-xl -blur-sm">
+                    <div className="text-center space-y-0.5 mb-2">
+                      <h3 className="text-base font-bold">Bem-vindo(a)!</h3>
+                      <p className="text-xs text-muted-foreground">Acesse sua conta para interagir</p>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2">
+                      <Button asChild variant="secondary" className="w-full h-10 bg-white text-black hover:bg-gray-100 font-semibold border-0 transition-all hover:translate-y-[-1px] shadow-sm text-sm">
+                        <Link to="/login" className="flex items-center justify-center gap-2">
+                          <LucideIcons.LogIn className="w-4 h-4" />
+                          <span>Entrar</span>
+                        </Link>
+                      </Button>
+                      
+                      <Button asChild className="w-full h-10 font-bold shadow-lg transition-all hover:translate-y-[-1px] hover:shadow-xl text-sm">
+                        <Link to="/cadastro" className="flex items-center justify-center gap-2">
+                          <LucideIcons.UserPlus className="w-4 h-4" />
+                          <span>Criar Conta</span>
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
+
+              <nav className="flex flex-col items-center justify-start flex-grow gap-4 text-center w-full">
+                {visibleMenuItems.map(item => (
+                  <NavLink 
+                    key={item.path} 
+                    to={item.path} 
+                    className={({ isActive }) => 
+                      `w-full max-w-sm py-3 px-4 rounded-xl text-xl font-medium transition-all duration-300 flex items-center justify-center gap-3 ${
+                        isActive 
+                          ? 'bg-white/10 text-white font-bold shadow-inner' 
+                          : 'text-white/80 hover:bg-white/5 hover:text-white'
+                      }`
+                    }
+                  >
+                    {/* Optional: Add icons mapping based on item.name if available, or just text */}
+                    {item.name}
+                  </NavLink>
+                ))}
+              </nav>
+
+              {user && (
+                <div className="mt-8 w-full">
+                  <Button onClick={signOut} variant="destructive" className="w-full">Sair</Button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

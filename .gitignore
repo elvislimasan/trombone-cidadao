@@ -88,12 +88,6 @@ build/
 dist/
 *.tsbuildinfo
 
-# Capacitor
-android/
-ios/
-.capacitor/
-capacitor.config.json.bak
-
 # Android
 *.apk
 *.aab

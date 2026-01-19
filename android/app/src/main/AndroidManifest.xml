@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
+        android:requestLegacyExternalStorage="true"
+        android:theme="@style/AppTheme.NoActionBar">
+        <activity
+            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:name=".MainActivity"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:label="@string/title_activity_main"
+            android:launchMode="singleTask"
+            android:exported="true"
+            android:alwaysRetainTaskState="true"
+            android:windowSoftInputMode="adjustResize"
+            android:hardwareAccelerated="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            
+            <!-- ✅ App Links (Deep Links) - Para abrir links no app -->
+            <!-- URL scheme customizado: trombonecidadao://bronca/[ID] -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="trombonecidadao" android:host="bronca" />
+            </intent-filter>
+            
+            <!-- ✅ Android App Links (HTTPS) - Para links https://trombone-cidadao.vercel.app/bronca/[ID] -->
+            <!-- IMPORTANTE: Requer arquivo .well-known/assetlinks.json no servidor -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data 
+                    android:scheme="https"
+                    android:host="trombone-cidadao.vercel.app"
+                    android:pathPrefix="/bronca" />
+            </intent-filter>
+            
+            <!-- ✅ Android App Links (HTTPS) - Produção -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data 
+                    android:scheme="https"
+                    android:host="trombonecidadao.com.br"
+                    android:pathPrefix="/bronca" />
+            </intent-filter>
+
+            <!-- ✅ Android App Links (HTTPS) - Vercel (Dev/Fallback) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data 
+                    android:scheme="https"
+                    android:host="trombone-cidadao.vercel.app"
+                    android:pathPrefix="/bronca" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Firebase Cloud Messaging Service -->
+        <service
+            android:name=".FCMService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Keep Alive Service (Para manter app vivo durante câmera) -->
+        <service
+            android:name=".KeepAliveService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Default notification channel -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="trombone_cidadao_notifications" />
+        
+        <!-- ✅ NOTIFICAÇÕES FIREBASE - Ícone e Cor Padrão -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@android:color/white" />
+        
+        <!-- ⚠️ IMPORTANTE: Configure a URL da sua política de privacidade antes de publicar na Play Store -->
+        <!-- URL de Produção -->
+        <meta-data
+            android:name="privacy_policy_url"
+            android:value="https://trombonecidadao.com.br/termos-de-uso" />
+    </application>
+
+    <!-- Permissions -->
+
+    <!-- Permissões básicas -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    
+    <!-- Permissões de localização (necessário para geolocalização) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- Permissões de câmera e mídia (necessário para upload de fotos/vídeos) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Permissões de armazenamento (Android 12 e abaixo) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    
+    <!-- Android 13+ (API 33+) - Gerenciamento granular de mídia -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+
+    <!-- Foreground Service (Android 9+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android 14+ requer tipo específico -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+</manifest>
