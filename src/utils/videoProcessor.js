@@ -618,7 +618,8 @@ async function _processVideoFileInternal(file, options = {}) {
     onComplete,
     onError,
     validateOnly = false,
-    source = 'unknown'
+    source = 'unknown',
+    skipCompression = false
   } = options;
 
   const jobId = `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -699,8 +700,8 @@ async function _processVideoFileInternal(file, options = {}) {
   }
 
   // Comprimir se necessário (apenas mobile) ou se for Web (para garantir MP4 via Canvas)
-  // Se for câmera, SEMPRE comprimir para garantir formato e metadados corretos
-  if (characteristics.requiresCompression || source === 'camera' || !Capacitor.isNativePlatform()) {
+  // Se for câmera, SEMPRE comprimir para garantir formato e metadados corretos, a menos que skipCompression seja true
+  if (!skipCompression && (characteristics.requiresCompression || source === 'camera' || !Capacitor.isNativePlatform())) {
     if (Capacitor.isNativePlatform()) {
 
       const sizeMB = fileSize / (1024 * 1024);
@@ -804,7 +805,9 @@ async function _processVideoFileInternal(file, options = {}) {
 
   // Gerar thumbnail nativo se disponível
   let preview = compressionResult?.thumbnail || null;
-  if (!preview && Capacitor.isNativePlatform()) {
+  // Se skipCompression for true, pulamos a geração de thumbnail aqui para não bloquear o retorno.
+  // A UI (VideoProcessor.jsx) deve gerar o thumbnail em background após receber o sucesso.
+  if (!preview && Capacitor.isNativePlatform() && !skipCompression) {
     const finalNativePath = compressionResult?.nativePath || nativePathFromCamera;
     if (finalNativePath) {
       try {
@@ -898,7 +901,8 @@ export async function addVideoFile(file, componentCallbacks = {}, meta = {}) {
       onError: (stage, error) => {
         onError(stage, error);
       },
-      source: meta?.source || 'unknown'
+      source: meta?.source || 'unknown',
+      skipCompression: meta?.skipCompression || false
     });
 
     return result;

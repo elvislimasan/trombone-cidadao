@@ -8,10 +8,19 @@ export class VideoProcessorWeb extends WebPlugin implements VideoProcessorPlugin
   async captureVideo(options?: { maxDurationSec?: number; lowQuality?: boolean }): Promise<{ filePath: string }> {
     throw new Error('Captura de vídeo nativa não disponível na web');
   }
+  
+  async pickVideo(): Promise<{ filePath: string; name: string; size: number; duration: number }> {
+    throw new Error('Seleção de vídeo nativa não disponível na web. Use input type="file".');
+  }
 
   async capturePhoto(options?: { lowQuality?: boolean; maxWidth?: number; maxHeight?: number; maxSizeMB?: number; quality?: 'low' | 'medium' | 'high' }): Promise<{ filePath: string }> {
     throw new Error('Captura de foto nativa não disponível na web');
   }
+
+  async recoverLostPhoto(): Promise<{ filePath?: string; nativePath?: string; isRecovered?: boolean }> {
+    return {};
+  }
+
   async getImageMetadata(options: { filePath: string }): Promise<{ width: number; height: number; size: number }> {
     return new Promise((resolve, reject) => {
       try {
@@ -49,7 +58,7 @@ export class VideoProcessorWeb extends WebPlugin implements VideoProcessorPlugin
     });
   }
 
-  async getVideoThumbnail(): Promise<{ imagePath: string }> {
+  async getVideoThumbnail(options: { filePath: string; atMs?: number; maxWidth?: number; maxHeight?: number }): Promise<{ imagePath: string }> {
     throw new Error('Thumbnail de vídeo não disponível na web. Use a versão nativa.');
   }
 
@@ -58,7 +67,7 @@ export class VideoProcessorWeb extends WebPlugin implements VideoProcessorPlugin
     throw new Error('Compressão de vídeo não disponível na web. Use a versão nativa.');
   }
 
-  async compressImage(): Promise<{ outputPath: string; originalSize: number; compressedSize: number; compressionRatio: number }> {
+  async compressImage(options: { filePath: string; maxWidth?: number; maxHeight?: number; maxSizeMB?: number; quality?: 'low' | 'medium' | 'high'; format?: 'webp' | 'jpeg' | 'png' }): Promise<{ outputPath: string; originalSize: number; compressedSize: number; compressionRatio: number }> {
     throw new Error('Compressão de imagem não disponível na web. Use a versão nativa.');
   }
 
@@ -66,17 +75,16 @@ export class VideoProcessorWeb extends WebPlugin implements VideoProcessorPlugin
     throw new Error('Upload nativo não disponível na web.');
   }
 
-  async uploadVideoInBackground(options: { filePath: string; uploadUrl: string; headers: Record<string, string> }): Promise<{ uploadId: string }> {
+  async uploadVideoInBackground(options: { filePath: string; uploadUrl: string; headers?: Record<string, string> }): Promise<{ uploadId: string }> {
     // Web: fazer upload normal
     throw new Error('Upload em background não disponível na web. Use a versão nativa.');
   }
 
-  async getUploadProgress(uploadId: string): Promise<{ progress: number; status: string }> {
+  async getUploadProgress(options: { uploadId: string }): Promise<{ progress: number; status: string }> {
     throw new Error('Não disponível na web');
   }
 
-  async cancelUpload(uploadId: string): Promise<void> {
+  async cancelUpload(options: { uploadId: string }): Promise<void> {
     throw new Error('Não disponível na web');
   }
 }
-

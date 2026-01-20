@@ -68,7 +68,11 @@ const VideoProcessor = ({
       preview: null,
       isProcessing: true,
       progress: 1,
-      status: 'waiting'
+      status: 'waiting',
+      // Adicionar propriedades para permitir envio em background
+      nativePath: file.nativePath || null,
+      file: file,
+      isNative: file.isNative || false
     };
 
     // Atualizar lista imediatamente com o vídeo pendente
@@ -121,7 +125,8 @@ const VideoProcessor = ({
         },
         onSuccess: async (videoData, processedFile) => {
           if (mountedRef.current) {
-            const finalVideo = {
+            // Primeiro update: Marcar como finalizado IMEDIATAMENTE para liberar UI
+            const baseVideo = {
               id: videoData.id,
               name: videoData.name,
               size: videoData.size,
@@ -135,24 +140,33 @@ const VideoProcessor = ({
               isProcessing: false // Finalizado
             };
 
-            try {
-              if (!finalVideo.preview && finalVideo.nativePath && Capacitor.isNativePlatform()) {
-                const { imagePath } = await VideoProcessorPlugin.getVideoThumbnail({ filePath: finalVideo.nativePath, maxWidth: 320, maxHeight: 240 });
-                finalVideo.preview = Capacitor.convertFileSrc(imagePath);
-              }
-            } catch (thumbErr) {
-              console.warn('Falha ao gerar thumbnail do vídeo:', thumbErr);
-            }
-
-            // Substituir temporário pelo final
+            // Atualizar lista imediatamente para liberar o botão de enviar
             onVideosChange(prevVideos => prevVideos.map(v => 
-               v.id === tempId ? finalVideo : v
+               v.id === tempId ? baseVideo : v
             ));
             
             window.lastVideoAddedTime = Date.now();
-            
-            // Verificar se ainda há outros processando
-            // Como onVideosChange é assíncrono, melhor verificar no finally ou timeout
+
+            // Gerar thumbnail em segundo plano se necessário
+            if (!baseVideo.preview && baseVideo.nativePath && Capacitor.isNativePlatform()) {
+               try {
+                  const { imagePath } = await VideoProcessorPlugin.getVideoThumbnail({ 
+                    filePath: baseVideo.nativePath, 
+                    maxWidth: 320, 
+                    maxHeight: 240 
+                  });
+                  
+                  if (mountedRef.current && imagePath) {
+                    const previewUrl = Capacitor.convertFileSrc(imagePath);
+                    // Segundo update: Adicionar thumbnail
+                    onVideosChange(prevVideos => prevVideos.map(v => 
+                       v.id === baseVideo.id ? { ...v, preview: previewUrl } : v
+                    ));
+                  }
+               } catch (thumbErr) {
+                  console.warn('Falha ao gerar thumbnail do vídeo (background):', thumbErr);
+               }
+            }
           }
         },
         onError: (stage, error) => {
@@ -167,7 +181,10 @@ const VideoProcessor = ({
              onVideosChange(prevVideos => prevVideos.filter(v => v.id !== tempId));
            }
         }
-      }, { source: lastSourceRef.current || 'unknown' }).finally(() => {
+      }, { 
+        source: lastSourceRef.current || 'unknown',
+        skipCompression: Capacitor.isNativePlatform() // Novo fluxo: Pula compressão no UI, deixa pro UploadService
+      }).finally(() => {
          // Verificar se todos terminaram
          // Essa lógica pode ser complexa pois não temos acesso fácil ao estado atualizado aqui dentro do callback
          // Vamos confiar que o useEffect ou componente pai vai gerenciar o estado global de 'processing'
@@ -288,11 +305,7 @@ const VideoProcessor = ({
     } catch (e) {
       if (e.message !== 'Seleção cancelada' && e.message !== 'cancelled') {
         console.error("Erro ao gravar vídeo:", e);
-        toast({
-          title: "Erro na câmera",
-          description: "Não foi possível gravar o vídeo. Tente novamente.",
-          variant: "destructive"
-        });
+       
       }
     }
   }, [disabled, isProcessing, onRecordVideo, handleAddVideo, toast]);
@@ -320,9 +333,7 @@ const VideoProcessor = ({
            });
         }
       } catch (e) {
-         if (e.message && e.message !== 'Seleção cancelada') {
-            toast({ title: 'Erro', description: 'Falha ao selecionar vídeo', variant: 'destructive' });
-         }
+       
       }
     } else {
       if (fileInputRef.current) {

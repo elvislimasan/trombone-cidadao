@@ -52,6 +52,7 @@ const BottomNav = () => {
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
+        moderation_status: 'pending_approval' // Hide from map until upload completes
       })
       .select('id')
       .single();
@@ -75,7 +76,7 @@ const BottomNav = () => {
       }
     }
 
-    toast({ title: "Bronca enviada para moderação! 📬", description: "Sua solicitação será analisada antes de ser publicada." });
+    toast({ title: "Upload iniciado! 🚀", description: "Você será notificado quando concluir." });
     setShowReportModal(false);
     // Optionally, trigger a global refetch event
     window.dispatchEvent(new CustomEvent('reports-updated'));

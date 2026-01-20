@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowLeft, ArrowRight, Maximize, Minimize } from 'lucide-react';
+import { X, ArrowLeft, ArrowRight, Maximize, Minimize, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const MediaViewer = ({ media, startIndex, onClose }) => {
@@ -152,9 +152,25 @@ const MediaViewer = ({ media, startIndex, onClose }) => {
                 ) : (
                   videoError ? (
                     <div className="w-full h-full flex flex-col items-center justify-center text-white bg-black/50 rounded-lg">
-                      <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-                      <p className="text-lg font-semibold">Erro ao reproduzir vídeo</p>
-                      <p className="text-sm text-gray-400 mt-2">Não foi possível carregar este vídeo.</p>
+                      <AlertCircle className="w-16 h-16 text-yellow-500 mb-4" />
+                      <p className="text-lg font-semibold">Vídeo indisponível no momento</p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        O vídeo pode estar sendo processado ou o envio falhou.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4 bg-transparent border-white text-white hover:bg-white hover:text-black"
+                        onClick={() => {
+                          setVideoError(false);
+                          // Forçar recarregamento do vídeo
+                          const videoEl = document.querySelector('video');
+                          if (videoEl) {
+                            videoEl.load();
+                          }
+                        }}
+                      >
+                        Tentar novamente
+                      </Button>
                     </div>
                   ) : (
                     <video 
