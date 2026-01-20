@@ -17,6 +17,7 @@ import VideoProcessorComponent from '@/components/VideoProcessor';
 import CameraCapture from '@/components/CameraCapture';
 import MediaViewer from '@/components/MediaViewer';
 import { useUpload } from '@/contexts/UploadContext';
+import { setGlobalUserViewingMedia, validateVideoFile } from '@/utils/videoProcessor';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -36,7 +37,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   });
   const [errors, setErrors] = useState({});
   const { toast } = useToast();
-  const { registerUpload, updateUploadProgress } = useUpload();
+  const { registerUpload, updateUploadProgress, queueWebUpload } = useUpload();
   const { user, session } = useAuth();
   const { uploadVideo, uploads } = useBackgroundUpload();
   // Generate a consistent ID for this report session to allow immediate uploads
@@ -1346,10 +1347,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
     const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     const validVideoTypes = ['video/mp4', 'video/quicktime', 'video/webm'];
     
-    // Limite de tamanho para vídeos (50MB)
-      const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
-      // Limite de tamanho para imagens (100MB - permite 50MP+ RAW/PNG)
-      const MAX_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB
+    // Limite de tamanho para vídeos (1GB)
+    const MAX_VIDEO_SIZE = 1024 * 1024 * 1024; // 1GB
+    // Limite de tamanho para imagens (100MB - permite 50MP+ RAW/PNG)
+    const MAX_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB
     
     for (const file of files) {
       // Validar tipo
@@ -1373,13 +1374,26 @@ const ReportModal = ({ onClose, onSubmit }) => {
       // Validar tamanho
       const maxSize = fileType === 'videos' ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
       if (file.size > maxSize) {
-        const sizeLimit = fileType === 'videos' ? '50MB' : '10MB';
+        const sizeLimit = fileType === 'videos' ? '1GB' : '100MB';
         toast({ 
           title: "Arquivo muito grande!", 
           description: `O arquivo excede o limite de ${sizeLimit}. Por favor, use um arquivo menor ou aguarde a compressão automática.`, 
           variant: "destructive" 
         });
         continue;
+      }
+
+      if (fileType === 'videos') {
+        try {
+           await validateVideoFile(file);
+        } catch (e) {
+           toast({ 
+              title: "Vídeo inválido!", 
+              description: e.message, 
+              variant: "destructive" 
+           });
+           continue;
+        }
       }
 
       try {
@@ -1621,7 +1635,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         
         // 1. Capturar vídeo usando Intent nativa
         const { filePath } = await VideoProcessor.captureVideo({
-                  maxDurationSec: 0,
+                  maxDurationSec: 600, // Limite de 10 minutos
                   lowQuality: false
               });
         
@@ -1794,8 +1808,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const uploadLargeFile = async (file, filePath, maxRetries = 3, onProgress, signal) => {
     const fileSizeMB = file.size / (1024 * 1024);
     
-    // Para arquivos muito grandes, usar timeout maior
-    const timeout = fileSizeMB > 200 ? 300000 : fileSizeMB > 100 ? 180000 : 120000; // 5min, 3min, 2min
+    // Para arquivos muito grandes, usar timeout maior e adaptativo
+    // 500MB+ -> 30min, 200MB+ -> 15min, 100MB+ -> 5min, Default -> 2min
+    const timeout = fileSizeMB > 500 ? 1800000 : fileSizeMB > 200 ? 900000 : fileSizeMB > 100 ? 300000 : 120000;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -1865,7 +1880,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     })).filter(Boolean);
     
     const videosToUpload = formData.videos.map(v => ({
-        file: v.file, name: v.name, type: 'video', nativePath: v.nativePath, uploadId: v.uploadId, storagePath: v.storagePath
+        file: v.file, name: v.name, type: 'video', nativePath: v.nativePath, uploadId: v.uploadId, storagePath: v.storagePath, isProcessing: v.isProcessing
     })).filter(Boolean);
     
     const mediaToUpload = [...photosToUpload, ...videosToUpload];
@@ -1895,7 +1910,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
     }
 
     // 2. Inserir no Banco IMEDIATAMENTE (Otimista)
-    // Isso garante que a bronca já tenha as mídias associadas, mesmo que o upload demore
     if (optimisticRows.length > 0) {
       const { error: insertError } = await supabase.from('report_media').insert(optimisticRows);
       if (insertError) {
@@ -1905,7 +1919,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
     }
 
     // 3. Disparar Uploads em Background (Fire and Forget)
-    // Não usamos 'await' aqui para liberar a UI imediatamente
     (async () => {
         const isNative = Capacitor.isNativePlatform();
         
@@ -1913,39 +1926,34 @@ const ReportModal = ({ onClose, onSubmit }) => {
             const { media, filePath } = task;
             
             try {
-                // Gerar URL assinada para Upload
-                const { data: signed, error: signedErr } = await supabase.storage
-                  .from('reports-media')
-                  .createSignedUploadUrl(filePath, 3600); // 1h validade
-
-                if (signedErr || !signed?.signedUrl) {
-                    console.error("Falha URL assinada:", signedErr);
-                    continue;
-                }
-                // Supabase retorna signedUrl ou url dependendo da versão/config
-                const uploadUrl = signed.signedUrl || signed.url;
-
                 if (isNative && media.nativePath) {
                     // --- FLUXO NATIVO (ANDROID/iOS) ---
-                    // Remover prefixo file:// se existir, pois o plugin nativo espera path absoluto
+                    // Gerar URL assinada apenas para fluxo nativo
+                    const { data: signed, error: signedErr } = await supabase.storage
+                      .from('reports-media')
+                      .createSignedUploadUrl(filePath, 3600); // 1h validade
+
+                    if (signedErr || !signed?.signedUrl) {
+                        console.error("Falha URL assinada:", signedErr);
+                        continue;
+                    }
+                    const uploadUrl = signed.signedUrl || signed.url;
+
                     const cleanNativePath = media.nativePath.startsWith('file://') 
                         ? media.nativePath.replace('file://', '') 
                         : media.nativePath;
 
                     if (media.type === 'video') {
-                        // Vídeo: Usa Serviço Nativo com Compressão
                          const { uploadId } = await VideoProcessor.uploadVideoInBackground({
                             filePath: cleanNativePath,
                             uploadUrl: uploadUrl,
                             headers: { 'Content-Type': 'video/mp4', 'x-upsert': 'false' },
-                            skipCompression: false // Usa Transcoder nativo
+                            skipCompression: false 
                         });
                         registerUpload(uploadId, { name: media.name || 'Vídeo', type: 'video', reportId: reportId });
                     } else {
-                        // Foto: Comprime primeiro, depois Upload via Serviço Background
                         let finalPath = cleanNativePath;
                         try {
-                             // Garantir otimização da imagem
                              const comp = await VideoProcessor.compressImage({
                                  filePath: cleanNativePath,
                                  maxWidth: 1600, 
@@ -1958,22 +1966,18 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             console.warn("Compressão de imagem falhou, usando original:", e);
                         }
 
-                        // Usa o Serviço de Background Genérico (mesmo nome do plugin, mas flag skipCompression)
                         const { uploadId } = await VideoProcessor.uploadVideoInBackground({
                             filePath: finalPath,
                             uploadUrl: uploadUrl,
                             headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
-                            skipCompression: true // CRITICAL: Não usar transcoder de vídeo em imagens
+                            skipCompression: true
                         });
                         registerUpload(uploadId, { name: media.name || 'Foto', type: 'photo', reportId: reportId });
                     }
                 } else {
-                    // --- FLUXO WEB / FALLBACK ---
-                    // Executa assincronamente. Se o usuário fechar a aba, perde-se o upload.
-                    // Em ambiente Capacitor, a WebView continua viva enquanto o app estiver aberto.
+                    // --- FLUXO WEB ---
                     let fileToUpload = media.file;
                     
-                    // Tentar recuperar Blob se só tivermos path (caso híbrido raro)
                     if (!fileToUpload && media.nativePath) {
                         try {
                            const r = await fetch(Capacitor.convertFileSrc(media.nativePath));
@@ -1986,17 +1990,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     }
 
                     if (fileToUpload) {
-                        // Usa uploadLargeFile para robustez, mas sem bloquear UI
-                        const webUploadId = `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                        registerUpload(webUploadId, { name: media.name, type: media.type === 'video' ? 'video' : 'photo', reportId: reportId });
-
-                        uploadLargeFile(fileToUpload, filePath, 3, (p) => {
-                            updateUploadProgress(webUploadId, p);
-                        }).then(() => {
-                            updateUploadProgress(webUploadId, 100, 'completed');
-                        }).catch(e => {
-                            console.error("Web Upload Failed:", e);
-                            updateUploadProgress(webUploadId, 0, 'error');
+                        // Determinar se precisa comprimir (se ainda estava processando, usamos o original e comprimimos agora)
+                        const shouldCompress = media.type === 'video' && media.isProcessing;
+                        
+                        queueWebUpload(fileToUpload, filePath, { 
+                            name: media.name, 
+                            type: media.type === 'video' ? 'video' : 'photo', 
+                            reportId: reportId 
+                        }, {
+                            skipCompression: !shouldCompress
                         });
                     }
                 }
@@ -2525,8 +2527,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 {formData.videos.map((video, index) => (
                   <div 
                     key={`video-${index}`} 
-                    className={`flex items-center justify-between bg-background p-2 rounded-md border transition-colors ${video.isProcessing ? 'cursor-not-allowed opacity-80' : 'cursor-pointer hover:bg-accent/50'}`}
-                    onClick={() => !video.isProcessing && setViewingVideoIndex(index)}
+                    className={`flex items-center justify-between bg-background p-2 rounded-md border transition-colors cursor-pointer hover:bg-accent/50`}
+                    onClick={() => {
+                        setViewingVideoIndex(index);
+                        setGlobalUserViewingMedia(true);
+                    }}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {video.preview ? (
@@ -2538,29 +2543,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         </div>
                       ) : (
                         <div className="w-12 h-12 bg-muted flex items-center justify-center rounded relative border">
-                          {video.isProcessing ? (
-                            <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
-                          ) : (
                             <Play className="w-5 h-5 text-muted-foreground fill-muted-foreground opacity-50" />
-                          )}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted-foreground truncate">{video.name}</p>
-                        {video.isProcessing && (
-                          <div className="w-full mt-1 space-y-1">
-                            <div className="flex justify-between text-[10px] text-muted-foreground">
-                              <span>Otimizando...</span>
-                              <span>{Math.round(video.progress || 0)}%</span>
-                            </div>
-                            <div className="h-1 w-full bg-secondary rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-primary transition-all duration-300 ease-out"
-                                style={{ width: `${video.progress || 0}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                     <button 
@@ -2632,6 +2619,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
           }))}
           startIndex={viewingPhotoIndex}
           onClose={() => setViewingPhotoIndex(null)}
+          onRemove={(index) => removeFile('photos', index)}
         />,
         document.body
       )}
@@ -2642,10 +2630,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
           media={formData.videos.map(v => ({
             type: 'video',
             url: v.nativePath ? Capacitor.convertFileSrc(v.nativePath) : (v.file ? URL.createObjectURL(v.file) : ''),
-            name: v.name
+            name: v.name,
+            preview: v.preview
           }))}
           startIndex={viewingVideoIndex}
-          onClose={() => setViewingVideoIndex(null)}
+          onClose={() => {
+            setViewingVideoIndex(null);
+            setGlobalUserViewingMedia(false);
+          }}
+          onRemove={(index) => removeFile('videos', index)}
         />,
         document.body
       )}

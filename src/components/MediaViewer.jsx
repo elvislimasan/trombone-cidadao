@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowLeft, ArrowRight, Maximize, Minimize, AlertCircle } from 'lucide-react';
+import { X, ArrowLeft, ArrowRight, Maximize, Minimize, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const MediaViewer = ({ media, startIndex, onClose }) => {
+const MediaViewer = ({ media, startIndex, onClose, onRemove }) => {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [videoError, setVideoError] = useState(false);
 
+  // Sync currentIndex if media array shrinks due to deletion
+  useEffect(() => {
+    if (currentIndex >= media.length) {
+      if (media.length === 0) {
+        onClose();
+      } else {
+        setCurrentIndex(media.length - 1);
+      }
+    }
+  }, [media.length, currentIndex, onClose]);
+
   const currentItem = media[currentIndex];
 
-  // Reset video error when changing slides
+  if (!currentItem) return null;
   useEffect(() => {
     setVideoError(false);
   }, [currentIndex]);
@@ -95,6 +106,23 @@ const MediaViewer = ({ media, startIndex, onClose }) => {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="absolute top-4 right-4 flex items-center gap-4 z-[2001]">
+            {onRemove && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Confirm before deleting? Maybe better UX, but for now direct action as per request style
+                  if (window.confirm('Tem certeza que deseja remover este arquivo?')) {
+                    onRemove(currentIndex);
+                  }
+                }} 
+                className="text-white hover:bg-white/20 hover:text-red-500"
+                title="Remover arquivo"
+              >
+                <Trash2 className="w-6 h-6" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="text-white hover:bg-white/20">
               {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
             </Button>
@@ -177,6 +205,7 @@ const MediaViewer = ({ media, startIndex, onClose }) => {
                       controls 
                       autoPlay 
                       className="w-full h-full object-contain"
+                      poster={currentItem.preview || currentItem.poster}
                       onError={(e) => {
                         console.error("Video playback error:", e);
                         setVideoError(true);
