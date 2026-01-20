@@ -9,12 +9,14 @@ import { Camera as CapacitorCamera, CameraResultType, CameraSource, CameraDirect
 import { App } from '@capacitor/app';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { VideoProcessor } from '@/plugins/VideoProcessor';
+import { useBackgroundUpload } from '@/hooks/useBackgroundUpload';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { FLORESTA_COORDS } from '@/config/mapConfig';
 import VideoProcessorComponent from '@/components/VideoProcessor';
 import CameraCapture from '@/components/CameraCapture';
 import MediaViewer from '@/components/MediaViewer';
+import { useUpload } from '@/contexts/UploadContext';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -34,7 +36,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
   });
   const [errors, setErrors] = useState({});
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { registerUpload, updateUploadProgress } = useUpload();
+  const { user, session } = useAuth();
+  const { uploadVideo, uploads } = useBackgroundUpload();
+  // Generate a consistent ID for this report session to allow immediate uploads
+  const [reportUUID] = useState(() => Date.now().toString(36) + Math.random().toString(36).substr(2));
+  
   const photoGalleryInputRef = useRef(null);
   const photoCameraInputRef = useRef(null);
   const videoGalleryInputRef = useRef(null);
@@ -1039,30 +1046,25 @@ const ReportModal = ({ onClose, onSubmit }) => {
      if (Capacitor.isNativePlatform()) {
        try {
          setIsTakingPhoto(true);
-         // Usar VideoProcessor.capturePhoto que processa em background thread nativa
-         // CONFIGURAÇÃO CONSERVADORA: Reduzimos resolução para evitar estouro de memória no retorno
+         // VOLTANDO PARA VideoProcessor.capturePhoto MAS OTIMIZADO (sem processamento no retorno)
+         // O plugin foi modificado para apenas retornar o caminho do arquivo sem tocar nos bits da imagem.
+         // Isso evita o OOM que ocorria quando o Java tentava decodificar a imagem de 50MP.
          const result = await VideoProcessor.capturePhoto({
-           quality: 'medium', // Qualidade média (aprox 80-85%)
-           maxWidth: 1600,    // Reduzido de 2048 para 1600 (aprox 2MP) - suficiente e leve
-           maxHeight: 1600,
-           maxSizeMB: 3       // Limite de 3MB
+           // Parâmetros são ignorados pelo plugin agora, pois ele não processa
+           quality: 'medium',
+           maxWidth: 1600,
+           maxHeight: 1600
          });
 
          if (result && result.filePath) {
-          // Processar o resultado (que já vem comprimido do nativo)
-          // Adicionamos um sufixo para indicar que não precisa reprocessar pesado
+          // Processar o resultado manualmente via VideoProcessor.compressImage
+          // que é seguro e usa inSampleSize corretamente.
           const timestamp = Date.now();
           await processPhotoFromUriOptimized(result.filePath, `photo_native_${timestamp}.jpg`);
         }
       } catch (error) {
         console.error('Erro na câmera nativa:', error);
-        if (error.message !== 'Captura cancelada ou arquivo indisponível') {
-           toast({
-             title: "Erro na câmera",
-             description: "Não foi possível abrir a câmera nativa.",
-             variant: "destructive"
-           });
-        }
+      
       } finally {
         setIsTakingPhoto(false);
       }
@@ -1486,104 +1488,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
         } else if (fileType === 'videos') {
           // Processamento de vídeos
           if (Capacitor.isNativePlatform()) {
-            setIsPhotoProcessing(true);
-            setPhotoProcessingMessage('Fazendo o upload de vídeo');
-            // window.__BLOCK_NAVIGATION__ = true;
-            // window.__BLOCK_MODAL_CLOSE__ = true;
+            // BLOQUEIO DE SEGURANÇA:
+            // O input type="file" não deve ser usado para vídeos no Android/iOS pois o FileReader
+            // tenta carregar o arquivo inteiro na memória (base64), causando crash (OOM) com vídeos grandes (ex: 2GB).
+            // O usuário deve usar o botão "Galeria de Vídeos" que usa o VideoProcessorPlugin (nativo).
             
-            try {
-              // 1. Salvar arquivo no cache para ter um path real
-              const timestamp = Date.now();
-              const fileName = `video_${timestamp}.mp4`;
-              const reader = new FileReader();
-              
-              reader.onload = async (e) => {
-                try {
-                  const base64String = e.target.result;
-                  const base64Data = base64String.split(',')[1];
-                  
-                  setPhotoProcessingProgress(20);
-                  setPhotoProcessingMessage('Salvando temporário...');
-                  
-                  await Filesystem.writeFile({
-                    path: fileName,
-                    data: base64Data,
-                    directory: Directory.Cache
-                  });
-                  
-                  const { uri } = await Filesystem.getUri({
-                    path: fileName,
-                    directory: Directory.Cache
-                  });
-                  
-                  setPhotoProcessingProgress(40);
-                  setPhotoProcessingMessage('Comprimindo vídeo...');
-                  
-                  // 2. Comprimir vídeo nativamente
-                  const result = await VideoProcessor.compressVideo({
-                    filePath: uri,
-                    maxSizeMB: 5, // Limite agressivo (5MB) para garantir upload rápido
-                    quality: 'medium',
-                    maxWidth: 1280, // 720p é suficiente para relatórios
-                    maxHeight: 1280
-                  });
-                  
-                  // Gerar thumbnail
-                  let preview = null;
-                  try {
-                    const { imagePath } = await VideoProcessor.getVideoThumbnail({ 
-                      filePath: result.outputPath, 
-                      maxWidth: 320, 
-                      maxHeight: 240 
-                    });
-                    preview = Capacitor.convertFileSrc(imagePath);
-                  } catch (thumbErr) {
-                    console.warn('Falha ao gerar thumbnail nativo:', thumbErr);
-                  }
-                  
-                  // setPhotoProcessingProgress(90);
-                  
-                  // 3. Atualizar estado
-                  setFormData(prev => ({
-                    ...prev,
-                    videos: [...prev.videos, { 
-                      file: null, // File original não é mais necessário se temos o path
-                      name: file.name, 
-                      nativePath: result.outputPath,
-                      preview: preview,
-                      size: result.compressedSize || 0
-                    }]
-                  }));
-                  
-                  toast({
-                    title: "Vídeo processado!",
-                    description: `Vídeo comprimido de ${(file.size / (1024*1024)).toFixed(1)}MB para ${(result.compressedSize / (1024*1024)).toFixed(1)}MB`
-                  });
-                  
-                } catch (error) {
-                  console.error('Erro no processamento do vídeo:', error);
-                  toast({
-                    title: "Erro ao processar vídeo",
-                    description: error.message,
-                    variant: "destructive"
-                  });
-                } finally {
-                  setIsPhotoProcessing(false);
-                  setPhotoProcessingProgress(0);
-                  setPhotoProcessingMessage('');
-                  // window.__BLOCK_NAVIGATION__ = false;
-                  // window.__BLOCK_MODAL_CLOSE__ = false;
-                }
-              };
-              
-              reader.readAsDataURL(file);
-              
-            } catch (error) {
-              console.error('Erro ao iniciar processamento:', error);
-              setIsPhotoProcessing(false);
-              window.__BLOCK_NAVIGATION__ = false;
-              window.__BLOCK_MODAL_CLOSE__ = false;
-            }
+            console.warn('Tentativa de selecionar vídeo via input nativo bloqueada para evitar crash.');
+            toast({
+              title: "Use a Galeria de Vídeos",
+              description: "Por favor, utilize o botão 'Galeria de Vídeos' abaixo para selecionar arquivos grandes.",
+              variant: "default"
+            });
+            
+            e.target.value = null; // Limpar input
+            return;
           } else {
             // Web fallback (sem compressão real por enquanto, apenas validação)
             console.log('Vídeo selecionado na web (sem compressão nativa)');
@@ -1698,49 +1616,48 @@ const ReportModal = ({ onClose, onSubmit }) => {
     
     try {
       if (Capacitor.isNativePlatform()) {
-        // Loading restaurado conforme solicitado
         setIsPhotoProcessing(true);
-        setPhotoProcessingMessage('Fazendo upload de vídeo');
+        setPhotoProcessingMessage('Iniciando upload...');
         
-        // 1. Capturar vídeo usando Intent nativa (retorna path direto, sem Base64/Memória)
-        // Isso resolve o problema crítico de falha na compressão pois não carregamos o vídeo no JS
-        const { filePath, size } = await VideoProcessor.captureVideo({
-                  maxDurationSec: 0, // Sem limite de tempo (0 = ilimitado)
-                  lowQuality: false // Gravar com qualidade aceitável, o compressVideo cuidará do tamanho
+        // 1. Capturar vídeo usando Intent nativa
+        const { filePath } = await VideoProcessor.captureVideo({
+                  maxDurationSec: 0,
+                  lowQuality: false
               });
         
-        if (!filePath) {
-            // setIsPhotoProcessing(false);
-            return;
-        }
+        if (!filePath) return;
 
-        // REMOVIDO: Toast de limite de tamanho e overlay de progresso
-        
-        // 2. Comprimir vídeo nativamente
-        // Agora temos um path válido e acessível no sistema de arquivos
-        const result = await VideoProcessor.compressVideo({
-            filePath: filePath,
-            maxSizeMB: 10, // Limite seguro
-            quality: 'medium',
-            maxWidth: 1280, // 720p
-            maxHeight: 1280
-        });
-        
-        // 3. Adicionar ao estado
+        // 2. Iniciar upload em background imediatamente
         const timestamp = Date.now();
         const fileName = `video_${timestamp}.mp4`;
+        const storagePath = `${user.id}/${reportUUID}/${fileName}`;
         
+        // Configurar URL de upload e Headers
+        const bucket = 'reports-media';
+        const projectUrl = supabase.supabaseUrl;
+        const uploadUrl = `${projectUrl}/storage/v1/object/${bucket}/${storagePath}`;
+        
+        const headers = {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'x-upsert': 'false'
+        };
+
+        // Inicia o upload e retorna o ID imediatamente (Fire and Forget)
+        const uploadId = await uploadVideo(filePath, uploadUrl, headers);
+        
+        // 3. Adicionar ao estado com referência do upload
         setFormData(prev => ({
             ...prev,
             videos: [...prev.videos, { 
                 file: null, 
                 name: fileName, 
-                nativePath: result.outputPath,
+                nativePath: filePath,
+                uploadId,
+                storagePath,
+                status: 'pending',
                 preview: null 
             }]
         }));
-        
-        // REMOVIDO: Toast de tamanho final
         
       } else {
         // Web fallback
@@ -1748,7 +1665,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }
     } catch (error) {
       console.error('Erro na gravação nativa:', error);
-      // Ignorar erro de cancelamento pelo usuário
       if (!error.message?.includes('cancelada') && !error.message?.includes('indisponível')) {
           toast({
             title: "Erro ao gravar",
@@ -1943,211 +1859,152 @@ const ReportModal = ({ onClose, onSubmit }) => {
   };
 
   const uploadMedia = async (reportId) => {
-    // Proteção: criar array de forma segura sem spread que pode causar problemas
-    const photosToUpload = formData.photos.map(p => {
-      try {
-        return { file: p.file, name: p.name, type: 'photo', nativePath: p.nativePath };
-      } catch (e) {
-        console.error('Erro ao processar foto para upload:', e);
-        return null;
-      }
-    }).filter(p => p !== null);
+    // Preparar listas de mídia
+    const photosToUpload = formData.photos.map(p => ({ 
+        file: p.file, name: p.name, type: 'photo', nativePath: p.nativePath 
+    })).filter(Boolean);
     
-    const videosToUpload = formData.videos.map(v => {
-      try {
-        return {
-          file: v.file,
-          name: v.name,
-          type: 'video',
-          id: v.id,
-          nativePath: v.nativePath
-        };
-      } catch (e) {
-        console.error('Erro ao processar vídeo para upload:', e);
-        return null;
-      }
-    }).filter(v => v !== null);
+    const videosToUpload = formData.videos.map(v => ({
+        file: v.file, name: v.name, type: 'video', nativePath: v.nativePath, uploadId: v.uploadId, storagePath: v.storagePath
+    })).filter(Boolean);
     
     const mediaToUpload = [...photosToUpload, ...videosToUpload];
-    
     if (mediaToUpload.length === 0) return { success: true };
 
-    // Função auxiliar para processar cada item em paralelo
-    const processMediaItem = async (media, onProgress, signal) => {
-      try {
-        // Checar cancelamento logo no início
-        if (signal?.aborted) throw new Error('Upload cancelado');
+    // 1. Preparar metadados e tarefas de upload
+    const optimisticRows = [];
+    const uploadTasks = [];
 
-        // Recuperar arquivo quando necessário e checar caminho nativo
-        let mediaFile = media.file;
-        const isNative = Capacitor.isNativePlatform?.() || false;
-        const hasNativePath = isNative && media.nativePath;
-
-        // Permitir upload via caminho nativo mesmo sem File/Blob
-        if (!media || (!mediaFile && !hasNativePath)) {
-          return { error: `Arquivo inválido: ${media?.name || 'desconhecido'}` };
-        }
-        
-        if (!hasNativePath) {
-          // Proteção adicional: verificar se file é um objeto File válido
-          if (!(mediaFile instanceof File) && !(mediaFile instanceof Blob)) {
-            return { error: `Arquivo inválido (não é File/Blob): ${media?.name || 'desconhecido'}` };
-          }
-        }
-        
-        // Proteção: não acessar propriedades do File que podem causar problemas
-        // Sanitizar nome do arquivo para evitar erros de assinatura com caracteres especiais
+    for (const media of mediaToUpload) {
+        // Sanitizar nome
         const rawFileName = media.name || `arquivo_${Date.now()}`;
         const safeFileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
         const filePath = `${user.id}/${reportId}/${Date.now()}-${safeFileName}`;
         
-        // Upload com suporte para arquivos grandes e plugin nativo
-        let uploadResult;
-        
-        try {
-          // Se temos caminho nativo no app, garantir compressão conservadora e usar URL assinada + plugin
-          if (hasNativePath) {
-            try {
-              if (media.type === 'photo') {
-                // Gerar URL assinada para upload direto (expira em 1 hora)
-                const { data: signed, error: signedErr } = await supabase.storage
-                  .from('reports-media')
-                  .createSignedUploadUrl(filePath, 3600);
-                
-                if (signedErr) throw signedErr;
-                const signedUrl = signed?.signedUrl || signed?.url;
-                
-                if (!signedUrl) throw new Error('Falha ao gerar URL assinada');
-
-                // Upload bloqueante via plugin nativo
-                await VideoProcessor.uploadFile({
-                    filePath: media.nativePath,
-                    uploadUrl: signedUrl,
-                    headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'false' }
-                });
-                
-                uploadResult = { data: { path: filePath } };
-              } else {
-                try {
-                  const meta = await VideoProcessor.getVideoMetadata({ filePath: media.nativePath });
-                  if (!meta?.size || meta.size <= 0) {
-                    throw new Error('Arquivo de vídeo vazio');
-                  }
-                } catch (metaErr) {
-                  throw new Error(metaErr?.message || 'Falha ao validar vídeo');
-                }
-
-                const { data: signed, error: signedErr } = await supabase.storage
-                  .from('reports-media')
-                  .createSignedUploadUrl(filePath, 3600);
-                if (signedErr) throw signedErr;
-                const signedUrl = signed?.signedUrl || signed?.url;
-                if (!signedUrl) throw new Error('Falha ao gerar URL assinada para upload');
-    
-                await VideoProcessor.uploadFile({
-                  filePath: media.nativePath,
-                  uploadUrl: signedUrl,
-                  headers: { 'Content-Type': 'video/mp4', 'x-upsert': 'false' }
-                });
-                uploadResult = { data: { path: filePath } };
-              }
-              
-              // Limpar temporários
-              if (uploadResult) {
-                try {
-                   if (media.nativePath.includes('temp/')) {
-                      // Tentar limpar apenas se for temp explícito, senão deixa o OS limpar cache
-                   }
-                } catch {}
-              }
-            } catch (err) {
-               console.error('Erro no processamento nativo:', err);
-               // Se não temos o arquivo em memória para fallback (comum em vídeos grandes nativos),
-               // o erro é fatal pois não há como prosseguir.
-               if (!mediaFile) {
-                 throw new Error(`Falha no upload nativo: ${err.message || 'Erro desconhecido'}`);
-               }
-               // Caso contrário, deixa cair no fallback se tivermos o arquivo
-            }
-          }
-          
-          // Método fallback: upload normal via JS
-          if (!uploadResult) {
-            if (!mediaFile) throw new Error("Arquivo não disponível para fallback (sem File object)");
-
-            // Usar uploadLargeFile sempre para garantir progresso e cancelamento
-            uploadResult = await uploadLargeFile(mediaFile, filePath, 3, onProgress, signal);
-            
-            if (uploadResult.error) throw uploadResult.error;
-          }
-        } catch (uploadException) {
-          return { error: `Erro ao fazer upload de ${media.name}: ${uploadException.message}` };
-        }
-
+        // Obter URL pública (assumindo bucket público 'reports-media')
         const { data: { publicUrl } } = supabase.storage.from('reports-media').getPublicUrl(filePath);
-        
-        return {
-          success: true,
-          data: {
+
+        optimisticRows.push({
             report_id: reportId,
             url: publicUrl,
             type: media.type,
-            name: media.name,
-          }
-        };
-      } catch (error) {
-        return { error: `Erro ao processar ${media.name}: ${error.message}` };
-      }
-    };
+            name: media.name
+        });
 
-    const results = [];
-    const totalFiles = mediaToUpload.length;
-    
-    for (let i = 0; i < totalFiles; i++) {
-        const media = mediaToUpload[i];
-        
-        // Check for cancellation
-        if (uploadAbortControllerRef.current?.signal.aborted) {
-             results.push({ success: false, error: 'Upload cancelado pelo usuário' });
-             break;
-        }
-
-        const baseProgress = (i / totalFiles) * 100;
-        const itemWeight = 100 / totalFiles;
-        
-        const onItemProgress = (percent) => {
-            setUploadProgress(Math.min(99, Math.round(baseProgress + (percent * itemWeight / 100))));
-        };
-        
-        // Initial progress for this item
-        onItemProgress(0);
-
-        const result = await processMediaItem(media, onItemProgress, uploadAbortControllerRef.current?.signal);
-        results.push(result);
-        
-        // Final progress for this item
-        onItemProgress(100);
+        uploadTasks.push({ media, filePath, publicUrl });
     }
-    setUploadProgress(100);
 
-    const uploadResults = results.filter(r => r.success).map(r => r.data);
-    const errors = results.filter(r => !r.success).map(r => r.error);
-
-    if (uploadResults.length > 0) {
-      const { error: insertError } = await supabase.from('report_media').insert(uploadResults);
+    // 2. Inserir no Banco IMEDIATAMENTE (Otimista)
+    // Isso garante que a bronca já tenha as mídias associadas, mesmo que o upload demore
+    if (optimisticRows.length > 0) {
+      const { error: insertError } = await supabase.from('report_media').insert(optimisticRows);
       if (insertError) {
-        errors.push(`Erro ao salvar mídia no banco: ${insertError.message}`);
+        console.error("Erro ao inserir mídia placeholder:", insertError);
+        return { success: false, errors: [`Erro ao salvar referências: ${insertError.message}`] };
       }
     }
 
-    if (errors.length > 0) {
-      toast({ 
-        title: "Erro no Upload de Mídia", 
-        description: errors.join('; '), 
-        variant: "destructive" 
-      });
-      return { success: false, errors };
-    }
+    // 3. Disparar Uploads em Background (Fire and Forget)
+    // Não usamos 'await' aqui para liberar a UI imediatamente
+    (async () => {
+        const isNative = Capacitor.isNativePlatform();
+        
+        for (const task of uploadTasks) {
+            const { media, filePath } = task;
+            
+            try {
+                // Gerar URL assinada para Upload
+                const { data: signed, error: signedErr } = await supabase.storage
+                  .from('reports-media')
+                  .createSignedUploadUrl(filePath, 3600); // 1h validade
+
+                if (signedErr || !signed?.signedUrl) {
+                    console.error("Falha URL assinada:", signedErr);
+                    continue;
+                }
+                // Supabase retorna signedUrl ou url dependendo da versão/config
+                const uploadUrl = signed.signedUrl || signed.url;
+
+                if (isNative && media.nativePath) {
+                    // --- FLUXO NATIVO (ANDROID/iOS) ---
+                    // Remover prefixo file:// se existir, pois o plugin nativo espera path absoluto
+                    const cleanNativePath = media.nativePath.startsWith('file://') 
+                        ? media.nativePath.replace('file://', '') 
+                        : media.nativePath;
+
+                    if (media.type === 'video') {
+                        // Vídeo: Usa Serviço Nativo com Compressão
+                         const { uploadId } = await VideoProcessor.uploadVideoInBackground({
+                            filePath: cleanNativePath,
+                            uploadUrl: uploadUrl,
+                            headers: { 'Content-Type': 'video/mp4', 'x-upsert': 'false' },
+                            skipCompression: false // Usa Transcoder nativo
+                        });
+                        registerUpload(uploadId, { name: media.name || 'Vídeo', type: 'video', reportId: reportId });
+                    } else {
+                        // Foto: Comprime primeiro, depois Upload via Serviço Background
+                        let finalPath = cleanNativePath;
+                        try {
+                             // Garantir otimização da imagem
+                             const comp = await VideoProcessor.compressImage({
+                                 filePath: cleanNativePath,
+                                 maxWidth: 1600, 
+                                 maxHeight: 1600,
+                                 quality: 'high',
+                                 format: 'jpeg'
+                             });
+                             if (comp && comp.outputPath) finalPath = comp.outputPath;
+                        } catch (e) {
+                            console.warn("Compressão de imagem falhou, usando original:", e);
+                        }
+
+                        // Usa o Serviço de Background Genérico (mesmo nome do plugin, mas flag skipCompression)
+                        const { uploadId } = await VideoProcessor.uploadVideoInBackground({
+                            filePath: finalPath,
+                            uploadUrl: uploadUrl,
+                            headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
+                            skipCompression: true // CRITICAL: Não usar transcoder de vídeo em imagens
+                        });
+                        registerUpload(uploadId, { name: media.name || 'Foto', type: 'photo', reportId: reportId });
+                    }
+                } else {
+                    // --- FLUXO WEB / FALLBACK ---
+                    // Executa assincronamente. Se o usuário fechar a aba, perde-se o upload.
+                    // Em ambiente Capacitor, a WebView continua viva enquanto o app estiver aberto.
+                    let fileToUpload = media.file;
+                    
+                    // Tentar recuperar Blob se só tivermos path (caso híbrido raro)
+                    if (!fileToUpload && media.nativePath) {
+                        try {
+                           const r = await fetch(Capacitor.convertFileSrc(media.nativePath));
+                           const b = await r.blob();
+                           fileToUpload = new File([b], media.name, { type: media.type === 'video' ? 'video/mp4' : 'image/jpeg' });
+                        } catch (e) {
+                           console.error("Falha ao recuperar arquivo para upload web:", e);
+                           continue;
+                        }
+                    }
+
+                    if (fileToUpload) {
+                        // Usa uploadLargeFile para robustez, mas sem bloquear UI
+                        const webUploadId = `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        registerUpload(webUploadId, { name: media.name, type: media.type === 'video' ? 'video' : 'photo', reportId: reportId });
+
+                        uploadLargeFile(fileToUpload, filePath, 3, (p) => {
+                            updateUploadProgress(webUploadId, p);
+                        }).then(() => {
+                            updateUploadProgress(webUploadId, 100, 'completed');
+                        }).catch(e => {
+                            console.error("Web Upload Failed:", e);
+                            updateUploadProgress(webUploadId, 0, 'error');
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error(`Falha no upload de background (${media.name}):`, err);
+            }
+        }
+    })();
 
     return { success: true };
   };
@@ -2205,15 +2062,27 @@ const ReportModal = ({ onClose, onSubmit }) => {
         return result;
       };
 
-      // Verificar se ainda está processando vídeo antes de submeter
-      if (isAddingVideoRef.current || formData.videos.some(v => v.isProcessing)) {
+      // Verificar se ainda está processando vídeo CRÍTICO (sem arquivo ou path) antes de submeter
+      // Se tiver nativePath (galeria/câmera salva) ou file, pode enviar em background
+      // O UploadService lidará com a compressão se necessário
+      const hasCriticalProcessing = formData.videos.some(v => 
+        v.isProcessing && !v.nativePath && !v.file
+      );
+
+      if (hasCriticalProcessing) {
         toast({
           title: "Aguarde...",
-          description: "Ainda estamos processando seus vídeos. Por favor aguarde um momento.",
+          description: "Ainda estamos preparando seus vídeos. Por favor aguarde um momento.",
           variant: "default"
         });
         setIsSubmitting(false);
         return;
+      }
+
+      // Se tiver vídeos processando mas com path/file, avisar que será em background
+      const hasBackgroundProcessing = formData.videos.some(v => v.isProcessing);
+      if (hasBackgroundProcessing) {
+         // Toast removed as per user request
       }
 
       await onSubmit(formData, uploadMediaWrapper);
@@ -2713,21 +2582,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
           </div>
 
           <div className="flex flex-col space-y-3 pt-4">
-            {isSubmitting && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Enviando arquivos...</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-300 ease-out"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="flex space-x-3">
               <Button 
                 type="button" 

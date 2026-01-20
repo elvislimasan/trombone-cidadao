@@ -48,6 +48,9 @@ import ContactPage from '@/pages/ContactPage';
 import TrashPage from '@/pages/admin/TrashPage';
 import NotificationPreferences from './pages/NotificationPreferences';
 import DeleteAccountPage from './pages/DeleteAccountPage';
+import { VideoProcessor } from '@/plugins/VideoProcessor';
+import { UploadProvider } from '@/contexts/UploadContext';
+import UploadStatusBar from '@/components/UploadStatusBar';
 
 const SEO = () => {
   const location = useLocation();
@@ -188,6 +191,32 @@ function App() {
     if (!Capacitor.isNativePlatform()) return;
 
     const setupListener = async () => {
+      // 0. Tentar recuperar manualmente via SharedPreferences (caso appRestoredResult falhe)
+      try {
+        const recovered = await VideoProcessor.recoverLostPhoto();
+        if (recovered && (recovered.filePath || recovered.nativePath)) {
+           console.log('📸 Foto recuperada via SharedPreferences (RecoverLostPhoto)!');
+           
+           window.__PENDING_RESTORED_PHOTO__ = recovered;
+           
+           toast({
+             title: "Foto recuperada!",
+             description: "Sua foto foi restaurada após o reinício.",
+             duration: 4000
+           });
+
+           // Se estivermos na home, dispara; senão navega
+           setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-report-modal-with-photo'));
+              if (window.location.pathname !== '/') {
+                navigate('/', { replace: true });
+              }
+           }, 1000);
+        }
+      } catch (e) {
+         console.warn('Erro ao verificar fotos perdidas:', e);
+      }
+
       // 1. Listener padrão do Capacitor para restauração de plugin
       await CapacitorApp.addListener('appRestoredResult', (data) => {
         console.log('🔄 App restaurado com resultado (Global):', data);
@@ -385,7 +414,7 @@ function App() {
   }, [navigate]); // Remover location.pathname para evitar loops
 
   return (
-    <>
+    <UploadProvider>
       <SEO />
       <div className="min-h-screen bg-background text-foreground flex flex-col">
         <Header />
@@ -438,7 +467,7 @@ function App() {
         <Toaster />
         <SonnerToast position="top-right" richColors />
       </div>
-    </>
+    </UploadProvider>
   );
 }
 

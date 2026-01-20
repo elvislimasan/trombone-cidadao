@@ -1,21 +1,22 @@
 package com.trombonecidadao.app
 
-import android.media.MediaMetadataRetriever
-import android.media.MediaCodec
-import android.media.MediaCodecInfo
-import android.media.MediaCodecList
-import android.media.MediaFormat
-import android.media.MediaExtractor
-import android.media.MediaMuxer
+import android.Manifest
 import android.app.Activity
+import android.content.ClipData
+import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.provider.MediaStore
-import android.graphics.BitmapFactory
+import android.database.Cursor
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import androidx.core.content.FileProvider
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Log
+import androidx.activity.result.ActivityResult
+import androidx.core.content.FileProvider
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -23,300 +24,323 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
-import com.getcapacitor.PermissionState
 import com.getcapacitor.annotation.PermissionCallback
-import android.Manifest
-import androidx.activity.result.ActivityResult
-import java.io.File
-import java.io.FileInputStream
-import kotlin.math.min
-import java.io.FileOutputStream
-import java.io.IOException
-import java.nio.ByteBuffer
-import java.net.HttpURLConnection
-import java.net.URL
-import kotlinx.coroutines.*
-import kotlin.math.max
+import com.getcapacitor.PermissionState
 import com.otaliastudios.transcoder.Transcoder
 import com.otaliastudios.transcoder.TranscoderListener
 import com.otaliastudios.transcoder.strategy.DefaultVideoStrategy
-import com.otaliastudios.transcoder.strategy.DefaultAudioStrategy
-import com.otaliastudios.transcoder.resize.FractionResizer
+import java.io.File
+import java.io.FileOutputStream
+import java.io.FileInputStream
+import java.io.IOException
+import java.util.UUID
+import com.trombonecidadao.app.UploadService
+import kotlinx.coroutines.*
+import kotlin.math.min
+import kotlin.math.max
+import java.net.HttpURLConnection
+import java.net.URL
 
 @CapacitorPlugin(
     name = "VideoProcessor",
     permissions = [
-        Permission(strings = [Manifest.permission.CAMERA], alias = "camera")
+        Permission(
+            strings = [Manifest.permission.CAMERA],
+            alias = "camera"
+        ),
+        Permission(
+            strings = [Manifest.permission.READ_MEDIA_VIDEO],
+            alias = "storage_video"
+        ),
+        Permission(
+            strings = [Manifest.permission.READ_EXTERNAL_STORAGE],
+            alias = "storage"
+        )
     ]
 )
 class VideoProcessorPlugin : Plugin() {
-    
-    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val uploadJobs = mutableMapOf<String, Job>()
-    private var pendingCaptureFile: File? = null
-    
+
+    companion object {
+        private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        private val uploadJobs = mutableMapOf<String, Job>()
+
+        private var pendingCaptureUri: Uri? = null
+        private var pendingCaptureFile: File? = null
+        private var captureOptions: JSObject? = null
+    }
+
+    override fun load() {
+        super.load()
+        try {
+            UploadService.progressListener = { id, progress, status ->
+                val ret = JSObject()
+                ret.put("id", id)
+                ret.put("progress", progress)
+                ret.put("status", status)
+                notifyListeners("uploadProgress", ret)
+            }
+        } catch (e: Exception) {
+            Log.e("VideoProcessor", "Error setting up progress listener", e)
+        }
+    }
+
+    @PluginMethod
+    fun uploadVideoInBackground(call: PluginCall) {
+        val filePath = call.getString("filePath")
+        val uploadUrl = call.getString("uploadUrl")
+
+        if (filePath == null || uploadUrl == null) {
+            call.reject("Must provide filePath and uploadUrl")
+            return
+        }
+
+        val uploadId = UUID.randomUUID().toString()
+
+        val intent = Intent(context, UploadService::class.java).apply {
+            putExtra("uploadId", uploadId)
+            putExtra("filePath", filePath)
+            putExtra("uploadUrl", uploadUrl)
+            
+            // Pass skipCompression flag
+            val skipCompression = call.getBoolean("skipCompression", false) ?: false
+            putExtra("skipCompression", skipCompression)
+
+            val headers = call.getObject("headers")
+            if (headers != null) {
+                val headerMap = HashMap<String, String>()
+                val keys = headers.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val value = headers.getString(key)
+                    if (value != null) {
+                        headerMap[key] = value
+                    }
+                }
+                putExtra("headers", headerMap)
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
+
+        val ret = JSObject()
+        ret.put("uploadId", uploadId)
+        call.resolve(ret)
+    }
+
+    @PluginMethod
+    fun cancelUpload(call: PluginCall) {
+        val uploadId = call.getString("uploadId")
+        UploadService.cancelUpload(uploadId)
+        call.resolve()
+    }
+
     @PluginMethod
     fun captureVideo(call: PluginCall) {
-        try {
-            if (getPermissionState("camera") != PermissionState.GRANTED) {
-                requestPermissionForAlias("camera", call, "captureVideoPermissionCallback")
-                return
-            }
-            startVideoCapture(call)
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao verificar/perdir permissão de câmera (vídeo)", e)
-            call.reject("Erro ao iniciar captura de vídeo: ${e.message}")
-        }
-    }
-
-    @PermissionCallback
-    fun captureVideoPermissionCallback(call: PluginCall) {
-        if (getPermissionState("camera") == PermissionState.GRANTED) {
-            startVideoCapture(call)
+        if (getPermissionState("camera") != PermissionState.GRANTED) {
+            requestPermissionForAlias("camera", call, "permissionCallback")
         } else {
-            call.reject("Permissão de câmera negada")
-        }
-    }
-
-    private fun startVideoCapture(call: PluginCall) {
-        try {
-            val activity = activity ?: run {
-                call.reject("Atividade indisponível")
-                return
-            }
-            val maxDuration = call.getInt("maxDurationSec")
-            val lowQuality = call.getBoolean("lowQuality") ?: true
-            
-            Log.d("VideoProcessor", "Iniciando captura de vídeo: maxDuration=${maxDuration ?: "unlimited"}, lowQuality=$lowQuality")
-            
-            val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
-            
-            // Configurar qualidade (0 = Low/MMS, 1 = High)
-            // Se lowQuality for true, forçamos 0 para economizar espaço em gravações longas
-            // Mas se o usuário quiser alta qualidade, usamos 1.
-            // Para arquivos de 3-5GB, provavelmente é High Quality.
-            // O padrão do Android é High (1).
-            if (lowQuality) {
-                intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 0)
-            } else {
-                intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1)
-            }
-
-            if (maxDuration != null && maxDuration > 0) {
-                intent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, maxDuration)
-            }
-            
-            // Removido EXTRA_SIZE_LIMIT para evitar que a câmera mostre barra de limite/progresso.
-            // O limite será o armazenamento disponível do dispositivo.
-            
-            val cacheDir = activity.cacheDir
-            // Padronização de nomes: report_video_TIMESTAMP.mp4
-            val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-            val fileName = "report_video_${timeStamp}_"
-            val outFile = File.createTempFile(fileName, ".mp4", cacheDir)
-            val authority = activity.packageName + ".fileprovider"
-            val uri = FileProvider.getUriForFile(activity, authority, outFile)
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            pendingCaptureFile = outFile
-            
-            try {
-                val prefs = activity.getSharedPreferences("VideoProcessorPlugin", Activity.MODE_PRIVATE)
-                prefs.edit().putString("pending_video_capture_path", outFile.absolutePath).apply()
-            } catch (e: Exception) {
-                Log.w("VideoProcessor", "Falha ao salvar estado pendente de vídeo", e)
-            }
-
-            startActivityForResult(call, intent, "captureVideoResult")
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao iniciar captura de vídeo", e)
-            call.reject("Erro ao iniciar captura de vídeo: ${e.message}")
+            startVideoCapture(call)
         }
     }
 
     @PluginMethod
     fun capturePhoto(call: PluginCall) {
-        try {
-            if (getPermissionState("camera") != PermissionState.GRANTED) {
-                requestPermissionForAlias("camera", call, "capturePhotoPermissionCallback")
-                return
-            }
+        captureOptions = call.data
+        if (getPermissionState("camera") != PermissionState.GRANTED) {
+            requestPermissionForAlias("camera", call, "permissionPhotoCallback")
+        } else {
             startPhotoCapture(call)
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao verificar/perdir permissão de câmera (foto)", e)
-            call.reject("Erro ao iniciar captura de foto: ${e.message}")
         }
     }
 
     @PluginMethod
-    fun pickVideo(call: PluginCall) {
-        try {
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "video/*"
-                addCategory(Intent.CATEGORY_OPENABLE)
-            }
-            startActivityForResult(call, intent, "pickVideoResult")
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao abrir galeria de vídeos", e)
-            call.reject("Erro ao abrir galeria: ${e.message}")
-        }
-    }
-
-    @ActivityCallback
-    fun pickVideoResult(call: PluginCall, result: ActivityResult) {
-        if (result.resultCode == Activity.RESULT_OK) {
-            val uri = result.data?.data
-            if (uri != null) {
-                try {
-                    val tempPath = copyContentUriToTempFile(uri.toString())
-                    
-                    val file = File(tempPath)
-                    val ret = JSObject().apply {
-                        put("filePath", tempPath)
-                        put("name", file.name)
-                        put("size", file.length())
-                        
-                        try {
-                            val mmr = MediaMetadataRetriever()
-                            mmr.setDataSource(tempPath)
-                            val duration = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0
-                            put("duration", duration / 1000.0)
-                            mmr.release()
-                        } catch (e: Exception) {}
-                    }
-                    call.resolve(ret)
-                } catch (e: Exception) {
-                    Log.e("VideoProcessor", "Erro ao processar vídeo selecionado", e)
-                    call.reject("Erro ao processar vídeo: ${e.message}")
-                }
-            } else {
-                call.reject("Nenhum vídeo selecionado")
-            }
-        } else {
-            call.reject("Seleção cancelada")
-        }
-    }
-
-    @PermissionCallback
-    fun capturePhotoPermissionCallback(call: PluginCall) {
-        if (getPermissionState("camera") == PermissionState.GRANTED) {
-            startPhotoCapture(call)
-        } else {
-            call.reject("Permissão de câmera negada")
-        }
-    }
-
-    private fun startPhotoCapture(call: PluginCall) {
-        try {
-            val activity = activity ?: run {
-                call.reject("Atividade indisponível")
+    fun recoverLostPhoto(call: PluginCall) {
+        val prefs = context.getSharedPreferences("VideoProcessorPrefs", Context.MODE_PRIVATE)
+        val path = prefs.getString("pending_capture_path", null)
+        
+        if (path != null) {
+            val file = File(path)
+            if (file.exists()) {
+                // Limpar para não recuperar duas vezes
+                prefs.edit().remove("pending_capture_path").apply()
+                
+                val ret = JSObject()
+                ret.put("filePath", file.absolutePath)
+                ret.put("nativePath", file.absolutePath)
+                ret.put("isRecovered", true)
+                call.resolve(ret)
                 return
             }
-            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            intent.putExtra("android.intent.extras.CAMERA_FACING", 0)
-            intent.putExtra("android.intent.extra.CAMERA_FACING", 0)
-            intent.putExtra("android.intent.extra.USE_FRONT_CAMERA", false)
+        }
+        
+        call.resolve() // Retorna vazio se nada encontrado
+    }
+
+    @PluginMethod
+    fun pickVideo(call: PluginCall) {
+        val alias = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) "storage_video" else "storage"
+        
+        if (getPermissionState(alias) != PermissionState.GRANTED) {
+            requestPermissionForAlias(alias, call, "permissionPickCallback")
+        } else {
+            startPickVideo(call)
+        }
+    }
+    
+    private fun startPickVideo(call: PluginCall) {
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+        intent.type = "video/*"
+        startActivityForResult(call, intent, "handlePickResult")
+    }
+
+    @PluginMethod
+    fun compressVideo(call: PluginCall) {
+        val filePath = call.getString("filePath")
+        if (filePath == null) {
+            call.reject("Must provide filePath")
+            return
+        }
+
+        val quality = call.getString("quality") ?: "low"
+        val maxSizeMB = call.getInt("maxSizeMB") ?: 50
+        
+        // Create output file
+        val outputDir = File(context.cacheDir, "compressed_videos")
+        if (!outputDir.exists()) outputDir.mkdirs()
+        val outputFile = File(outputDir, "compressed_${System.currentTimeMillis()}.mp4")
+
+        try {
+            val uri = Uri.parse(filePath)
             
-            val storageDir = activity.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES) ?: activity.filesDir
-            // Padronização de nomes: report_image_TIMESTAMP.jpg
-            val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-            val fileName = "report_image_${timeStamp}_"
-            val outFile = File.createTempFile(fileName, ".jpg", storageDir)
-            
-            val authority = activity.packageName + ".fileprovider"
-            val uri = FileProvider.getUriForFile(activity, authority, outFile)
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            
-            pendingCaptureFile = outFile
-            try {
-                val prefs = activity.getSharedPreferences("VideoProcessorPlugin", Activity.MODE_PRIVATE)
-                prefs.edit().putString("pending_capture_path", outFile.absolutePath).apply()
-            } catch (e: Exception) {
-                Log.w("VideoProcessor", "Falha ao salvar estado pendente", e)
+            // Adjust bitrate based on quality
+            val bitRate = when (quality) {
+                "high" -> 4000000L // 4 Mbps
+                "medium" -> 2500000L // 2.5 Mbps
+                else -> 1000000L // 1 Mbps
             }
-            
-            startKeepAliveService()
-            startActivityForResult(call, intent, "capturePhotoResult")
+
+            val strategy = DefaultVideoStrategy.Builder()
+                .keyFrameInterval(3f)
+                .bitRate(bitRate)
+                .frameRate(30)
+                .build()
+
+            Transcoder.into(outputFile.absolutePath)
+                .addDataSource(context, uri)
+                .setVideoTrackStrategy(strategy)
+                .setListener(object : TranscoderListener {
+                    override fun onTranscodeProgress(progress: Double) {
+                        val ret = JSObject()
+                        ret.put("progress", (progress * 100).toInt())
+                        notifyListeners("videoProgress", ret)
+                    }
+
+                    override fun onTranscodeCompleted(successCode: Int) {
+                        val ret = JSObject()
+                        ret.put("outputPath", outputFile.absolutePath)
+                        ret.put("compressedSize", outputFile.length())
+                        call.resolve(ret)
+                    }
+
+                    override fun onTranscodeCanceled() {
+                        call.reject("Compression canceled")
+                    }
+
+                    override fun onTranscodeFailed(exception: Throwable) {
+                        call.reject("Compression failed: ${exception.message}")
+                    }
+                })
+                .transcode()
+
+
         } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao iniciar captura de foto", e)
-            call.reject("Erro ao iniciar captura de foto: ${e.message}")
+            Log.e("VideoProcessor", "Error starting compression", e)
+            call.reject("Error starting compression: ${e.message}")
         }
     }
 
-    @ActivityCallback
-    fun capturePhotoResult(call: PluginCall, result: ActivityResult) {
-        stopKeepAliveService()
+    @PluginMethod
+    fun compressImage(call: PluginCall) {
+        val filePath = call.getString("filePath")
+        if (filePath == null) {
+            call.reject("Must provide filePath")
+            return
+        }
 
-        coroutineScope.launch(Dispatchers.Default) {
+        val maxSizeMB = call.getInt("maxSizeMB") ?: 10
+        val maxWidth = call.getInt("maxWidth") ?: 1280
+        val maxHeight = call.getInt("maxHeight") ?: 960
+        val quality = call.getString("quality") ?: "medium"
+        val format = call.getString("format") ?: "webp"
+
+        coroutineScope.launch {
             try {
-                delay(300)
+                val actualPath = convertCapacitorPath(filePath)
+                val compressedPath = compressCapturedImage(
+                    actualPath,
+                    maxSizeMB,
+                    maxWidth,
+                    maxHeight,
+                    quality,
+                    format
+                )
                 
-                val code = result.resultCode
-                var file = pendingCaptureFile
-                if (file == null) {
-                    val activity = activity
-                    if (activity != null) {
-                        try {
-                            val prefs = activity.getSharedPreferences("VideoProcessorPlugin", Activity.MODE_PRIVATE)
-                            val path = prefs.getString("pending_capture_path", null)
-                            if (path != null) {
-                                file = File(path)
-                            }
-                        } catch (e: Exception) {
-                            Log.w("VideoProcessor", "Erro ao recuperar path do SharedPreferences", e)
-                        }
-                    }
+                val originalFile = File(actualPath)
+                val compressedFile = File(compressedPath)
+                
+                val ret = JSObject()
+                ret.put("outputPath", compressedPath)
+                ret.put("originalSize", originalFile.length())
+                ret.put("compressedSize", compressedFile.length())
+                val ratio = if (originalFile.length() > 0) {
+                     compressedFile.length().toFloat() / originalFile.length().toFloat()
+                } else 0f
+                ret.put("compressionRatio", ratio)
+                
+                call.resolve(ret)
+            } catch (e: Exception) {
+                Log.e("VideoProcessor", "Error compressing image", e)
+                call.reject("Error compressing image: ${e.message}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun uploadFile(call: PluginCall) {
+        val filePath = call.getString("filePath")
+        val uploadUrl = call.getString("uploadUrl")
+        
+        if (filePath == null || uploadUrl == null) {
+            call.reject("Must provide filePath and uploadUrl")
+            return
+        }
+        
+        val headers = call.getObject("headers") ?: JSObject()
+        val uploadId = UUID.randomUUID().toString()
+        
+        coroutineScope.launch {
+            try {
+                val actualPath = convertCapacitorPath(filePath)
+                val file = File(actualPath)
+                
+                if (!file.exists()) {
+                    call.reject("File not found")
+                    return@launch
                 }
                 
-                pendingCaptureFile = null
-                try {
-                    activity?.getSharedPreferences("VideoProcessorPlugin", Activity.MODE_PRIVATE)
-                        ?.edit()?.remove("pending_capture_path")?.apply()
-                } catch (e: Exception) {}
+                uploadFileInternal(file, uploadUrl, headers, uploadId)
                 
-                if (code == Activity.RESULT_OK && file != null && file.exists()) {
-                    if (file.length() == 0L) {
-                         call.reject("Erro: Arquivo de foto vazio.")
-                         return@launch
-                    }
-
-                    var outputPath = file.absolutePath
-                    
-                    notifyListeners("captureSuccess", JSObject().apply {
-                        put("originalPath", outputPath)
-                    })
-
-                    try {
-                        System.gc()
-                        
-                        val targetMaxWidth = call.getInt("maxWidth") ?: 2048
-                        val targetMaxHeight = call.getInt("maxHeight") ?: 2048
-                        val maxSizeMB = call.getInt("maxSizeMB") ?: 10
-                        val quality = call.getString("quality") ?: "medium"
-                        
-                        outputPath = compressCapturedImage(file.absolutePath, maxSizeMB, targetMaxWidth, targetMaxHeight, quality, "jpeg")
-                    } catch (t: Throwable) {
-                        Log.e("VideoProcessor", "Falha grave/OOM ao converter imagem capturada.", t)
-                        System.gc()
-                        outputPath = file.absolutePath
-                        Log.w("VideoProcessor", "Retornando imagem original devido a erro na compressão")
-                    }
-
-                    val res = JSObject().apply {
-                        put("filePath", outputPath)
-                        put("warning", if (outputPath == file.absolutePath) "original_returned" else null)
-                    }
-                    call.resolve(res)
-                    
-                    notifyListeners("imageProcessed", res)
-                    
-                } else {
-                    call.reject("Captura cancelada ou arquivo indisponível")
-                }
-            } catch (t: Throwable) {
-                Log.e("VideoProcessor", "Erro fatal no resultado de captura de foto", t)
-                call.reject("Erro ao finalizar captura de foto: ${t.message}")
+                val ret = JSObject()
+                ret.put("success", true)
+                ret.put("uploadId", uploadId)
+                call.resolve(ret)
+            } catch (e: Exception) {
+                Log.e("VideoProcessor", "Error uploading file", e)
+                call.reject("Error uploading file: ${e.message}")
             }
         }
     }
@@ -325,13 +349,13 @@ class VideoProcessorPlugin : Plugin() {
     fun getImageMetadata(call: PluginCall) {
         try {
             val filePath = call.getString("filePath") ?: run {
-                call.reject("filePath é obrigatório")
+                call.reject("filePath is required")
                 return
             }
             val actualPath = convertCapacitorPath(filePath)
             val file = File(actualPath)
             if (!file.exists()) {
-                call.reject("Arquivo não encontrado")
+                call.reject("File not found")
                 return
             }
             val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -343,430 +367,395 @@ class VideoProcessorPlugin : Plugin() {
             }
             call.resolve(res)
         } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao obter metadados da imagem", e)
-            call.reject("Erro ao obter metadados: ${e.message}")
-        }
-    }
-
-    @ActivityCallback
-    fun captureVideoResult(call: PluginCall, result: ActivityResult) {
-        try {
-            val code = result.resultCode
-            
-            var file = pendingCaptureFile
-            if (file == null) {
-                val activity = activity
-                if (activity != null) {
-                    try {
-                        val prefs = activity.getSharedPreferences("VideoProcessorPlugin", Activity.MODE_PRIVATE)
-                        val path = prefs.getString("pending_video_capture_path", null)
-                        if (path != null) {
-                            file = File(path)
-                        }
-                    } catch (e: Exception) {
-                        Log.w("VideoProcessor", "Erro ao recuperar path de vídeo do SharedPreferences", e)
-                    }
-                }
-            }
-            
-            pendingCaptureFile = null
-            try {
-                activity?.getSharedPreferences("VideoProcessorPlugin", Activity.MODE_PRIVATE)
-                    ?.edit()?.remove("pending_video_capture_path")?.apply()
-            } catch (e: Exception) {}
-
-            if (code == Activity.RESULT_OK && file != null && file.exists()) {
-                if (file.length() == 0L) {
-                     call.reject("Erro: Arquivo de vídeo vazio. A câmera pode não ter salvo corretamente.")
-                     return
-                }
-
-                val maxSize = 512L * 1024L * 1024L
-                if (file.length() > maxSize) {
-                    Log.w("VideoProcessor", "Vídeo excedeu 512MB ligeiramente: ${file.length()}")
-                }
-                
-                val res = JSObject().apply {
-                    put("filePath", file.absolutePath)
-                    put("size", file.length())
-                }
-                call.resolve(res)
-            } else {
-                call.reject("Captura cancelada ou arquivo indisponível")
-            }
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro no resultado de captura", e)
-            call.reject("Erro ao finalizar captura: ${e.message}")
+            Log.e("VideoProcessor", "Error getting image metadata", e)
+            call.reject("Error getting metadata: ${e.message}")
         }
     }
 
     @PluginMethod
     fun getVideoMetadata(call: PluginCall) {
+        val filePath = call.getString("filePath")
+        if (filePath == null) {
+            call.reject("Must provide filePath")
+            return
+        }
+
         try {
-            val filePath = call.getString("filePath") ?: run {
-                call.reject("filePath é obrigatório")
-                return
-            }
-            
-            val actualPath = convertCapacitorPath(filePath)
-            val file = File(actualPath)
-            
-            if (!file.exists()) {
-                call.reject("Arquivo não encontrado: $actualPath")
-                return
-            }
-            
             val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(context, Uri.parse(filePath))
+            
+            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val widthStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+            val heightStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+            
+            val duration = durationStr?.toLongOrNull() ?: 0L
+            val width = widthStr?.toIntOrNull() ?: 0
+            val height = heightStr?.toIntOrNull() ?: 0
+            
+            // Try to get size
+            var size = 0L
             try {
-                retriever.setDataSource(actualPath)
-                
-                val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-                val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
-                val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-                val bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull()
-                
-                val metadata = JSObject().apply {
-                    put("duration", duration / 1000.0)
-                    put("width", width)
-                    put("height", height)
-                    put("size", file.length())
-                    bitrate?.let { put("bitrate", it) }
+                if (filePath.startsWith("content://")) {
+                     context.contentResolver.query(Uri.parse(filePath), null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                            if (sizeIndex != -1) {
+                                size = cursor.getLong(sizeIndex)
+                            }
+                        }
+                    }
+                } else {
+                    val file = File(filePath)
+                    if (file.exists()) {
+                        size = file.length()
+                    }
                 }
-                
-                call.resolve(metadata)
-            } finally {
-                retriever.release()
+            } catch (e: Exception) {
+                Log.e("VideoProcessor", "Error getting size", e)
             }
+
+            val ret = JSObject()
+            ret.put("duration", duration / 1000.0) // seconds
+            ret.put("width", width)
+            ret.put("height", height)
+            ret.put("size", size)
+            
+            call.resolve(ret)
         } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao obter metadados", e)
-            call.reject("Erro ao obter metadados: ${e.message}")
+            call.reject("Error reading metadata: ${e.message}")
         }
     }
 
     @PluginMethod
     fun getVideoThumbnail(call: PluginCall) {
+        val filePath = call.getString("filePath")
+        if (filePath == null) {
+            call.reject("Must provide filePath")
+            return
+        }
+
         try {
-            val filePath = call.getString("filePath") ?: run {
-                call.reject("filePath é obrigatório")
-                return
-            }
-            val atMs = call.getInt("atMs") ?: 0
-            val maxWidth = call.getInt("maxWidth") ?: 320
-            val maxHeight = call.getInt("maxHeight") ?: 240
-
-            val actualPath = convertCapacitorPath(filePath)
-            val file = File(actualPath)
-            if (!file.exists()) {
-                call.reject("Arquivo não encontrado")
-                return
-            }
-
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(actualPath)
-                var bitmap = retriever.getFrameAtTime(atMs.toLong() * 1000) ?: run {
-                    call.reject("Falha ao obter frame do vídeo")
+            val uri = Uri.parse(filePath)
+            
+            // OTIMIZAÇÃO: Usar loadThumbnail no Android Q+ (muito mais eficiente para 8K)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    val size = android.util.Size(320, 240)
+                    val bitmap = context.contentResolver.loadThumbnail(uri, size, null)
+                    
+                    saveBitmapAndResolve(bitmap, call)
                     return
+                } catch (e: Exception) {
+                    Log.w("VideoProcessor", "loadThumbnail failed, falling back to MetadataRetriever", e)
                 }
-
-                val width = bitmap.width
-                val height = bitmap.height
-                var targetW = width
-                var targetH = height
-                if (width > maxWidth || height > maxHeight) {
-                    val ratio = kotlin.math.min(maxWidth.toFloat() / width, maxHeight.toFloat() / height)
-                    targetW = (width * ratio).toInt()
-                    targetH = (height * ratio).toInt()
-                }
-                if (targetW != width || targetH != height) {
-                    bitmap = Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
-                }
-
-                // Padronização: report_thumb_TIMESTAMP.jpg
-                val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-                val fileName = "report_thumb_${timeStamp}_"
-                val outFile = File.createTempFile(fileName, ".jpg", context.cacheDir)
-                
-                FileOutputStream(outFile).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
-                }
-                bitmap.recycle()
-
-                val res = JSObject().apply {
-                    put("imagePath", outFile.absolutePath)
-                }
-                call.resolve(res)
-            } catch (e: Exception) {
-                Log.e("VideoProcessor", "Erro ao gerar thumbnail", e)
-                call.reject("Erro ao gerar thumbnail: ${e.message}")
-            } finally {
-                retriever.release()
             }
+            
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(context, uri)
+            
+            // Get frame at 1 second or 0
+            // Tentar capturar frame com catch de OOM para vídeos 8K
+            var bitmap: Bitmap? = null
+            try {
+                bitmap = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) 
+                         ?: retriever.getFrameAtTime(0)
+            } catch (oom: OutOfMemoryError) {
+                Log.e("VideoProcessor", "OOM getting frame", oom)
+            }
+            
+            if (bitmap != null) {
+                // Redimensionar imediatamente se for muito grande (8K -> Thumbnail)
+                if (bitmap.width > 640 || bitmap.height > 640) {
+                    val scale = 640f / Math.max(bitmap.width, bitmap.height)
+                    val w = (bitmap.width * scale).toInt()
+                    val h = (bitmap.height * scale).toInt()
+                    val scaled = Bitmap.createScaledBitmap(bitmap, w, h, true)
+                    if (scaled != bitmap) {
+                        bitmap.recycle()
+                        bitmap = scaled
+                    }
+                }
+                
+                saveBitmapAndResolve(bitmap!!, call)
+            } else {
+                call.reject("Could not retrieve thumbnail")
+            }
+            retriever.release()
         } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro em getVideoThumbnail", e)
-            call.reject("Erro ao obter thumbnail: ${e.message}")
+            Log.e("VideoProcessor", "Error generating thumbnail", e)
+            call.reject("Error generating thumbnail: ${e.message}")
         }
     }
     
-    @PluginMethod
-    fun generateImageThumbnail(call: PluginCall) {
+    private fun saveBitmapAndResolve(bitmap: Bitmap, call: PluginCall) {
         try {
-            val filePath = call.getString("filePath") ?: run {
-                call.reject("filePath é obrigatório")
-                return
+            val cacheDir = File(context.cacheDir, "thumbnails")
+            if (!cacheDir.exists()) cacheDir.mkdirs()
+            val file = File(cacheDir, "thumb_${System.currentTimeMillis()}.jpg")
+            
+            FileOutputStream(file).use { out ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, out)
             }
-            val maxWidth = call.getInt("maxWidth") ?: 512
-            val maxHeight = call.getInt("maxHeight") ?: 512
-            val quality = call.getInt("quality") ?: 70
+            
+            val ret = JSObject()
+            ret.put("imagePath", file.absolutePath)
+            call.resolve(ret)
+        } catch (e: Exception) {
+             call.reject("Error saving thumbnail: ${e.message}")
+        }
+    }
 
-            val actualPath = convertCapacitorPath(filePath)
-            val file = File(actualPath)
-            if (!file.exists()) {
-                call.reject("Arquivo não encontrado")
-                return
+    private fun startVideoCapture(call: PluginCall) {
+        val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+        try {
+            val fileName = "video_${System.currentTimeMillis()}.mp4"
+            val file = File(context.cacheDir, fileName)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            pendingCaptureUri = uri
+            pendingCaptureFile = file
+            
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
+            // Add ClipData for Android 11+ permission persistence
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                intent.clipData = ClipData.newRawUri("", uri)
             }
+            intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            
+            startActivityForResult(call, intent, "handleCaptureResult")
+        } catch (e: Exception) {
+            call.reject("Cannot open camera: ${e.message}")
+        }
+    }
 
-            coroutineScope.launch {
-                try {
-                    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    BitmapFactory.decodeFile(actualPath, options)
-                    
-                    val originalWidth = options.outWidth
-                    val originalHeight = options.outHeight
-                    
-                    if (originalWidth <= 0 || originalHeight <= 0) {
-                         call.reject("Falha ao ler dimensões da imagem")
-                         return@launch
-                    }
-                    
-                    var rotationDegrees = 0
+    private fun startPhotoCapture(call: PluginCall) {
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        try {
+            val fileName = "photo_${System.currentTimeMillis()}.jpg"
+            val file = File(context.cacheDir, fileName)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            pendingCaptureUri = uri
+            pendingCaptureFile = file
+            
+            // Persistir o caminho do arquivo para sobreviver à morte do processo
+            val prefs = context.getSharedPreferences("VideoProcessorPrefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("pending_capture_path", file.absolutePath).apply()
+            
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
+             // Add ClipData for Android 11+ permission persistence
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                intent.clipData = ClipData.newRawUri("", uri)
+            }
+            intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            
+            startKeepAliveService()
+            startActivityForResult(call, intent, "handlePhotoCaptureResult")
+        } catch (e: Exception) {
+            call.reject("Cannot open camera: ${e.message}")
+        }
+    }
+
+    @PermissionCallback
+    private fun permissionCallback(call: PluginCall) {
+        if (getPermissionState("camera") == PermissionState.GRANTED) {
+            startVideoCapture(call)
+        } else {
+            call.reject("Permission denied")
+        }
+    }
+
+    @PermissionCallback
+    private fun permissionPhotoCallback(call: PluginCall) {
+        if (getPermissionState("camera") == PermissionState.GRANTED) {
+            startPhotoCapture(call)
+        } else {
+            call.reject("Permission denied")
+        }
+    }
+
+    @PermissionCallback
+    private fun permissionPickCallback(call: PluginCall) {
+        val alias = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) "storage_video" else "storage"
+        if (getPermissionState(alias) == PermissionState.GRANTED) {
+            startPickVideo(call)
+        } else {
+            call.reject("Permission denied")
+        }
+    }
+
+    @ActivityCallback
+    private fun handlePickResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val uri = result.data?.data
+            if (uri != null) {
+                // Offload to background thread to avoid ANR on large files
+                Thread {
                     try {
-                        val exif = androidx.exifinterface.media.ExifInterface(actualPath)
-                        val orientation = exif.getAttributeInt(
-                            androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
-                            androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
-                        )
+                        // OTIMIZAÇÃO: Não copiar o arquivo imediatamente!
+                        // Vídeos 8K podem ter gigabytes e copiar trava o app ou demora muito.
+                        // Vamos usar o URI diretamente (content://) e deixar o UploadService
+                        // ou o Transcoder lerem diretamente da fonte.
                         
-                        rotationDegrees = when (orientation) {
-                            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90
-                            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180
-                            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270
-                            else -> 0
+                        val ret = JSObject()
+                        ret.put("filePath", uri.toString())
+                        ret.put("nativePath", uri.toString())
+                        ret.put("isNative", true)
+                        
+                        // Get size and name
+                        var size = 0L
+                        var name = "video_${System.currentTimeMillis()}.mp4"
+                        
+                        try {
+                            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                                if (cursor.moveToFirst()) {
+                                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                    
+                                    if (sizeIndex != -1) size = cursor.getLong(sizeIndex)
+                                    if (nameIndex != -1) name = cursor.getString(nameIndex)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("VideoProcessor", "Error getting file details", e)
                         }
+                        
+                        ret.put("size", size)
+                        ret.put("name", name)
+                        
+                        // Get duration
+                        try {
+                            val retriever = MediaMetadataRetriever()
+                            retriever.setDataSource(context, uri)
+                            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                            val duration = durationStr?.toLongOrNull() ?: 0L
+                            ret.put("duration", duration / 1000.0) // seconds
+                            retriever.release()
+                        } catch (e: Exception) {
+                            Log.e("VideoProcessor", "Error getting duration", e)
+                            ret.put("duration", 0)
+                        }
+                        
+                        call.resolve(ret)
                     } catch (e: Exception) {
-                        Log.w("VideoProcessor", "Erro ao ler EXIF no thumbnail: ${e.message}")
+                        Log.e("VideoProcessor", "Error processing picked video", e)
+                        call.reject("Error processing selected video: ${e.message}")
                     }
-                    
-                    val rotatedWidth = if (rotationDegrees == 90 || rotationDegrees == 270) originalHeight else originalWidth
-                    val rotatedHeight = if (rotationDegrees == 90 || rotationDegrees == 270) originalWidth else originalHeight
-                    
-                    var inSample = 1
-                    
-                    if (rotatedWidth > maxWidth || rotatedHeight > maxHeight) {
-                        val ratio = min(rotatedWidth.toFloat() / maxWidth, rotatedHeight.toFloat() / maxHeight)
-                        while (inSample * 2 <= ratio) {
-                            inSample *= 2
-                        }
-                    }
-                    
-                    val SAFE_BITMAP_MEMORY = 10 * 1024 * 1024
-                    while (true) {
-                        val estimatedW = originalWidth / inSample
-                        val estimatedH = originalHeight / inSample
-                        val estimatedBytes = estimatedW.toLong() * estimatedH.toLong() * 2
-                        
-                        if (estimatedBytes > SAFE_BITMAP_MEMORY) {
-                            inSample *= 2
-                            Log.w("VideoProcessor", "Thumbnail: Aumentando inSample para $inSample (Memória)")
-                        } else {
-                            break
-                        }
-                    }
-
-                    val decodeOptions = BitmapFactory.Options().apply {
-                        inJustDecodeBounds = false
-                        inSampleSize = inSample
-                        inPreferredConfig = Bitmap.Config.RGB_565
-                        inDither = true
-                    }
-                    
-                    var bitmap = BitmapFactory.decodeFile(actualPath, decodeOptions) ?: run {
-                         call.reject("Falha ao decodificar imagem para thumbnail")
-                         return@launch
-                    }
-                    
-                    try {
-                        val matrix = Matrix()
-                        if (rotationDegrees != 0) {
-                            matrix.postRotate(rotationDegrees.toFloat())
-                        }
-                        
-                        val currentW = bitmap.width
-                        val currentH = bitmap.height
-                        
-                        val realCurrentW = if (rotationDegrees == 90 || rotationDegrees == 270) currentH else currentW
-                        val realCurrentH = if (rotationDegrees == 90 || rotationDegrees == 270) currentW else currentH
-                        
-                        if (realCurrentW > maxWidth || realCurrentH > maxHeight) {
-                             val scale = min(maxWidth.toFloat() / realCurrentW, maxHeight.toFloat() / realCurrentH)
-                             matrix.postScale(scale, scale)
-                        }
-                        
-                        val finalBitmap = Bitmap.createBitmap(
-                            bitmap, 0, 0, bitmap.width, bitmap.height,
-                            matrix, true
-                        )
-                        
-                        if (finalBitmap != bitmap) {
-                            bitmap.recycle()
-                            bitmap = finalBitmap
-                        }
-                        
-                        val thumbFile = File.createTempFile("thumb_img_", ".jpg", context.cacheDir)
-                        FileOutputStream(thumbFile).use { out ->
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
-                        }
-                        
-                        val res = JSObject().apply {
-                            put("thumbnailPath", thumbFile.absolutePath)
-                        }
-                        call.resolve(res)
-                        
-                    } finally {
-                        bitmap.recycle()
-                        System.gc()
-                    }
-                    
-                } catch (e: Exception) {
-                    Log.e("VideoProcessor", "Erro ao gerar thumbnail de imagem", e)
-                    call.reject("Erro ao gerar thumbnail: ${e.message}")
-                }
+                }.start()
+            } else {
+                call.reject("No video selected")
             }
-        } catch (e: Exception) {
-            call.reject("Erro geral: ${e.message}")
+        } else {
+            call.reject("Selection canceled")
         }
     }
 
-    @PluginMethod
-    fun compressVideo(call: PluginCall) {
-        try {
-            val filePath = call.getString("filePath") ?: run {
-                call.reject("filePath é obrigatório")
-                return
-            }
-            
-            val maxSizeMB = call.getInt("maxSizeMB") ?: 15 
-            val targetQuality = call.getString("quality") ?: "medium"
-            val maxWidth = call.getInt("maxWidth") ?: 1280
-            val maxHeight = call.getInt("maxHeight") ?: 1280
-            
-            val actualPath = convertCapacitorPath(filePath)
-            val file = File(actualPath)
-            
-            if (!file.exists()) {
-                call.reject("Arquivo não encontrado")
-                return
-            }
-            
-            val originalSize = file.length()
-            
-            coroutineScope.launch {
-                try {
-                    val compressedPath = compressVideoFile(
-                        actualPath, 
-                        maxSizeMB, 
-                        targetQuality,
-                        maxWidth,
-                        maxHeight
-                    )
-                    
-                    val compressedFile = File(compressedPath)
-                    val compressedSize = compressedFile.length()
-                    val compressionRatio = ((originalSize - compressedSize) * 100.0) / originalSize
-                    
-                    val result = JSObject().apply {
-                        put("outputPath", compressedPath)
-                        put("originalSize", originalSize)
-                        put("compressedSize", compressedSize)
-                        put("compressionRatio", compressionRatio)
-                        put("message", "Vídeo comprimido com sucesso")
-                    }
-                    
-                    call.resolve(result)
-                } catch (e: Exception) {
-                    Log.e("VideoProcessor", "Erro ao comprimir vídeo", e)
-                    call.reject("Erro ao comprimir vídeo: ${e.message}")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao comprimir vídeo", e)
-            call.reject("Erro ao comprimir vídeo: ${e.message}")
+    @ActivityCallback
+    private fun handleCaptureResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+
+        if (result.resultCode == Activity.RESULT_OK) {
+             // pendingCaptureFile should be set
+             if (pendingCaptureFile != null && pendingCaptureFile!!.exists()) {
+                 val ret = JSObject()
+                 ret.put("filePath", pendingCaptureFile!!.absolutePath)
+                 ret.put("nativePath", pendingCaptureFile!!.absolutePath)
+                 ret.put("isNative", true)
+                 call.resolve(ret)
+             } else if (pendingCaptureUri != null) {
+                 val ret = JSObject()
+                 ret.put("filePath", pendingCaptureUri.toString())
+                 call.resolve(ret)
+             } else {
+                 // Fallback: try to get from data
+                 val uri = result.data?.data
+                 if (uri != null) {
+                     val ret = JSObject()
+                     ret.put("filePath", uri.toString())
+                     call.resolve(ret)
+                 } else {
+                     call.reject("Error capturing video")
+                 }
+             }
+        } else {
+            call.reject("Capture canceled")
         }
     }
 
-    @PluginMethod
-    fun compressImage(call: PluginCall) {
-        try {
-            val filePath = call.getString("filePath") ?: run {
-                call.reject("filePath é obrigatório")
-                return
-            }
-            val maxSizeMB = call.getInt("maxSizeMB") ?: 10
-            val maxWidth = call.getInt("maxWidth") ?: 1280
-            val maxHeight = call.getInt("maxHeight") ?: 960
-            val qualityPreset = call.getString("quality") ?: "low"
-            val format = call.getString("format") ?: "webp"
+    @ActivityCallback
+    private fun handlePhotoCaptureResult(call: PluginCall?, result: ActivityResult) {
+        stopKeepAliveService()
+        if (call == null) return
 
-            val actualPath = convertCapacitorPath(filePath)
-            val inputFile = File(actualPath)
-            if (!inputFile.exists()) {
-                call.reject("Arquivo não encontrado")
-                return
-            }
-
-            val originalSize = inputFile.length()
-            val originalSizeMB = originalSize / (1024.0 * 1024.0)
-
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(actualPath, options)
-            val width = options.outWidth
-            val height = options.outHeight
+        if (result.resultCode == Activity.RESULT_OK) {
+            var file = pendingCaptureFile
             
-            val needsResize = width > maxWidth || height > maxHeight
-
-            if (originalSizeMB <= maxSizeMB && !needsResize) {
-                val result = JSObject().apply {
-                    put("outputPath", filePath)
-                    put("originalSize", originalSize)
-                    put("compressedSize", originalSize)
-                    put("compressionRatio", 0.0)
-                }
-                call.resolve(result)
-                return
-            }
-
-            coroutineScope.launch {
-                try {
-                    val outputPath = compressCapturedImage(actualPath, maxSizeMB, maxWidth, maxHeight, qualityPreset, format)
-
-                    val outFile = File(outputPath)
-                    val compressedSize = outFile.length()
-                    val result = JSObject().apply {
-                        put("outputPath", outputPath)
-                        put("originalSize", originalSize)
-                        put("compressedSize", compressedSize)
-                        put("compressionRatio", ((originalSize - compressedSize) * 100.0) / originalSize)
-                    }
-
-                    call.resolve(result)
-                } catch (e: Exception) {
-                    Log.e("VideoProcessor", "Erro ao comprimir imagem", e)
-                    call.reject("Erro ao comprimir imagem: ${e.message}")
+            // Tentar recuperar de SharedPreferences se a variável em memória foi perdida
+            if (file == null) {
+                val prefs = context.getSharedPreferences("VideoProcessorPrefs", Context.MODE_PRIVATE)
+                val path = prefs.getString("pending_capture_path", null)
+                if (path != null) {
+                    file = File(path)
                 }
             }
+            
+            // Limpar SharedPreferences
+            context.getSharedPreferences("VideoProcessorPrefs", Context.MODE_PRIVATE)
+                .edit().remove("pending_capture_path").apply()
+
+            if (file != null && file.exists()) {
+                // OTIMIZAÇÃO CRÍTICA: Não processar a imagem aqui!
+                // Processar imagens de 50MP+ (S24FE) causa OOM e crasha o app.
+                // Apenas retornamos o caminho do arquivo. O processamento (resize/compress)
+                // deve ser feito sob demanda via compressImage().
+                
+                val ret = JSObject()
+                ret.put("filePath", file.absolutePath)
+                ret.put("nativePath", file.absolutePath)
+                ret.put("isNative", true)
+                call.resolve(ret)
+            } else {
+                call.reject("Error capturing photo: File not found")
+            }
+        } else {
+            call.reject("Capture canceled")
+        }
+    }
+
+    private fun convertCapacitorPath(path: String): String {
+        if (path.startsWith("content://")) {
+            return copyContentUriToTempFile(path)
+        }
+        return when {
+            path.startsWith("file://") -> path.removePrefix("file://")
+            path.startsWith("capacitor://") -> {
+                val relativePath = path.removePrefix("capacitor://localhost/")
+                File(context.filesDir, relativePath).absolutePath
+            }
+            else -> path
+        }
+    }
+
+    private fun copyContentUriToTempFile(uriString: String): String {
+        try {
+            val uri = android.net.Uri.parse(uriString)
+            val contentResolver = context.contentResolver
+            val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
+            val extension = if (mimeType.contains("image")) ".jpg" else if (mimeType.contains("video")) ".mp4" else ".tmp"
+            
+            val tempFile = File.createTempFile("temp_content_", extension, context.cacheDir)
+            
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            return tempFile.absolutePath
         } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao comprimir imagem", e)
-            call.reject("Erro ao comprimir imagem: ${e.message}")
+            Log.e("VideoProcessor", "Erro ao copiar content URI: $uriString", e)
+            return uriString
         }
     }
 
@@ -780,11 +769,6 @@ class VideoProcessorPlugin : Plugin() {
     ): String {
         Log.d("VideoProcessor", "Iniciando compressão segura: $actualPath")
         val inputFile = File(actualPath)
-        
-        // Padronização: se o arquivo de entrada já começa com "report_", mantém o padrão
-        // Senão, força o prefixo se estivermos criando um arquivo novo
-        // Mas como aqui estamos apenas adicionando sufixo, se o arquivo original já tiver o nome certo, ok.
-        // O `actualPath` vem do `startPhotoCapture` que já gera "report_image_TIMESTAMP".
         
         val outputPath = if (format.lowercase() == "webp") {
             "${actualPath}.converted.webp"
@@ -999,563 +983,30 @@ class VideoProcessorPlugin : Plugin() {
             while (!success && quality >= 50) {
                 try {
                     FileOutputStream(outputFile).use { out ->
-                        bitmap!!.compress(compressFormat, quality, out)
+                        bitmap.compress(compressFormat, quality, out)
                     }
-                    success = true
-                    
                     val resultSize = outputFile.length()
-                    val maxSizeBytes = maxSizeMB * 1024 * 1024
-                    
-                    if (resultSize > maxSizeBytes) {
-                        quality = max(50, quality - 10)
-                        success = false
-                        Log.d("VideoProcessor", "Arquivo muito grande (${resultSize/1024}KB). Reduzindo qualidade para $quality")
+                    if (resultSize > maxSizeMB * 1024 * 1024) {
+                        quality -= 10
+                    } else {
+                        success = true
                     }
                 } catch (e: Exception) {
-                    Log.e("VideoProcessor", "Erro ao salvar imagem: ${e.message}")
+                    Log.e("VideoProcessor", "Erro ao salvar imagem comprimida", e)
                     quality -= 10
-                    if (quality < 50) break
                 }
             }
             
-            if (!success) {
-                Log.e("VideoProcessor", "Falha ao comprimir imagem mesmo após redução de qualidade")
-                return actualPath
-            }
-            
-            Log.d("VideoProcessor", "Processamento concluído: $outputPath (Qualidade final: $quality%)")
+            bitmap.recycle()
             return outputPath
-            
-        } finally {
-            bitmap?.recycle()
-            System.gc()
-        }
-    }
-    
-    @PluginMethod
-    fun uploadFile(call: PluginCall) {
-        val filePath = call.getString("filePath") ?: run {
-            call.reject("filePath é obrigatório")
-            return
-        }
-        val uploadUrl = call.getString("uploadUrl") ?: run {
-            call.reject("uploadUrl é obrigatório")
-            return
-        }
-        val headers = call.getObject("headers") ?: JSObject()
-        
-        val actualPath = convertCapacitorPath(filePath)
-        val file = File(actualPath)
-        
-        if (!file.exists()) {
-            call.reject("Arquivo não encontrado")
-            return
-        }
-
-        val uploadId = "upload_${System.currentTimeMillis()}"
-
-        coroutineScope.launch {
-            try {
-                uploadFile(file, uploadUrl, headers, uploadId)
-                val res = JSObject().apply {
-                    put("success", true)
-                    put("uploadId", uploadId)
-                }
-                call.resolve(res)
-            } catch (e: Exception) {
-                Log.e("VideoProcessor", "Erro no upload bloqueante", e)
-                call.reject("Erro no upload: ${e.message}")
-            }
-        }
-    }
-
-    @PluginMethod
-    fun uploadVideoInBackground(call: PluginCall) {
-        try {
-            val filePath = call.getString("filePath") ?: run {
-                call.reject("filePath é obrigatório")
-                return
-            }
-            val uploadUrl = call.getString("uploadUrl") ?: run {
-                call.reject("uploadUrl é obrigatório")
-                return
-            }
-            val headers = call.getObject("headers") ?: JSObject()
-            
-            val actualPath = convertCapacitorPath(filePath)
-            val file = File(actualPath)
-            
-            if (!file.exists()) {
-                call.reject("Arquivo não encontrado")
-                return
-            }
-            
-            val uploadId = "upload_${System.currentTimeMillis()}"
-            
-            val job = coroutineScope.launch {
-                try {
-                    uploadFile(file, uploadUrl, headers, uploadId)
-                } catch (e: Exception) {
-                    Log.e("VideoProcessor", "Erro no upload", e)
-                }
-            }
-            
-            uploadJobs[uploadId] = job
-            
-            val result = JSObject().apply {
-                put("uploadId", uploadId)
-            }
-            
-            call.resolve(result)
         } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao iniciar upload", e)
-            call.reject("Erro ao iniciar upload: ${e.message}")
+            Log.e("VideoProcessor", "Erro ao processar imagem", e)
+            bitmap.recycle()
+            return actualPath
         }
     }
     
-    @PluginMethod
-    fun getUploadProgress(call: PluginCall) {
-        val uploadId = call.getString("uploadId") ?: run {
-            call.reject("uploadId é obrigatório")
-            return
-        }
-        
-        val result = JSObject().apply {
-            put("progress", 50)
-            put("status", "uploading")
-        }
-        
-        call.resolve(result)
-    }
-    
-    @PluginMethod
-    fun cancelUpload(call: PluginCall) {
-        val uploadId = call.getString("uploadId") ?: run {
-            call.reject("uploadId é obrigatório")
-            return
-        }
-        
-        uploadJobs[uploadId]?.cancel()
-        uploadJobs.remove(uploadId)
-        
-        call.resolve()
-    }
-    
-    private suspend fun compressVideoFile(
-        inputPath: String,
-        maxSizeMB: Int,
-        quality: String,
-        maxWidth: Int,
-        maxHeight: Int
-    ): String = withContext(Dispatchers.IO) {
-        val inputFile = File(inputPath)
-        val outputPath = "${inputPath}.compressed.mp4"
-        val outputFile = File(outputPath)
-        
-        if (!inputFile.exists()) {
-            throw IOException("Arquivo de entrada não encontrado: $inputPath")
-        }
-        
-        val originalSize = inputFile.length()
-        val originalSizeMB = originalSize / (1024.0 * 1024.0)
-        
-        if (originalSizeMB > 500) {
-            Log.w("VideoProcessor", "Vídeo grande (${originalSizeMB}MB) detectado. Ativando modo seguro.")
-            System.gc()
-            try { Thread.sleep(200) } catch (e: Exception) {}
-        }
-        
-        val availableSpace = inputFile.parentFile?.usableSpace ?: 0
-        
-        // Ajuste de verificação de espaço para arquivos grandes
-        // Para arquivos grandes (>500MB), ser menos conservador: exigir apenas espaço para o output comprimido estimado + folga
-        // O output comprimido (HD/safe_hd) geralmente é < 20% do original de alta qualidade.
-        val requiredSpace = if (originalSize > 500 * 1024 * 1024) {
-             (originalSize * 0.5).toLong() + (100 * 1024 * 1024) // 50% do original + 100MB
-        } else {
-             originalSize * 2 // 2x para arquivos pequenos (segurança)
-        }
-        
-        if (availableSpace < requiredSpace) {
-             Log.w("VideoProcessor", "Espaço em disco baixo: Disp: ${availableSpace/1024/1024}MB, Req estimado: ${requiredSpace/1024/1024}MB.")
-             // Se tiver menos de 300MB livres absolutos, rejeitar para evitar corromper sistema
-             if (availableSpace < 300 * 1024 * 1024) {
-                 throw IOException("Espaço insuficiente no dispositivo para processar o vídeo (Mínimo 300MB livres necessários)")
-             }
-        }
-        
-        try {
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(inputPath)
-            } catch (e: Exception) {
-                throw IOException("Falha ao ler metadados do vídeo: ${e.message}")
-            }
-            
-            val originalWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 1920
-            val originalHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 1080
-            val originalFrameRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloatOrNull() ?: 30f
-            val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-            val originalBitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull()
-            
-            retriever.release()
-            
-            val is4K = originalWidth >= 3840 && originalHeight >= 2160
-            val is8K = originalWidth >= 7680 && originalHeight >= 4320
-            val willDownscaleToHD = maxWidth < 3840 && maxHeight < 2160
-            val effectiveIs4K = is4K && !willDownscaleToHD
-            val effectiveIs8K = is8K && !willDownscaleToHD
-            val isUltraHD = effectiveIs4K || effectiveIs8K
-
-            val isSmallEnough = originalSizeMB <= maxSizeMB
-            val isResolutionLow = originalWidth <= maxWidth && originalHeight <= maxHeight
-            
-            if (isSmallEnough && isResolutionLow && !isUltraHD) {
-                 Log.d("VideoProcessor", "Vídeo já está otimizado (Tamanho: ${originalSizeMB}MB, Res: ${originalWidth}x${originalHeight})")
-                 return@withContext inputPath
-            }
-            
-            var effectiveQuality = quality
-            
-            if (isUltraHD || originalSizeMB > 300) {
-                Log.w("VideoProcessor", "Vídeo pesado detectado (UltraHD ou >300MB). Otimizando para 720p/HD.")
-                effectiveQuality = "safe_hd" 
-            }
-            
-            System.gc()
-            
-            val (videoBitrate, audioBitrate, frameRate) = when (effectiveQuality) {
-                "low" -> Triple(800_000, 64_000, 24)
-                "medium" -> Triple(2_000_000, 96_000, 30)
-                "high" -> Triple(3_500_000, 128_000, 30)
-                "safe_hd" -> Triple(1_500_000, 96_000, 24)
-                else -> Triple(2_000_000, 96_000, 30)
-            }
-            
-            val MAX_SAFE_WIDTH = 1280
-            val MAX_SAFE_HEIGHT = 720
-
-            var targetWidth = originalWidth
-            var targetHeight = originalHeight
-
-            if (originalWidth > MAX_SAFE_WIDTH || originalHeight > MAX_SAFE_HEIGHT) {
-                val widthRatio = MAX_SAFE_WIDTH.toFloat() / originalWidth
-                val heightRatio = MAX_SAFE_HEIGHT.toFloat() / originalHeight
-                val ratio = min(widthRatio, heightRatio)
-                
-                targetWidth = (originalWidth * ratio).toInt()
-                targetHeight = (originalHeight * ratio).toInt()
-            }
-
-            targetWidth = max(targetWidth, 2)
-            targetHeight = max(targetHeight, 2)
-            if (targetWidth % 2 != 0) targetWidth += 1
-            if (targetHeight % 2 != 0) targetHeight += 1
-
-            targetWidth = min(targetWidth, MAX_SAFE_WIDTH)
-            targetHeight = min(targetHeight, MAX_SAFE_HEIGHT)
-
-            val widthRatio = targetWidth.toFloat() / originalWidth.toFloat()
-            val heightRatio = targetHeight.toFloat() / originalHeight.toFloat()
-            var resizeFraction = min(widthRatio, heightRatio)
-
-            if (resizeFraction <= 0 || resizeFraction > 1.0f || resizeFraction.isNaN()) {
-                resizeFraction = 1.0f
-            }
-
-            try {
-                val safeFrameRate = min(frameRate.toInt(), 30)
-                
-                val videoStrategy = DefaultVideoStrategy.Builder()
-                    .frameRate(safeFrameRate)
-                    .bitRate(videoBitrate.toLong())
-                    .keyFrameInterval(3f)
-                    .addResizer(FractionResizer(resizeFraction)) 
-                    .build()
-                    
-                val audioStrategy = DefaultAudioStrategy.Builder()
-                    .bitRate(96_000)
-                    .channels(1)
-                    .build()
-
-                val latch = java.util.concurrent.CountDownLatch(1)
-                var error: Throwable? = null
-                
-                val inputFileCheck = File(inputPath)
-                if (!inputFileCheck.exists() || !inputFileCheck.canRead()) {
-                    throw IOException("Arquivo de entrada inacessível: $inputPath")
-                }
-                
-                val extractorCheck = MediaExtractor()
-                try {
-                    extractorCheck.setDataSource(inputPath)
-                    if (extractorCheck.trackCount == 0) {
-                         throw IOException("Arquivo de vídeo não contém faixas de mídia")
-                    }
-                    extractorCheck.selectTrack(0)
-                } catch (e: Exception) {
-                    throw IOException("Arquivo de vídeo inválido ou corrompido: ${e.message}")
-                } finally {
-                    extractorCheck.release()
-                }
-                
-                val outputFileObj = File(outputPath)
-                if (outputFileObj.exists()) outputFileObj.delete()
-
-                Transcoder.into(outputPath)
-                    .addDataSource(context, Uri.fromFile(File(inputPath)))
-                    .setVideoTrackStrategy(videoStrategy)
-                    .setAudioTrackStrategy(audioStrategy)
-                    .setListener(object : TranscoderListener {
-                        override fun onTranscodeProgress(progress: Double) {
-                            val percent = (progress * 100).toInt()
-                            val data = JSObject().apply {
-                                put("progress", percent)
-                                put("filePath", inputPath)
-                            }
-                            notifyListeners("videoProgress", data)
-                        }
-                        override fun onTranscodeCompleted(successCode: Int) { latch.countDown() }
-                        override fun onTranscodeCanceled() { latch.countDown() }
-                        override fun onTranscodeFailed(exception: Throwable) { error = exception; latch.countDown() }
-                    })
-                    .transcode()
-                    
-                latch.await()
-                if (error != null) throw error as Throwable
-                
-                Log.d("VideoProcessor", "Compressão concluída com sucesso: $outputPath")
-                return@withContext outputPath
-                
-            } catch (codecError: Throwable) {
-                Log.e("VideoProcessor", "Falha na compressão primária, iniciando estratégias de recuperação", codecError)
-                System.gc()
-                
-                try {
-                    Log.w("VideoProcessor", "Tentativa de Recuperação 1: Resolução Original (Sem Resize)")
-                    
-                    val retryOriginalStrategy = DefaultVideoStrategy.Builder()
-                        .frameRate(24) 
-                        .bitRate(min(originalBitrate?.toLong() ?: 2_000_000L, 2_000_000L))
-                        .build()
-                        
-                    val retryAudioStrategy = DefaultAudioStrategy.Builder()
-                        .bitRate(96_000)
-                        .channels(1)
-                        .build()
-
-                    val latchRetryOrig = java.util.concurrent.CountDownLatch(1)
-                    var errorRetryOrig: Throwable? = null
-                    
-                    Transcoder.into(outputPath)
-                        .addDataSource(context, Uri.fromFile(File(inputPath)))
-                        .setVideoTrackStrategy(retryOriginalStrategy)
-                        .setAudioTrackStrategy(retryAudioStrategy)
-                        .setListener(object : TranscoderListener {
-                            override fun onTranscodeProgress(progress: Double) {
-                                val percent = (progress * 100).toInt()
-                                val data = JSObject().apply {
-                                    put("progress", percent)
-                                    put("filePath", inputPath)
-                                }
-                                notifyListeners("videoProgress", data)
-                            }
-                            override fun onTranscodeCompleted(successCode: Int) { latchRetryOrig.countDown() }
-                            override fun onTranscodeCanceled() { latchRetryOrig.countDown() }
-                            override fun onTranscodeFailed(exception: Throwable) { errorRetryOrig = exception; latchRetryOrig.countDown() }
-                        })
-                        .transcode()
-                        
-                    latchRetryOrig.await()
-                    if (errorRetryOrig != null) throw errorRetryOrig as Throwable
-                    
-                    Log.d("VideoProcessor", "Compressão bem sucedida na Recuperação 1 (Resolução Original)")
-                    return@withContext outputPath
-                    
-                } catch (retryOrigError: Throwable) {
-                     Log.e("VideoProcessor", "Falha na Recuperação 1, tentando reduzir resolução", retryOrigError)
-                     System.gc()
-                }
-
-                try {
-                    Log.w("VideoProcessor", "Tentativa de Recuperação 2: 480p (Safe Mode)")
-                    val retryWidth = 848
-                    val retryHeight = 480
-                    val retryFraction = min(retryWidth.toFloat() / originalWidth.toFloat(), retryHeight.toFloat() / originalHeight.toFloat())
-
-                    val retryStrategy = DefaultVideoStrategy.Builder()
-                        .frameRate(24)
-                        .bitRate(1_000_000L)
-                        .addResizer(FractionResizer(retryFraction))
-                        .build()
-                        
-                    val retryAudioStrategy = DefaultAudioStrategy.Builder()
-                        .bitRate(64_000L)
-                        .channels(1)
-                        .build()
-
-                    val latchRetry = java.util.concurrent.CountDownLatch(1)
-                    var errorRetry: Throwable? = null
-                    
-                    Transcoder.into(outputPath)
-                        .addDataSource(context, Uri.fromFile(File(inputPath)))
-                        .setVideoTrackStrategy(retryStrategy)
-                        .setAudioTrackStrategy(retryAudioStrategy)
-                        .setListener(object : TranscoderListener {
-                            override fun onTranscodeProgress(progress: Double) {
-                                val percent = (progress * 100).toInt()
-                                val data = JSObject().apply {
-                                    put("progress", percent)
-                                    put("filePath", inputPath)
-                                }
-                                notifyListeners("videoProgress", data)
-                            }
-                            override fun onTranscodeCompleted(successCode: Int) { latchRetry.countDown() }
-                            override fun onTranscodeCanceled() { latchRetry.countDown() }
-                            override fun onTranscodeFailed(exception: Throwable) { errorRetry = exception; latchRetry.countDown() }
-                        })
-                        .transcode()
-                        
-                    latchRetry.await()
-                    if (errorRetry != null) throw errorRetry as Throwable
-                    
-                    Log.d("VideoProcessor", "Compressão bem sucedida no modo de recuperação (480p)")
-                    return@withContext outputPath
-                    
-                } catch (retryError: Throwable) {
-                    Log.e("VideoProcessor", "Falha em 480p, tentando 360p (Ultra Low)", retryError)
-                    System.gc()
-                    
-                    try {
-                        val finalRetryWidth = 640
-                        val finalRetryHeight = 360
-                        val finalRetryFraction = min(finalRetryWidth.toFloat() / originalWidth.toFloat(), finalRetryHeight.toFloat() / originalHeight.toFloat())
-
-                        val finalRetryStrategy = DefaultVideoStrategy.Builder()
-                            .frameRate(24)
-                            .bitRate(500_000)
-                            .addResizer(FractionResizer(finalRetryFraction))
-                            .build()
-                        
-                        val finalRetryAudioStrategy = DefaultAudioStrategy.Builder()
-                            .bitRate(64_000)
-                            .channels(1)
-                            .build()
-
-                        val latchFinal = java.util.concurrent.CountDownLatch(1)
-                        var errorFinal: Throwable? = null
-                        
-                        Transcoder.into(outputPath)
-                            .addDataSource(context, Uri.fromFile(File(inputPath)))
-                            .setVideoTrackStrategy(finalRetryStrategy)
-                            .setAudioTrackStrategy(finalRetryAudioStrategy)
-                            .setListener(object : TranscoderListener {
-                                override fun onTranscodeProgress(progress: Double) {
-                                    val percent = (progress * 100).toInt()
-                                    val data = JSObject().apply {
-                                        put("progress", percent)
-                                        put("filePath", inputPath)
-                                    }
-                                    notifyListeners("videoProgress", data)
-                                }
-                                override fun onTranscodeCompleted(successCode: Int) { latchFinal.countDown() }
-                                override fun onTranscodeCanceled() { latchFinal.countDown() }
-                                override fun onTranscodeFailed(exception: Throwable) { errorFinal = exception; latchFinal.countDown() }
-                            })
-                            .transcode()
-                            
-                        latchFinal.await()
-                        if (errorFinal != null) throw errorFinal as Throwable
-                        
-                        Log.d("VideoProcessor", "Compressão bem sucedida no modo de emergência (360p)")
-                        return@withContext outputPath
-                        
-                    } catch (finalError: Throwable) {
-                        Log.e("VideoProcessor", "Todas as tentativas de compressão falharam", finalError)
-                        throw Exception("Falha crítica na compressão de vídeo. Não foi possível reduzir o tamanho do arquivo. Erro: ${finalError.message}")
-                    }
-                }
-            }
-        } catch (e: Throwable) {
-            Log.e("VideoProcessor", "Erro fatal ao comprimir vídeo", e)
-            if (outputFile.exists()) {
-                outputFile.delete()
-            }
-            throw Exception(e)
-        }
-    }
-    
-    private fun startKeepAliveService() {
-        try {
-            val intent = Intent(context, KeepAliveService::class.java)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Falha ao iniciar KeepAliveService", e)
-        }
-    }
-
-    private fun stopKeepAliveService() {
-        try {
-            val intent = Intent(context, KeepAliveService::class.java)
-            context.stopService(intent)
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Falha ao parar KeepAliveService", e)
-        }
-    }
-
-    private fun convertCapacitorPath(path: String): String {
-        if (path.startsWith("content://")) {
-            return copyContentUriToTempFile(path)
-        }
-        return when {
-            path.startsWith("file://") -> path.removePrefix("file://")
-            path.startsWith("capacitor://") -> {
-                val relativePath = path.removePrefix("capacitor://localhost/")
-                File(context.filesDir, relativePath).absolutePath
-            }
-            else -> path
-        }
-    }
-
-    private fun copyContentUriToTempFile(uriString: String): String {
-        try {
-            val uri = android.net.Uri.parse(uriString)
-            val contentResolver = context.contentResolver
-            val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
-            val extension = if (mimeType.contains("image")) ".jpg" else if (mimeType.contains("video")) ".mp4" else ".tmp"
-            
-            val tempFile = File.createTempFile("temp_content_", extension, context.cacheDir)
-            
-            contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-            return tempFile.absolutePath
-        } catch (e: Exception) {
-            Log.e("VideoProcessor", "Erro ao copiar content URI: $uriString", e)
-            return uriString
-        }
-    }
-
-    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        val (height: Int, width: Int) = options.outHeight to options.outWidth
-        var inSampleSize = 1
-        if (height > reqHeight || width > reqWidth) {
-            val halfHeight: Int = height / 2
-            val halfWidth: Int = width / 2
-            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
-                inSampleSize *= 2
-            }
-        }
-        return inSampleSize
-    }
-    
-    private suspend fun uploadFile(
+    private suspend fun uploadFileInternal(
         file: File,
         uploadUrl: String,
         headers: JSObject,
@@ -1618,36 +1069,26 @@ class VideoProcessorPlugin : Plugin() {
             connection?.disconnect()
         }
     }
-    
-    @PluginMethod
-    fun cleanupResources(call: PluginCall) {
+
+    private fun startKeepAliveService() {
         try {
-            coroutineScope.cancel("Cleanup requested")
-            uploadJobs.clear()
-            
-            context.cacheDir?.listFiles()?.forEach { file ->
-                if (file.name.startsWith("temp_") || 
-                    file.name.startsWith("capture_") || 
-                    file.name.startsWith("thumb_") ||
-                    file.name.endsWith(".converted.webp") ||
-                    file.name.endsWith(".compressed.jpg") ||
-                    file.name.endsWith(".compressed.mp4")) {
-                    try {
-                        file.delete()
-                    } catch (e: Exception) {
-                        Log.w("VideoProcessor", "Erro ao limpar arquivo: ${file.name}")
-                    }
-                }
+            val intent = Intent(context, KeepAliveService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
             }
-            
-            call.resolve()
         } catch (e: Exception) {
-            call.reject("Erro ao limpar recursos: ${e.message}")
+            Log.e("VideoProcessor", "Falha ao iniciar KeepAliveService", e)
         }
     }
-    
-    fun cleanup() {
-        coroutineScope.cancel()
-        uploadJobs.clear()
+
+    private fun stopKeepAliveService() {
+        try {
+            val intent = Intent(context, KeepAliveService::class.java)
+            context.stopService(intent)
+        } catch (e: Exception) {
+            Log.e("VideoProcessor", "Falha ao parar KeepAliveService", e)
+        }
     }
 }
