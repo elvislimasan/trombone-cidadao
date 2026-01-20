@@ -3,7 +3,7 @@ import { Video, Film, Trash2, AlertCircle, Play, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Capacitor } from '@capacitor/core';
-import { addVideoFile, isVideoProcessorBusy, cleanupVideoProcessor } from '@/utils/videoProcessor';
+import { addVideoFile, isVideoProcessorBusy, cleanupVideoProcessor, generateQuickWebThumbnail, setGlobalUserViewingMedia } from '@/utils/videoProcessor';
 import { VideoProcessor as VideoProcessorPlugin } from '@/plugins/VideoProcessor';
 import MediaViewer from '@/components/MediaViewer';
 
@@ -99,6 +99,15 @@ const VideoProcessor = ({
       }).catch(err => {
         console.warn('Falha ao gerar preview antecipado:', err);
       });
+    } else if (!file.isNative) {
+      // Gera thumbnail para Web imediatamente
+      generateQuickWebThumbnail(file).then(thumb => {
+        if (mountedRef.current && thumb) {
+            onVideosChange(prevVideos => prevVideos.map(v => 
+                v.id === tempId ? { ...v, preview: thumb } : v
+            ));
+        }
+      });
     }
 
     try {
@@ -171,10 +180,13 @@ const VideoProcessor = ({
         },
         onError: (stage, error) => {
            console.error('Erro no processamento background:', error);
+           // Se o erro for uma string, usa ela. Se for objeto, tenta message. Se não, usa genérico.
+           const errorMessage = typeof error === 'string' ? error : (error.message || "O vídeo foi removido devido a um erro.");
+           
            toast({
              variant: "destructive",
              title: "Falha ao processar vídeo",
-             description: "O vídeo foi removido devido a um erro."
+             description: errorMessage
            });
            // Remover vídeo com erro
            if (mountedRef.current) {
@@ -222,7 +234,7 @@ const VideoProcessor = ({
     if (files.length === 0) return;
 
     // Processar vídeos em paralelo (o gerenciamento de fila está no videoProcessor.js)
-    const MAX_GALLERY_VIDEO_MB = 200;
+    const MAX_GALLERY_VIDEO_MB = 1024;
     
     // Disparar processamento para todos os arquivos válidos
     const validFiles = files.filter(f => (f.size || 0) / (1024 * 1024) <= MAX_GALLERY_VIDEO_MB);
@@ -249,7 +261,7 @@ const VideoProcessor = ({
 
   // Handler para gravação de vídeo
   const handleRecordVideo = useCallback(async () => {
-    if (disabled || isProcessing) return;
+    if (disabled) return;
     lastSourceRef.current = 'camera';
 
     // Se houver um handler externo (CameraCapture do ReportModal), usar ele
@@ -312,7 +324,7 @@ const VideoProcessor = ({
 
   // Handler para galeria
   const handleGallerySelect = useCallback(async () => {
-    if (disabled || isProcessing) return;
+    if (disabled) return;
 
     lastSourceRef.current = 'gallery';
 
@@ -372,53 +384,29 @@ const VideoProcessor = ({
         className="flex items-center justify-between bg-background p-3 rounded-md border group hover:border-accent transition-colors"
       >
         <div 
-          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-          onClick={() => !isProcessingItem && setViewingVideoIndex(index)}
-        >
-          {video.preview ? (
+                className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                onClick={() => {
+                    setViewingVideoIndex(index);
+                    setGlobalUserViewingMedia(true);
+                }}
+              >
+                {video.preview ? (
             <div className="relative w-12 h-12">
               <img src={video.preview} alt="Thumb do vídeo" className="w-12 h-12 object-cover rounded border border-border" />
-              {!isProcessingItem && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
                   <Play className="w-4 h-4 text-white fill-white" />
                 </div>
-              )}
             </div>
           ) : (
             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center rounded border border-gray-200 dark:border-gray-700 relative">
-              {isProcessingItem ? (
-                 <Loader2 className="w-5 h-5 text-primary animate-spin" />
-              ) : (
-                 <>
                    <Video className="w-5 h-5 text-gray-400" />
                    <div className="absolute inset-0 flex items-center justify-center">
                       <Play className="w-3 h-3 text-gray-500 fill-gray-500 opacity-50" />
                    </div>
-                 </>
-              )}
             </div>
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{video.name}</p>
-            
-            {isProcessingItem ? (
-               <div className="w-full mt-1 space-y-1">
-                 <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Otimizando...</span>
-                    <span>{Math.round(video.progress || 0)}%</span>
-                 </div>
-                 <div className="h-1 w-full bg-secondary rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary transition-all duration-300 ease-out"
-                      style={{ width: `${video.progress || 0}%` }}
-                    />
-                 </div>
-               </div>
-            ) : (
-                <p className="text-xs text-muted-foreground hidden">
-                  {/* Informações de tamanho ocultas conforme solicitado */}
-                </p>
-            )}
           </div>
         </div>
         <button 
@@ -503,10 +491,15 @@ const VideoProcessor = ({
           media={videos.map(v => ({
             type: 'video',
             url: v.nativePath ? Capacitor.convertFileSrc(v.nativePath) : (v.file ? URL.createObjectURL(v.file) : v.url || ''),
-            name: v.name
+            name: v.name,
+            preview: v.preview
           }))}
           startIndex={viewingVideoIndex}
-          onClose={() => setViewingVideoIndex(null)}
+          onClose={() => {
+            setViewingVideoIndex(null);
+            setGlobalUserViewingMedia(false);
+          }}
+          onRemove={handleRemoveVideo}
         />
       )}
 
@@ -518,7 +511,7 @@ const VideoProcessor = ({
         multiple
         onChange={handleFileSelect}
         className="hidden"
-        disabled={disabled || isProcessing || !canAddMoreVideos}
+        disabled={disabled || !canAddMoreVideos}
       />
       
       <input
@@ -527,7 +520,7 @@ const VideoProcessor = ({
         accept="video/*"
         onChange={handleFileSelect}
         className="hidden"
-        disabled={disabled || isProcessing || !canAddMoreVideos}
+        disabled={disabled || !canAddMoreVideos}
       />
 
       {/* Botões de ação */}
@@ -538,7 +531,7 @@ const VideoProcessor = ({
             variant="outline"
             onClick={handleRecordVideo}
             className="h-20 flex-col gap-1"
-            disabled={disabled || isProcessing || !canAddMoreVideos}
+            disabled={disabled || !canAddMoreVideos}
           >
             <Video className="w-6 h-6" />
             <span className="text-xs">Gravar Vídeo</span>
@@ -550,7 +543,7 @@ const VideoProcessor = ({
           variant="outline"
           onClick={handleGallerySelect}
           className="h-20 flex-col gap-1"
-          disabled={disabled || isProcessing || !canAddMoreVideos}
+          disabled={disabled || !canAddMoreVideos}
         >
           <Film className="w-6 h-6" />
           <span className="text-xs">Galeria de Vídeos</span>

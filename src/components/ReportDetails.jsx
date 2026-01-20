@@ -1,11 +1,13 @@
 import React, { useState, useRef, lazy, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play } from 'lucide-react';
+import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useUpload } from '@/contexts/UploadContext';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Progress } from '@/components/ui/progress';
 import MediaViewer from '@/components/MediaViewer';
 import MarkResolvedModal from '@/components/MarkResolvedModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,12 +16,13 @@ import DynamicSEO from './DynamicSeo';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { validateVideoFile } from '@/utils/videoProcessor';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
 // Componente para gerar thumbnail de vídeo
-const VideoThumbnail = React.memo(({ videoUrl, alt, className }) => {
+const VideoThumbnail = React.memo(({ videoUrl, alt, className, hidePlaceholder = false }) => {
   const [thumbnail, setThumbnail] = useState(null);
   const [error, setError] = useState(false);
   const videoRef = useRef(null);
@@ -156,6 +159,7 @@ const ReportDetails = ({
   isModerationView = false,
 }) => {
   const { user } = useAuth();
+  const { activeUploads } = useUpload();
   const navigate = useNavigate();
   const [showEvaluation, setShowEvaluation] = useState(false);
   const [evaluation, setEvaluation] = useState({ rating: 0, comment: '' });
@@ -671,6 +675,15 @@ const ReportDetails = ({
           processedFile = await compressImage(file);
         }
         
+        if (fileType === 'videos') {
+           try {
+             await validateVideoFile(file);
+           } catch (e) {
+             toast({ title: "Vídeo inválido", description: e.message, variant: "destructive" });
+             continue;
+           }
+        }
+
         // Se ainda for vídeo muito grande após (tentativa de) validação, avisar
         if (fileType === 'videos' && file.size > 200 * 1024 * 1024) {
            toast({ title: "Vídeo muito grande", description: "O upload pode demorar.", variant: "default" });
@@ -821,10 +834,33 @@ const ReportDetails = ({
   // Determina se há resolução pendente para moderação (apenas para admins)
   const isResolutionModeration = canModerate && report.status === 'pending_resolution' && report.resolution_submission;
 
-  const allMedia = [
-    ...(report.photos || []).map(p => ({ ...p, type: 'photo' })),
-    ...(report.videos || []).map(v => ({ ...v, type: 'video' }))
-  ];
+  const pendingUploads = useMemo(() => {
+    if (!activeUploads) return [];
+    return Object.values(activeUploads)
+      .filter(u => u.reportId === report.id && u.status !== 'completed' && u.status !== 'error')
+      .map(u => ({
+        id: u.id,
+        type: u.type || 'video',
+        url: u.previewUrl || null,
+        isUploading: true,
+        progress: u.progress,
+        name: u.name
+      }));
+  }, [activeUploads, report.id]);
+
+  const allMedia = useMemo(() => {
+    const pendingNames = new Set(pendingUploads.map(u => u.name));
+    
+    return [
+      ...pendingUploads,
+      ...(report.photos || [])
+        .filter(p => !pendingNames.has(p.name))
+        .map(p => ({ ...p, type: 'photo' })),
+      ...(report.videos || [])
+        .filter(v => !pendingNames.has(v.name))
+        .map(v => ({ ...v, type: 'video' }))
+    ];
+  }, [pendingUploads, report.photos, report.videos]);
 
   const editingMedia = isEditing ? [
     ...(editData.photos || []).map(p => ({ ...p, type: 'photo' })),
@@ -1244,11 +1280,21 @@ const ReportDetails = ({
                         <div className="w-full aspect-square rounded-lg overflow-hidden border border-border group bg-background flex items-center justify-center relative">
                           <button
                             type="button"
-                            onClick={() => !isEditing && openMediaViewer(index)}
-                            className="w-full h-full"
+                            onClick={() => !isEditing && !media.isUploading && openMediaViewer(index)}
+                            className={`w-full h-full ${media.isUploading ? 'cursor-default' : ''}`}
+                            disabled={media.isUploading}
                           >
                             {media.type === 'photo' ? (
-                              <img alt={`Mídia ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" src={getThumbnailUrl(media.url)} />
+                              <div className="relative w-full h-full">
+                                <img alt={`Mídia ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" src={getThumbnailUrl(media.url)} />
+                                {media.isUploading && (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10 p-2">
+                                    <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
+                                    <span className="text-white text-xs font-medium mb-2">Enviando...</span>
+                                    <Progress value={media.progress} className="h-1.5 w-3/4" />
+                                  </div>
+                                )}
+                              </div>
                             ) : (
                               <div className="relative w-full h-full">
                                 <VideoThumbnail 
@@ -1256,11 +1302,19 @@ const ReportDetails = ({
                                   alt={media.name || `Vídeo ${index + 1}`} 
                                   className="w-full h-full object-cover transition-transform group-hover:scale-105"
                                 />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                                  <div className="bg-white/90 rounded-full p-3 shadow-lg group-hover:scale-110 transition-transform">
-                                    <Play className="w-6 h-6 text-foreground fill-foreground" />
+                                {media.isUploading ? (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10 p-2">
+                                    <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
+                                    <span className="text-white text-xs font-medium mb-2">Enviando...</span>
+                                    <Progress value={media.progress} className="h-1.5 w-3/4" />
                                   </div>
-                                </div>
+                                ) : (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                                    <div className="bg-white/90 rounded-full p-3 shadow-lg group-hover:scale-110 transition-transform">
+                                      <Play className="w-6 h-6 text-foreground fill-foreground" />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </button>

@@ -132,6 +132,20 @@ function detectVideoCharacteristics(fileSize) {
       memorySafe: false
     };
   } else if (sizeMB > 15) { // Aumentado de 10 para 15MB
+    // Para Web, não comprimir se for menor que 50MB (limite do Supabase)
+    const isNative = Capacitor.isNativePlatform();
+    
+    if (!isNative && sizeMB <= 50) {
+       return {
+        type: 'MEDIUM_WEB',
+        timeout: CONFIG.TIMEOUTS.MEDIUM_VIDEO,
+        delay: CONFIG.DELAYS.MEDIUM,
+        completionDelay: CONFIG.DELAYS.MEDIUM,
+        requiresCompression: true, // Web: Comprimir levemente entre 15-50MB
+        memorySafe: true
+      };
+    }
+
     return {
       type: 'MEDIUM',
       timeout: CONFIG.TIMEOUTS.MEDIUM_VIDEO,
@@ -155,10 +169,14 @@ function detectVideoCharacteristics(fileSize) {
 /**
  * Valida arquivo de vídeo sem carregar tudo em memória
  */
-async function validateVideoFile(file) {
+export async function validateVideoFile(file) {
   try {
     // Suporte para objetos nativos (VideoProcessorPlugin)
     if (file && file.isNative) {
+      // Validar duração se disponível (limite de 10 minutos = 600 segundos)
+      if (file.duration && file.duration > 600) {
+        throw new Error('O vídeo deve ter no máximo 10 minutos.');
+      }
       return {
         isValid: true,
         format: file.name ? file.name.split('.').pop() : 'mp4',
@@ -177,6 +195,10 @@ async function validateVideoFile(file) {
             // Tentar obter metadados via plugin, que é mais robusto para paths de mídia
             const meta = await VideoProcessor.getVideoMetadata({ filePath: file });
             size = meta.size;
+
+            if (meta.duration && meta.duration > 600) {
+                 throw new Error('O vídeo deve ter no máximo 10 minutos.');
+            }
         } catch (e) {
             console.warn('Erro ao validar path de vídeo:', e);
             // Se falhar, tentamos assumir que é válido se tiver extensão de vídeo
@@ -222,6 +244,25 @@ async function validateVideoFile(file) {
 
     if (!isMP4 && !isMOV && file.type !== 'video/webm') {
       throw new Error('Formato de vídeo inválido ou corrompido');
+    }
+
+    // Validar duração (Web/File Object)
+    const duration = await new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      video.onerror = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(0);
+      };
+      video.src = URL.createObjectURL(file);
+    });
+
+    if (duration && duration > 600) {
+      throw new Error('O vídeo deve ter no máximo 10 minutos.');
     }
 
     return {
@@ -434,6 +475,13 @@ async function compressVideoNative(file, options = {}) {
   }
 }
 
+// Estado global para controle de concorrência com UI
+let isUserViewingMedia = false;
+
+function setGlobalUserViewingMedia(isViewing) {
+  isUserViewingMedia = isViewing;
+}
+
 /**
  * Comprime vídeo na web usando Canvas + MediaRecorder
  * @param {File} file 
@@ -441,19 +489,29 @@ async function compressVideoNative(file, options = {}) {
  */
 async function compressVideoWeb(file, options = {}) {
   return new Promise(async (resolve, reject) => {
+    let wakeLock = null;
     try {
       const {
         quality = 'medium',
-        maxWidth = 960, // Otimizado para mobile (qHD) - mais rápido que 720p
-        maxHeight = 540,
+        maxWidth = 1280, // Aumentado para HD (720p)
+        maxHeight = 720,
         onProgress
       } = options;
 
-      // Bitrates alvo (bits por segundo)
+      // Tentar manter a tela ligada (Wake Lock API)
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.warn('Wake Lock error:', err);
+      }
+
+      // Bitrates alvo (bits por segundo) - Aumentados significativamente
       const bitrates = {
-        low: 1500000,    // 1.5 Mbps (aumentado de 1.0)
-        medium: 3000000, // 3.0 Mbps (aumentado de 2.5)
-        high: 6000000    // 6.0 Mbps (aumentado de 5.0)
+        low: 4500000,    // 4.5 Mbps
+        medium: 5000000, // 5.0 Mbps
+        high: 8000000    // 8.0 Mbps
       };
       const targetBitrate = bitrates[quality] || bitrates.medium;
 
@@ -461,12 +519,32 @@ async function compressVideoWeb(file, options = {}) {
       // REMOVIDO: video.muted = true; -> Para permitir captura de áudio via createMediaElementSource
       // O áudio será redirecionado para o stream e não sairá nos alto-falantes
       video.playsInline = true;
+      video.crossOrigin = "anonymous"; // Importante para evitar taint do canvas/audio
       video.src = URL.createObjectURL(file);
       
       await new Promise((r, j) => {
         video.onloadedmetadata = () => r();
         video.onerror = (e) => j(e);
       });
+
+      // Lógica de Bitrate Dinâmico para atender limite de 50MB
+      // Limite do Supabase: 50MB. Usaremos 45MB como alvo seguro.
+      const TARGET_SIZE_BYTES = 45 * 1024 * 1024; // 45MB
+      const duration = video.duration || 1; 
+      
+      // Bitrate máximo teórico para caber em 45MB (bits por segundo)
+      const maxAllowedBitrate = Math.floor((TARGET_SIZE_BYTES * 8) / duration);
+
+      // Bitrates de referência para qualidade desejada
+      const baseBitrate = 4500000; // 4.5 Mbps (Quality target)
+
+      // O bitrate final é o menor entre o desejado e o máximo permitido pelo tamanho do arquivo
+      let finalBitrate = Math.min(baseBitrate, maxAllowedBitrate);
+
+      // Proteção mínima: não baixar de 500kbps
+      if (finalBitrate < 500000) finalBitrate = 500000;
+
+      console.log(`[Compressão Web] Duração: ${duration.toFixed(1)}s, Alvo: <45MB, Bitrate: ${(finalBitrate/1000000).toFixed(2)} Mbps`);
 
       // Calcular dimensões mantendo aspect ratio
       let w = video.videoWidth;
@@ -500,17 +578,42 @@ async function compressVideoWeb(file, options = {}) {
       let thumbnail = null;
 
       try {
+        // Usar WebAudio API preferencialmente para evitar vazamento de som durante o processamento
+        // createMediaElementSource "sequestra" o áudio do elemento, silenciando o output dos alto-falantes
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (AudioContext) {
           audioContext = new AudioContext();
+          // Importante: O vídeo deve ter crossOrigin="anonymous" para isso funcionar (já configurado acima)
           audioSource = audioContext.createMediaElementSource(video);
           const dest = audioContext.createMediaStreamDestination();
           audioSource.connect(dest);
+          // NÃO conectar ao audioContext.destination para manter silêncio
+          
           const audioTrack = dest.stream.getAudioTracks()[0];
-          if (audioTrack) stream.addTrack(audioTrack);
+          if (audioTrack) {
+              stream.addTrack(audioTrack);
+              console.log('Áudio capturado via WebAudio API (Silencioso)');
+          }
+        } 
+        // Fallback apenas se WebAudio falhar (pode vazar áudio)
+        else if (video.captureStream || video.mozCaptureStream) {
+           const videoStream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+           const audioTracks = videoStream.getAudioTracks();
+           if (audioTracks && audioTracks.length > 0) {
+             stream.addTrack(audioTracks[0]);
+             console.log('Áudio capturado via captureStream (Pode vazar áudio)');
+           }
         }
       } catch (e) {
-        console.warn('Áudio não suportado na compressão web:', e);
+        console.warn('Erro ao configurar áudio:', e);
+        // Tentar fallback simples se WebAudio falhar com erro
+        try {
+            if (stream.getAudioTracks().length === 0 && (video.captureStream || video.mozCaptureStream)) {
+                const videoStream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+                const audioTracks = videoStream.getAudioTracks();
+                if (audioTracks && audioTracks.length > 0) stream.addTrack(audioTracks[0]);
+            }
+        } catch (e2) {}
       }
 
       // Gerar Thumbnail inicial
@@ -531,7 +634,7 @@ async function compressVideoWeb(file, options = {}) {
 
       const recorder = new MediaRecorder(stream, {
         mimeType,
-        videoBitsPerSecond: targetBitrate
+        videoBitsPerSecond: typeof finalBitrate !== 'undefined' ? finalBitrate : targetBitrate
       });
 
       const chunks = [];
@@ -540,6 +643,9 @@ async function compressVideoWeb(file, options = {}) {
       };
 
       recorder.onstop = () => {
+        // Liberar Wake Lock
+        if (wakeLock) wakeLock.release().catch(() => {});
+
         // FORÇAR MP4 para passar no upload do Supabase (erro 415 com webm), mesmo que seja WebM internamente
         // A maioria dos players modernos detecta o conteúdo real ou toca WebM renomeado
         const forcedMimeType = 'video/mp4';
@@ -561,7 +667,10 @@ async function compressVideoWeb(file, options = {}) {
         });
       };
 
-      recorder.onerror = (e) => reject(e);
+      recorder.onerror = (e) => {
+        if (wakeLock) wakeLock.release().catch(() => {});
+        reject(e);
+      };
 
       recorder.start(1000);
       
@@ -575,16 +684,42 @@ async function compressVideoWeb(file, options = {}) {
         await video.play();
       }
 
+      // Loop robusto para suportar background (Screen Wake Lock ajuda, mas o loop precisa ser resiliente)
       function draw() {
-        if (video.paused || video.ended) return;
-        ctx.drawImage(video, 0, 0, w, h);
+        if (video.ended) return; // recorder.stop será chamado no video.onended
         
-        if (onProgress) {
-          const percent = Math.min(99, (video.currentTime / video.duration) * 100);
-          onProgress(percent, 'Comprimindo (Web)...');
+        // THROTTLE DINÂMICO: Se o usuário estiver vendo um vídeo, reduzir drasticamente a carga
+        if (isUserViewingMedia) {
+           setTimeout(draw, 1000); // 1 FPS (quase pausado) para liberar CPU/GPU
+           if (!video.paused) {
+             video.pause(); // Pausar o vídeo fonte para economizar decoder
+           }
+           return;
+        }
+
+        if (video.paused && !video.ended) {
+          // Tentar retomar se pausou (ex: background ou saiu do modo viewing)
+          video.play().catch(() => {});
+        }
+
+        try {
+          ctx.drawImage(video, 0, 0, w, h);
+          
+          if (onProgress) {
+            const percent = Math.min(99, (video.currentTime / video.duration) * 100);
+            onProgress(percent, 'Comprimindo (Web)...');
+          }
+        } catch (e) {
+          console.warn('Erro no draw frame:', e);
         }
         
-        requestAnimationFrame(draw);
+        // Se a tab estiver oculta, usar setTimeout para garantir execução (mesmo que lenta)
+        // Se estiver visível, usar requestAnimationFrame para fluidez
+        if (document.hidden) {
+          setTimeout(draw, 100); // 10 FPS em background
+        } else {
+          requestAnimationFrame(draw);
+        }
       }
       
       draw();
@@ -594,6 +729,7 @@ async function compressVideoWeb(file, options = {}) {
       };
 
     } catch (err) {
+      if (wakeLock) wakeLock.release().catch(() => {});
       reject(err);
     }
   });
@@ -701,16 +837,14 @@ async function _processVideoFileInternal(file, options = {}) {
 
   // Comprimir se necessário (apenas mobile) ou se for Web (para garantir MP4 via Canvas)
   // Se for câmera, SEMPRE comprimir para garantir formato e metadados corretos, a menos que skipCompression seja true
-  if (!skipCompression && (characteristics.requiresCompression || source === 'camera' || !Capacitor.isNativePlatform())) {
+  if (!skipCompression && (characteristics.requiresCompression || source === 'camera')) {
     if (Capacitor.isNativePlatform()) {
 
       const sizeMB = fileSize / (1024 * 1024);
         
-        // Configurações agressivas de compressão para mobile (tipo WhatsApp)
-        const targetMaxSizeMB =
-          sizeMB > 100 ? 15 : // Arquivos gigantes -> 15MB
-          sizeMB > 50 ? 10 :   // Arquivos grandes -> 10MB
-          sizeMB > 10 ? 5 : 3; // Arquivos médios (>10MB) -> 5MB, Pequenos -> 3MB
+        // Configuração para manter qualidade mas respeitar limite do Supabase (50MB)
+        // Usamos 48MB como alvo seguro para permitir metadados/headers
+        const targetMaxSizeMB = 48;
 
         const isVeryLarge = sizeMB > 100;
         
@@ -718,8 +852,8 @@ async function _processVideoFileInternal(file, options = {}) {
           compressionResult = await compressVideoNative(file, {
             maxSizeMB: targetMaxSizeMB,
             maxFileSize: targetMaxSizeMB * 1024 * 1024,
-            quality: 'safe_hd', // USAR PERFIL SEGURO (alterado de medium para safe_hd/custom logic no nativo)
-            maxWidth: 1280, // Forçar HD 720p no pedido também
+            quality: 'medium', // Melhor qualidade que 'low', o plugin ajustará o bitrate para caber em 48MB
+            maxWidth: 1280, // HD 720p
             maxHeight: 720,
             onProgress: (p, m) => reportProgress(p, m) // Passar wrapper com heartbeat
           });
@@ -770,16 +904,16 @@ async function _processVideoFileInternal(file, options = {}) {
         }
     } else {
       // Compressão Web via Canvas/MediaRecorder
-      try {
-        // Se for muito grande, usar bitrate mais baixo
-        const quality = file.size > 100 * 1024 * 1024 ? 'low' : 'medium';
-        
-        compressionResult = await compressVideoWeb(file, {
-          quality,
-          maxWidth: 960,
-          maxHeight: 540,
-          onProgress: (p) => onProgress && onProgress(p, 'Processando vídeo...')
-        });
+    try {
+      // Se for maior que 45MB, usar qualidade baixa para tentar manter abaixo de 50MB
+      const quality = file.size > 45 * 1024 * 1024 ? 'low' : 'medium';
+      
+      compressionResult = await compressVideoWeb(file, {
+        quality,
+        maxWidth: 1280, // HD
+        maxHeight: 720,
+        onProgress: (p) => onProgress && onProgress(p, 'Processando vídeo...')
+      });
 
         processedFile = compressionResult.file;
         
@@ -927,12 +1061,92 @@ export function isVideoProcessorBusy() {
   return processorState.isProcessing;
 }
 
+/**
+ * Gera um thumbnail rápido para vídeos Web (Snapshot)
+ * @param {File} file Arquivo de vídeo
+ * @returns {Promise<string>} Base64 do thumbnail ou null
+ */
+export async function generateQuickWebThumbnail(file) {
+  return new Promise((resolve) => {
+    try {
+      // Se não for vídeo, retorna null
+      if (!file.type.startsWith('video/')) {
+        resolve(null);
+        return;
+      }
+
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.playsInline = true;
+      video.muted = true;
+      
+      const url = URL.createObjectURL(file);
+      video.src = url;
+
+      // Timeout de segurança
+      const timeout = setTimeout(() => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      }, 3000);
+
+      video.onloadeddata = () => {
+        // Tentar pular para 1s ou meio do vídeo se for curto
+        video.currentTime = Math.min(1, video.duration / 2);
+      };
+
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          // Tamanho reduzido para performance
+          canvas.width = 480;
+          canvas.height = 270;
+          const ctx = canvas.getContext('2d');
+          
+          // Manter aspect ratio
+          const scale = Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+          const w = video.videoWidth * scale;
+          const h = video.videoHeight * scale;
+          const x = (canvas.width - w) / 2;
+          const y = (canvas.height - h) / 2;
+          
+          ctx.drawImage(video, x, y, w, h);
+          
+          const thumb = canvas.toDataURL('image/jpeg', 0.6);
+          
+          clearTimeout(timeout);
+          URL.revokeObjectURL(url);
+          resolve(thumb);
+        } catch (e) {
+          console.warn('Erro ao gerar quick thumb:', e);
+          clearTimeout(timeout);
+          URL.revokeObjectURL(url);
+          resolve(null);
+        }
+      };
+
+      video.onerror = () => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      
+    } catch (e) {
+        resolve(null);
+    }
+  });
+}
+
+export { compressVideoWeb, setGlobalUserViewingMedia };
+
 export default {
   processVideoFile,
   addVideoFile,
   cleanupVideoProcessor,
   isVideoProcessorBusy,
   validateVideoFile,
+  compressVideoWeb,
+  generateQuickWebThumbnail,
+  setGlobalUserViewingMedia,
   CONFIG
 };
 /**

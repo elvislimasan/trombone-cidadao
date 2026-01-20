@@ -50,7 +50,7 @@ import NotificationPreferences from './pages/NotificationPreferences';
 import DeleteAccountPage from './pages/DeleteAccountPage';
 import { VideoProcessor } from '@/plugins/VideoProcessor';
 import { UploadProvider } from '@/contexts/UploadContext';
-import UploadStatusBar from '@/components/UploadStatusBar';
+import WebUploadIndicator from '@/components/WebUploadIndicator';
 
 const SEO = () => {
   const location = useLocation();
@@ -466,6 +466,7 @@ function App() {
         <BottomNav />
         <Toaster />
         <SonnerToast position="top-right" richColors />
+        <WebUploadIndicator />
       </div>
     </UploadProvider>
   );

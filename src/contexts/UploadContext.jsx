@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { VideoProcessor } from '@/plugins/VideoProcessor';
+import { compressVideoWeb } from '@/utils/videoProcessor';
+import { uploadLargeFile } from '@/utils/webUploadService';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/customSupabaseClient';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -12,6 +14,7 @@ export const useUpload = () => useContext(UploadContext);
 export const UploadProvider = ({ children }) => {
   const [activeUploads, setActiveUploads] = useState({});
   const [isMinimized, setIsMinimized] = useState(false);
+  const abortControllersRef = React.useRef({});
 
   // Listener global para eventos de progresso nativos
   useEffect(() => {
@@ -205,6 +208,16 @@ export const UploadProvider = ({ children }) => {
   }, []);
 
   const cancelUpload = useCallback(async (uploadId) => {
+      // Cancelar controller se existir (Web)
+      if (abortControllersRef.current[uploadId]) {
+          try {
+              abortControllersRef.current[uploadId].abort();
+          } catch (e) {
+              console.error("Erro ao abortar upload:", e);
+          }
+          delete abortControllersRef.current[uploadId];
+      }
+
       // Implementar cancelamento nativo se necessário
       // await VideoProcessor.cancelUpload({ uploadId });
       setActiveUploads(prev => {
@@ -212,6 +225,77 @@ export const UploadProvider = ({ children }) => {
           return rest;
       });
   }, []);
+
+  const queueWebUpload = useCallback(async (file, filePath, metadata, options = {}) => {
+    const uploadId = `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Criar controller para cancelamento
+    const controller = new AbortController();
+    abortControllersRef.current[uploadId] = controller;
+
+    // Registrar estado inicial
+    registerUpload(uploadId, { ...metadata, status: 'preparing', progress: 0 });
+    
+    // Executar processo em background (sem await)
+    (async () => {
+        try {
+            if (controller.signal.aborted) throw new Error('Upload cancelado');
+
+            let fileToUpload = file;
+            
+            // 1. Otimizar se necessário (apenas vídeos)
+            if (metadata.type === 'video' && !options.skipCompression) {
+                updateUploadProgress(uploadId, 0, 'optimizing');
+                try {
+                    // Check abort before heavy operation
+                    if (controller.signal.aborted) throw new Error('Upload cancelado');
+
+                    const result = await compressVideoWeb(file, {
+                        quality: 'medium',
+                        onProgress: (p) => {
+                            if (controller.signal.aborted) return;
+                            updateUploadProgress(uploadId, p, 'optimizing');
+                        }
+                    });
+                    fileToUpload = result.file;
+                } catch (compErr) {
+                    if (compErr.message === 'Upload cancelado') throw compErr;
+                    console.warn("Compressão web falhou, usando original:", compErr);
+                    // Segue com o original
+                }
+            }
+            
+            // 2. Upload
+            if (controller.signal.aborted) throw new Error('Upload cancelado');
+            updateUploadProgress(uploadId, 0, 'uploading');
+            
+            await uploadLargeFile(fileToUpload, filePath, {
+                onProgress: (p) => updateUploadProgress(uploadId, p, 'uploading'),
+                bucket: options.bucket || 'reports-media',
+                signal: controller.signal
+            });
+            
+            // 3. Concluir
+            if (!controller.signal.aborted) {
+                updateUploadProgress(uploadId, 100, 'completed');
+            }
+            
+        } catch (err) {
+            if (err.message === 'Upload cancelado' || err.name === 'AbortError') {
+                console.log("Web upload cancelled:", uploadId);
+                // Não marcamos como erro, apenas removemos (já tratado no cancelUpload)
+            } else {
+                console.error("Web background upload failed:", err);
+                updateUploadProgress(uploadId, 0, 'error');
+            }
+        } finally {
+            // Cleanup controller
+            delete abortControllersRef.current[uploadId];
+        }
+    })();
+    
+    return uploadId;
+  }, [registerUpload, updateUploadProgress]);
 
   const toggleMinimized = () => setIsMinimized(prev => !prev);
 
@@ -227,6 +311,7 @@ export const UploadProvider = ({ children }) => {
       activeUploads, 
       registerUpload, 
       updateUploadProgress,
+      queueWebUpload,
       cancelUpload,
       isUploading,
       totalProgress,
