@@ -515,6 +515,12 @@ class VideoProcessorPlugin : Plugin() {
             pendingCaptureFile = file
             
             intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
+            
+            val maxDurationSec = call.getInt("maxDurationSec")
+            if (maxDurationSec != null && maxDurationSec > 0) {
+                intent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, maxDurationSec)
+            }
+
             // Add ClipData for Android 11+ permission persistence
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 intent.clipData = ClipData.newRawUri("", uri)

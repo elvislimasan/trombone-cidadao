@@ -76,15 +76,15 @@ async function getFCMAccessToken(): Promise<string> {
       }
       
       // Log do Service Account sendo usado
-      console.log(`📧 [FCM] Client email: ${serviceAccount.client_email}`);
-      console.log(`🏢 [FCM] Project ID do Service Account: ${serviceAccount.project_id || 'NÃO DEFINIDO'}`);
-      console.log(`🏢 [FCM] Project ID da variável de ambiente: ${FIREBASE_PROJECT_ID || 'NÃO DEFINIDO'}`);
+//       console.log(`📧 [FCM] Client email: ${serviceAccount.client_email}`);
+//       console.log(`🏢 [FCM] Project ID do Service Account: ${serviceAccount.project_id || 'NÃO DEFINIDO'}`);
+//       console.log(`🏢 [FCM] Project ID da variável de ambiente: ${FIREBASE_PROJECT_ID || 'NÃO DEFINIDO'}`);
       
       // Verificar se o project_id do Service Account corresponde ao da variável de ambiente
       if (serviceAccount.project_id && FIREBASE_PROJECT_ID && serviceAccount.project_id !== FIREBASE_PROJECT_ID) {
-        console.warn(`⚠️ [FCM] ATENÇÃO: Project ID do Service Account (${serviceAccount.project_id}) é diferente da variável de ambiente (${FIREBASE_PROJECT_ID})`);
-        console.warn(`⚠️ [FCM] O código vai usar o project_id da variável de ambiente (${FIREBASE_PROJECT_ID}) para enviar notificações`);
-        console.warn(`⚠️ [FCM] MAS o Service Account precisa ter permissões no projeto ${FIREBASE_PROJECT_ID}`);
+//         console.warn(`⚠️ [FCM] ATENÇÃO: Project ID do Service Account (${serviceAccount.project_id}) é diferente da variável de ambiente (${FIREBASE_PROJECT_ID})`);
+//         console.warn(`⚠️ [FCM] O código vai usar o project_id da variável de ambiente (${FIREBASE_PROJECT_ID}) para enviar notificações`);
+//         console.warn(`⚠️ [FCM] MAS o Service Account precisa ter permissões no projeto ${FIREBASE_PROJECT_ID}`);
       }
       
       // Usar project_id do JSON se disponível, senão usar variável de ambiente
@@ -114,7 +114,7 @@ async function getFCMAccessToken(): Promise<string> {
       if (!normalizedKey.includes('BEGIN PRIVATE KEY')) {
         // Se não tiver os markers, pode estar sem formatação
         // Tentar adicionar (mas geralmente já vem com)
-        console.warn("Private key pode estar sem formatação adequada");
+//         console.warn("Private key pode estar sem formatação adequada");
       }
       
       serviceAccount = {
@@ -248,7 +248,7 @@ async function sendFCMNotification(
     // Prioridade 1: Variável de ambiente FIREBASE_PROJECT_ID (mais confiável)
     if (FIREBASE_PROJECT_ID) {
       projectId = FIREBASE_PROJECT_ID;
-      console.log(`🏢 [FCM] Usando project_id da variável de ambiente: ${projectId}`);
+//       console.log(`🏢 [FCM] Usando project_id da variável de ambiente: ${projectId}`);
     }
     
     // Prioridade 2: Service Account JSON (pode ser do projeto antigo ou novo)
@@ -257,27 +257,27 @@ async function sendFCMNotification(
         const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
         if (serviceAccount.project_id) {
           projectId = serviceAccount.project_id;
-          console.log(`🏢 [FCM] Usando project_id do Service Account: ${projectId}`);
-          console.log(`⚠️ [FCM] ATENÇÃO: Verifique se este project_id corresponde ao google-services.json do app!`);
+//           console.log(`🏢 [FCM] Usando project_id do Service Account: ${projectId}`);
+//           console.log(`⚠️ [FCM] ATENÇÃO: Verifique se este project_id corresponde ao google-services.json do app!`);
         }
       } catch (e) {
-        console.warn("⚠️ [FCM] Não foi possível obter project_id do Service Account:", e.message);
+//         console.warn("⚠️ [FCM] Não foi possível obter project_id do Service Account:", e.message);
       }
     }
     
     // Prioridade 3: Fallback para o projeto novo (que está no google-services.json)
     if (!projectId) {
       projectId = "trombone-cidadao-572b5";
-      console.log(`🏢 [FCM] Usando project_id padrão (fallback): ${projectId}`);
+//       console.log(`🏢 [FCM] Usando project_id padrão (fallback): ${projectId}`);
     }
     
     if (!projectId) {
       throw new Error("FIREBASE_PROJECT_ID não configurado e não encontrado no Service Account JSON");
     }
     
-    console.log(`🔍 [FCM] Project ID final: ${projectId}`);
-    console.log(`🔍 [FCM] Token FCM (primeiros 20 chars): ${fcmToken.substring(0, 20)}...`);
-    console.log(`🔍 [FCM] URL FCM: https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`);
+//     console.log(`🔍 [FCM] Project ID final: ${projectId}`);
+//     console.log(`🔍 [FCM] Token FCM (primeiros 20 chars): ${fcmToken.substring(0, 20)}...`);
+//     console.log(`🔍 [FCM] URL FCM: https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`);
 
     // Obter access token
     const accessToken = await getFCMAccessToken();
@@ -313,8 +313,8 @@ async function sendFCMNotification(
 
     // Enviar via FCM HTTP v1 API
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
-    console.log(`📨 [FCM] Enviando mensagem FCM para projeto: ${projectId}`);
-    console.log(`📡 [FCM] Fazendo requisição para: ${fcmUrl}`);
+//     console.log(`📨 [FCM] Enviando mensagem FCM para projeto: ${projectId}`);
+//     console.log(`📡 [FCM] Fazendo requisição para: ${fcmUrl}`);
     
     const response = await fetch(fcmUrl, {
         method: "POST",
@@ -325,7 +325,7 @@ async function sendFCMNotification(
         body: JSON.stringify(message),
       });
 
-    console.log(`📡 [FCM] Resposta FCM: ${response.status} ${response.statusText}`);
+//     console.log(`📡 [FCM] Resposta FCM: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       const errorText = await response.text();

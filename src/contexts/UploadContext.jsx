@@ -43,7 +43,7 @@ export const UploadProvider = ({ children }) => {
             );
 
             if (currentReportId && !hasPendingUploadsForThisReport) {
-                console.log(`[UploadContext] All uploads completed for report ${currentReportId}. Making visible.`);
+//                 console.log(`[UploadContext] All uploads completed for report ${currentReportId}. Making visible.`);
                 supabase.from('reports')
                   .update({ moderation_status: 'approved' })
                   .eq('id', currentReportId)
@@ -70,12 +70,12 @@ export const UploadProvider = ({ children }) => {
                       }
                   });
             } else if (currentReportId) {
-                console.log(`[UploadContext] Upload completed for ${event.id}, but report ${currentReportId} still has pending uploads.`);
+//                 console.log(`[UploadContext] Upload completed for ${event.id}, but report ${currentReportId} still has pending uploads.`);
             }
 
             // Removemos da lista após um breve delay para o usuário ver o 100%
             // Mas marcamos como completo primeiro
-            newState[event.id] = { ...upload, progress: 100, status: 'completed' };
+            newState[event.id] = { ...upload, progress: 100, status: 'completed', lastUpdate: Date.now() };
             
             // Toast removed as per user request
             
@@ -89,21 +89,41 @@ export const UploadProvider = ({ children }) => {
 
           } else if (event.status && event.status.startsWith('error')) {
             // Erro
-            newState[event.id] = { ...upload, status: 'error', error: event.status };
+            newState[event.id] = { ...upload, status: 'error', error: event.status, lastUpdate: Date.now() };
             
             // ROLLBACK: Delete report if upload failed
             if (upload.reportId && !upload.deleteTriggered) {
                 newState[event.id] = { ...newState[event.id], deleteTriggered: true };
                 
-                console.log(`[UploadContext] Upload failed for report ${upload.reportId}. Deleting report.`);
+//                 console.log(`[UploadContext] Upload failed for report ${upload.reportId}. Deleting report.`);
                 supabase.from('reports').delete().eq('id', upload.reportId).then(({ error }) => {
                     if (error) console.error("[UploadContext] Failed to delete report:", error);
-                    else toast.error("Upload falhou. A bronca foi removida. Tente novamente.");
+                    else {
+                        let errorMsg = "Upload falhou. A bronca foi removida. Tente novamente.";
+                        if (event.status.includes('timeout')) {
+                            errorMsg = "O upload demorou muito e excedeu o tempo limite. Tente uma conexão melhor.";
+                        } else if (event.status.includes('network')) {
+                            errorMsg = "Erro de conexão durante o upload. Verifique sua internet.";
+                        } else if (event.status.includes('compression')) {
+                            errorMsg = "Falha ao otimizar o vídeo. O formato pode ser incompatível.";
+                        } else if (event.status.includes('upload_failed')) {
+                            errorMsg = "O servidor rejeitou o arquivo. Tente novamente mais tarde.";
+                        }
+                        toast.error(errorMsg);
+                    }
                 });
             }
           } else {
             // Progresso
-            newState[event.id] = { ...upload, progress: event.progress, status: 'uploading' };
+            // Use status from event if available (e.g. 'compressing'), otherwise default to 'uploading'
+            const newStatus = event.status || 'uploading';
+            
+            newState[event.id] = { 
+                ...upload, 
+                progress: event.progress, 
+                status: newStatus,
+                lastUpdate: Date.now() 
+            };
           }
           
           return newState;
@@ -120,6 +140,51 @@ export const UploadProvider = ({ children }) => {
     };
   }, []);
 
+  // Monitor de uploads travados (Stuck Upload Detection)
+  useEffect(() => {
+    const interval = setInterval(() => {
+        const now = Date.now();
+        setActiveUploads(prev => {
+            const newState = { ...prev };
+            let hasChanges = false;
+
+            Object.values(newState).forEach(upload => {
+                // Se estiver pendente ou enviando, mas travado em 0% por mais de tempo limite
+                // Ignorar status de compressão ou preparação que podem demorar
+                const isStuckState = (upload.status === 'pending' || upload.status === 'uploading') && 
+                                     upload.status !== 'compressing' && 
+                                     upload.status !== 'optimizing' &&
+                                     upload.status !== 'preparing';
+
+                if (isStuckState && upload.progress === 0) {
+                    const timeSinceLastUpdate = now - (upload.lastUpdate || upload.timestamp);
+                    
+                    // Aumentar timeout para 180 segundos por segurança (3 min) para inicialização lenta
+                    if (timeSinceLastUpdate > 180000) { 
+//                         console.warn(`[UploadContext] Upload ${upload.id} stuck at 0% for ${timeSinceLastUpdate}ms. Aborting.`);
+                        
+                        // Cancelar upload e remover bronca
+                        cancelUpload(upload.id);
+                        toast.error("Upload demorou muito para iniciar e foi cancelado. Tente novamente.");
+                    }
+                } else if ((upload.status === 'compressing' || upload.status === 'optimizing' || upload.status === 'preparing') && upload.progress === 0) {
+                     // Para compressão de vídeos grandes, permitir timeout MUITO maior (ex: 10 minutos)
+                     const timeSinceLastUpdate = now - (upload.lastUpdate || upload.timestamp);
+                     if (timeSinceLastUpdate > 600000) { // 10 minutos
+//                         console.warn(`[UploadContext] Compression/Preparation stuck for ${timeSinceLastUpdate}ms. Aborting.`);
+                        cancelUpload(upload.id);
+                        toast.error("Processamento do vídeo demorou muito e foi cancelado.");
+                     }
+                }
+            });
+
+            return prev; // cancelUpload já atualiza o estado, então aqui só iteramos
+        });
+    }, 5000); // Verificar a cada 5 segundos
+
+    return () => clearInterval(interval);
+  }, []);
+
   const registerUpload = useCallback((uploadId, metadata) => {
     setActiveUploads(prev => ({
       ...prev,
@@ -128,6 +193,7 @@ export const UploadProvider = ({ children }) => {
         progress: 0,
         status: 'pending',
         timestamp: Date.now(),
+        lastUpdate: Date.now(),
         ...metadata // name, type, etc.
       }
     }));
@@ -139,7 +205,7 @@ export const UploadProvider = ({ children }) => {
         if (!upload) return prev;
 
         const newState = { ...prev };
-        newState[uploadId] = { ...upload, progress, status };
+        newState[uploadId] = { ...upload, progress, status, lastUpdate: Date.now() };
         
         if (status === 'completed') {
              if (upload.status !== 'completed') {
@@ -196,7 +262,7 @@ export const UploadProvider = ({ children }) => {
         } else if (status === 'error') {
              if (upload.reportId && !upload.deleteTriggered) {
                 newState[uploadId] = { ...newState[uploadId], deleteTriggered: true };
-                console.log(`[UploadContext] Upload failed for report ${upload.reportId}. Deleting report.`);
+//                 console.log(`[UploadContext] Upload failed for report ${upload.reportId}. Deleting report.`);
                 supabase.from('reports').delete().eq('id', upload.reportId).then(({ error }) => {
                     if (error) console.error("[UploadContext] Failed to delete report:", error);
                     else toast.error("Upload falhou. A bronca foi removida. Tente novamente.");
@@ -208,22 +274,49 @@ export const UploadProvider = ({ children }) => {
   }, []);
 
   const cancelUpload = useCallback(async (uploadId) => {
+      // Obter info do upload antes de remover
+      let uploadInfo = null;
+      setActiveUploads(prev => {
+          uploadInfo = prev[uploadId];
+          return prev;
+      });
+
       // Cancelar controller se existir (Web)
       if (abortControllersRef.current[uploadId]) {
           try {
               abortControllersRef.current[uploadId].abort();
           } catch (e) {
-              console.error("Erro ao abortar upload:", e);
+              console.error("Erro ao abortar upload web:", e);
           }
           delete abortControllersRef.current[uploadId];
       }
 
-      // Implementar cancelamento nativo se necessário
-      // await VideoProcessor.cancelUpload({ uploadId });
+      // Cancelamento nativo
+      try {
+        if (Capacitor.isNativePlatform()) {
+             await VideoProcessor.cancelUpload({ uploadId });
+        }
+      } catch (e) {
+//         console.warn("Erro ao cancelar upload nativo:", e);
+      }
+
+      // Remover do estado
       setActiveUploads(prev => {
           const { [uploadId]: _, ...rest } = prev;
           return rest;
       });
+
+      // Remover bronca associada
+      if (uploadInfo && uploadInfo.reportId) {
+//           console.log(`[UploadContext] Upload ${uploadId} cancelled. Deleting report ${uploadInfo.reportId}.`);
+          try {
+              const { error } = await supabase.from('reports').delete().eq('id', uploadInfo.reportId);
+              if (error) throw error;
+              toast.info("Upload cancelado e bronca removida.");
+          } catch (err) {
+              console.error("Erro ao remover bronca após cancelamento:", err);
+          }
+      }
   }, []);
 
   const queueWebUpload = useCallback(async (file, filePath, metadata, options = {}) => {
@@ -260,7 +353,7 @@ export const UploadProvider = ({ children }) => {
                     fileToUpload = result.file;
                 } catch (compErr) {
                     if (compErr.message === 'Upload cancelado') throw compErr;
-                    console.warn("Compressão web falhou, usando original:", compErr);
+//                     console.warn("Compressão web falhou, usando original:", compErr);
                     // Segue com o original
                 }
             }
@@ -282,7 +375,7 @@ export const UploadProvider = ({ children }) => {
             
         } catch (err) {
             if (err.message === 'Upload cancelado' || err.name === 'AbortError') {
-                console.log("Web upload cancelled:", uploadId);
+//                 console.log("Web upload cancelled:", uploadId);
                 // Não marcamos como erro, apenas removemos (já tratado no cancelUpload)
             } else {
                 console.error("Web background upload failed:", err);

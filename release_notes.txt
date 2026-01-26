@@ -1,0 +1,16 @@
+Novidades da versão 1.0.3:
+
+🚀 Melhorias no Upload de Vídeos:
+- Processamento e envio de vídeos agora em segundo plano.
+- Correção de travamentos e otimização de memória para vídeos grandes.
+
+✨ Novidades:
+- Campo de numeração do poste obrigatório para iluminação pública.
+- Nova função de download de relatórios.
+- Compartilhamento de denúncias agora inclui thumbnail.
+
+🐛 Correções e Ajustes:
+- Filtros do mapa agora visíveis sobre o mapa.
+- Mensagem de erro de senha visível no login.
+- Ajuste no layout da página de estatísticas para exibir todos os valores.
+- Melhorias gerais de estabilidade e performance.

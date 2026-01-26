@@ -44,7 +44,7 @@ function HomePage() {
   // ✅ Recuperação de Estado: Abrir modal se houver foto pendente (pós-crash)
   useEffect(() => {
     const handleOpenModal = () => {
-      console.log('👐 Abrindo modal de report com foto recuperada');
+
       setShowReportModal(true);
     };
 
@@ -281,8 +281,23 @@ function HomePage() {
     };
   }, [fetchInitialData, fetchReports]);
 
+  const statusFilteredReports = useMemo(() => {
+    let tempReports = reports.filter(r => r.status !== 'duplicate');
+
+    if (filter.status === 'active') {
+      tempReports = tempReports.filter(r => r.status === 'pending' || r.status === 'in-progress');
+    } else if (filter.status === 'my-resolved') {
+      tempReports = tempReports.filter(r => r.status === 'resolved' && user && r.author_id === user.id);
+    } else if (filter.status === 'resolved') {
+      tempReports = tempReports.filter(r => r.status === 'resolved');
+    } else if (filter.status !== 'all') {
+      tempReports = tempReports.filter(r => r.status === filter.status);
+    }
+    return tempReports;
+  }, [reports, filter.status, user]);
+
   const categoryCounts = useMemo(() => {
-    const counts = reports.reduce((acc, report) => {
+    const counts = statusFilteredReports.reduce((acc, report) => {
       const categoryId = report.category_id;
       if (categoryId) {
         acc[categoryId] = (acc[categoryId] || 0) + 1;
@@ -290,34 +305,27 @@ function HomePage() {
       return acc;
     }, {});
     return counts;
-  }, [reports]);
+  }, [statusFilteredReports]);
 
   useEffect(() => {
-    let tempReports = reports.filter(r => r.status !== 'duplicate');
-
-    if (filter.status === 'active') {
-      tempReports = tempReports.filter(r => r.status === 'pending' || r.status === 'in-progress');
-    } else if (filter.status === 'my-resolved') {
-      tempReports = tempReports.filter(r => r.status === 'resolved' && user && r.author_id === user.id);
-    } else if (filter.status !== 'all') {
-      tempReports = tempReports.filter(r => r.status === filter.status);
-    }
+    let tempReports = statusFilteredReports;
     
     if (filter.category !== 'all') {
       tempReports = tempReports.filter(r => r.category_id === filter.category);
     }
     setFilteredReports(tempReports);
-  }, [reports, filter, user]);
+  }, [statusFilteredReports, filter.category]);
 
   useEffect(() => {
     const activeReports = reports.filter(r => r.status !== 'duplicate');
     const pending = activeReports.filter(r => r.status === 'pending').length;
     const inProgress = activeReports.filter(r => r.status === 'in-progress').length;
+    const totalResolved = activeReports.filter(r => r.status === 'resolved').length;
     const userResolved = user 
       ? activeReports.filter(r => r.status === 'resolved' && r.author_id === user.id).length
       : 0;
     const total = pending + inProgress;
-    setStats({ total, pending, inProgress, resolved: userResolved });
+    setStats({ total, pending, inProgress, resolved: userResolved, totalResolved });
   }, [reports, user]);
 
   const handleNewReportClick = () => {
@@ -741,6 +749,17 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
   }, 1500);
 };
 
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filter.status !== 'active') count++;
+    if (filter.category !== 'all') count++;
+    return count;
+  }, [filter]);
+
+  const handleClearFilters = () => {
+    setFilter({ status: 'active', category: 'all' });
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 overflow-visible">
       <motion.div 
@@ -786,10 +805,15 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="gap-2 text-muted-foreground hover:bg-muted hover:text-foreground border-border transition-all"
+                  className="gap-2 text-muted-foreground hover:bg-muted hover:text-foreground border-border transition-all relative"
                 >
                   <Filter className="w-4 h-4" />
                   <span className="hidden md:inline">Filtrar</span>
+                  {activeFiltersCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-tc-red text-[10px] font-bold text-white shadow-sm ring-1 ring-background">
+                      {activeFiltersCount}
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent 
@@ -797,12 +821,26 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                 side="bottom"
                 alignOffset={-5}
                 sideOffset={8}
-                className="w-72 max-h-[calc(100vh-8rem)] overflow-y-auto bg-card text-foreground border border-border shadow-xl rounded-lg p-2 z-[850]"
+                className="w-72 max-h-[calc(100vh-8rem)] overflow-y-auto bg-card text-foreground border border-border shadow-xl rounded-lg p-2 z-[2000]"
                 style={{ 
                   maxHeight: 'calc(100vh - 8rem)',
                   overflowY: 'auto'
                 }}
               >
+                <div className="flex items-center justify-between px-3 py-2">
+                  <span className="font-semibold text-sm">Filtros</span>
+                  {activeFiltersCount > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleClearFilters}
+                      className="h-auto p-0 text-xs text-muted-foreground hover:text-tc-red hover:bg-transparent"
+                    >
+                      Limpar
+                    </Button>
+                  )}
+                </div>
+                <DropdownMenuSeparator className="bg-border" />
                 <div className="space-y-1">
                   <DropdownMenuLabel className="text-tc-red font-bold text-base px-3 py-2.5">Status</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-border" />
@@ -815,6 +853,9 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="in-progress" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
                       <span className="text-sm">Em Andamento</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="resolved" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">
+                      <span className="text-sm">Resolvidas</span>
                     </DropdownMenuRadioItem>
                     {user && (
                       <DropdownMenuRadioItem value="my-resolved" className="px-3 py-2.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors">

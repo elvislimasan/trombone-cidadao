@@ -51,6 +51,7 @@ import DeleteAccountPage from './pages/DeleteAccountPage';
 import { VideoProcessor } from '@/plugins/VideoProcessor';
 import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
+import UploadStatusBar from '@/components/UploadStatusBar';
 
 const SEO = () => {
   const location = useLocation();
@@ -195,7 +196,7 @@ function App() {
       try {
         const recovered = await VideoProcessor.recoverLostPhoto();
         if (recovered && (recovered.filePath || recovered.nativePath)) {
-           console.log('📸 Foto recuperada via SharedPreferences (RecoverLostPhoto)!');
+         
            
            window.__PENDING_RESTORED_PHOTO__ = recovered;
            
@@ -214,12 +215,12 @@ function App() {
            }, 1000);
         }
       } catch (e) {
-         console.warn('Erro ao verificar fotos perdidas:', e);
+//          console.warn('Erro ao verificar fotos perdidas:', e);
       }
 
       // 1. Listener padrão do Capacitor para restauração de plugin
       await CapacitorApp.addListener('appRestoredResult', (data) => {
-        console.log('🔄 App restaurado com resultado (Global):', data);
+//         console.log('🔄 App restaurado com resultado (Global):', data);
         
         // Feedback visual imediato
         toast({
@@ -233,7 +234,7 @@ function App() {
             (data.pluginId === 'Camera' && (data.methodName === 'getPhoto' || data.methodName === 'pickImages'))) {
           
           if (data.success && data.data) {
-            console.log('📸 Foto recuperada após morte da Activity!');
+//             console.log('📸 Foto recuperada após morte da Activity!');
             
             // Salvar dados globalmente para o Modal recuperar
             window.__PENDING_RESTORED_PHOTO__ = data.data;
@@ -246,7 +247,7 @@ function App() {
               }
             }, 1000);
           } else {
-             console.warn('⚠️ App restaurado mas sem dados de sucesso:', data);
+//              console.warn('⚠️ App restaurado mas sem dados de sucesso:', data);
              // Se falhou o plugin, tenta abrir o modal para verificar rascunho
              setTimeout(() => {
                 window.dispatchEvent(new CustomEvent('open-report-modal-with-photo'));
@@ -259,7 +260,7 @@ function App() {
       try {
         const { value } = await Preferences.get({ key: 'report_draft' });
         if (value) {
-            console.log('📦 Rascunho encontrado na inicialização! Tentando restaurar...');
+//             console.log('📦 Rascunho encontrado na inicialização! Tentando restaurar...');
             // Se encontrou rascunho, significa que o app morreu durante o form
             // Vamos forçar a abertura do modal
             setTimeout(() => {
@@ -280,7 +281,7 @@ function App() {
       try {
         // Verificar se navegação está bloqueada (durante processamento de foto/vídeo)
         if (window.__BLOCK_NAVIGATION__) {
-          console.log('Navegação bloqueada durante processamento de mídia');
+//           console.log('Navegação bloqueada durante processamento de mídia');
           return;
         }
         
@@ -362,7 +363,7 @@ function App() {
           // Navegar para a página da bronca
           // Usar window.location.pathname para evitar dependência do hook location
           if (!window.location.pathname.includes(`/bronca/${reportId}`)) {
-            console.log(`🔗 Deep Link detectado: Navegando para bronca ${reportId}`);
+//             console.log(`🔗 Deep Link detectado: Navegando para bronca ${reportId}`);
             navigate(`/bronca/${reportId}`, { replace: true });
           }
         }
@@ -383,7 +384,7 @@ function App() {
           try {
             const appUrl = await App.getLaunchUrl();
             if (appUrl?.url) {
-              console.log('🚀 App iniciado via URL:', appUrl.url);
+//               console.log('🚀 App iniciado via URL:', appUrl.url);
               // Delay pequeno para garantir que o router está pronto
               setTimeout(() => {
                 handleDeepLink(appUrl.url);
@@ -396,7 +397,7 @@ function App() {
 
         // Listener para quando o app recebe uma URL enquanto está aberto
         urlListener = await App.addListener('appUrlOpen', (event) => {
-          console.log('🔗 App recebeu URL (appUrlOpen):', event.url);
+//           console.log('🔗 App recebeu URL (appUrlOpen):', event.url);
           handleDeepLink(event.url);
         });
       } catch (error) {
@@ -467,6 +468,7 @@ function App() {
         <Toaster />
         <SonnerToast position="top-right" richColors />
         <WebUploadIndicator />
+        <UploadStatusBar />
       </div>
     </UploadProvider>
   );

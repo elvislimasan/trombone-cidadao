@@ -51,11 +51,22 @@ const WebUploadIndicator = () => {
                     <span className="font-medium truncate flex-1 pr-2" title={upload.name}>
                       {upload.name}
                     </span>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {upload.status === 'completed' ? '100%' : 
-                       upload.status === 'error' ? 'Erro' : 
-                       `${Math.round(upload.progress)}%`}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {upload.status === 'completed' ? '100%' : 
+                        upload.status === 'error' ? 'Erro' : 
+                        `${Math.round(upload.progress)}%`}
+                      </span>
+                      {(upload.status === 'uploading' || upload.status === 'pending') && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); cancelUpload(upload.id); }}
+                          className="text-muted-foreground hover:text-red-500 transition-colors"
+                          title="Cancelar upload"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   <Progress 
@@ -83,7 +94,7 @@ const WebUploadIndicator = () => {
         layout
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "relative w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all border-2",
+          "relative w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all border-2 pointer-events-auto",
           hasErrors ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" : 
           allCompleted ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100" :
           "bg-background border-border text-primary hover:bg-accent"
