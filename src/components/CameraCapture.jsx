@@ -15,7 +15,7 @@ const runWithTimeout = (promise, ms = 3000) => {
     return Promise.race([
         promise,
         new Promise((resolve) => setTimeout(() => {
-            console.warn(`Camera operation timed out after ${ms}ms`);
+//             console.warn(`Camera operation timed out after ${ms}ms`);
             resolve(); // Resolvemos para não quebrar a cadeia, apenas ignoramos o travamento
         }, ms))
     ]);
@@ -53,15 +53,15 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
     let backButtonListener;
     const setupBackButton = async () => {
       try {
-        console.log('Configurando listener do backButton no CameraCapture');
+//         console.log('Configurando listener do backButton no CameraCapture');
         backButtonListener = await App.addListener('backButton', async () => {
-           console.log('BackButton pressionado no CameraCapture');
+//            console.log('BackButton pressionado no CameraCapture');
            
            // Tentar parar a câmera nativa explicitamente para garantir liberação
            try {
              await CameraPreview.stop();
            } catch(e) {
-             console.warn('Erro ao parar camera via back button:', e);
+//              console.warn('Erro ao parar camera via back button:', e);
            }
            
            if (onCloseRef.current) {
@@ -69,7 +69,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
            }
         });
       } catch (e) {
-        console.warn('Erro ao configurar back button listener:', e);
+//         console.warn('Erro ao configurar back button listener:', e);
       }
     };
     setupBackButton();
@@ -105,10 +105,10 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
              const permissions = await Camera.requestPermissions({ permissions: ['camera', 'microphone'] });
              if (permissions.camera !== 'granted' || permissions.microphone !== 'granted') {
                  // Se o usuário negou, avisamos mas tentamos continuar (o plugin pode falhar depois)
-                 console.warn('Permissões de câmera/microfone não foram totalmente concedidas');
+//                  console.warn('Permissões de câmera/microfone não foram totalmente concedidas');
              }
           } catch (e) {
-             console.warn('Erro ao solicitar permissões via Capacitor Camera:', e);
+//              console.warn('Erro ao solicitar permissões via Capacitor Camera:', e);
           }
 
           // 1. Stop forçado e seguro
@@ -156,7 +156,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
           try {
             window.focus();
           } catch (e) {
-            console.warn('Erro ao focar window:', e);
+//             console.warn('Erro ao focar window:', e);
           }
 
           // 5. Restaurar Flash
@@ -164,7 +164,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
              const savedFlash = localStorage.getItem('cameraFlashMode') === 'on' ? 'on' : 'off';
              await CameraPreview.setFlashMode({ flashMode: savedFlash });
           } catch (e) {
-             console.warn('Failed to restore flash mode', e);
+//              console.warn('Failed to restore flash mode', e);
           }
 
           if (mounted) setIsReady(true);
@@ -188,7 +188,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
               try {
                   await CameraPreview.stop();
               } catch (e) {
-                  console.warn('Error stopping camera:', e);
+//                   console.warn('Error stopping camera:', e);
               }
           })(), 
           2000
@@ -262,6 +262,13 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
       }
     }
   };
+
+  useEffect(() => {
+    if (isRecording && recordingTime >= 180) {
+        handleRecordToggle();
+        alert('O vídeo atingiu o limite máximo de 3 minutos.');
+    }
+  }, [recordingTime, isRecording]);
 
   const handleCapture = async () => {
     if (mode === 'video') {
@@ -399,7 +406,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
       setIsFlashOn(nextState);
       localStorage.setItem('cameraFlashMode', mode);
     } catch (e) {
-      console.warn('Flash not available', e);
+//       console.warn('Flash not available', e);
     }
   };
   
@@ -407,7 +414,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
     try {
       await CameraPreview.flip();
     } catch (e) {
-      console.warn('Flip not available', e);
+//       console.warn('Flip not available', e);
     }
   };
 

@@ -87,7 +87,7 @@ class VideoProcessorOld : Plugin() {
             val maxDuration = call.getInt("maxDurationSec")
             val lowQuality = call.getBoolean("lowQuality") ?: true
             
-            Log.d("VideoProcessor", "Iniciando captura de vídeo: maxDuration=${maxDuration ?: "unlimited"}, lowQuality=$lowQuality")
+//             Log.d("VideoProcessor", "Iniciando captura de vídeo: maxDuration=${maxDuration ?: "unlimited"}, lowQuality=$lowQuality")
             
             val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
             
@@ -778,7 +778,7 @@ class VideoProcessorOld : Plugin() {
         qualityPreset: String = "low",
         format: String = "webp"
     ): String {
-        Log.d("VideoProcessor", "Iniciando compressão segura: $actualPath")
+//         Log.d("VideoProcessor", "Iniciando compressão segura: $actualPath")
         val inputFile = File(actualPath)
         
         // Padronização: se o arquivo de entrada já começa com "report_", mantém o padrão
@@ -861,7 +861,7 @@ class VideoProcessorOld : Plugin() {
         if (targetWidth % 2 != 0) targetWidth += 1
         if (targetHeight % 2 != 0) targetHeight += 1
 
-        Log.d("VideoProcessor", "Resize: ${originalWidth}x${originalHeight} -> ${targetWidth}x${targetHeight} (Rot: $rotationDegrees)")
+//         Log.d("VideoProcessor", "Resize: ${originalWidth}x${originalHeight} -> ${targetWidth}x${targetHeight} (Rot: $rotationDegrees)")
 
         var inSample = 1
         val widthRatio = originalWidth / targetWidth
@@ -901,7 +901,7 @@ class VideoProcessorOld : Plugin() {
             }
         }
 
-        Log.d("VideoProcessor", "Usando inSampleSize final: $inSample")
+//         Log.d("VideoProcessor", "Usando inSampleSize final: $inSample")
 
         val options = BitmapFactory.Options().apply {
             inJustDecodeBounds = false
@@ -1009,21 +1009,17 @@ class VideoProcessorOld : Plugin() {
                     if (resultSize > maxSizeBytes) {
                         quality = max(50, quality - 10)
                         success = false
-                        Log.d("VideoProcessor", "Arquivo muito grande (${resultSize/1024}KB). Reduzindo qualidade para $quality")
                     }
                 } catch (e: Exception) {
-                    Log.e("VideoProcessor", "Erro ao salvar imagem: ${e.message}")
                     quality -= 10
                     if (quality < 50) break
                 }
             }
             
             if (!success) {
-                Log.e("VideoProcessor", "Falha ao comprimir imagem mesmo após redução de qualidade")
                 return actualPath
             }
             
-            Log.d("VideoProcessor", "Processamento concluído: $outputPath (Qualidade final: $quality%)")
             return outputPath
             
         } finally {
@@ -1211,7 +1207,7 @@ class VideoProcessorOld : Plugin() {
             val isResolutionLow = originalWidth <= maxWidth && originalHeight <= maxHeight
             
             if (isSmallEnough && isResolutionLow && !isUltraHD) {
-                 Log.d("VideoProcessor", "Vídeo já está otimizado (Tamanho: ${originalSizeMB}MB, Res: ${originalWidth}x${originalHeight})")
+//                  Log.d("VideoProcessor", "Vídeo já está otimizado (Tamanho: ${originalSizeMB}MB, Res: ${originalWidth}x${originalHeight})")
                  return@withContext inputPath
             }
             
@@ -1324,7 +1320,7 @@ class VideoProcessorOld : Plugin() {
                 latch.await()
                 if (error != null) throw error as Throwable
                 
-                Log.d("VideoProcessor", "Compressão concluída com sucesso: $outputPath")
+//                 Log.d("VideoProcessor", "Compressão concluída com sucesso: $outputPath")
                 return@withContext outputPath
                 
             } catch (codecError: Throwable) {
@@ -1369,7 +1365,7 @@ class VideoProcessorOld : Plugin() {
                     latchRetryOrig.await()
                     if (errorRetryOrig != null) throw errorRetryOrig as Throwable
                     
-                    Log.d("VideoProcessor", "Compressão bem sucedida na Recuperação 1 (Resolução Original)")
+//                     Log.d("VideoProcessor", "Compressão bem sucedida na Recuperação 1 (Resolução Original)")
                     return@withContext outputPath
                     
                 } catch (retryOrigError: Throwable) {
@@ -1419,11 +1415,11 @@ class VideoProcessorOld : Plugin() {
                     latchRetry.await()
                     if (errorRetry != null) throw errorRetry as Throwable
                     
-                    Log.d("VideoProcessor", "Compressão bem sucedida no modo de recuperação (480p)")
+//                     Log.d("VideoProcessor", "Compressão bem sucedida no modo de recuperação (480p)")
                     return@withContext outputPath
                     
                 } catch (retryError: Throwable) {
-                    Log.e("VideoProcessor", "Falha em 480p, tentando 360p (Ultra Low)", retryError)
+                    // Log.e("VideoProcessor", "Falha em 480p, tentando 360p (Ultra Low)", retryError)
                     System.gc()
                     
                     try {
@@ -1467,7 +1463,7 @@ class VideoProcessorOld : Plugin() {
                         latchFinal.await()
                         if (errorFinal != null) throw errorFinal as Throwable
                         
-                        Log.d("VideoProcessor", "Compressão bem sucedida no modo de emergência (360p)")
+//                         Log.d("VideoProcessor", "Compressão bem sucedida no modo de emergência (360p)")
                         return@withContext outputPath
                         
                     } catch (finalError: Throwable) {
@@ -1494,7 +1490,7 @@ class VideoProcessorOld : Plugin() {
                 context.startService(intent)
             }
         } catch (e: Exception) {
-            Log.e("VideoProcessor", "Falha ao iniciar KeepAliveService", e)
+            // Log.e("VideoProcessor", "Falha ao iniciar KeepAliveService", e)
         }
     }
 
@@ -1603,7 +1599,7 @@ class VideoProcessorOld : Plugin() {
             
             val responseCode = connection.responseCode
             if (responseCode in 200..299) {
-                Log.d("VideoProcessor", "Upload concluído: $uploadId")
+//                 Log.d("VideoProcessor", "Upload concluído: $uploadId")
             } else {
                 val errorStream = connection.errorStream
                 val errorMessage = errorStream?.bufferedReader()?.use { it.readText() } ?: "Erro desconhecido"

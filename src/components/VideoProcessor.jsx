@@ -185,7 +185,6 @@ const VideoProcessor = ({
            
            toast({
              variant: "destructive",
-             title: "Falha ao processar vídeo",
              description: errorMessage
            });
            // Remover vídeo com erro
@@ -285,7 +284,7 @@ const VideoProcessor = ({
       setProcessingMessage('');
 
       const { filePath } = await VideoProcessorPlugin.captureVideo({
-        maxDurationSec: 0, // 0 = Sem limite
+        maxDurationSec: 180, // Limite de 3 minutos
         lowQuality: false // Melhor qualidade inicial, comprimimos depois
       });
 

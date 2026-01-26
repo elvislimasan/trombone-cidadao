@@ -173,9 +173,9 @@ export async function validateVideoFile(file) {
   try {
     // Suporte para objetos nativos (VideoProcessorPlugin)
     if (file && file.isNative) {
-      // Validar duração se disponível (limite de 10 minutos = 600 segundos)
-      if (file.duration && file.duration > 600) {
-        throw new Error('O vídeo deve ter no máximo 10 minutos.');
+      // Validar duração se disponível (limite de 3 minutos = 180 segundos)
+      if (file.duration && file.duration > 180) {
+        throw new Error('O vídeo deve ter no máximo 3 minutos.');
       }
       return {
         isValid: true,
@@ -196,8 +196,8 @@ export async function validateVideoFile(file) {
             const meta = await VideoProcessor.getVideoMetadata({ filePath: file });
             size = meta.size;
 
-            if (meta.duration && meta.duration > 600) {
-                 throw new Error('O vídeo deve ter no máximo 10 minutos.');
+            if (meta.duration && meta.duration > 180) {
+                 throw new Error('O vídeo deve ter no máximo 3 minutos.');
             }
         } catch (e) {
             console.warn('Erro ao validar path de vídeo:', e);
@@ -261,8 +261,8 @@ export async function validateVideoFile(file) {
       video.src = URL.createObjectURL(file);
     });
 
-    if (duration && duration > 600) {
-      throw new Error('O vídeo deve ter no máximo 10 minutos.');
+    if (duration && duration > 180) {
+      throw new Error('O vídeo deve ter no máximo 3 minutos.');
     }
 
     return {
@@ -427,7 +427,6 @@ async function compressVideoNative(file, options = {}) {
           }
 
           targetMaxFileSize = targetMaxSizeMB * 1024 * 1024;
-          console.log(`[VideoProcessor] Ajuste de compressão para vídeo curto (${duration.toFixed(1)}s): Meta ${targetMaxSizeMB}MB`);
         }
       }
     } catch (metaErr) {
@@ -544,7 +543,6 @@ async function compressVideoWeb(file, options = {}) {
       // Proteção mínima: não baixar de 500kbps
       if (finalBitrate < 500000) finalBitrate = 500000;
 
-      console.log(`[Compressão Web] Duração: ${duration.toFixed(1)}s, Alvo: <45MB, Bitrate: ${(finalBitrate/1000000).toFixed(2)} Mbps`);
 
       // Calcular dimensões mantendo aspect ratio
       let w = video.videoWidth;
@@ -592,7 +590,7 @@ async function compressVideoWeb(file, options = {}) {
           const audioTrack = dest.stream.getAudioTracks()[0];
           if (audioTrack) {
               stream.addTrack(audioTrack);
-              console.log('Áudio capturado via WebAudio API (Silencioso)');
+
           }
         } 
         // Fallback apenas se WebAudio falhar (pode vazar áudio)
@@ -601,11 +599,10 @@ async function compressVideoWeb(file, options = {}) {
            const audioTracks = videoStream.getAudioTracks();
            if (audioTracks && audioTracks.length > 0) {
              stream.addTrack(audioTracks[0]);
-             console.log('Áudio capturado via captureStream (Pode vazar áudio)');
            }
         }
       } catch (e) {
-        console.warn('Erro ao configurar áudio:', e);
+        
         // Tentar fallback simples se WebAudio falhar com erro
         try {
             if (stream.getAudioTracks().length === 0 && (video.captureStream || video.mozCaptureStream)) {

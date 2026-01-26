@@ -4,7 +4,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -21,13 +20,13 @@ import com.otaliastudios.transcoder.strategy.DefaultVideoStrategy
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.asRequestBody
 import okio.BufferedSink
-import okio.Source
 import okio.Buffer
 import okio.source
 import java.io.File
 import java.io.IOException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class UploadService : Service() {
 
@@ -66,6 +65,11 @@ class UploadService : Service() {
         val job = serviceScope.launch {
             try {
                 processAndUpload(uploadId, filePath, uploadUrl, headers, skipCompression)
+            } catch (e: CancellationException) {
+                Log.w("UploadService", "Upload cancelled: $uploadId")
+                notifyProgress(uploadId, 0, "cancelled")
+                val manager = getSystemService(NotificationManager::class.java)
+                manager.cancel(notificationId) // Remove notification on cancel
             } catch (e: Exception) {
                 Log.e("UploadService", "Error", e)
                 notifyProgress(uploadId, 0, "error")
@@ -84,8 +88,6 @@ class UploadService : Service() {
     }
 
     private suspend fun processAndUpload(id: String, path: String, url: String, headers: HashMap<String, String>?, skipCompression: Boolean) {
-        // OTIMIZAÇÃO: Suporte direto a URI sem cópia
-        var fileToUpload: Any? = null // Can be File or Uri
         var tempCompressedFile: File? = null
 
         try {
@@ -94,6 +96,8 @@ class UploadService : Service() {
             val inputUri = if (isContentUri) Uri.parse(path) else Uri.fromFile(File(path))
 
             // 2. Compress (only if NOT skipped)
+            var fileToUpload: Any = if (isContentUri) inputUri else File(path)
+
             if (!skipCompression) {
                 notifyProgress(id, 0, "compressing")
                 updateNotification("Otimizando vídeo...", 0)
@@ -108,34 +112,34 @@ class UploadService : Service() {
                          tempCompressedFile = compressedFile
                     } else {
                          Log.e("UploadService", "Compression failed. Aborting.")
-                         notifyProgress(id, 0, "error_compression_failed")
-                         updateNotification("Falha na otimização", 0)
-                         return
+                         throw IOException("Compression failed")
                     }
                 } catch (e: Exception) {
+                     if (e is CancellationException) throw e
                      Log.e("UploadService", "Compression exception", e)
-                     notifyProgress(id, 0, "error_compression_exception")
-                     updateNotification("Erro na otimização", 0)
-                     return
+                     throw IOException("Compression exception", e)
                 }
-            } else {
-                // If skipping compression, upload original
-                fileToUpload = if (isContentUri) inputUri else File(path)
             }
 
             // 3. Upload
             notifyProgress(id, 0, "uploading")
             updateNotification("Enviando...", 0)
             
-            if (fileToUpload is File) {
-                uploadFile(id, fileToUpload as File, url, headers)
-            } else if (fileToUpload is Uri) {
-                uploadUri(id, fileToUpload as Uri, url, headers)
+            val contentType = headers?.get("Content-Type")?.toMediaType() ?: "video/mp4".toMediaType()
+            val requestBody = if (fileToUpload is File) {
+                createProgressRequestBodyFromFile(contentType, fileToUpload as File) { progress ->
+                    notifyProgress(id, progress, "uploading")
+                    if (progress % 10 == 0) updateNotification("Enviando... $progress%", progress)
+                }
+            } else {
+                createProgressRequestBodyFromUri(contentType, fileToUpload as Uri) { progress ->
+                    notifyProgress(id, progress, "uploading")
+                    if (progress % 10 == 0) updateNotification("Enviando... $progress%", progress)
+                }
             }
 
-        } catch (e: Exception) {
-            Log.e("UploadService", "Process failed", e)
-            notifyProgress(id, 0, "error_processing")
+            performUpload(id, requestBody, url, headers)
+
         } finally {
             // Cleanup compressed file
             if (tempCompressedFile != null && tempCompressedFile!!.exists()) {
@@ -149,7 +153,7 @@ class UploadService : Service() {
         
         try {
             val retriever = MediaMetadataRetriever()
-            retriever.setDataSource(this, inputUri) // Use context + uri
+            retriever.setDataSource(this, inputUri)
             val durationString = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
             val durationMs = durationString?.toLongOrNull() ?: 0L
             retriever.release()
@@ -157,20 +161,15 @@ class UploadService : Service() {
             val durationSec = durationMs / 1000f
             
             if (durationSec > 0) {
-                // Limit to 48MB (keep same logic)
                 val maxSizeBytes = 48 * 1024 * 1024L
                 val audioBitrate = 128 * 1000L
-                
                 val totalAvailableBits = maxSizeBytes * 8
                 val audioBits = audioBitrate * durationSec
                 val videoAvailableBits = totalAvailableBits - audioBits
-                
                 var maxAllowedBitrate = (videoAvailableBits / durationSec).toLong()
-                
                 var finalBitrate = Math.min(1500_000L, maxAllowedBitrate)
                 if (finalBitrate > 2_000_000L) finalBitrate = 2_000_000L
                 if (finalBitrate < 500_000L) finalBitrate = 500_000L
-                
                 videoBitrate = finalBitrate
             }
         } catch (e: Exception) {
@@ -184,18 +183,23 @@ class UploadService : Service() {
                 .addResizer(AtMostResizer(1080))
                 .build()
 
-        Transcoder.into(output.absolutePath)
-            .addDataSource(this, inputUri) // Direct URI access
+        val future = Transcoder.into(output.absolutePath)
+            .addDataSource(this, inputUri)
             .setVideoTrackStrategy(strategy)
             .setAudioTrackStrategy(DefaultAudioStrategy.builder()
                 .bitRate(128 * 1000)
                 .channels(1)
                 .build())
             .setListener(object : TranscoderListener {
+                var lastTranscodeProgress = -1
+                
                 override fun onTranscodeProgress(progress: Double) {
-                    val globalProgress = (progress * 100).toInt() // Report 0-100 for compression phase
+                    val globalProgress = (progress * 100).toInt()
                     notifyProgress(id, globalProgress, "compressing")
-                    if (globalProgress % 10 == 0) updateNotification("Otimizando... $globalProgress%", globalProgress)
+                    if (globalProgress > lastTranscodeProgress + 1 || globalProgress == 100) {
+                        updateNotification("Otimizando... $globalProgress%", globalProgress)
+                        lastTranscodeProgress = globalProgress
+                    }
                 }
 
                 override fun onTranscodeCompleted(successCode: Int) {
@@ -211,31 +215,18 @@ class UploadService : Service() {
                     if (cont.isActive) cont.resume(false) {}
                 }
             }).transcode()
-    }
-
-    private fun uploadFile(id: String, file: File, url: String, headers: HashMap<String, String>?) {
-        val contentType = headers?.get("Content-Type")?.toMediaType() ?: "video/mp4".toMediaType()
-        val requestBody = createProgressRequestBodyFromFile(contentType, file) { progress ->
-            notifyProgress(id, progress, "uploading")
-            if (progress % 10 == 0) updateNotification("Enviando... $progress%", progress)
+            
+        cont.invokeOnCancellation { 
+            future.cancel(true)
         }
-        performUpload(id, requestBody, url, headers)
     }
 
-    private fun uploadUri(id: String, uri: Uri, url: String, headers: HashMap<String, String>?) {
-        val contentType = headers?.get("Content-Type")?.toMediaType() ?: "video/mp4".toMediaType()
-        val requestBody = createProgressRequestBodyFromUri(contentType, uri) { progress ->
-            notifyProgress(id, progress, "uploading")
-            if (progress % 10 == 0) updateNotification("Enviando... $progress%", progress)
-        }
-        performUpload(id, requestBody, url, headers)
-    }
-
-    private fun performUpload(id: String, requestBody: RequestBody, url: String, headers: HashMap<String, String>?) {
+    private suspend fun performUpload(id: String, requestBody: RequestBody, url: String, headers: HashMap<String, String>?) = suspendCancellableCoroutine<Unit> { cont ->
         val client = OkHttpClient.Builder()
-            .connectTimeout(300, java.util.concurrent.TimeUnit.SECONDS) // Increased for large files
-            .writeTimeout(300, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(300, java.util.concurrent.TimeUnit.SECONDS)
+            .connectTimeout(600, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(600, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(600, java.util.concurrent.TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build()
 
         val requestBuilder = Request.Builder()
@@ -248,22 +239,42 @@ class UploadService : Service() {
             }
         }
 
-        try {
-            client.newCall(requestBuilder.build()).execute().use { response ->
-                if (response.isSuccessful) {
-                    notifyProgress(id, 100, "completed")
-                    updateNotification("Envio concluído!", 100)
-                } else {
-                    val errorBody = response.body?.string() ?: "No body"
-                    Log.e("UploadService", "Upload failed: ${response.code} $errorBody")
-                    notifyProgress(id, 0, "error_upload_failed_${response.code}")
-                    updateNotification("Falha no envio: ${response.code}", 0)
+        val call = client.newCall(requestBuilder.build())
+        
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) {
+                    if (call.isCanceled()) {
+                         cont.cancel(e)
+                    } else {
+                        Log.e("UploadService", "Network error during upload", e)
+                        val errorMsg = if (e is java.net.SocketTimeoutException) "timeout" else e.message ?: "unknown"
+                        notifyProgress(id, 0, "error_network_$errorMsg")
+                        updateNotification("Erro de conexão", 0)
+                        cont.resumeWithException(e)
+                    }
                 }
             }
-        } catch (e: Exception) {
-            Log.e("UploadService", "Network error", e)
-            notifyProgress(id, 0, "error_network_${e.message}")
-            updateNotification("Erro de rede", 0)
+
+            override fun onResponse(call: Call, response: Response) {
+                 response.use {
+                    if (response.isSuccessful) {
+                        notifyProgress(id, 100, "completed")
+                        updateNotification("Envio concluído!", 100)
+                        if (cont.isActive) cont.resume(Unit) {}
+                    } else {
+                        val errorBody = response.body?.string() ?: "No body"
+                        Log.e("UploadService", "Upload failed: ${response.code} $errorBody")
+                        notifyProgress(id, 0, "error_upload_failed_${response.code}")
+                        updateNotification("Falha no envio: ${response.code}", 0)
+                        if (cont.isActive) cont.resumeWithException(IOException("Upload failed: ${response.code}"))
+                    }
+                 }
+            }
+        })
+
+        cont.invokeOnCancellation {
+            call.cancel()
         }
     }
 

@@ -139,7 +139,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     // 1. Verificar se existe uma foto pendente recuperada pelo App.jsx (Global State)
     const checkGlobalPendingPhoto = async () => {
       if (window.__PENDING_RESTORED_PHOTO__) {
-        console.log('📦 Foto pendente encontrada no estado global (ReportModal montado)');
+//         console.log('📦 Foto pendente encontrada no estado global (ReportModal montado)');
         const data = window.__PENDING_RESTORED_PHOTO__;
         
         // Limpar imediatamente para evitar processamento duplo
@@ -188,7 +188,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   fileSize = stat.size;
                 }
              } catch (e) {
-                console.warn('Não foi possível obter tamanho do arquivo recuperado:', e);
+//                 console.warn('Não foi possível obter tamanho do arquivo recuperado:', e);
              }
 
              setFormData(prev => ({
@@ -226,7 +226,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     const setupAppListener = async () => {
       if (Capacitor.isNativePlatform()) {
         appListenerHandle = await App.addListener('appRestoredResult', async (data) => {
-          console.log('🔄 App restaurado com resultado:', data);
+//           console.log('🔄 App restaurado com resultado:', data);
           
           // Verificar se é um resultado do VideoProcessor ou Camera
           if ((data.pluginId === 'VideoProcessor' && data.methodName === 'capturePhoto') || 
@@ -276,7 +276,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       fileSize = stat.size;
                     }
                  } catch (e) {
-                    console.warn('Não foi possível obter tamanho do arquivo restaurado:', e);
+//                     console.warn('Não foi possível obter tamanho do arquivo restaurado:', e);
                  }
 
                  setFormData(prev => ({
@@ -317,7 +317,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         
         // Tentar limpar estado problemático
         if (event.error?.message?.includes('memory') || event.error?.message?.includes('allocation') || isFileError) {
-          console.warn('Erro de memória/arquivo detectado, limpando recursos...');
+//           console.warn('Erro de memória/arquivo detectado, limpando recursos...');
           // Forçar garbage collection se possível
           if (window.gc) {
             try {
@@ -373,7 +373,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         if (isProcessing) {
           // Prevenir reload de forma mais suave
           event.returnValue = ''; // Chrome requer returnValue
-          console.warn('🚫 Tentativa de reload bloqueada durante processamento de foto');
+//           console.warn('🚫 Tentativa de reload bloqueada durante processamento de foto');
           return ''; // Alguns navegadores requerem string vazia
         }
       } catch (e) {
@@ -431,7 +431,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       
       img.onload = () => {
         try {
-          console.log(`Imagem original: ${img.width}x${img.height}`);
+//           console.log(`Imagem original: ${img.width}x${img.height}`);
           
           // Validar dimensões antes de processar
           if (!img.width || !img.height || img.width === 0 || img.height === 0) {
@@ -453,7 +453,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
           const sizeInBytes = (base64String.length * 3) / 4;
           const sizeInMB = sizeInBytes / (1024 * 1024);
           
-          console.log(`Tamanho original estimado: ${sizeInMB.toFixed(2)}MB, Ultra HD: ${isUltraHD ? 'Sim' : 'Não'}`);
+//           console.log(`Tamanho original estimado: ${sizeInMB.toFixed(2)}MB, Ultra HD: ${isUltraHD ? 'Sim' : 'Não'}`);
           
           if (overrideWidth && overrideHeight && overrideQuality) {
             targetWidth = overrideWidth;
@@ -506,7 +506,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
           const width = Math.floor(img.width * ratio);
           const height = Math.floor(img.height * ratio);
           
-          console.log(`Imagem redimensionada: ${width}x${height}, qualidade: ${quality}, Ultra HD: ${isUltraHD}`);
+//           console.log(`Imagem redimensionada: ${width}x${height}, qualidade: ${quality}, Ultra HD: ${isUltraHD}`);
           
           canvas = document.createElement('canvas');
           canvas.width = width;
@@ -537,11 +537,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 }
                 
                 const blobSizeMB = blob.size / (1024 * 1024);
-                console.log(`Tentativa com qualidade ${currentQuality}: ${blobSizeMB.toFixed(2)}MB`);
+//                 console.log(`Tentativa com qualidade ${currentQuality}: ${blobSizeMB.toFixed(2)}MB`);
                 
                 // Se temos overrides, não tentamos ajustar automaticamente o tamanho
                 if (overrideWidth && overrideHeight && overrideQuality) {
-                   console.log(`✅ Tamanho final (override): ${blobSizeMB.toFixed(2)}MB`);
+//                    console.log(`✅ Tamanho final (override): ${blobSizeMB.toFixed(2)}MB`);
                    const file = new File([blob], fileName, { type: 'image/jpeg' });
                    cleanup();
                    resolve(file);
@@ -555,7 +555,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 // Se ainda é muito grande e podemos reduzir mais
                 if (blobSizeMB > 10 && currentQuality > minQuality) {
                   const newQuality = Math.max(minQuality, currentQuality - 0.05); // Redução menor para Ultra HD
-                  console.log(`Arquivo grande (${blobSizeMB.toFixed(2)}MB), tentando com qualidade ${newQuality}`);
+//                   console.log(`Arquivo grande (${blobSizeMB.toFixed(2)}MB), tentando com qualidade ${newQuality}`);
                   tryCompression(newQuality);
                   return;
                 }
@@ -563,13 +563,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 // Se ficou muito pequeno e podemos melhorar a qualidade
                 if (blobSizeMB < 1 && currentQuality < maxQuality) {
                   const newQuality = Math.min(maxQuality, currentQuality + 0.05); // Aumento menor para Ultra HD
-                  console.log(`Arquivo pequeno (${blobSizeMB.toFixed(2)}MB), tentando com qualidade ${newQuality}`);
+//                   console.log(`Arquivo pequeno (${blobSizeMB.toFixed(2)}MB), tentando com qualidade ${newQuality}`);
                   tryCompression(newQuality);
                   return;
                 }
                 
                 // Tamanho ideal encontrado
-                console.log(`✅ Tamanho final: ${blobSizeMB.toFixed(2)}MB (Ultra HD: ${isUltraHD ? 'Sim' : 'Não'})`);
+//                 console.log(`✅ Tamanho final: ${blobSizeMB.toFixed(2)}MB (Ultra HD: ${isUltraHD ? 'Sim' : 'Não'})`);
                 const file = new File([blob], fileName, { type: 'image/jpeg' });
                 cleanup();
                 resolve(file);
@@ -655,13 +655,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const processPhotoFromBase64Optimized = async (image) => {
     // Bloquear processamento paralelo
     if (isProcessingRef.current) {
-      console.log('Processamento já em andamento, aguardando...');
+//       console.log('Processamento já em andamento, aguardando...');
       return;
     }
     
     // Verificar se componente está montado
     if (!isMountedRef.current) {
-      console.log('Componente desmontado, cancelando processamento');
+//       console.log('Componente desmontado, cancelando processamento');
       return;
     }
     
@@ -671,7 +671,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     // Timeout de segurança para evitar travamento
     const safetyTimeout = setTimeout(() => {
       if (isProcessingRef.current) {
-        console.warn('Timeout no processamento de imagem, cancelando...');
+//         console.warn('Timeout no processamento de imagem, cancelando...');
         isProcessingRef.current = false;
         if (previewUrl) {
           try {
@@ -702,7 +702,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       const sizeInBytes = (base64String.length * 3) / 4;
       const sizeInMB = sizeInBytes / (1024 * 1024);
       
-      console.log(`📸 Processando imagem: ${sizeInMB.toFixed(2)}MB`);
+//       console.log(`📸 Processando imagem: ${sizeInMB.toFixed(2)}MB`);
       
       // ESTRATÉGIA PARA CÂMERAS DE ALTA RESOLUÇÃO
       // Desabilitar Web Worker temporariamente para evitar crashes
@@ -832,15 +832,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
              }
            }
         } catch (e) {
-           console.warn('Falha na compressão automática:', e);
+//            console.warn('Falha na compressão automática:', e);
            // Verificação de segurança - Apenas logar, não bloquear
            try {
               const meta = await VideoProcessor.getImageMetadata({ filePath: finalPath });
               if (meta.width > 4096 || meta.height > 4096) {
-                 console.log("Imagem de alta resolução processada nativamente:", meta);
+//                  console.log("Imagem de alta resolução processada nativamente:", meta);
               }
            } catch (ignored) {
-              console.warn("Falha ao verificar metadados da imagem, prosseguindo mesmo assim.");
+//               console.warn("Falha ao verificar metadados da imagem, prosseguindo mesmo assim.");
            }
         }
 
@@ -859,7 +859,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                previewPath = thumb.outputPath;
            }
         } catch (e) {
-           console.warn('Falha ao gerar thumbnail fallback:', e);
+//            console.warn('Falha ao gerar thumbnail fallback:', e);
         }
 
         setFormData(prev => ({
@@ -892,7 +892,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       // NÃO tentamos ler o arquivo via FileReader/Filesystem se for grande.
       // Apenas usamos a URL direta para preview se possível, mas evitamos carregar dados em memória.
       
-      console.warn('VideoProcessor não disponível ou falha no processamento nativo. Usando fallback seguro.');
+//       console.warn('VideoProcessor não disponível ou falha no processamento nativo. Usando fallback seguro.');
       
       // Tenta criar um preview direto sem ler o arquivo
       const previewUrl = Capacitor.convertFileSrc(filePath);
@@ -1179,7 +1179,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
               fileSize = stat.size;
             }
           } catch (e) {
-            console.warn('Não foi possível obter tamanho do arquivo:', e);
+//             console.warn('Não foi possível obter tamanho do arquivo:', e);
           }
 
           setFormData(prev => ({
@@ -1297,7 +1297,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 }
                 
                 const blobSizeMB = blob.size / (1024 * 1024);
-                console.log(`Compressão com qualidade ${currentQuality}: ${blobSizeMB.toFixed(2)}MB`);
+//                 console.log(`Compressão com qualidade ${currentQuality}: ${blobSizeMB.toFixed(2)}MB`);
                 
                 // Se ainda é muito grande, reduzir qualidade
                 if (blobSizeMB > 10 && currentQuality > 0.3) {
@@ -1314,7 +1314,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 }
                 
                 // Tamanho ideal
-                console.log(`✅ Imagem comprimida: ${blobSizeMB.toFixed(2)}MB`);
+//                 console.log(`✅ Imagem comprimida: ${blobSizeMB.toFixed(2)}MB`);
                 resolve(blob);
               },
               'image/jpeg',
@@ -1507,7 +1507,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             // tenta carregar o arquivo inteiro na memória (base64), causando crash (OOM) com vídeos grandes (ex: 2GB).
             // O usuário deve usar o botão "Galeria de Vídeos" que usa o VideoProcessorPlugin (nativo).
             
-            console.warn('Tentativa de selecionar vídeo via input nativo bloqueada para evitar crash.');
+//             console.warn('Tentativa de selecionar vídeo via input nativo bloqueada para evitar crash.');
             toast({
               title: "Use a Galeria de Vídeos",
               description: "Por favor, utilize o botão 'Galeria de Vídeos' abaixo para selecionar arquivos grandes.",
@@ -1518,7 +1518,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             return;
           } else {
             // Web fallback (sem compressão real por enquanto, apenas validação)
-            console.log('Vídeo selecionado na web (sem compressão nativa)');
+//             console.log('Vídeo selecionado na web (sem compressão nativa)');
             setFormData(prev => ({
               ...prev,
               videos: [...prev.videos, { 
@@ -1589,7 +1589,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
            fileSize = stat.size;
          }
       } catch (e) {
-         console.warn('Não foi possível obter tamanho do arquivo (processPhotoFromPath):', e);
+//          console.warn('Não foi possível obter tamanho do arquivo (processPhotoFromPath):', e);
       }
       
       // Preview otimizado usando placeholder
@@ -1861,7 +1861,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         return { data: true };
       } catch (error) {
         if (error.message === 'Upload cancelado') throw error;
-        console.warn(`Tentativa ${attempt}/${maxRetries} falhou:`, error.message);
+//         console.warn(`Tentativa ${attempt}/${maxRetries} falhou:`, error.message);
         
         if (attempt === maxRetries) {
           throw new Error(`Upload falhou após ${maxRetries} tentativas: ${error.message}`);
@@ -1963,7 +1963,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                              });
                              if (comp && comp.outputPath) finalPath = comp.outputPath;
                         } catch (e) {
-                            console.warn("Compressão de imagem falhou, usando original:", e);
+//                             console.warn("Compressão de imagem falhou, usando original:", e);
                         }
 
                         const { uploadId } = await VideoProcessor.uploadVideoInBackground({
@@ -2619,7 +2619,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
           }))}
           startIndex={viewingPhotoIndex}
           onClose={() => setViewingPhotoIndex(null)}
-          onRemove={(index) => removeFile('photos', index)}
         />,
         document.body
       )}

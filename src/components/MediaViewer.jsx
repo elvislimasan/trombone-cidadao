@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeft, ArrowRight, Maximize, Minimize, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const MediaViewer = ({ media, startIndex, onClose, onRemove }) => {
+const MediaViewer = ({ media, startIndex, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -106,23 +106,7 @@ const MediaViewer = ({ media, startIndex, onClose, onRemove }) => {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="absolute top-4 right-4 flex items-center gap-4 z-[2001]">
-            {onRemove && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Confirm before deleting? Maybe better UX, but for now direct action as per request style
-                  if (window.confirm('Tem certeza que deseja remover este arquivo?')) {
-                    onRemove(currentIndex);
-                  }
-                }} 
-                className="text-white hover:bg-white/20 hover:text-red-500"
-                title="Remover arquivo"
-              >
-                <Trash2 className="w-6 h-6" />
-              </Button>
-            )}
+           
             <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="text-white hover:bg-white/20">
               {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
             </Button>

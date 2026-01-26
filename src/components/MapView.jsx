@@ -63,19 +63,6 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const MapFlyTo = () => {
-    const map = useMap();
-    useEffect(() => {
-      if (reports.length > 0) {
-        const firstReportLocation = reports[0].location;
-        if (firstReportLocation && firstReportLocation.lat && firstReportLocation.lng) {
-          map.flyTo([firstReportLocation.lat, firstReportLocation.lng], 15);
-        }
-      }
-    }, [reports, map]);
-    return null;
-  };
-
   const MapScrollLock = () => {
     useMapScrollLock(mode);
     useEffect(() => {
@@ -90,7 +77,6 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapFlyTo />
         <MapScrollLock />
         {reports.map((report) => {
           const location = report.location;

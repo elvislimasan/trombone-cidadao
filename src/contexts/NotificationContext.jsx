@@ -1516,7 +1516,7 @@ export const NotificationProvider = ({ children }) => {
                 
                 // Verificar se navegação está bloqueada (durante processamento de foto/vídeo)
                 if (window.__BLOCK_NAVIGATION__) {
-                  console.log('[FCM] Navegação bloqueada durante processamento de mídia');
+//                   console.log('[FCM] Navegação bloqueada durante processamento de mídia');
                   localNotification.close();
                   return;
                 }
@@ -1610,7 +1610,7 @@ export const NotificationProvider = ({ children }) => {
       // Verificar se não está em processo de captura (evitar recarregar durante foto/vídeo)
       // Verificar flag global de bloqueio de navegação
       if (window.__BLOCK_NAVIGATION__) {
-        console.log('[FCM] Navegação bloqueada durante processamento de mídia');
+//         console.log('[FCM] Navegação bloqueada durante processamento de mídia');
         return;
       }
       

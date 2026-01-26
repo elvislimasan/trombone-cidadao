@@ -422,13 +422,13 @@ const ReportDetails = ({
     // Link "bonito" que passa pelo Vercel Rewrite -> Edge Function -> Redirecionamento
     const shareUrl = `${shareBaseUrl}/share/bronca/${report.id}`;
     
-    console.log('Generating Share URL:', shareUrl);
+//     console.log('Generating Share URL:', shareUrl);
 
     // Se a imagem não for válida, use a thumbnail padrão
     if (!shareImageUrl || shareImageUrl.includes('thumbnail.jpg')) {
-        console.warn('Sharing with default thumbnail because no valid report image was found.');
+//         console.warn('Sharing with default thumbnail because no valid report image was found.');
     } else {
-        console.log('Sharing with report image:', shareImageUrl);
+//         console.log('Sharing with report image:', shareImageUrl);
     }
 
     const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
@@ -491,11 +491,11 @@ const ReportDetails = ({
       }
       
       // Log para debug (remover em produção)
-      console.log('Meta tags atualizadas antes de compartilhar:', {
-        shareImageUrl,
-        shareUrl,
-        ogImage: document.querySelector('meta[property="og:image"]')?.getAttribute('content'),
-      });
+      // console.log('Meta tags atualizadas antes de compartilhar:', {
+      //   shareImageUrl,
+      //   shareUrl,
+      //   ogImage: document.querySelector('meta[property="og:image"]')?.getAttribute('content'),
+      // });
     };
     
     // Atualizar meta tags antes de compartilhar (múltiplas vezes para garantir)
@@ -667,7 +667,7 @@ const ReportDetails = ({
         
         // Apenas alertar se for muito grande, mas tentar processar
         if (fileType === 'photos' && file.size > 20 * 1024 * 1024) {
-             console.warn('Imagem grande detectada, processamento pode levar alguns segundos.');
+//              console.warn('Imagem grande detectada, processamento pode levar alguns segundos.');
              toast({ title: "Processando imagem grande...", description: "Aguarde enquanto otimizamos sua foto." });
         }
 
