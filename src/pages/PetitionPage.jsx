@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,6 +27,7 @@ import PetitionEditor from '@/components/petition/PetitionEditor';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -69,8 +70,35 @@ const PetitionPage = () => {
   const [loading, setLoading] = useState(true);
   const [hasSigned, setHasSigned] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
-  const [showSignModal, setShowSignModal] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const otherCausesRef = useRef(null);
+  const triggerRef = useRef(null);
+  const sidebarRef = useRef(null);
+  const [sidebarStyle, setSidebarStyle] = useState({});
+
+  useEffect(() => {
+    const updateSidebarPosition = () => {
+      if (sidebarRef.current) {
+        const rect = sidebarRef.current.getBoundingClientRect();
+        setSidebarStyle({
+          width: `${rect.width}px`,
+          left: `${rect.left}px`,
+        });
+      }
+    };
+
+    updateSidebarPosition();
+    window.addEventListener('resize', updateSidebarPosition);
+    window.addEventListener('scroll', updateSidebarPosition); // Update on scroll in case of horizontal shifts
+
+    return () => {
+      window.removeEventListener('resize', updateSidebarPosition);
+      window.removeEventListener('scroll', updateSidebarPosition);
+    };
+  }, []);
+
   const [isEditing, setIsEditing] = useState(searchParams.get('edit') === 'true');
   const [isGuestSign, setIsGuestSign] = useState(false);
   const [recentSignatures, setRecentSignatures] = useState([]);
@@ -167,6 +195,29 @@ const PetitionPage = () => {
       url: `${baseUrl}/abaixo-assinado/${id}`,
     };
   }, [baseUrl, petition, id]);
+
+    useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrollPercent = (scrollTop / docHeight) * 100;
+      
+      // Hide sidebar when scroll reaches 60%
+      if (scrollPercent > 50) {
+        setIsSidebarVisible(false);
+      } else {
+        setIsSidebarVisible(true);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    // Initial check
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   // Update meta tags manually for better compatibility
   useEffect(() => {
@@ -678,7 +729,7 @@ const PetitionPage = () => {
       )}
 
       <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl xl:max-w-7xl pb-24 lg:pb-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           
           {canEdit && (
             <div className="flex gap-3 w-full sm:w-auto">
@@ -694,9 +745,22 @@ const PetitionPage = () => {
           )}
         </div>
 
+        {/* Modern Desktop Header */}
+        <div className="hidden lg:block mb-10 space-y-6">
+             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                 <span className="px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-wider">Petição</span>
+                 <span>•</span>
+                 <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(petition.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+             </div>
+             
+             <h1 className="text-4xl xl:text-5xl/tight font-extrabold tracking-tight text-foreground max-w-4xl">
+                 {petition.title}
+             </h1>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* Main Content */}
-          <div className="lg:col-span-7 space-y-8">
+          <div className="lg:col-span-7 xl:col-span-8 space-y-8">
             {petition.layout && petition.layout.length > 0 ? (
               <div className="space-y-4">
                  {petition.layout.map(block => (
@@ -825,20 +889,151 @@ const PetitionPage = () => {
                     
                 </div>
 
-                {/* Desktop Title & Gallery (Hidden on Mobile) */}
-                <div className="hidden lg:block space-y-8">
-                    <h1 className="text-4xl 2xl:text-5xl font-bold text-foreground leading-tight">
-                      {petition.title}
-                    </h1>
-                  
-                    {galleryImages.length > 0 && (
-                      <PetitionGallery images={galleryImages} />
-                    )}
+                {/* Desktop Tabs Layout */}
+                <div className="hidden lg:block mt-8">
+                    <Tabs defaultValue="story" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 mb-8 h-auto p-1 bg-muted/50 rounded-xl">
+                            <TabsTrigger value="story" className="rounded-lg py-3 text-sm font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">A Campanha</TabsTrigger>
+                            <TabsTrigger value="updates" className="rounded-lg py-3 text-sm font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
+                                Novidades {petition.updates?.length > 0 && <span className="ml-2 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">{petition.updates.length}</span>}
+                            </TabsTrigger>
+                            <TabsTrigger value="comments" className="rounded-lg py-3 text-sm font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
+                                Comentários
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="story" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none">
+                             {galleryImages.length > 0 && (
+                                <div className="rounded-2xl overflow-hidden shadow-sm border border-border/50">
+                                    <PetitionGallery images={galleryImages} />
+                                </div>
+                             )}
+
+                             <div className="prose dark:prose-invert max-w-none prose-lg text-foreground/90 leading-relaxed">
+                                {petition.content ? (
+                                    <div dangerouslySetInnerHTML={{ __html: petition.content }} />
+                                ) : (
+                                    <p className="whitespace-pre-line text-lg">
+                                        {petition.description}
+                                    </p>
+                                )}
+                             </div>
+
+                             <div className="flex flex-wrap items-center gap-8 py-8 border-t border-border/50">
+                                 <div className="flex items-center gap-3">
+                                     <Avatar className="w-10 h-10 border border-border">
+                                         {petition.author?.avatar_url ? (
+                                             <AvatarImage src={petition.author.avatar_url} />
+                                         ) : (
+                                             <AvatarFallback className="bg-muted text-muted-foreground font-medium text-xs">
+                                               {petition.author?.name ? petition.author.name.substring(0, 2).toUpperCase() : 'AD'}
+                                             </AvatarFallback>
+                                         )}
+                                     </Avatar>
+                                     <div>
+                                         <p className="text-xs text-muted-foreground">Criado por</p>
+                                         <p className="font-medium text-foreground text-sm">{petition.author?.name || 'Administrador'}</p>
+                                     </div>
+                                 </div>
+
+                                 {petition.target && (
+                                     <div className="flex items-center gap-3 pl-6 border-l border-border/50">
+                                         <div className="p-1.5 bg-muted rounded-full">
+                                             <Target className="w-4 h-4 text-muted-foreground" />
+                                         </div>
+                                         <div>
+                                             <p className="text-xs text-muted-foreground">Direcionado a</p>
+                                             <p className="font-medium text-foreground text-sm">{petition.target}</p>
+                                         </div>
+                                     </div>
+                                 )}
+
+                                 <div className="ml-auto">
+                                     <Button variant="outline" size="sm" className="h-10 px-4 font-bold border-primary/20 hover:bg-primary/5 text-primary" onClick={handleShare}>
+                                         <Share2 className="w-4 h-4 mr-2" />
+                                         Compartilhar
+                                     </Button>
+                                 </div>
+                             </div>
+                        </TabsContent>
+
+                        <TabsContent value="updates" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none">
+                             {petition.updates && petition.updates.length > 0 ? (
+                                petition.updates
+                                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                                    .map((update) => (
+                                    <Card key={update.id} className="overflow-hidden border-border/50 hover:border-primary/30 transition-colors shadow-sm">
+                                      {update.image_url && (
+                                        <div className="w-full h-48 md:h-64 overflow-hidden relative group">
+                                          <img src={update.image_url} alt={update.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                      )}
+                                      <CardContent className="p-6 md:p-8">
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                                          <Calendar className="w-4 h-4" />
+                                          {formatDistanceToNow(new Date(update.created_at), { addSuffix: true, locale: ptBR })}
+                                        </div>
+                                        <h3 className="text-2xl font-bold mb-4 text-foreground">{update.title}</h3>
+                                        <div className="prose dark:prose-invert max-w-none text-muted-foreground">
+                                          <p className="whitespace-pre-line leading-relaxed">{update.content}</p>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  ))
+                                ) : (
+                                  <div className="text-center py-16 bg-muted/20 rounded-2xl border border-dashed">
+                                    <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                       <Clock className="w-8 h-8 text-muted-foreground/50" />
+                                    </div>
+                                    <h3 className="font-semibold text-xl mb-2 text-foreground">Nenhuma novidade ainda</h3>
+                                    <p className="text-muted-foreground max-w-md mx-auto">O autor ainda não publicou atualizações sobre esta petição. Fique ligado!</p>
+                                  </div>
+                                )}
+                        </TabsContent>
+
+                        <TabsContent value="comments" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none">
+                            <div className="flex items-center gap-2 mb-6">
+                                <MessageSquare className="w-5 h-5 text-primary" />
+                                <h3 className="text-xl font-bold">O que as pessoas estão dizendo</h3>
+                            </div>
+                            <div className="grid gap-4">
+                                {recentSignatures.length > 0 ? (
+                                  recentSignatures.map((sig, i) => (
+                                    <div key={i} className="flex gap-4 p-6 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all">
+                                      <Avatar className="w-12 h-12 border-2 border-background ring-2 ring-primary/10">
+                                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                          {sig.is_public ? (sig.name ? sig.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="space-y-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-bold text-base text-foreground">
+                                            {sig.is_public ? (sig.name || 'Anônimo') : 'Apoiador Anônimo'}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sig.city || 'Brasil'}</span>
+                                          <span className="text-xs text-muted-foreground">• {formatDistanceToNow(new Date(sig.created_at), { addSuffix: true, locale: ptBR })}</span>
+                                        </div>
+                                        {sig.comment && (
+                                          <p className="text-base text-foreground/80 leading-relaxed">"{sig.comment}"</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-center py-12 bg-muted/20 rounded-xl border border-dashed">
+                                     <MessageSquare className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+                                     <p className="text-muted-foreground italic">Seja o primeiro a deixar um comentário!</p>
+                                  </div>
+                                )}
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
 
-                {/* History Section */}
+                {/* Mobile History Section (Hidden on Desktop) */}
                 <motion.section 
-                  className="mt-10 space-y-8"
+                  className="mt-10 space-y-8 lg:hidden"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-100px" }}
@@ -979,8 +1174,14 @@ const PetitionPage = () => {
           </div>
 
                 {/* Sidebar */}
-          <div className="hidden lg:block lg:col-span-5 space-y-6">
-            <div className="sticky top-24 space-y-6">
+          <div ref={sidebarRef} className="hidden lg:block lg:col-span-5 xl:col-span-4 space-y-6">
+            <div 
+              className={`fixed top-24 space-y-6 transition-opacity duration-300 ${isSidebarVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+              style={{
+                ...sidebarStyle,
+                zIndex: 40
+              }}
+            >
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1059,7 +1260,7 @@ const PetitionPage = () => {
                       </div>
                     </div>
                     
-                    <div className="pt-4 border-t border-border bg-muted/30 -mx-6 px-6 pb-6 -mb-6 mt-4">
+                    <div className="hidden 2xl:block pt-4 border-t border-border bg-muted/30 -mx-6 px-6 pb-6 -mb-6 mt-4">
                       <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm pt-4">
                         <Sparkles className="w-4 h-4 text-primary" />
                         Por que isso importa?
@@ -1119,55 +1320,7 @@ const PetitionPage = () => {
                 </motion.div>
               )}
 
-              {/* Updates Widget (Desktop) */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.15, duration: 0.5 }}
-              >
-                 <Card className="shadow-sm border-border/50 overflow-hidden">
-                    <div className="p-4 pb-2 border-b bg-muted/20 flex justify-between items-center">
-                      <h3 className="font-bold flex items-center gap-2 text-foreground text-sm">
-                         <Megaphone className="w-4 h-4 text-primary" />
-                         Novidades
-                      </h3>
-                      {petition.updates && petition.updates.length > 0 && (
-                         <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-bold">{petition.updates.length}</span>
-                      )}
-                    </div>
-                    
-                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                      {petition.updates && petition.updates.length > 0 ? (
-                        <div className="divide-y divide-border/50">
-                          {petition.updates
-                            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                            .map((update) => (
-                              <div key={update.id} className="p-4 hover:bg-muted/10 transition-colors">
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                                  <Calendar className="w-3 h-3" />
-                                  {formatDistanceToNow(new Date(update.created_at), { addSuffix: true, locale: ptBR })}
-                                </div>
-                                <h4 className="font-bold text-base mb-2 text-foreground line-clamp-2">{update.title}</h4>
-                                {update.image_url && (
-                                  <div className="mb-3 rounded-md overflow-hidden h-32 w-full">
-                                    <img src={update.image_url} alt={update.title} className="w-full h-full object-cover" />
-                                  </div>
-                                )}
-                                <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-line">{update.content}</p>
-                              </div>
-                            ))}
-                        </div>
-                      ) : (
-                        <div className="p-6 text-center">
-                           <div className="w-10 h-10 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-3">
-                              <Clock className="w-5 h-5 text-muted-foreground/50" />
-                           </div>
-                           <p className="text-sm text-muted-foreground">Nenhuma novidade publicada ainda.</p>
-                        </div>
-                      )}
-                    </div>
-                 </Card>
-              </motion.div>
+
 
               {recentDonations.length > 0 && (
                 <motion.div
@@ -1209,51 +1362,13 @@ const PetitionPage = () => {
                 </motion.div>
               )}
 
-              {latestSigners.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
-                >
-                  <Card className="shadow-sm border-border/50">
-                    <div className="p-4 pb-2 border-b bg-muted/20">
-                      <h3 className="font-bold flex items-center gap-2 text-foreground text-sm">
-                         <Users className="w-4 h-4 text-primary" />
-                         Últimos Assinantes
-                      </h3>
-                    </div>
-                    <div className="p-4 space-y-4">
-                      {latestSigners.slice(0, 5).map((signer, i) => (
-                        <motion.div 
-                          key={i} 
-                          className="flex items-center gap-3"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.4 + (i * 0.1) }}
-                        >
-                           <Avatar className="w-8 h-8 border border-border">
-                             <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                               {signer.is_public ? (signer.name ? signer.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}
-                             </AvatarFallback>
-                           </Avatar>
-                           <div className="flex-1 min-w-0 overflow-hidden">
-                             <p className="text-sm font-medium truncate text-foreground">
-                               {signer.is_public ? (signer.name || 'Anônimo') : 'Apoiador Anônimo'}
-                             </p>
-                             <p className="text-xs text-muted-foreground flex items-center gap-1">
-                               <Clock className="w-3 h-3" />
-                               {formatDistanceToNow(new Date(signer.created_at), { addSuffix: true, locale: ptBR })}
-                             </p>
-                           </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </Card>
-                </motion.div>
-              )}
+
             </div>
           </div>
         </div>
+
+        {/* Visibility Trigger Sentinel */}
+        <div ref={triggerRef} className="w-full h-px my-4" aria-hidden="true" />
 
         {/* Other Petitions Suggestions (Full Width) */}
         {otherPetitions.length > 0 && (
