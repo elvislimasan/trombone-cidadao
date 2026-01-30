@@ -436,8 +436,8 @@ const ReportDetails = ({
 //         console.log('Sharing with report image:', shareImageUrl);
     }
 
-    const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
-    const fullShareText = `${shareText} ${shareUrl}`; 
+    // const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
+    // const fullShareText = `${shareText} ${shareUrl}`; 
 
 
 
@@ -515,7 +515,7 @@ const ReportDetails = ({
         // No app nativo, compartilhar o link (a imagem aparecerá como thumbnail via meta tags geradas pela Edge Function)
         const shareData = {
           title: `Trombone Cidadão: ${report.title}`,
-          text: shareText, 
+          // text: shareText, // Removido para garantir que o card apareça limpo no WhatsApp
           url: shareUrl, 
         };
 
@@ -530,7 +530,7 @@ const ReportDetails = ({
         // Não incluir files, pois isso pode fazer o navegador ignorar o URL
         const webShareData = {
           title: `Trombone Cidadão: ${report.title}`,
-          text: shareText, // Texto sem URL para evitar duplicação
+          // text: shareText, // Removido para garantir que o card apareça limpo no WhatsApp
           url: shareUrl, // URL sempre incluída - a imagem aparecerá como thumbnail via Open Graph
         };
         
@@ -544,25 +544,17 @@ const ReportDetails = ({
         return;
       }
 
-      // Fallback: abrir WhatsApp diretamente ou copiar link
-      const whatsappNumber = '5587999488360';
-      const whatsappMessage = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
-      
-      // Tentar abrir WhatsApp
-      window.open(whatsappUrl, '_blank');
-      
-      // Também copiar para área de transferência como backup
+      // Fallback: copiar link
       try {
-        await navigator.clipboard.writeText(fullShareText);
+        await navigator.clipboard.writeText(shareUrl);
         toast({ 
-          title: "Abrindo WhatsApp... 📱", 
-          description: "Link também copiado para área de transferência. A imagem aparecerá como preview do link." 
+          title: "Link copiado!", 
+          description: "Cole nas suas redes sociais." 
         });
       } catch (clipboardError) {
         toast({ 
-          title: "Abrindo WhatsApp... 📱", 
-          description: "Compartilhe a bronca pelo WhatsApp. A imagem aparecerá como preview do link." 
+          title: "Erro ao copiar", 
+          description: "Não foi possível copiar o link." 
         });
     }
   } catch (error) {
@@ -573,18 +565,12 @@ const ReportDetails = ({
       
     console.error('Error sharing:', error);
     
-      // Fallback: abrir WhatsApp diretamente
+      // Fallback: apenas copiar link
       try {
-        const whatsappNumber = '5587999488360';
-        const whatsappMessage = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
-        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
-        window.open(whatsappUrl, '_blank');
-        
-        // Também copiar para área de transferência
-        await navigator.clipboard.writeText(fullShareText);
+        await navigator.clipboard.writeText(shareUrl);
         toast({ 
-          title: "Abrindo WhatsApp... 📱", 
-          description: "Link também copiado para área de transferência. A imagem aparecerá como preview do link." 
+          title: "Link copiado!", 
+          description: "Cole nas suas redes sociais." 
         });
       } catch (fallbackError) {
         toast({ 

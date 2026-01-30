@@ -577,7 +577,7 @@ const PetitionPage = () => {
 
     const shareData = {
       title: petition.title,
-      text: `Assine esta petição: ${petition.title}`,
+      // text: `Assine esta petição: ${petition.title}`, // Removido para garantir que o card apareça limpo no WhatsApp
       url: smartShareUrl,
       dialogTitle: 'Compartilhar Petição',
     };
@@ -589,7 +589,7 @@ const PetitionPage = () => {
         if (navigator.share) {
           await navigator.share(shareData);
         } else {
-          await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+          await navigator.clipboard.writeText(shareData.url);
           toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
         }
       }
