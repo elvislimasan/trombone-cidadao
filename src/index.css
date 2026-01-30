@@ -306,6 +306,12 @@ body > * a:not(.leaflet-container a) {
   }
 }
 
+/* Remove browser default password toggle button (Edge/IE) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
 .glass-effect {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);

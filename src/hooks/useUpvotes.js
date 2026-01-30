@@ -1,18 +1,21 @@
-// hooks/useUpvote.js - VERSÃO MELHORADA
+// hooks/useUpvote.js - ATUALIZADO PARA ASSINATURAS
 import { useState, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 
 export const useUpvote = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
 
   const handleUpvote = useCallback(async (reportId, currentUpvotes = 0, currentUserHasUpvoted = false) => {
     if (!user) {
+      toast({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
+      navigate('/login', { state: { from: location } });
       return { 
         success: false, 
         action: null,
@@ -24,15 +27,15 @@ export const useUpvote = () => {
 
     try {
   
-      // Verificar se o usuário já apoiou esta bronca
-      const { data: existingUpvote, error: checkError } = await supabase
-        .from('upvotes')
+      // Verificar se o usuário já assinou esta bronca
+      const { data: existingSignature, error: checkError } = await supabase
+        .from('signatures')
         .select('id')
         .eq('report_id', reportId)
         .eq('user_id', user.id);
 
       if (checkError) {
-        console.error('Erro ao verificar upvote:', checkError);
+        console.error('Erro ao verificar assinatura:', checkError);
         throw new Error(`Erro ao verificar apoio: ${checkError.message}`);
       }
 
@@ -41,17 +44,17 @@ export const useUpvote = () => {
       let newUpvotes;
       let newUserHasUpvoted;
 
-      // Se já existe um upvote, remover
-      if (existingUpvote && existingUpvote.length > 0) {
+      // Se já existe uma assinatura, remover (cancelar assinatura)
+      if (existingSignature && existingSignature.length > 0) {
         
         const { error: deleteError } = await supabase
-          .from('upvotes')
+          .from('signatures')
           .delete()
           .eq('report_id', reportId)
           .eq('user_id', user.id);
 
         if (deleteError) {
-          console.error('Erro ao deletar upvote:', deleteError);
+          console.error('Erro ao deletar assinatura:', deleteError);
           throw new Error(`Erro ao remover apoio: ${deleteError.message}`);
         }
 
@@ -63,14 +66,14 @@ export const useUpvote = () => {
 
         
         const { error: insertError } = await supabase
-          .from('upvotes')
+          .from('signatures')
           .insert({ 
             report_id: reportId, 
             user_id: user.id 
           });
 
         if (insertError) {
-          console.error('Erro ao inserir upvote:', insertError);
+          console.error('Erro ao inserir assinatura:', insertError);
           throw new Error(`Erro ao apoiar: ${insertError.message}`);
         }
 

@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useUpvote } from '../hooks/useUpvotes';
 import DynamicSEO from '../components/DynamicSeo';
+import DonationModal from '@/components/DonationModal';
 
 const ReportPage = () => {
   const { reportId } = useParams();
@@ -19,6 +20,7 @@ const ReportPage = () => {
   const [allReports, setAllReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showDonationModal, setShowDonationModal] = useState(false);
   const [reportToLink, setReportToLink] = useState(null);
   const { handleUpvote } = useUpvote();
 
@@ -212,8 +214,9 @@ const ReportPage = () => {
         comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), 
         timeline:report_timeline(*), 
         report_media(*), 
-        upvotes:upvotes(count),
-        favorite_reports(user_id)
+        upvotes:signatures(count),
+        favorite_reports(user_id),
+        petitions(id)
       `)
       .eq('id', reportId)
       .single();
@@ -230,6 +233,18 @@ const ReportPage = () => {
       return;
     }
     
+    // Verificar se o usuário já assinou
+    let userHasSigned = false;
+    if (user) {
+      const { data: sig } = await supabase
+        .from('signatures')
+        .select('id')
+        .eq('report_id', reportId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      userHasSigned = !!sig;
+    }
+
       const formattedData = {
         ...data,
         location: data.location ? { lat: data.location.coordinates[1], lng: data.location.coordinates[0] } : null,
@@ -247,7 +262,9 @@ const ReportPage = () => {
           authorName: c.author?.name || 'Anônimo'
         })),
         upvotes: data.upvotes[0]?.count || 0,
+        user_has_upvoted: userHasSigned,
         is_favorited: user ? data.favorite_reports.some(fav => fav.user_id === user.id) : false,
+        petitionId: data.petitions?.[0]?.id || null
       };
       setReport(formattedData);
     setLoading(false);
@@ -428,11 +445,20 @@ const ReportPage = () => {
         report={report}
         onClose={() => navigate('/')}
         onUpdate={handleUpdateReport}
-        onUpvote={() => handleUpvote(report.id, report.upvotes, report.user_has_upvoted)}
+        onUpvote={() => handleUpvote(report.id)}
         onLink={handleOpenLinkModal}
         onFavoriteToggle={handleFavoriteToggle}
+        onDonate={() => setShowDonationModal(true)}
       />
       
+      {showDonationModal && (
+        <DonationModal
+          report={report}
+          isOpen={showDonationModal}
+          onClose={() => setShowDonationModal(false)}
+        />
+      )}
+
       {showLinkModal && reportToLink && (
         <LinkReportModal
           sourceReport={reportToLink}

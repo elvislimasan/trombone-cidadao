@@ -84,8 +84,8 @@ function HomePage() {
           pole_number,
           category:categories(name, icon),
           author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config),
-          upvotes:upvotes(count),
-          user_upvotes:upvotes(user_id),
+          upvotes:signatures(count),
+          user_upvotes:signatures(user_id),
           comments:comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)),
           comments_count:comments(count),
           report_media(*),
@@ -185,7 +185,7 @@ function HomePage() {
           {
             event: '*',
             schema: 'public',
-            table: 'upvotes'
+            table: 'signatures'
           },
           (payload) => {
             fetchReports();
