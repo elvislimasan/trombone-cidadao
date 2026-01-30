@@ -25,7 +25,7 @@ const PetitionGallery = ({ images }) => {
 
   if (images.length === 1) {
     return (
-      <div className="relative aspect-video rounded-xl overflow-hidden shadow-lg mb-8">
+      <div className="relative aspect-video rounded-xl overflow-hidden shadow-lg mb-2">
         <img 
           src={images[0]} 
           alt="Campaign Main" 
@@ -36,7 +36,7 @@ const PetitionGallery = ({ images }) => {
   }
 
   return (
-    <div className="relative group mb-8">
+    <div className="relative group mb-2">
       <div className="overflow-hidden rounded-xl shadow-lg aspect-video" ref={emblaRef}>
         <div className="flex">
           {images.map((src, index) => (

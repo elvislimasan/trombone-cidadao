@@ -108,10 +108,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
 
   return (
     <div className={`border rounded-lg overflow-hidden transition-colors ${isFocused ? 'border-primary ring-1 ring-primary' : 'border-border'}`}>
-      <div className="bg-muted/50 border-b p-1 flex flex-wrap gap-1 items-center">
+      <div className="bg-muted/50 border-b p-1 flex flex-nowrap overflow-x-auto gap-1 items-center sticky top-0 z-20">
         
         {/* Group: History */}
-        <div className="flex items-center gap-0.5 mr-1">
+        <div className="flex items-center gap-0.5 mr-1 shrink-0">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('undo')} title="Desfazer">
             <Undo className="w-4 h-4" />
           </Button>
@@ -120,10 +120,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
           </Button>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
 
         {/* Group: Typography */}
-        <div className="flex items-center gap-1 mr-1">
+        <div className="flex items-center gap-1 mr-1 shrink-0">
           <DropdownMenu>
               <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 gap-1 px-2" title="Fonte">
@@ -164,10 +164,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
           </DropdownMenu>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
 
         {/* Group: Basic Formatting */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 shrink-0">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('bold')} title="Negrito">
             <Bold className="w-4 h-4" />
           </Button>
@@ -182,10 +182,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
           </Button>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
 
         {/* Group: Colors & Clear */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 shrink-0">
            <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Cor do Texto">
@@ -233,10 +233,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
           </Button>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
 
         {/* Group: Alignment */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 shrink-0">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('justifyLeft')} title="Alinhar à Esquerda">
             <AlignLeft className="w-4 h-4" />
           </Button>
@@ -248,10 +248,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
           </Button>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
 
         {/* Group: Lists & Structure */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 shrink-0">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('insertUnorderedList')} title="Lista com Marcadores">
             <List className="w-4 h-4" />
           </Button>
@@ -263,10 +263,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
           </Button>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
 
         {/* Group: Insert */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 shrink-0">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={addLink} title="Inserir Link">
             <LinkIcon className="w-4 h-4" />
           </Button>
@@ -277,7 +277,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
       </div>
       <div
         ref={contentRef}
-        className="p-4 min-h-[200px] max-h-[500px] overflow-y-auto focus:outline-none prose max-w-none dark:prose-invert"
+        className="p-3 md:p-4 min-h-[200px] max-h-[500px] overflow-y-auto focus:outline-none prose max-w-none dark:prose-invert"
         contentEditable
         suppressContentEditableWarning={true}
         onInput={handleInput}

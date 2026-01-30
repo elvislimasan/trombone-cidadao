@@ -199,13 +199,13 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Top Bar */}
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b p-4 flex items-center justify-between gap-4">
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b p-3 md:p-4 flex items-center justify-between gap-2 md:gap-4">
         <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
           <Button variant="ghost" size="icon" onClick={onCancel} className="shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="min-w-0">
-            <h1 className="text-lg font-bold truncate">Editar Abaixo-Assinado</h1>
+            <h1 className="text-base md:text-lg font-bold truncate">Editar Abaixo-Assinado</h1>
             <div className="flex items-center gap-2">
               <p className="text-xs text-muted-foreground whitespace-nowrap">
                 {formData.status === 'open' ? 'Publicado' : formData.status === 'closed' ? 'Encerrado' : 'Rascunho'}
@@ -306,10 +306,10 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
           <TabsContent value="content" className="mt-6 space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="p-4 md:p-6">
                 <CardTitle>História da Campanha</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
                 <RichTextEditor 
                   value={formData.content} 
                   onChange={(val) => handleChange('content', val)} 
@@ -324,10 +324,10 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
           <TabsContent value="images" className="mt-6 space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="p-4 md:p-6">
                 <CardTitle>Galeria de Imagens</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 p-4 pt-0 md:p-6 md:pt-0">
                 <ImageUploader 
                   onUploadComplete={(newUrls) => handleChange('gallery', [...formData.gallery, ...newUrls])} 
                 />
@@ -341,10 +341,10 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
           <TabsContent value="settings" className="mt-6 space-y-6">
              <Card>
-              <CardHeader>
+              <CardHeader className="p-4 md:p-6">
                 <CardTitle>Metas e Prazos</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-4 pt-0 md:p-6 md:pt-0">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="goal">Meta de Assinaturas</Label>
@@ -423,13 +423,13 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
           <TabsContent value="history" className="mt-6 space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="p-4 md:p-6">
                 <CardTitle>Histórico de Versões</CardTitle>
                 <CardDescription>
                   Restaure versões anteriores se necessário.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
                 {versions.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">Nenhuma versão salva encontrada.</p>
                 ) : (
