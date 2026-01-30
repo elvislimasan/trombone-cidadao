@@ -23,6 +23,10 @@ export const useDonation = () => {
 
         if (error) throw error;
         
+        if (provider === 'mercadopago' && !data.paymentId) {
+            console.warn("Atenção: paymentId não retornado pelo backend. O polling de confirmação não funcionará.");
+        }
+
         return {
             success: true,
             clientSecret: data.clientSecret, // Stripe specific

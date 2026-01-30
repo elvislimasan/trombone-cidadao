@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import Stripe from 'https://esm.sh/stripe@12.4.0?target=deno'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.42.0'
+import Stripe from 'https://esm.sh/stripe@14.25.0?target=deno'
 
 console.log("Create Payment Intent Function Invoked")
 
@@ -107,7 +107,7 @@ serve(async (req) => {
         }
 
         const stripe = new Stripe(stripeKey, {
-            apiVersion: '2022-11-15',
+            apiVersion: '2023-10-16',
             httpClient: Stripe.createFetchHttpClient(),
         });
 
@@ -208,29 +208,42 @@ serve(async (req) => {
             throw new Error('Missing payment_intent_id');
         }
         const stripe = new Stripe(stripeKey, {
-            apiVersion: '2022-11-15',
+            apiVersion: '2023-10-16',
             httpClient: Stripe.createFetchHttpClient(),
         });
         const intent = await stripe.paymentIntents.retrieve(payment_intent_id);
         if (intent.status !== 'succeeded') {
             return new Response(JSON.stringify({ confirmed: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
-        const insertPayload: Record<string, unknown> = {
-            report_id: (intent.metadata?.report_id ?? null) as unknown,
-            petition_id: (intent.metadata?.petition_id ?? null) as unknown,
-            user_id: (intent.metadata?.user_id ?? null) as unknown,
-            amount: intent.amount,
-            status: 'paid',
-            payment_id: intent.id,
-            provider: 'stripe'
-        };
-        const { data: donationData, error: insertError } = await supabaseAdmin
+
+        // Check for existing donation to ensure idempotency
+        const { data: existingDonation } = await supabaseAdmin
             .from('donations')
-            .insert(insertPayload)
-            .select()
-            .single();
-        if (insertError) throw insertError;
-        resultData = { donationId: donationData.id, confirmed: true };
+            .select('id')
+            .eq('payment_id', intent.id)
+            .maybeSingle();
+
+        if (existingDonation) {
+            console.log(`Stripe Payment ${intent.id} already processed.`);
+            resultData = { donationId: existingDonation.id, confirmed: true };
+        } else {
+            const insertPayload: Record<string, unknown> = {
+                report_id: (intent.metadata?.report_id ?? null) as unknown,
+                petition_id: (intent.metadata?.petition_id ?? null) as unknown,
+                user_id: (intent.metadata?.user_id ?? null) as unknown,
+                amount: intent.amount,
+                status: 'paid',
+                payment_id: intent.id,
+                provider: 'stripe'
+            };
+            const { data: donationData, error: insertError } = await supabaseAdmin
+                .from('donations')
+                .insert(insertPayload)
+                .select()
+                .single();
+            if (insertError) throw insertError;
+            resultData = { donationId: donationData.id, confirmed: true };
+        }
     } else if (action === 'finalize' && provider === 'mercadopago') {
         const mpAccessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
         if (!mpAccessToken) {
@@ -253,23 +266,36 @@ serve(async (req) => {
         if (data.status !== 'approved') {
             return new Response(JSON.stringify({ confirmed: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
-        const amountCents = Math.round((data.transaction_amount || 0) * 100);
-        const insertPayload: Record<string, unknown> = {
-            report_id: (data.metadata?.report_id ?? null) as unknown,
-            petition_id: (data.metadata?.petition_id ?? null) as unknown,
-            user_id: (data.metadata?.user_id ?? null) as unknown,
-            amount: amountCents,
-            status: 'paid',
-            payment_id: String(payment_id),
-            provider: 'mercadopago'
-        };
-        const { data: donationData, error: insertError } = await supabaseAdmin
+
+        // Check for existing donation to ensure idempotency
+        const { data: existingDonation } = await supabaseAdmin
             .from('donations')
-            .insert(insertPayload)
-            .select()
-            .single();
-        if (insertError) throw insertError;
-        resultData = { donationId: donationData.id, confirmed: true };
+            .select('id')
+            .eq('payment_id', String(payment_id))
+            .maybeSingle();
+
+        if (existingDonation) {
+            console.log(`Mercado Pago Payment ${payment_id} already processed.`);
+            resultData = { donationId: existingDonation.id, confirmed: true };
+        } else {
+            const amountCents = Math.round((data.transaction_amount || 0) * 100);
+            const insertPayload: Record<string, unknown> = {
+                report_id: (data.metadata?.report_id ?? null) as unknown,
+                petition_id: (data.metadata?.petition_id ?? null) as unknown,
+                user_id: (data.metadata?.user_id ?? null) as unknown,
+                amount: amountCents,
+                status: 'paid',
+                payment_id: String(payment_id),
+                provider: 'mercadopago'
+            };
+            const { data: donationData, error: insertError } = await supabaseAdmin
+                .from('donations')
+                .insert(insertPayload)
+                .select()
+                .single();
+            if (insertError) throw insertError;
+            resultData = { donationId: donationData.id, confirmed: true };
+        }
     }
 
     return new Response(
