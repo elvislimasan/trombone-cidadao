@@ -729,9 +729,9 @@ const PetitionPage = () => {
       )}
 
       <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl xl:max-w-7xl pb-24 lg:pb-8">
+          {canEdit && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           
-          {canEdit && (
             <div className="flex gap-3 w-full sm:w-auto">
               <Button variant="outline" onClick={handleExportPDF} className="flex-1 sm:flex-none whitespace-nowrap shadow-sm bg-background">
                 <Download className="w-4 h-4 mr-2" />
@@ -742,8 +742,8 @@ const PetitionPage = () => {
                 Editar Página
               </Button>
             </div>
-          )}
         </div>
+          )}
 
         {/* Modern Desktop Header */}
         <div className="hidden lg:block mb-10 space-y-6">
@@ -812,14 +812,14 @@ const PetitionPage = () => {
               <>
                 {/* Mobile Unified Card Layout */}
                 <div className="lg:hidden bg-card border rounded-xl shadow-sm overflow-hidden mb-8">
-                    <div className="p-5 pb-2">
+                    <div className="p-5 pb-2 pt-2">
                         <h1 className="text-2xl font-bold text-foreground leading-tight mb-2">
                             {petition.title}
                         </h1>
                     </div>
 
                     {galleryImages.length > 0 && (
-                        <div className="w-full">
+                        <div className="w-full px-5">
                              <PetitionGallery images={galleryImages} className="w-full" />
                         </div>
                     )}
@@ -839,7 +839,7 @@ const PetitionPage = () => {
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                              <Button size="lg" className="w-full text-lg font-bold shadow-md h-12" onClick={handleSignClick} disabled={hasSigned || petition.status !== 'open'}>
                                 {hasSigned ? (
                                     <>
@@ -1043,7 +1043,7 @@ const PetitionPage = () => {
                       <div className="p-2 bg-primary/10 rounded-lg text-primary">
                          <FileText className="w-6 h-6" />
                       </div>
-                      <h2 className="text-2xl md:text-3xl font-bold text-foreground">A História</h2>
+                      <h2 className="text-2xl md:text-3xl font-bold text-foreground">Entenda a Campanha</h2>
                    </div>
                    
                    {petition.target && (
