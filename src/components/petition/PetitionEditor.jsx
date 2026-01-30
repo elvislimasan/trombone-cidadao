@@ -393,9 +393,15 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                              return isNaN(num) ? null : num;
                            }).filter(v => v !== null);
                            
-                           // Only update form data if we have valid values, 
-                           // but we don't force formatting back to input while typing
-                           handleChange('donation_options', values);
+                           // Check if values are different from current formData to avoid unnecessary updates
+                           // which might trigger useEffect and reset the input string (removing commas/partial input)
+                           const currentValues = formData.donation_options || [];
+                           const hasChanged = values.length !== currentValues.length || 
+                                              values.some((v, i) => v !== currentValues[i]);
+                           
+                           if (hasChanged) {
+                               handleChange('donation_options', values);
+                           }
                         }}
                         onBlur={() => {
                           // On blur, format the input to look nice based on valid values
