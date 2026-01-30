@@ -1279,7 +1279,7 @@ const PetitionPage = () => {
       
       {/* Sign Modal */}
       <Dialog open={showSignModal} onOpenChange={setShowSignModal}>
-        <DialogContent className="sm:max-w-md bg-card">
+        <DialogContent className="sm:max-w-md bg-card max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Assine este abaixo-assinado</DialogTitle>
             <DialogDescription>
