@@ -210,15 +210,11 @@ const ReportDetails = ({
   const getBaseUrl = () => {
     let baseUrl;
     
-    // 1. Prioridade: Variável de ambiente (configurada no Vercel)
-    if (import.meta.env.VITE_APP_URL) {
-      baseUrl = import.meta.env.VITE_APP_URL;
-    }
-    // 2. Se estiver no app nativo, sempre usar produção
-    else if (Capacitor.isNativePlatform()) {
+    // 1. Se estiver no app nativo, sempre usar produção
+    if (Capacitor.isNativePlatform()) {
       baseUrl = 'https://trombonecidadao.com.br';
     }
-    // 3. Se estiver no navegador, detectar automaticamente o ambiente
+    // 2. Se estiver no navegador, detectar automaticamente o ambiente (prioridade sobre VITE_APP_URL para suportar Dev/Preview corretamente)
     else if (typeof window !== 'undefined') {
       const origin = window.location.origin;
       
@@ -228,7 +224,7 @@ const ReportDetails = ({
       }
       // Se for Vercel (dev), usar Vercel
       else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
-       console.log("origin")
+       console.log("origin detected:", origin)
         baseUrl = origin;
       }
       // Se for domínio de produção, usar produção
@@ -239,6 +235,10 @@ const ReportDetails = ({
       else {
         baseUrl = origin;
       }
+    }
+    // 3. Fallback para Variável de ambiente (configurada no Vercel) se não detectado
+    else if (import.meta.env.VITE_APP_URL) {
+      baseUrl = import.meta.env.VITE_APP_URL;
     }
     // 4. Fallback final: produção
     else {
