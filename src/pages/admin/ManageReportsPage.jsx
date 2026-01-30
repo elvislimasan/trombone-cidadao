@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -35,7 +35,7 @@ const ManageReportsPage = () => {
     setLoading(true);
     let query = supabase
       .from('reports')
-      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*), favorite_reports!left(*)')
+      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*), favorite_reports!left(*), petitions(id)')
       .order('created_at', { ascending: false });
 
     if (user) {
@@ -59,6 +59,7 @@ const ManageReportsPage = () => {
         photos: r.report_media.filter(m => m.type === 'photo'),
         videos: r.report_media.filter(m => m.type === 'video'),
         is_favorited: r.favorite_reports.length > 0,
+        petition_id: r.petitions && r.petitions.length > 0 ? r.petitions[0].id : null,
       }));
       setReports(formattedData);
     }
@@ -332,20 +333,31 @@ const ManageReportsPage = () => {
                       <p className="font-semibold">{report.title}</p>
                       <p className="text-sm text-muted-foreground">Autor: {report.author?.name || 'N/A'} | Status: <span className="font-medium">{report.status}</span></p>
                     </div>
-                    <div className="flex-shrink-0 flex gap-2">
-                      {!report.is_petition && (
+                    <div className="flex-shrink-0 flex gap-2 items-center">
+                      {report.is_petition ? (
+                        <a href={report.petition_id ? `/abaixo-assinado/${report.petition_id}` : '/admin/assinaturas'} target="_blank" rel="noopener noreferrer">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-100" 
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Acompanhar
+                          </Button>
+                        </a>
+                      ) : (
                         <Button 
                           variant="ghost" 
-                          size="icon" 
+                          size="sm" 
                           className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100" 
                           onClick={() => handleTransformToPetition(report)}
-                          title="Transformar em Abaixo-Assinado"
                         >
-                          <FileSignature className="w-4 h-4" />
+                          <FileSignature className="w-4 h-4 mr-2" />
+                          Gerar Petição
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedReport(report)}><Edit className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingReport(report)}><Trash2 className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setSelectedReport(report)} title="Editar"><Edit className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingReport(report)} title="Excluir"><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </div>
                 ))}

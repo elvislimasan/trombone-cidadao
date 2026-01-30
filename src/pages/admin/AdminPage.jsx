@@ -9,7 +9,7 @@ const adminLinks = [
   { to: '/admin/moderacao/broncas', icon: 'ShieldCheck', title: 'Moderação de Broncas', description: 'Aprove ou rejeite novas broncas.' },
   { to: '/admin/moderacao/resolucoes', icon: 'ShieldCheck', title: 'Moderar resoluções', description: 'Aprove ou rejeite provas de resolução' },
   { to: '/admin/usuarios', icon: 'Users', title: 'Gerenciar Usuários', description: 'Adicione, edite e remova usuários.' },
-  { to: '/admin/assinaturas', icon: 'FileSignature', title: 'Gerenciar Assinaturas', description: 'Acompanhe abaixo-assinados.' },
+  { to: '/admin/assinaturas', icon: 'FileSignature', title: 'Gerenciar Petições', description: 'Acompanhe abaixo-assinados.' },
   { to: '/admin/broncas', icon: 'Megaphone', title: 'Gerenciar Broncas', description: 'Edite ou remova broncas publicadas.' },
   { to: '/admin/categorias', icon: 'BookMarked', title: 'Categorias (Broncas)', description: 'Gerencie as categorias das broncas.' },
   { to: '/admin/obras', icon: 'Construction', title: 'Gerenciar Obras', description: 'Adicione e atualize obras públicas.' },
