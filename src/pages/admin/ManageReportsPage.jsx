@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Search, Filter } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -12,10 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ReportDetails from '@/components/ReportDetails';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useUpvote } from '@/hooks/useUpvotes';
 
 const ManageReportsPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { handleUpvote: handleUpvoteHook } = useUpvote();
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [filteredReports, setFilteredReports] = useState([]);
   const [filters, setFilters] = useState({ searchTerm: '', status: 'all', category: 'all' });
@@ -88,19 +91,75 @@ const ManageReportsPage = () => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-    const handleUpvote = async (id) => {
+  const handleUpvote = async (id) => {
     if (!user) {
       toast({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
       navigate('/login');
       return;
     }
-    const { error } = await supabase.rpc('increment_upvotes', { report_id_param: id });
-    if (error) {
-      toast({ title: "Erro ao apoiar", description: error.message, variant: "destructive" });
+
+    // Call the hook
+    const result = await handleUpvoteHook(id);
+
+    if (result.success) {
+      fetchReports();
+      toast({ title: result.action === 'added' ? "Apoio registrado! 👍" : "Apoio removido." });
     } else {
-      fetchReport();
-      toast({ title: "Apoio registrado! 👍" });
+      toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
     }
+  };
+
+
+
+  const handleTransformToPetition = async (report) => {
+    if (!user) {
+      toast({ title: "Acesso restrito", description: "Faça login como administrador para transformar em abaixo-assinado.", variant: "destructive" });
+      return;
+    }
+    
+    try {
+        const petitionData = {
+          title: report.title,
+          target: '', // Deixar vazio para preencher no editor
+          description: report.description,
+          goal: 100,
+          report_id: report.id,
+          author_id: user.id,
+          status: 'draft',
+          image_url: report.photos && report.photos.length > 0 ? report.photos[0].url : null
+        };
+  
+        const { data: newPetition, error: createError } = await supabase
+          .from('petitions')
+          .insert(petitionData)
+          .select()
+          .single();
+  
+        if (createError) throw createError;
+  
+        // Atualizar flag na bronca
+        const { error: updateReportError } = await supabase
+          .from('reports')
+          .update({ is_petition: true })
+          .eq('id', report.id);
+  
+        if (updateReportError) console.error("Erro ao atualizar flag na bronca:", updateReportError);
+  
+        toast({
+          title: "Abaixo-Assinado Criado! 🎉",
+          description: "Redirecionando para o editor para finalizar os detalhes.",
+        });
+  
+        navigate(`/abaixo-assinado/${newPetition.id}?edit=true`);
+  
+      } catch (error) {
+        console.error(error);
+        toast({
+          title: "Erro ao criar",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
   };
 
   const handleUpdateReport = async (editData) => {
@@ -274,6 +333,17 @@ const ManageReportsPage = () => {
                       <p className="text-sm text-muted-foreground">Autor: {report.author?.name || 'N/A'} | Status: <span className="font-medium">{report.status}</span></p>
                     </div>
                     <div className="flex-shrink-0 flex gap-2">
+                      {!report.is_petition && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100" 
+                          onClick={() => handleTransformToPetition(report)}
+                          title="Transformar em Abaixo-Assinado"
+                        >
+                          <FileSignature className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" onClick={() => setSelectedReport(report)}><Edit className="w-4 h-4" /></Button>
                       <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingReport(report)}><Trash2 className="w-4 h-4" /></Button>
                     </div>
@@ -306,6 +376,7 @@ const ManageReportsPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </>
   );
 };
