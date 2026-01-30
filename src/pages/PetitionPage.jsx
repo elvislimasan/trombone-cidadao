@@ -99,21 +99,27 @@ const PetitionPage = () => {
   // --- SEO & Sharing Logic ---
   const getBaseUrl = useCallback(() => {
     let baseUrl;
-    if (import.meta.env.VITE_APP_URL) {
-      baseUrl = import.meta.env.VITE_APP_URL;
-    } else if (Capacitor.isNativePlatform()) {
+    // 1. Se estiver no app nativo, sempre usar produção
+    if (Capacitor.isNativePlatform()) {
       baseUrl = 'https://trombonecidadao.com.br';
-    } else if (typeof window !== 'undefined') {
+    } 
+    // 2. Se estiver no navegador, detectar automaticamente o ambiente (prioridade sobre VITE_APP_URL)
+    else if (typeof window !== 'undefined') {
       const origin = window.location.origin;
       if (origin.includes('localhost')) {
         baseUrl = origin;
       } else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
+        console.log("origin detected:", origin);
         baseUrl = origin;
       } else if (origin.includes('trombonecidadao.com.br')) {
         baseUrl = 'https://trombonecidadao.com.br';
       } else {
         baseUrl = origin;
       }
+    } 
+    // 3. Fallback para variável de ambiente
+    else if (import.meta.env.VITE_APP_URL) {
+      baseUrl = import.meta.env.VITE_APP_URL;
     } else {
       baseUrl = 'https://trombonecidadao.com.br';
     }
