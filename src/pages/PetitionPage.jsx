@@ -1394,30 +1394,6 @@ const PetitionPage = () => {
 
       </main>
 
-      {/* Mobile Sticky Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50 lg:hidden flex gap-3 animate-in slide-in-from-bottom-full duration-500">
-         <Button 
-           size="lg" 
-           className="flex-1 shadow-lg font-bold text-lg h-12" 
-           onClick={handleSignClick}
-           disabled={hasSigned || petition.status !== 'open'}
-         >
-           {hasSigned ? (
-               <>
-                 <FileSignature className="w-5 h-5 mr-2" />
-                 Assinado!
-               </>
-           ) : (
-               <>
-                 <FileSignature className="w-5 h-5 mr-2" />
-                 Assinar Agora
-               </>
-           )}
-         </Button>
-         <Button variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={handleShare}>
-           <Share2 className="w-5 h-5" />
-         </Button>
-      </div>
       
       {/* Sign Modal */}
       <Dialog open={showSignModal} onOpenChange={setShowSignModal}>
