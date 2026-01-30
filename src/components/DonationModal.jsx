@@ -156,16 +156,7 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
     }
   };
 
-  const handleManualConfirmation = async () => {
-    if (currentDonationId) {
-       setStep('processing'); // Show processing while updating
-       await confirmDonation(currentDonationId);
-       // The subscription will catch the update, but we can also force it if needed.
-       // However, relying on subscription is cleaner to verify the flow. 
-       // But to be safe and fast:
-       setStep('success');
-    }
-  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -330,13 +321,13 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
                   </div>
               </div>
               
-              <Button 
-                onClick={handleManualConfirmation} 
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12 mt-2 shadow-sm"
-              >
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                Já realizei o pagamento
-              </Button>
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-2 bg-muted/20 rounded-lg">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </div>
+                <p className="font-medium">Aguardando confirmação automática...</p>
+              </div>
             </div>
             <div className="space-y-3 p-3 rounded-lg bg-muted/50">
               <div className="flex items-center gap-2">
