@@ -228,6 +228,7 @@ const ReportDetails = ({
       }
       // Se for Vercel (dev), usar Vercel
       else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
+       console.log("origin")
         baseUrl = origin;
       }
       // Se for domínio de produção, usar produção
@@ -420,8 +421,15 @@ const ReportDetails = ({
     
     // Forçar URL de produção se estiver em localhost para garantir que o link funcione
     let shareBaseUrl = baseUrl;
-    if (shareBaseUrl.includes('localhost')) {
-        shareBaseUrl = 'https://trombonecidadao.com.br';
+    if (shareBaseUrl.includes('localhost') || shareBaseUrl.includes('127.0.0.1')) {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+        if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+             // Development Environment
+             shareBaseUrl = 'https://trombone-cidadao.vercel.app';
+        } else {
+             // Production Environment (default fallback)
+             shareBaseUrl = 'https://trombonecidadao.com.br';
+        }
     }
     
     // Link "bonito" que passa pelo Vercel Rewrite -> Edge Function -> Redirecionamento
