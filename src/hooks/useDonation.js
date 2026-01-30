@@ -16,7 +16,8 @@ export const useDonation = () => {
             body: {
                 amount,
                 [contexto.kind === 'petition' ? 'petition_id' : 'report_id']: id,
-                provider: provider
+                provider: provider,
+                action: 'init'
             }
         });
 
@@ -24,11 +25,12 @@ export const useDonation = () => {
         
         return {
             success: true,
-            donationId: data.donationId,
             clientSecret: data.clientSecret, // Stripe specific
+            stripePaymentIntentId: data.stripePaymentIntentId, // Stripe specific
             pixPayload: data.pixPayload, // MP specific
             pixQrCodeBase64: data.pixQrCodeBase64, // MP specific
-            provider: data.provider
+            provider: data.provider,
+            paymentId: data.paymentId // MP or manual Pix
         };
       }
 
@@ -91,6 +93,27 @@ export const useDonation = () => {
     }
   };
 
+  const finalizeDonation = async ({ provider, paymentIntentId, paymentId }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-payment-intent', {
+        body: {
+          provider,
+          action: 'finalize',
+          payment_intent_id: paymentIntentId,
+          payment_id: paymentId
+        }
+      });
+      if (error) throw error;
+      if (data && data.confirmed) {
+        return { success: true, donationId: data.donationId };
+      }
+      return { success: false };
+    } catch (error) {
+      console.error("Erro ao finalizar doação:", error);
+      return { success: false, error };
+    }
+  };
+
   const confirmDonation = async (donationId) => {
     try {
         const { error } = await supabase
@@ -108,6 +131,7 @@ export const useDonation = () => {
 
   return {
     createPaymentIntent,
+    finalizeDonation,
     confirmDonation,
     loading
   };
