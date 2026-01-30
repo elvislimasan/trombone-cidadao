@@ -120,7 +120,7 @@ const PetitionsOverviewPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <Badge className="mb-6 bg-primary/20 text-primary text-sm px-4 py-1.5 border border-primary/20 hover:bg-primary/30 transition-colors shadow-sm">
+                <Badge className="mb-6 bg-primary/70 text-primary text-sm px-4 py-1.5 border border-primary/20 hover:bg-primary/80 transition-colors shadow-sm">
                   Mobilização Cidadã
                 </Badge>
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 tracking-tight text-foreground leading-tight">
