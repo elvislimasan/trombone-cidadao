@@ -557,10 +557,28 @@ const PetitionPage = () => {
   };
 
   const handleShare = async () => {
+    // Determine base URL for sharing
+    let shareBaseUrl = baseUrl;
+    // Force correct URL for sharing based on environment to ensure links work
+    if (shareBaseUrl.includes('localhost') || shareBaseUrl.includes('127.0.0.1')) {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+        if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+             // Development Environment
+             shareBaseUrl = 'https://trombone-cidadao.vercel.app';
+        } else {
+             // Production Environment (default fallback)
+             shareBaseUrl = 'https://trombonecidadao.com.br';
+        }
+    }
+
+    // Use the smart share URL that passes through Vercel Rewrite -> Edge Function
+    // This ensures correct Open Graph tags are served for WhatsApp/Facebook
+    const smartShareUrl = `${shareBaseUrl}/share/abaixo-assinado/${id}`;
+
     const shareData = {
       title: petition.title,
       text: `Assine esta petição: ${petition.title}`,
-      url: window.location.href,
+      url: smartShareUrl,
       dialogTitle: 'Compartilhar Petição',
     };
 
