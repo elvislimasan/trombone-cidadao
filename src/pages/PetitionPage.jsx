@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import { 
   ArrowLeft, Share2, Calendar, Target, Users, AlertTriangle, 
-  MapPin, Clock, MessageSquare, ThumbsUp, FileSignature, Edit, Download, ShieldCheck, Heart, Megaphone, FileText 
+  MapPin, Clock, MessageSquare, ThumbsUp, FileSignature, Edit, Download, ShieldCheck, Heart, Megaphone, FileText, Sparkles 
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -31,6 +33,31 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import BlockRenderer from '@/components/petition/builder/BlockRenderer';
+import PetitionCard from '../components/PetitionCard';
+
+const Counter = ({ value }) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp = null;
+    const duration = 2000;
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      // Easing function: easeOutQuart
+      const ease = 1 - Math.pow(1 - progress, 4);
+      setCount(Math.floor(ease * value));
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    window.requestAnimationFrame(step);
+  }, [value]);
+
+  return <span>{count.toLocaleString('pt-BR')}</span>;
+};
 
 const PetitionPage = () => {
   const { id } = useParams();
@@ -445,9 +472,7 @@ const PetitionPage = () => {
            <p className="text-muted-foreground mb-6 max-w-md">
              Esta campanha não existe ou está indisponível no momento.
            </p>
-           <Link to="/">
-             <Button>Voltar para o início</Button>
-           </Link>
+           
          </div>
        </div>
     );
@@ -488,11 +513,9 @@ const PetitionPage = () => {
         </div>
       )}
 
-      <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl xl:max-w-7xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <Link to="/" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Voltar para o início
-          </Link>
+      <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl xl:max-w-7xl pb-24 lg:pb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ">
+          
           {canEdit && (
             <div className="flex gap-3 w-full sm:w-auto">
               <Button variant="outline" onClick={handleExportPDF} className="flex-1 sm:flex-none whitespace-nowrap shadow-sm bg-background">
@@ -509,7 +532,7 @@ const PetitionPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* Main Content */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-6">
+          <div className="lg:col-span-7 space-y-8">
             {petition.layout && petition.layout.length > 0 ? (
               <div className="space-y-4">
                  {petition.layout.map(block => (
@@ -629,7 +652,13 @@ const PetitionPage = () => {
                 </div>
 
                 {/* History Section */}
-                <section className="mt-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <motion.section 
+                  className="mt-10 space-y-8"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ duration: 0.6 }}
+                >
                    <div className="flex items-center gap-3 border-b pb-4">
                       <div className="p-2 bg-primary/10 rounded-lg text-primary">
                          <FileText className="w-6 h-6" />
@@ -666,7 +695,14 @@ const PetitionPage = () => {
                       <div className="grid gap-4">
                         {recentSignatures.length > 0 ? (
                           recentSignatures.map((sig, i) => (
-                            <div key={i} className="flex gap-4 p-4 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-shadow">
+                            <motion.div 
+                              key={i} 
+                              className="flex gap-4 p-4 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-shadow"
+                              initial={{ opacity: 0, x: -20 }}
+                              whileInView={{ opacity: 1, x: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ delay: i * 0.1 }}
+                            >
                               <Avatar className="w-10 h-10 border-2 border-background ring-2 ring-primary/10">
                                 <AvatarFallback className="bg-primary/10 text-primary font-bold">
                                   {sig.is_public ? (sig.name ? sig.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}
@@ -684,7 +720,7 @@ const PetitionPage = () => {
                                   <p className="text-sm text-foreground/80 italic">"{sig.comment}"</p>
                                 )}
                               </div>
-                            </div>
+                            </motion.div>
                           ))
                         ) : (
                           <div className="text-center py-8 bg-muted/20 rounded-xl border border-dashed">
@@ -694,32 +730,16 @@ const PetitionPage = () => {
                         )}
                       </div>
                    </div>
-                </section>
+                </motion.section>
 
-                {/* Donation Section (Between History and Updates) */}
-                {donationEnabled && (
-                   <section className="mt-12 mb-12">
-                      <div className="bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-background border border-red-100 dark:border-red-900/50 rounded-2xl p-6 md:p-8 shadow-sm">
-                         <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-                            <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-full shrink-0">
-                               <Heart className="w-8 h-8 text-red-600 dark:text-red-400" fill="currentColor" />
-                            </div>
-                            <div className="flex-1 space-y-2">
-                               <h3 className="text-2xl font-bold text-red-700 dark:text-red-400">Apoie essa bronca</h3>
-                               <p className="text-muted-foreground">
-                                  Sua contribuição é fundamental para impulsionar este abaixo-assinado e alcançar mais pessoas.
-                               </p>
-                            </div>
-                            <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 shadow-lg hover:shadow-red-600/20 transition-all shrink-0 w-full md:w-auto" onClick={() => setShowDonationModal(true)}>
-                               Contribuir Agora
-                            </Button>
-                         </div>
-                      </div>
-                   </section>
-                )}
-
-                {/* Updates Section */}
-                <section className="mt-16 space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
+                {/* Updates Section (Mobile Only) */}
+                <motion.section 
+                  className="mt-16 space-y-8 lg:hidden"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                >
                    <div className="flex items-center justify-between border-b pb-4">
                       <div className="flex items-center gap-3">
                          <div className="p-2 bg-primary/10 rounded-lg text-primary">
@@ -766,211 +786,338 @@ const PetitionPage = () => {
                       </div>
                     )}
                    </div>
-                </section>
+                </motion.section>
 
-                {/* Latest Signers Section */}
-                {latestSigners.length > 0 && (
-                  <section className="mt-16 space-y-6">
-                     <div className="flex items-center gap-3 border-b pb-4">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
-                           <Users className="w-6 h-6" />
-                        </div>
-                        <h2 className="text-2xl md:text-3xl font-bold text-foreground">Últimos Assinantes</h2>
-                     </div>
-                     
-                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                       {latestSigners.map((signer, i) => (
-                         <div key={i} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/50 shadow-sm">
-                            <Avatar className="w-10 h-10 border border-border">
-                              <AvatarFallback className="bg-blue-100 text-blue-600 font-bold text-xs">
-                                {signer.is_public ? (signer.name ? signer.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="overflow-hidden">
-                              <p className="font-semibold text-sm truncate">
-                                {signer.is_public ? (signer.name || 'Anônimo') : 'Apoiador Anônimo'}
-                              </p>
-                              <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {formatDistanceToNow(new Date(signer.created_at), { addSuffix: true, locale: ptBR })}
-                              </p>
-                            </div>
-                         </div>
-                       ))}
-                     </div>
-                  </section>
-                )}
 
-                {/* Recent Contributors Section */}
-                {recentDonations.length > 0 && (
-                  <section className="mt-16 space-y-6">
-                     <div className="flex items-center gap-3 border-b pb-4">
-                        <div className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg">
-                           <Heart className="w-6 h-6" />
-                        </div>
-                        <h2 className="text-2xl md:text-3xl font-bold text-foreground">Últimos Apoiadores</h2>
-                     </div>
-                     
-                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                       {recentDonations.map((donation, i) => (
-                         <div key={i} className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-red-50 to-white dark:from-red-950/10 dark:to-card border border-red-100 dark:border-red-900/30 shadow-sm">
-                            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center shrink-0">
-                               <Heart className="w-5 h-5 text-red-600 dark:text-red-400 fill-current" />
-                            </div>
-                            <div className="overflow-hidden">
-                              <p className="font-semibold text-sm truncate">
-                                {donation.profiles?.name || 'Apoiador Anônimo'}
-                              </p>
-                              <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                                Contribuiu com a causa
-                              </p>
-                            </div>
-                         </div>
-                       ))}
-                     </div>
-                  </section>
-                )}
-
-                {/* Other Petitions Suggestions */}
-                {otherPetitions.length > 0 && (
-                  <section className="mt-20 pt-10 border-t border-dashed">
-                     <h2 className="text-2xl font-bold mb-8 text-center">Outras causas que precisam do seu apoio</h2>
-                     
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                       {otherPetitions.map((other) => (
-                         <a 
-                           key={other.id} 
-                           href={`/abaixo-assinado/${other.id}`} 
-                           className="group block h-full"
-                         >
-                           <Card className="h-full overflow-hidden hover:shadow-lg transition-all duration-300 border-border/60 group-hover:border-primary/50">
-                             <div className="h-40 overflow-hidden bg-muted relative">
-                               {other.image_url ? (
-                                 <img src={other.image_url} alt={other.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                               ) : (
-                                 <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                                   <FileSignature className="w-10 h-10 text-primary/20" />
-                                 </div>
-                               )}
-                               <div className="absolute top-2 right-2 bg-background/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-bold shadow-sm">
-                                  {other.signatures[0]?.count || 0} assinaturas
-                               </div>
-                             </div>
-                             <CardContent className="p-5">
-                               <h3 className="font-bold text-lg leading-tight mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                                 {other.title}
-                               </h3>
-                               <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden mt-3">
-                                  <div 
-                                    className="bg-primary h-full rounded-full" 
-                                    style={{ width: `${Math.min(((other.signatures[0]?.count || 0) / (other.goal || 100)) * 100, 100)}%` }}
-                                  />
-                               </div>
-                               <p className="text-xs text-muted-foreground mt-2 text-right">
-                                  Meta: {other.goal}
-                               </p>
-                             </CardContent>
-                           </Card>
-                         </a>
-                       ))}
-                     </div>
-                  </section>
-                )}
               </>
             )}
           </div>
 
                 {/* Sidebar */}
-          <div className="hidden lg:block lg:col-span-5 xl:col-span-4 space-y-6">
-            <Card className="sticky top-24 shadow-xl border-primary/20 ring-1 ring-black/5">
-              <CardContent className="pt-6 space-y-6">
-                <div>
-                  <div className="flex items-end gap-2 mb-2">
-                    <span className="text-5xl font-bold text-primary">{petition.signatureCount}</span>
-                  </div>
-                  <p className="text-muted-foreground font-medium mb-4">
-                    pessoas já assinaram. Ajude a chegar em {petition.goal}!
-                  </p>
-                  <Progress value={progress} className="h-3 mb-2 bg-primary/20" indicatorClassName={progressColor} />
-                  <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                    <span>{Math.round(progress)}% da meta</span>
-                    <span>{petition.goal} assinaturas</span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Button 
-                    size="lg" 
-                    className="w-full text-lg font-bold shadow-md hover:shadow-xl transition-all" 
-                    onClick={handleSignClick}
-                    disabled={hasSigned || petition.status !== 'open' || isExpired}
-                  >
-                    {hasSigned ? (
-                      <>
-                        <FileSignature className="w-5 h-5 mr-2" />
-                        Assinado!
-                      </>
-                    ) : (
-                      <>
-                        <FileSignature className="w-5 h-5 mr-2" />
-                        {isExpired ? 'Prazo Encerrado' : 'Assinar Agora'}
-                      </>
-                    )}
-                  </Button>
+          <div className="hidden lg:block lg:col-span-5 space-y-6">
+            <div className="sticky top-24 space-y-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Card className="shadow-xl border-primary/20 ring-1 ring-black/5 overflow-hidden relative">
+                  {/* Decorative background element */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-0 pointer-events-none" />
                   
-                  <Button variant="outline" size="lg" className="w-full" onClick={handleShare}>
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Compartilhar
-                  </Button>
+                  <CardContent className="pt-6 space-y-6 relative z-10">
+                    <div>
+                      <div className="flex items-end gap-2 mb-2">
+                        <span className="text-5xl font-bold text-primary tracking-tight">
+                          <Counter value={petition.signatureCount} />
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground font-medium mb-4">
+                        pessoas já assinaram. Ajude a chegar em <span className="text-foreground font-bold">{petition.goal.toLocaleString('pt-BR')}</span>!
+                      </p>
+                      
+                      <div className="relative">
+                        <Progress value={progress} className="h-3 mb-2 bg-primary/20" indicatorClassName={progressColor} />
+                        {/* Shimmer effect on progress bar */}
+                        <motion.div 
+                          className="absolute top-0 left-0 bottom-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent z-20 pointer-events-none"
+                          initial={{ x: '-100%' }}
+                          animate={{ x: '100%' }}
+                          transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 1 }}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      
+                      <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                        <span>{Math.round(progress)}% da meta</span>
+                        <span>{petition.goal.toLocaleString('pt-BR')} assinaturas</span>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
-                    <ShieldCheck className="w-4 h-4 text-green-600" />
-                    <span>Assinatura segura e verificada</span>
-                  </div>
-                </div>
-                
-                <div className="pt-4 border-t border-border">
-                  <h4 className="font-semibold mb-2">Por que isso importa?</h4>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <Users className="w-4 h-4 mt-0.5 text-primary" />
-                      Mostra força coletiva
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Target className="w-4 h-4 mt-0.5 text-primary" />
-                      Pressiona autoridades
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 mt-0.5 text-primary" />
-                      Sem valor jurídico, mas com peso político
-                    </li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="space-y-3">
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button 
+                          size="lg" 
+                          className={`w-full text-lg font-bold shadow-md transition-all relative overflow-hidden group ${
+                            !hasSigned && petition.status === 'open' && !isExpired ? 'animate-pulse-subtle' : ''
+                          }`}
+                          onClick={handleSignClick}
+                          disabled={hasSigned || petition.status !== 'open' || isExpired}
+                        >
+                          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                          <div className="relative flex items-center justify-center">
+                            {hasSigned ? (
+                              <>
+                                <FileSignature className="w-5 h-5 mr-2" />
+                                Assinado!
+                              </>
+                            ) : (
+                              <>
+                                <FileSignature className="w-5 h-5 mr-2" />
+                                {isExpired ? 'Prazo Encerrado' : 'Assinar Agora'}
+                              </>
+                            )}
+                          </div>
+                        </Button>
+                      </motion.div>
+                      
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button variant="outline" size="lg" className="w-full border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors" onClick={handleShare}>
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Compartilhar
+                        </Button>
+                      </motion.div>
 
-            {donationEnabled && (
-              <Card className="sticky top-[500px] shadow-lg border-red-200 bg-red-50/50">
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex items-center gap-2 text-red-600 font-bold text-lg">
-                    <Heart className="w-5 h-5 fill-red-600" />
-                    <span>Apoie esta causa</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Sua contribuição ajuda a impulsionar este abaixo-assinado para mais pessoas.
-                  </p>
-                  <Button 
-                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
-                    onClick={() => setShowDonationModal(true)}
-                  >
-                    Contribuir
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+                      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
+                        <ShieldCheck className="w-4 h-4 text-green-600" />
+                        <span>Assinatura segura e verificada</span>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-border bg-muted/30 -mx-6 px-6 pb-6 -mb-6 mt-4">
+                      <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm pt-4">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        Por que isso importa?
+                      </h4>
+                      <ul className="space-y-3 text-sm text-muted-foreground">
+                        <li className="flex items-start gap-3">
+                          <div className="p-1 bg-primary/10 rounded-full shrink-0">
+                            <Users className="w-3 h-3 text-primary" />
+                          </div>
+                          <span>Mostra força coletiva para mudança</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="p-1 bg-primary/10 rounded-full shrink-0">
+                            <Target className="w-3 h-3 text-primary" />
+                          </div>
+                          <span>Pressiona autoridades competentes</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="p-1 bg-primary/10 rounded-full shrink-0">
+                            <AlertTriangle className="w-3 h-3 text-primary" />
+                          </div>
+                          <span>Cria visibilidade para o problema</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {donationEnabled && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1, duration: 0.5 }}
+                >
+                  <Card className="shadow-lg border-red-200 bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-card overflow-hidden group">
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="flex items-center gap-2 text-red-600 font-bold text-lg group-hover:scale-105 transition-transform origin-left">
+                        <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-full">
+                          <Heart className="w-5 h-5 fill-red-600" />
+                        </div>
+                        <span>Apoie esta causa</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Sua contribuição ajuda a impulsionar este abaixo-assinado para mais pessoas.
+                      </p>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button 
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold shadow-md shadow-red-200 dark:shadow-none"
+                          onClick={() => setShowDonationModal(true)}
+                        >
+                          Contribuir Financeiramente
+                        </Button>
+                      </motion.div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* Updates Widget (Desktop) */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.15, duration: 0.5 }}
+              >
+                 <Card className="shadow-sm border-border/50 overflow-hidden">
+                    <div className="p-4 pb-2 border-b bg-muted/20 flex justify-between items-center">
+                      <h3 className="font-bold flex items-center gap-2 text-foreground text-sm">
+                         <Megaphone className="w-4 h-4 text-primary" />
+                         Novidades
+                      </h3>
+                      {petition.updates && petition.updates.length > 0 && (
+                         <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-bold">{petition.updates.length}</span>
+                      )}
+                    </div>
+                    
+                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                      {petition.updates && petition.updates.length > 0 ? (
+                        <div className="divide-y divide-border/50">
+                          {petition.updates
+                            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                            .map((update) => (
+                              <div key={update.id} className="p-4 hover:bg-muted/10 transition-colors">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                                  <Calendar className="w-3 h-3" />
+                                  {formatDistanceToNow(new Date(update.created_at), { addSuffix: true, locale: ptBR })}
+                                </div>
+                                <h4 className="font-bold text-base mb-2 text-foreground line-clamp-2">{update.title}</h4>
+                                {update.image_url && (
+                                  <div className="mb-3 rounded-md overflow-hidden h-32 w-full">
+                                    <img src={update.image_url} alt={update.title} className="w-full h-full object-cover" />
+                                  </div>
+                                )}
+                                <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-line">{update.content}</p>
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <div className="p-6 text-center">
+                           <div className="w-10 h-10 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                              <Clock className="w-5 h-5 text-muted-foreground/50" />
+                           </div>
+                           <p className="text-sm text-muted-foreground">Nenhuma novidade publicada ainda.</p>
+                        </div>
+                      )}
+                    </div>
+                 </Card>
+              </motion.div>
+
+              {recentDonations.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                >
+                  <Card className="shadow-sm border-red-100 dark:border-red-900/30">
+                    <div className="p-4 pb-2 border-b border-red-100 dark:border-red-900/30 bg-red-50/30 dark:bg-red-950/10">
+                      <h3 className="font-bold flex items-center gap-2 text-foreground text-sm">
+                         <Heart className="w-4 h-4 text-red-600 dark:text-red-400" />
+                         Últimos Apoiadores
+                      </h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {recentDonations.slice(0, 5).map((donation, i) => (
+                        <motion.div 
+                          key={i} 
+                          className="flex items-center gap-3"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 + (i * 0.1) }}
+                        >
+                           <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center shrink-0">
+                              <Heart className="w-4 h-4 text-red-600 dark:text-red-400 fill-current" />
+                           </div>
+                           <div className="flex-1 min-w-0 overflow-hidden">
+                             <p className="text-sm font-medium truncate text-foreground">
+                               {donation.profiles?.name || 'Apoiador Anônimo'}
+                             </p>
+                             <p className="text-xs text-muted-foreground">
+                               Contribuiu com a causa
+                             </p>
+                           </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </Card>
+                </motion.div>
+              )}
+
+              {latestSigners.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                >
+                  <Card className="shadow-sm border-border/50">
+                    <div className="p-4 pb-2 border-b bg-muted/20">
+                      <h3 className="font-bold flex items-center gap-2 text-foreground text-sm">
+                         <Users className="w-4 h-4 text-primary" />
+                         Últimos Assinantes
+                      </h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {latestSigners.slice(0, 5).map((signer, i) => (
+                        <motion.div 
+                          key={i} 
+                          className="flex items-center gap-3"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.4 + (i * 0.1) }}
+                        >
+                           <Avatar className="w-8 h-8 border border-border">
+                             <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                               {signer.is_public ? (signer.name ? signer.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}
+                             </AvatarFallback>
+                           </Avatar>
+                           <div className="flex-1 min-w-0 overflow-hidden">
+                             <p className="text-sm font-medium truncate text-foreground">
+                               {signer.is_public ? (signer.name || 'Anônimo') : 'Apoiador Anônimo'}
+                             </p>
+                             <p className="text-xs text-muted-foreground flex items-center gap-1">
+                               <Clock className="w-3 h-3" />
+                               {formatDistanceToNow(new Date(signer.created_at), { addSuffix: true, locale: ptBR })}
+                             </p>
+                           </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </Card>
+                </motion.div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Other Petitions Suggestions (Full Width) */}
+        {otherPetitions.length > 0 && (
+          <section className="mt-20 pt-10 border-t border-dashed">
+            <h2 className="text-2xl font-bold mb-8 text-center">Outras causas que precisam do seu apoio</h2>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {otherPetitions.map((other) => (
+                <div key={other.id} className="h-full">
+                  <PetitionCard 
+                    petition={other}
+                    onClick={() => navigate(`/abaixo-assinado/${other.id}`)}
+                    onDonate={(p) => {
+                      setSelectedPetition(p); // Assuming setSelectedPetition exists or we need to manage it
+                      setShowDonationModal(true);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
       </main>
+
+      {/* Mobile Sticky Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50 lg:hidden flex gap-3 animate-in slide-in-from-bottom-full duration-500">
+         <Button 
+           size="lg" 
+           className="flex-1 shadow-lg font-bold text-lg h-12" 
+           onClick={handleSignClick}
+           disabled={hasSigned || petition.status !== 'open'}
+         >
+           {hasSigned ? (
+               <>
+                 <FileSignature className="w-5 h-5 mr-2" />
+                 Assinado!
+               </>
+           ) : (
+               <>
+                 <FileSignature className="w-5 h-5 mr-2" />
+                 Assinar Agora
+               </>
+           )}
+         </Button>
+         <Button variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={handleShare}>
+           <Share2 className="w-5 h-5" />
+         </Button>
+      </div>
       
       {/* Sign Modal */}
       <Dialog open={showSignModal} onOpenChange={setShowSignModal}>

@@ -42,7 +42,24 @@ const SiteSettingsPage = () => {
     } else if (data) {
       setSiteName(data.site_name || 'Trombone Cidadão');
       setLogoUrl(data.logo_url || '');
-      setMenuSettings(data.menu_settings || defaultMenuSettings);
+      
+      if (data.menu_settings) {
+        // Fallback temporário: Mesclar configurações salvas com as padrão caso o banco ainda não tenha sido atualizado
+        const mergedItems = defaultMenuSettings.items.map(defaultItem => {
+          const savedItem = data.menu_settings.items?.find(item => item.path === defaultItem.path);
+          // Se o item existir no salvo, usa as preferências salvas (visibilidade, ícone), senão usa o padrão
+          return savedItem ? { ...defaultItem, ...savedItem } : defaultItem;
+        });
+        
+        setMenuSettings({
+          ...defaultMenuSettings, // Começa com defaults para garantir estrutura
+          ...data.menu_settings,  // Sobrescreve com o que foi salvo (cores, etc)
+          items: mergedItems      // Usa a lista de itens mesclada
+        });
+      } else {
+        setMenuSettings(defaultMenuSettings);
+      }
+      
       setFooterSettings(data.footer_settings || defaultFooterSettings);
     }
 

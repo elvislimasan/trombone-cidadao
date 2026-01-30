@@ -10,6 +10,7 @@ export const defaultMenuSettings = {
     { name: 'Obras', path: '/obras-publicas', icon: 'Construction', isVisible: true },
     { name: 'Pavimentação', path: '/mapa-pavimentacao', icon: 'Route', isVisible: true },
     { name: 'Serviços', path: '/servicos', icon: 'Briefcase', isVisible: true },
+    { name: 'Abaixo-Assinados', path: '/abaixo-assinados', icon: 'FileSignature', isVisible: true },
     { name: 'Notícias', path: '/noticias', icon: 'Newspaper', isVisible: true },
   ],
 };
@@ -68,7 +69,7 @@ export const availableIcons = [
   'AlignCenter', 'Anchor', 'Aperture', 'Archive', 'Award', 'Bell', 'BookOpen',
   'Bookmark', 'Box', 'Camera', 'CheckSquare', 'ChevronDown', 'Circle', 'Clipboard',
   'Clock', 'Compass', 'Copy', 'CreditCard', 'Crop', 'Database', 'Disc', 'Download',
-  'Droplet', 'Edit', 'ExternalLink', 'Eye', 'Facebook', 'File', 'Film', 'Filter',
+  'Droplet', 'Edit', 'ExternalLink', 'Eye', 'Facebook', 'File', 'FileSignature', 'Film', 'Filter',
   'Flag', 'Folder', 'Gift', 'Github', 'Grid', 'HardDrive', 'Hash', 'Heart',
   'Image', 'Inbox', 'Instagram', 'Key', 'Link', 'List', 'Lock', 'LogIn', 'LogOut',
   'Maximize', 'Menu', 'MessageCircle', 'Mic', 'Minimize', 'Monitor', 'Moon', 'MoreHorizontal',

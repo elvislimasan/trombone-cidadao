@@ -39,7 +39,23 @@ const Header = () => {
     } else if (data) {
       setSiteName(data.site_name || 'Trombone Cidadão');
       setLogoUrl(data.logo_url || '/logo.png');
-      setMenuSettings(data.menu_settings || defaultMenuSettings);
+      
+      if (data.menu_settings) {
+        // Fallback temporário: Mesclar configurações salvas com as padrão caso o banco ainda não tenha sido atualizado
+        const mergedItems = defaultMenuSettings.items.map(defaultItem => {
+          const savedItem = data.menu_settings.items?.find(item => item.path === defaultItem.path);
+          return savedItem ? { ...defaultItem, ...savedItem } : defaultItem;
+        });
+        
+        setMenuSettings({
+          ...defaultMenuSettings,
+          ...data.menu_settings,
+          items: mergedItems
+        });
+      } else {
+        setMenuSettings(defaultMenuSettings);
+      }
+
       // Resetar logoError quando buscar nova configuração
       setLogoError(false);
     }
