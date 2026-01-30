@@ -109,7 +109,7 @@ const PetitionsOverviewPage = () => {
 
       <Header />
 
-      <main className="flex-1">
+      <main className="flex-1 px-2">
         {/* Hero Section */}
         <section className="relative bg-muted/30 border-b">
           <div className="absolute inset-0 bg-grid-black/[0.02] dark:bg-grid-white/[0.02]" />
