@@ -1,8 +1,12 @@
 {
   "rewrites": [
     {
+      "source": "/share/abaixo-assinado/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-petition?id=:id"
+    },
+    {
       "source": "/share/bronca/:id",
-      "destination": "https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-preview?id=:id"
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-preview?id=:id"
     },
     {
       "source": "/(.*)",

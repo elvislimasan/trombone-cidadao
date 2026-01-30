@@ -14,11 +14,27 @@ Deno.serve(async (req) => {
   const url = new URL(req.url)
   const reportId = url.searchParams.get('id')
   
+  // Initialize Supabase Client
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+  const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
   // Default fallback values
   const defaultTitle = 'Trombone Cidadão'
   const defaultDesc = 'Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE.'
-  const defaultImage = 'https://trombonecidadao.com.br/images/thumbnail.jpg'
-  const appUrl = 'https://trombonecidadao.com.br'
+  
+  // Smart App URL Detection based on Supabase Project ID
+  let appUrl = 'https://trombonecidadao.com.br'; // Production default
+  
+  if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+    // Development Environment
+    appUrl = 'https://trombone-cidadao.vercel.app';
+  } else if (supabaseUrl.includes('mrejgpcxaevooofyenzq')) {
+    // Production Environment
+    appUrl = 'https://trombonecidadao.com.br';
+  }
+  
+  const defaultImage = `${appUrl}/images/thumbnail.jpg`
 
   // Construct the destination URL
   const redirectUrl = reportId 
@@ -31,11 +47,6 @@ Deno.serve(async (req) => {
   
   const isBot = botRegex.test(userAgent);
   const isDebug = url.searchParams.has('debug');
-
-  // Initialize Supabase Client
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
   if (isDebug) {
       try {
