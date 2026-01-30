@@ -1,6 +1,22 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bold, Italic, List, Link as LinkIcon, Heading1, Heading2, Quote } from 'lucide-react';
+import { 
+  Bold, 
+  Italic, 
+  List, 
+  Link as LinkIcon, 
+  Heading1, 
+  Heading2, 
+  Quote, 
+  Type, 
+  ChevronDown 
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const RichTextEditor = ({ value, onChange, placeholder }) => {
   const contentRef = useRef(null);
@@ -19,6 +35,15 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
     }
   };
 
+  const handlePaste = (e) => {
+    // Prevent default paste behavior
+    e.preventDefault();
+    // Get plain text
+    const text = e.clipboardData.getData('text/plain');
+    // Insert text at cursor position
+    document.execCommand("insertText", false, text);
+  };
+
   const execCommand = (command, arg = null) => {
     document.execCommand(command, false, arg);
     if (contentRef.current) {
@@ -26,9 +51,44 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
     }
   };
 
+  const fonts = [
+    { name: 'Padrão (Sans Serif)', value: 'sans-serif' },
+    { name: 'Serif', value: 'serif' },
+    { name: 'Monospace', value: 'monospace' },
+    { name: 'Arial', value: 'Arial' },
+    { name: 'Times New Roman', value: 'Times New Roman' },
+    { name: 'Courier New', value: 'Courier New' },
+    { name: 'Georgia', value: 'Georgia' },
+    { name: 'Verdana', value: 'Verdana' },
+  ];
+
   return (
     <div className={`border rounded-lg overflow-hidden transition-colors ${isFocused ? 'border-primary ring-1 ring-primary' : 'border-border'}`}>
-      <div className="bg-muted/50 border-b p-2 flex flex-wrap gap-1">
+      <div className="bg-muted/50 border-b p-2 flex flex-wrap gap-1 items-center">
+        
+        {/* Font Selector */}
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 mr-1" title="Alterar Fonte">
+                    <Type className="w-4 h-4" />
+                    <ChevronDown className="w-3 h-3" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                {fonts.map((font) => (
+                    <DropdownMenuItem 
+                        key={font.value} 
+                        onClick={() => execCommand('fontName', font.value)}
+                        style={{ fontFamily: font.value }}
+                    >
+                        {font.name}
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="w-px h-6 bg-border mx-1 my-auto" />
+
         <Button 
           variant="ghost" size="sm" className="h-8 w-8 p-0" 
           onClick={() => execCommand('bold')} title="Negrito"
@@ -72,16 +132,15 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
         ref={contentRef}
         className="p-4 min-h-[200px] max-h-[500px] overflow-y-auto focus:outline-none prose max-w-none dark:prose-invert"
         contentEditable
+        suppressContentEditableWarning={true}
         onInput={handleInput}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        dangerouslySetInnerHTML={{ __html: value }}
+        onPaste={handlePaste}
       />
-      {/* Note: dangerouslySetInnerHTML is only used for initial render if we handled updates differently, 
-          but here we use it to sync initial state. React warns if we change it while contentEditable.
-          Ideally we shouldn't re-render this component on every keystroke if it causes cursor jump.
-          We are relying on onInput to update parent, but we block re-rendering the innerHTML 
-          from props if it's focused to avoid cursor jumping.
+      {/* 
+          Removed dangerouslySetInnerHTML to prevent cursor jumping on re-renders.
+          Initial content is handled by the useEffect above.
       */}
     </div>
   );

@@ -204,7 +204,7 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
                <Tabs defaultValue="pix" value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="pix" className="flex items-center gap-2" title="Pix Automático via Mercado Pago"><QrCode className="w-4 h-4"/> Pix (Mercado Pago)</TabsTrigger>
-                      <TabsTrigger value="card" className="flex items-center gap-2" title="Cartão de Crédito via Stripe"><CreditCard className="w-4 h-4"/> Cartão (Stripe)</TabsTrigger>
+                      <TabsTrigger value="card" disabled className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Em breve"><CreditCard className="w-4 h-4"/> Cartão (Em breve)</TabsTrigger>
                   </TabsList>
                </Tabs>
                {paymentMethod === 'card' && (
