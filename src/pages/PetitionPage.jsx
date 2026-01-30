@@ -794,6 +794,27 @@ const PetitionPage = () => {
                                 Compartilhar
                              </Button>
                         </div>
+
+                        {/* Mobile Donation Section */}
+                        {donationEnabled && (
+                           <div className="pt-2">
+                               <div className="bg-red-50 dark:bg-red-950/20 rounded-xl p-4 border border-red-100 dark:border-red-900/30">
+                                   <div className="flex items-center gap-2 mb-2 text-red-600 font-bold">
+                                       <Heart className="w-4 h-4 fill-red-600" />
+                                       <span>Apoie esta causa</span>
+                                   </div>
+                                   <p className="text-xs text-muted-foreground mb-3">
+                                       Sua contribuição ajuda a impulsionar este abaixo-assinado para mais pessoas.
+                                   </p>
+                                   <Button 
+                                       className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-10 shadow-sm"
+                                       onClick={() => setShowDonationModal(true)}
+                                   >
+                                       Contribuir Financeiramente
+                                   </Button>
+                               </div>
+                           </div>
+                        )}
                         
                          {/* Security Note */}
                          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
