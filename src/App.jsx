@@ -40,6 +40,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import ReportPage from '@/pages/ReportPage';
 import PetitionPage from '@/pages/PetitionPage';
+import PetitionsOverviewPage from '@/pages/PetitionsOverviewPage';
 import WorkDetailsPage from '@/pages/WorkDetailsPage';
 import ModerationPage from '@/pages/admin/ModerationPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
@@ -431,7 +432,8 @@ function App() {
             
             <Route path="/" element={<HomePage />} />
             <Route path="/bronca/:reportId" element={<ReportPage />} />
-            <Route path="/abaixo-assinado/:id" element={<PetitionPage />} />
+          <Route path="/abaixo-assinados" element={<PetitionsOverviewPage />} />
+          <Route path="/abaixo-assinado/:id" element={<PetitionPage />} />
             <Route path="/sobre" element={<AboutPage />} />
             <Route path="/estatisticas" element={<StatsPage />} />
             <Route path="/obras-publicas" element={<PublicWorksPage />} />
