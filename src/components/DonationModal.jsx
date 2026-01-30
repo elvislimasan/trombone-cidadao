@@ -66,38 +66,30 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
   const [currentDonationId, setCurrentDonationId] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('pix'); // pix or card
+  const [stripePaymentIntentId, setStripePaymentIntentId] = useState(null);
+  const [paymentId, setPaymentId] = useState(null);
   
-  const { createPaymentIntent, confirmDonation, loading } = useDonation();
+  const { createPaymentIntent, finalizeDonation, confirmDonation, loading } = useDonation();
   
   const targetId = (report && report.id) ? report.id : (petitionId ?? reportId);
   const targetTitle = report?.title ?? reportTitle;
 
-  // Listen for payment confirmation
   useEffect(() => {
-    if (!currentDonationId || step !== 'qr') return;
-
-    const channel = supabase
-      .channel(`donation-${currentDonationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'donations',
-          filter: `id=eq.${currentDonationId}`,
-        },
-        (payload) => {
-          if (payload.new.status === 'paid') {
-            setStep('success');
-          }
-        }
-      )
-      .subscribe();
-
+    if (step !== 'qr' || !paymentId) return;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      if (cancelled) return;
+      const res = await finalizeDonation({ provider: 'mercadopago', paymentId });
+      if (res.success) {
+        setCurrentDonationId(res.donationId || null);
+        setStep('success');
+      }
+    }, 5000);
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      clearInterval(interval);
     };
-  }, [currentDonationId, step]);
+  }, [step, paymentId, finalizeDonation]);
 
   useEffect(() => {
     if (step === 'success' && onSuccess) {
@@ -113,6 +105,8 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
       setPixQrCodeBase64(null);
       setClientSecret(null);
       setCurrentDonationId(null);
+      setStripePaymentIntentId(null);
+      setPaymentId(null);
     }
   }, [isOpen]);
 
@@ -135,21 +129,16 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
       if (provider === 'stripe' && result.clientSecret) {
         console.log('Configurando Stripe ClientSecret:', result.clientSecret);
         setClientSecret(result.clientSecret);
-        setCurrentDonationId(result.donationId);
+        setStripePaymentIntentId(result.stripePaymentIntentId || null);
         setStep('stripe-payment');
       } else if (result.pixPayload) {
         setPixPayload(result.pixPayload);
         setPixQrCodeBase64(result.pixQrCodeBase64 || null);
-        setCurrentDonationId(result.donationId);
+        setPaymentId(result.paymentId || null);
         setStep('qr');
       } else {
         // Mock mode: confirm immediately
-        const confirmResult = await confirmDonation(result.donationId);
-        if (confirmResult.success) {
-          setTimeout(() => setStep('success'), 1200);
-        } else {
-          setStep('select-amount');
-        }
+        setStep('select-amount');
       }
     } else {
       setStep('select-amount');
@@ -263,7 +252,13 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
                     </div>
                 )}
                 <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
-                    <StripePaymentForm onSuccess={() => setStep('success')} />
+                    <StripePaymentForm onSuccess={async () => {
+                      const res = await finalizeDonation({ provider: 'stripe', paymentIntentId: stripePaymentIntentId });
+                      if (res.success) {
+                        setCurrentDonationId(res.donationId || null);
+                        setStep('success');
+                      }
+                    }} />
                 </Elements>
             </div>
         )}

@@ -58,11 +58,19 @@ serve(async (req) => {
 
   try {
     const body = await req.json()
-    console.log("Function Version: 2.0 (MP Fix)")
-    console.log("Request Body:", JSON.stringify(body))
-    const { amount, report_id, petition_id, pix_key, pix_name, pix_city, provider = 'pix_manual' } = body // Amount in cents
+    console.log("Function Version: 2.1 (Finalize on success)")
+    let { amount, report_id, petition_id, pix_key, pix_name, pix_city, provider = 'pix_manual', action = 'init', payment_intent_id, payment_id } = body
 
-    if (!amount || (!report_id && !petition_id)) {
+    // Detect Mercado Pago Webhook
+    if (body.type === 'payment' && body.data && body.data.id) {
+        console.log("Detected Mercado Pago Webhook for Payment:", body.data.id);
+        provider = 'mercadopago';
+        action = 'finalize';
+        payment_id = body.data.id;
+    }
+    // Detect Stripe Webhook (if we were using it directly, but for now client calls finalize)
+    
+    if (action !== 'finalize' && (!amount || (!report_id && !petition_id))) {
       throw new Error('Missing amount or target id (report_id or petition_id)')
     }
 
@@ -83,7 +91,7 @@ serve(async (req) => {
 
     let resultData = {};
 
-    if (provider === 'stripe') {
+    if (provider === 'stripe' && action === 'init') {
         console.log('Provider is Stripe');
         const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
         if (!stripeKey) {
@@ -104,7 +112,7 @@ serve(async (req) => {
         });
 
         const paymentIntent = await stripe.paymentIntents.create({
-            amount: amount, // already in cents
+            amount: amount,
             currency: 'brl',
             automatic_payment_methods: { enabled: true },
             metadata: {
@@ -114,29 +122,13 @@ serve(async (req) => {
             }
         });
 
-        // Insert donation record as pending
-        const { data: donationData, error: insertError } = await supabaseAdmin
-        .from('donations')
-        .insert({
-            report_id: report_id || null,
-            petition_id: petition_id || null,
-            user_id: user ? user.id : null,
-            amount: amount,
-            status: 'pending',
-            payment_id: paymentIntent.id,
-            provider: 'stripe'
-        })
-        .select()
-        .single();
-
-        if (insertError) throw insertError;
-
         resultData = {
             clientSecret: paymentIntent.client_secret,
-            donationId: donationData.id
+            stripePaymentIntentId: paymentIntent.id,
+            provider: 'stripe'
         };
 
-    } else if (provider === 'mercadopago') {
+    } else if (provider === 'mercadopago' && action === 'init') {
         console.log('Provider is Mercado Pago');
         const mpAccessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
         if (!mpAccessToken) {
@@ -144,15 +136,14 @@ serve(async (req) => {
             throw new Error('Mercado Pago Access Token not configured');
         }
 
-        // Amount comes in cents, convert to float for Mercado Pago
         const transactionAmount = parseFloat((amount / 100).toFixed(2));
         
         const paymentData = {
             transaction_amount: transactionAmount,
-            description: `Doação - ${report_id ? 'Relatório' : 'Petição'}`,
+            description: `Doação`,
             payment_method_id: "pix",
             payer: {
-                email: user ? user.email : "guest@horizons.com.br", // MP requires email
+                email: user ? user.email : "guest@horizons.com.br",
                 first_name: "Doador",
                 last_name: "Anônimo"
             },
@@ -184,65 +175,101 @@ serve(async (req) => {
         const qrCodeBase64 = mpResult.point_of_interaction?.transaction_data?.qr_code_base64;
         const paymentId = mpResult.id.toString();
 
-        // Insert donation record as pending
-        const { data: donationData, error: insertError } = await supabaseAdmin
-            .from('donations')
-            .insert({
-                report_id: report_id || null,
-                petition_id: petition_id || null,
-                user_id: user ? user.id : null,
-                amount: amount,
-                status: 'pending',
-                payment_id: paymentId,
-                provider: 'mercadopago'
-            })
-            .select()
-            .single();
-
-        if (insertError) throw insertError;
-
         resultData = {
             pixPayload: qrCode,
             pixQrCodeBase64: qrCodeBase64,
-            donationId: donationData.id,
+            paymentId: paymentId,
             provider: 'mercadopago'
         };
 
-    } else {
-        // PIX MANUAL LOGIC
-        // Configuração Pix (Prioridade: Body > Env > Default)
+    } else if (action === 'init') {
         const pixKey = pix_key || Deno.env.get('PIX_KEY') || Deno.env.get('VITE_PIX_KEY') || 'admin@horizons.com.br';
         const pixName = pix_name || Deno.env.get('PIX_NAME') || Deno.env.get('VITE_PIX_NAME') || 'Horizons App';
         const pixCity = pix_city || Deno.env.get('PIX_CITY') || Deno.env.get('VITE_PIX_CITY') || 'Recife';
         
         // Amount comes in cents (e.g. 1500 for R$ 15,00), convert to string "15.00"
         const amountBrl = (amount / 100).toFixed(2);
-        const txid = `DOACAO${Date.now().toString().slice(-10)}`; // Simple TxID
+        const txid = `DOACAO${Date.now().toString().slice(-10)}`;
 
         const payload = Pix.generate(pixKey, pixName, pixCity, amountBrl, txid);
 
-        // Create donation record in 'donations' table
-        const { data: donationData, error: insertError } = await supabaseAdmin
-            .from('donations')
-            .insert({
-                report_id: report_id || null,
-                petition_id: petition_id || null,
-                user_id: user ? user.id : null,
-                amount: amount,
-                status: 'pending',
-                payment_id: txid,
-                provider: 'pix_manual'
-            })
-            .select()
-            .single();
-        
-        if (insertError) throw insertError;
-
         resultData = {
             pixPayload: payload,
-            donationId: donationData.id,
-            pixKey: pixKey
+            pixKey: pixKey,
+            paymentId: txid,
+            provider: 'pix_manual'
         };
+    } else if (action === 'finalize' && provider === 'stripe') {
+        const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+        if (!stripeKey) {
+            throw new Error('CONFIG_ERROR: Stripe Secret Key not configured in Supabase Secrets');
+        }
+        if (!payment_intent_id) {
+            throw new Error('Missing payment_intent_id');
+        }
+        const stripe = new Stripe(stripeKey, {
+            apiVersion: '2022-11-15',
+            httpClient: Stripe.createFetchHttpClient(),
+        });
+        const intent = await stripe.paymentIntents.retrieve(payment_intent_id);
+        if (intent.status !== 'succeeded') {
+            return new Response(JSON.stringify({ confirmed: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+        const insertPayload: Record<string, unknown> = {
+            report_id: (intent.metadata?.report_id ?? null) as unknown,
+            petition_id: (intent.metadata?.petition_id ?? null) as unknown,
+            user_id: (intent.metadata?.user_id ?? null) as unknown,
+            amount: intent.amount,
+            status: 'paid',
+            payment_id: intent.id,
+            provider: 'stripe'
+        };
+        const { data: donationData, error: insertError } = await supabaseAdmin
+            .from('donations')
+            .insert(insertPayload)
+            .select()
+            .single();
+        if (insertError) throw insertError;
+        resultData = { donationId: donationData.id, confirmed: true };
+    } else if (action === 'finalize' && provider === 'mercadopago') {
+        const mpAccessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+        if (!mpAccessToken) {
+            throw new Error('Mercado Pago Access Token not configured');
+        }
+        if (!payment_id) {
+            throw new Error('Missing payment_id');
+        }
+        const resp = await fetch(`https://api.mercadopago.com/v1/payments/${payment_id}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${mpAccessToken}`,
+                "Content-Type": "application/json"
+            }
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            throw new Error(data.message || 'Failed to verify Mercado Pago payment');
+        }
+        if (data.status !== 'approved') {
+            return new Response(JSON.stringify({ confirmed: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+        const amountCents = Math.round((data.transaction_amount || 0) * 100);
+        const insertPayload: Record<string, unknown> = {
+            report_id: (data.metadata?.report_id ?? null) as unknown,
+            petition_id: (data.metadata?.petition_id ?? null) as unknown,
+            user_id: (data.metadata?.user_id ?? null) as unknown,
+            amount: amountCents,
+            status: 'paid',
+            payment_id: String(payment_id),
+            provider: 'mercadopago'
+        };
+        const { data: donationData, error: insertError } = await supabaseAdmin
+            .from('donations')
+            .insert(insertPayload)
+            .select()
+            .single();
+        if (insertError) throw insertError;
+        resultData = { donationId: donationData.id, confirmed: true };
     }
 
     return new Response(
