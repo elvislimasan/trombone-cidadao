@@ -9,6 +9,7 @@ import { Heart, Lock, QrCode, Copy, Download, ChevronLeft, CheckCircle2, CreditC
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from '../contexts/SupabaseAuthContext';
 
 // Initialize Stripe outside component
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_sample';
@@ -69,6 +70,11 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
   const [stripePaymentIntentId, setStripePaymentIntentId] = useState(null);
   const [paymentId, setPaymentId] = useState(null);
   
+  const { user } = useAuth();
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestError, setGuestError] = useState('');
+
   const { createPaymentIntent, finalizeDonation, confirmDonation, loading } = useDonation();
   
   const targetId = (report && report.id) ? report.id : (petitionId ?? reportId);
@@ -107,20 +113,37 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
       setCurrentDonationId(null);
       setStripePaymentIntentId(null);
       setPaymentId(null);
+      setGuestName('');
+      setGuestEmail('');
+      setGuestError('');
     }
   }, [isOpen]);
 
   const handleDonate = async () => {
+    if (!user) {
+        if (!guestEmail || !guestName) {
+            setGuestError('Por favor, preencha seu nome e email para continuar.');
+            return;
+        }
+        if (!guestEmail.includes('@')) {
+            setGuestError('Por favor, insira um email válido.');
+            return;
+        }
+    }
+    setGuestError('');
     setStep('processing');
     
     const provider = paymentMethod === 'card' ? 'stripe' : 'mercadopago';
     console.log('Iniciando doação com provider:', provider);
 
+    const guestInfo = !user ? { name: guestName, email: guestEmail } : null;
+
     const result = await createPaymentIntent(
       targetId,
       amount * 100,
       { kind: report ? 'report' : 'petition' },
-      provider
+      provider,
+      guestInfo
     ); // Send in cents
     
     console.log('Resultado do createPaymentIntent:', result);
@@ -218,6 +241,33 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
                  </p>
                )}
             </div>
+
+            {!user && (
+                <div className="space-y-3 mb-4 border-t pt-4">
+                    <Label className="text-base font-semibold">Seus Dados</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Informe seus dados para identificarmos sua doação e enviarmos o comprovante.</p>
+                    <div className="space-y-2">
+                        <Label htmlFor="guestName">Nome Completo</Label>
+                        <Input 
+                            id="guestName" 
+                            placeholder="Seu nome" 
+                            value={guestName} 
+                            onChange={(e) => setGuestName(e.target.value)} 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="guestEmail">E-mail</Label>
+                        <Input 
+                            id="guestEmail" 
+                            type="email" 
+                            placeholder="seu@email.com" 
+                            value={guestEmail} 
+                            onChange={(e) => setGuestEmail(e.target.value)} 
+                        />
+                    </div>
+                    {guestError && <p className="text-sm text-red-500 font-medium">{guestError}</p>}
+                </div>
+            )}
 
             <div className="bg-muted/50 p-3 rounded-lg flex items-start gap-3 text-sm text-muted-foreground">
               <Lock className="w-4 h-4 mt-0.5 flex-shrink-0" />

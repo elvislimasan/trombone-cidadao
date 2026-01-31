@@ -8,21 +8,23 @@ export const useDonation = () => {
   const { toast } = useToast();
 
   // id: reportId ou petitionId, conforme contexto.kind
-  const createPaymentIntent = async (id, amount, contexto = {}, provider = 'pix_manual') => {
+  const createPaymentIntent = async (id, amount, contexto = {}, provider = 'pix_manual', guestInfo = null) => {
     setLoading(true);
     try {
-      if (provider === 'stripe' || provider === 'mercadopago') {
-        const { data, error } = await supabase.functions.invoke('create-payment-intent', {
-            body: {
-                amount,
-                [contexto.kind === 'petition' ? 'petition_id' : 'report_id']: id,
-                provider: provider,
-                action: 'init'
-            }
-        });
+      // Sempre usa a Edge Function para gerar o payload e convidar usuário se necessário
+      const { data, error } = await supabase.functions.invoke('create-payment-intent', {
+        body: {
+            amount,
+            [contexto.kind === 'petition' ? 'petition_id' : 'report_id']: id,
+            provider: provider,
+            action: 'init',
+            guestInfo
+        }
+      });
 
-        if (error) throw error;
-        
+      if (error) throw error;
+      
+      if (provider === 'stripe' || provider === 'mercadopago') {
         if (provider === 'mercadopago' && !data.paymentId) {
             console.warn("Atenção: paymentId não retornado pelo backend. O polling de confirmação não funcionará.");
         }
@@ -34,32 +36,21 @@ export const useDonation = () => {
             pixPayload: data.pixPayload, // MP specific
             pixQrCodeBase64: data.pixQrCodeBase64, // MP specific
             provider: data.provider,
-            paymentId: data.paymentId // MP or manual Pix
+            paymentId: data.paymentId // MP
         };
       }
 
-      const txid = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      const pixKey = import.meta.env.VITE_PIX_KEY;
-      const pixName = import.meta.env.VITE_PIX_NAME;
-      const pixCity = import.meta.env.VITE_PIX_CITY || 'Recife';
-
-      if (!pixKey || !pixName) {
-        console.warn('Pix keys missing in environment');
-        if (!pixKey) throw new Error('Chave Pix não configurada');
-      }
-
-      const amountFloat = amount / 100;
-      const cleanTxid = txid.substring(0, 25);
-      const pixPayload = Pix.generate(pixKey, pixName, pixCity, amountFloat, cleanTxid);
-
+      // Pix Manual: Inserção local no banco
       const { data: { user } } = await supabase.auth.getUser();
 
       const payload = {
-        user_id: user ? user.id : null,
+        user_id: user ? user.id : (data.guest_user_id || null), // Usa ID retornado pelo backend (convite) se houver
         amount: amount,
         status: 'pending',
         provider: 'pix_manual',
-        payment_id: cleanTxid,
+        payment_id: data.paymentId,
+        guest_email: guestInfo?.email || null,
+        guest_name: guestInfo?.name || null
       };
 
       if (contexto.kind === 'petition') {
@@ -81,8 +72,8 @@ export const useDonation = () => {
       return {
         success: true,
         donationId: donation.id,
-        pixPayload: pixPayload,
-        pixKey: pixKey
+        pixPayload: data.pixPayload,
+        pixKey: data.pixKey
       };
     } catch (error) {
       console.error('Erro ao criar intenção de pagamento:', error);

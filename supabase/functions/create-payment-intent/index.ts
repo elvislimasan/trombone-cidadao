@@ -46,6 +46,16 @@ class Pix {
   }
 }
 
+function cleanMetadata(metadata: Record<string, any>) {
+  const result: Record<string, string> = {};
+  Object.keys(metadata).forEach(key => {
+    if (metadata[key] !== null && metadata[key] !== undefined) {
+      result[key] = String(metadata[key]);
+    }
+  });
+  return result;
+}
+
 serve(async (req) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -58,8 +68,11 @@ serve(async (req) => {
 
   try {
     const body = await req.json()
-    console.log("Function Version: 2.1 (Finalize on success)")
-    let { amount, report_id, petition_id, pix_key, pix_name, pix_city, provider = 'pix_manual', action = 'init', payment_intent_id, payment_id } = body
+    console.log("Function Version: 2.2 (Fixes applied)")
+    let { amount, report_id, petition_id, pix_key, pix_name, pix_city, provider = 'pix_manual', action = 'init', payment_intent_id, payment_id, guestInfo } = body
+    
+    const safeGuestInfo = guestInfo || {};
+
 
     // Detect Mercado Pago Webhook
     if (body.type === 'payment' && body.data && body.data.id) {
@@ -115,11 +128,13 @@ serve(async (req) => {
             amount: amount,
             currency: 'brl',
             automatic_payment_methods: { enabled: true },
-            metadata: {
-                report_id: report_id || null,
-                petition_id: petition_id || null,
+            metadata: cleanMetadata({
+                report_id: report_id,
+                petition_id: petition_id,
                 user_id: user ? user.id : 'guest',
-            }
+                guest_email: guestInfo?.email,
+                guest_name: guestInfo?.name
+            })
         });
 
         resultData = {
@@ -143,15 +158,17 @@ serve(async (req) => {
             description: `Doação`,
             payment_method_id: "pix",
             payer: {
-                email: user ? user.email : "guest@horizons.com.br",
-                first_name: "Doador",
-                last_name: "Anônimo"
+                email: (user && user.email) ? user.email : (safeGuestInfo.email || "guest@horizons.com.br"),
+                first_name: safeGuestInfo.name?.split(' ')[0] || "Doador",
+                last_name: safeGuestInfo.name?.split(' ').slice(1).join(' ') || "Anônimo"
             },
-            metadata: {
-                report_id: report_id || null,
-                petition_id: petition_id || null,
+            metadata: cleanMetadata({
+                report_id: report_id,
+                petition_id: petition_id,
                 user_id: user ? user.id : 'guest',
-            }
+                guest_email: safeGuestInfo.email,
+                guest_name: safeGuestInfo.name
+            })
         };
 
         const mpResponse = await fetch("https://api.mercadopago.com/v1/payments", {
@@ -193,11 +210,29 @@ serve(async (req) => {
 
         const payload = Pix.generate(pixKey, pixName, pixCity, amountBrl, txid);
 
+        // Handle Guest User for Pix Manual (Invite immediately as there is no finalize step)
+        let guestUserId = null;
+        if (!user && guestInfo?.email) {
+             try {
+                 const { data: userData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(guestInfo.email, {
+                    data: { full_name: guestInfo.name }
+                 });
+                 if (userData?.user) {
+                     guestUserId = userData.user.id;
+                 } else {
+                     console.log("Pix Manual Invite failed:", inviteError?.message);
+                 }
+             } catch (e) {
+                 console.warn("Pix Manual Invite exception:", e);
+             }
+        }
+
         resultData = {
             pixPayload: payload,
             pixKey: pixKey,
             paymentId: txid,
-            provider: 'pix_manual'
+            provider: 'pix_manual',
+            guest_user_id: guestUserId
         };
     } else if (action === 'finalize' && provider === 'stripe') {
         const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
@@ -227,10 +262,34 @@ serve(async (req) => {
             console.log(`Stripe Payment ${intent.id} already processed.`);
             resultData = { donationId: existingDonation.id, confirmed: true };
         } else {
+            // Handle Guest User for Stripe
+            let userId = (intent.metadata?.user_id ?? null) as unknown;
+            const guestEmail = intent.metadata?.guest_email || null;
+            const guestName = intent.metadata?.guest_name || null;
+
+            if (userId === 'guest') userId = null;
+
+            if (!userId && guestEmail) {
+                 try {
+                     const { data: userData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(guestEmail, {
+                        data: { full_name: guestName }
+                     });
+                     if (userData?.user) {
+                         userId = userData.user.id;
+                     } else {
+                         console.log("Stripe Invite failed:", inviteError?.message);
+                     }
+                 } catch (e) {
+                     console.warn("Stripe Invite exception:", e);
+                 }
+            }
+
             const insertPayload: Record<string, unknown> = {
                 report_id: (intent.metadata?.report_id ?? null) as unknown,
                 petition_id: (intent.metadata?.petition_id ?? null) as unknown,
-                user_id: (intent.metadata?.user_id ?? null) as unknown,
+                user_id: userId,
+                guest_email: guestEmail,
+                guest_name: guestName,
                 amount: intent.amount,
                 status: 'paid',
                 payment_id: intent.id,
@@ -279,10 +338,35 @@ serve(async (req) => {
             resultData = { donationId: existingDonation.id, confirmed: true };
         } else {
             const amountCents = Math.round((data.transaction_amount || 0) * 100);
+            
+            // Handle Guest User for Mercado Pago
+            let userId = (data.metadata?.user_id ?? null) as unknown;
+            const guestEmail = data.metadata?.guest_email || null;
+            const guestName = data.metadata?.guest_name || null;
+
+            if (userId === 'guest') userId = null;
+
+            if (!userId && guestEmail) {
+                 try {
+                     const { data: userData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(guestEmail, {
+                        data: { full_name: guestName }
+                     });
+                     if (userData?.user) {
+                         userId = userData.user.id;
+                     } else {
+                         console.log("MP Invite failed:", inviteError?.message);
+                     }
+                 } catch (e) {
+                     console.warn("MP Invite exception:", e);
+                 }
+            }
+
             const insertPayload: Record<string, unknown> = {
                 report_id: (data.metadata?.report_id ?? null) as unknown,
                 petition_id: (data.metadata?.petition_id ?? null) as unknown,
-                user_id: (data.metadata?.user_id ?? null) as unknown,
+                user_id: userId,
+                guest_email: guestEmail,
+                guest_name: guestName,
                 amount: amountCents,
                 status: 'paid',
                 payment_id: String(payment_id),
@@ -307,8 +391,9 @@ serve(async (req) => {
     )
 
   } catch (error) {
+    console.error("Function Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, stack: error.stack }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400 
