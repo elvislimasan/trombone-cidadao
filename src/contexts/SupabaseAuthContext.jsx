@@ -1,6 +1,16 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 
+const getSiteUrl = () => {
+  if (import.meta.env.VITE_APP_URL) {
+    return import.meta.env.VITE_APP_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return '';
+};
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -66,11 +76,13 @@ export const AuthProvider = ({ children }) => {
   }, [fetchUserProfile]);
 
   const signUp = useCallback(async (email, password, meta) => {
+    const redirectTo = `${getSiteUrl()}/login`;
     const { data: { user: authUser }, error } = await supabase.auth.signUp({ 
       email, 
       password, 
       options: {
-        data: meta.data
+        data: meta.data,
+        emailRedirectTo: redirectTo
       } 
     });
     if (error) {
@@ -87,6 +99,17 @@ export const AuthProvider = ({ children }) => {
     return { error };
   }, []);
 
+  const resetPassword = useCallback(async (email) => {
+    const redirectTo = `${getSiteUrl()}/alterar-senha`;
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectTo,
+    });
+    if (error) {
+      console.error("Erro ao solicitar redefinição de senha:", error.message);
+    }
+    return { data, error };
+  }, []);
+
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error && error.message !== 'Session from session_id claim in JWT does not exist') {
@@ -99,6 +122,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     signUp,
     signIn,
+    resetPassword,
     signOut,
     user,
     loading,

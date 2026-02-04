@@ -8,14 +8,23 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Mail } from 'lucide-react';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { resetPassword } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
+    await resetPassword(email);
+    
+    setLoading(false);
+
     toast({
       title: "Instruções enviadas!",
       description: `Se houver uma conta associada a ${email}, você receberá um e-mail com as instruções para redefinir sua senha.`,
@@ -55,8 +64,8 @@ const ForgotPasswordPage = () => {
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col gap-4">
-                <Button type="submit" className="w-full bg-tc-red hover:bg-tc-red/90 text-white gap-2">
-                  <Mail className="w-4 h-4" /> Enviar Link
+                <Button type="submit" className="w-full bg-tc-red hover:bg-tc-red/90 text-white gap-2" disabled={loading}>
+                  <Mail className="w-4 h-4" /> {loading ? 'Enviando...' : 'Enviar Link'}
                 </Button>
                 <p className="text-sm text-muted-foreground">
                   Lembrou a senha?{' '}
