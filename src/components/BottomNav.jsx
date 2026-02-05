@@ -52,7 +52,8 @@ const BottomNav = () => {
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
-        moderation_status: 'pending_approval' // Hide from map until upload completes
+        status: 'pending',
+        moderation_status: user?.is_admin ? 'approved' : 'pending_approval'
       })
       .select('id')
       .single();

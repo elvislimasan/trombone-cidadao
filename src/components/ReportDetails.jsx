@@ -326,54 +326,63 @@ const ReportDetails = ({
 
   const handleConfirmResolution = async (resolutionData) => {
     const { photoFile } = resolutionData;
-    if (!photoFile) {
-      toast({ title: "Nenhuma foto selecionada", description: "Por favor, selecione uma foto para enviar.", variant: "destructive" });
-      return;
-    }
-    // Converter para WEBP para reduzir tamanho mantendo qualidade
-    let uploadFile = photoFile;
-    try {
-      const dataUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(photoFile);
-      });
-      const img = await new Promise((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = reject;
-        image.src = dataUrl;
-      });
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
-      uploadFile = new File([blob], (photoFile.name || 'resolution') .replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
-    } catch (_) {}
-    const filePath = `${user.id}/${report.id}/resolution-${Date.now()}`;
-    const { error: uploadError } = await supabase.storage.from('reports-media').upload(filePath, uploadFile);
+    
+    let publicURLData = { publicUrl: null };
 
-    if (uploadError) {
-      toast({ title: "Erro no upload da foto", description: uploadError.message, variant: "destructive" });
-      return;
+    if (photoFile) {
+      // Converter para WEBP para reduzir tamanho mantendo qualidade
+      let uploadFile = photoFile;
+      try {
+        const dataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(photoFile);
+        });
+        const img = await new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = reject;
+          image.src = dataUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
+        uploadFile = new File([blob], (photoFile.name || 'resolution') .replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
+      } catch (_) {}
+      const filePath = `${user.id}/${report.id}/resolution-${Date.now()}`;
+      const { error: uploadError } = await supabase.storage.from('reports-media').upload(filePath, uploadFile);
+
+      if (uploadError) {
+        toast({ title: "Erro no upload da foto", description: uploadError.message, variant: "destructive" });
+        return;
+      }
+
+      const { data } = supabase.storage.from('reports-media').getPublicUrl(filePath);
+      publicURLData = data;
     }
 
-    const { data: publicURLData } = supabase.storage.from('reports-media').getPublicUrl(filePath);
+    const isAdmin = user && user.is_admin;
 
     const updatedReport = { 
-      status: 'pending_resolution', 
+      status: isAdmin ? 'resolved' : 'pending_resolution', 
       resolution_submission: {
         photoUrl: publicURLData.publicUrl,
         userId: user.id,
         userName: user.name,
         submittedAt: new Date().toISOString(),
       },
+      ...(isAdmin && { resolved_at: new Date().toISOString() })
     };
-    onUpdate({ id: report.id, ...updatedReport });
-    setShowMarkResolvedModal(false);
-    toast({ title: "Verificação enviada! ✅", description: "Sua foto de resolução foi enviada para moderação." });
+    
+    try {
+      await onUpdate({ id: report.id, ...updatedReport });
+      setShowMarkResolvedModal(false);
+    } catch (error) {
+      console.error("Error updating report:", error);
+    }
   };
 
   const handleSubmitEvaluation = () => {
@@ -1112,50 +1121,70 @@ const ReportDetails = ({
             
             {/* Seção de Moderação de Resolução */}
             {isResolutionModeration && (
-              <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-700">
-                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-blue-400" /> Moderação de Resolução
-                </h3>
-                <div className="space-y-4">
-                  <div className="bg-muted p-3 rounded-lg space-y-3">
-                    <div className="space-y-2">
-                      <p className="text-sm">
-                        <strong>Resolução enviada por:</strong> {report.resolution_submission.userName}
-                      </p>
-                      <p className="text-sm">
-                        <strong>Enviado em:</strong> {formatDate(report.resolution_submission.submittedAt)}
-                      </p>
+              <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/10 overflow-hidden shadow-sm">
+                <div className="bg-blue-100/50 dark:bg-blue-900/30 px-4 py-3 flex items-center gap-2 border-b border-blue-200 dark:border-blue-800">
+                  <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100">Análise de Resolução</h3>
+                </div>
+                
+                <div className="p-4 space-y-4">
+                  {/* Content Row: User Info + Photo */}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    {/* User Info Section */}
+                    <div className="flex items-start gap-4">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-700">
+                        <span className="text-blue-700 dark:text-blue-300 font-bold text-lg">
+                          {report.resolution_submission.userName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enviado por</p>
+                        <p className="font-medium text-foreground text-base">{report.resolution_submission.userName}</p>
+                        <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                          <Clock className="w-3.5 h-3.5" />
+                          {formatDate(report.resolution_submission.submittedAt)}
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Photo Evidence Section - Compact */}
                     {report.resolution_submission.photoUrl && (
-                      <div className="mt-3">
-                        <img 
-                          src={report.resolution_submission.photoUrl} 
-                          alt="Foto da resolução enviada" 
-                          className="rounded-lg w-full max-w-md mx-auto cursor-pointer hover:opacity-90 transition-opacity border border-border"
+                      <div className="flex flex-col items-end">
+                        <div 
+                          className="relative w-24 h-24 rounded-lg overflow-hidden border border-border cursor-pointer group shadow-sm hover:shadow-md transition-all bg-muted"
                           onClick={() => setShowResolutionImage(true)}
-                        />
-                        <p className="text-xs text-center text-muted-foreground mt-2">
-                          Clique na imagem para ampliar
+                          title="Clique para ampliar"
+                        >
+                          <img 
+                            src={report.resolution_submission.photoUrl} 
+                            alt="Foto da resolução" 
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                            <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100 transition-all duration-200 drop-shadow-lg" />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                          <ImageIcon className="w-3 h-3" /> Ver comprovante
                         </p>
                       </div>
                     )}
                   </div>
-                  
-                  <div className="flex gap-2">
+
+                  {/* Actions */}
+                  <div className="grid grid-cols-2 gap-3 pt-2">
                     <Button
                       onClick={() => handleResolutionAction('approved')}
-                      className="bg-green-600 hover:bg-green-700 flex-1 gap-2"
+                      className="bg-green-600 hover:bg-green-700 text-white shadow-sm hover:shadow active:scale-[0.98] transition-all h-10"
                     >
-                      <Check className="w-4 h-4" />
-                      Aprovar Resolução
+                      <Check className="w-4 h-4 mr-2" /> Aprovar
                     </Button>
                     <Button
                       onClick={() => handleResolutionAction('rejected')}
                       variant="outline"
-                      className="text-red-600 border-red-600 hover:bg-red-50 flex-1 gap-2"
+                      className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 dark:border-red-900/50 dark:hover:bg-red-900/20 active:scale-[0.98] transition-all h-10"
                     >
-                      <X className="w-4 h-4" />
-                      Rejeitar Resolução
+                      <X className="w-4 h-4 mr-2" /> Rejeitar
                     </Button>
                   </div>
                 </div>
@@ -1169,10 +1198,10 @@ const ReportDetails = ({
                   <div className="flex items-center gap-2">
                     <Hourglass className="w-4 h-4 text-yellow-400" />
                     <span className="text-sm text-muted-foreground">
-                      Foto de resolução enviada e aguardando aprovação
+                      Resolução enviada e aguardando aprovação
                     </span>
                   </div>
-                  {report.resolution_submission.photoUrl && (
+                  {report.resolution_submission.photoUrl ? (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1182,6 +1211,8 @@ const ReportDetails = ({
                       <Eye className="w-4 h-4" />
                       Ver foto da resolução
                     </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">Sem foto</span>
                   )}
                 </div>
               </div>
@@ -1351,7 +1382,7 @@ const ReportDetails = ({
                       Resolvido em {formatDate(report.resolved_at)} por {report.resolution_submission.userName}
                     </span>
                   </div>
-                  {report.resolution_submission.photoUrl && (
+                  {report.resolution_submission.photoUrl ? (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1361,6 +1392,8 @@ const ReportDetails = ({
                       <Eye className="w-4 h-4" />
                       Ver foto da resolução
                     </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">Sem foto</span>
                   )}
                 </div>
               </div>
@@ -1378,7 +1411,7 @@ const ReportDetails = ({
                       Foto de resolução disponível
                     </span>
                   </div>
-                  {report.resolution_submission.photoUrl && (
+                  {report.resolution_submission.photoUrl ? (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1388,6 +1421,8 @@ const ReportDetails = ({
                       <Eye className="w-4 h-4" />
                       Ver foto da resolução
                     </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">Sem foto</span>
                   )}
                 </div>
               </div>
@@ -1525,7 +1560,8 @@ const ReportDetails = ({
                       )}
                       
                       {['pending', 'in-progress'].includes(report.status) && 
-                       !report.resolution_submission && (
+                       !report.resolution_submission && 
+                       (user?.id === report.author_id || user?.is_admin || user?.user_type === 'public_official') && (
                         <Button onClick={handleMarkResolvedClick} className="bg-green-600 hover:bg-green-700 gap-2 text-xs sm:text-sm">
                           <CheckCircle className="w-4 h-4" />
                           <span className="hidden sm:inline">Marcar Resolvido</span>
