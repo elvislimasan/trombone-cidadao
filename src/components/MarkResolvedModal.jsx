@@ -43,14 +43,6 @@ const MarkResolvedModal = ({ onClose, onSubmit }) => {
   };
 
   const handleSubmit = () => {
-    if (!photoFile) {
-      toast({
-        title: "Foto obrigatória",
-        description: "Por favor, envie uma foto para comprovar a resolução.",
-        variant: "destructive",
-      });
-      return;
-    }
     onSubmit({ photoFile });
   };
 
@@ -76,7 +68,7 @@ const MarkResolvedModal = ({ onClose, onSubmit }) => {
               <X className="w-5 h-5" />
             </button>
           </div>
-          <p className="text-muted-foreground mt-1 text-sm">Envie uma foto para comprovar a solução.</p>
+          <p className="text-muted-foreground mt-1 text-sm">Envie uma foto para comprovar a solução (opcional).</p>
         </div>
 
         <div className="p-6 space-y-6">
@@ -104,7 +96,7 @@ const MarkResolvedModal = ({ onClose, onSubmit }) => {
               className="w-full aspect-video rounded-lg border-2 border-dashed border-input flex flex-col items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
             >
               <Upload className="w-10 h-10 mb-2" />
-              <span className="font-semibold">Clique para enviar uma foto</span>
+              <span className="font-semibold">Clique para enviar uma foto (Opcional)</span>
               <span className="text-xs">PNG, JPG, GIF até 10MB</span>
             </button>
           )}

@@ -357,6 +357,8 @@ function HomePage() {
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
+        status: 'pending',
+        moderation_status: user?.is_admin ? 'approved' : 'pending_approval'
       })
       .select('id', 'title')
       .single();
