@@ -33,7 +33,7 @@ const FavoritesPage = () => {
           pole_number,
           category:categories(name, icon),
           author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config),
-          upvotes:upvotes(count),
+          upvotes:signatures(count),
           comments:comments(count),
           report_media(*)
         )

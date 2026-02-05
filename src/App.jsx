@@ -32,12 +32,15 @@ import ManageUsersPage from '@/pages/admin/ManageUsersPage';
 import ManageCategoriesPage from '@/pages/admin/ManageCategoriesPage';
 import ManageWorkOptionsPage from '@/pages/admin/ManageWorkOptionsPage';
 import ManageReportsPage from '@/pages/admin/ManageReportsPage';
+import ManagePetitionsPage from '@/pages/admin/ManagePetitionsPage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import ReportPage from '@/pages/ReportPage';
+import PetitionPage from '@/pages/PetitionPage';
+import PetitionsOverviewPage from '@/pages/PetitionsOverviewPage';
 import WorkDetailsPage from '@/pages/WorkDetailsPage';
 import ModerationPage from '@/pages/admin/ModerationPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
@@ -429,6 +432,8 @@ function App() {
             
             <Route path="/" element={<HomePage />} />
             <Route path="/bronca/:reportId" element={<ReportPage />} />
+          <Route path="/abaixo-assinados" element={<PetitionsOverviewPage />} />
+          <Route path="/abaixo-assinado/:id" element={<PetitionPage />} />
             <Route path="/sobre" element={<AboutPage />} />
             <Route path="/estatisticas" element={<StatsPage />} />
             <Route path="/obras-publicas" element={<PublicWorksPage />} />
@@ -458,7 +463,12 @@ function App() {
             <Route path="/admin/pavimentacao" element={<AdminRoute><ManagePavementPage /></AdminRoute>} />
             <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
             <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
+            <Route path="/admin/reports" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
             <Route path="/admin/broncas" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
+            <Route path="/admin/petitions" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
+            <Route path="/admin/assinaturas" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
+            <Route path="/admin/signatures" element={<Navigate to="/admin/petitions" replace />} />
+            <Route path="/admin/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
             <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
             <Route path="/settings/notifications" element={<NotificationPreferences />} />
           </Routes>

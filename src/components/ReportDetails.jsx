@@ -1,7 +1,7 @@
 import React, { useState, useRef, lazy, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play, Loader2 } from 'lucide-react';
+import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play, Loader2, ArrowRight, FileSignature } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -149,6 +149,8 @@ const getThumbnailUrl = (url) => {
   return url;
 };
 
+import { ShareModal } from './PetitionComponents';
+
 const ReportDetails = ({ 
   report, 
   onClose, 
@@ -157,11 +159,13 @@ const ReportDetails = ({
   onLink, 
   onFavoriteToggle, 
   isModerationView = false,
+  onDonate 
 }) => {
   const { user } = useAuth();
   const { activeUploads } = useUpload();
   const navigate = useNavigate();
   const [showEvaluation, setShowEvaluation] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [evaluation, setEvaluation] = useState({ rating: 0, comment: '' });
   const [newComment, setNewComment] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -174,6 +178,7 @@ const ReportDetails = ({
   const [isSaving, setIsSaving] = useState(false);
   const [showResolutionImage, setShowResolutionImage] = useState(false);
 
+  console.log("user", user)
   const categories = {
     'iluminacao': 'Iluminação Pública',
     'buracos': 'Buracos na Via',
@@ -205,15 +210,11 @@ const ReportDetails = ({
   const getBaseUrl = () => {
     let baseUrl;
     
-    // 1. Prioridade: Variável de ambiente (configurada no Vercel)
-    if (import.meta.env.VITE_APP_URL) {
-      baseUrl = import.meta.env.VITE_APP_URL;
-    }
-    // 2. Se estiver no app nativo, sempre usar produção
-    else if (Capacitor.isNativePlatform()) {
+    // 1. Se estiver no app nativo, sempre usar produção
+    if (Capacitor.isNativePlatform()) {
       baseUrl = 'https://trombonecidadao.com.br';
     }
-    // 3. Se estiver no navegador, detectar automaticamente o ambiente
+    // 2. Se estiver no navegador, detectar automaticamente o ambiente (prioridade sobre VITE_APP_URL para suportar Dev/Preview corretamente)
     else if (typeof window !== 'undefined') {
       const origin = window.location.origin;
       
@@ -223,6 +224,7 @@ const ReportDetails = ({
       }
       // Se for Vercel (dev), usar Vercel
       else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
+       console.log("origin detected:", origin)
         baseUrl = origin;
       }
       // Se for domínio de produção, usar produção
@@ -233,6 +235,10 @@ const ReportDetails = ({
       else {
         baseUrl = origin;
       }
+    }
+    // 3. Fallback para Variável de ambiente (configurada no Vercel) se não detectado
+    else if (import.meta.env.VITE_APP_URL) {
+      baseUrl = import.meta.env.VITE_APP_URL;
     }
     // 4. Fallback final: produção
     else {
@@ -424,8 +430,15 @@ const ReportDetails = ({
     
     // Forçar URL de produção se estiver em localhost para garantir que o link funcione
     let shareBaseUrl = baseUrl;
-    if (shareBaseUrl.includes('localhost')) {
-        shareBaseUrl = 'https://trombonecidadao.com.br';
+    if (shareBaseUrl.includes('localhost') || shareBaseUrl.includes('127.0.0.1')) {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+        if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+             // Development Environment
+             shareBaseUrl = 'https://trombone-cidadao.vercel.app';
+        } else {
+             // Production Environment (default fallback)
+             shareBaseUrl = 'https://trombonecidadao.com.br';
+        }
     }
     
     // Link "bonito" que passa pelo Vercel Rewrite -> Edge Function -> Redirecionamento
@@ -440,8 +453,8 @@ const ReportDetails = ({
 //         console.log('Sharing with report image:', shareImageUrl);
     }
 
-    const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
-    const fullShareText = `${shareText} ${shareUrl}`; 
+    // const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
+    // const fullShareText = `${shareText} ${shareUrl}`; 
 
 
 
@@ -519,7 +532,7 @@ const ReportDetails = ({
         // No app nativo, compartilhar o link (a imagem aparecerá como thumbnail via meta tags geradas pela Edge Function)
         const shareData = {
           title: `Trombone Cidadão: ${report.title}`,
-          text: shareText, 
+          // text: shareText, // Removido para garantir que o card apareça limpo no WhatsApp
           url: shareUrl, 
         };
 
@@ -534,7 +547,7 @@ const ReportDetails = ({
         // Não incluir files, pois isso pode fazer o navegador ignorar o URL
         const webShareData = {
           title: `Trombone Cidadão: ${report.title}`,
-          text: shareText, // Texto sem URL para evitar duplicação
+          // text: shareText, // Removido para garantir que o card apareça limpo no WhatsApp
           url: shareUrl, // URL sempre incluída - a imagem aparecerá como thumbnail via Open Graph
         };
         
@@ -548,25 +561,17 @@ const ReportDetails = ({
         return;
       }
 
-      // Fallback: abrir WhatsApp diretamente ou copiar link
-      const whatsappNumber = '5587999488360';
-      const whatsappMessage = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
-      
-      // Tentar abrir WhatsApp
-      window.open(whatsappUrl, '_blank');
-      
-      // Também copiar para área de transferência como backup
+      // Fallback: copiar link
       try {
-        await navigator.clipboard.writeText(fullShareText);
+        await navigator.clipboard.writeText(shareUrl);
         toast({ 
-          title: "Abrindo WhatsApp... 📱", 
-          description: "Link também copiado para área de transferência. A imagem aparecerá como preview do link." 
+          title: "Link copiado!", 
+          description: "Cole nas suas redes sociais." 
         });
       } catch (clipboardError) {
         toast({ 
-          title: "Abrindo WhatsApp... 📱", 
-          description: "Compartilhe a bronca pelo WhatsApp. A imagem aparecerá como preview do link." 
+          title: "Erro ao copiar", 
+          description: "Não foi possível copiar o link." 
         });
     }
   } catch (error) {
@@ -577,18 +582,12 @@ const ReportDetails = ({
       
     console.error('Error sharing:', error);
     
-      // Fallback: abrir WhatsApp diretamente
+      // Fallback: apenas copiar link
       try {
-        const whatsappNumber = '5587999488360';
-        const whatsappMessage = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
-        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
-        window.open(whatsappUrl, '_blank');
-        
-        // Também copiar para área de transferência
-        await navigator.clipboard.writeText(fullShareText);
+        await navigator.clipboard.writeText(shareUrl);
         toast({ 
-          title: "Abrindo WhatsApp... 📱", 
-          description: "Link também copiado para área de transferência. A imagem aparecerá como preview do link." 
+          title: "Link copiado!", 
+          description: "Cole nas suas redes sociais." 
         });
       } catch (fallbackError) {
         toast({ 
@@ -1050,6 +1049,7 @@ const ReportDetails = ({
     };
   }, [report?.id, reportPhotos, baseUrl, getReportImage]);
 
+
   return (
     <>
       {/* DynamicSEO - Isso atualizará as meta tags quando o modal abrir */}
@@ -1085,6 +1085,54 @@ const ReportDetails = ({
           </div>
 
           <div className="p-6 space-y-6">
+            {report.petitionId && !isEditing ? (
+              <div className="flex flex-col items-center justify-center text-center py-8 space-y-6">
+                 <div className="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-2">
+                    <FileSignature className="w-10 h-10" />
+                 </div>
+                 
+                 <div className="space-y-2 max-w-md">
+                    <h3 className="text-2xl font-bold text-foreground">Esta bronca virou um Abaixo-Assinado!</h3>
+                    <p className="text-muted-foreground">
+                       Para aumentar o impacto e cobrar soluções das autoridades, esta solicitação foi transformada em uma petição oficial.
+                    </p>
+                 </div>
+
+                 <div className="w-full max-w-md space-y-4">
+                    <Link to={`/abaixo-assinado/${report.petitionId}`} className="w-full block">
+                      <Button size="lg" className="w-full h-14 text-lg font-bold bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg animate-pulse gap-2">
+                        Ver e Assinar Petição
+                        <ArrowRight className="w-5 h-5" />
+                      </Button>
+                    </Link>
+                    
+                    <p className="text-xs text-muted-foreground">
+                       Junte-se a outros apoiadores desta causa.
+                    </p>
+                 </div>
+              </div>
+            ) : (
+              <>
+            {/* Petition Section Removed - Moved to PetitionPage */}
+
+            {report.petitionId && (
+              <div className="p-4 bg-primary/10 rounded-lg border border-primary/20 mb-6">
+                <h3 className="font-semibold text-primary mb-2 flex items-center gap-2">
+                  <Flag className="w-5 h-5" />
+                  Abaixo-Assinado Ativo
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Esta bronca possui um abaixo-assinado em andamento. Apoie esta causa!
+                </p>
+                <Link to={`/abaixo-assinado/${report.petitionId}`}>
+                  <Button className="w-full gap-2">
+                    Ver Abaixo-Assinado
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            )}
+
             {/* Seção de Moderação de Bronca (para admins) */}
             {canModerate && !isEditing  && (report.moderation_status === 'pending_approval' || report.moderation_status === 'rejected') && (
               <div className={`p-4 rounded-lg border ${report.moderation_status === 'pending_approval' ? 'bg-yellow-900/20 border-yellow-700' : 'bg-red-900/20 border-red-700'}`}>
@@ -1603,6 +1651,8 @@ const ReportDetails = ({
                 </>
               )}
             </div>
+              </>
+            )}
           </div>
         </motion.div>
       </motion.div>
@@ -1659,9 +1709,17 @@ const ReportDetails = ({
           onSubmit={handleConfirmResolution}
         />
       )}
+
+
+      
+      <ShareModal 
+        isOpen={showShareModal} 
+        onClose={() => setShowShareModal(false)} 
+        url={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/share-report?id=${report.id}`} 
+        title={report.title} 
+      />
     </>
   );
 };
 
 export default ReportDetails;
-     

@@ -157,12 +157,14 @@ const UserDashboardPage = () => {
       navigate('/login');
       return;
     }
-    const { error } = await supabase.rpc('increment_upvotes', { report_id_param: id });
-    if (error) {
-      toast({ title: "Erro ao apoiar", description: error.message, variant: "destructive" });
+    
+    const result = await handleUpvoteHook(id);
+
+    if (result.success) {
+      fetchUserContributions();
+      toast({ title: result.action === 'added' ? "Apoio registrado! 👍" : "Apoio removido." });
     } else {
-      fetchReport();
-      toast({ title: "Apoio registrado! 👍" });
+      toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
     }
   };
 
