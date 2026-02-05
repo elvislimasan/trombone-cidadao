@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Search, Filter } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -12,10 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ReportDetails from '@/components/ReportDetails';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useUpvote } from '@/hooks/useUpvotes';
 
 const ManageReportsPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { handleUpvote: handleUpvoteHook } = useUpvote();
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [filteredReports, setFilteredReports] = useState([]);
   const [filters, setFilters] = useState({ searchTerm: '', status: 'all', category: 'all' });
@@ -32,7 +35,7 @@ const ManageReportsPage = () => {
     setLoading(true);
     let query = supabase
       .from('reports')
-      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*), favorite_reports!left(*)')
+      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*), favorite_reports!left(*), petitions(id)')
       .order('created_at', { ascending: false });
 
     if (user) {
@@ -56,6 +59,7 @@ const ManageReportsPage = () => {
         photos: r.report_media.filter(m => m.type === 'photo'),
         videos: r.report_media.filter(m => m.type === 'video'),
         is_favorited: r.favorite_reports.length > 0,
+        petition_id: r.petitions && r.petitions.length > 0 ? r.petitions[0].id : null,
       }));
       setReports(formattedData);
     }
@@ -88,19 +92,75 @@ const ManageReportsPage = () => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-    const handleUpvote = async (id) => {
+  const handleUpvote = async (id) => {
     if (!user) {
       toast({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
       navigate('/login');
       return;
     }
-    const { error } = await supabase.rpc('increment_upvotes', { report_id_param: id });
-    if (error) {
-      toast({ title: "Erro ao apoiar", description: error.message, variant: "destructive" });
+
+    // Call the hook
+    const result = await handleUpvoteHook(id);
+
+    if (result.success) {
+      fetchReports();
+      toast({ title: result.action === 'added' ? "Apoio registrado! 👍" : "Apoio removido." });
     } else {
-      fetchReport();
-      toast({ title: "Apoio registrado! 👍" });
+      toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
     }
+  };
+
+
+
+  const handleTransformToPetition = async (report) => {
+    if (!user) {
+      toast({ title: "Acesso restrito", description: "Faça login como administrador para transformar em abaixo-assinado.", variant: "destructive" });
+      return;
+    }
+    
+    try {
+        const petitionData = {
+          title: report.title,
+          target: '', // Deixar vazio para preencher no editor
+          description: report.description,
+          goal: 100,
+          report_id: report.id,
+          author_id: user.id,
+          status: 'draft',
+          image_url: report.photos && report.photos.length > 0 ? report.photos[0].url : null
+        };
+  
+        const { data: newPetition, error: createError } = await supabase
+          .from('petitions')
+          .insert(petitionData)
+          .select()
+          .single();
+  
+        if (createError) throw createError;
+  
+        // Atualizar flag na bronca
+        const { error: updateReportError } = await supabase
+          .from('reports')
+          .update({ is_petition: true })
+          .eq('id', report.id);
+  
+        if (updateReportError) console.error("Erro ao atualizar flag na bronca:", updateReportError);
+  
+        toast({
+          title: "Abaixo-Assinado Criado! 🎉",
+          description: "Redirecionando para o editor para finalizar os detalhes.",
+        });
+  
+        navigate(`/abaixo-assinado/${newPetition.id}?edit=true`);
+  
+      } catch (error) {
+        console.error(error);
+        toast({
+          title: "Erro ao criar",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
   };
 
   const handleUpdateReport = async (editData) => {
@@ -273,9 +333,31 @@ const ManageReportsPage = () => {
                       <p className="font-semibold">{report.title}</p>
                       <p className="text-sm text-muted-foreground">Autor: {report.author?.name || 'N/A'} | Status: <span className="font-medium">{report.status}</span></p>
                     </div>
-                    <div className="flex-shrink-0 flex gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedReport(report)}><Edit className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingReport(report)}><Trash2 className="w-4 h-4" /></Button>
+                    <div className="flex-shrink-0 flex gap-2 items-center">
+                      {report.is_petition ? (
+                        <a href={report.petition_id ? `/abaixo-assinado/${report.petition_id}` : '/admin/assinaturas'} target="_blank" rel="noopener noreferrer">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-100" 
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Acompanhar
+                          </Button>
+                        </a>
+                      ) : (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100" 
+                          onClick={() => handleTransformToPetition(report)}
+                        >
+                          <FileSignature className="w-4 h-4 mr-2" />
+                          Gerar Petição
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => setSelectedReport(report)} title="Editar"><Edit className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingReport(report)} title="Excluir"><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </div>
                 ))}
@@ -306,6 +388,7 @@ const ManageReportsPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </>
   );
 };

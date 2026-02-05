@@ -61,7 +61,9 @@ const LoginPage = () => {
           title: `Bem-vindo(a) de volta!`,
           description: "Login realizado com sucesso. 🎉",
         });
-          navigate('/');
+          // Redirecionar para a página anterior se houver, ou para a home
+          const from = location.state?.from?.pathname || '/';
+          navigate(from, { replace: true });
       } else {
           setErrors({
             email: '',
