@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petição - Trombone Cidadão</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #8B2E2E 0%, #A03939 100%);
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .logo::before {
+            content: "🎺";
+            font-size: 1.5rem;
+        }
+
+        nav ul {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: opacity 0.3s;
+        }
+
+        nav a:hover {
+            opacity: 0.8;
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .breadcrumb a {
+            color: #E53E3E;
+            text-decoration: none;
+        }
+
+        /* Article Section */
+        .article-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            font-size: 2rem;
+            line-height: 1.3;
+            margin-bottom: 2rem;
+            color: #1a1a1a;
+        }
+
+        .article-image {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            margin: 2rem 0 1rem;
+            color: #8B2E2E;
+            border-left: 4px solid #E53E3E;
+            padding-left: 1rem;
+        }
+
+        .article-content p {
+            line-height: 1.8;
+            margin-bottom: 1.2rem;
+            color: #444;
+            text-align: justify;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .petition-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            position: sticky;
+            top: 2rem;
+        }
+
+        .signature-count {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .count-number {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: #E53E3E;
+            display: block;
+        }
+
+        .count-text {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1.5rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #E53E3E 0%, #F56565 100%);
+            width: 0%;
+            transition: width 1s ease;
+        }
+
+        .signature-info {
+            background: #FFF5F5;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .signature-info h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.8rem;
+            color: #333;
+        }
+
+        .signer-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #FFE5E5;
+        }
+
+        .signer-item:last-child {
+            border-bottom: none;
+        }
+
+        .signer-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #E53E3E;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #E53E3E;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .btn-sign {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+        }
+
+        .btn-sign:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(229, 62, 62, 0.4);
+        }
+
+        .share-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .share-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .share-btn:hover {
+            border-color: #E53E3E;
+            color: #E53E3E;
+        }
+
+        /* Support Section */
+        .support-card {
+            background: linear-gradient(135deg, #FFF5F5 0%, #FED7D7 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 2px solid #FEB2B2;
+        }
+
+        .support-card h3 {
+            color: #8B2E2E;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .support-amounts {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .amount-btn {
+            padding: 0.75rem;
+            border: 2px solid #E53E3E;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .amount-btn:hover {
+            background: #E53E3E;
+            color: white;
+        }
+
+        /* Comments Section */
+        .comments-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-top: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .comment-tabs {
+            display: flex;
+            gap: 2rem;
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab {
+            padding: 0.75rem 0;
+            cursor: pointer;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #E53E3E;
+            border-bottom-color: #E53E3E;
+        }
+
+        .comment-input {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .comment-input input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        .comment-item {
+            padding: 1rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .comment-author {
+            font-weight: bold;
+            color: #8B2E2E;
+            margin-bottom: 0.5rem;
+        }
+
+        .comment-time {
+            color: #999;
+            font-size: 0.85rem;
+        }
+
+        /* Related Causes */
+        .related-section {
+            margin-top: 3rem;
+            padding-top: 3rem;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .related-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .cause-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .cause-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        .cause-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: #ddd;
+        }
+
+        .cause-content {
+            padding: 1.5rem;
+        }
+
+        .cause-title {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: #1a1a1a;
+        }
+
+        .cause-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 968px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+
+            .petition-card {
+                position: static;
+            }
+
+            .related-grid {
+                grid-template-columns: 1fr;
+            }
+
+            nav ul {
+                display: none;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .article-section, .petition-card {
+            animation: fadeIn 0.6s ease;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">Trombone Cidadão</div>
+            <nav>
+                <ul>
+                    <li><a href="#">Início</a></li>
+                    <li><a href="#">Sobre</a></li>
+                    <li><a href="#">Estatísticas</a></li>
+                    <li><a href="#">Petições</a></li>
+                    <li><a href="#">Serviços</a></li>
+                    <li><a href="#">Notícias</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div>
+            <div class="breadcrumb">
+                <a href="#">PETIÇÃO</a> • 27 de janeiro de 2026
+            </div>
+
+            <div class="article-section">
+                <h1>Pela construção de uma caixa d'água elevada para resolver o problema do abastecimento em Floresta</h1>
+
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Crect fill='%23e0e0e0' width='800' height='400'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23999'%3EImagem: Abastecimento de Água%3C/text%3E%3C/svg%3E" alt="Abastecimento de água" class="article-image">
+
+                <h2 class="section-title">O problema</h2>
+                <div class="article-content">
+                    <p>Os moradores dos bairros DHTR e Bela Vista, em Floresta, no Sertão de Pernambuco, vêm por meio desta abaixo-assinado, manifestar indignação e solicitar providências urgentes diante da grave e histórica falta de abastecimento de água que afeta essas comunidades há vários anos.</p>
+
+                    <p>A realidade enfrentada pelas famílias é desumana: nem sempre existe sequer rede de abastecimento, e onde há rede instalada, a água chega de forma irregular, insuficiente ou simplesmente não chega, comprometendo necessidades básicas como higiene, alimentação e saúde.</p>
+
+                    <p>Segundo informações da própria Compesa, a solução definitiva para o problema passa pela construção de uma nova caixa d'água elevada, uma vez que a caixa existente não possui altura suficiente para atender a demanda. Isso prejudica diretamente trabalhadores, idosos, crianças e pessoas com doenças que dependem do acesso regular à água potável.</p>
+
+                    <p><strong>Diante disso, os abaixo-assinados exigem:</strong></p>
+
+                    <p>A elaboração e execução imediata de um projeto técnico para ampliação do sistema de abastecimento dos bairros DHTR e Bela Vista;</p>
+
+                    <p>A construção urgente de uma nova caixa d'água elevada, conforme já apontado como solução pela própria concessionária;</p>
+
+                    <p>A implantação de rede de abastecimento nas ruas que ainda não contam com esse serviço;</p>
+
+                    <p>Transparência quanto aos prazos, recursos e cronograma das ações a serem adotadas.</p>
+
+                    <p>A água é um direito básico e sua falta contínua configura uma grave violação à dignidade da população. Por isso, reforçamos que os órgãos responsáveis tomem essa demanda com a seriedade e a agilidade que o caso exige.</p>
+                </div>
+
+                <div class="comments-section">
+                    <div class="comment-tabs">
+                        <div class="tab active">Recentes</div>
+                        <div class="tab">Antigos</div>
+                    </div>
+
+                    <div class="comment-input">
+                        <input type="text" placeholder="Eu achei, pensando porque...">
+                        <button class="share-btn">Publicar Comentário</button>
+                    </div>
+
+                    <div class="comment-item">
+                        <div class="comment-author">Leirison da Silva</div>
+                        <div class="comment-time">Recente • há 3 dias</div>
+                        <p>"toppz"</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="related-section">
+                <h2 class="section-title">Outras causas que precisam de você</h2>
+                <p style="color: #666; margin-bottom: 1rem;">Junte-se a milhares de pessoas que estão fazendo a diferença hoje.</p>
+                
+                <div class="related-grid">
+                    <div class="cause-card">
+                        <div class="cause-image"></div>
+                        <div class="cause-content">
+                            <h3 class="cause-title">Pela conclusão da construção da quadra do bairro DNER</h3>
+                            <div class="cause-meta">
+                                <span>📍 Floresta, PE</span>
+                                <span>Meta: 100</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cause-card">
+                        <div class="cause-image"></div>
+                        <div class="cause-content">
+                            <h3 class="cause-title">Pela construção de uma passagem molhada elevada sobre o Rio Pajeú</h3>
+                            <div class="cause-meta">
+                                <span>📍 Floresta, PE</span>
+                                <span>Meta: 100</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="petition-card">
+                <div class="signature-count">
+                    <span class="count-number" id="signatureCount">0</span>
+                    <span class="count-text">pessoas já assinaram. Ajude a chegar em <strong>100</strong></span>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+
+                <div class="signature-info">
+                    <h3>✅ Assine este abaixo-assinado</h3>
+                    
+                    <div class="signer-item">
+                        <div class="signer-avatar">LA</div>
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.9rem;">Leirison da Silva</div>
+                            <div style="font-size: 0.8rem; color: #999;">Há 3 dias atrás</div>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="signatureForm">
+                    <div class="form-group">
+                        <label>Nome</label>
+                        <input type="text" placeholder="Insira seu nome" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" placeholder="Insira seu email" required>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="notify">
+                        <label for="notify">Não quero receber atualizações publicamente</label>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="public">
+                        <label for="public">Quero receber novidades sobre esta causa</label>
+                    </div>
+
+                    <button type="submit" class="btn-sign">Assinar Agora</button>
+
+                    <p style="font-size: 0.75rem; color: #999; margin-top: 1rem; text-align: center;">
+                        Ao assinar, você concorda que a Trombone Cidadão processe seus dados
+                    </p>
+                </form>
+
+                <div class="share-section">
+                    <button class="share-btn" onclick="alert('Função de compartilhamento!')">🔗 Compartilhar</button>
+                </div>
+            </div>
+
+            <div class="support-card">
+                <h3>❤️ Apoie esta causa</h3>
+                <p style="font-size: 0.9rem; margin-bottom: 1rem;">Sua contribuição mantém esta plataforma livre para criar e assinar petições.</p>
+                
+                <div class="support-amounts">
+                    <button class="amount-btn">R$ 10</button>
+                    <button class="amount-btn">R$ 25</button>
+                    <button class="amount-btn">R$ 50</button>
+                </div>
+
+                <input type="number" placeholder="Outro valor..." style="width: 100%; padding: 0.75rem; border: 2px solid #E53E3E; border-radius: 6px; margin: 0.5rem 0;">
+                
+                <button class="btn-sign">Contribuir agora</button>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // Animar barra de progresso ao carregar
+        window.addEventListener('load', () => {
+            const progressBar = document.getElementById('progressBar');
+            setTimeout(() => {
+                progressBar.style.width = '1%'; // Baseado em 1/100
+            }, 500);
+        });
+
+        // Tabs de comentários
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Simular assinatura (demo)
+        document.getElementById('signatureForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const count = document.getElementById('signatureCount');
+            const current = parseInt(count.textContent);
+            count.textContent = current + 1;
+            
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = ((current + 1) / 100 * 100) + '%';
+            
+            alert('Assinatura registrada com sucesso!');
+            this.reset();
+        });
+
+        // Efeito nos botões de valor
+        document.querySelectorAll('.amount-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.amount-btn').forEach(b => {
+                    b.style.background = 'white';
+                    b.style.color = 'black';
+                });
+                this.style.background = '#E53E3E';
+                this.style.color = 'white';
+            });
+        });
+    </script>
+</body>
+</html>

@@ -9,32 +9,27 @@ import {
   MapPin, Clock, MessageSquare, ThumbsUp, FileSignature, Edit, Download, ShieldCheck, Heart, Megaphone, FileText, Sparkles 
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import confetti from 'canvas-confetti';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import Header from '@/components/Header';
 import DonationModal from '@/components/DonationModal';
 import PetitionJourney from '@/components/PetitionJourney';
-import PetitionGallery from '@/components/petition/PetitionGallery';
 import PetitionEditor from '@/components/petition/PetitionEditor';
+import PetitionUpdateModal from '@/components/petition/PetitionUpdateModal';
+import PetitionUpdates from '@/components/petition-modern/PetitionUpdates';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import BlockRenderer from '@/components/petition/builder/BlockRenderer';
-import PetitionCard from '../components/PetitionCard';
+
+// Modern Components
+import PetitionHero from '@/components/petition-modern/PetitionHero';
+import PetitionContent from '@/components/petition-modern/PetitionContent';
+import PetitionComments from '@/components/petition-modern/PetitionComments';
+import PetitionSignatureCard from '@/components/petition-modern/PetitionSignatureCard';
+import PetitionSupportCard from '@/components/petition-modern/PetitionSupportCard';
+import PetitionRelatedCauses from '@/components/petition-modern/PetitionRelatedCauses';
+import GuestSignModal from '@/components/petition-modern/GuestSignModal';
 
 const Counter = ({ value }) => {
   const [count, setCount] = useState(0);
@@ -72,38 +67,17 @@ const PetitionPage = () => {
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const otherCausesRef = useRef(null);
   const triggerRef = useRef(null);
-  const sidebarRef = useRef(null);
-  const [sidebarStyle, setSidebarStyle] = useState({});
 
-  useEffect(() => {
-    const updateSidebarPosition = () => {
-      if (sidebarRef.current) {
-        const rect = sidebarRef.current.getBoundingClientRect();
-        setSidebarStyle({
-          width: `${rect.width}px`,
-          left: `${rect.left}px`,
-        });
-      }
-    };
-
-    updateSidebarPosition();
-    window.addEventListener('resize', updateSidebarPosition);
-    window.addEventListener('scroll', updateSidebarPosition); // Update on scroll in case of horizontal shifts
-
-    return () => {
-      window.removeEventListener('resize', updateSidebarPosition);
-      window.removeEventListener('scroll', updateSidebarPosition);
-    };
-  }, []);
 
   const [isEditing, setIsEditing] = useState(searchParams.get('edit') === 'true');
   const [isGuestSign, setIsGuestSign] = useState(false);
   const [recentSignatures, setRecentSignatures] = useState([]);
   const [latestSigners, setLatestSigners] = useState([]);
   const [recentDonations, setRecentDonations] = useState([]);
+  const [totalDonations, setTotalDonations] = useState(0);
   const [otherPetitions, setOtherPetitions] = useState([]);
   
   // Guest Sign State
@@ -123,6 +97,27 @@ const PetitionPage = () => {
     comment: ''
   });
   const [signing, setSigning] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [commentSort, setCommentSort] = useState('newest');
+
+  // Unified State Wrappers for Modern Components
+  const currentCity = user ? signForm.city : guestForm.city;
+  const setCity = (val) => {
+    if (user) setSignForm(prev => ({ ...prev, city: val }));
+    else setGuestForm(prev => ({ ...prev, city: val }));
+  };
+  
+  const currentIsPublic = user ? signForm.isPublic : guestForm.isPublic;
+  const setIsPublic = (val) => {
+    if (user) setSignForm(prev => ({ ...prev, isPublic: val }));
+    else setGuestForm(prev => ({ ...prev, isPublic: val }));
+  };
+
+  const currentAllowNotifications = user ? signForm.allowNotifications : guestForm.allowNotifications;
+  const setAllowNotifications = (val) => {
+    if (user) setSignForm(prev => ({ ...prev, allowNotifications: val }));
+    else setGuestForm(prev => ({ ...prev, allowNotifications: val }));
+  };
 
   // --- SEO & Sharing Logic ---
   const getBaseUrl = useCallback(() => {
@@ -196,28 +191,7 @@ const PetitionPage = () => {
     };
   }, [baseUrl, petition, id]);
 
-    useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-      const scrollPercent = (scrollTop / docHeight) * 100;
-      
-      // Hide sidebar when scroll reaches 60%
-      if (scrollPercent > 50) {
-        setIsSidebarVisible(false);
-      } else {
-        setIsSidebarVisible(true);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    // Initial check
-    handleScroll();
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
+  // Scroll handler removed (replaced by sticky CSS)
 
   // Update meta tags manually for better compatibility
   useEffect(() => {
@@ -341,10 +315,20 @@ const PetitionPage = () => {
         .limit(5);
       setRecentDonations(donations || []);
 
+      // Fetch total donations amount
+      const { data: totalData } = await supabase
+        .from('donations')
+        .select('amount')
+        .eq('petition_id', id)
+        .eq('status', 'paid');
+      
+      const totalAmount = totalData ? totalData.reduce((sum, d) => sum + (Number(d.amount) || 0), 0) : 0;
+      setTotalDonations(totalAmount);
+
       // Fetch other open petitions
       const { data: others } = await supabase
         .from('petitions')
-        .select('id, title, image_url, goal, signatures(count)')
+        .select('id, title, description, image_url, goal, signatures(count)')
         .eq('status', 'open')
         .neq('id', id)
         .limit(3);
@@ -411,6 +395,15 @@ const PetitionPage = () => {
             toast({ title: "Assinado com sucesso! 🎉", description: "Obrigado pelo seu apoio." });
             setHasSigned(true);
             setPetition(prev => ({ ...prev, signatureCount: prev.signatureCount + 1 }));
+            
+            // Update latest signers list locally
+            setLatestSigners(prev => [{
+                name: userName,
+                city: userCity,
+                created_at: new Date().toISOString(),
+                is_public: signForm.isPublic
+            }, ...prev]);
+
             setShowJourney(true);
 
             // Send confirmation email (fire and forget)
@@ -481,6 +474,15 @@ const PetitionPage = () => {
           toast({ title: "Assinado com sucesso! 🎉", description: "Obrigado pelo seu apoio." });
           setHasSigned(true);
           setPetition(prev => ({ ...prev, signatureCount: prev.signatureCount + 1 }));
+          
+          // Update latest signers list locally
+          setLatestSigners(prev => [{
+              name: guestForm.name,
+              city: guestForm.city,
+              created_at: new Date().toISOString(),
+              is_public: guestForm.isPublic
+          }, ...prev]);
+
           setShowSignModal(false);
           setIsGuestSign(true);
           setShowJourney(true);
@@ -504,6 +506,24 @@ const PetitionPage = () => {
       } finally {
           setSigning(false);
       }
+  };
+
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: petition.title,
+          text: `Assine este abaixo-assinado: ${petition.title}`,
+          url: window.location.href,
+        });
+      } else {
+        throw new Error('Web Share API not supported');
+      }
+    } catch (error) {
+      console.log('Share fallback:', error);
+      navigator.clipboard.writeText(window.location.href);
+      toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
+    }
   };
 
   const handleConfirmSign = async () => {
@@ -550,7 +570,7 @@ const PetitionPage = () => {
             if (error) console.error('Erro ao enviar email (Function Logged):', error);
             else console.log('Email enviado com sucesso (Logged):', data);
           }).catch(err => console.error('Erro ao invocar função de email (Logged):', err));
-       }
+        }
 
      } catch (error) {
        toast({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
@@ -559,993 +579,279 @@ const PetitionPage = () => {
      }
   };
 
-  const handleExportPDF = async () => {
+  const handleCommentSubmit = async (comment) => {
+    if (!user) return;
     try {
-      toast({ title: "Gerando PDF...", description: "Aguarde enquanto preparamos o documento." });
-      
-      const doc = new jsPDF();
-      
-      // Title
-      doc.setFontSize(20);
-      doc.text(petition.title, 14, 22);
-      
-      // Target
-      if (petition.target) {
-        doc.setFontSize(12);
-        doc.setTextColor(100);
-        doc.text(`Para: ${petition.target}`, 14, 32);
-      }
-      
-      // Stats
-      doc.setFontSize(10);
-      doc.setTextColor(0);
-      doc.text(`Total de Assinaturas: ${petition.signatureCount}`, 14, 42);
-      doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 48);
-
-      // Fetch signatures
-      const { data: signatures, error } = await supabase
+      const { data, error } = await supabase
         .from('signatures')
-        .select('name, city, created_at, comment')
+        .update({ comment })
         .eq('petition_id', id)
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .eq('user_id', user.id)
+        .select();
 
       if (error) throw error;
 
-      // Table
-      autoTable(doc, {
-        startY: 55,
-        head: [['Nome', 'Cidade', 'Data', 'Comentário']],
-        body: signatures.map(sig => [
-          sig.name || 'Anônimo',
-          sig.city || '-',
-          new Date(sig.created_at).toLocaleDateString('pt-BR'),
-          sig.comment || '-'
-        ]),
-      });
-
-      doc.save(`abaixo-assinado-${id}.pdf`);
-      toast({ title: "PDF baixado!", description: "O arquivo foi salvo no seu dispositivo." });
-
+      if (!data || data.length === 0) {
+        toast({ title: "Assinatura necessária", description: "Você precisa assinar a petição antes de comentar.", variant: "destructive" });
+        return;
+      }
+      
+      // Update local state
+      setRecentSignatures(prev => [
+        { 
+          name: user.user_metadata?.name || 'Usuário',
+          city: signForm.city,
+          created_at: new Date().toISOString(),
+          comment,
+          is_public: signForm.isPublic
+        }, 
+        ...prev
+      ]);
+      
+      toast({ title: "Comentário publicado!", description: "Obrigado por compartilhar sua opinião." });
     } catch (error) {
-      console.error('Error exporting PDF:', error);
-      toast({ title: "Erro ao exportar", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao publicar", description: error.message, variant: "destructive" });
     }
   };
 
-  const handleShare = async () => {
-    // Determine base URL for sharing
-    let shareBaseUrl = baseUrl;
-    // Force correct URL for sharing based on environment to ensure links work
-    if (shareBaseUrl.includes('localhost') || shareBaseUrl.includes('127.0.0.1')) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-        if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
-             // Development Environment
-             shareBaseUrl = 'https://trombone-cidadao.vercel.app';
-        } else {
-             // Production Environment (default fallback)
-             shareBaseUrl = 'https://trombonecidadao.com.br';
-        }
-    }
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Relatório de Assinaturas - " + petition.title, 14, 22);
+    
+    // Only basic info for now as we don't have all signatures loaded
+    doc.setFontSize(12);
+    doc.text(`Total de assinaturas: ${petition.signatureCount}`, 14, 32);
+    doc.text(`Meta: ${petition.goal}`, 14, 38);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 44);
 
-    // Use the smart share URL that passes through Vercel Rewrite -> Edge Function
-    // This ensures correct Open Graph tags are served for WhatsApp/Facebook
-    const smartShareUrl = `${shareBaseUrl}/share/abaixo-assinado/${id}`;
-
-    const shareData = {
-      title: petition.title,
-      // text: `Assine esta petição: ${petition.title}`, // Removido para garantir que o card apareça limpo no WhatsApp
-      url: smartShareUrl,
-      dialogTitle: 'Compartilhar Petição',
-    };
-
-    try {
-      if (Capacitor.isNativePlatform()) {
-        await Share.share(shareData);
-      } else {
-        if (navigator.share) {
-          await navigator.share(shareData);
-        } else {
-          await navigator.clipboard.writeText(shareData.url);
-          toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
-        }
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
+    doc.save("relatorio_peticao.pdf");
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <div className="flex-1 flex items-center justify-center">
-          <p>Carregando...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground animate-pulse">Carregando petição...</p>
         </div>
       </div>
     );
   }
 
-  if (!petition) return null;
-
-  // Check permissions and status
-  const canEdit = user && (user.id === petition.author_id || user.is_admin);
-  const isExpired = petition.deadline && new Date(petition.deadline) < new Date();
-  const donationEnabled = petition.donation_enabled !== false && petition.status !== 'closed' && !isExpired;
-  const donationOptions = petition.donation_options || [10, 20, 50, 100];
-
-  // Access control for drafts
-  if (petition.status === 'draft' && !canEdit) {
+  if (!petition) {
     return (
-       <div className="min-h-screen flex flex-col bg-background">
-         <Header />
-         <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
-           <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-             <ShieldCheck className="w-8 h-8 text-muted-foreground" />
-           </div>
-           <h1 className="text-2xl font-bold mb-2">Página Indisponível</h1>
-           <p className="text-muted-foreground mb-6 max-w-md">
-             Esta campanha não existe ou está indisponível no momento.
-           </p>
-           
-         </div>
-       </div>
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+            <h1 className="text-2xl font-bold mb-4">Petição não encontrada</h1>
+            <Button onClick={() => navigate('/')}>Voltar para o início</Button>
+        </div>
     );
   }
 
   if (isEditing) {
-    return <PetitionEditor petition={petition} onSave={handleUpdate} onCancel={() => setIsEditing(false)} />;
+    return (
+      <PetitionEditor 
+        petition={petition} 
+        onSave={handleUpdate} 
+        onCancel={() => setIsEditing(false)} 
+      />
+    );
   }
 
-  const progress = Math.min((petition.signatureCount / petition.goal) * 100, 100);
-  const progressColor = progress >= 80 ? "bg-red-500" : progress >= 50 ? "bg-yellow-500" : "bg-primary";
-
-  // Prepare images for gallery
-  const galleryImages = petition.gallery && petition.gallery.length > 0 
-    ? petition.gallery 
-    : (petition.image_url ? [petition.image_url] : []);
-
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans petition-theme">
       <Helmet>
-        <title>{seoData.title}</title>
-        <meta name="description" content={seoData.description} />
+        <title>{petition.title} | Trombone Cidadão</title>
+        <meta name="description" content={petition.description.substring(0, 160)} />
       </Helmet>
 
-      <Header />
-
-      {petition.status === 'closed' && (
-        <div className="bg-muted text-muted-foreground p-4 text-center font-medium border-b flex items-center justify-center gap-2">
-           <ShieldCheck className="w-5 h-5" />
-           Esta campanha foi encerrada/concluída pelo autor.
-        </div>
-      )}
-
-      {isExpired && petition.status !== 'closed' && (
-        <div className="bg-amber-100 text-amber-800 p-4 text-center font-medium border-b flex items-center justify-center gap-2">
-           <Clock className="w-5 h-5" />
-           O prazo para assinaturas desta campanha encerrou.
-        </div>
-      )}
-
-      <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl xl:max-w-7xl pb-24 lg:pb-8">
-          {canEdit && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          
-            <div className="flex gap-3 w-full sm:w-auto">
-              <Button variant="outline" onClick={handleExportPDF} className="flex-1 sm:flex-none whitespace-nowrap shadow-sm bg-background">
-                <Download className="w-4 h-4 mr-2" />
-                Baixar PDF
-              </Button>
-              <Button onClick={() => setIsEditing(true)} className="flex-1 sm:flex-none whitespace-nowrap font-bold shadow-md">
-                <Edit className="w-4 h-4 mr-2" />
-                Editar Página
-              </Button>
-            </div>
-        </div>
-          )}
-
-        {/* Modern Desktop Header */}
-        <div className="hidden lg:block mb-10 space-y-6">
-             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                 <span className="px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-wider">Petição</span>
-                 <span>•</span>
-                 <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(petition.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-             </div>
-             
-             <h1 className="text-4xl xl:text-5xl/tight font-extrabold tracking-tight text-foreground max-w-4xl">
-                 {petition.title}
-             </h1>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-          {/* Main Content */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-8">
-            {petition.layout && petition.layout.length > 0 ? (
-              <div className="space-y-4">
-                 {petition.layout.map(block => (
-                   <BlockRenderer 
-                    key={block.id} 
-                    block={block} 
-                    onAction={(action) => {
-                        if (action === 'sign') handleSignClick();
-                    }}
-                   />
-                 ))}
-                 
-                 <Separator className="my-8" />
-                 <div className="space-y-6">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                      <MessageSquare className="w-5 h-5" />
-                      Razões para assinar
-                    </h3>
-                    <div className="grid gap-4">
-                      {recentSignatures.length > 0 ? (
-                        recentSignatures.map((sig, i) => (
-                          <div key={i} className="flex gap-4 p-4 rounded-lg bg-card border border-border/50 shadow-sm">
-                            <Avatar className="w-10 h-10 border-2 border-background">
-                              <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                                {sig.is_public ? (sig.name ? sig.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-sm">
-                                  {sig.is_public ? (sig.name || 'Anônimo') : 'Apoiador Anônimo'}
-                                </span>
-                                <span className="text-xs text-muted-foreground">• {sig.city || 'Brasil'}</span>
-                                <span className="text-xs text-muted-foreground">• {formatDistanceToNow(new Date(sig.created_at), { addSuffix: true, locale: ptBR })}</span>
-                              </div>
-                              {sig.comment && (
-                                <p className="text-sm text-foreground/90 italic">"{sig.comment}"</p>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-muted-foreground italic">Seja o primeiro a deixar um comentário!</p>
-                      )}
-                    </div>
-                  </div>
-               </div>
-            ) : (
-              <>
-                {/* Mobile Unified Card Layout */}
-                <div className="lg:hidden bg-card border rounded-xl shadow-sm overflow-hidden mb-8">
-                    <div className="p-5 pb-2 pt-2">
-                        <h1 className="text-2xl font-bold text-foreground leading-tight mb-2">
-                            {petition.title}
-                        </h1>
-                    </div>
-
-                    {galleryImages.length > 0 && (
-                        <div className="w-full px-5">
-                             <PetitionGallery images={galleryImages} className="w-full" />
-                        </div>
-                    )}
-
-                    <div className="p-5 space-y-6">
-                        {/* Progress and Stats */}
-                        <div>
-                            <div className="flex items-end gap-2 mb-2">
-                                <span className="text-4xl font-bold text-primary">{petition.signatureCount}</span>
-                                <span className="text-muted-foreground pb-1">assinaturas</span>
-                            </div>
-                            <Progress value={progress} className="h-2 mb-2" indicatorClassName={progressColor} />
-                            <div className="flex justify-between text-xs font-medium text-muted-foreground">
-                                <span>{Math.round(progress)}% da meta</span>
-                                <span>Meta: {petition.goal}</span>
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="space-y-2">
-                             <Button size="lg" className="w-full text-lg font-bold shadow-md h-12" onClick={handleSignClick} disabled={hasSigned || petition.status !== 'open'}>
-                                {hasSigned ? (
-                                    <>
-                                      <FileSignature className="w-5 h-5 mr-2" />
-                                      Assinado!
-                                    </>
-                                ) : (
-                                    <>
-                                      <FileSignature className="w-5 h-5 mr-2" />
-                                      Assinar Agora
-                                    </>
-                                )}
-                             </Button>
-                             <Button variant="outline" size="lg" className="w-full h-12" onClick={handleShare}>
-                                <Share2 className="w-5 h-5 mr-2" />
-                                Compartilhar
-                             </Button>
-                        </div>
-
-                        {/* Mobile Donation Section */}
-                        {donationEnabled && (
-                           <div className="pt-2">
-                               <div className="bg-red-50 dark:bg-red-950/20 rounded-xl p-4 border border-red-100 dark:border-red-900/30">
-                                   <div className="flex items-center gap-2 mb-2 text-red-600 font-bold">
-                                       <Heart className="w-4 h-4 fill-red-600" />
-                                       <span>Apoie esta causa</span>
-                                   </div>
-                                   <p className="text-xs text-muted-foreground mb-3">
-                                       Sua contribuição ajuda a impulsionar este abaixo-assinado para mais pessoas.
-                                   </p>
-                                   <Button 
-                                       className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-10 shadow-sm"
-                                       onClick={() => setShowDonationModal(true)}
-                                   >
-                                       Contribuir Financeiramente
-                                   </Button>
-                               </div>
-                           </div>
-                        )}
-                        
-                         {/* Security Note */}
-                         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                            <ShieldCheck className="w-4 h-4 text-green-600" />
-                            <span>Assinatura segura e verificada</span>
-                         </div>
-                    </div>
-                    
-                </div>
-
-                {/* Desktop Tabs Layout */}
-                <div className="hidden lg:block mt-8">
-                    <Tabs defaultValue="story" className="w-full">
-                        <TabsList className="grid w-full grid-cols-3 mb-8 h-auto p-1 bg-muted/50 rounded-xl">
-                            <TabsTrigger value="story" className="rounded-lg py-3 text-sm font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">A Campanha</TabsTrigger>
-                            <TabsTrigger value="updates" className="rounded-lg py-3 text-sm font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
-                                Novidades {petition.updates?.length > 0 && <span className="ml-2 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">{petition.updates.length}</span>}
-                            </TabsTrigger>
-                            <TabsTrigger value="comments" className="rounded-lg py-3 text-sm font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">
-                                Comentários
-                            </TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="story" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none">
-                             {galleryImages.length > 0 && (
-                                <div className="rounded-2xl overflow-hidden shadow-sm border border-border/50">
-                                    <PetitionGallery images={galleryImages} />
-                                </div>
-                             )}
-
-                             <div className="prose dark:prose-invert max-w-none prose-lg text-foreground/90 leading-relaxed">
-                                {petition.content ? (
-                                    <div dangerouslySetInnerHTML={{ __html: petition.content }} />
-                                ) : (
-                                    <p className="whitespace-pre-line text-lg">
-                                        {petition.description}
-                                    </p>
-                                )}
-                             </div>
-
-                             <div className="flex flex-wrap items-center gap-8 py-8 border-t border-border/50">
-                                 <div className="flex items-center gap-3">
-                                     <Avatar className="w-10 h-10 border border-border">
-                                         {petition.author?.avatar_url ? (
-                                             <AvatarImage src={petition.author.avatar_url} />
-                                         ) : (
-                                             <AvatarFallback className="bg-muted text-muted-foreground font-medium text-xs">
-                                               {petition.author?.name ? petition.author.name.substring(0, 2).toUpperCase() : 'AD'}
-                                             </AvatarFallback>
-                                         )}
-                                     </Avatar>
-                                     <div>
-                                         <p className="text-xs text-muted-foreground">Criado por</p>
-                                         <p className="font-medium text-foreground text-sm">{petition.author?.name || 'Administrador'}</p>
-                                     </div>
-                                 </div>
-
-                                 {petition.target && (
-                                     <div className="flex items-center gap-3 pl-6 border-l border-border/50">
-                                         <div className="p-1.5 bg-muted rounded-full">
-                                             <Target className="w-4 h-4 text-muted-foreground" />
-                                         </div>
-                                         <div>
-                                             <p className="text-xs text-muted-foreground">Direcionado a</p>
-                                             <p className="font-medium text-foreground text-sm">{petition.target}</p>
-                                         </div>
-                                     </div>
-                                 )}
-
-                                 <div className="ml-auto">
-                                     <Button variant="outline" size="sm" className="h-10 px-4 font-bold border-primary/20 hover:bg-primary/5 text-primary" onClick={handleShare}>
-                                         <Share2 className="w-4 h-4 mr-2" />
-                                         Compartilhar
-                                     </Button>
-                                 </div>
-                             </div>
-                        </TabsContent>
-
-                        <TabsContent value="updates" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none">
-                             {petition.updates && petition.updates.length > 0 ? (
-                                petition.updates
-                                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                                    .map((update) => (
-                                    <Card key={update.id} className="overflow-hidden border-border/50 hover:border-primary/30 transition-colors shadow-sm">
-                                      {update.image_url && (
-                                        <div className="w-full h-48 md:h-64 overflow-hidden relative group">
-                                          <img src={update.image_url} alt={update.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        </div>
-                                      )}
-                                      <CardContent className="p-6 md:p-8">
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                                          <Calendar className="w-4 h-4" />
-                                          {formatDistanceToNow(new Date(update.created_at), { addSuffix: true, locale: ptBR })}
-                                        </div>
-                                        <h3 className="text-2xl font-bold mb-4 text-foreground">{update.title}</h3>
-                                        <div className="prose dark:prose-invert max-w-none text-muted-foreground">
-                                          <p className="whitespace-pre-line leading-relaxed">{update.content}</p>
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                  ))
-                                ) : (
-                                  <div className="text-center py-16 bg-muted/20 rounded-2xl border border-dashed">
-                                    <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                       <Clock className="w-8 h-8 text-muted-foreground/50" />
-                                    </div>
-                                    <h3 className="font-semibold text-xl mb-2 text-foreground">Nenhuma novidade ainda</h3>
-                                    <p className="text-muted-foreground max-w-md mx-auto">O autor ainda não publicou atualizações sobre esta petição. Fique ligado!</p>
-                                  </div>
-                                )}
-                        </TabsContent>
-
-                        <TabsContent value="comments" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none">
-                            <div className="flex items-center gap-2 mb-6">
-                                <MessageSquare className="w-5 h-5 text-primary" />
-                                <h3 className="text-xl font-bold">O que as pessoas estão dizendo</h3>
-                            </div>
-                            <div className="grid gap-4">
-                                {recentSignatures.length > 0 ? (
-                                  recentSignatures.map((sig, i) => (
-                                    <div key={i} className="flex gap-4 p-6 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all">
-                                      <Avatar className="w-12 h-12 border-2 border-background ring-2 ring-primary/10">
-                                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                          {sig.is_public ? (sig.name ? sig.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div className="space-y-2">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="font-bold text-base text-foreground">
-                                            {sig.is_public ? (sig.name || 'Anônimo') : 'Apoiador Anônimo'}
-                                          </span>
-                                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sig.city || 'Brasil'}</span>
-                                          <span className="text-xs text-muted-foreground">• {formatDistanceToNow(new Date(sig.created_at), { addSuffix: true, locale: ptBR })}</span>
-                                        </div>
-                                        {sig.comment && (
-                                          <p className="text-base text-foreground/80 leading-relaxed">"{sig.comment}"</p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <div className="text-center py-12 bg-muted/20 rounded-xl border border-dashed">
-                                     <MessageSquare className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-                                     <p className="text-muted-foreground italic">Seja o primeiro a deixar um comentário!</p>
-                                  </div>
-                                )}
-                            </div>
-                        </TabsContent>
-                    </Tabs>
-                </div>
-
-                {/* Mobile History Section (Hidden on Desktop) */}
-                <motion.section 
-                  className="mt-10 space-y-8 lg:hidden"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-100px" }}
-                  transition={{ duration: 0.6 }}
-                >
-                   <div className="flex items-center gap-3 border-b pb-4">
-                      <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                         <FileText className="w-6 h-6" />
-                      </div>
-                      <h2 className="text-2xl md:text-3xl font-bold text-foreground">Entenda a Campanha</h2>
-                   </div>
-                   
-                   {petition.target && (
-                      <div className="flex items-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border/50 w-fit">
-                        <Target className="w-4 h-4 mr-2 text-primary" />
-                        <span className="font-medium mr-1">Destinatário:</span>
-                        <span className="font-semibold text-foreground">{petition.target}</span>
-                      </div>
-                   )}
-
-                   <div className="prose dark:prose-invert max-w-none prose-lg text-foreground/90 leading-relaxed">
-                      {petition.content ? (
-                        <div dangerouslySetInnerHTML={{ __html: petition.content }} />
-                      ) : (
-                        <p className="whitespace-pre-line">
-                          {petition.description}
-                        </p>
-                      )}
-                   </div>
-                   
-                   <Separator className="my-8" />
-                    
-                   <div className="space-y-6">
-                      <h3 className="text-xl font-bold flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5 text-primary" />
-                        Razões para assinar
-                      </h3>
-                      
-                      <div className="grid gap-4">
-                        {recentSignatures.length > 0 ? (
-                          recentSignatures.map((sig, i) => (
-                            <motion.div 
-                              key={i} 
-                              className="flex gap-4 p-4 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-shadow"
-                              initial={{ opacity: 0, x: -20 }}
-                              whileInView={{ opacity: 1, x: 0 }}
-                              viewport={{ once: true }}
-                              transition={{ delay: i * 0.1 }}
-                            >
-                              <Avatar className="w-10 h-10 border-2 border-background ring-2 ring-primary/10">
-                                <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                  {sig.is_public ? (sig.name ? sig.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-sm text-foreground">
-                                    {sig.is_public ? (sig.name || 'Anônimo') : 'Apoiador Anônimo'}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">• {sig.city || 'Brasil'}</span>
-                                  <span className="text-xs text-muted-foreground">• {formatDistanceToNow(new Date(sig.created_at), { addSuffix: true, locale: ptBR })}</span>
-                                </div>
-                                {sig.comment && (
-                                  <p className="text-sm text-foreground/80 italic">"{sig.comment}"</p>
-                                )}
-                              </div>
-                            </motion.div>
-                          ))
-                        ) : (
-                          <div className="text-center py-8 bg-muted/20 rounded-xl border border-dashed">
-                             <MessageSquare className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-                             <p className="text-muted-foreground italic">Seja o primeiro a deixar um comentário!</p>
-                          </div>
-                        )}
-                      </div>
-                   </div>
-                </motion.section>
-
-                {/* Updates Section (Mobile Only) */}
-                <motion.section 
-                  className="mt-16 space-y-8 lg:hidden"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-100px" }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                >
-                   <div className="flex items-center justify-between border-b pb-4">
-                      <div className="flex items-center gap-3">
-                         <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                            <Megaphone className="w-6 h-6" />
-                         </div>
-                         <h2 className="text-2xl md:text-3xl font-bold text-foreground">Novidades</h2>
-                      </div>
-                      {petition.updates && petition.updates.length > 0 && (
-                         <span className="bg-primary/10 text-primary text-sm px-3 py-1 rounded-full font-bold">{petition.updates.length}</span>
-                      )}
-                   </div>
-
-                   <div className="space-y-6">
-                    {petition.updates && petition.updates.length > 0 ? (
-                      petition.updates
-                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                        .map((update) => (
-                        <Card key={update.id} className="overflow-hidden border-border/50 hover:border-primary/30 transition-colors shadow-sm">
-                          {update.image_url && (
-                            <div className="w-full h-48 md:h-64 overflow-hidden relative group">
-                              <img src={update.image_url} alt={update.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          )}
-                          <CardContent className="p-6 md:p-8">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                              <Calendar className="w-4 h-4" />
-                              {formatDistanceToNow(new Date(update.created_at), { addSuffix: true, locale: ptBR })}
-                            </div>
-                            <h3 className="text-2xl font-bold mb-4 text-foreground">{update.title}</h3>
-                            <div className="prose dark:prose-invert max-w-none text-muted-foreground">
-                              <p className="whitespace-pre-line leading-relaxed">{update.content}</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))
-                    ) : (
-                      <div className="text-center py-16 bg-muted/20 rounded-2xl border border-dashed">
-                        <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                           <Clock className="w-8 h-8 text-muted-foreground/50" />
-                        </div>
-                        <h3 className="font-semibold text-xl mb-2 text-foreground">Nenhuma novidade ainda</h3>
-                        <p className="text-muted-foreground max-w-md mx-auto">O autor ainda não publicou atualizações sobre esta petição. Fique ligado!</p>
-                      </div>
-                    )}
-                   </div>
-                </motion.section>
-
-
-              </>
-            )}
-          </div>
-
-                {/* Sidebar */}
-          <div ref={sidebarRef} className="hidden lg:block lg:col-span-5 xl:col-span-4 space-y-6">
-            <div 
-              className={`fixed top-24 space-y-6 transition-opacity duration-300 ${isSidebarVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-              style={{
-                ...sidebarStyle,
-                zIndex: 40
-              }}
-            >
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Card className="shadow-xl border-primary/20 ring-1 ring-black/5 overflow-hidden relative">
-                  {/* Decorative background element */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-0 pointer-events-none" />
-                  
-                  <CardContent className="pt-6 space-y-6 relative z-10">
-                    <div>
-                      <div className="flex items-end gap-2 mb-2">
-                        <span className="text-5xl font-bold text-primary tracking-tight">
-                          <Counter value={petition.signatureCount} />
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground font-medium mb-4">
-                        pessoas já assinaram. Ajude a chegar em <span className="text-foreground font-bold">{petition.goal.toLocaleString('pt-BR')}</span>!
-                      </p>
-                      
-                      <div className="relative">
-                        <Progress value={progress} className="h-3 mb-2 bg-primary/20" indicatorClassName={progressColor} />
-                        {/* Shimmer effect on progress bar */}
-                        <motion.div 
-                          className="absolute top-0 left-0 bottom-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent z-20 pointer-events-none"
-                          initial={{ x: '-100%' }}
-                          animate={{ x: '100%' }}
-                          transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 1 }}
-                          style={{ width: `${progress}%` }}
+      <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
+             {/* Left Column: Content */}
+             <div className="flex flex-col gap-8 px-4">
+                {/* Mobile Actions (Signature & Donation) - Rendered here for mobile order */}
+                <div className="flex flex-col gap-6 lg:hidden">
+                    <PetitionSignatureCard 
+                        signaturesCount={petition.signatureCount}
+                      goal={petition.goal}
+                      onSign={handleSignClick}
+                      isSubmitting={signing}
+                      hasSigned={hasSigned}
+                      user={user}
+                      city={currentCity}
+                      setCity={setCity}
+                      isPublic={currentIsPublic}
+                      setIsPublic={setIsPublic}
+                      allowNotifications={currentAllowNotifications}
+                      setAllowNotifications={setAllowNotifications}
+                      onShare={handleShare}
+                      recentSignatures={latestSigners}
+                      compact={true}
+                      hero={
+                        <PetitionHero 
+                          title={petition.title} 
+                          createdAt={petition.created_at} 
+                          location={signForm.city} 
+                          imageUrl={petition.image_url}
+                          gallery={petition.gallery}
+                          petition={petition}
+                          user={user}
+                          onEdit={() => setIsEditing(true)}
                         />
+                      }
+                  />
+
+                  <PetitionSupportCard 
+                      petitionId={petition.id}
+                      petitionTitle={petition.title}
+                      donationGoal={petition.donation_goal}
+                      totalDonations={totalDonations}
+                      onShare={handleShare}
+                      onDonate={(amount) => {
+                          setShowDonationModal(true);
+                      }}
+                      shareUrl={window.location.href}
+                  />
+              </div>
+
+              <PetitionContent 
+                  hero={
+                    <PetitionHero 
+                      title={petition.title} 
+                      createdAt={petition.created_at} 
+                      location={signForm.city} 
+                      imageUrl={petition.image_url}
+                      gallery={petition.gallery}
+                      petition={petition}
+                      user={user}
+                      onEdit={() => setIsEditing(true)}
+                    />
+                  }
+                  content={petition.content}
+                  description={petition.description}
+                  importanceList={petition.importance_list}
+              >
+                  {/* Dynamic Content via BlockRenderer if available, otherwise just description */}
+                  {petition.layout && petition.layout.length > 0 ? (
+                      <div className="space-y-4">
+                          {petition.layout.map(block => (
+                          <BlockRenderer 
+                              key={block.id} 
+                              block={block} 
+                              onAction={(action) => {
+                                  if (action === 'sign') handleSignClick();
+                              }}
+                          />
+                          ))}
                       </div>
-                      
-                      <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                        <span>{Math.round(progress)}% da meta</span>
-                        <span>{petition.goal.toLocaleString('pt-BR')} assinaturas</span>
-                      </div>
-                    </div>
+                  ) : null}
+              </PetitionContent>
 
-                    <div className="space-y-3">
-                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button 
-                          size="lg" 
-                          className={`w-full text-lg font-bold shadow-md transition-all relative overflow-hidden group ${
-                            !hasSigned && petition.status === 'open' && !isExpired ? 'animate-pulse-subtle' : ''
-                          }`}
-                          onClick={handleSignClick}
-                          disabled={hasSigned || petition.status !== 'open' || isExpired}
-                        >
-                          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                          <div className="relative flex items-center justify-center">
-                            {hasSigned ? (
-                              <>
-                                <FileSignature className="w-5 h-5 mr-2" />
-                                Assinado!
-                              </>
-                            ) : (
-                              <>
-                                <FileSignature className="w-5 h-5 mr-2" />
-                                {isExpired ? 'Prazo Encerrado' : 'Assinar Agora'}
-                              </>
-                            )}
-                          </div>
-                        </Button>
-                      </motion.div>
-                      
-                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button variant="outline" size="lg" className="w-full border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors" onClick={handleShare}>
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Compartilhar
-                        </Button>
-                      </motion.div>
+              <PetitionUpdates 
+                  updates={petition.updates} 
+                  action={
+                      (user?.is_admin || (user && user.id === petition.author_id)) && (
+                          <Button onClick={() => setShowUpdateModal(true)} variant="outline" className="gap-2 bg-background/50 backdrop-blur-sm border-primary/20 hover:bg-background/80">
+                              <Megaphone className="w-4 h-4 text-primary" />
+                              Enviar Novidade
+                          </Button>
+                      )
+                  }
+              />
 
-                      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
-                        <ShieldCheck className="w-4 h-4 text-green-600" />
-                        <span>Assinatura segura e verificada</span>
-                      </div>
-                    </div>
-                    
-                    <div className="hidden 2xl:block pt-4 border-t border-border bg-muted/30 -mx-6 px-6 pb-6 -mb-6 mt-4">
-                      <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm pt-4">
-                        <Sparkles className="w-4 h-4 text-primary" />
-                        Por que isso importa?
-                      </h4>
-                      <ul className="space-y-3 text-sm text-muted-foreground">
-                        <li className="flex items-start gap-3">
-                          <div className="p-1 bg-primary/10 rounded-full shrink-0">
-                            <Users className="w-3 h-3 text-primary" />
-                          </div>
-                          <span>Mostra força coletiva para mudança</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                          <div className="p-1 bg-primary/10 rounded-full shrink-0">
-                            <Target className="w-3 h-3 text-primary" />
-                          </div>
-                          <span>Pressiona autoridades competentes</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                          <div className="p-1 bg-primary/10 rounded-full shrink-0">
-                            <AlertTriangle className="w-3 h-3 text-primary" />
-                          </div>
-                          <span>Cria visibilidade para o problema</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              {donationEnabled && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1, duration: 0.5 }}
-                >
-                  <Card className="shadow-lg border-red-200 bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-card overflow-hidden group">
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="flex items-center gap-2 text-red-600 font-bold text-lg group-hover:scale-105 transition-transform origin-left">
-                        <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-full">
-                          <Heart className="w-5 h-5 fill-red-600" />
-                        </div>
-                        <span>Apoie esta causa</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Sua contribuição ajuda a impulsionar este abaixo-assinado para mais pessoas.
-                      </p>
-                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button 
-                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold shadow-md shadow-red-200 dark:shadow-none"
-                          onClick={() => setShowDonationModal(true)}
-                        >
-                          Contribuir Financeiramente
-                        </Button>
-                      </motion.div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-
-
-              {recentDonations.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2, duration: 0.5 }}
-                >
-                  <Card className="shadow-sm border-red-100 dark:border-red-900/30">
-                    <div className="p-4 pb-2 border-b border-red-100 dark:border-red-900/30 bg-red-50/30 dark:bg-red-950/10">
-                      <h3 className="font-bold flex items-center gap-2 text-foreground text-sm">
-                         <Heart className="w-4 h-4 text-red-600 dark:text-red-400" />
-                         Últimos Apoiadores
-                      </h3>
-                    </div>
-                    <div className="p-4 space-y-4">
-                      {recentDonations.slice(0, 5).map((donation, i) => (
-                        <motion.div 
-                          key={i} 
-                          className="flex items-center gap-3"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.3 + (i * 0.1) }}
-                        >
-                           <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center shrink-0">
-                              <Heart className="w-4 h-4 text-red-600 dark:text-red-400 fill-current" />
-                           </div>
-                           <div className="flex-1 min-w-0 overflow-hidden">
-                             <p className="text-sm font-medium truncate text-foreground">
-                               {donation.profiles?.name || 'Apoiador Anônimo'}
-                             </p>
-                             <p className="text-xs text-muted-foreground">
-                               Contribuiu com a causa
-                             </p>
-                           </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </Card>
-                </motion.div>
-              )}
-
-
-            </div>
+              <div id="comments-section">
+                  <PetitionComments 
+                      user={user}
+                      comments={recentSignatures}
+                      commentSort={commentSort}
+                      setCommentSort={setCommentSort}
+                      newComment={newComment}
+                      setNewComment={setNewComment}
+                      onPostComment={handleCommentSubmit}
+                  />
+              </div>
           </div>
+ 
+          {/* Right Column: Sidebar */}
+          <aside className="hidden lg:flex lg:flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
+             <PetitionSignatureCard 
+                 signaturesCount={petition.signatureCount}
+                 goal={petition.goal}
+                  onSign={handleSignClick}
+                  isSubmitting={signing}
+                  hasSigned={hasSigned}
+                  user={user}
+                  city={currentCity}
+                  setCity={setCity}
+                  isPublic={currentIsPublic}
+                  setIsPublic={setIsPublic}
+                  allowNotifications={currentAllowNotifications}
+                  setAllowNotifications={setAllowNotifications}
+                  onShare={handleShare}
+                  recentSignatures={latestSigners}
+              />
+
+              <PetitionSupportCard 
+                  petitionId={petition.id}
+                  petitionTitle={petition.title}
+                  donationGoal={petition.donation_goal}
+                  totalDonations={totalDonations}
+                  onShare={handleShare}
+                  onDonate={(amount) => {
+                      // Pass amount if DonationModal supports it, or just open
+                      setShowDonationModal(true);
+                  }}
+                  shareUrl={window.location.href}
+              />
+
+             
+           </aside>
         </div>
 
-        {/* Visibility Trigger Sentinel */}
-        <div ref={triggerRef} className="w-full h-px my-4" aria-hidden="true" />
-
-        {/* Other Petitions Suggestions (Full Width) */}
-        {otherPetitions.length > 0 && (
-          <section className="mt-20 pt-10 border-t border-dashed">
-            <h2 className="text-2xl font-bold mb-8 text-center">Outras causas que precisam do seu apoio</h2>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {otherPetitions.map((other) => (
-                <div key={other.id} className="h-full">
-                  <PetitionCard 
-                    petition={other}
-                    onClick={() => navigate(`/abaixo-assinado/${other.id}`)}
-                    onDonate={(p) => {
-                      setSelectedPetition(p); // Assuming setSelectedPetition exists or we need to manage it
-                      setShowDonationModal(true);
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
+        <PetitionRelatedCauses causes={otherPetitions} />
       </main>
 
-      
-      {/* Sign Modal */}
-      <Dialog open={showSignModal} onOpenChange={setShowSignModal}>
-        <DialogContent className="sm:max-w-md bg-card max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">Assine este abaixo-assinado</DialogTitle>
-            <DialogDescription>
-               Sua voz é importante! Preencha os dados abaixo para confirmar seu apoio.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-             {/* User Info (ReadOnly) */}
-             {user ? (
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                     <Label>Nome</Label>
-                     <Input value={user.user_metadata?.name || 'Usuário'} disabled />
-                  </div>
-                  <div className="space-y-2">
-                     <Label>Email</Label>
-                     <Input value={user.email || ''} disabled />
-                  </div>
-               </div>
-             ) : (
-               // Guest Form
-               <>
-                 <div className="space-y-2">
-                   <Label htmlFor="guestName">Nome Completo</Label>
-                   <Input 
-                     id="guestName" 
-                     value={guestForm.name} 
-                     onChange={(e) => setGuestForm(prev => ({ ...prev, name: e.target.value }))}
-                     placeholder="Seu nome"
-                   />
-                 </div>
-                 <div className="space-y-2">
-                   <Label htmlFor="guestEmail">Email</Label>
-                   <Input 
-                     id="guestEmail" 
-                     type="email"
-                     value={guestForm.email} 
-                     onChange={(e) => setGuestForm(prev => ({ ...prev, email: e.target.value }))}
-                     placeholder="seu@email.com"
-                   />
-                 </div>
-               </>
-             )}
+      <GuestSignModal 
+        open={showSignModal} 
+        onOpenChange={setShowSignModal}
+        guestForm={guestForm}
+        setGuestForm={setGuestForm}
+        onGuestSign={handleGuestSign}
+        signing={signing}
+      />
 
-             {/* City */}
-             <div className="space-y-2">
-                <Label htmlFor="city">Cidade</Label>
-                <Input 
-                  id="city" 
-                  value={user ? signForm.city : guestForm.city} 
-                  onChange={(e) => user ? setSignForm(prev => ({ ...prev, city: e.target.value })) : setGuestForm(prev => ({ ...prev, city: e.target.value }))}
-                  placeholder="Ex: Floresta-PE"
-                />
-             </div>
+      <DonationModal 
+        isOpen={showDonationModal} 
+        onClose={() => setShowDonationModal(false)} 
+        petitionTitle={petition.title}
+        petitionId={id}
+        initialGuestName={guestForm.name}
+        initialGuestEmail={guestForm.email}
+      />
 
-             <div className="space-y-2">
-                <Label htmlFor="comment">Comentário (Opcional)</Label>
-                <Textarea 
-                  id="comment" 
-                  value={user ? signForm.comment : guestForm.comment} 
-                  onChange={(e) => user ? setSignForm(prev => ({ ...prev, comment: e.target.value })) : setGuestForm(prev => ({ ...prev, comment: e.target.value }))}
-                  placeholder="Estou assinando porque..."
-                  rows={3}
-                />
-             </div>
+      <PetitionJourney 
+        isOpen={showJourney} 
+        onClose={() => setShowJourney(false)} 
+        petitionTitle={petition?.title}
+        petitionUrl={window.location.href}
+        onDonate={() => setShowDonationModal(true)}
+        userName={user ? (user.user_metadata?.name || 'Cidadão') : guestForm.name}
+        guestEmail={!user ? guestForm.email : null}
+        donationEnabled={petition?.donation_enabled !== false}
+        isGuest={!user}
+      />
 
-             {/* Options */}
-             <div className="space-y-4 pt-2">
-                <div className="flex items-start space-x-2">
-                  <Checkbox 
-                    id="notifications" 
-                    checked={user ? signForm.allowNotifications : guestForm.allowNotifications}
-                    onCheckedChange={(checked) => user ? setSignForm(prev => ({ ...prev, allowNotifications: checked })) : setGuestForm(prev => ({ ...prev, allowNotifications: checked }))}
-                  />
-                  <div className="grid gap-1.5 leading-none">
-                    <label
-                      htmlFor="notifications"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Quero receber novidades sobre esta petição
-                    </label>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-2">
-                  <Checkbox 
-                    id="public" 
-                    checked={user ? !signForm.isPublic : !guestForm.isPublic}
-                    onCheckedChange={(checked) => user ? setSignForm(prev => ({ ...prev, isPublic: !checked })) : setGuestForm(prev => ({ ...prev, isPublic: !checked }))}
-                  />
-                  <div className="grid gap-1.5 leading-none">
-                    <label
-                      htmlFor="public"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Não exibir minha assinatura publicamente
-                    </label>
-                  </div>
-                </div>
-             </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSignModal(false)} disabled={signing}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={user ? handleConfirmSign : handleGuestSign} 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
-              disabled={signing}
-            >
-              {signing ? 'Assinando...' : 'Confirmar Assinatura'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {showDonationModal && (
-        <DonationModal 
-          isOpen={showDonationModal} 
-          onClose={() => setShowDonationModal(false)}
-          onSuccess={() => fetchPetition(false)}
-          petitionId={petition.id}
-          reportTitle={petition.title}
-          donationOptions={donationOptions}
-        />
-      )}
-
-      {showJourney && (
-        <PetitionJourney 
-          isOpen={showJourney}
-          onClose={() => setShowJourney(false)}
-          petitionTitle={petition.title}
-          petitionUrl={window.location.href}
-          isGuest={isGuestSign}
-          donationOptions={donationOptions}
-          donationEnabled={donationEnabled}
-          onDonate={() => {
-            setShowJourney(false);
-            setTimeout(() => setShowDonationModal(true), 300); // Wait for modal transition
-          }}
-        />
-      )}
-
-
+      <PetitionUpdateModal 
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        petitionId={petition.id}
+        onSave={() => fetchPetition(false)}
+      />
     </div>
   );
 };
+
+// Simple Footer component if not imported, or reuse existing Footer
+import Footer from '@/components/Footer';
 
 export default PetitionPage;

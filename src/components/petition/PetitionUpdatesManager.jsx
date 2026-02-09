@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Send } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -14,11 +15,21 @@ const PetitionUpdatesManager = ({ petitionId }) => {
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [notifySigners, setNotifySigners] = useState(true);
   const [currentUpdate, setCurrentUpdate] = useState({
     title: '',
     content: '',
     image_url: ''
   });
+
+  const safeFormatDate = (dateStr) => {
+    try {
+      if (!dateStr) return '';
+      return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: ptBR });
+    } catch (e) {
+      return '';
+    }
+  };
 
   useEffect(() => {
     fetchUpdates();
@@ -47,6 +58,8 @@ const PetitionUpdatesManager = ({ petitionId }) => {
     }
 
     try {
+      let savedUpdateId = currentUpdate.id;
+
       if (currentUpdate.id) {
         // Update
         const { error } = await supabase
@@ -61,21 +74,50 @@ const PetitionUpdatesManager = ({ petitionId }) => {
         if (error) throw error;
       } else {
         // Insert
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('petition_updates')
           .insert({
             petition_id: petitionId,
             title: currentUpdate.title,
             content: currentUpdate.content,
             image_url: currentUpdate.image_url
-          });
+          })
+          .select()
+          .single();
         
         if (error) throw error;
+        savedUpdateId = data.id;
       }
 
       toast({ title: "Novidade salva com sucesso!" });
+
+      // Trigger Notification if requested and it's a new update (or user explicitly wants to send on edit?)
+      // Usually only on creation or explicit action.
+      // For now, if notifySigners is true and we have an ID (which we do), we send.
+      // But maybe restrict to only new updates? 
+      // The user said "Quando eu criar uma novidade...". 
+      // I'll restrict to !currentUpdate.id (Creation) OR maybe add a button "Send Notification" separately?
+      // Let's stick to "On Creation" if checkbox is checked.
+      
+      if (!currentUpdate.id && notifySigners && savedUpdateId) {
+          toast({ title: "Enviando notificações..." });
+          try {
+            await supabase.functions.invoke('send-news-email', {
+                body: { 
+                    newsId: null,
+                    petitionUpdateId: savedUpdateId
+                }
+            });
+            toast({ title: "Notificações enviadas!" });
+          } catch (notifyError) {
+            console.error('Error sending notifications:', notifyError);
+            toast({ title: "Erro ao enviar notificações", description: "A novidade foi salva, mas os emails falharam.", variant: "warning" });
+          }
+      }
+
       setIsEditing(false);
       setCurrentUpdate({ title: '', content: '', image_url: '' });
+      setNotifySigners(true);
       fetchUpdates();
     } catch (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
@@ -101,11 +143,13 @@ const PetitionUpdatesManager = ({ petitionId }) => {
   const startEdit = (update) => {
     setCurrentUpdate(update);
     setIsEditing(true);
+    setNotifySigners(false); // Default to false on edit to avoid accidental resend
   };
 
   const startNew = () => {
     setCurrentUpdate({ title: '', content: '', image_url: '' });
     setIsEditing(true);
+    setNotifySigners(true); // Default to true on new
   };
 
   if (isEditing) {
@@ -143,6 +187,22 @@ const PetitionUpdatesManager = ({ petitionId }) => {
               placeholder="https://..." 
             />
           </div>
+
+          {!currentUpdate.id && (
+              <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox 
+                      id="notify" 
+                      checked={notifySigners} 
+                      onCheckedChange={setNotifySigners} 
+                  />
+                  <label 
+                      htmlFor="notify" 
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                      Enviar notificação por email para os apoiadores
+                  </label>
+              </div>
+          )}
 
           <div className="flex gap-2 pt-4">
             <Button onClick={handleSave}>
@@ -183,7 +243,7 @@ const PetitionUpdatesManager = ({ petitionId }) => {
                   <h4 className="font-semibold">{update.title}</h4>
                   <p className="text-sm text-muted-foreground line-clamp-2">{update.content}</p>
                   <p className="text-xs text-muted-foreground pt-2">
-                    {formatDistanceToNow(new Date(update.created_at), { addSuffix: true, locale: ptBR })}
+                    {safeFormatDate(update.created_at)}
                   </p>
                 </div>
                 <div className="flex gap-2">
