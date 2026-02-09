@@ -23,7 +23,8 @@ import {
   Highlighter,
   Eraser,
   Minus,
-  Plus
+  Plus,
+  MoreHorizontal
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -31,6 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   Popover,
@@ -38,7 +40,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-const RichTextEditor = ({ value, onChange, placeholder }) => {
+const RichTextEditor = ({ value, onChange, placeholder, isMobile = false }) => {
   const contentRef = useRef(null);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -108,10 +110,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
 
   return (
     <div className={`border rounded-lg overflow-hidden transition-colors ${isFocused ? 'border-primary ring-1 ring-primary' : 'border-border'}`}>
-      <div className="bg-muted/50 border-b p-1 flex flex-nowrap overflow-x-auto gap-1 items-center sticky top-0 z-20">
+      <div className="bg-muted/50 border-b p-1 flex flex-wrap gap-1 items-center">
         
         {/* Group: History */}
-        <div className="flex items-center gap-0.5 mr-1 shrink-0">
+        <div className="flex items-center gap-0.5 mr-1">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('undo')} title="Desfazer">
             <Undo className="w-4 h-4" />
           </Button>
@@ -120,164 +122,233 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
           </Button>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
 
-        {/* Group: Typography */}
-        <div className="flex items-center gap-1 mr-1 shrink-0">
-          <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 px-2" title="Fonte">
-                      <Type className="w-4 h-4" />
-                      <ChevronDown className="w-3 h-3" />
-                  </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                  {fonts.map((font) => (
-                      <DropdownMenuItem 
-                          key={font.value} 
-                          onClick={() => execCommand('fontName', font.value)}
-                          style={{ fontFamily: font.value }}
-                      >
-                          {font.name}
-                      </DropdownMenuItem>
-                  ))}
-              </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Group: Typography - Desktop Only */}
+        {!isMobile && (
+          <div className="flex items-center gap-1 mr-1">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 gap-1 px-2" title="Fonte">
+                        <Type className="w-4 h-4" />
+                        <ChevronDown className="w-3 h-3" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    {fonts.map((font) => (
+                        <DropdownMenuItem 
+                            key={font.value} 
+                            onClick={() => execCommand('fontName', font.value)}
+                            style={{ fontFamily: font.value }}
+                        >
+                            {font.name}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
 
-          <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 px-2" title="Tamanho da Fonte">
-                      <span className="text-xs font-bold">T</span>
-                      <ChevronDown className="w-3 h-3" />
-                  </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                  {fontSizes.map((size) => (
-                      <DropdownMenuItem 
-                          key={size.value} 
-                          onClick={() => execCommand('fontSize', size.value)}
-                      >
-                          {size.name}
-                      </DropdownMenuItem>
-                  ))}
-              </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 gap-1 px-2" title="Tamanho da Fonte">
+                        <span className="text-xs font-bold">T</span>
+                        <ChevronDown className="w-3 h-3" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    {fontSizes.map((size) => (
+                        <DropdownMenuItem 
+                            key={size.value} 
+                            onClick={() => execCommand('fontSize', size.value)}
+                        >
+                            {size.name}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
-        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
+        {!isMobile && <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />}
 
         {/* Group: Basic Formatting */}
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-0.5">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('bold')} title="Negrito">
             <Bold className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('italic')} title="Itálico">
             <Italic className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('underline')} title="Sublinhado">
-            <Underline className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('strikeThrough')} title="Tachado">
-            <Strikethrough className="w-4 h-4" />
-          </Button>
-        </div>
-
-        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
-
-        {/* Group: Colors & Clear */}
-        <div className="flex items-center gap-0.5 shrink-0">
-           <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Cor do Texto">
-                <Palette className="w-4 h-4" />
+          {!isMobile && (
+            <>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('underline')} title="Sublinhado">
+                <Underline className="w-4 h-4" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-2">
-              <div className="grid grid-cols-8 gap-1">
-                {colors.map((color) => (
-                  <button
-                    key={color}
-                    className="w-6 h-6 rounded-sm border border-gray-200 hover:scale-110 transition-transform"
-                    style={{ backgroundColor: color }}
-                    onClick={() => execCommand('foreColor', color)}
-                    title={color}
-                  />
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Cor de Fundo">
-                <Highlighter className="w-4 h-4" />
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('strikeThrough')} title="Tachado">
+                <Strikethrough className="w-4 h-4" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-2">
-              <div className="grid grid-cols-8 gap-1">
-                {colors.map((color) => (
-                  <button
-                    key={color}
-                    className="w-6 h-6 rounded-sm border border-gray-200 hover:scale-110 transition-transform"
-                    style={{ backgroundColor: color }}
-                    onClick={() => execCommand('hiliteColor', color)}
-                    title={color}
-                  />
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-          
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('removeFormat')} title="Limpar Formatação">
-            <Eraser className="w-4 h-4" />
-          </Button>
+            </>
+          )}
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
 
-        {/* Group: Alignment */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('justifyLeft')} title="Alinhar à Esquerda">
-            <AlignLeft className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('justifyCenter')} title="Centralizar">
-            <AlignCenter className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('justifyRight')} title="Alinhar à Direita">
-            <AlignRight className="w-4 h-4" />
-          </Button>
-        </div>
+        {/* Group: Colors & Clear - Desktop Only */}
+        {!isMobile && (
+          <>
+            <div className="flex items-center gap-0.5">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Cor do Texto">
+                    <Palette className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2">
+                  <div className="grid grid-cols-8 gap-1">
+                    {colors.map((color) => (
+                      <button
+                        key={color}
+                        className="w-6 h-6 rounded-sm border border-gray-200 hover:scale-110 transition-transform"
+                        style={{ backgroundColor: color }}
+                        onClick={() => execCommand('foreColor', color)}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Cor de Fundo">
+                    <Highlighter className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2">
+                  <div className="grid grid-cols-8 gap-1">
+                    {colors.map((color) => (
+                      <button
+                        key={color}
+                        className="w-6 h-6 rounded-sm border border-gray-200 hover:scale-110 transition-transform"
+                        style={{ backgroundColor: color }}
+                        onClick={() => execCommand('hiliteColor', color)}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('removeFormat')} title="Limpar Formatação">
+                <Eraser className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
+          </>
+        )}
+
+        {/* Group: Alignment - Desktop Only */}
+        {!isMobile && (
+          <>
+            <div className="flex items-center gap-0.5">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('justifyLeft')} title="Alinhar à Esquerda">
+                <AlignLeft className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('justifyCenter')} title="Centralizar">
+                <AlignCenter className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('justifyRight')} title="Alinhar à Direita">
+                <AlignRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
+          </>
+        )}
 
         {/* Group: Lists & Structure */}
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-0.5">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('insertUnorderedList')} title="Lista com Marcadores">
             <List className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('insertOrderedList')} title="Lista Numerada">
-            <ListOrdered className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('formatBlock', '<blockquote>')} title="Citação">
-            <Quote className="w-4 h-4" />
-          </Button>
+          {!isMobile && (
+            <>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('insertOrderedList')} title="Lista Numerada">
+                <ListOrdered className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('formatBlock', '<blockquote>')} title="Citação">
+                <Quote className="w-4 h-4" />
+              </Button>
+            </>
+          )}
         </div>
 
-        <div className="w-px h-6 bg-border mx-1 my-auto shrink-0 hidden sm:block" />
+        <div className="w-px h-6 bg-border mx-1 my-auto hidden sm:block" />
 
         {/* Group: Insert */}
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-0.5">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={addLink} title="Inserir Link">
             <LinkIcon className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('unlink')} title="Remover Link">
-            <Unlink className="w-4 h-4" />
-          </Button>
+          {!isMobile && (
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => execCommand('unlink')} title="Remover Link">
+              <Unlink className="w-4 h-4" />
+            </Button>
+          )}
         </div>
+
+        {/* Mobile Only: More Menu */}
+        {isMobile && (
+          <div className="ml-auto">
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                     <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Estilo</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => execCommand('underline')}>
+                    <Underline className="w-4 h-4 mr-2" /> Sublinhado
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('strikeThrough')}>
+                    <Strikethrough className="w-4 h-4 mr-2" /> Tachado
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Alinhamento</DropdownMenuLabel>
+                  <div className="flex justify-between p-2">
+                    <Button variant="ghost" size="sm" onClick={() => execCommand('justifyLeft')}>
+                       <AlignLeft className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => execCommand('justifyCenter')}>
+                       <AlignCenter className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => execCommand('justifyRight')}>
+                       <AlignRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Outros</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => execCommand('insertOrderedList')}>
+                    <ListOrdered className="w-4 h-4 mr-2" /> Lista Numerada
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('formatBlock', '<blockquote>')}>
+                    <Quote className="w-4 h-4 mr-2" /> Citação
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('removeFormat')}>
+                    <Eraser className="w-4 h-4 mr-2" /> Limpar Formatação
+                  </DropdownMenuItem>
+               </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
       </div>
       <div
         ref={contentRef}
-        className="p-3 md:p-4 min-h-[200px] max-h-[500px] overflow-y-auto focus:outline-none prose max-w-none dark:prose-invert"
+        className={`p-4 overflow-y-auto focus:outline-none prose max-w-none dark:prose-invert ${isMobile ? 'min-h-[150px] max-h-[300px]' : 'min-h-[200px] max-h-[500px]'}`}
         contentEditable
         suppressContentEditableWarning={true}
         onInput={handleInput}

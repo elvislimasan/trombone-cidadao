@@ -17,11 +17,15 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [openEditor, setOpenEditor] = useState(true);
+  
+  const isAdmin = user?.is_admin;
+
   const [formData, setFormData] = useState({
     title: report?.title || '',
     target: '',
     description: report?.description || '',
     goal: 100,
+    donation_goal: '',
     deadline: '',
   });
 
@@ -37,15 +41,19 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
 
     try {
       // 1. Criar a Petição
+      // Determine status based on user role: Admin -> open, Regular -> pending_moderation
+      const initialStatus = user?.is_admin ? 'open' : 'pending_moderation';
+
       const petitionData = {
         title: formData.title,
         target: formData.target,
         description: formData.description,
         goal: parseInt(formData.goal),
+        donation_goal: formData.donation_goal ? parseFloat(formData.donation_goal) : null,
         deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
         report_id: report?.id || null,
         author_id: user.id,
-        status: 'open',
+        status: initialStatus,
         image_url: report?.photos && report.photos.length > 0 ? report.photos[0].url : null // Tenta pegar imagem da bronca
       };
 
@@ -67,10 +75,17 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
         if (updateReportError) console.error("Erro ao atualizar flag na bronca:", updateReportError);
       }
 
-      toast({
-        title: "Abaixo-Assinado Criado! 🎉",
-        description: "A campanha foi criada com sucesso e já pode receber assinaturas.",
-      });
+      if (initialStatus === 'open') {
+        toast({
+          title: "Abaixo-Assinado Criado! 🎉",
+          description: "A campanha foi criada com sucesso e já pode receber assinaturas.",
+        });
+      } else {
+        toast({
+          title: "Abaixo-Assinado Enviado! ⏳",
+          description: "Sua campanha foi enviada para moderação e ficará visível após aprovação.",
+        });
+      }
 
       if (onSuccess) onSuccess(newPetition);
       onClose();
@@ -95,7 +110,7 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px] bg-card border-border">
         <DialogHeader>
-          <DialogTitle>Transformar em Abaixo-Assinado</DialogTitle>
+          <DialogTitle>{report ? 'Transformar em Abaixo-Assinado' : 'Criar Abaixo-Assinado'}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
@@ -150,7 +165,7 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
             <div className="space-y-2">
               <Label htmlFor="goal">Meta de Assinaturas</Label>
               <Input 
@@ -163,16 +178,33 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
                 required 
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="deadline">Data Limite (Opcional)</Label>
-              <Input 
-                id="deadline" 
-                name="deadline" 
-                type="date" 
-                value={formData.deadline} 
-                onChange={handleChange} 
-              />
-            </div>
+            {isAdmin && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="donation_goal">Meta de Doação (R$) (Opcional)</Label>
+                  <Input 
+                    id="donation_goal" 
+                    name="donation_goal" 
+                    type="number" 
+                    min="0"
+                    step="0.01"
+                    placeholder="Ex: 5000,00"
+                    value={formData.donation_goal} 
+                    onChange={handleChange} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deadline">Data Limite (Opcional)</Label>
+                  <Input 
+                    id="deadline" 
+                    name="deadline" 
+                    type="date" 
+                    value={formData.deadline} 
+                    onChange={handleChange} 
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex items-center space-x-2 pt-2">

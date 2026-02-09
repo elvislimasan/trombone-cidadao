@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/customSupabaseClient';
 
@@ -18,8 +20,23 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [existingGallery, setExistingGallery] = useState([]);
   const [removedGalleryIds, setRemovedGalleryIds] = useState([]);
+  const [sendNotification, setSendNotification] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState('');
+  const [reports, setReports] = useState([]);
   const featuredImageInputRef = useRef(null);
   const galleryInputRef = useRef(null);
+
+  // Fetch reports for selection
+  useEffect(() => {
+    const fetchReports = async () => {
+        const { data } = await supabase
+            .from('reports')
+            .select('id, title, protocol')
+            .order('created_at', { ascending: false });
+        if (data) setReports(data);
+    };
+    fetchReports();
+  }, []);
 
   useEffect(() => {
     if (newsItem) {
@@ -28,6 +45,8 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
       });
       setGalleryFiles([]); // Resetar galeria ao abrir modal
       setRemovedGalleryIds([]);
+      setSendNotification(!newsItem.id);
+      setSelectedReportId(''); // Reset or set if we had a field
       
       // Buscar imagens existentes da galeria
       if (newsItem.id) {
@@ -94,7 +113,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData, galleryFiles, removedGalleryIds);
+    onSave(formData, galleryFiles, removedGalleryIds, sendNotification, selectedReportId);
   };
 
   if (!formData) return null;
@@ -131,6 +150,42 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
               <Label htmlFor="video_url" className="text-right">URL do Vídeo</Label>
               <Input id="video_url" name="video_url" value={formData.video_url} onChange={handleChange} className="col-span-3" placeholder="Link do YouTube ou Instagram" />
             </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="relatedReport" className="text-right">Vincular Bronca</Label>
+              <div className="col-span-3">
+                <Select value={selectedReportId} onValueChange={setSelectedReportId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma bronca (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    <SelectItem value="none">Nenhuma</SelectItem>
+                    {reports.map(r => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.protocol} - {r.title.substring(0, 40)}...
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se selecionado, enviará notificação também para os envolvidos nesta bronca.
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <div className="col-start-2 col-span-3 flex items-center space-x-2">
+                <Checkbox 
+                  id="sendNotification" 
+                  checked={sendNotification} 
+                  onCheckedChange={setSendNotification} 
+                />
+                <Label htmlFor="sendNotification" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Enviar notificação por email para usuários inscritos
+                </Label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-4 items-start gap-4">
               <Label className="text-right pt-2">Imagem Destaque</Label>
               <div className="col-span-3">
@@ -245,7 +300,7 @@ const ManageNewsPage = () => {
     fetchNewsAndComments();
   }, [fetchNewsAndComments]);
 
-  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = []) => {
+  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportId = null) => {
     const { id, comments, ...dataToSave } = newsToSave;
     
     // Remove campos que não existem na tabela news
@@ -368,6 +423,43 @@ const ManageNewsPage = () => {
           variant: "destructive" 
         });
       }
+    }
+
+    if (savedNewsId && sendNotification) {
+      toast({ title: "Enviando notificações...", description: "Isso pode levar alguns instantes." });
+      supabase.functions.invoke('send-news-email', {
+          body: { newsId: savedNewsId }
+      }).then(({ data, error }) => {
+          if (error) {
+              console.error('Erro ao enviar emails:', error);
+              toast({ title: "Erro no envio de emails", description: error.message, variant: "destructive" });
+          } else {
+              // Check for internal errors in batches or no recipients
+              const failures = data.batches?.filter(b => !b.success);
+              
+              if (failures?.length > 0) {
+                  console.error('Falhas no envio:', failures);
+                  // Show the first error message to help debugging
+                  const errorMsg = failures[0].error?.message || failures[0].error?.name || "Erro desconhecido";
+                  toast({ 
+                      title: "Erro no envio (Resend)", 
+                      description: `Falha: ${errorMsg}. Verifique a chave de API e remetente.`, 
+                      variant: "destructive" 
+                  });
+              } else if (data.message === 'No recipients found') {
+                   toast({ 
+                      title: "Nenhum destinatário", 
+                      description: "Nenhum usuário habilitou notificações para receber este email.", 
+                      variant: "warning" 
+                  });
+              } else {
+                  toast({ title: "Emails enviados!", description: data?.message || "Processo concluído." });
+              }
+          }
+      }).catch(err => {
+           console.error('Erro ao invocar função:', err);
+           toast({ title: "Erro ao iniciar envio", description: "Verifique o console para mais detalhes.", variant: "destructive" });
+      });
     }
 
       toast({ title: `Notícia ${id ? 'atualizada' : 'adicionada'} com sucesso!` });

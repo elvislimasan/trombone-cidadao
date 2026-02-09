@@ -346,3 +346,36 @@ input[type="password"]::-ms-clear {
   -webkit-text-fill-color: transparent;
   @apply from-primary to-secondary;
 }
+
+/* Theme from water-supply-petition */
+.petition-theme {
+  --background: 0 0% 98%;
+  --foreground: 0 0% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 15%;
+  --primary: 0 72.2% 50.6%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 30% 96%;
+  --secondary-foreground: 0 72.2% 50.6%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 70% 50%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 0 72.2% 50.6%;
+  --chart-1: 0 70% 50%;
+  --chart-2: 0 72.2% 50.6%;
+  --chart-3: 0 30% 25%;
+  --chart-4: 30 80% 55%;
+  --chart-5: 0 50% 70%;
+  --radius: 0.75rem;
+}
+
+.petition-theme .text-balance {
+  text-wrap: balance;
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { useForm, Controller } from 'react-hook-form';
@@ -80,6 +80,13 @@ const RegisterPage = () => {
   const [cities, setCities] = useState([]);
   const selectedState = watch('state_id');
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (location.state) {
+      if (location.state.name) setValue('name', location.state.name);
+      if (location.state.email) setValue('email', location.state.email);
+    }
+  }, [location.state, setValue]);
 
   useEffect(() => {
     const fetchStatesAndSetDefaults = async () => {

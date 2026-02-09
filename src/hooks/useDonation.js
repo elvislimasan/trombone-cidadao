@@ -11,20 +11,26 @@ export const useDonation = () => {
   const createPaymentIntent = async (id, amount, contexto = {}, provider = 'pix_manual', guestInfo = null) => {
     setLoading(true);
     try {
-      // Sempre usa a Edge Function para gerar o payload e convidar usuário se necessário
-      const { data, error } = await supabase.functions.invoke('create-payment-intent', {
-        body: {
+      if (provider === 'stripe' || provider === 'mercadopago') {
+        const body = {
             amount,
-            [contexto.kind === 'petition' ? 'petition_id' : 'report_id']: id,
             provider: provider,
             action: 'init',
-            guestInfo
-        }
-      });
+            guest_info: guestInfo
+        };
 
-      if (error) throw error;
-      
-      if (provider === 'stripe' || provider === 'mercadopago') {
+        if (contexto.kind === 'petition') {
+            body.petition_id = id;
+        } else if (contexto.kind === 'report') {
+            body.report_id = id;
+        }
+
+        const { data, error } = await supabase.functions.invoke('create-payment-intent', {
+            body: body
+        });
+
+        if (error) throw error;
+        
         if (provider === 'mercadopago' && !data.paymentId) {
             console.warn("Atenção: paymentId não retornado pelo backend. O polling de confirmação não funcionará.");
         }
@@ -36,26 +42,37 @@ export const useDonation = () => {
             pixPayload: data.pixPayload, // MP specific
             pixQrCodeBase64: data.pixQrCodeBase64, // MP specific
             provider: data.provider,
-            paymentId: data.paymentId // MP
+            paymentId: data.paymentId // MP or manual Pix
         };
       }
 
-      // Pix Manual: Inserção local no banco
+      const txid = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const pixKey = import.meta.env.VITE_PIX_KEY;
+      const pixName = import.meta.env.VITE_PIX_NAME;
+      const pixCity = import.meta.env.VITE_PIX_CITY || 'Recife';
+
+      if (!pixKey || !pixName) {
+        console.warn('Pix keys missing in environment');
+        if (!pixKey) throw new Error('Chave Pix não configurada');
+      }
+
+      const amountFloat = amount / 100;
+      const cleanTxid = txid.substring(0, 25);
+      const pixPayload = Pix.generate(pixKey, pixName, pixCity, amountFloat, cleanTxid);
+
       const { data: { user } } = await supabase.auth.getUser();
 
       const payload = {
-        user_id: user ? user.id : (data.guest_user_id || null), // Usa ID retornado pelo backend (convite) se houver
+        user_id: user ? user.id : null,
         amount: amount,
         status: 'pending',
         provider: 'pix_manual',
-        payment_id: data.paymentId,
-        guest_email: guestInfo?.email || null,
-        guest_name: guestInfo?.name || null
+        payment_id: cleanTxid,
       };
 
       if (contexto.kind === 'petition') {
         payload.petition_id = id || null;
-      } else {
+      } else if (contexto.kind === 'report') {
         payload.report_id = id || null;
       }
 
@@ -72,8 +89,8 @@ export const useDonation = () => {
       return {
         success: true,
         donationId: donation.id,
-        pixPayload: data.pixPayload,
-        pixKey: data.pixKey
+        pixPayload: pixPayload,
+        pixKey: pixKey
       };
     } catch (error) {
       console.error('Erro ao criar intenção de pagamento:', error);

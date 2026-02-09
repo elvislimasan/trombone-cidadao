@@ -4,6 +4,8 @@ import { Helmet } from 'react-helmet';
 import { Search, Filter, TrendingUp, Users, Heart, ArrowRight, CheckCircle2, Megaphone, FileSignature } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useToast } from '@/components/ui/use-toast';
 import Header from '@/components/Header';
 import PetitionCard from '@/components/PetitionCard';
 import DonationModal from '@/components/DonationModal';
@@ -16,6 +18,8 @@ import { Progress } from '@/components/ui/progress';
 
 const PetitionsOverviewPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [petitions, setPetitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +36,7 @@ const PetitionsOverviewPage = () => {
   const fetchPetitions = async () => {
     setLoading(true);
     try {
+      // 1. Fetch Open Petitions (for grid and "Causas Ativas")
       let query = supabase
         .from('petitions')
         .select('*, signatures(count)')
@@ -40,6 +45,17 @@ const PetitionsOverviewPage = () => {
       const { data, error } = await query;
 
       if (error) throw error;
+
+      // 2. Fetch "Vitórias" (Closed petitions marked as victory)
+      const { count: victoryCount } = await supabase
+        .from('petitions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'victory');
+
+      // 3. Fetch Total Signatures (Global count from signatures table)
+      const { count: totalSignaturesCount } = await supabase
+        .from('signatures')
+        .select('*', { count: 'exact', head: true });
 
       // Client-side processing
       let processedData = data.map(p => ({
@@ -65,18 +81,47 @@ const PetitionsOverviewPage = () => {
 
       setPetitions(processedData);
 
-      // Calculate stats
-      const totalSigs = processedData.reduce((acc, curr) => acc + curr.signatureCount, 0);
+      // Update stats with real data
       setStats({
-        totalPetitions: processedData.length,
-        totalSignatures: totalSigs,
-        successfulPetitions: 12 // Placeholder or fetch closed/won petitions if available
+        totalPetitions: processedData.length, // Only counting currently open/active petitions
+        totalSignatures: totalSignaturesCount || 0, // Total signatures across the platform
+        successfulPetitions: victoryCount || 0 // Closed petitions count as victories
       });
 
     } catch (error) {
       console.error('Error fetching petitions:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreatePetition = async () => {
+    if (!user) {
+      toast({ title: "Login necessário", description: "Você precisa estar logado para criar um abaixo-assinado.", variant: "destructive" });
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('petitions')
+        .insert({
+          title: '',
+          description: '',
+          target: '',
+          author_id: user.id,
+          status: 'draft',
+          goal: 100
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      navigate(`/abaixo-assinado/${data.id}?edit=true`);
+    } catch (error) {
+      console.error('Error creating draft:', error);
+      toast({ title: "Erro ao criar", description: "Não foi possível iniciar o abaixo-assinado.", variant: "destructive" });
     }
   };
 
@@ -130,11 +175,12 @@ const PetitionsOverviewPage = () => {
                   Transforme indignação em ação. Crie, assine e compartilhe petições para cobrar soluções reais para nossa cidade.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" className="h-12 px-8 text-lg shadow-lg" onClick={() => document.getElementById('petitions-list').scrollIntoView({ behavior: 'smooth' })}>
-                    Ver Causas
+                   <Button size="lg" className="h-12 px-8 text-lg" onClick={handleCreatePetition}>
+                    Criar Abaixo-assinado
                   </Button>
-                  <Button variant="outline" size="lg" className="h-12 px-8 text-lg" onClick={() => navigate('/')}>
-                    Relatar Problema
+                  <Button size="lg" variant="outline"  className="h-12 px-8 text-lg shadow-lg" onClick={() => document.getElementById('petitions-list').scrollIntoView({ behavior: 'smooth' })}>
+                    Ver Causas
+                 
                   </Button>
                 </div>
                 
@@ -336,6 +382,29 @@ const PetitionsOverviewPage = () => {
             )}
           </div>
         </section>
+
+        {/* Registration CTA for Guests */}
+        {!user && (
+            <section className="py-16 bg-muted/30 border-y">
+                <div className="container px-4 text-center space-y-6">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <Users className="w-8 h-8 text-primary" />
+                    </div>
+                    <h2 className="text-3xl font-bold">Faça Parte da Mudança</h2>
+                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                        Crie sua conta gratuitamente para acompanhar as causas que você apoia, receber atualizações exclusivas e criar seus próprios abaixo-assinados.
+                    </p>
+                    <div className="flex justify-center gap-4">
+                        <Button size="lg" onClick={() => navigate('/cadastro')} className="font-bold px-8">
+                            Criar Conta Grátis
+                        </Button>
+                        <Button size="lg" variant="outline" onClick={() => navigate('/login')}>
+                            Já tenho conta
+                        </Button>
+                    </div>
+                </div>
+            </section>
+        )}
 
         {/* CTA / Donation Section */}
         <section className="py-16 bg-background">

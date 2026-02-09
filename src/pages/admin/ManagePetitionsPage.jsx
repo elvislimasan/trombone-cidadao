@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -40,6 +41,37 @@ const ManagePetitionsPage = () => {
     setLoading(false);
   }, [toast]);
 
+  const handleStatusChange = async (petitionId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('petitions')
+        .update({ status: newStatus })
+        .eq('id', petitionId);
+
+      if (error) throw error;
+
+      setPetitions(petitions.map(p => 
+        p.id === petitionId ? { ...p, status: newStatus } : p
+      ));
+
+      toast({
+        title: "Status atualizado",
+        description: `Petição marcada como ${
+          newStatus === 'open' ? 'Publicada' : 
+          newStatus === 'closed' ? 'Encerrada' : 
+          newStatus === 'victory' ? 'Vitória' : 'Rascunho'
+        }`,
+      });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível alterar o status.",
+        variant: "destructive"
+      });
+    }
+  };
+
   useEffect(() => {
     fetchPetitions();
   }, [fetchPetitions]);
@@ -61,7 +93,7 @@ const ManagePetitionsPage = () => {
         const { data: newPetition, error } = await supabase
             .from('petitions')
             .insert({
-                title: 'Nova Campanha',
+                title: '',
                 description: 'Descreva sua campanha aqui...',
                 author_id: user.id,
                 status: 'draft',
@@ -146,10 +178,13 @@ const ManagePetitionsPage = () => {
                             {petition.title}
                             <span className={`text-xs px-2 py-0.5 rounded-full border ${
                               petition.status === 'open' ? 'bg-green-100 text-green-800 border-green-200' : 
+                              petition.status === 'victory' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                               petition.status === 'closed' ? 'bg-red-100 text-red-800 border-red-200' :
                               'bg-gray-100 text-gray-800'
                             }`}>
-                              {petition.status === 'open' ? 'Publicada' : petition.status === 'closed' ? 'Encerrada' : 'Rascunho'}
+                              {petition.status === 'open' ? 'Publicada' : 
+                               petition.status === 'victory' ? 'Vitória' :
+                               petition.status === 'closed' ? 'Encerrada' : 'Rascunho'}
                             </span>
                         </h3>
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
@@ -165,7 +200,21 @@ const ManagePetitionsPage = () => {
                             </div>
                         </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
+                            <Select 
+                                value={petition.status} 
+                                onValueChange={(val) => handleStatusChange(petition.id, val)}
+                            >
+                                <SelectTrigger className="w-[140px] h-9 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="draft">Rascunho</SelectItem>
+                                    <SelectItem value="open">Publicada</SelectItem>
+                                    <SelectItem value="closed">Encerrada</SelectItem>
+                                    <SelectItem value="victory">Vitória</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <Link to={`/abaixo-assinado/${petition.id}`}>
                                 <Button variant="outline" size="sm">Ver Página</Button>
                             </Link>

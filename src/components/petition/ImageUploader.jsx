@@ -152,19 +152,19 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
       )}
       
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+        className={`border-2 border-dashed rounded-lg p-4 md:p-8 text-center transition-colors ${
           isDragging ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary/50'
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div className="flex flex-col items-center justify-center gap-4">
-          <div className="p-4 bg-muted rounded-full">
+        <div className="flex flex-col items-center justify-center gap-3 md:gap-4">
+          <div className="p-3 md:p-4 bg-muted rounded-full">
             {uploading ? (
-              <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+              <Loader2 className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground animate-spin" />
             ) : (
-              <Upload className="w-8 h-8 text-muted-foreground" />
+              <Upload className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground" />
             )}
           </div>
           <div className="space-y-1">
