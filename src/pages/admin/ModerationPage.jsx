@@ -1,12 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Check, X, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { 
+  ArrowLeft, Check, X, Eye, ChevronLeft, ChevronRight, Search, 
+  MessageSquare, AlertCircle, FileText, CheckCircle2, Info, 
+  Filter, Calendar, User, Clock
+} from 'lucide-react';
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -18,6 +27,19 @@ const ModerationPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState(null);
+
+  // Pagination, Search, Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+  
+  // Modal states
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [itemToReject, setItemToReject] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+  const [itemToApprove, setItemToApprove] = useState(null);
 
   const isReportModeration = type === 'broncas';
   const isResolutionModeration = type === 'resolucoes';
@@ -31,51 +53,40 @@ const ModerationPage = () => {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     
-    if (isResolutionModeration) {
-      // Buscar broncas com resolução pendente
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*, author:profiles!author_id(name)')
-        .eq('status', 'pending_resolution')
-        .not('resolution_submission', 'is', null)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        toast({ title: `Erro ao buscar resoluções pendentes`, description: error.message, variant: "destructive" });
+    try {
+      if (isResolutionModeration) {
+        const { data, error } = await supabase
+          .from('reports')
+          .select('*, author:profiles!author_id(name)')
+          .eq('status', 'pending_resolution')
+          .not('resolution_submission', 'is', null)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        setItems(data || []);
+      } else if (isPetitionModeration) {
+        const { data, error } = await supabase
+          .from('petitions')
+          .select('*, author:profiles!author_id(name)')
+          .eq('status', 'pending_moderation')
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        setItems(data || []);
       } else {
+        const tableToFetch = isReportModeration ? 'reports' : 'comments';
+        const statusField = 'moderation_status';
+        const { data, error } = await supabase
+          .from(tableToFetch)
+          .select('*, author:profiles!author_id(name)')
+          .eq(statusField, 'pending_approval')
+          .order('created_at', { ascending: true });
+        if (error) throw error;
         setItems(data || []);
       }
-    } else if (isPetitionModeration) {
-      // Buscar petições pendentes
-      const { data, error } = await supabase
-        .from('petitions')
-        .select('*, author:profiles!author_id(name)')
-        .eq('status', 'pending_moderation')
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        toast({ title: `Erro ao buscar abaixo-assinados pendentes`, description: error.message, variant: "destructive" });
-      } else {
-        setItems(data || []);
-      }
-    } else {
-      // Moderação normal de broncas ou comentários
-      const tableToFetch = isReportModeration ? 'reports' : 'comments';
-      const statusFilter = isReportModeration ? 'moderation_status' : 'moderation_status';
-      
-      const { data, error } = await supabase
-        .from(tableToFetch)
-        .select('*, author:profiles!author_id(name)')
-        .eq(statusFilter, 'pending_approval')
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        toast({ title: `Erro ao buscar itens para moderação`, description: error.message, variant: "destructive" });
-      } else {
-        setItems(data);
-      }
+    } catch (error) {
+      toast({ title: `Erro ao buscar itens`, description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [isReportModeration, isResolutionModeration, isPetitionModeration, toast]);
 
   useEffect(() => {
@@ -83,106 +94,108 @@ const ModerationPage = () => {
   }, [fetchItems]);
 
   const handleAction = async (item, newStatus) => {
-    if (isResolutionModeration) {
-      // Ações específicas para moderação de resoluções
-      let updateData = {};
-      
-      if (newStatus === 'approved') {
-        updateData = { 
-          status: 'resolved',
-          resolved_at: new Date().toISOString()
-        };
-      } else if (newStatus === 'rejected') {
-        updateData = { 
-          status: 'pending',
-          resolution_submission: null
-        };
-      }
-
-      const { error } = await supabase
-        .from('reports')
-        .update(updateData)
-        .eq('id', item.id);
-
-      if (error) {
-        toast({ title: "Erro ao processar resolução", description: error.message, variant: "destructive" });
-      } else {
-        const actionText = newStatus === 'approved' ? 'aprovada' : 'rejeitada';
-        toast({ 
-          title: `Resolução ${actionText} com sucesso!`,
-          description: newStatus === 'approved' 
-            ? 'A bronca foi marcada como resolvida.' 
-            : 'A bronca voltou para o status pendente.'
-        });
-        fetchItems();
-      }
-    } else if (isPetitionModeration) {
-        let updateData = {};
-        if (newStatus === 'approved') {
-            updateData = { status: 'open' };
-        } else if (newStatus === 'rejected') {
-            updateData = { status: 'rejected' };
-        }
-        
-        const { error } = await supabase
-            .from('petitions')
-            .update(updateData)
-            .eq('id', item.id);
-
-        if (error) {
-             toast({ title: "Erro ao moderar abaixo-assinado", description: error.message, variant: "destructive" });
-        } else {
-             toast({ title: `Abaixo-assinado ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso!` });
-             fetchItems();
-        }
-    } else {
-      // Moderação normal de broncas ou comentários
-      const tableToUpdate = isReportModeration ? 'reports' : 'comments';
-      let updateData = { moderation_status: newStatus };
-
-      if (isReportModeration && newStatus === 'approved') {
-        updateData.status = 'pending';
-      }
-
-      const { error } = await supabase
-        .from(tableToUpdate)
-        .update(updateData)
-        .eq('id', item.id);
-
-      if (error) {
-        toast({ title: "Erro ao moderar item", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: `Item ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso!` });
-        fetchItems();
-      }
+    if (newStatus === 'rejected') {
+      setItemToReject(item);
+      setIsRejectModalOpen(true);
+    } else if (newStatus === 'approved') {
+      setItemToApprove(item);
+      setIsApproveModalOpen(true);
     }
   };
-    const handleUpvote = async (id) => {
-    if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
-      navigate('/login');
-      return;
+
+  const processAction = async (item, newStatus) => {
+    try {
+      if (isResolutionModeration) {
+        let updateData = newStatus === 'approved' 
+          ? { status: 'resolved', resolved_at: new Date().toISOString() }
+          : { status: 'pending', resolution_submission: null };
+
+        const { error } = await supabase.from('reports').update(updateData).eq('id', item.id);
+        if (error) throw error;
+      } else if (isPetitionModeration) {
+        let updateData = newStatus === 'approved' 
+          ? { status: 'open' }
+          : { status: 'rejected', rejection_reason: rejectionReason };
+
+        const { error } = await supabase.from('petitions').update(updateData).eq('id', item.id);
+        if (error) throw error;
+
+        // Criar notificação para o autor
+        const notificationData = {
+          user_id: item.author_id,
+          type: 'moderation_update',
+          title: newStatus === 'approved' ? 'Abaixo-assinado aprovado! 🎉' : 'Abaixo-assinado não aprovado',
+          message: newStatus === 'approved' 
+            ? `Seu abaixo-assinado "${item.title}" foi aprovado e já está disponível para assinaturas.`
+            : `Infelizmente seu abaixo-assinado "${item.title}" não foi aprovado. Motivo: ${rejectionReason}`,
+          link: `/abaixo-assinado/${item.id}`,
+          is_read: false
+        };
+
+        await supabase.from('notifications').insert(notificationData);
+
+        // Enviar e-mail de notificação
+        try {
+          await supabase.functions.invoke('send-petition-status-email', {
+            body: {
+              petitionId: item.id,
+              authorId: item.author_id,
+              status: newStatus,
+              rejectionReason: newStatus === 'rejected' ? rejectionReason : null,
+              petitionTitle: item.title,
+              petitionUrl: `${window.location.origin}/abaixo-assinado/${item.id}`
+            }
+          });
+        } catch (emailError) {
+          console.error('Erro ao enviar e-mail de notificação:', emailError);
+          // Não falhar o processo se o e-mail falhar, mas avisar no log
+        }
+      } else {
+        const tableToUpdate = isReportModeration ? 'reports' : 'comments';
+        let updateData = { moderation_status: newStatus };
+        if (isReportModeration && newStatus === 'approved') updateData.status = 'pending';
+
+        const { error } = await supabase.from(tableToUpdate).update(updateData).eq('id', item.id);
+        if (error) throw error;
+      }
+
+      toast({ title: `Item ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso!` });
+      fetchItems();
+    } catch (error) {
+      toast({ title: "Erro ao processar", description: error.message, variant: "destructive" });
     }
-    
-    // Note: handleUpvoteHook is not imported in original file, assuming it might be needed or was there but missed in my read.
-    // Wait, the original file had `handleUpvoteHook` called but not imported?
-    // Looking at the read output: `const result = await handleUpvoteHook(id);`
-    // But I don't see `import { handleUpvoteHook } ...` in the imports I read.
-    // It might be a custom hook usage I missed or it's missing in the file.
-    // I will check if I can import it or if I should just copy the logic.
-    // Actually, `ModerationPage` imports `ReportDetails`, maybe it's passed down?
-    // Ah, `handleUpvote` is defined inside `ModerationPage`.
-    // But where does `handleUpvoteHook` come from?
-    // It seems I might have missed an import or a hook definition in my previous read.
-    // I will skip implementing `handleUpvote` logic details if it's not critical for the current task, 
-    // but I should preserve the existing code structure.
-    // Let's assume it was using a hook. I'll search for `handleUpvoteHook` usage.
-    
-    // For now I'll just keep the existing `handleUpvote` if possible, but I am overwriting the file.
-    // I should check if `handleUpvoteHook` was imported.
-    // I'll check `c:\Users\lairt\Downloads\horizons-export-eff1a4c5-4884-43cf-92e9-e90f584b8f04\src\hooks\useReportInteraction.js` maybe?
-    
-    toast({ title: "Funcionalidade de apoio indisponível nesta visualização" });
+  };
+
+  const confirmRejection = async () => {
+    if (!itemToReject) return;
+    await processAction(itemToReject, 'rejected');
+    setIsRejectModalOpen(false);
+    setItemToReject(null);
+    setRejectionReason('');
+  };
+
+  const confirmApproval = async () => {
+    if (!itemToApprove) return;
+    await processAction(itemToApprove, 'approved');
+    setIsApproveModalOpen(false);
+    setItemToApprove(null);
+  };
+
+  // Filter and Pagination Logic
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const searchLower = searchTerm.toLowerCase();
+      const title = item.title || item.text || '';
+      const authorName = item.author?.name || item.resolution_submission?.userName || '';
+      return title.toLowerCase().includes(searchLower) || authorName.toLowerCase().includes(searchLower);
+    });
+  }, [items, searchTerm]);
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) setCurrentPage(newPage);
   };
 
   const handleViewReport = async (reportId) => {
@@ -193,7 +206,7 @@ const ModerationPage = () => {
       .single();
 
     if (error) {
-      toast({ title: "Erro ao buscar detalhes da bronca", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao buscar detalhes", description: error.message, variant: "destructive" });
     } else {
       const formattedData = {
         ...data,
@@ -201,38 +214,9 @@ const ModerationPage = () => {
         photos: (data.report_media || []).filter(m => m.type === 'photo'),
         videos: (data.report_media || []).filter(m => m.type === 'video'),
         upvotes: data.upvotes[0]?.count || 0,
-        is_favorited: false,
       };
       setSelectedReport(formattedData);
     }
-  };
-  
-  const handleUpdateOnModeration = async (updateData) => {
-    const { error } = await supabase.from('reports').update(updateData).eq('id', updateData.id);
-    if (error) {
-      toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Bronca atualizada!" });
-      fetchItems();
-      setSelectedReport(null);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getItemDescription = (item) => {
-    if (isResolutionModeration) {
-      return `Resolução enviada por: ${item.resolution_submission?.userName || 'Usuário'} - ${formatDate(item.resolution_submission?.submittedAt)}`;
-    }
-    return `Enviado por: ${item.author?.name || 'Desconhecido'} em ${formatDate(item.created_at)}`;
   };
 
   return (
@@ -240,108 +224,223 @@ const ModerationPage = () => {
       <Helmet>
         <title>{pageTitle} - Admin</title>
       </Helmet>
-      <div className="container mx-auto px-4 py-12">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link to="/admin">
-              <Button variant="outline" size="icon">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-tc-red">{pageTitle}</h1>
-              <p className="mt-2 text-lg text-muted-foreground">
-                {isResolutionModeration 
-                  ? 'Aprove ou rejeite as fotos de resolução enviadas pelos usuários.'
-                  : isPetitionModeration
-                  ? 'Aprove ou rejeite novos abaixo-assinados.'
-                  : 'Aprove ou rejeite as novas submissões.'
-                }
-              </p>
+      
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <Link to="/admin">
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+              </Link>
+              <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{pageTitle}</h1>
             </div>
+            <p className="text-muted-foreground ml-12">
+              {isResolutionModeration ? 'Valide as resoluções enviadas' : 'Garanta a qualidade do conteúdo da plataforma'}
+            </p>
           </div>
-        </motion.div>
+          
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="pl-10 h-11 bg-muted/50 border-none shadow-sm"
+            />
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {isResolutionModeration ? 'Resoluções Pendentes' : isPetitionModeration ? 'Abaixo-Assinados Pendentes' : 'Itens Pendentes'}
-            </CardTitle>
-            <CardDescription>
-              {items.length} {isResolutionModeration ? 'resoluções' : isPetitionModeration ? 'abaixo-assinados' : 'itens'} aguardando moderação.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p>Carregando...</p>
-            ) : items.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                Nenhum {isResolutionModeration ? 'resolução' : isPetitionModeration ? 'abaixo-assinado' : 'item'} para moderar. Bom trabalho! ✨
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {items.map((item) => (
-                  <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
-                    <div className="flex-grow">
-                      <p className="font-semibold">
-                        {item.title || `Comentário: "${item.text}"`}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {getItemDescription(item)}
-                      </p>
-                      {isResolutionModeration && item.protocol && (
-                        <p className="text-sm text-muted-foreground">
-                          Protocolo: {item.protocol}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex-shrink-0 flex gap-2">
-                      {(isReportModeration || isResolutionModeration) && (
-                        <Button variant="outline" size="icon" onClick={() => handleViewReport(item.id)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {isPetitionModeration && (
-                         <Button variant="outline" size="icon" onClick={() => navigate(`/abaixo-assinado/${item.id}`)}>
-                           <Eye className="w-4 h-4" />
-                         </Button>
-                      )}
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-green-500 hover:text-green-600" 
-                        onClick={() => handleAction(item, 'approved')}
-                      >
-                        <Check className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-red-500 hover:text-red-600" 
-                        onClick={() => handleAction(item, 'rejected')}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+        {/* Content List */}
+        <div className="grid gap-4">
+          {loading ? (
+            <div className="py-20 flex flex-col items-center gap-4">
+              <div className="w-8 h-8 border-4 border-tc-red border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-muted-foreground animate-pulse">Carregando itens para moderação...</p>
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <Card className="border-dashed border-2 py-20 flex flex-col items-center justify-center text-center bg-muted/20">
+              <div className="bg-muted p-4 rounded-full mb-4 text-muted-foreground">
+                <CheckCircle2 className="w-10 h-10" />
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <h3 className="text-xl font-bold mb-1">Tudo limpo por aqui!</h3>
+              <p className="text-muted-foreground max-w-sm">Não há nenhum item pendente de moderação nesta categoria.</p>
+            </Card>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {currentItems.map((item) => (
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  key={item.id}
+                >
+                  <Card className="overflow-hidden border-muted-foreground/10 hover:border-tc-red/20 transition-all shadow-sm hover:shadow-md">
+                    <CardContent className="p-0">
+                      <div className="flex flex-col md:flex-row">
+                        {/* Icon/Visual Indicator */}
+                        <div className={`w-2 shrink-0 ${isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
+                        
+                        <div className="flex-1 p-5 flex flex-col md:flex-row justify-between gap-6">
+                          <div className="space-y-2 flex-1 min-w-0">
+                            <div className="flex items-center gap-3 flex-wrap mb-1">
+                              <Badge variant="outline" className="gap-1.5 font-medium py-1">
+                                {isPetitionModeration ? <FileText className="w-3.5 h-3.5" /> : isResolutionModeration ? <CheckCircle2 className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                                {isPetitionModeration ? 'Abaixo-Assinado' : isResolutionModeration ? 'Resolução' : 'Comentário'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" />
+                                {new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            
+                            <h3 className="font-bold text-lg leading-tight line-clamp-2">
+                              {item.title || (item.text ? `"${item.text}"` : 'Sem título')}
+                            </h3>
+                            
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1.5">
+                                <User className="w-4 h-4" />
+                                <span className="font-medium text-foreground">{item.author?.name || item.resolution_submission?.userName || 'Anônimo'}</span>
+                              </div>
+                              {item.protocol && (
+                                <div className="flex items-center gap-1.5">
+                                  <Info className="w-4 h-4" />
+                                  <span>Protocolo: <span className="font-mono text-xs">{item.protocol}</span></span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0 self-end md:self-center bg-muted/30 p-2 rounded-xl">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-10 px-4 hover:bg-background"
+                              onClick={() => isPetitionModeration ? navigate(`/abaixo-assinado/${item.id}`) : handleViewReport(item.id)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Revisar
+                            </Button>
+                            
+                            <div className="w-px h-6 bg-muted-foreground/20 mx-1" />
+                            
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-10 w-10 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-colors"
+                              onClick={() => handleAction(item, 'approved')}
+                            >
+                              <Check className="w-5 h-5" />
+                            </Button>
+                            
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-10 w-10 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
+                              onClick={() => handleAction(item, 'rejected')}
+                            >
+                              <X className="w-5 h-5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {filteredItems.length > itemsPerPage && (
+          <div className="flex items-center justify-center gap-6 mt-10">
+            <Button
+              variant="outline"
+              className="rounded-xl h-10 gap-2"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" /> Anterior
+            </Button>
+            <div className="text-sm font-medium bg-muted px-4 py-2 rounded-lg">
+              Página <span className="text-tc-red">{currentPage}</span> de {totalPages}
+            </div>
+            <Button
+              variant="outline"
+              className="rounded-xl h-10 gap-2"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Próxima <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
+      {/* Details View */}
       {selectedReport && (
         <ReportDetails
           report={selectedReport}
           onClose={() => setSelectedReport(null)}
-          onUpdate={handleUpdateOnModeration}
-          onUpvote={handleUpvote}
+          onUpdate={async (data) => {
+            const { error } = await supabase.from('reports').update(data).eq('id', data.id);
+            if (error) toast({ title: "Erro ao atualizar", variant: "destructive" });
+            else { toast({ title: "Atualizado!" }); fetchItems(); setSelectedReport(null); }
+          }}
+          onUpvote={() => {}}
           onLink={() => {}}
           onFavoriteToggle={() => {}}
           isModerationView={true}
         />
       )}
+
+      {/* Approve/Reject Dialogs (Simplified for better UX) */}
+      <Dialog open={isApproveModalOpen} onOpenChange={setIsApproveModalOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-green-500" /> Confirmar Aprovação
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              Ao aprovar, este conteúdo ficará visível para todos os usuários da plataforma. Deseja continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6 gap-3">
+            <Button variant="ghost" onClick={() => setIsApproveModalOpen(false)} className="rounded-xl h-12 flex-1">Cancelar</Button>
+            <Button onClick={confirmApproval} className="bg-green-600 hover:bg-green-700 text-white rounded-xl h-12 flex-1 shadow-lg shadow-green-200">Aprovar Agora</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <AlertCircle className="w-6 h-6 text-red-500" /> Motivo da Rejeição
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              Explique por que este conteúdo não foi aprovado. O autor receberá esta justificativa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea 
+              value={rejectionReason} 
+              onChange={(e) => setRejectionReason(e.target.value)} 
+              placeholder="Ex: Conteúdo duplicado, informações incompletas..."
+              className="min-h-[120px] rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
+            />
+          </div>
+          <DialogFooter className="gap-3">
+            <Button variant="ghost" onClick={() => setIsRejectModalOpen(false)} className="rounded-xl h-12 flex-1">Cancelar</Button>
+            <Button variant="destructive" onClick={confirmRejection} disabled={!rejectionReason.trim()} className="rounded-xl h-12 flex-1 shadow-lg shadow-red-200">Confirmar Rejeição</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

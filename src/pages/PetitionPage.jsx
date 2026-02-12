@@ -30,6 +30,7 @@ import PetitionSignatureCard from '@/components/petition-modern/PetitionSignatur
 import PetitionSupportCard from '@/components/petition-modern/PetitionSupportCard';
 import PetitionRelatedCauses from '@/components/petition-modern/PetitionRelatedCauses';
 import GuestSignModal from '@/components/petition-modern/GuestSignModal';
+import ReCAPTCHA from "react-google-recaptcha";
 
 const Counter = ({ value }) => {
   const [count, setCount] = useState(0);
@@ -72,7 +73,29 @@ const PetitionPage = () => {
   const triggerRef = useRef(null);
 
 
-  const [isEditing, setIsEditing] = useState(searchParams.get('edit') === 'true');
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Set initial editing state based on search params and permissions
+  useEffect(() => {
+    if (searchParams.get('edit') === 'true' && petition) {
+      const isAdmin = user?.is_admin;
+      const isPublic = ['open', 'victory', 'closed'].includes(petition.status);
+      
+      // Authors can only edit if NOT public. Admins can edit anything.
+      if (isAdmin || !isPublic) {
+        setIsEditing(true);
+      } else {
+        // If public and not admin, remove the edit param from URL and stay in view mode
+        navigate(`/abaixo-assinado/${id}`, { replace: true });
+        setIsEditing(false);
+        toast({
+          title: "Acesso negado",
+          description: "Petições aprovadas só podem ser editadas por administradores.",
+          variant: "destructive"
+        });
+      }
+    }
+  }, [searchParams, petition, user, navigate, id, toast]);
   const [isGuestSign, setIsGuestSign] = useState(false);
   const [recentSignatures, setRecentSignatures] = useState([]);
   const [latestSigners, setLatestSigners] = useState([]);
@@ -97,6 +120,8 @@ const PetitionPage = () => {
     comment: ''
   });
   const [signing, setSigning] = useState(false);
+  const [captchaValue, setCaptchaValue] = useState(null);
+  const recaptchaRef = useRef(null);
   const [newComment, setNewComment] = useState('');
   const [commentSort, setCommentSort] = useState('newest');
 
@@ -279,6 +304,36 @@ const PetitionPage = () => {
       toast({ title: "Erro ao carregar petição", description: error.message, variant: "destructive" });
       navigate('/');
     } else {
+      // Access Control: Restrict visibility for non-approved petitions
+      // Allowed: Public statuses (open, victory, closed), or Admin. 
+      // Authors of drafts can see ONLY the editor.
+      // Authors of pending petitions can see the page with a warning banner.
+      const isPublicStatus = ['open', 'victory', 'closed'].includes(data.status);
+      const isAuthor = user && user.id === data.author_id;
+      const isAdmin = user?.is_admin;
+      const isDraft = data.status === 'draft';
+      const isPending = data.status === 'pending_moderation';
+
+      if (!isPublicStatus && !isAdmin) {
+          if (isAuthor) {
+              if (isDraft && !searchParams.get('edit')) {
+                  // If author tries to see public page of a draft, redirect to editor
+                  navigate(`/abaixo-assinado/${id}?edit=true`);
+                  return;
+              }
+              // If isPending, we allow viewing but will show a banner later
+          } else {
+              // Not author, not admin, not public
+              toast({ 
+                  title: "Acesso restrito", 
+                  description: "Esta petição não está disponível publicamente.", 
+                  variant: "secondary" 
+              });
+              navigate('/');
+              return;
+          }
+      }
+
       setPetition({
         ...data,
         signatureCount: data.signatures[0]?.count || 0
@@ -355,8 +410,21 @@ const PetitionPage = () => {
   }, [fetchPetition, id]);
 
   const handleUpdate = (updatedPetition) => {
-    setPetition(prev => ({ ...prev, ...updatedPetition }));
-    setIsEditing(false);
+    // If user is not admin and petition is not open (i.e., draft or pending moderation),
+    // redirect to My Petitions page as requested.
+    const isAdmin = user?.is_admin;
+    const isPublic = updatedPetition.status === 'open';
+
+    if (!isAdmin && !isPublic) {
+        toast({ 
+            title: "Petição salva", 
+            description: "Sua petição foi salva. Acompanhe o status em 'Minhas Petições'.",
+        });
+        navigate('/minhas-peticoes');
+    } else {
+        setPetition(prev => ({ ...prev, ...updatedPetition }));
+        setIsEditing(false);
+    }
   };
 
   const handleSignClick = async () => {
@@ -439,6 +507,19 @@ const PetitionPage = () => {
           return;
       }
 
+      if (!captchaValue) {
+          toast({ 
+              title: "Verificação necessária", 
+              description: "Por favor, complete o reCAPTCHA abaixo.", 
+              variant: "destructive" 
+          });
+          return;
+      }
+
+      await executeGuestSign();
+  };
+
+  const executeGuestSign = async () => {
       try {
           setSigning(true);
           
@@ -486,6 +567,10 @@ const PetitionPage = () => {
           setShowSignModal(false);
           setIsGuestSign(true);
           setShowJourney(true);
+          
+          // Reset captcha
+          setCaptchaValue(null);
+          if (recaptchaRef.current) recaptchaRef.current.reset();
 
           // Send confirmation email (fire and forget)
           console.log('Enviando email de confirmação (Guest) para:', guestForm.email);
@@ -666,9 +751,29 @@ const PetitionPage = () => {
       </Helmet>
 
       <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+        {petition.status === 'pending_moderation' && (
+            <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-4 text-yellow-800"
+            >
+                <div className="bg-yellow-100 p-2 rounded-full">
+                    <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                    <h3 className="font-bold">Esta petição está em análise</h3>
+                    <p className="text-sm opacity-90">Sua petição foi enviada para moderação. Enquanto isso, apenas você e administradores podem visualizá-la.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="border-yellow-300 hover:bg-yellow-100">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Editar Novamente
+                </Button>
+            </motion.div>
+        )}
+        
         <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
              {/* Left Column: Content */}
-             <div className="flex flex-col gap-8 px-4">
+             <div className="flex flex-col gap-8 px-0 sm:px-4">
                 {/* Mobile Actions (Signature & Donation) - Rendered here for mobile order */}
                 <div className="flex flex-col gap-6 lg:hidden">
                     <PetitionSignatureCard 
@@ -751,8 +856,12 @@ const PetitionPage = () => {
                   updates={petition.updates} 
                   action={
                       (user?.is_admin || (user && user.id === petition.author_id)) && (
-                          <Button onClick={() => setShowUpdateModal(true)} variant="outline" className="gap-2 bg-background/50 backdrop-blur-sm border-primary/20 hover:bg-background/80">
-                              <Megaphone className="w-4 h-4 text-primary" />
+                          <Button 
+                              onClick={() => setShowUpdateModal(true)} 
+                              variant="outline" 
+                              className="gap-2 bg-background/50 backdrop-blur-sm border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+                          >
+                              <Megaphone className="w-4 h-4" />
                               Enviar Novidade
                           </Button>
                       )
@@ -818,7 +927,17 @@ const PetitionPage = () => {
         setGuestForm={setGuestForm}
         onGuestSign={handleGuestSign}
         signing={signing}
-      />
+      >
+        {!user && (
+          <div className="flex justify-center py-2">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} // Fallback to test key
+              onChange={(value) => setCaptchaValue(value)}
+            />
+          </div>
+        )}
+      </GuestSignModal>
 
       <DonationModal 
         isOpen={showDonationModal} 
@@ -840,6 +959,7 @@ const PetitionPage = () => {
         donationEnabled={petition?.donation_enabled !== false}
         isGuest={!user}
       />
+
 
       <PetitionUpdateModal 
         isOpen={showUpdateModal}

@@ -89,7 +89,8 @@ function HomePage() {
           comments:comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)),
           comments_count:comments(count),
           report_media(*),
-          favorite_reports(user_id)
+          favorite_reports(user_id),
+          petitions(id, status)
         `)
         .eq('moderation_status', 'approved')
         .order('created_at', { ascending: false });
@@ -119,6 +120,8 @@ function HomePage() {
         is_favorited: user ? r.favorite_reports.some(fav => fav.user_id === user.id) : false,
         // Preservar resolution_submission se existir
         resolution_submission: r.resolution_submission || null,
+        petitionId: r.petitions?.[0]?.id || null,
+        petitionStatus: r.petitions?.[0]?.status || null,
       }));
       
       setReports(formattedData);

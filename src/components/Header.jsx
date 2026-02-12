@@ -193,6 +193,9 @@ const Header = () => {
                     <Link to="/painel-usuario" className="flex items-center"><LucideIcons.LayoutDashboard className="mr-2 h-4 w-4" /><span>Meu Painel</span></Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/minhas-peticoes" className="flex items-center"><LucideIcons.FileText className="mr-2 h-4 w-4" /><span>Minhas Petições</span></Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/favoritos" className="flex items-center"><LucideIcons.Star className="mr-2 h-4 w-4" /><span>Broncas Favoritas</span></Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

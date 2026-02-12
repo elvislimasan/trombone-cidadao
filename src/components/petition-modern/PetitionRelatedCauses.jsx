@@ -49,10 +49,12 @@ const PetitionRelatedCauses = ({ causes = [] }) => {
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                <Badge className="absolute right-3 top-3 bg-white/90 text-foreground hover:bg-white">
-                  <Users className="mr-1 h-3 w-3" />
-                  {signaturesCount}
-                </Badge>
+                <div className="absolute left-3 top-3 z-10">
+                  <div className="bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm flex items-center gap-1.5 text-slate-700 border border-white/20">
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                    <span>{signaturesCount}</span>
+                  </div>
+                </div>
               </div>
 
               <CardContent className="p-5 flex flex-col flex-1">

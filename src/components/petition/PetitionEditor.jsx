@@ -22,6 +22,12 @@ import { Save, Eye, ArrowLeft, Image as ImageIcon, FileText, Settings, History, 
 import ImageUploader from './ImageUploader';
 import GalleryEditor from './GalleryEditor';
 import RichTextEditor from './RichTextEditor';
+import { PetitionTour } from './PetitionTour';
+
+// Preview Components
+import PetitionHero from '../petition-modern/PetitionHero';
+import PetitionContent from '../petition-modern/PetitionContent';
+import PetitionSignatureCard from '../petition-modern/PetitionSignatureCard';
 
 const ICON_MAP = {
   Users,
@@ -44,6 +50,7 @@ const STEPS = [
   { id: 'importance', label: 'Destaques', icon: CheckCircle2, description: 'Pontos chave' },
   { id: 'images', label: 'Visual', icon: ImageIcon, description: 'Fotos e vídeos' },
   { id: 'settings', label: 'Ajustes', icon: Settings, description: 'Metas e prazos' },
+  { id: 'preview', label: 'Resumo', icon: CheckCircle2, description: 'Finalizar envio' },
 ];
 
 // Helper to check if we are on mobile (simple check)
@@ -64,6 +71,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [versions, setVersions] = useState([]);
+  const [submitted, setSubmitted] = useState(false);
   
   const isAdmin = user?.is_admin;
   
@@ -82,9 +90,25 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
   // Local state for adding new importance items
   const [newItemText, setNewItemText] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('Users');
+  const [errors, setErrors] = useState({});
+  const STORAGE_KEY = `petition_editor_draft_${petition.id}`;
 
-  // Initialize form data: prefer draft_data if it exists and we are editing a published petition
+  // Initialize form data: prefer local storage backup, then draft_data, then petition data
   const [formData, setFormData] = useState(() => {
+    // 1. Try to load from local storage first (unsaved work recovery)
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') {
+                return parsed;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load draft from storage", e);
+    }
+
+    // 2. Fallback to database data
     const hasDraft = petition.draft_data && petition.status === 'open';
     const baseData = hasDraft ? petition.draft_data : petition;
     
@@ -106,6 +130,33 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
         : defaultImportanceItems
     };
   });
+
+  // Track if form has unsaved changes
+  const [isDirty, setIsDirty] = useState(() => {
+      return !!localStorage.getItem(STORAGE_KEY);
+  });
+
+  // Save to local storage on change (debounce 1s)
+  useEffect(() => {
+    if (isDirty) {
+        const handler = setTimeout(() => {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+        }, 1000);
+        return () => clearTimeout(handler);
+    }
+  }, [formData, isDirty, STORAGE_KEY]);
+
+  // Warning before unload if unsaved changes exist
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = ''; // Standard for Chrome
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   // Local state for donation options input to allow free typing
   const [donationOptionsString, setDonationOptionsString] = useState(() => {
@@ -132,10 +183,53 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setIsDirty(true);
+    if (errors[field]) {
+        setErrors(prev => ({ ...prev, [field]: null }));
+    }
   };
 
   const handleSave = async (targetStatus) => {
     setLoading(true);
+    
+    // Validation for publishing
+    if (targetStatus === 'open') {
+        let stepErrors = {};
+        if (!formData.title?.trim()) {
+            stepErrors.title = "Por favor, adicione um título para sua petição.";
+        }
+        if (!formData.target?.trim()) {
+            stepErrors.target = "Por favor, informe quem deve receber esta petição.";
+        }
+        if (!formData.goal || formData.goal < 1) {
+            stepErrors.goal = "Por favor, defina uma meta válida de assinaturas.";
+        }
+
+        if (Object.keys(stepErrors).length > 0) {
+            setErrors(prev => ({ ...prev, ...stepErrors }));
+            setActiveStep('basic');
+            setLoading(false);
+            return;
+        }
+        
+        const content = formData.content || '';
+        const plainTextContent = content.replace(/<[^>]*>/g, '').trim();
+        if (!plainTextContent) {
+             setErrors(prev => ({ ...prev, content: "Por favor, conte a história da sua causa." }));
+             setActiveStep('content');
+             setLoading(false);
+             return;
+        }
+
+        if (plainTextContent.length < 500) {
+            const errorMsg = `A descrição deve ter pelo menos 500 caracteres para ser publicada. Atual: ${plainTextContent.length}`;
+            setErrors(prev => ({ ...prev, content: errorMsg }));
+            setActiveStep('content');
+            setLoading(false);
+            return;
+        }
+    }
+
     try {
       // If user is not admin and trying to publish, set to pending_moderation
       let actualStatus = targetStatus;
@@ -206,17 +300,20 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
         
         if (!retry.error) {
             error = null; // Clear error if retry succeeded
-            toast({ 
-                title: "Aviso", 
-                description: "Meta de doação não pôde ser salva (campo indisponível), mas os outros dados foram atualizados.",
-                variant: "warning" 
-            });
         } else {
             error = retry.error;
         }
       }
 
       if (error) throw error;
+
+      // 1.1 Update Report flag if this petition is linked to a report
+      if (petition.report_id) {
+        await supabase
+          .from('reports')
+          .update({ is_petition: true })
+          .eq('id', petition.report_id);
+      }
 
       // 2. Create Version Snapshot (History)
       // We snapshot what the user sees in the form
@@ -225,16 +322,6 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
         snapshot: { ...formData, status: actualStatus }
       });
 
-      let toastMessage = "Rascunho salvo.";
-      if (actualStatus === 'open') toastMessage = "Petição publicada.";
-      if (actualStatus === 'pending_moderation') toastMessage = "Petição enviada para moderação.";
-
-      toast({
-        title: "Salvo com sucesso!",
-        description: toastMessage
-      });
-
-      // If we published, we should probably update the local petition state significantly
       if (onSave) {
         // We need to pass back the effective new state of the petition object
         // If we saved to draft_data, the petition object has a new draft_data
@@ -244,6 +331,24 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
         } else {
             onSave({ ...petition, ...updates });
         }
+      }
+
+      if (targetStatus === 'open') {
+          setSubmitted(true);
+          setIsDirty(false);
+          localStorage.removeItem(STORAGE_KEY);
+          // Redirecionar para a página da petição após publicar/enviar para moderação
+          setTimeout(() => {
+            navigate(`/abaixo-assinado/${petition.id}`);
+          }, 1500);
+      } else {
+          toast({ title: "Alterações salvas", description: "O rascunho foi atualizado com sucesso." });
+          setIsDirty(false);
+          localStorage.removeItem(STORAGE_KEY);
+          // Redirecionar para a página da petição após salvar rascunho
+          setTimeout(() => {
+            navigate(`/abaixo-assinado/${petition.id}`);
+          }, 1500);
       }
       fetchVersions(); // Refresh history
       
@@ -285,6 +390,9 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
         donation_options: petition.donation_options || [10, 20, 50, 100]
       });
       
+      localStorage.removeItem(STORAGE_KEY);
+      setIsDirty(false);
+      
       toast({ title: "Rascunho descartado", description: "Voltando para a versão publicada." });
       
       if (onSave) {
@@ -324,6 +432,49 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
       console.error('Close error:', error);
       toast({ 
         title: "Erro ao encerrar", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePetition = async () => {
+    if (!confirm("Tem certeza que deseja excluir permanentemente esta petição? Esta ação não pode ser desfeita.")) return;
+
+    setLoading(true);
+    try {
+      // 1. Se estiver vinculada a uma bronca, atualizar a flag is_petition
+      if (petition.report_id) {
+        await supabase
+          .from('reports')
+          .update({ is_petition: false })
+          .eq('id', petition.report_id);
+      }
+
+      // 2. Excluir a petição (as versões e assinaturas devem ser excluídas via cascata no DB, 
+      // mas se não forem, o Supabase cuidará das constraints)
+      const { error } = await supabase
+        .from('petitions')
+        .delete()
+        .eq('id', petition.id);
+
+      if (error) throw error;
+
+      localStorage.removeItem(STORAGE_KEY);
+      toast({ 
+        title: "Petição excluída", 
+        description: "A petição foi removida permanentemente." 
+      });
+
+      if (onCancel) {
+        onCancel(); // Voltar para a página anterior
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast({ 
+        title: "Erro ao excluir", 
         description: error.message, 
         variant: "destructive" 
       });
@@ -373,6 +524,42 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
   const nextStep = () => {
     if (currentStepIndex < availableSteps.length - 1) {
+      // Validation Logic per step
+      const currentStepId = availableSteps[currentStepIndex].id;
+
+      if (currentStepId === 'basic') {
+          let stepErrors = {};
+          if (!formData.title?.trim()) {
+              stepErrors.title = "Por favor, adicione um título para sua petição.";
+          }
+          if (!formData.target?.trim()) {
+              stepErrors.target = "Por favor, informe quem deve receber esta petição.";
+          }
+          if (!formData.goal || formData.goal < 1) {
+              stepErrors.goal = "Por favor, defina uma meta válida de assinaturas.";
+          }
+          
+          if (Object.keys(stepErrors).length > 0) {
+              setErrors(prev => ({ ...prev, ...stepErrors }));
+              return;
+          }
+      }
+
+      if (currentStepId === 'content') {
+          const content = formData.content || '';
+          const plainTextContent = content.replace(/<[^>]*>/g, '').trim();
+          if (!plainTextContent) {
+               setErrors(prev => ({ ...prev, content: "Por favor, conte a história da sua causa." }));
+               return;
+          }
+
+          if (plainTextContent.length < 500) {
+              const errorMsg = `A descrição deve ter pelo menos 500 caracteres para continuar. Atual: ${plainTextContent.length}`;
+              setErrors(prev => ({ ...prev, content: errorMsg }));
+              return;
+          }
+      }
+
       setActiveStep(availableSteps[currentStepIndex + 1].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -413,9 +600,12 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                           id="title" 
                           value={formData.title} 
                           onChange={(e) => handleChange('title', e.target.value)}
-                          className="text-lg font-medium h-12 pl-4 border-muted-foreground/20 focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/20 transition-all shadow-sm"
+                          className={`text-lg font-medium h-12 pl-4 border-muted-foreground/20 focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/20 transition-all shadow-sm ${errors.title ? 'border-destructive ring-destructive/20' : ''}`}
                           placeholder="Ex: Salve o Parque Central..."
                         />
+                        <div id="tour-validation-info">
+                            {errors.title && <p className="text-sm text-destructive mt-1 font-medium">{errors.title}</p>}
+                        </div>
                     </div>
                     <p className="text-xs text-muted-foreground">Escolha um título curto e impactante.</p>
                   </div>
@@ -431,10 +621,11 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                               id="target" 
                               value={formData.target} 
                               onChange={(e) => handleChange('target', e.target.value)}
-                              className="pl-10 h-11 border-muted-foreground/20 transition-all focus-visible:ring-primary/20"
+                              className={`pl-10 h-11 border-muted-foreground/20 transition-all focus-visible:ring-primary/20 ${errors.target ? 'border-destructive ring-destructive/20' : ''}`}
                               placeholder="Ex: Prefeito, Secretário..."
                             />
                         </div>
+                        {errors.target && <p className="text-sm text-destructive mt-1 font-medium">{errors.target}</p>}
                         <p className="text-xs text-muted-foreground">Quem tem o poder de resolver o problema?</p>
                       </div>
 
@@ -449,10 +640,11 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                               type="number" 
                               value={formData.goal} 
                               onChange={(e) => handleChange('goal', e.target.value)}
-                              className="pl-10 h-11 border-muted-foreground/20 transition-all focus-visible:ring-primary/20"
+                              className={`pl-10 h-11 border-muted-foreground/20 transition-all focus-visible:ring-primary/20 ${errors.goal ? 'border-destructive ring-destructive/20' : ''}`}
                               placeholder="Ex: 1000"
                             />
                         </div>
+                        {errors.goal && <p className="text-sm text-destructive mt-1 font-medium">{errors.goal}</p>}
                         <p className="text-xs text-muted-foreground">Defina um objetivo realista para começar.</p>
                       </div>
                   </div>
@@ -480,6 +672,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                         onChange={(val) => handleChange('content', val)}
                         isMobile={isMobile}
                       />
+                      {errors.content && <p className="text-sm text-destructive mt-1 font-medium">{errors.content}</p>}
                   </div>
                 </CardContent>
               </Card>
@@ -581,9 +774,18 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                     </span>
                     Galeria de Imagens
                   </CardTitle>
-                  <CardDescription>Adicione fotos para tornar sua petição mais visual e atraente.</CardDescription>
+                  <CardDescription>
+                    Adicione fotos para tornar sua petição mais visual e atraente. 
+                    
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <div className="bg-primary/5 p-4 rounded-lg border border-primary/20 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <p className="text-sm text-foreground/80">
+                      <strong>Dica:</strong> Você pode usar uma <strong>imagem real</strong> do local/problema ou uma <strong>imagem fictícia/ilustrativa</strong> que guie as pessoas a entenderem e se solidarizarem com sua petição.
+                    </p>
+                  </div>
                   <div className="bg-muted/30 p-6 rounded-xl border border-dashed border-muted-foreground/20">
                       <ImageUploader 
                         onUploadComplete={(newUrls) => handleChange('gallery', [...formData.gallery, ...newUrls])} 
@@ -704,6 +906,65 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
               </Card>
             </div>
           );
+        case 'preview':
+          return (
+            <div className="space-y-6">
+              <Card className="border-muted/60 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-primary" />
+                    Resumo do Envio
+                  </CardTitle>
+                  <CardDescription>
+                    Verifique os dados antes de finalizar sua petição.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-muted-foreground">Título</p>
+                      <p className="text-base">{formData.title || <span className="text-destructive italic">Não preenchido</span>}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-muted-foreground">Destinatário</p>
+                      <p className="text-base">{formData.target || <span className="text-destructive italic">Não preenchido</span>}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-muted-foreground">Meta de Assinaturas</p>
+                      <p className="text-base">{formData.goal} assinaturas</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-muted-foreground">Imagens</p>
+                      <p className="text-base">{formData.gallery.length} foto(s) adicionada(s)</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 border-t pt-4">
+                    <p className="text-sm font-semibold text-muted-foreground">Descrição</p>
+                    <div className="text-sm text-foreground/80 bg-muted/30 p-4 rounded-lg line-clamp-4 overflow-hidden italic">
+                      {formData.content ? formData.content.replace(/<[^>]*>/g, '').substring(0, 300) + '...' : <span className="text-destructive">Não preenchida</span>}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 border-t pt-4">
+                    <p className="text-sm font-semibold text-muted-foreground">Destaques</p>
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {formData.importance_list && formData.importance_list.length > 0 ? (
+                        formData.importance_list.map((item, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm text-foreground/70">
+                            <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                            {item.text}
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-sm text-muted-foreground italic">Nenhum destaque adicionado</li>
+                      )}
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
         case 'updates':
           return <PetitionUpdatesManager petitionId={petition.id} />;
         case 'history':
@@ -757,12 +1018,59 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
     );
   };
 
+  const handleBack = () => {
+    if (isDirty) {
+      if (confirm("Você tem alterações não salvas. Deseja sair sem salvar?")) {
+        onCancel();
+      }
+    } else {
+      onCancel();
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-md w-full text-center space-y-6 bg-card p-8 rounded-3xl shadow-2xl border border-primary/10"
+        >
+            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="w-12 h-12" />
+            </div>
+            <h2 className="text-3xl font-bold">Petição Enviada!</h2>
+            <p className="text-muted-foreground">
+                {isAdmin 
+                    ? "Sua petição foi publicada e já está disponível para assinaturas." 
+                    : "Sua petição foi enviada para moderação. Você receberá um aviso assim que ela for aprovada."}
+            </p>
+            <div className="pt-4 space-y-3">
+                <Button 
+                    className="w-full h-12 rounded-full text-lg" 
+                    onClick={() => navigate(`/abaixo-assinado/${petition.id}`)}
+                >
+                    Ver Petição
+                </Button>
+                <Button 
+                    variant="ghost" 
+                    className="w-full h-12 rounded-full" 
+                    onClick={() => navigate('/minhas-peticoes')}
+                >
+                    Minhas Petições
+                </Button>
+            </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-10">
       {/* Top Bar */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b p-4 flex items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
-          <Button variant="ghost" size="icon" onClick={onCancel} className="shrink-0">
+          <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="min-w-0">
@@ -785,17 +1093,27 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                 Salvar Rascunho
             </Button>
             {formData.status !== 'closed' && (
-                <Button onClick={() => handleSave('open')} disabled={loading}>
+                <Button onClick={() => handleSave('open')} disabled={loading} className="bg-red-500 hover:bg-red-600">
                     <Send className="w-4 h-4 mr-2" />
-                    Publicar
+                    {isAdmin ? 'Publicar' : 'Enviar para Moderação'}
                 </Button>
             )}
           </div>
 
-          <div className="flex md:hidden items-center gap-2">
-             <Button variant="ghost" size="icon" onClick={() => handleSave('draft')} disabled={loading} title="Salvar Rascunho">
+          <div className="flex md:hidden items-center gap-1.5">
+             <Button variant="ghost" size="icon" onClick={() => handleSave('draft')} disabled={loading} title="Salvar Rascunho" className="h-9 w-9">
                 <Save className="w-5 h-5" />
             </Button>
+            {formData.status !== 'closed' && (
+                <Button 
+                  size="sm" 
+                  onClick={() => handleSave('open')} 
+                  disabled={loading} 
+                  className="bg-red-500 hover:bg-red-600 text-[11px] px-3 h-9 font-bold"
+                >
+                    {isAdmin ? 'Publicar' : 'Enviar'}
+                </Button>
+            )}
           </div>
 
           <DropdownMenu>
@@ -819,6 +1137,10 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                         </DropdownMenuItem>
                      </>
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDeletePetition} className="text-red-600 cursor-pointer font-semibold">
+                    <Trash2 className="w-4 h-4 mr-2" /> Excluir Abaixo-Assinado
+                </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -827,7 +1149,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
       <div className="container max-w-5xl mx-auto py-6 md:py-8 space-y-6 md:space-y-8">
         
         {/* Mobile Progress Bar */}
-        <div className="md:hidden px-2">
+        <div id="tour-step-indicator-mobile" className="md:hidden px-2">
           <div className="flex justify-between text-sm font-medium mb-2 text-muted-foreground">
             <span>Passo {currentStepIndex + 1} de {availableSteps.length}</span>
             <span>{Math.round(progress)}%</span>
@@ -839,7 +1161,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
           
           {/* Desktop Sidebar Navigation */}
           <aside className="hidden md:block w-64 shrink-0 space-y-2">
-            <nav className="sticky top-24 space-y-1">
+            <nav id="tour-step-indicator" className="sticky top-24 space-y-1">
               {availableSteps.map((step) => {
                 const isActive = activeStep === step.id;
                 const Icon = step.icon;
@@ -871,12 +1193,12 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
              {renderStepContent()}
 
             {/* Navigation Buttons */}
-            <div className="sticky bottom-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 border-t mt-8 flex items-center justify-between gap-4">
+            <div className="sticky bottom-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 border-t mt-8 flex items-center justify-between gap-4 px-4 md:px-0">
               <Button 
                 variant="outline" 
                 onClick={prevStep} 
                 disabled={currentStepIndex === 0}
-                className="flex-1 md:flex-none md:w-32"
+                className="flex-1 md:flex-none md:w-32 h-12 md:h-10 text-sm md:text-base font-semibold"
               >
                 <ChevronLeft className="w-4 h-4 mr-2" />
                 Voltar
@@ -884,15 +1206,16 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
               
               {currentStepIndex === availableSteps.length - 1 ? (
                 <Button 
-                  className="flex-1 md:flex-none md:w-32" 
+                  className="flex-1 md:flex-none md:w-auto px-8 h-12 md:h-10 text-sm md:text-base font-bold bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200" 
                   onClick={() => handleSave('open')}
                   disabled={loading}
                 >
-                  {petition.status === 'open' ? 'Salvar' : 'Publicar'} <Send className="w-4 h-4 ml-2" />
+                  {petition.status === 'open' ? 'Salvar' : (isAdmin ? 'Publicar' : 'Enviar para Moderação')} <Send className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
                 <Button 
-                  className="flex-1 md:flex-none md:w-32" 
+                  id="tour-next-step"
+                  className="flex-1 md:flex-none md:w-32 h-12 md:h-10 text-sm md:text-base font-semibold" 
                   onClick={nextStep}
                 >
                   Próximo <ChevronRight className="w-4 h-4 ml-2" />
@@ -902,6 +1225,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
           </main>
         </div>
       </div>
+      <PetitionTour userId={user?.id} />
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 
 /**
  * Modal component for guest users to sign the petition.
@@ -25,6 +26,8 @@ import { useNavigate } from 'react-router-dom';
  * @param {Function} props.setGuestForm - State setter for the guest form object
  * @param {Function} props.onGuestSign - Handler to submit the guest signature
  * @param {boolean} props.signing - Loading state during submission
+ * @param {boolean} props.isRobotChecked - Captcha state
+ * @param {Function} props.setIsRobotChecked - Captcha state setter
  * @returns {JSX.Element} The rendered modal component
  */
 const GuestSignModal = ({ 
@@ -33,7 +36,8 @@ const GuestSignModal = ({
   guestForm, 
   setGuestForm, 
   onGuestSign, 
-  signing 
+  signing,
+  children
 }) => {
   const navigate = useNavigate();
 
@@ -96,11 +100,18 @@ const GuestSignModal = ({
                   Quero receber novidades sobre esta causa
               </label>
            </div>
+
+           {children}
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:gap-0">
-          <Button type="button" onClick={onGuestSign} disabled={signing} className="w-full sm:w-auto font-bold">
-             {signing ? 'Assinando...' : 'Assinar Agora'}
+          <Button 
+            type="button" 
+            onClick={onGuestSign} 
+            disabled={signing} 
+            className="w-full sm:w-auto font-bold"
+          >
+             {signing ? 'Assinando...' : 'Assinar Abaixo-assinado'}
           </Button>
           <div className="relative py-2">
              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
@@ -122,6 +133,7 @@ GuestSignModal.propTypes = {
   setGuestForm: PropTypes.func.isRequired,
   onGuestSign: PropTypes.func.isRequired,
   signing: PropTypes.bool.isRequired,
+  children: PropTypes.node,
 };
 
 export default GuestSignModal;

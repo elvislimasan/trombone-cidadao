@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Share2, CheckCircle2, Shield, PenLine } from "lucide-react";
+import { Share2, CheckCircle2, Shield, PenLine, ShieldCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -72,10 +72,10 @@ const PetitionSignatureCard = ({
             compact ? (
                 <Button
                     onClick={onSign}
-                    className="h-12 w-full text-base font-semibold shadow-md transition-all hover:shadow-lg"
+                    className="h-12 w-full text-sm sm:text-base font-semibold shadow-md transition-all hover:shadow-lg px-2 whitespace-normal leading-tight"
                     disabled={isSubmitting}
                 >
-                    {isSubmitting ? "Assinando..." : "Assinar Agora"}
+                    {isSubmitting ? "Assinando..." : "Assinar Abaixo-assinado"}
                 </Button>
             ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -124,12 +124,12 @@ const PetitionSignatureCard = ({
                     </div>
                 </div>
 
-                <Button
-                    type="submit"
-                    className="h-12 w-full text-base font-semibold shadow-md transition-all hover:shadow-lg"
-                    disabled={isSubmitting}
-                >
-                    {isSubmitting ? "Assinando..." : "Assinar Agora"}
+              <Button 
+                type="submit" 
+                className="h-12 w-full text-sm sm:text-base font-semibold shadow-md transition-all hover:shadow-lg px-2 whitespace-normal leading-tight"
+                disabled={isSubmitting}
+              >
+                    {isSubmitting ? "Assinando..." : "Assinar Abaixo-assinado"}
                 </Button>
 
                 <p className="text-center text-xs text-muted-foreground">
@@ -153,9 +153,9 @@ const PetitionSignatureCard = ({
           )}
         </div>
 
-        <Button variant="outline" className="h-11 w-full gap-2 bg-transparent border-input" onClick={onShare}>
-          <Share2 className="h-4 w-4" />
-          Compartilhar
+        <Button variant="outline" className="h-11 w-full gap-2 bg-transparent border-input text-sm sm:text-base px-2" onClick={onShare}>
+          <Share2 className="h-4 w-4 shrink-0" />
+          <span className="truncate">Compartilhar</span>
         </Button>
 
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
