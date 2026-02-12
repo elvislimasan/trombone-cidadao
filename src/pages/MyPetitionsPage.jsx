@@ -277,19 +277,19 @@ const MyPetitionsPage = () => {
                     className="flex"
                 >
                     <Card className="overflow-hidden flex flex-col w-full hover:shadow-md transition-shadow duration-300">
-                    <div className={`h-1.5 w-full ${petition.status === 'rejected' ? 'bg-red-500' : petition.status === 'open' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                    <div className={`h-1 w-full ${petition.status === 'rejected' ? 'bg-red-500' : petition.status === 'open' ? 'bg-green-500' : 'bg-yellow-500'}`} />
                     
-                    <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start gap-2 mb-2">
-                            <Badge variant="outline" className={`${statusInfo.color} border-0 font-medium px-2 py-0.5`}>
-                                <StatusIcon className="w-3 h-3 mr-1" />
+                    <CardHeader className="p-3 md:p-5 pb-2 md:pb-3">
+                        <div className="flex justify-between items-start gap-2 mb-1.5 md:mb-2">
+                            <Badge variant="outline" className={`${statusInfo.color} border-0 font-medium px-1.5 py-0 md:px-2 md:py-0.5 text-[9px] md:text-xs h-5 md:h-6`}>
+                                <StatusIcon className="w-2.5 h-2.5 md:w-3 h-3 mr-1" />
                                 {statusInfo.label}
                             </Badge>
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="text-[9px] md:text-xs text-muted-foreground whitespace-nowrap">
                                 {format(new Date(petition.created_at), "dd/MM/yyyy")}
                             </span>
                         </div>
-                        <CardTitle className="text-lg leading-tight line-clamp-2 min-h-[3rem]">
+                        <CardTitle className="text-sm md:text-lg leading-tight line-clamp-2 min-h-[2.2rem] md:min-h-[3rem]">
                             {['open', 'victory', 'closed'].includes(petition.status) ? (
                                 <Link to={`/abaixo-assinado/${petition.id}`} className="hover:underline">
                                     {petition.title || 'Sem título'}
@@ -302,73 +302,73 @@ const MyPetitionsPage = () => {
                         </CardTitle>
                     </CardHeader>
                     
-                    <CardContent className="flex-grow pb-3">
-                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4 min-h-[4.5rem]">
+                    <CardContent className="flex-grow p-3 md:p-5 pt-0 md:pt-0 pb-2 md:pb-3">
+                        <p className="text-[11px] md:text-sm text-muted-foreground line-clamp-2 md:line-clamp-3 mb-3 md:mb-4 min-h-[1.8rem] md:min-h-[4.5rem]">
                             {petition.description || 'Sem descrição.'}
                         </p>
 
                         {petition.status === 'rejected' && petition.rejection_reason && (
-                            <Alert variant="destructive" className="py-2 px-3 text-xs mb-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800">
-                                <AlertTriangle className="h-3 w-3" />
-                                <div className="flex flex-col gap-1 w-full">
-                                    <AlertTitle className="text-xs font-bold mb-0 ml-1">Reprovado:</AlertTitle>
-                                    <AlertDescription className="mt-1 ml-1 text-xs line-clamp-2">
+                            <Alert variant="destructive" className="py-1.5 px-2 md:py-2 md:px-3 text-[9px] md:text-xs mb-2 md:mb-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800">
+                                <AlertTriangle className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                                <div className="flex flex-col gap-0.5 md:gap-1 w-full">
+                                    <AlertTitle className="text-[9px] md:text-xs font-bold mb-0 ml-1">Reprovado:</AlertTitle>
+                                    <AlertDescription className="mt-0.5 ml-1 text-[9px] md:text-xs line-clamp-2">
                                         {petition.rejection_reason}
                                     </AlertDescription>
                                     <Button 
                                         variant="link" 
                                         size="sm" 
-                                        className="h-auto p-0 text-[10px] text-red-600 dark:text-red-400 font-bold self-start mt-1 hover:no-underline"
+                                        className="h-auto p-0 text-[8px] md:text-[10px] text-red-600 dark:text-red-400 font-bold self-start mt-0.5 hover:no-underline"
                                         onClick={() => {
                                             setSelectedRejectionReason(petition.rejection_reason);
                                             setIsReasonModalOpen(true);
                                         }}
                                     >
-                                        <Eye className="w-3 h-3 mr-1" />
+                                        <Eye className="w-2 h-2 md:w-3 md:h-3 mr-1" />
                                         Ver motivo completo
                                     </Button>
                                 </div>
                             </Alert>
                         )}
                         
-                        <div className="flex items-center text-sm font-medium text-muted-foreground bg-muted/30 p-2 rounded-md">
-                            <FileText className="w-4 h-4 mr-2 text-primary" />
-                            <span className="text-foreground">{0}</span> 
+                        <div className="flex items-center text-[11px] md:text-sm font-medium text-muted-foreground bg-muted/30 p-1.5 md:p-2 rounded-md">
+                            <FileText className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2 text-primary" />
+                            <span className="text-foreground">{petition.signatureCount || 0}</span> 
                             <span className="mx-1">/</span>
                             <span>{petition.goal} assinaturas</span>
                         </div>
                     </CardContent>
 
-                    <CardFooter className="pt-3 border-t bg-muted/10 gap-2">
+                    <CardFooter className="p-3 md:p-4 pt-2 md:pt-3 border-t bg-muted/10 gap-1.5 md:gap-2">
                         {petition.status === 'pending_moderation' ? (
-                            <div className="flex gap-2 w-full">
-                                <Button variant="secondary" size="sm" className="flex-1 opacity-80 cursor-not-allowed" disabled>
-                                    <Clock className="w-4 h-4 mr-2" />
+                            <div className="flex gap-1.5 md:gap-2 w-full">
+                                <Button variant="secondary" size="sm" className="flex-1 opacity-80 cursor-not-allowed h-8 md:h-9 text-[12px] md:text-sm" disabled>
+                                    <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
                                     Em Análise
                                 </Button>
                                 <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    className="px-2 text-destructive hover:bg-destructive/10"
+                                    className="px-2 text-destructive hover:bg-destructive/10 h-8 md:h-9"
                                     onClick={() => handleDeletePetition(petition)}
                                     title="Excluir"
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                 </Button>
                             </div>
                         ) : (
                             <>
                                 {(petition.status === 'rejected' || petition.status === 'draft') ? (
-                                    <Button variant="default" size="sm" className="flex-1" onClick={() => navigate(`/abaixo-assinado/${petition.id}?edit=true`)}>
-                                        <Edit className="w-4 h-4 mr-2" />
+                                    <Button variant="default" size="sm" className="flex-1 h-8 md:h-9 text-[12px] md:text-sm" onClick={() => navigate(`/abaixo-assinado/${petition.id}?edit=true`)}>
+                                        <Edit className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
                                         Editar
                                     </Button>
                                 ) : (
                                     // If approved (open, victory, closed), only admins can manage. 
                                     // Regular users (authors) can only view the page.
                                     user?.is_admin && (
-                                        <Button variant="outline" size="sm" className="flex-1" onClick={() => navigate(`/abaixo-assinado/${petition.id}?edit=true`)}>
-                                            <Edit className="w-4 h-4 mr-2" />
+                                        <Button variant="outline" size="sm" className="flex-1 h-8 md:h-9 text-[12px] md:text-sm" onClick={() => navigate(`/abaixo-assinado/${petition.id}?edit=true`)}>
+                                            <Edit className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
                                             Gerenciar
                                         </Button>
                                     )
@@ -376,7 +376,7 @@ const MyPetitionsPage = () => {
                                 
                                 {['open', 'victory', 'closed'].includes(petition.status) && (
                                     <>
-                                        <Button variant={petition.status === 'open' ? "default" : "secondary"} size="sm" className="flex-1" onClick={() => navigate(`/abaixo-assinado/${petition.id}`)}>
+                                        <Button variant={petition.status === 'open' ? "default" : "secondary"} size="sm" className="flex-1 h-8 md:h-9 text-[12px] md:text-sm" onClick={() => navigate(`/abaixo-assinado/${petition.id}`)}>
                                             Ver Página
                                         </Button>
                                         
@@ -384,11 +384,11 @@ const MyPetitionsPage = () => {
                                             <Button 
                                                 variant="outline" 
                                                 size="sm" 
-                                                className="px-3" 
+                                                className="px-2 md:px-3 h-8 md:h-9" 
                                                 onClick={() => exportPetitionPDF(petition, toast)}
                                                 title="Baixar PDF das Assinaturas"
                                             >
-                                                <FileDown className="w-4 h-4" />
+                                                <FileDown className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                             </Button>
                                         )}
                                     </>
@@ -397,11 +397,11 @@ const MyPetitionsPage = () => {
                                 <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    className="px-2 text-destructive hover:bg-destructive/10"
+                                    className="px-2 text-destructive hover:bg-destructive/10 h-8 md:h-9"
                                     onClick={() => handleDeletePetition(petition)}
                                     title="Excluir"
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                 </Button>
                             </>
                         )}

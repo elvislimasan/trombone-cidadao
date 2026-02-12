@@ -51,18 +51,18 @@ const PetitionHero = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Breadcrumb & Meta */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 w-full">
+        <div className="flex flex-wrap items-center gap-x-2 md:gap-x-3 gap-y-1.5 md:gap-y-2">
           {getStatusBadge(petition.status)}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] sm:text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <div className="flex flex-wrap items-center gap-x-3 md:gap-x-4 gap-y-1 text-[10px] md:text-sm text-muted-foreground">
+            <span className="flex items-center gap-1 md:gap-1.5">
+              <CalendarDays className="h-3 w-3 md:h-4 md:w-4 shrink-0" />
               {formattedDate}
             </span>
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <span className="flex items-center gap-1 md:gap-1.5">
+              <MapPin className="h-3 w-3 md:h-4 md:w-4 shrink-0" />
               {location}
             </span>
           </div>
@@ -73,10 +73,10 @@ const PetitionHero = ({
             <Button 
                 variant="outline" 
                 size="sm"
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto h-8 md:h-9 text-xs md:text-sm"
                 onClick={onEdit}
             >
-                <Edit className="w-3.5 h-3.5 mr-2" />
+                <Edit className="w-3 md:w-3.5 h-3 md:h-3.5 mr-1.5 md:mr-2" />
                 {isAdmin && isPublic ? 'Gerenciar (Admin)' : 'Editar Página'}
             </Button>
           </div>
@@ -84,17 +84,17 @@ const PetitionHero = ({
       </div>
 
       {/* Title */}
-      <h1 className="text-balance break-words text-xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-4xl">
+      <h1 className="text-balance break-words text-lg md:text-2xl lg:text-3xl font-bold leading-tight tracking-tight text-foreground">
         {title}
       </h1>
 
       {/* Hero Image */}
       <div className="flex w-full justify-center bg-transparent">
-        <div className="relative w-full max-w-[800px] overflow-hidden rounded-2xl shadow-2xl">
+        <div className="relative w-full max-w-[800px] overflow-hidden rounded-xl md:rounded-2xl shadow-xl md:shadow-2xl">
           <img
             src={displayImage}
             alt={title}
-            className="h-full max-h-[450px] w-full object-cover object-center lg:max-h-[400px]"
+            className="h-full max-h-[250px] sm:max-h-[350px] md:max-h-[450px] w-full object-cover object-center"
           />
           <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/10 to-transparent" />
         </div>

@@ -132,17 +132,17 @@ const ManagePetitionsPage = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'open':
-        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 gap-1"><CheckCircle2 className="w-3 h-3" /> Publicada</Badge>;
+        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><CheckCircle2 className="w-2.5 h-2.5 md:w-3 h-3" /> Publicada</Badge>;
       case 'victory':
-        return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200 gap-1"><Trophy className="w-3 h-3" /> Vitória</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200 gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><Trophy className="w-2.5 h-2.5 md:w-3 h-3" /> Vitória</Badge>;
       case 'closed':
-        return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 border-gray-200 gap-1"><XCircle className="w-3 h-3" /> Encerrada</Badge>;
+        return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 border-gray-200 gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><XCircle className="w-2.5 h-2.5 md:w-3 h-3" /> Encerrada</Badge>;
       case 'pending_moderation':
-        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 gap-1"><AlertCircle className="w-3 h-3" /> Em Moderação</Badge>;
+        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><AlertCircle className="w-2.5 h-2.5 md:w-3 h-3" /> Em Moderação</Badge>;
       case 'rejected':
-        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200 gap-1"><XCircle className="w-3 h-3" /> Rejeitada</Badge>;
+        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200 gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><XCircle className="w-2.5 h-2.5 md:w-3 h-3" /> Rejeitada</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline" className="text-[9px] md:text-xs py-0 h-5 md:h-6">{status}</Badge>;
     }
   };
 
@@ -174,29 +174,31 @@ const ManagePetitionsPage = () => {
         <title>Gerenciar Abaixo-Assinados - Admin</title>
       </Helmet>
       
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-10">
           <div className="space-y-2">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               <Link to="/admin">
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted">
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted shrink-0">
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
               </Link>
-              <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Gerenciar <span className="text-tc-red">Abaixo-Assinados</span></h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
+                Gerenciar <span className="text-tc-red">Abaixo-Assinados</span>
+              </h1>
             </div>
-            <p className="text-muted-foreground text-lg max-w-2xl">Controle total sobre as campanhas ativas.</p>
+            <p className="text-muted-foreground text-base md:text-lg max-w-2xl hidden sm:block">Controle total sobre as campanhas ativas.</p>
           </div>
           
-          <div className="flex flex-wrap gap-3">
-            <Link to="/admin/moderacao/peticoes">
-              <Button variant="outline" className="h-11 px-6 rounded-xl border-2 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all gap-2">
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <Link to="/admin/moderacao/peticoes" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full h-11 px-6 rounded-xl border-2 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all gap-2 justify-center">
                 <FileSignature className="w-5 h-5" />
                 Moderar Pendentes
               </Button>
             </Link>
-            <Button onClick={handleCreatePetition} className="h-11 px-6 rounded-xl bg-tc-red hover:bg-tc-red/90 shadow-lg shadow-tc-red/20 transition-all gap-2">
+            <Button onClick={handleCreatePetition} className="w-full sm:w-auto h-11 px-6 rounded-xl bg-tc-red hover:bg-tc-red/90 shadow-lg shadow-tc-red/20 transition-all gap-2 justify-center">
               <Plus className="w-5 h-5" /> Criar Nova Petição
             </Button>
           </div>
@@ -204,45 +206,47 @@ const ManagePetitionsPage = () => {
 
         {/* Filters Card */}
         <Card className="mb-8 border-none shadow-sm bg-muted/30">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2 relative">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex flex-col gap-4">
+              <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Buscar por título ou autor..."
-                  className="pl-10 h-11 bg-background border-none shadow-sm focus-visible:ring-tc-red"
+                  className="pl-10 h-11 bg-background border-none shadow-sm focus-visible:ring-tc-red w-full"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-11 bg-background border-none shadow-sm">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os Status</SelectItem>
-                    <SelectItem value="open">Publicadas</SelectItem>
-                    <SelectItem value="victory">Vitórias</SelectItem>
-                    <SelectItem value="closed">Encerradas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-11 bg-background border-none shadow-sm w-full">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="open">Publicadas</SelectItem>
+                      <SelectItem value="victory">Vitórias</SelectItem>
+                      <SelectItem value="closed">Encerradas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="h-11 bg-background border-none shadow-sm">
-                    <SelectValue placeholder="Ordenar por" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Mais Recentes</SelectItem>
-                    <SelectItem value="oldest">Mais Antigos</SelectItem>
-                    <SelectItem value="most_signed">Mais Assinaturas</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="h-11 bg-background border-none shadow-sm w-full">
+                      <SelectValue placeholder="Ordenar por" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Mais Recentes</SelectItem>
+                      <SelectItem value="oldest">Mais Antigos</SelectItem>
+                      <SelectItem value="most_signed">Mais Assinaturas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -277,66 +281,68 @@ const ManagePetitionsPage = () => {
                     exit={{ opacity: 0, scale: 0.95 }}
                     key={petition.id}
                   >
-                    <Card className="group hover:border-tc-red/30 transition-all duration-300 shadow-sm hover:shadow-md">
+                    <Card className="group hover:border-tc-red/30 transition-all duration-300 shadow-sm hover:shadow-md overflow-hidden">
                       <CardContent className="p-0">
-                        <div className="flex flex-col md:flex-row items-stretch md:items-center">
-                          {/* Image Preview (Optional/Small) */}
-                          <div className="w-full md:w-48 h-32 md:h-24 bg-muted shrink-0 overflow-hidden md:rounded-l-lg">
+                        <div className="flex flex-row items-stretch min-h-[110px] md:min-h-[140px]">
+                          {/* Image Preview - Fixed size on mobile, larger on desktop */}
+                          <div className="w-24 sm:w-32 md:w-48 bg-muted shrink-0 overflow-hidden relative">
                             {petition.image_url ? (
                               <img 
                                 src={petition.image_url} 
                                 alt={petition.title} 
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
-                                <FileSignature className="w-8 h-8" />
+                              <div className="absolute inset-0 w-full h-full flex items-center justify-center text-muted-foreground/30">
+                                <FileSignature className="w-5 h-5 md:w-8 md:h-8" />
                               </div>
                             )}
                           </div>
 
-                          <div className="flex-1 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                            <div className="space-y-1.5 min-w-0 flex-1">
-                              <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex-1 p-2.5 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-6 min-w-0">
+                            <div className="space-y-1 md:space-y-2 min-w-0 flex-1 w-full">
+                              <div className="flex items-center gap-1.5 md:gap-3 flex-wrap">
                                 {getStatusBadge(petition.status)}
-                                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
+                                <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="w-3 h-3 md:w-3.5 md:h-3.5" />
                                   {new Date(petition.created_at).toLocaleDateString('pt-BR')}
                                 </span>
                               </div>
-                              <h3 className="font-bold text-lg leading-tight truncate pr-4 group-hover:text-tc-red transition-colors">
+                              
+                              <h3 className="font-bold text-sm md:text-lg leading-tight line-clamp-2 pr-1 group-hover:text-tc-red transition-colors">
                                 {petition.title}
                               </h3>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              
+                              <div className="flex flex-col xs:flex-row xs:items-center gap-1.5 xs:gap-4 text-[10px] md:text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1.5">
-                                  <div className="w-5 h-5 rounded-full bg-tc-red/10 flex items-center justify-center text-tc-red text-[10px] font-bold">
+                                  <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-tc-red/10 flex items-center justify-center text-tc-red text-[8px] md:text-[10px] font-bold shrink-0">
                                     {petition.authorName.charAt(0).toUpperCase()}
                                   </div>
-                                  <span className="font-medium">{petition.authorName}</span>
+                                  <span className="font-medium truncate max-w-[80px] sm:max-w-[150px] md:max-w-none">{petition.authorName}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                  <Users className="w-4 h-4" />
+                                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                   <span className="font-semibold text-foreground">{petition.signatureCount}</span>
-                                  <span>/ {petition.goal}</span>
+                                  <span className="opacity-70">/ {petition.goal}</span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                            <div className="flex items-center gap-1.5 md:gap-2 shrink-0 self-end md:self-center w-full sm:w-auto justify-end mt-1 md:mt-0 pt-1 border-t border-muted sm:border-0 sm:pt-0">
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                className="h-9 px-3 text-muted-foreground hover:text-tc-red hover:bg-tc-red/5 rounded-lg"
+                                className="h-8 md:h-10 px-2.5 md:px-4 text-muted-foreground hover:text-tc-red hover:bg-tc-red/5 rounded-lg flex-1 sm:flex-none text-[11px] md:text-sm"
                                 onClick={() => navigate(`/abaixo-assinado/${petition.id}`)}
                               >
-                                <Eye className="w-4 h-4 mr-2" />
+                                <Eye className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
                                 Ver
                               </Button>
                               
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-muted">
-                                    <MoreHorizontal className="w-5 h-5" />
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10 rounded-lg hover:bg-muted shrink-0">
+                                    <MoreHorizontal className="w-4 h-4 md:w-5 md:h-5" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-52 p-2 rounded-xl border-2">
