@@ -14,7 +14,7 @@ const StatsCards = ({ stats, onCardClick, user }) => {
   const cards = cardsData.filter(card => !card.requiresUser || (card.requiresUser && user));
 
   return (
-    <div className={`grid grid-cols-2 md:grid-cols-3 ${user ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+    <div className={`grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${user ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-2 md:gap-4`}>
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (
@@ -23,16 +23,16 @@ const StatsCards = ({ stats, onCardClick, user }) => {
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: index * 0.1 }}
-            className={`bg-card border border-border rounded-xl p-4 shadow-md hover:shadow-primary/20 hover:-translate-y-1 transition-all cursor-pointer`}
+            className={`bg-card border border-border rounded-xl p-2.5 md:p-4 shadow-md hover:shadow-primary/20 hover:-translate-y-1 transition-all cursor-pointer`}
             onClick={() => onCardClick(card.status)}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className={`text-muted-foreground text-sm font-medium truncate`}>{card.title}</p>
-                <p className="text-2xl font-bold mt-1 text-foreground">{card.value}</p>
+            <div className="flex items-center justify-between gap-1.5 md:gap-3">
+              <div className="min-w-0 flex-1">
+                <p className={`text-muted-foreground text-[9px] md:text-sm font-medium truncate`}>{card.title}</p>
+                <p className="text-base md:text-2xl font-bold mt-0 md:mt-1 text-foreground">{card.value}</p>
               </div>
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${card.color} flex items-center justify-center flex-shrink-0`}>
-                <Icon className={`w-5 h-5 text-white`} />
+              <div className={`w-7 h-7 md:w-10 md:h-10 rounded-lg bg-gradient-to-r ${card.color} flex items-center justify-center flex-shrink-0`}>
+                <Icon className={`w-3.5 h-3.5 md:w-5 md:h-5 text-white`} />
               </div>
             </div>
           </motion.div>

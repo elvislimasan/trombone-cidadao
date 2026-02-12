@@ -225,19 +225,19 @@ const ModerationPage = () => {
         <title>{pageTitle} - Admin</title>
       </Helmet>
       
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-6xl">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 md:mb-10">
           <div className="space-y-1">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               <Link to="/admin">
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full shrink-0">
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
               </Link>
-              <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{pageTitle}</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{pageTitle}</h1>
             </div>
-            <p className="text-muted-foreground ml-12">
+            <p className="text-muted-foreground ml-10 md:ml-12 text-sm md:text-base">
               {isResolutionModeration ? 'Valide as resoluções enviadas' : 'Garanta a qualidade do conteúdo da plataforma'}
             </p>
           </div>
@@ -248,7 +248,7 @@ const ModerationPage = () => {
               placeholder="Pesquisar..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="pl-10 h-11 bg-muted/50 border-none shadow-sm"
+              className="pl-10 h-11 bg-muted/50 border-none shadow-sm w-full"
             />
           </div>
         </div>
@@ -280,71 +280,73 @@ const ModerationPage = () => {
                 >
                   <Card className="overflow-hidden border-muted-foreground/10 hover:border-tc-red/20 transition-all shadow-sm hover:shadow-md">
                     <CardContent className="p-0">
-                      <div className="flex flex-col md:flex-row">
-                        {/* Icon/Visual Indicator */}
-                        <div className={`w-2 shrink-0 ${isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
+                      <div className="flex flex-row items-stretch min-h-[110px] md:min-h-[130px]">
+                        {/* Icon/Visual Indicator - Always vertical stripe */}
+                        <div className={`w-1.5 md:w-2 shrink-0 ${isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
                         
-                        <div className="flex-1 p-5 flex flex-col md:flex-row justify-between gap-6">
-                          <div className="space-y-2 flex-1 min-w-0">
-                            <div className="flex items-center gap-3 flex-wrap mb-1">
-                              <Badge variant="outline" className="gap-1.5 font-medium py-1">
-                                {isPetitionModeration ? <FileText className="w-3.5 h-3.5" /> : isResolutionModeration ? <CheckCircle2 className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                        <div className="flex-1 p-2.5 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-6 min-w-0">
+                          <div className="space-y-1 md:space-y-2 flex-1 min-w-0 w-full">
+                            <div className="flex items-center gap-1.5 md:gap-3 flex-wrap mb-0.5">
+                              <Badge variant="outline" className="gap-1 font-medium py-0 h-5 md:h-6 text-[9px] md:text-xs">
+                                {isPetitionModeration ? <FileText className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isResolutionModeration ? <CheckCircle2 className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : <MessageSquare className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />}
                                 {isPetitionModeration ? 'Abaixo-Assinado' : isResolutionModeration ? 'Resolução' : 'Comentário'}
                               </Badge>
-                              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" />
-                                {new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                              <span className="text-[9px] md:text-xs text-muted-foreground flex items-center gap-1">
+                                <Clock className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />
+                                {new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             
-                            <h3 className="font-bold text-lg leading-tight line-clamp-2">
+                            <h3 className="font-bold text-sm md:text-lg leading-tight line-clamp-2 group-hover:text-tc-red transition-colors">
                               {item.title || (item.text ? `"${item.text}"` : 'Sem título')}
                             </h3>
                             
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex flex-col xs:flex-row xs:items-center gap-1.5 xs:gap-4 text-[10px] md:text-sm text-muted-foreground">
                               <div className="flex items-center gap-1.5">
-                                <User className="w-4 h-4" />
-                                <span className="font-medium text-foreground">{item.author?.name || item.resolution_submission?.userName || 'Anônimo'}</span>
+                                <User className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                <span className="font-medium text-foreground truncate max-w-[90px] sm:max-w-none">{item.author?.name || item.resolution_submission?.userName || 'Anônimo'}</span>
                               </div>
                               {item.protocol && (
                                 <div className="flex items-center gap-1.5">
-                                  <Info className="w-4 h-4" />
-                                  <span>Protocolo: <span className="font-mono text-xs">{item.protocol}</span></span>
+                                  <Info className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                  <span>Prot: <span className="font-mono text-[9px] md:text-xs">{item.protocol}</span></span>
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 shrink-0 self-end md:self-center bg-muted/30 p-2 rounded-xl">
+                          <div className="flex items-center gap-1.5 md:gap-3 shrink-0 self-end md:self-center bg-muted/30 p-1.5 md:p-2 rounded-xl w-full sm:w-auto justify-end border-t border-muted sm:border-0 pt-2 sm:pt-2 mt-1 sm:mt-0">
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="h-10 px-4 hover:bg-background"
+                              className="h-8 md:h-10 px-2.5 md:px-4 hover:bg-background flex-1 sm:flex-none text-[11px] md:text-sm"
                               onClick={() => isPetitionModeration ? navigate(`/abaixo-assinado/${item.id}`) : handleViewReport(item.id)}
                             >
-                              <Eye className="w-4 h-4 mr-2" />
+                              <Eye className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
                               Revisar
                             </Button>
                             
-                            <div className="w-px h-6 bg-muted-foreground/20 mx-1" />
+                            <div className="hidden sm:block w-px h-6 bg-muted-foreground/20 mx-1" />
                             
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-10 w-10 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-colors"
-                              onClick={() => handleAction(item, 'approved')}
-                            >
-                              <Check className="w-5 h-5" />
-                            </Button>
-                            
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-10 w-10 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
-                              onClick={() => handleAction(item, 'rejected')}
-                            >
-                              <X className="w-5 h-5" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 md:h-10 md:w-10 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-colors"
+                                onClick={() => handleAction(item, 'approved')}
+                              >
+                                <Check className="w-4 h-4 md:w-5 md:h-5" />
+                              </Button>
+                              
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 md:h-10 md:w-10 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
+                                onClick={() => handleAction(item, 'rejected')}
+                              >
+                                <X className="w-4 h-4 md:w-5 md:h-5" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -358,21 +360,21 @@ const ModerationPage = () => {
 
         {/* Pagination */}
         {filteredItems.length > itemsPerPage && (
-          <div className="flex items-center justify-center gap-6 mt-10">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 mt-10">
             <Button
               variant="outline"
-              className="rounded-xl h-10 gap-2"
+              className="rounded-xl h-10 gap-2 w-full sm:w-auto"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
             >
               <ChevronLeft className="h-4 w-4" /> Anterior
             </Button>
-            <div className="text-sm font-medium bg-muted px-4 py-2 rounded-lg">
+            <div className="text-sm font-medium bg-muted px-4 py-2 rounded-lg w-full sm:w-auto text-center">
               Página <span className="text-tc-red">{currentPage}</span> de {totalPages}
             </div>
             <Button
               variant="outline"
-              className="rounded-xl h-10 gap-2"
+              className="rounded-xl h-10 gap-2 w-full sm:w-auto"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
             >

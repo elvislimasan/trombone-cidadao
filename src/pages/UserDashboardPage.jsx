@@ -230,21 +230,21 @@ const UserDashboardPage = () => {
                   {reports.map((report) => (
                     <motion.div key={report.id} variants={itemVariants}>
                       <Card className="h-full flex flex-col bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                        <CardHeader>
-                          <CardTitle className="text-xl font-bold text-foreground">{report.title}</CardTitle>
-                          <div className="flex items-center gap-2 text-sm">
+                        <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
+                          <CardTitle className="text-lg md:text-xl font-bold text-foreground line-clamp-1">{report.title}</CardTitle>
+                          <div className="flex items-center gap-2 text-xs md:text-sm">
                             {getStatusInfo(report.moderation_status).icon}
                             <span className={getStatusInfo(report.moderation_status).color}>{getStatusInfo(report.moderation_status).text}</span>
                           </div>
                         </CardHeader>
-                        <CardContent className="flex-grow">
-                          <p className="text-muted-foreground text-sm line-clamp-3">{report.description}</p>
+                        <CardContent className="flex-grow p-4 md:p-6 pt-0 md:pt-0">
+                          <p className="text-muted-foreground text-xs md:text-sm line-clamp-3">{report.description}</p>
                         </CardContent>
-                        <CardFooter className="p-4 bg-muted/50 flex justify-between items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedReport(report)} className="gap-2"><Eye className="w-4 h-4" /> Detalhes</Button>
-                          <div className="flex gap-2">
-                            <Button size="icon" variant="outline" onClick={() => setSelectedReport(report)} disabled={report.moderation_status !== 'pending_approval'}><Edit className="w-4 h-4" /></Button>
-                            <Button size="icon" variant="destructive" onClick={() => openDeleteConfirmation(report)}><Trash2 className="w-4 h-4" /></Button>
+                        <CardFooter className="p-3 md:p-4 bg-muted/50 flex justify-between items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedReport(report)} className="gap-1 md:gap-2 h-8 md:h-10 text-xs md:text-sm px-2 md:px-4"><Eye className="w-3 h-3 md:w-4 md:h-4" /> Detalhes</Button>
+                          <div className="flex gap-1 md:gap-2">
+                            <Button size="icon" variant="outline" className="h-8 w-8 md:h-10 md:w-10" onClick={() => setSelectedReport(report)} disabled={report.moderation_status !== 'pending_approval'}><Edit className="w-3 h-3 md:w-4 md:h-4" /></Button>
+                            <Button size="icon" variant="destructive" className="h-8 w-8 md:h-10 md:w-10" onClick={() => openDeleteConfirmation(report)}><Trash2 className="w-3 h-3 md:w-4 md:h-4" /></Button>
                           </div>
                         </CardFooter>
                       </Card>
@@ -266,12 +266,12 @@ const UserDashboardPage = () => {
                 {comments.map((comment) => (
                   <motion.div key={comment.id} variants={itemVariants}>
                     <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg">
-                      <CardContent className="p-6">
-                        <p className="text-muted-foreground text-sm italic">"{comment.text}"</p>
-                        <p className="text-xs text-muted-foreground mt-2">Em {new Date(comment.created_at).toLocaleDateString('pt-BR')} na bronca: <span className="font-semibold text-foreground">{comment.reportTitle || 'Bronca removida'}</span></p>
+                      <CardContent className="p-4 md:p-6">
+                        <p className="text-muted-foreground text-xs md:text-sm italic">"{comment.text}"</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground mt-2">Em {new Date(comment.created_at).toLocaleDateString('pt-BR')} na bronca: <span className="font-semibold text-foreground">{comment.reportTitle || 'Bronca removida'}</span></p>
                       </CardContent>
-                      <CardFooter className="p-4 bg-muted/50 flex justify-end items-center gap-2">
-                        <div className="flex items-center gap-2 text-sm">
+                      <CardFooter className="p-3 md:p-4 bg-muted/50 flex justify-end items-center gap-2">
+                        <div className="flex items-center gap-2 text-[10px] md:text-sm">
                           {getStatusInfo(comment.moderation_status).icon}
                           <span className={getStatusInfo(comment.moderation_status).color}>{getStatusInfo(comment.moderation_status).text}</span>
                         </div>

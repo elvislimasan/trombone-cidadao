@@ -239,27 +239,27 @@ const AdminPage = () => {
               <div className="space-y-4">
                 {filteredAndSortedReports.map((report) => (
                   <Card key={report.id} className="bg-card border-border rounded-lg overflow-hidden">
-                    <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div className="flex-1">
+                    <CardContent className="p-3 md:p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           {getModerationStatusChip(report.moderationStatus)}
-                          <h3 className="font-semibold text-foreground truncate">{report.title}</h3>
+                          <h3 className="font-semibold text-sm md:text-base text-foreground truncate">{report.title}</h3>
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[10px] md:text-xs text-muted-foreground">
                           Enviado em: {new Date(report.createdAt).toLocaleString('pt-BR')}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedReport(report)}><Edit className="w-4 h-4 mr-2" />Editar/Ver</Button>
+                        <Button variant="ghost" size="sm" className="h-8 md:h-9 text-[10px] md:text-xs px-2" onClick={() => setSelectedReport(report)}><Edit className="w-3 h-3 md:w-4 md:h-4 mr-1.5" />Editar/Ver</Button>
                         {report.moderationStatus === 'pending_approval' && (
                           <>
-                            <Button size="sm" variant="outline" className="text-red-500 border-red-500 hover:bg-red-500/10" onClick={() => handleReportModeration(report.id, 'rejected')}><X className="w-4 h-4 mr-2" />Rejeitar</Button>
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReportModeration(report.id, 'approved')}><Check className="w-4 h-4 mr-2" />Aprovar</Button>
+                            <Button size="sm" variant="outline" className="h-8 md:h-9 text-[10px] md:text-xs px-2 text-red-500 border-red-500 hover:bg-red-500/10" onClick={() => handleReportModeration(report.id, 'rejected')}><X className="w-3 h-3 md:w-4 md:h-4 mr-1.5" />Rejeitar</Button>
+                            <Button size="sm" className="h-8 md:h-9 text-[10px] md:text-xs px-2 bg-green-600 hover:bg-green-700" onClick={() => handleReportModeration(report.id, 'approved')}><Check className="w-3 h-3 md:w-4 md:h-4 mr-1.5" />Aprovar</Button>
                           </>
                         )}
-                        {report.moderationStatus === 'approved' && <Button variant="outline" size="sm" onClick={() => handleToggleVisibility(report.id)}><EyeOff className="w-4 h-4 mr-2" />Ocultar</Button>}
-                        {report.moderationStatus === 'hidden' && <Button variant="outline" size="sm" onClick={() => handleToggleVisibility(report.id)}><Eye className="w-4 h-4 mr-2" />Mostrar</Button>}
-                        <Button variant="destructive" size="sm" onClick={() => setReportToDelete(report)}><Trash2 className="w-4 h-4 mr-2" />Remover</Button>
+                        {report.moderationStatus === 'approved' && <Button variant="outline" size="sm" className="h-8 md:h-9 text-[10px] md:text-xs px-2" onClick={() => handleToggleVisibility(report.id)}><EyeOff className="w-3 h-3 md:w-4 md:h-4 mr-1.5" />Ocultar</Button>}
+                        {report.moderationStatus === 'hidden' && <Button variant="outline" size="sm" className="h-8 md:h-9 text-[10px] md:text-xs px-2" onClick={() => handleToggleVisibility(report.id)}><Eye className="w-3 h-3 md:w-4 md:h-4 mr-1.5" />Mostrar</Button>}
+                        <Button variant="destructive" size="sm" className="h-8 md:h-9 text-[10px] md:text-xs px-2" onClick={() => setReportToDelete(report)}><Trash2 className="w-3 h-3 md:w-4 md:h-4 mr-1.5" />Remover</Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -279,14 +279,14 @@ const AdminPage = () => {
                 {pendingComments.map((comment) => (
                   <motion.div key={comment.id} variants={itemVariants}>
                     <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                      <CardContent className="p-6">
-                        <p className="text-muted-foreground text-sm italic">"{comment.text}"</p>
-                        <p className="text-xs text-muted-foreground mt-2">Por: {comment.author} em {new Date(comment.createdAt).toLocaleDateString('pt-BR')}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Na bronca: <span className="font-semibold text-foreground">{comment.reportTitle}</span></p>
+                      <CardContent className="p-4 md:p-6">
+                        <p className="text-muted-foreground text-xs md:text-sm italic">"{comment.text}"</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground mt-2">Por: {comment.author} em {new Date(comment.createdAt).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground mt-1">Na bronca: <span className="font-semibold text-foreground">{comment.reportTitle}</span></p>
                       </CardContent>
-                      <CardFooter className="p-4 bg-muted/50 flex justify-end items-center gap-2">
-                        <Button size="sm" variant="outline" className="text-red-500 border-red-500 hover:bg-red-500/10" onClick={() => handleCommentModeration(comment.reportId, comment.id, 'rejected')}><X className="w-4 h-4 mr-2" /> Rejeitar</Button>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleCommentModeration(comment.reportId, comment.id, 'approved')}><Check className="w-4 h-4 mr-2" /> Aprovar</Button>
+                      <CardFooter className="p-3 md:p-4 bg-muted/50 flex justify-end items-center gap-2">
+                        <Button size="sm" variant="outline" className="h-8 md:h-9 text-[10px] md:text-xs px-2 text-red-500 border-red-500 hover:bg-red-500/10" onClick={() => handleCommentModeration(comment.reportId, comment.id, 'rejected')}><X className="w-3 h-3 md:w-4 md:h-4 mr-1.5" /> Rejeitar</Button>
+                        <Button size="sm" className="h-8 md:h-9 text-[10px] md:text-xs px-2 bg-green-600 hover:bg-green-700" onClick={() => handleCommentModeration(comment.reportId, comment.id, 'approved')}><Check className="w-3 h-3 md:w-4 md:h-4 mr-1.5" /> Aprovar</Button>
                       </CardFooter>
                     </Card>
                   </motion.div>
@@ -304,51 +304,51 @@ const AdminPage = () => {
             <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" variants={containerVariants} initial="hidden" animate="visible">
               <motion.div variants={itemVariants}>
                 <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
-                  <CardHeader><CardTitle className="flex items-center justify-center gap-2"><Users /> Usuários</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><CardDescription>Gerencie os usuários cadastrados na plataforma.</CardDescription></CardContent>
-                  <CardFooter className="p-4 bg-muted/50"><Button className="w-full gap-2" onClick={() => handleManageContent('/admin/usuarios')}><Edit className="w-4 h-4" /> Gerenciar</Button></CardFooter>
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Users className="w-4 h-4 md:w-5 md:h-5" /> Usuários</CardTitle></CardHeader>
+                  <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Gerencie os usuários cadastrados na plataforma.</CardDescription></CardContent>
+                  <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/usuarios')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
               </motion.div>
               <motion.div variants={itemVariants}>
                 <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
-                  <CardHeader><CardTitle className="flex items-center justify-center gap-2"><Shapes /> Categorias de Broncas</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><CardDescription>Crie, edite e remova as categorias de problemas.</CardDescription></CardContent>
-                  <CardFooter className="p-4 bg-muted/50"><Button className="w-full gap-2" onClick={() => handleManageContent('/admin/categorias')}><Edit className="w-4 h-4" /> Gerenciar</Button></CardFooter>
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Shapes className="w-4 h-4 md:w-5 md:h-5" /> Categorias de Broncas</CardTitle></CardHeader>
+                  <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Crie, edite e remova as categorias de problemas.</CardDescription></CardContent>
+                  <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/categorias')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
               </motion.div>
               <motion.div variants={itemVariants}>
                 <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
-                  <CardHeader><CardTitle className="flex items-center justify-center gap-2"><Briefcase /> Guia de Serviços</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><CardDescription>Edite informações sobre transportes, pontos turísticos e CEPs.</CardDescription></CardContent>
-                  <CardFooter className="p-4 bg-muted/50"><Button className="w-full gap-2" onClick={() => handleManageContent('/admin/servicos')}><Edit className="w-4 h-4" /> Gerenciar</Button></CardFooter>
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Briefcase className="w-4 h-4 md:w-5 md:h-5" /> Guia de Serviços</CardTitle></CardHeader>
+                  <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Edite informações sobre transportes, pontos turísticos e CEPs.</CardDescription></CardContent>
+                  <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/servicos')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
               </motion.div>
               <motion.div variants={itemVariants}>
                 <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
-                  <CardHeader><CardTitle className="flex items-center justify-center gap-2"><Newspaper /> Notícias</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><CardDescription>Adicione, edite ou remova notícias e comunicados da prefeitura.</CardDescription></CardContent>
-                  <CardFooter className="p-4 bg-muted/50"><Button className="w-full gap-2" onClick={() => handleManageContent('/admin/noticias')}><Edit className="w-4 h-4" /> Gerenciar</Button></CardFooter>
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Newspaper className="w-4 h-4 md:w-5 md:h-5" /> Notícias</CardTitle></CardHeader>
+                  <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Adicione, edite ou remova notícias e comunicados da prefeitura.</CardDescription></CardContent>
+                  <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/noticias')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
               </motion.div>
               <motion.div variants={itemVariants}>
                 <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
-                  <CardHeader><CardTitle className="flex items-center justify-center gap-2"><Construction /> Obras Públicas</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><CardDescription>Atualize o status, valores e informações das obras em andamento.</CardDescription></CardContent>
-                  <CardFooter className="p-4 bg-muted/50"><Button className="w-full gap-2" onClick={() => handleManageContent('/admin/obras')}><Edit className="w-4 h-4" /> Gerenciar</Button></CardFooter>
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Construction className="w-4 h-4 md:w-5 md:h-5" /> Obras Públicas</CardTitle></CardHeader>
+                  <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Atualize o status, valores e informações das obras em andamento.</CardDescription></CardContent>
+                  <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/obras')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
               </motion.div>
               <motion.div variants={itemVariants}>
                 <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
-                  <CardHeader><CardTitle className="flex items-center justify-center gap-2"><RoadIcon /> Mapa de Pavimentação</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><CardDescription>Gerencie as ruas e o status de pavimentação no mapa interativo.</CardDescription></CardContent>
-                  <CardFooter className="p-4 bg-muted/50"><Button className="w-full gap-2" onClick={() => handleManageContent('/admin/pavimentacao')}><Edit className="w-4 h-4" /> Gerenciar</Button></CardFooter>
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><RoadIcon className="w-4 h-4 md:w-5 md:h-5" /> Mapa de Pavimentação</CardTitle></CardHeader>
+                  <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Gerencie as ruas e o status de pavimentação no mapa interativo.</CardDescription></CardContent>
+                  <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/pavimentacao')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
               </motion.div>
               <motion.div variants={itemVariants}>
                 <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
-                  <CardHeader><CardTitle className="flex items-center justify-center gap-2"><Palette /> Configurações do Site</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><CardDescription>Personalize a aparência do site, como a logo e as cores.</CardDescription></CardContent>
-                  <CardFooter className="p-4 bg-muted/50"><Button className="w-full gap-2" onClick={() => handleManageContent('/admin/configuracoes')}><Edit className="w-4 h-4" /> Gerenciar</Button></CardFooter>
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Palette className="w-4 h-4 md:w-5 md:h-5" /> Configurações do Site</CardTitle></CardHeader>
+                  <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Personalize a aparência do site, como a logo e as cores.</CardDescription></CardContent>
+                  <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/configuracoes')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
               </motion.div>
             </motion.div>

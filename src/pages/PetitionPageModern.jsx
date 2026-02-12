@@ -341,7 +341,25 @@ const PetitionPageModern = () => {
                  recentSignatures={signatures}
               />
               
-              <PetitionSupportCard />
+              <PetitionSupportCard 
+                petitionId={petition.id}
+                petitionTitle={petition.title}
+                donationGoal={petition.donation_goal}
+                totalDonations={0} // This should be fetched if available
+                onDonate={() => setShowDonationModal(true)}
+                onShare={async () => {
+                  try {
+                    await navigator.share({
+                      title: petition.title,
+                      text: `Apoie esta causa: ${petition.title}`,
+                      url: window.location.href,
+                    });
+                  } catch (err) {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
+                  }
+                }}
+              />
            </aside>
         </div>
 

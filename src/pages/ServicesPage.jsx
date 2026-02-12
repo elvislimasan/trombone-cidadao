@@ -77,13 +77,13 @@ const ServicesPage = () => {
   const DirectoryCard = ({ item }) => (
     <Card className="overflow-hidden">
       <div className="flex">
-        <div className="w-1/3">
+        <div className="w-1/3 min-w-[80px]">
           <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
         </div>
-        <div className="w-2/3 p-4 flex flex-col justify-center">
-          <h3 className="font-semibold text-foreground">{item.name}</h3>
-          <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1"><MapPin className="w-3 h-3 flex-shrink-0" /> {item.address}</p>
-          <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1"><Phone className="w-3 h-3 flex-shrink-0" /> {item.phone}</p>
+        <div className="w-2/3 p-3 md:p-4 flex flex-col justify-center min-w-0">
+          <h3 className="font-semibold text-sm md:text-base text-foreground truncate">{item.name}</h3>
+          <p className="text-[10px] md:text-sm text-muted-foreground flex items-center gap-1.5 mt-1 truncate"><MapPin className="w-3 h-3 flex-shrink-0" /> {item.address}</p>
+          <p className="text-[10px] md:text-sm text-muted-foreground flex items-center gap-1.5 mt-1"><Phone className="w-3 h-3 flex-shrink-0" /> {item.phone}</p>
         </div>
       </div>
     </Card>
@@ -119,21 +119,21 @@ const ServicesPage = () => {
           </TabsList>
 
           <TabsContent value="tourist" className="mt-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
               {touristSpots.map((spot, index) => (
                 <motion.div key={spot.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.1 }}>
                   <Card className="overflow-hidden h-full flex flex-col border-border hover:shadow-lg transition-shadow">
-                    <img alt={spot.name} className="h-48 w-full object-cover" src={spot.image_url} />
-                    <CardHeader>
-                      <CardTitle className="text-foreground">{spot.name}</CardTitle>
+                    <img alt={spot.name} className="h-40 md:h-48 w-full object-cover" src={spot.image_url} />
+                    <CardHeader className="p-4 md:p-6">
+                      <CardTitle className="text-base md:text-xl text-foreground line-clamp-1">{spot.name}</CardTitle>
                     </CardHeader>
-                    <CardContent className="flex-grow">
-                      <p className="text-muted-foreground">{spot.short_description}</p>
+                    <CardContent className="flex-grow px-4 md:px-6 py-0">
+                      <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 md:line-clamp-3">{spot.short_description}</p>
                     </CardContent>
-                    <div className="p-6 pt-0">
+                    <div className="p-4 md:p-6 pt-0 mt-4">
                       <Link to={`/servicos/ponto-turistico/${spot.id}`}>
-                        <Button className="w-full">
-                          Saiba Mais <ArrowRight className="w-4 h-4 ml-2" />
+                        <Button className="w-full h-9 md:h-10 text-xs md:text-sm">
+                          Saiba Mais <ArrowRight className="w-3 h-3 md:w-4 md:h-4 ml-2" />
                         </Button>
                       </Link>
                     </div>
@@ -163,24 +163,24 @@ const ServicesPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   {filteredTransport.map((option) => (
                     <motion.div key={option.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
                       <Card className="h-full flex flex-col justify-between hover:border-primary transition-colors">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-3">
-                            <Bus className="w-6 h-6 text-primary" />
+                        <CardHeader className="p-4 md:p-6">
+                          <CardTitle className="flex items-center gap-2 md:gap-3 text-sm md:text-base">
+                            <Bus className="w-4 h-4 md:w-6 md:h-6 text-primary" />
                             {option.name}
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <p className="text-muted-foreground">Destino: <span className="font-semibold text-foreground">{option.destination}</span></p>
-                          <p className="text-muted-foreground mt-1">{option.schedule}</p>
+                        <CardContent className="px-4 md:px-6 py-0">
+                          <p className="text-[10px] md:text-sm text-muted-foreground">Destino: <span className="font-semibold text-foreground">{option.destination}</span></p>
+                          <p className="text-[10px] md:text-sm text-muted-foreground mt-1">{option.schedule}</p>
                         </CardContent>
-                        <div className="p-6 pt-0">
+                        <div className="p-4 md:p-6 pt-0 mt-4">
                            <Link to={`/servicos/transporte/${option.id}`}>
-                            <Button className="w-full">
-                              Ver Detalhes <ArrowRight className="w-4 h-4 ml-2" />
+                            <Button className="w-full h-8 md:h-10 text-[10px] md:text-sm">
+                              Ver Detalhes <ArrowRight className="w-3 h-3 md:w-4 md:h-4 ml-2" />
                             </Button>
                           </Link>
                         </div>
