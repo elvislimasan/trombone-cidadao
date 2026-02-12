@@ -216,7 +216,7 @@ const ReportPage = () => {
         report_media(*), 
         upvotes:signatures(count),
         favorite_reports(user_id),
-        petitions(id)
+        petitions(id, status)
       `)
       .eq('id', reportId)
       .single();
@@ -264,7 +264,8 @@ const ReportPage = () => {
         upvotes: data.upvotes[0]?.count || 0,
         user_has_upvoted: userHasSigned,
         is_favorited: user ? data.favorite_reports.some(fav => fav.user_id === user.id) : false,
-        petitionId: data.petitions?.[0]?.id || null
+        petitionId: data.petitions?.[0]?.id || null,
+        petitionStatus: data.petitions?.[0]?.status || null
       };
       setReport(formattedData);
     setLoading(false);

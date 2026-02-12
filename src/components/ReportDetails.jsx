@@ -1,8 +1,9 @@
 import React, { useState, useRef, lazy, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play, Loader2, ArrowRight, FileSignature } from 'lucide-react';
+import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play, Loader2, ArrowRight, FileSignature, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useUpload } from '@/contexts/UploadContext';
@@ -1066,13 +1067,15 @@ const ReportDetails = ({
                   {isEditing ? (
                     <input type="text" name="title" value={editData.title} onChange={handleEditChange} className="text-2xl font-bold bg-background border-b-2 border-primary w-full" />
                   ) : (
-                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-foreground flex items-center flex-wrap gap-2">
                       {report.title}
                       {report.is_recurrent && <Repeat className="w-5 h-5 text-orange-500" title="Bronca Reincidente" />}
                     </h2>
                   )}
                   <p className="text-muted-foreground">{getCategoryName(isEditing ? editData.category_id : report.category)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Protocolo: {report.protocol}</p>
+                  <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1">
+                    <p className="text-xs text-muted-foreground">Protocolo: {report.protocol}</p>
+                  </div>
                   {report.category === 'iluminacao' && report.pole_number && (
                     <p className="text-xs font-semibold text-primary mt-1 flex items-center gap-1">
                       N° do Poste: {report.pole_number}
@@ -1085,54 +1088,7 @@ const ReportDetails = ({
           </div>
 
           <div className="p-6 space-y-6">
-            {report.petitionId && !isEditing ? (
-              <div className="flex flex-col items-center justify-center text-center py-8 space-y-6">
-                 <div className="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-2">
-                    <FileSignature className="w-10 h-10" />
-                 </div>
-                 
-                 <div className="space-y-2 max-w-md">
-                    <h3 className="text-2xl font-bold text-foreground">Esta bronca virou um Abaixo-Assinado!</h3>
-                    <p className="text-muted-foreground">
-                       Para aumentar o impacto e cobrar soluções das autoridades, esta solicitação foi transformada em uma petição oficial.
-                    </p>
-                 </div>
-
-                 <div className="w-full max-w-md space-y-4">
-                    <Link to={`/abaixo-assinado/${report.petitionId}`} className="w-full block">
-                      <Button size="lg" className="w-full h-14 text-lg font-bold bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg animate-pulse gap-2">
-                        Ver e Assinar Petição
-                        <ArrowRight className="w-5 h-5" />
-                      </Button>
-                    </Link>
-                    
-                    <p className="text-xs text-muted-foreground">
-                       Junte-se a outros apoiadores desta causa.
-                    </p>
-                 </div>
-              </div>
-            ) : (
-              <>
-            {/* Petition Section Removed - Moved to PetitionPage */}
-
-            {report.petitionId && (
-              <div className="p-4 bg-primary/10 rounded-lg border border-primary/20 mb-6">
-                <h3 className="font-semibold text-primary mb-2 flex items-center gap-2">
-                  <Flag className="w-5 h-5" />
-                  Abaixo-Assinado Ativo
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Esta bronca possui um abaixo-assinado em andamento. Apoie esta causa!
-                </p>
-                <Link to={`/abaixo-assinado/${report.petitionId}`}>
-                  <Button className="w-full gap-2">
-                    Ver Abaixo-Assinado
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              </div>
-            )}
-
+            <>
             {/* Seção de Moderação de Bronca (para admins) */}
             {canModerate && !isEditing  && (report.moderation_status === 'pending_approval' || report.moderation_status === 'rejected') && (
               <div className={`p-4 rounded-lg border ${report.moderation_status === 'pending_approval' ? 'bg-yellow-900/20 border-yellow-700' : 'bg-red-900/20 border-red-700'}`}>
@@ -1593,6 +1549,15 @@ const ReportDetails = ({
                   {!isResolutionModeration && (
                   <>
                     <div className="grid grid-cols-2 gap-2 w-full">
+                      {report.petitionId && ['open', 'victory', 'closed'].includes(report.petitionStatus) && (
+                        <Button asChild className="bg-yellow-600 hover:bg-yellow-700 gap-2 text-xs sm:text-sm">
+                          <Link to={`/abaixo-assinado/${report.petitionId}`}>
+                            <FileSignature className="w-4 h-4" />
+                            <span className="hidden sm:inline">Ver Abaixo-Assinado</span>
+                            <span className="sm:hidden">Assinaturas</span>
+                          </Link>
+                        </Button>
+                      )}
                       <Button onClick={handleShare} variant="secondary" className="gap-2 text-xs sm:text-sm">
                         <Share2 className="w-4 h-4" />
                         <span className="hidden sm:inline">Compartilhar</span>
@@ -1652,7 +1617,7 @@ const ReportDetails = ({
               )}
             </div>
               </>
-            )}
+  
           </div>
         </motion.div>
       </motion.div>

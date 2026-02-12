@@ -123,7 +123,7 @@ const PetitionBuilder = ({ layout, onChange }) => {
           case 'text': return { html: '<p>Digite seu texto aqui...</p>' };
           case 'image': return { url: '', caption: '' };
           case 'video': return { url: '' };
-          case 'signature': return { label: 'Assinar Agora' };
+          case 'signature': return { label: 'Assinar Abaixo-assinado' };
           case 'separator': return { style: 'solid' };
           case 'button': return { text: 'Clique Aqui', url: '#' };
           default: return {};

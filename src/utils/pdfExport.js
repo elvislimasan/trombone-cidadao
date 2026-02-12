@@ -9,25 +9,37 @@ export const exportPetitionPDF = async (petition, toast) => {
       const doc = new jsPDF();
       
       // Title
-      doc.setFontSize(20);
-      doc.text(petition.title, 14, 22);
+      doc.setFontSize(18);
+      const splitTitle = doc.splitTextToSize(petition.title, 180);
+      doc.text(splitTitle, 14, 22);
+      
+      // Position for Meta info (dynamic based on title length)
+      let currentY = 22 + (splitTitle.length * 8);
       
       // Meta info
       doc.setFontSize(10);
-      doc.text(`Criado em: ${new Date(petition.created_at).toLocaleDateString('pt-BR')}`, 14, 32);
-      doc.text(`Assinaturas: ${petition.signatureCount}`, 14, 36);
-      doc.text(`Meta: ${petition.goal}`, 14, 40);
+      doc.text(`Criado em: ${new Date(petition.created_at).toLocaleDateString('pt-BR')}`, 14, currentY);
+      doc.text(`Assinaturas: ${petition.signatureCount || 0}`, 14, currentY + 5);
+      doc.text(`Meta: ${petition.goal || 0}`, 14, currentY + 10);
       
-      // Description (truncated if too long)
-      const splitDescription = doc.splitTextToSize(petition.description || '', 180);
-      doc.text(splitDescription.slice(0, 5), 14, 50);
+      currentY += 20;
+
+      // Description
+      if (petition.description) {
+        doc.setFontSize(11);
+        const splitDescription = doc.splitTextToSize(petition.description, 180);
+        // Show the whole description (it will overflow to next page if too long, 
+        // but for now let's just make it wrap and not cut off horizontally)
+        doc.text(splitDescription, 14, currentY);
+        currentY += (splitDescription.length * 6) + 10;
+      }
       
       // Signatures Table
       toast({ title: "Buscando assinaturas...", description: "Isso pode levar alguns segundos." });
       
       const { data: allSignatures, error } = await supabase
         .from('signatures')
-        .select('name, city, created_at, comment')
+        .select('name, email, city, created_at, comment')
         .eq('petition_id', petition.id)
         .order('created_at', { ascending: false });
 
@@ -35,16 +47,21 @@ export const exportPetitionPDF = async (petition, toast) => {
       
       const tableData = allSignatures.map(sig => [
         sig.name || 'Anônimo',
+        sig.email || '-',
         sig.city || '-',
         new Date(sig.created_at).toLocaleDateString('pt-BR'),
         sig.comment || '-'
       ]);
       
       autoTable(doc, {
-        head: [['Nome', 'Cidade', 'Data', 'Comentário']],
+        head: [['Nome', 'Email', 'Cidade', 'Data', 'Comentário']],
         body: tableData,
-        startY: 70,
-        styles: { fontSize: 8 },
+        startY: currentY,
+        styles: { fontSize: 8, overflow: 'linebreak' },
+        columnStyles: {
+          1: { cellWidth: 40 }, // Email
+          4: { cellWidth: 'auto' } // Comment
+        },
         headStyles: { fillColor: [22, 163, 74] }
       });
       

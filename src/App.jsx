@@ -50,6 +50,7 @@ import FavoritesPage from '@/pages/FavoritesPage';
 import FavoriteWorksPage from '@/pages/FavoriteWorksPage';
 import ContactPage from '@/pages/ContactPage';
 import TrashPage from '@/pages/admin/TrashPage';
+import MyPetitionsPage from '@/pages/MyPetitionsPage';
 import NotificationPreferences from './pages/NotificationPreferences';
 import DeleteAccountPage from './pages/DeleteAccountPage';
 import { VideoProcessor } from '@/plugins/VideoProcessor';
@@ -449,6 +450,7 @@ function App() {
             <Route path="/contato" element={<ContactPage />} />
 
             <Route path="/perfil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+            <Route path="/minhas-peticoes" element={<PrivateRoute><MyPetitionsPage /></PrivateRoute>} />
             <Route path="/favoritos" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
             <Route path="/obras-favoritas" element={<PrivateRoute><FavoriteWorksPage /></PrivateRoute>} />
             <Route path="/painel-usuario" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />

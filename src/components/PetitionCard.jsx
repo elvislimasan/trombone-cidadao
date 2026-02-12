@@ -23,9 +23,11 @@ const PetitionCard = ({ petition, onClick, onDonate }) => {
               <FileSignature className="w-12 h-12 text-primary/20" />
             </div>
           )}
-          <div className="absolute top-2 right-2 bg-background/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1">
-             <Users className="w-3 h-3" />
-             {petition.signatures?.[0]?.count || 0}
+          <div className="absolute top-3 left-3 z-10">
+            <div className="bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm flex items-center gap-1.5 text-slate-700 border border-white/20">
+               <Users className="w-3.5 h-3.5 text-primary" />
+               <span>{petition.signatures?.[0]?.count || 0}</span>
+            </div>
           </div>
         </div>
         <CardContent className="p-5 flex flex-col flex-1">

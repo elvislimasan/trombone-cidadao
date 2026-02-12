@@ -12,17 +12,23 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url)
-  const reportId = url.searchParams.get('id')
+  const contentId = url.searchParams.get('id')
+  const contentType = url.searchParams.get('type') || 'bronca' // 'bronca' ou 'peticao'
+  const reportId = contentId // For debug compatibility
   
   // Default fallback values
   const defaultTitle = 'Trombone Cidadão'
   const defaultDesc = 'Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE.'
-  const defaultImage = 'https://trombonecidadao.com.br/images/thumbnail.jpg'
   const appUrl = 'https://trombonecidadao.com.br'
+  
+  // Imagem padrão baseada no tipo
+  const defaultImage = contentType === 'peticao' 
+    ? `${appUrl}/abaixo-assinado.jpg`
+    : `${appUrl}/images/thumbnail.jpg`;
 
   // Construct the destination URL
-  const redirectUrl = reportId 
-    ? `${appUrl}/bronca/${reportId}`
+  const redirectUrl = contentId 
+    ? (contentType === 'peticao' ? `${appUrl}/abaixo-assinado/${contentId}` : `${appUrl}/bronca/${contentId}`)
     : appUrl;
 
   // 1. User-Agent Detection
@@ -106,7 +112,7 @@ Deno.serve(async (req) => {
   }
 
   // 3. If no ID, redirect anyway (fallback)
-  if (!reportId) {
+  if (!contentId) {
     return new Response(null, {
       status: 302,
       headers: {
@@ -117,88 +123,88 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Fetch report data
-    const { data: report, error } = await supabase
-      .from('reports')
-      .select('title, description, protocol, id, report_media(*)')
-      .eq('id', reportId)
-      .single()
+    let title = defaultTitle;
+    let description = defaultDesc;
+    let image = defaultImage;
+    let signatureCount = '0';
+    let goal = '100';
 
-    if (error || !report) {
-      console.error('Error fetching report:', error)
-      return Response.redirect(`${appUrl}/bronca/${reportId}`, 302)
-    }
+    if (contentType === 'peticao') {
+      // Fetch petition data
+      const { data: petition, error } = await supabase
+        .from('petitions')
+        .select('title, description, image_url, goal, signatures:signatures(count)')
+        .eq('id', contentId)
+        .single()
 
-    // Prepare Meta Data
-    const title = report.title ? `${report.title} - Trombone Cidadão` : defaultTitle
-    const description = report.description || defaultDesc
-    
-    // Determine Image URL
-    let image = defaultImage
-    let debugPhotosFound = 0;
-    
-    // Check report_media for photos
-    let photos = report.report_media?.filter((m: any) => m.type === 'photo') || []
-    debugPhotosFound = photos.length;
-    
-    // Sort by created_at to ensure consistent order (first uploaded image)
-    photos.sort((a: any, b: any) => {
-        const dateA = new Date(a.created_at || 0).getTime();
-        const dateB = new Date(b.created_at || 0).getTime();
-        return dateA - dateB;
-    });
+      if (!error && petition) {
+        title = petition.title ? `${petition.title} - Trombone Cidadão` : defaultTitle
+        description = petition.description || defaultDesc
+        signatureCount = String(petition.signatures?.[0]?.count || 0)
+        goal = String(petition.goal || 100)
+        
+        if (petition.image_url) {
+          image = petition.image_url.startsWith('http') 
+            ? petition.image_url 
+            : `${supabaseUrl}/storage/v1/object/public/petition-images/${petition.image_url}`;
+        }
+      }
+    } else {
+      // Fetch report data
+      const { data: report, error } = await supabase
+        .from('reports')
+        .select('title, description, protocol, id, report_media(*)')
+        .eq('id', contentId)
+        .single()
 
-    if (photos.length > 0) {
-      // Try to find the first valid photo URL
-      for (const photo of photos) {
-          // Check all possible fields for URL
+      if (!error && report) {
+        title = report.title ? `${report.title} - Trombone Cidadão` : defaultTitle
+        description = report.description || defaultDesc
+        
+        // Check report_media for photos
+        let photos = report.report_media?.filter((m: any) => m.type === 'photo') || []
+        
+        // Sort by created_at
+        photos.sort((a: any, b: any) => {
+            const dateA = new Date(a.created_at || 0).getTime();
+            const dateB = new Date(b.created_at || 0).getTime();
+            return dateA - dateB;
+        });
+
+        if (photos.length > 0) {
+          const photo = photos[0];
           let rawUrl = photo.url || photo.publicUrl || photo.photo_url || photo.image_url;
-          
           if (rawUrl) {
-            rawUrl = rawUrl.trim();
-            let candidateImage = '';
-            
-            // Construct Absolute URL correctly
             if (rawUrl.startsWith('http')) {
-                candidateImage = rawUrl;
-            } else if (rawUrl.startsWith('/storage') || rawUrl.includes('storage/v1/object')) {
-                // It's a Supabase Storage path, prepend Supabase URL, not App URL
-                // Ensure no double slash
+                image = rawUrl;
+            } else {
                 const baseUrl = supabaseUrl.replace(/\/$/, '');
                 const path = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
-                candidateImage = `${baseUrl}${path}`;
-            } else if (rawUrl.startsWith('/')) {
-                candidateImage = `${appUrl}${rawUrl}`;
-            } else {
-                candidateImage = `${appUrl}/${rawUrl}`;
-            }
-            
-            // If we found a candidate, use it and break (we want the first valid one)
-            if (candidateImage) {
-                // Use wsrv.nl as a robust image resizing proxy
-                // This works for ANY public image URL (Supabase, S3, external)
-                // It is faster and more reliable than Supabase transformations for social media thumbnails
-                
-                // 1. Clean the URL
-                const cleanUrl = candidateImage.split('?')[0]; // Remove existing params
-                
-                // 2. Construct wsrv.nl URL
-                // w=600, h=315: Recommended size for WhatsApp/Facebook thumbnails
-                // fit=cover: Ensures image fills the dimensions without distortion
-                // q=60: Quality 60% to reduce file size
-                // output=jpg: Ensure compatibility
-                candidateImage = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=600&h=315&fit=cover&q=60&output=jpg`;
-                
-                image = candidateImage;
-                break;
+                image = `${baseUrl}${path}`;
             }
           }
+        }
       }
     }
 
+    // Use og-image function if it's a petition for a better visual preview
+    if (contentType === 'peticao' && contentId) {
+      const ogImageUrl = new URL(`${supabaseUrl}/functions/v1/og-image`);
+      ogImageUrl.searchParams.set('title', title.replace(' - Trombone Cidadão', ''));
+      ogImageUrl.searchParams.set('count', signatureCount);
+      ogImageUrl.searchParams.set('goal', goal);
+      if (image && image !== defaultImage) {
+        ogImageUrl.searchParams.set('image', image);
+      }
+      image = ogImageUrl.toString();
+    } else if (image && !image.includes('wsrv.nl') && image.startsWith('http')) {
+      // Optimize other images with wsrv.nl
+      const cleanUrl = image.split('?')[0];
+      image = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=600&h=315&fit=cover&q=60&output=jpg`;
+    }
+
     // HTML Template with Meta Tags
-    // Use the proxy URL as the canonical URL so WhatsApp displays the correct domain
-    const proxyUrl = `${appUrl}/share/bronca/${reportId}`;
+    const proxyUrl = `${appUrl}/share/${contentType}/${contentId}`;
     // const redirectUrl is already defined above
 
     const html = `<!DOCTYPE html>
@@ -237,19 +243,15 @@ Deno.serve(async (req) => {
       </head>
       <body>
         <div style="font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 2rem;">
-          <p>Redirecionando para a bronca...</p>
+          <p>Redirecionando...</p>
           <p><a href="${redirectUrl}" style="color: #0066cc; text-decoration: underline;">Clique aqui se não for redirecionado automaticamente</a></p>
         </div>
       </body>
       </html>`;
 
-     // Create a Blob to enforce Content-Type
-     // const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
- 
      const headers = new Headers();
       headers.set('Content-Type', 'text/html');
-      headers.set('X-Debug-Version', '10-debug-ua');
-      headers.set('X-Debug-Photos-Count', String(debugPhotosFound));
+      headers.set('X-Debug-Version', '11-unified-share');
       headers.set('X-Debug-User-Agent', userAgent);
       headers.set('X-Debug-Is-Bot', String(isBot));
       headers.set('Access-Control-Allow-Origin', '*');
@@ -260,6 +262,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('Unexpected error:', err)
-    return Response.redirect(`${appUrl}/bronca/${reportId}`, 302)
+    return Response.redirect(redirectUrl, 302)
   }
 })

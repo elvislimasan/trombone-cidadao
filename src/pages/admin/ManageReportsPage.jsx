@@ -35,7 +35,7 @@ const ManageReportsPage = () => {
     setLoading(true);
     let query = supabase
       .from('reports')
-      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*), favorite_reports!left(*), petitions(id)')
+      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*), favorite_reports!left(*), petitions(id, status)')
       .order('created_at', { ascending: false });
 
     if (user) {
@@ -59,7 +59,8 @@ const ManageReportsPage = () => {
         photos: r.report_media.filter(m => m.type === 'photo'),
         videos: r.report_media.filter(m => m.type === 'video'),
         is_favorited: r.favorite_reports.length > 0,
-        petition_id: r.petitions && r.petitions.length > 0 ? r.petitions[0].id : null,
+        petitionId: r.petitions?.[0]?.id || null,
+        petitionStatus: r.petitions?.[0]?.status || null,
       }));
       setReports(formattedData);
     }
@@ -119,6 +120,21 @@ const ManageReportsPage = () => {
     }
     
     try {
+        // Verificar se já existe uma petição para esta bronca
+        const { data: existingPetitions, error: checkError } = await supabase
+          .from('petitions')
+          .select('id')
+          .eq('report_id', report.id)
+          .limit(1);
+
+        if (checkError) throw checkError;
+
+        if (existingPetitions && existingPetitions.length > 0) {
+          // Se já existe, apenas redireciona para o editor
+          navigate(`/abaixo-assinado/${existingPetitions[0].id}?edit=true`);
+          return;
+        }
+
         const petitionData = {
           title: report.title,
           target: '', // Deixar vazio para preencher no editor
@@ -138,16 +154,11 @@ const ManageReportsPage = () => {
   
         if (createError) throw createError;
   
-        // Atualizar flag na bronca
-        const { error: updateReportError } = await supabase
-          .from('reports')
-          .update({ is_petition: true })
-          .eq('id', report.id);
-  
-        if (updateReportError) console.error("Erro ao atualizar flag na bronca:", updateReportError);
+        // REMOVIDO: Não atualizar a flag is_petition na bronca imediatamente.
+        // Isso só deve acontecer quando o usuário salvar a petição no editor.
   
         toast({
-          title: "Abaixo-Assinado Criado! 🎉",
+          title: "Editor Iniciado",
           description: "Redirecionando para o editor para finalizar os detalhes.",
         });
   
@@ -334,15 +345,15 @@ const ManageReportsPage = () => {
                       <p className="text-sm text-muted-foreground">Autor: {report.author?.name || 'N/A'} | Status: <span className="font-medium">{report.status}</span></p>
                     </div>
                     <div className="flex-shrink-0 flex gap-2 items-center">
-                      {report.is_petition ? (
-                        <a href={report.petition_id ? `/abaixo-assinado/${report.petition_id}` : '/admin/assinaturas'} target="_blank" rel="noopener noreferrer">
+                      {report.petitionId ? (
+                        <a href={`/abaixo-assinado/${report.petitionId}`} target="_blank" rel="noopener noreferrer">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             className="text-blue-600 hover:text-blue-700 hover:bg-blue-100" 
                           >
                             <ExternalLink className="w-4 h-4 mr-2" />
-                            Acompanhar
+                            Acompanhar ({report.petitionStatus})
                           </Button>
                         </a>
                       ) : (

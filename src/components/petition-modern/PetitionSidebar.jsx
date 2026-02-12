@@ -184,7 +184,7 @@ const PetitionSidebar = ({
                         onClick={user ? onSign : onGuestSign}
                         disabled={signing || petition.status !== 'open' || isExpired}
                     >
-                        {signing ? 'Assinando...' : (isExpired ? 'Prazo Encerrado' : 'Assinar Agora')}
+                        {signing ? 'Assinando...' : (isExpired ? 'Prazo Encerrado' : 'Assinar Abaixo-assinado')}
                     </Button>
                      <p className="text-[10px] text-center text-muted-foreground px-2">
                         Ao assinar, você concorda com nossos Termos de Uso e Política de Privacidade.
