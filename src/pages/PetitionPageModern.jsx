@@ -144,7 +144,7 @@ const PetitionPageModern = () => {
                   email: user.email,
                   name: userName,
                   petitionTitle: petition.title,
-                  petitionUrl: window.location.href
+                  petitionUrl: getShareUrl()
                 }
              }).catch(err => console.error(err));
         }
@@ -209,7 +209,7 @@ const PetitionPageModern = () => {
               email: guestForm.email,
               name: guestForm.name,
               petitionTitle: petition.title,
-              petitionUrl: window.location.href
+              petitionUrl: getShareUrl()
             }
          }).catch(err => console.error(err));
 
