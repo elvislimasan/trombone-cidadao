@@ -296,7 +296,7 @@ const PetitionPage = () => {
     if (showLoading) setLoading(true);
     const { data, error } = await supabase
       .from('petitions')
-      .select('*, report:reports(*), signatures:signatures(count), updates:petition_updates(*)')
+      .select('*, report:reports(*), signatures:signatures(count), updates:petition_updates(*), author:profiles(is_admin)')
       .eq('id', id)
       .single();
 

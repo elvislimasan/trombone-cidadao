@@ -90,11 +90,11 @@ const PetitionComments = ({
                     <span className="font-semibold text-[12px] md:text-sm text-foreground">
                       {sig.is_public ? (sig.name || 'Anônimo') : 'Apoiador Anônimo'}
                     </span>
-                    <span className="text-[10px] md:text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{sig.city || 'Brasil'}</span>
+                    <span className="text-[10px] md:text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full break-all overflow-hidden">{sig.city || 'Brasil'}</span>
                     <span className="text-[10px] md:text-xs text-muted-foreground">• {formatDistanceToNow(new Date(sig.created_at), { addSuffix: true, locale: ptBR })}</span>
                   </div>
                   {sig.comment && (
-                    <p className="text-[12px] md:text-sm text-foreground/80 leading-relaxed">"{sig.comment}"</p>
+                    <p className="text-[12px] md:text-sm text-foreground/80 leading-relaxed break-all overflow-hidden">"{sig.comment}"</p>
                   )}
                 </div>
               </div>

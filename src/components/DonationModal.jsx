@@ -200,7 +200,7 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
                     <p className="text-muted-foreground">
                         {isPlatformDonation 
                             ? 'Ajude a manter e evoluir nossa tecnologia para amplificar mais vozes.'
-                            : <>Ajude a resolver <span className="font-semibold text-foreground">"{petitionId ? (reportTitle || targetTitle) : targetTitle}"</span> mais rápido.</>
+                            : <>Ajude a manter e evoluir nossa plataforma!</>
                         }
                     </p>
                 </div>
@@ -268,7 +268,7 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
                     <DialogDescription>
                         {isPlatformDonation 
                             ? 'Ajude a manter e evoluir nossa tecnologia.'
-                            : `Ajude a resolver "${petitionId ? (reportTitle || targetTitle) : targetTitle}" mais rápido.`
+                            : `Ajude a manter e evoluir nossa tecnologia.`
                         }
                     </DialogDescription>
                     </DialogHeader>
