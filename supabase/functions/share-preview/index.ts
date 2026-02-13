@@ -90,7 +90,10 @@ Deno.serve(async (req) => {
 
       if (!error && petition) {
         title = petition.title ? `${petition.title} - Trombone Cidadão` : defaultTitle
-        description = petition.description || defaultDesc
+        description = (petition.description || defaultDesc)
+          .replace(/[\n\r]/g, ' ')
+          .replace(/"/g, '&quot;')
+          .substring(0, 200)
         signatureCount = String(petition.signatures?.[0]?.count || 0)
         goal = String(petition.goal || 100)
         
@@ -110,7 +113,10 @@ Deno.serve(async (req) => {
 
       if (!error && report) {
         title = report.title ? `${report.title} - Trombone Cidadão` : defaultTitle
-        description = report.description || defaultDesc
+        description = (report.description || defaultDesc)
+          .replace(/[\n\r]/g, ' ')
+          .replace(/"/g, '&quot;')
+          .substring(0, 200)
         
         // Check report_media for photos
         let photos = report.report_media?.filter((m: any) => m.type === 'photo') || []
@@ -159,6 +165,7 @@ Deno.serve(async (req) => {
         <meta property="og:type" content="website">
         <meta property="og:url" content="${proxyUrl}">
         <meta property="og:title" content="${title}">
+        <meta property="og:description" content="${description}">
         <meta property="og:image" content="${image}">
         <meta property="og:image:width" content="1200">
         <meta property="og:image:height" content="630">
@@ -167,6 +174,7 @@ Deno.serve(async (req) => {
         <meta property="twitter:card" content="summary_large_image">
         <meta property="twitter:url" content="${proxyUrl}">
         <meta property="twitter:title" content="${title}">
+        <meta property="twitter:description" content="${description}">
         <meta property="twitter:image" content="${image}">
 
         <!-- WhatsApp / General -->

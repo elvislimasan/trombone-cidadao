@@ -513,7 +513,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
   };
 
   const availableSteps = [
-    ...STEPS,
+    ...STEPS.filter(step => step.id !== 'settings' || isAdmin),
     ...(petition.status !== 'draft' ? [
       { id: 'history', label: 'Histórico', icon: History, description: 'Versões anteriores' }
     ] : [])
@@ -521,6 +521,16 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
   const currentStepIndex = availableSteps.findIndex(s => s.id === activeStep);
   const progress = ((currentStepIndex + 1) / availableSteps.length) * 100;
+
+  // Redirecionar se o passo atual não estiver disponível para o usuário (ex: configurações para não-admin)
+  useEffect(() => {
+    if (activeStep && availableSteps.length > 0) {
+      const stepExists = availableSteps.some(s => s.id === activeStep);
+      if (!stepExists) {
+        setActiveStep(availableSteps[0].id);
+      }
+    }
+  }, [activeStep, availableSteps]);
 
   const nextStep = () => {
     if (currentStepIndex < availableSteps.length - 1) {
@@ -893,15 +903,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                         )}
                       </div>
                     </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-muted/20 rounded-xl border border-dashed">
-                      <div className="bg-muted p-4 rounded-full mb-4">
-                        <Settings className="w-8 h-8 opacity-50" />
-                      </div>
-                      <h3 className="text-lg font-medium mb-1">Acesso Restrito</h3>
-                      <p>Apenas administradores podem alterar configurações avançadas.</p>
-                    </div>
-                  )}
+                  ) : null}
                 </CardContent>
               </Card>
             </div>
