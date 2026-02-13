@@ -134,7 +134,7 @@ export const ShareModal = ({ isOpen, onClose, url, title }) => {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md bg-card">
+            <DialogContent className="sm:max-w-md bg-card max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-center">O compartilhamento leva a muito mais assinaturas.</DialogTitle>
                 </DialogHeader>

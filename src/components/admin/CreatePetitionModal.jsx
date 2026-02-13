@@ -108,7 +108,7 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-card border-border">
+      <DialogContent className="sm:max-w-[500px] bg-card border-border max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{report ? 'Transformar em Abaixo-Assinado' : 'Criar Abaixo-Assinado'}</DialogTitle>
         </DialogHeader>
