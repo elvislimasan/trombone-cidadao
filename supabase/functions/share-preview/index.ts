@@ -138,23 +138,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Use og-image function if it's a petition for a better visual preview
-    if (contentType === 'peticao' && contentId) {
-      const ogImageUrl = new URL(`${supabaseUrl}/functions/v1/og-image`);
-      ogImageUrl.searchParams.set('title', title.replace(' - Trombone Cidadão', ''));
-      ogImageUrl.searchParams.set('count', signatureCount);
-      ogImageUrl.searchParams.set('goal', goal);
-      
-      // Always pass an image to og-image for petitions
-      if (image) {
-        ogImageUrl.searchParams.set('image', image);
-      }
-      
-      image = ogImageUrl.toString();
-    } else if (image && !image.includes('wsrv.nl') && image.startsWith('http')) {
-      // Optimize other images with wsrv.nl
+    // Optimize image URL if it's a direct link
+    if (image && !image.includes('wsrv.nl') && image.startsWith('http')) {
       const cleanUrl = image.split('?')[0];
-      image = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=600&h=315&fit=cover&q=60&output=jpg`;
+      image = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=1200&h=630&fit=cover&q=80&output=jpg`;
     }
 
     // HTML Template with Meta Tags
@@ -166,14 +153,12 @@ Deno.serve(async (req) => {
       <head>
         <meta charset="UTF-8">
         <title>${title}</title>
-        <meta name="description" content="${description}">
         <meta http-equiv="refresh" content="0;url=${redirectUrl}">
         
         <!-- Open Graph / Facebook -->
-        <meta property="og:type" content="article">
+        <meta property="og:type" content="website">
         <meta property="og:url" content="${proxyUrl}">
         <meta property="og:title" content="${title}">
-        <meta property="og:description" content="${description}">
         <meta property="og:image" content="${image}">
         <meta property="og:image:width" content="1200">
         <meta property="og:image:height" content="630">
@@ -182,7 +167,6 @@ Deno.serve(async (req) => {
         <meta property="twitter:card" content="summary_large_image">
         <meta property="twitter:url" content="${proxyUrl}">
         <meta property="twitter:title" content="${title}">
-        <meta property="twitter:description" content="${description}">
         <meta property="twitter:image" content="${image}">
 
         <!-- WhatsApp / General -->
