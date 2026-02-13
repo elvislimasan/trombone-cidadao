@@ -56,7 +56,7 @@ const PetitionHero = ({
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 w-full">
         <div className="flex flex-wrap items-center gap-x-2 md:gap-x-3 gap-y-1.5 md:gap-y-2">
           {getStatusBadge(petition.status)}
-          <div className="flex flex-wrap items-center gap-x-3 md:gap-x-4 gap-y-1 text-[10px] md:text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 md:gap-x-4 gap-y-1 text-[10px] md:text-sm text-muted-foreground break-all overflow-hidden">
             <span className="flex items-center gap-1 md:gap-1.5">
               <CalendarDays className="h-3 w-3 md:h-4 md:w-4 shrink-0" />
               {formattedDate}
@@ -84,7 +84,7 @@ const PetitionHero = ({
       </div>
 
       {/* Title */}
-      <h1 className="text-balance break-words text-lg md:text-2xl lg:text-3xl font-bold leading-tight tracking-tight text-foreground">
+      <h1 className="text-balance break-all text-lg md:text-2xl lg:text-3xl font-bold leading-tight tracking-tight text-foreground max-w-full overflow-hidden">
         {title}
       </h1>
 

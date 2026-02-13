@@ -181,9 +181,9 @@ const PetitionSignatureCard = ({
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="text-[12px] md:text-sm">
-                    <p className="font-medium text-foreground">{displayName}</p>
-                    <p className="text-[10px] md:text-xs text-muted-foreground">
+                  <div className="text-[12px] md:text-sm min-w-0 flex-1">
+                    <p className="font-medium text-foreground break-all overflow-hidden">{displayName}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground break-all overflow-hidden">
                         {signer.created_at ? formatDistanceToNow(new Date(signer.created_at), { addSuffix: true, locale: ptBR }) : 'Recentemente'}
                     </p>
                   </div>

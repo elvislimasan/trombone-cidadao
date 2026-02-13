@@ -44,6 +44,16 @@ const defaultImportanceItems = [
   { icon: "Eye", text: "Cria visibilidade para o problema" },
 ];
 
+const hasLongWords = (text) => {
+  if (!text) return false;
+  // Remove HTML tags for content validation and handle non-breaking spaces
+  const plainText = text.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+  // Split by whitespace and check each word
+  const words = plainText.split(/\s+/);
+  // A word is considered a continuous string of characters without whitespace
+  return words.some(word => word.length > 30);
+};
+
 const STEPS = [
   { id: 'basic', label: 'Básico', icon: FileText, description: 'Informações principais' },
   { id: 'content', label: 'História', icon: MessageSquare, description: 'Conte sua causa' },
@@ -74,6 +84,8 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
   const [submitted, setSubmitted] = useState(false);
   
   const isAdmin = user?.is_admin;
+  const isAuthor = user?.id === petition.author_id;
+  const hideDraftOption = isAdmin && !isAuthor;
   
   // State for Wizard/Tabs
   const [searchParams, setSearchParams] = useSearchParams();
@@ -197,10 +209,16 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
         let stepErrors = {};
         if (!formData.title?.trim()) {
             stepErrors.title = "Por favor, adicione um título para sua petição.";
+        } else if (hasLongWords(formData.title)) {
+            stepErrors.title = "O título contém palavras muito longas (máximo 30 caracteres sem espaços).";
         }
+
         if (!formData.target?.trim()) {
             stepErrors.target = "Por favor, informe quem deve receber esta petição.";
+        } else if (hasLongWords(formData.target)) {
+            stepErrors.target = "O destinatário contém palavras muito longas (máximo 30 caracteres sem espaços).";
         }
+
         if (!formData.goal || formData.goal < 1) {
             stepErrors.goal = "Por favor, defina uma meta válida de assinaturas.";
         }
@@ -219,6 +237,13 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
              setActiveStep('content');
              setLoading(false);
              return;
+        }
+
+        if (hasLongWords(content)) {
+            setErrors(prev => ({ ...prev, content: "A história contém palavras muito longas (máximo 30 caracteres sem espaços)." }));
+            setActiveStep('content');
+            setLoading(false);
+            return;
         }
 
         if (plainTextContent.length < 500) {
@@ -501,9 +526,14 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
   const handleAddImportanceItem = () => {
     if (!newItemText.trim()) return;
+    if (hasLongWords(newItemText)) {
+      setErrors(prev => ({ ...prev, importance: "O texto contém palavras muito longas (máximo 30 caracteres sem espaços)." }));
+      return;
+    }
     const newItem = { icon: newItemIcon, text: newItemText.trim() };
     handleChange('importance_list', [...(formData.importance_list || []), newItem]);
     setNewItemText('');
+    setErrors(prev => ({ ...prev, importance: null }));
   };
 
   const handleRemoveImportanceItem = (index) => {
@@ -541,10 +571,16 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
           let stepErrors = {};
           if (!formData.title?.trim()) {
               stepErrors.title = "Por favor, adicione um título para sua petição.";
+          } else if (hasLongWords(formData.title)) {
+              stepErrors.title = "O título contém palavras muito longas (máximo 30 caracteres sem espaços).";
           }
+
           if (!formData.target?.trim()) {
               stepErrors.target = "Por favor, informe quem deve receber esta petição.";
+          } else if (hasLongWords(formData.target)) {
+              stepErrors.target = "O destinatário contém palavras muito longas (máximo 30 caracteres sem espaços).";
           }
+
           if (!formData.goal || formData.goal < 1) {
               stepErrors.goal = "Por favor, defina uma meta válida de assinaturas.";
           }
@@ -561,6 +597,11 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
           if (!plainTextContent) {
                setErrors(prev => ({ ...prev, content: "Por favor, conte a história da sua causa." }));
                return;
+          }
+
+          if (hasLongWords(content)) {
+              setErrors(prev => ({ ...prev, content: "A história contém palavras muito longas (máximo 30 caracteres sem espaços)." }));
+              return;
           }
 
           if (plainTextContent.length < 500) {
@@ -769,6 +810,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                        Adicionar
                      </Button>
                   </div>
+                  {errors.importance && <p className="text-sm text-destructive mt-2 font-medium">{errors.importance}</p>}
                 </CardContent>
               </Card>
             </div>
@@ -1090,22 +1132,26 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
         <div className="flex items-center gap-2 shrink-0">
           <div className="hidden md:flex gap-2">
-             <Button variant="outline" onClick={() => handleSave('draft')} disabled={loading}>
+            {!hideDraftOption && (
+              <Button variant="outline" onClick={() => handleSave('draft')} disabled={loading}>
                 <Save className="w-4 h-4 mr-2" />
                 Salvar Rascunho
-            </Button>
+              </Button>
+            )}
             {formData.status !== 'closed' && (
                 <Button onClick={() => handleSave('open')} disabled={loading} className="bg-red-500 hover:bg-red-600">
                     <Send className="w-4 h-4 mr-2" />
-                    {isAdmin ? 'Publicar' : 'Enviar para Moderação'}
+                    {hideDraftOption ? 'Publicar' : 'Enviar para Moderação'}
                 </Button>
             )}
           </div>
 
           <div className="flex md:hidden items-center gap-1.5">
-             <Button variant="ghost" size="icon" onClick={() => handleSave('draft')} disabled={loading} title="Salvar Rascunho" className="h-9 w-9">
+            {!hideDraftOption && (
+              <Button variant="ghost" size="icon" onClick={() => handleSave('draft')} disabled={loading} title="Salvar Rascunho" className="h-9 w-9">
                 <Save className="w-5 h-5" />
-            </Button>
+              </Button>
+            )}
             {formData.status !== 'closed' && (
                 <Button 
                   size="sm" 
@@ -1113,7 +1159,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                   disabled={loading} 
                   className="bg-red-500 hover:bg-red-600 text-[11px] px-3 h-9 font-bold"
                 >
-                    {isAdmin ? 'Publicar' : 'Enviar'}
+                    {hideDraftOption ? 'Publicar' : 'Enviar'}
                 </Button>
             )}
           </div>
@@ -1212,7 +1258,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                   onClick={() => handleSave('open')}
                   disabled={loading}
                 >
-                  {petition.status === 'open' ? 'Salvar' : (isAdmin ? 'Publicar' : 'Enviar para Moderação')} <Send className="w-4 h-4 ml-2" />
+                  {petition.status === 'open' ? 'Salvar' : (hideDraftOption ? 'Publicar' : 'Enviar para Moderação')} <Send className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
                 <Button 
