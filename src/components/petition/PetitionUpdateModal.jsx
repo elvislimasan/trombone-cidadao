@@ -162,7 +162,7 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Novidade</DialogTitle>
           <DialogDescription>

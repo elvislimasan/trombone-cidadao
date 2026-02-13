@@ -214,7 +214,7 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md bg-card">
+      <DialogContent className="sm:max-w-md bg-card max-h-[95vh] overflow-y-auto">
         {step === 'donation' && renderDonationStep()}
         {step === 'account-creation' && renderAccountCreationStep()}
         {step === 'share' && renderShareStep()}

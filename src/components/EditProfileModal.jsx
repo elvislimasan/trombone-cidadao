@@ -84,7 +84,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-card border-border">
+      <DialogContent className="sm:max-w-md bg-card border-border max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-foreground">Editar Perfil</DialogTitle>
           <DialogDescription>

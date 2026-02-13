@@ -64,6 +64,7 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
   const navigate = useNavigate();
   const [amount, setAmount] = useState(initialAmount || donationOptions[1] || 5); // Default to provided initial or second option or 5
   const [step, setStep] = useState('select-amount'); // select-amount, processing, qr, stripe-payment, success
+  const [mobileSubStep, setMobileSubStep] = useState(1); // 1: amount/payment, 2: guest info (mobile only)
   const [pixPayload, setPixPayload] = useState('');
   const [pixQrCodeBase64, setPixQrCodeBase64] = useState(null);
   const [currentDonationId, setCurrentDonationId] = useState(null);
@@ -110,6 +111,7 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
   useEffect(() => {
     if (!isOpen) {
       setStep('select-amount');
+      setMobileSubStep(1);
       setPixPayload('');
       setPixQrCodeBase64(null);
       setClientSecret(null);
@@ -235,8 +237,15 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
             {/* Right Column (Desktop) / Full Width (Mobile) - Form */}
             <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                {step === 'qr' || step === 'stripe-payment' ? (
-                    <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => setStep('select-amount')}>
+                {step === 'qr' || step === 'stripe-payment' || (step === 'select-amount' && mobileSubStep === 2) ? (
+                    <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => {
+                        if (step === 'select-amount' && mobileSubStep === 2) {
+                            setMobileSubStep(1);
+                        } else {
+                            setStep('select-amount');
+                            setMobileSubStep(user ? 1 : 2);
+                        }
+                    }}>
                     <ChevronLeft className="w-4 h-4" /> Voltar
                     </Button>
                 ) : (
@@ -267,52 +276,55 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
 
                 {step === 'select-amount' && (
                 <div className="space-y-6 py-2">
-                    <div className="grid grid-cols-3 gap-3">
-                    {donationOptions.map((value) => (
-                        <Button
-                        key={value}
-                        variant={amount === value ? "default" : "outline"}
-                        className={`h-12 text-lg ${amount === value ? "bg-red-500 hover:bg-red-600 border-red-500" : ""}`}
-                        onClick={() => setAmount(value)}
-                        >
-                        R$ {value}
-                        </Button>
-                    ))}
-                    </div>
-                    
-                    <div className="space-y-2">
-                    <Label>Outro valor (R$)</Label>
-                    <Input 
-                        type="number" 
-                        min="1" 
-                        value={amount} 
-                        onChange={(e) => setAmount(Number(e.target.value))}
-                        className="text-lg"
-                    />
-                    </div>
+                    {/* Passo 1: Valor e Método de Pagamento */}
+                    <div className={mobileSubStep === 2 ? "hidden md:block space-y-6" : "space-y-6"}>
+                        <div className="grid grid-cols-3 gap-3">
+                        {donationOptions.map((value) => (
+                            <Button
+                            key={value}
+                            variant={amount === value ? "default" : "outline"}
+                            className={`h-12 text-lg ${amount === value ? "bg-red-500 hover:bg-red-600 border-red-500" : ""}`}
+                            onClick={() => setAmount(value)}
+                            >
+                            R$ {value}
+                            </Button>
+                        ))}
+                        </div>
+                        
+                        <div className="space-y-2">
+                        <Label>Outro valor (R$)</Label>
+                        <Input 
+                            type="number" 
+                            min="1" 
+                            value={amount} 
+                            onChange={(e) => setAmount(Number(e.target.value))}
+                            className="text-lg"
+                        />
+                        </div>
 
-                    <div className="mt-4 mb-4">
-                    <Label className="mb-2 block text-sm font-medium">Forma de Pagamento</Label>
-                    <Tabs defaultValue="pix" value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="pix" className="flex items-center gap-2" title="Pix Automático via Mercado Pago"><QrCode className="w-4 h-4"/> Pix (Mercado Pago)</TabsTrigger>
-                            <TabsTrigger value="card" disabled className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Em breve"><CreditCard className="w-4 h-4"/> Cartão (Em breve)</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                    {paymentMethod === 'card' && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                        Pagamento seguro processado via Stripe.
-                        </p>
-                    )}
-                    {paymentMethod === 'pix' && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                        Pagamento via Pix com confirmação automática pelo Mercado Pago.
-                        </p>
-                    )}
+                        <div className="mt-4 mb-4">
+                        <Label className="mb-2 block text-sm font-medium">Forma de Pagamento</Label>
+                        <Tabs defaultValue="pix" value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="pix" className="flex items-center gap-2" title="Pix Automático via Mercado Pago"><QrCode className="w-4 h-4"/> Pix (Mercado Pago)</TabsTrigger>
+                                <TabsTrigger value="card" disabled className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Em breve"><CreditCard className="w-4 h-4"/> Cartão (Em breve)</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                        {paymentMethod === 'card' && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                            Pagamento seguro processado via Stripe.
+                            </p>
+                        )}
+                        {paymentMethod === 'pix' && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                            Pagamento via Pix com confirmação automática pelo Mercado Pago.
+                            </p>
+                        )}
+                        </div>
                     </div>
 
                     {!user && (
-                        <div className="space-y-3 mb-4 border-t pt-4">
+                        <div className={mobileSubStep === 1 ? "hidden md:block space-y-3 mb-4 border-t pt-4" : "space-y-3 mb-4 border-t pt-4"}>
                             <Label className="text-base font-semibold">Seus Dados</Label>
                             <p className="text-xs text-muted-foreground mb-2">Informe seus dados para identificarmos sua doação e enviarmos o comprovante.</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -461,8 +473,24 @@ const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onCl
                 <DialogFooter className={`sm:justify-end gap-2 mt-6 ${step === 'select-amount' ? 'border-t pt-4' : ''}`}>
                 {step === 'select-amount' && (
                     <>
-                    <Button variant="outline" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleDonate} className="bg-red-500 hover:bg-red-600 text-white font-bold w-full sm:w-auto">
+                    <Button variant="outline" onClick={onClose} className="hidden md:flex">Cancelar</Button>
+                    
+                    {/* Botões Mobile */}
+                    <div className="flex flex-col w-full gap-2 md:hidden">
+                        {mobileSubStep === 1 && !user ? (
+                            <Button onClick={() => setMobileSubStep(2)} className="bg-red-500 hover:bg-red-600 text-white font-bold w-full">
+                                Continuar
+                            </Button>
+                        ) : (
+                            <Button onClick={handleDonate} className="bg-red-500 hover:bg-red-600 text-white font-bold w-full">
+                                Doar R$ {amount.toFixed(2)}
+                            </Button>
+                        )}
+                        <Button variant="outline" onClick={onClose} className="w-full">Cancelar</Button>
+                    </div>
+
+                    {/* Botão Desktop */}
+                    <Button onClick={handleDonate} className="hidden md:flex bg-red-500 hover:bg-red-600 text-white font-bold w-full sm:w-auto">
                         Doar R$ {amount.toFixed(2)}
                     </Button>
                     </>
