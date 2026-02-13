@@ -603,17 +603,20 @@ const PetitionPage = () => {
   const handleShare = async () => {
     const shareUrl = getShareUrl();
     try {
-      if (navigator.share) {
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({
+          url: shareUrl,
+        });
+      } else if (navigator.share) {
         await navigator.share({
-          title: petition.title,
-          text: `Assine este abaixo-assinado: ${petition.title}`,
           url: shareUrl,
         });
       } else {
-        throw new Error('Web Share API not supported');
+        await navigator.clipboard.writeText(shareUrl);
+        toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
       }
-    } catch (error) {
-      console.log('Share fallback:', error);
+    } catch (err) {
+      console.error('Error sharing:', err);
       navigator.clipboard.writeText(shareUrl);
       toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
     }

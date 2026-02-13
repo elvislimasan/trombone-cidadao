@@ -36,8 +36,6 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
 
   const handleShare = async () => {
     const shareData = {
-      title: `Assine: ${petitionTitle}`,
-      text: `Acabei de assinar este abaixo-assinado: ${petitionTitle}. Assine você também!`,
       url: petitionUrl,
       dialogTitle: 'Compartilhar Abaixo-Assinado',
     };

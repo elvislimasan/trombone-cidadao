@@ -337,8 +337,6 @@ const PetitionPageModern = () => {
                      const shareUrl = getShareUrl();
                      try {
                         await navigator.share({
-                            title: petition.title,
-                            text: `Assine este abaixo-assinado: ${petition.title}`,
                             url: shareUrl,
                         });
                      } catch (err) {
@@ -359,8 +357,6 @@ const PetitionPageModern = () => {
                   const shareUrl = getShareUrl();
                   try {
                     await navigator.share({
-                      title: petition.title,
-                      text: `Apoie esta causa: ${petition.title}`,
                       url: shareUrl,
                     });
                   } catch (err) {
