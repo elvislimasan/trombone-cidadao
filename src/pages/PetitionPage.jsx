@@ -482,7 +482,7 @@ const PetitionPage = () => {
                   email: user.email,
                   name: userName,
                   petitionTitle: petition.title,
-                  petitionUrl: window.location.href
+                  petitionUrl: getShareUrl()
                 }
               }).then(({ data, error }) => {
                 if (error) console.error('Erro ao enviar email (Function):', error);
@@ -579,7 +579,7 @@ const PetitionPage = () => {
               email: guestForm.email,
               name: guestForm.name,
               petitionTitle: petition.title,
-              petitionUrl: window.location.href
+              petitionUrl: getShareUrl()
             }
           }).then(({ data, error }) => {
             if (error) console.error('Erro ao enviar email (Function Guest):', error);
@@ -657,7 +657,7 @@ const PetitionPage = () => {
               email: user.email,
               name: userName,
               petitionTitle: petition.title,
-              petitionUrl: window.location.href
+              petitionUrl: getShareUrl()
             }
           }).then(({ data, error }) => {
             if (error) console.error('Erro ao enviar email (Function Logged):', error);
@@ -823,7 +823,7 @@ const PetitionPage = () => {
                       onDonate={(amount) => {
                           setShowDonationModal(true);
                       }}
-                      shareUrl={window.location.href}
+                      shareUrl={getShareUrl()}
                   />
               </div>
 
@@ -918,7 +918,7 @@ const PetitionPage = () => {
                       // Pass amount if DonationModal supports it, or just open
                       setShowDonationModal(true);
                   }}
-                  shareUrl={window.location.href}
+                  shareUrl={getShareUrl()}
               />
 
              
