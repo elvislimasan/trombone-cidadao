@@ -253,6 +253,13 @@ const PetitionPageModern = () => {
       }
   };
 
+  const getShareUrl = () => {
+    const origin = window.location.origin.includes('localhost') 
+      ? 'https://trombone-cidadao.vercel.app' 
+      : window.location.origin;
+    return `${origin}/share/abaixo-assinado/${id}`;
+  };
+
   if (loading) {
     return (
         <div className="min-h-screen bg-background">
@@ -327,14 +334,15 @@ const PetitionPageModern = () => {
                  allowNotifications={currentAllowNotifications}
                  setAllowNotifications={setAllowNotifications}
                  onShare={async () => {
+                     const shareUrl = getShareUrl();
                      try {
                         await navigator.share({
                             title: petition.title,
                             text: `Assine este abaixo-assinado: ${petition.title}`,
-                            url: window.location.href,
+                            url: shareUrl,
                         });
                      } catch (err) {
-                        navigator.clipboard.writeText(window.location.href);
+                        navigator.clipboard.writeText(shareUrl);
                         toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
                      }
                  }}
@@ -348,14 +356,15 @@ const PetitionPageModern = () => {
                 totalDonations={0} // This should be fetched if available
                 onDonate={() => setShowDonationModal(true)}
                 onShare={async () => {
+                  const shareUrl = getShareUrl();
                   try {
                     await navigator.share({
                       title: petition.title,
                       text: `Apoie esta causa: ${petition.title}`,
-                      url: window.location.href,
+                      url: shareUrl,
                     });
                   } catch (err) {
-                    navigator.clipboard.writeText(window.location.href);
+                    navigator.clipboard.writeText(shareUrl);
                     toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
                   }
                 }}
@@ -386,7 +395,13 @@ const PetitionPageModern = () => {
          <PetitionJourney 
             isOpen={showJourney} 
             onClose={() => setShowJourney(false)} 
-            petition={petition}
+            petitionTitle={petition?.title}
+            petitionUrl={getShareUrl()}
+            onDonate={() => setShowDonationModal(true)}
+            userName={user ? (user.user_metadata?.name || 'Cidadão') : guestForm.name}
+            guestEmail={!user ? guestForm.email : null}
+            donationEnabled={petition?.donation_enabled !== false}
+            isGuest={!user}
          />
       )}
     </div>

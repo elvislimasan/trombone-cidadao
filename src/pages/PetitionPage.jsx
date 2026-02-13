@@ -593,20 +593,28 @@ const PetitionPage = () => {
       }
   };
 
+  const getShareUrl = () => {
+    const origin = window.location.origin.includes('localhost') 
+      ? 'https://trombone-cidadao.vercel.app' 
+      : window.location.origin;
+    return `${origin}/share/abaixo-assinado/${id}`;
+  };
+
   const handleShare = async () => {
+    const shareUrl = getShareUrl();
     try {
       if (navigator.share) {
         await navigator.share({
           title: petition.title,
           text: `Assine este abaixo-assinado: ${petition.title}`,
-          url: window.location.href,
+          url: shareUrl,
         });
       } else {
         throw new Error('Web Share API not supported');
       }
     } catch (error) {
       console.log('Share fallback:', error);
-      navigator.clipboard.writeText(window.location.href);
+      navigator.clipboard.writeText(shareUrl);
       toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
     }
   };
@@ -952,7 +960,7 @@ const PetitionPage = () => {
         isOpen={showJourney} 
         onClose={() => setShowJourney(false)} 
         petitionTitle={petition?.title}
-        petitionUrl={window.location.href}
+        petitionUrl={getShareUrl()}
         onDonate={() => setShowDonationModal(true)}
         userName={user ? (user.user_metadata?.name || 'Cidadão') : guestForm.name}
         guestEmail={!user ? guestForm.email : null}

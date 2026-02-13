@@ -14,94 +14,45 @@ Deno.serve(async (req) => {
   const url = new URL(req.url)
   const contentId = url.searchParams.get('id')
   const contentType = url.searchParams.get('type') || 'bronca' // 'bronca' ou 'peticao'
-  const reportId = contentId // For debug compatibility
   
-  // Default fallback values
-  const defaultTitle = 'Trombone Cidadão'
-  const defaultDesc = 'Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE.'
-  const appUrl = 'https://trombonecidadao.com.br'
-  
-  // Imagem padrão baseada no tipo
-  const defaultImage = contentType === 'peticao' 
-    ? `${appUrl}/abaixo-assinado.jpg`
-    : `${appUrl}/images/thumbnail.jpg`;
-
-  // Construct the destination URL
-  const redirectUrl = contentId 
-    ? (contentType === 'peticao' ? `${appUrl}/abaixo-assinado/${contentId}` : `${appUrl}/bronca/${contentId}`)
-    : appUrl;
-
-  // 1. User-Agent Detection
-  const userAgent = req.headers.get('user-agent') || '';
-  const botRegex = /bot|googlebot|crawler|spider|robot|crawling|facebook|twitter|whatsapp|telegram|discord|slack|skype|linkedin|applebot|bingbot|yahoo|duckduckgo|yandex/i;
-  
-  const isBot = botRegex.test(userAgent);
-  const isDebug = url.searchParams.has('debug');
-
   // Initialize Supabase Client
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
   const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-  if (isDebug) {
-      try {
-        // Try to fetch report to debug DB errors
-        const { data: report, error } = await supabase
-            .from('reports')
-            .select('title, description, protocol, id, report_media(*)')
-            .eq('id', reportId)
-            .single();
-
-        let photos = [];
-        let imageSelectionLog = [];
-        
-        if (report && report.report_media) {
-             photos = report.report_media.filter((m: any) => m.type === 'photo');
-             
-             // Sort log
-             photos.sort((a: any, b: any) => {
-                const dateA = new Date(a.created_at || 0).getTime();
-                const dateB = new Date(b.created_at || 0).getTime();
-                return dateA - dateB;
-            });
-            
-            for (const photo of photos) {
-                 const rawUrl = photo.url || photo.publicUrl || photo.photo_url || photo.image_url;
-                 imageSelectionLog.push({
-                     id: photo.id,
-                     created_at: photo.created_at,
-                     rawUrl: rawUrl,
-                     isAbsolute: rawUrl?.startsWith('http'),
-                     isRelative: rawUrl?.startsWith('/')
-                 });
-            }
-        }
-
-        return new Response(JSON.stringify({
-            userAgent,
-            isBot,
-            isBotRegex: botRegex.toString(),
-            reportId,
-            dbResult: { report, error },
-            imageSelectionLog,
-            headers: Object.fromEntries(req.headers.entries())
-        }, null, 2), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-      } catch (e: any) {
-        return new Response(JSON.stringify({
-            error: e.message,
-            stack: e.stack
-        }, null, 2), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
-      }
+  // Default fallback values
+  const defaultTitle = 'Trombone Cidadão'
+  const defaultDesc = 'Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE.'
+  
+  // Smart App URL Detection based on Supabase Project ID
+  let appUrl = 'https://trombonecidadao.com.br'; // Production default
+  
+  if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+    // Development Environment
+    appUrl = 'https://trombone-cidadao.vercel.app';
+  } else if (supabaseUrl.includes('mrejgpcxaevooofyenzq')) {
+    // Production Environment
+    appUrl = 'https://trombonecidadao.com.br';
   }
+  
+  // Imagem padrão baseada no tipo
+    const defaultImage = contentType === 'peticao' 
+      ? `${appUrl}/abaixo-assinado.jpg`
+      : `${appUrl}/images/thumbnail.jpg`;
 
-  // 2. If it's a human (not a bot) and not debugging, redirect immediately via 302
-  // This ensures the user never sees the Supabase URL in their browser bar
-  if (!isBot && !isDebug) {
+    // Construct the destination URL
+    const redirectUrl = contentId 
+      ? (contentType === 'peticao' ? `${appUrl}/abaixo-assinado/${contentId}` : `${appUrl}/bronca/${contentId}`)
+      : appUrl;
+
+    // 1. User-Agent Detection
+    const userAgent = req.headers.get('user-agent') || '';
+    const botRegex = /bot|googlebot|crawler|spider|robot|crawling|facebook|twitter|whatsapp|telegram|discord|slack|skype|linkedin|applebot|bingbot|yahoo|duckduckgo|yandex/i;
+    
+    const isBot = botRegex.test(userAgent);
+  
+    // 2. If it's a human (not a bot), redirect immediately via 302
+  if (!isBot) {
     return new Response(null, {
       status: 302,
       headers: {
@@ -146,7 +97,7 @@ Deno.serve(async (req) => {
         if (petition.image_url) {
           image = petition.image_url.startsWith('http') 
             ? petition.image_url 
-            : `${supabaseUrl}/storage/v1/object/public/petition-images/${petition.image_url}`;
+            : `${supabaseUrl}/storage/v1/object/public/petition-images/${encodeURIComponent(petition.image_url)}`;
         }
       }
     } else {
@@ -193,9 +144,12 @@ Deno.serve(async (req) => {
       ogImageUrl.searchParams.set('title', title.replace(' - Trombone Cidadão', ''));
       ogImageUrl.searchParams.set('count', signatureCount);
       ogImageUrl.searchParams.set('goal', goal);
-      if (image && image !== defaultImage) {
+      
+      // Always pass an image to og-image for petitions
+      if (image) {
         ogImageUrl.searchParams.set('image', image);
       }
+      
       image = ogImageUrl.toString();
     } else if (image && !image.includes('wsrv.nl') && image.startsWith('http')) {
       // Optimize other images with wsrv.nl
@@ -251,7 +205,7 @@ Deno.serve(async (req) => {
 
      const headers = new Headers();
       headers.set('Content-Type', 'text/html');
-      headers.set('X-Debug-Version', '11-unified-share');
+      headers.set('X-Debug-Version', '12-optimized-petition');
       headers.set('X-Debug-User-Agent', userAgent);
       headers.set('X-Debug-Is-Bot', String(isBot));
       headers.set('Access-Control-Allow-Origin', '*');
