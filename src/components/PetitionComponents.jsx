@@ -112,21 +112,20 @@ export const ShareModal = ({ isOpen, onClose, url, title }) => {
     };
 
     const shareSocial = (platform) => {
-        const text = `Assine e compartilhe esta petição: ${title}`;
         let shareLink = '';
         
         switch(platform) {
             case 'whatsapp':
-                shareLink = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+                shareLink = `https://wa.me/?text=${encodeURIComponent(url)}`;
                 break;
             case 'facebook':
                 shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
                 break;
             case 'twitter':
-                shareLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+                shareLink = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}`;
                 break;
             case 'email':
-                shareLink = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text + ' ' + url)}`;
+                shareLink = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`;
                 break;
         }
         

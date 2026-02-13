@@ -127,8 +127,7 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
 
   const renderShareStep = () => {
     const encodedUrl = encodeURIComponent(petitionUrl);
-    const encodedTitle = encodeURIComponent(`Assine: ${petitionTitle}`);
-    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`;
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedUrl}`;
     const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
 
     return (
