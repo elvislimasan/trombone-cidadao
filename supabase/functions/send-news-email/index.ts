@@ -231,25 +231,22 @@ serve(async (req) => {
     // 3. Send Emails in Batches
     let emailList = Array.from(recipients)
     
-    // --- RESEND TEST MODE SAFEGUARD ---
-    // O erro "validation_error" ocorre porque no plano gratuito/teste do Resend (usando @resend.dev),
-    // você SÓ pode enviar emails para o endereço cadastrado na sua conta (lairtondasilva07@gmail.com).
-    // Tentar enviar para qualquer outro email causará falha no lote inteiro.
-    
-    const TEST_EMAIL = 'lairtondasilva07@gmail.com';
-    const isTestingDomain = true; // Assumindo uso do domínio padrão de teste
+    // --- CONFIGURAÇÃO DE PRODUÇÃO VS TESTE ---
+    const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <novidades@resend.dev>'
+    const isTestingDomain = FROM_EMAIL.includes('resend.dev')
+    const TEST_EMAIL = 'lairtondasilva07@gmail.com'
 
     if (isTestingDomain) {
-        console.log(`Modo de Teste Resend: Filtrando destinatários para evitar erro 403.`);
+        console.log(`Modo de Teste Resend Detectado (@resend.dev): Filtrando destinatários para evitar erro 403.`);
+        // No modo de teste, só podemos enviar para o email verificado da conta
+        emailList = emailList.filter(email => email === TEST_EMAIL);
         
-        // A única forma de o envio funcionar é enviar APENAS para o email verificado.
-        // Se enviarmos para os outros, o Resend bloqueia.
-        // Se removermos o seu email e deixarmos só os outros, o Resend bloqueia também.
+        // Se a lista ficar vazia no modo teste, mas havia destinatários, forçamos o envio para o admin para validação
+        if (emailList.length === 0 && recipients.size > 0) {
+            emailList = [TEST_EMAIL];
+        }
         
-        // Forçamos a lista a ser apenas o email de teste para garantir que você receba e valide o layout/funcionamento.
-        emailList = [TEST_EMAIL];
-        
-        console.log(`Lista de envio ajustada para: ${JSON.stringify(emailList)}`);
+        console.log(`Lista de envio ajustada para modo teste: ${JSON.stringify(emailList)}`);
     }
     // ---------------------------------
     
@@ -268,13 +265,12 @@ serve(async (req) => {
     }
 
     const results = []
-    // const appUrl = Deno.env.get('APP_URL') || 'https://trombonecidadao.com.br' // Defined above
 
     for (const batch of batches) {
         // Using bcc to hide recipients from each other
         const { data, error } = await resend.emails.send({
-            from: 'Trombone Cidadão <novidades@resend.dev>', // Users should update this to their verified domain
-            to: isTestingDomain ? [TEST_EMAIL] : ['novidades@trombonecidadao.com.br'], // Placeholder TO must be verified email in test mode
+            from: FROM_EMAIL,
+            to: isTestingDomain ? [TEST_EMAIL] : [FROM_EMAIL], // Se em prod, envia para o próprio remetente e bcc para os outros
             bcc: batch,
             subject: emailSubject,
             html: emailHtml

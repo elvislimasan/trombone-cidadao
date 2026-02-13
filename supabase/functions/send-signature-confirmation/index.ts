@@ -20,9 +20,20 @@ serve(async (req) => {
       throw new Error('Email is required')
     }
 
+    // --- CONFIGURAÇÃO DE PRODUÇÃO VS TESTE ---
+    const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <onboarding@resend.dev>'
+    const isTestingDomain = FROM_EMAIL.includes('resend.dev')
+    const TEST_EMAIL = 'lairtondasilva07@gmail.com'
+
+    let recipient = email
+    if (isTestingDomain) {
+      console.log(`Modo de Teste Resend (@resend.dev): Redirecionando de ${email} para ${TEST_EMAIL}`)
+      recipient = TEST_EMAIL
+    }
+
     const { data, error } = await resend.emails.send({
-      from: 'Trombone Cidadão <onboarding@resend.dev>', // Users should update this to their domain
-      to: [email],
+      from: FROM_EMAIL,
+      to: [recipient],
       subject: `Obrigado por assinar: ${petitionTitle}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">

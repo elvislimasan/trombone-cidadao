@@ -100,18 +100,19 @@ serve(async (req) => {
       throw new Error(`Unsupported status: ${status}`)
     }
 
-    // --- RESEND TEST MODE SAFEGUARD ---
-    const TEST_EMAIL = 'lairtondasilva07@gmail.com';
-    const isTestingDomain = true; // Assumindo uso do domínio padrão de teste
+    // --- CONFIGURAÇÃO DE PRODUÇÃO VS TESTE ---
+    const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <onboarding@resend.dev>'
+    const isTestingDomain = FROM_EMAIL.includes('resend.dev')
+    const TEST_EMAIL = 'lairtondasilva07@gmail.com'
 
-    let recipient = email;
+    let recipient = email
     if (isTestingDomain) {
-      console.log(`Modo de Teste Resend: Redirecionando de ${email} para ${TEST_EMAIL}`);
-      recipient = TEST_EMAIL;
+      console.log(`Modo de Teste Resend (@resend.dev): Redirecionando de ${email} para ${TEST_EMAIL}`)
+      recipient = TEST_EMAIL
     }
 
     const { data, error } = await resend.emails.send({
-      from: 'Trombone Cidadão <onboarding@resend.dev>',
+      from: FROM_EMAIL,
       to: [recipient],
       subject: emailSubject,
       html: emailHtml,
