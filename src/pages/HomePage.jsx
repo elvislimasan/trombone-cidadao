@@ -46,6 +46,7 @@ function HomePage() {
   const [donationLoading, setDonationLoading] = useState(true);
   const [promoVisible, setPromoVisible] = useState(false);
   const promoRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   // ✅ Recuperação de Estado: Abrir modal se houver foto pendente (pós-crash)
   useEffect(() => {
@@ -356,6 +357,14 @@ function HomePage() {
       window.removeEventListener('resize', updateBannerHeight);
     };
   }, [promoVisible]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const handler = (e) => setIsMobile(e.matches);
+    handler(mq);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   const handleDismissPromo = () => {
     setPromoVisible(false);
@@ -1049,63 +1058,110 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
         </div>
       </motion.div>
 
-      <section id="donation-carousel" className="py-8 mt-8">
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h2 className="text-2xl font-bold">Ajude nas Causas da Nossa Cidade</h2>
-            <p className="text-muted-foreground">Priorizamos campanhas com mais doações e, em seguida, assinaturas.</p>
+      <section id="donation-carousel" className="py-8 mt-8 relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-[1400px]">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold">Ajude nas Causas da Nossa Cidade</h2>
+              <p className="text-muted-foreground">Priorizamos campanhas com mais doações e, em seguida, assinaturas.</p>
+            </div>
           </div>
-        </div>
-        {donationLoading ? (
-          <div className="flex gap-4 overflow-hidden">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="min-w-[280px] max-w-[320px] w-full rounded-xl border bg-card overflow-hidden">
-                <Skeleton className="h-40 w-full" />
-                <div className="p-4 space-y-3">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-2 w-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : topDonated.length > 0 ? (
-          <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
-            {topDonated.map(p => (
-              <div key={p.id} className="snap-start shrink-0 min-w-[280px] max-w-[320px] w-full">
-                <div className="rounded-xl border bg-card overflow-hidden hover:shadow-md transition-shadow">
-                  <div className="h-40 bg-muted relative">
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                        <Megaphone className="w-10 h-10 text-primary/30" />
-                      </div>
-                    )}
+          {donationLoading ? (
+            <div className="flex gap-4 overflow-hidden">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="min-w-[300px] max-w-[360px] w-full rounded-xl border bg-card overflow-hidden">
+                  <Skeleton className="h-40 w-full" />
+                  <div className="p-4 space-y-3">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-2 w-full" />
                   </div>
-                  <div className="p-4 space-y-2">
-                    <h3 className="font-bold line-clamp-2">{p.title}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
-                    <div className="mt-2">
-                      <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
-                        <span>{p.signatureCount} assinaturas</span>
-                        <span>Meta {p.goal || 100}</span>
+                </div>
+              ))}
+            </div>
+          ) : topDonated.length > 0 ? (
+            (() => {
+              const threshold = isMobile ? 3 : 5;
+              const useCarousel = topDonated.length >= threshold;
+              if (useCarousel) {
+                return (
+                  <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                    {topDonated.map(p => (
+                      <div key={p.id} className="snap-start shrink-0 min-w-[300px] max-w-[360px] w-full">
+                        <div className="rounded-xl border bg-card overflow-hidden hover:shadow-md transition-shadow">
+                          <div className="h-40 bg-muted relative">
+                            {p.image_url ? (
+                              <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                                <Megaphone className="w-10 h-10 text-primary/30" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-4 space-y-2">
+                            <h3 className="font-bold line-clamp-2">{p.title}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
+                                <span>{p.signatureCount} assinaturas</span>
+                                <span>Meta {p.goal || 100}</span>
+                              </div>
+                              <Progress value={p.progress} className="h-2" />
+                            </div>
+                            <Button className="w-full mt-3" onClick={() => navigate(`/abaixo-assinado/${p.id}`)}>
+                              Apoiar Agora
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                      <Progress value={p.progress} className="h-2" />
+                    ))}
+                  </div>
+                );
+              }
+              const gridCols =
+                topDonated.length === 1 ? 'grid-cols-1' :
+                topDonated.length === 2 ? 'grid-cols-1 sm:grid-cols-2' :
+                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+              return (
+                <div className={`grid ${gridCols} gap-4`}>
+                  {topDonated.map(p => (
+                    <div key={p.id} className="w-full">
+                      <div className="rounded-xl border bg-card overflow-hidden hover:shadow-md transition-shadow h-full">
+                        <div className="h-40 bg-muted relative">
+                          {p.image_url ? (
+                            <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                              <Megaphone className="w-10 h-10 text-primary/30" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <h3 className="font-bold line-clamp-2">{p.title}</h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
+                          <div className="mt-2">
+                            <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
+                              <span>{p.signatureCount} assinaturas</span>
+                              <span>Meta {p.goal || 100}</span>
+                            </div>
+                            <Progress value={p.progress} className="h-2" />
+                          </div>
+                          <Button className="w-full mt-3" onClick={() => navigate(`/abaixo-assinado/${p.id}`)}>
+                            Apoiar Agora
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <Button className="w-full mt-3" onClick={() => navigate(`/abaixo-assinado/${p.id}`)}>
-                      Apoiar Agora
-                    </Button>
-                  </div>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-6 border rounded-xl text-center bg-muted/30">
-            <p className="text-muted-foreground">Ainda não há campanhas com doações registradas. Explore as broncas recentes e apoie uma causa.</p>
-          </div>
-        )}
+              );
+            })()
+          ) : (
+            <div className="p-6 border rounded-xl text-center bg-muted/30">
+              <p className="text-muted-foreground">Ainda não há campanhas com doações registradas. Explore as broncas recentes e apoie uma causa.</p>
+            </div>
+          )}
+        </div>
       </section>
 
       {showReportModal && (
