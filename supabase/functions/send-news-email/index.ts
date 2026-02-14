@@ -57,29 +57,41 @@ serve(async (req) => {
         
         emailSubject = `Atualização: ${update.title}`
         
+        const BRAND_PRIMARY = '#E63946'
+        const BRAND_TEXT = '#111827'
+        const BRAND_MUTED = '#6B7280'
+        const CARD_BG = '#ffffff'
+        const CARD_BORDER = '#e5e7eb'
+        const MUTED_BG = '#F9FAFB'
+
+        const bannerHtml = petitionImage
+          ? `<img src="${petitionImage}" alt="${update.title}" style="width:100%; max-height:300px; object-fit:cover; display:block; border-radius: 12px; margin-bottom: 16px;" />`
+          : ''
+        
         emailHtml = `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                <h1 style="color: #E63946; margin-bottom: 10px;">${update.title}</h1>
-                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
-                    Atualização sobre a campanha: <strong>${petitionTitle}</strong>
-                </p>
-                
-                ${petitionImage ? `<img src="${petitionImage}" alt="${update.title}" style="width: 100%; border-radius: 8px; margin-bottom: 20px; object-fit: cover; max-height: 300px;" />` : ''}
-                
-                <div style="line-height: 1.6; margin-bottom: 25px; white-space: pre-wrap;">
-                    ${update.content}
-                </div>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="${appUrl}/abaixo-assinado/${update.petition_id}" style="background-color: #E63946; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                        Ver Campanha
-                    </a>
-                </div>
-                
-                <p style="margin-top: 40px; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 15px; text-align: center;">
-                  Você está recebendo este email porque assinou e optou por receber atualizações desta campanha.
-                </p>
+          <div style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:${MUTED_BG}; padding:24px;">
+            <div style="max-width:640px; margin:0 auto; background:${CARD_BG}; border:1px solid ${CARD_BORDER}; border-radius:16px; padding:24px;">
+              ${bannerHtml}
+              <h1 style="margin:0 0 8px 0; color:${BRAND_TEXT}; font-size:22px;">${update.title}</h1>
+              <p style="margin:0 0 16px 0; color:${BRAND_MUTED}; font-size:14px;">
+                Atualização sobre a campanha: <strong style="color:${BRAND_TEXT};">${petitionTitle}</strong>
+              </p>
+              
+              <div style="line-height:1.6; margin-bottom: 20px; white-space: pre-wrap; color:${BRAND_TEXT};">
+                ${update.content}
+              </div>
+              
+              <div style="text-align:center; margin: 16px 0;">
+                <a href="${appUrl}/abaixo-assinado/${update.petition_id}" style="background:${BRAND_PRIMARY}; color:#fff; padding:12px 20px; text-decoration:none; border-radius:10px; font-weight:700; display:inline-block;">
+                  Ver Campanha
+                </a>
+              </div>
+              
+              <p style="margin-top:24px; font-size:12px; color:${BRAND_MUTED}; text-align:center;">
+                Você está recebendo este email porque assinou e optou por receber atualizações desta campanha.
+              </p>
             </div>
+          </div>
         `
 
         // Fetch Signers who allowed notifications
@@ -108,31 +120,40 @@ serve(async (req) => {
         if (newsError || !news) throw new Error('News not found')
         
         emailSubject = `Novidade: ${news.title}`
+        const BRAND_PRIMARY = '#E63946'
+        const BRAND_TEXT = '#111827'
+        const BRAND_MUTED = '#6B7280'
+        const CARD_BG = '#ffffff'
+        const CARD_BORDER = '#e5e7eb'
+        const MUTED_BG = '#F9FAFB'
+        const bannerHtmlNews = news.image_url
+          ? `<img src="${news.image_url}" alt="${news.title}" style="width:100%; max-height:300px; object-fit:cover; display:block; border-radius: 12px; margin-bottom: 16px;" />`
+          : ''
         emailHtml = `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                <h1 style="color: #E63946; margin-bottom: 10px;">${news.title}</h1>
-                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
-                  Publicado em ${new Date(news.date).toLocaleDateString('pt-BR')} • Fonte: ${news.source || 'Trombone Cidadão'}
-                </p>
-                
-                ${news.image_url ? `<img src="${news.image_url}" alt="${news.title}" style="width: 100%; border-radius: 8px; margin-bottom: 20px; object-fit: cover; max-height: 300px;" />` : ''}
-                
-                <div style="line-height: 1.6; margin-bottom: 25px;">
-                  ${news.description || ''}
-                </div>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="${appUrl}/noticias/${news.id}" style="background-color: #E63946; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                        Ler Matéria Completa
-                    </a>
-                </div>
-                
-                <p style="margin-top: 40px; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 15px; text-align: center;">
-                  Você está recebendo este email porque optou por receber novidades do Trombone Cidadão.
-                  <br/>
-                  <a href="${appUrl}/configuracoes" style="color: #666; text-decoration: underline;">Gerenciar notificações</a>
-                </p>
+          <div style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:${MUTED_BG}; padding:24px;">
+            <div style="max-width:640px; margin:0 auto; background:${CARD_BG}; border:1px solid ${CARD_BORDER}; border-radius:16px; padding:24px;">
+              ${bannerHtmlNews}
+              <h1 style="margin:0 0 8px 0; color:${BRAND_TEXT}; font-size:22px;">${news.title}</h1>
+              <p style="margin:0 0 16px 0; color:${BRAND_MUTED}; font-size:14px;">
+                Publicado em ${new Date(news.date).toLocaleDateString('pt-BR')} • Fonte: ${news.source || 'Trombone Cidadão'}
+              </p>
+              
+              <div style="line-height:1.6; margin-bottom: 20px; color:${BRAND_TEXT};">
+                ${news.description || ''}
               </div>
+              
+              <div style="text-align:center; margin: 16px 0;">
+                <a href="${appUrl}/noticias/${news.id}" style="background:${BRAND_PRIMARY}; color:#fff; padding:12px 20px; text-decoration:none; border-radius:10px; font-weight:700; display:inline-block;">
+                  Ler Matéria Completa
+                </a>
+              </div>
+              
+              <p style="margin-top:24px; font-size:12px; color:${BRAND_MUTED}; text-align:center;">
+                Você está recebendo este email porque optou por receber novidades do Trombone Cidadão. 
+                <a href="${appUrl}/configuracoes" style="color:${BRAND_MUTED}; text-decoration: underline;">Gerenciar notificações</a>
+              </p>
+            </div>
+          </div>
         `
 
         // 2a. Guest Users (from signatures - assuming petitions/global interest)
