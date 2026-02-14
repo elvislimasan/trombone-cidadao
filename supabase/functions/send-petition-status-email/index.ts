@@ -42,58 +42,70 @@ serve(async (req) => {
     const name = user.user_metadata?.name || 'Cidadão'
     const appUrl = Deno.env.get('APP_URL') || 'https://trombonecidadao.com.br'
 
+    // Fetch petition image/banner if petitionId is provided
+    let bannerUrl: string | null = null
+    if (petitionId) {
+      const { data: p } = await supabaseAdmin
+        .from('petitions')
+        .select('image_url, gallery')
+        .eq('id', petitionId)
+        .maybeSingle()
+      bannerUrl = p?.image_url || (Array.isArray(p?.gallery) && p?.gallery.length > 0 ? p?.gallery[0] : null)
+    }
+
+    const BRAND_PRIMARY = '#E63946'
+    const BRAND_TEXT = '#111827'
+    const BRAND_MUTED = '#6B7280'
+    const CARD_BG = '#ffffff'
+    const CARD_BORDER = '#e5e7eb'
+    const MUTED_BG = '#F9FAFB'
+
+    const bannerHtml = bannerUrl
+      ? `<img src="${bannerUrl}" alt="${petitionTitle}" style="width:100%; max-height:300px; object-fit:cover; display:block; border-radius: 12px; margin-bottom: 16px;" />`
+      : ''
+
     let emailSubject = ''
     let emailHtml = ''
 
     if (status === 'approved') {
       emailSubject = `Abaixo-assinado aprovado! 🎉 - ${petitionTitle}`
       emailHtml = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333; border: 1px solid #eee; border-radius: 8px; padding: 20px;">
-          <h1 style="color: #111; margin-bottom: 20px;">Boas notícias, ${name}! 🚀</h1>
-          <p>Seu abaixo-assinado <strong>"${petitionTitle}"</strong> foi aprovado pela nossa equipe de moderação.</p>
-          <p>Ele já está disponível no site e pronto para receber assinaturas. Comece a compartilhar agora mesmo para ganhar tração!</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${petitionUrl}" style="background-color: #E63946; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-              Ver Abaixo-assinado
-            </a>
+      <div style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:${MUTED_BG}; padding:24px;">
+        <div style="max-width:640px; margin:0 auto; background:${CARD_BG}; border:1px solid ${CARD_BORDER}; border-radius:16px; padding:24px;">
+          ${bannerHtml}
+          <h1 style="margin:0 0 8px 0; font-size:22px; color:${BRAND_TEXT};">Boas notícias, ${name}! 🚀</h1>
+          <p style="margin:0 0 10px 0; color:${BRAND_TEXT};">Seu abaixo-assinado <strong>"${petitionTitle}"</strong> foi aprovado.</p>
+          <p style="margin:0 0 20px 0; color:${BRAND_MUTED}; font-size:14px;">Ele já está disponível e pronto para receber assinaturas. Compartilhe para ganhar tração!</p>
+          <div style="text-align:center; margin: 20px 0;">
+            <a href="${petitionUrl}" style="background:${BRAND_PRIMARY}; color:#fff; padding:12px 20px; text-decoration:none; border-radius:10px; font-weight:700; display:inline-block;">Ver Abaixo-assinado</a>
           </div>
-          
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-          <p style="font-size: 14px; color: #666;">
-            Dicas para uma campanha de sucesso:
-            <ul style="margin-top: 10px;">
+          <div style="background:#F3F4F6; padding:16px; border-radius:12px;">
+            <p style="margin:0; color:${BRAND_TEXT}; font-weight:600;">Dicas rápidas:</p>
+            <ul style="margin:8px 0 0 16px; color:${BRAND_MUTED}; font-size:14px;">
               <li>Compartilhe no WhatsApp e redes sociais</li>
-              <li>Explique a importância da causa para seus amigos</li>
-              <li>Mantenha seus apoiadores atualizados</li>
+              <li>Explique a importância da causa para amigos</li>
+              <li>Mantenha apoiadores atualizados com novidades</li>
             </ul>
-          </p>
+          </div>
         </div>
-      `
+      </div>`
     } else if (status === 'rejected') {
       emailSubject = `Atualização sobre seu abaixo-assinado - ${petitionTitle}`
       emailHtml = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333; border: 1px solid #eee; border-radius: 8px; padding: 20px;">
-          <h1 style="color: #111; margin-bottom: 20px;">Olá, ${name}</h1>
-          <p>Analisamos seu abaixo-assinado <strong>"${petitionTitle}"</strong> e, no momento, ele não pôde ser aprovado para publicação.</p>
-          
-          <div style="background-color: #FFF5F5; border-left: 4px solid #E63946; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; font-weight: bold; color: #E63946;">Motivo da não aprovação:</p>
-            <p style="margin: 10px 0 0 0;">${rejectionReason || 'Não atende aos termos de uso da plataforma.'}</p>
+        <div style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:${MUTED_BG}; padding:24px;">
+          <div style="max-width:640px; margin:0 auto; background:${CARD_BG}; border:1px solid ${CARD_BORDER}; border-radius:16px; padding:24px;">
+            ${bannerHtml}
+            <h1 style="margin:0 0 8px 0; font-size:22px; color:${BRAND_TEXT};">Olá, ${name}</h1>
+            <p style="margin:0 0 10px 0; color:${BRAND_TEXT};">Analisamos seu abaixo-assinado <strong>"${petitionTitle}"</strong> e, no momento, ele não pôde ser aprovado.</p>
+            <div style="background:#FFF5F5; border-left:4px solid ${BRAND_PRIMARY}; padding:12px 14px; margin:16px 0; border-radius:8px;">
+              <p style="margin:0; font-weight:700; color:${BRAND_PRIMARY};">Motivo da não aprovação:</p>
+              <p style="margin:8px 0 0 0; color:${BRAND_TEXT};">${rejectionReason || 'Não atende aos termos de uso da plataforma.'}</p>
+            </div>
+            <p style="margin:0 0 16px 0; color:${BRAND_MUTED}; font-size:14px;">Você pode editar sua campanha e reenviá-la para moderação através do seu painel.</p>
+            <div style="text-align:center; margin: 12px 0;">
+              <a href="${appUrl}/minhas-peticoes" style="background:${BRAND_TEXT}; color:#fff; padding:12px 20px; text-decoration:none; border-radius:10px; font-weight:700; display:inline-block;">Acessar Minhas Petições</a>
+            </div>
           </div>
-          
-          <p>Você pode editar seu abaixo-assinado seguindo as orientações acima e enviá-lo novamente para moderação através do seu painel.</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${appUrl}/minhas-peticoes" style="background-color: #111; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-              Acessar Minhas Petições
-            </a>
-          </div>
-          
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-          <p style="font-size: 14px; color: #666;">
-            Se tiver dúvidas sobre nossa política de moderação, entre em contato com o suporte.
-          </p>
         </div>
       `
     } else {

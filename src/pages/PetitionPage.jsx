@@ -482,7 +482,8 @@ const PetitionPage = () => {
                   email: user.email,
                   name: userName,
                   petitionTitle: petition.title,
-                  petitionUrl: getShareUrl()
+                  petitionUrl: getShareUrl(),
+                  petitionImage: petition.image_url
                 }
               }).then(({ data, error }) => {
                 if (error) console.error('Erro ao enviar email (Function):', error);
@@ -579,7 +580,8 @@ const PetitionPage = () => {
               email: guestForm.email,
               name: guestForm.name,
               petitionTitle: petition.title,
-              petitionUrl: getShareUrl()
+              petitionUrl: getShareUrl(),
+              petitionImage: petition.image_url
             }
           }).then(({ data, error }) => {
             if (error) console.error('Erro ao enviar email (Function Guest):', error);
@@ -660,7 +662,8 @@ const PetitionPage = () => {
               email: user.email,
               name: userName,
               petitionTitle: petition.title,
-              petitionUrl: getShareUrl()
+              petitionUrl: getShareUrl(),
+              petitionImage: petition.image_url
             }
           }).then(({ data, error }) => {
             if (error) console.error('Erro ao enviar email (Function Logged):', error);
