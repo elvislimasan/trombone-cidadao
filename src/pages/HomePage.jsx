@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { List, Map as MapIcon, Filter, Plus } from 'lucide-react';
+import { List, Map as MapIcon, Filter, Plus, Megaphone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import MapView from '@/components/MapView';
@@ -13,6 +13,8 @@ import LinkReportModal from '@/components/LinkReportModal';
 import RankingSidebar from '@/components/RankingSidebar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +42,10 @@ function HomePage() {
   const navigate = useNavigate();
   const viewContainerRef = useRef(null);
   const { handleUpvote, loading } = useUpvote();
+  const [topDonated, setTopDonated] = useState([]);
+  const [donationLoading, setDonationLoading] = useState(true);
+  const [promoVisible, setPromoVisible] = useState(false);
+  const promoRef = useRef(null);
 
   // ✅ Recuperação de Estado: Abrir modal se houver foto pendente (pós-crash)
   useEffect(() => {
@@ -137,6 +143,53 @@ function HomePage() {
     }
   }, [toast, user]);
 
+  const fetchTopDonatedPetitions = useCallback(async () => {
+    setDonationLoading(true);
+    try {
+      const { data: petitionsData, error: petitionsError } = await supabase
+        .from('petitions')
+        .select('id, title, description, image_url, goal, created_at, signatures(count)')
+        .eq('status', 'open');
+      if (petitionsError) throw petitionsError;
+      let processed = (petitionsData || []).map(p => ({
+        ...p,
+        signatureCount: p.signatures?.[0]?.count || 0,
+        progress: Math.min(((p.signatures?.[0]?.count || 0) / (p.goal || 100)) * 100, 100)
+      }));
+      const { data: donations } = await supabase
+        .from('donations')
+        .select('petition_id, amount')
+        .eq('status', 'paid');
+      const totals = {};
+      (donations || []).forEach(d => {
+        const pid = d.petition_id;
+        const amount = Number(d.amount) || 0;
+        totals[pid] = (totals[pid] || 0) + amount;
+      });
+      processed = processed.map(p => ({
+        ...p,
+        donationTotal: totals[p.id] || 0
+      }));
+      const donatedSorted = [...processed]
+        .filter(p => (p.donationTotal || 0) > 0)
+        .sort((a, b) => {
+          if ((b.donationTotal || 0) !== (a.donationTotal || 0)) {
+            return (b.donationTotal || 0) - (a.donationTotal || 0);
+          }
+          return (b.signatureCount || 0) - (a.signatureCount || 0);
+        })
+        .slice(0, 10);
+      setTopDonated(donatedSorted);
+    } catch (err) {
+    } finally {
+      setDonationLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTopDonatedPetitions();
+  }, [fetchTopDonatedPetitions]);
+
   // Função para buscar categorias
   const fetchCategories = useCallback(async () => {
     try {
@@ -165,6 +218,10 @@ function HomePage() {
 
   useEffect(() => {
     fetchInitialData();
+    const dismissed = localStorage.getItem('home-promo-topbar-dismissed');
+    if (!dismissed) {
+      setPromoVisible(true);
+    }
     
     let channel = null;
     let pollingInterval = null;
@@ -283,6 +340,28 @@ function HomePage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchInitialData, fetchReports]);
+
+  useEffect(() => {
+    const updateBannerHeight = () => {
+      if (promoVisible && promoRef.current) {
+        const height = `${promoRef.current.offsetHeight || 56}px`;
+        document.documentElement.style.setProperty('--app-banner-height', height);
+      } else {
+        document.documentElement.style.setProperty('--app-banner-height', '0px');
+      }
+    };
+    updateBannerHeight();
+    window.addEventListener('resize', updateBannerHeight);
+    return () => {
+      window.removeEventListener('resize', updateBannerHeight);
+    };
+  }, [promoVisible]);
+
+  const handleDismissPromo = () => {
+    setPromoVisible(false);
+    localStorage.setItem('home-promo-topbar-dismissed', 'true');
+    document.documentElement.style.setProperty('--app-banner-height', '0px');
+  };
 
   const statusFilteredReports = useMemo(() => {
     let tempReports = reports.filter(r => r.status !== 'duplicate');
@@ -767,6 +846,39 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
 
   return (
     <div className="container mx-auto px-4 py-6 overflow-visible">
+      {promoVisible && (
+        <div
+          ref={promoRef}
+          className="fixed left-0 right-0 z-[1000] text-white"
+          style={{
+            backgroundColor: '#F05045',
+            paddingTop: 'calc(var(--safe-area-top))',
+            top: 'calc(4rem + var(--safe-area-top))'
+          }}
+        >
+          <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 relative">
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <span className="text-sm sm:text-base">
+                📢 <span className="font-bold">Novidade:</span> Participe ativamente da mudança! Crie sua própria petição ou assine as existentes.
+              </span>
+              <Button
+                size="sm"
+                onClick={() => navigate('/abaixo-assinados')}
+                className="bg-white text-[#F05045] hover:bg-white/90 rounded-full font-bold border border-white text-sm"
+              >
+                Começar Agora →
+              </Button>
+            </div>
+            <button
+              onClick={handleDismissPromo}
+              aria-label="Fechar banner"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/20"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
       <motion.div 
         initial={{ y: 50, opacity: 0 }} 
         animate={{ y: 0, opacity: 1 }} 
@@ -936,6 +1048,65 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
           </div>
         </div>
       </motion.div>
+
+      <section id="donation-carousel" className="py-8 mt-8">
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold">Ajude nas Causas da Nossa Cidade</h2>
+            <p className="text-muted-foreground">Priorizamos campanhas com mais doações e, em seguida, assinaturas.</p>
+          </div>
+        </div>
+        {donationLoading ? (
+          <div className="flex gap-4 overflow-hidden">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="min-w-[280px] max-w-[320px] w-full rounded-xl border bg-card overflow-hidden">
+                <Skeleton className="h-40 w-full" />
+                <div className="p-4 space-y-3">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-2 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : topDonated.length > 0 ? (
+          <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+            {topDonated.map(p => (
+              <div key={p.id} className="snap-start shrink-0 min-w-[280px] max-w-[320px] w-full">
+                <div className="rounded-xl border bg-card overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="h-40 bg-muted relative">
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                        <Megaphone className="w-10 h-10 text-primary/30" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <h3 className="font-bold line-clamp-2">{p.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
+                    <div className="mt-2">
+                      <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
+                        <span>{p.signatureCount} assinaturas</span>
+                        <span>Meta {p.goal || 100}</span>
+                      </div>
+                      <Progress value={p.progress} className="h-2" />
+                    </div>
+                    <Button className="w-full mt-3" onClick={() => navigate(`/abaixo-assinado/${p.id}`)}>
+                      Apoiar Agora
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 border rounded-xl text-center bg-muted/30">
+            <p className="text-muted-foreground">Ainda não há campanhas com doações registradas. Explore as broncas recentes e apoie uma causa.</p>
+          </div>
+        )}
+      </section>
 
       {showReportModal && (
         <ReportModal 
