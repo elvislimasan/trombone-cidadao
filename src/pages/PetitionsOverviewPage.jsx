@@ -28,6 +28,8 @@ const PetitionsOverviewPage = () => {
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [stats, setStats] = useState({ totalSignatures: 0, totalPetitions: 0, successfulPetitions: 0 });
   const [featuredPetition, setFeaturedPetition] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
     fetchPetitions();
@@ -129,6 +131,14 @@ const PetitionsOverviewPage = () => {
     p.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPetitions.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentPetitions = filteredPetitions.slice(startIndex, startIndex + itemsPerPage);
 
   const container = {
     hidden: { opacity: 0 },
@@ -348,22 +358,66 @@ const PetitionsOverviewPage = () => {
                   </div>
                 ))}
               </div>
-            ) : filteredPetitions.length > 0 ? (
-              <motion.div 
-                variants={container}
-                initial="hidden"
-                animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              >
-                {filteredPetitions.map((petition) => (
-                  <motion.div key={petition.id} variants={item}>
-                    <PetitionCard 
-                      petition={petition}
-                      onClick={() => navigate(`/abaixo-assinado/${petition.id}`)}
-                    />
-                  </motion.div>
-                ))}
-              </motion.div>
+            ) : currentPetitions.length > 0 ? (
+              <>
+                <motion.div 
+                  variants={container}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                  {currentPetitions.map((petition) => (
+                    <motion.div key={petition.id} variants={item}>
+                      <PetitionCard 
+                        petition={petition}
+                        onClick={() => navigate(`/abaixo-assinado/${petition.id}`)}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
+                {totalPages > 1 && (
+                  <div className="flex justify-center mt-8">
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2))
+                        .flatMap((p, idx, arr) => {
+                          const items = [];
+                          if (idx > 0 && p - arr[idx - 1] > 1) {
+                            items.push(<span key={`ellipsis-${p}`} className="px-1 text-muted-foreground">…</span>);
+                          }
+                          items.push(
+                            <Button
+                              key={p}
+                              variant={p === currentPage ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setCurrentPage(p)}
+                              className="w-9"
+                            >
+                              {p}
+                            </Button>
+                          );
+                          return items;
+                        })}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Próxima
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-20 bg-background rounded-2xl border border-dashed">
                 <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
