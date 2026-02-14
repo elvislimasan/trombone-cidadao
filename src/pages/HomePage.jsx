@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { List, Map as MapIcon, Filter, Plus, Megaphone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import MapView from '@/components/MapView';
 import ReportModal from '@/components/ReportModal';
 import ReportDetails from '@/components/ReportDetails';
@@ -47,6 +48,23 @@ function HomePage() {
   const [promoVisible, setPromoVisible] = useState(false);
   const promoRef = useRef(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [donationCarouselApi, setDonationCarouselApi] = useState(null);
+
+  const handleOpenPetition = useCallback((id) => {
+    try {
+      document.documentElement?.style?.setProperty('--app-banner-height', '0px');
+    } catch {}
+    setPromoVisible(false);
+    navigate(`/abaixo-assinado/${id}`);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!donationCarouselApi) return;
+    const id = setInterval(() => {
+      donationCarouselApi.scrollNext();
+    }, 3000);
+    return () => clearInterval(id);
+  }, [donationCarouselApi]);
 
   // ✅ Recuperação de Estado: Abrir modal se houver foto pendente (pós-crash)
   useEffect(() => {
@@ -355,6 +373,7 @@ function HomePage() {
     window.addEventListener('resize', updateBannerHeight);
     return () => {
       window.removeEventListener('resize', updateBannerHeight);
+      document.documentElement.style.setProperty('--app-banner-height', '0px');
     };
   }, [promoVisible]);
 
@@ -1085,37 +1104,41 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
               const useCarousel = topDonated.length >= threshold;
               if (useCarousel) {
                 return (
-                  <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
-                    {topDonated.map(p => (
-                      <div key={p.id} className="snap-start shrink-0 min-w-[300px] max-w-[360px] w-full">
-                        <div className="rounded-xl border bg-card overflow-hidden hover:shadow-md transition-shadow">
-                          <div className="h-40 bg-muted relative">
-                            {p.image_url ? (
-                              <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                                <Megaphone className="w-10 h-10 text-primary/30" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="p-4 space-y-2">
-                            <h3 className="font-bold line-clamp-2">{p.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
-                            <div className="mt-2">
-                              <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
-                                <span>{p.signatureCount} assinaturas</span>
-                                <span>Meta {p.goal || 100}</span>
-                              </div>
-                              <Progress value={p.progress} className="h-2" />
+                  <Carousel opts={{ loop: true, align: 'start' }} setApi={setDonationCarouselApi} className="relative">
+                    <CarouselContent>
+                      {topDonated.map(p => (
+                        <CarouselItem key={p.id} className="basis-[80%] sm:basis-[50%] md:basis-[33%] lg:basis-[25%] xl:basis-[25%]">
+                          <div className="rounded-xl border bg-card overflow-hidden hover:shadow-md transition-shadow h-full">
+                            <div className="h-40 bg-muted relative">
+                              {p.image_url ? (
+                                <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                                  <Megaphone className="w-10 h-10 text-primary/30" />
+                                </div>
+                              )}
                             </div>
-                            <Button className="w-full mt-3" onClick={() => navigate(`/abaixo-assinado/${p.id}`)}>
-                              Apoiar Agora
-                            </Button>
+                            <div className="p-4 space-y-2">
+                              <h3 className="font-bold line-clamp-2">{p.title}</h3>
+                              <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
+                              <div className="mt-2">
+                                <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
+                                  <span>{p.signatureCount} assinaturas</span>
+                                  <span>Meta {p.goal || 100}</span>
+                                </div>
+                                <Progress value={p.progress} className="h-2" />
+                              </div>
+                              <Button className="w-full mt-3" onClick={() => handleOpenPetition(p.id)}>
+                                Apoiar Agora
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="hidden sm:flex" />
+                    <CarouselNext className="hidden sm:flex" />
+                  </Carousel>
                 );
               }
               const gridCols =
@@ -1146,7 +1169,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                             </div>
                             <Progress value={p.progress} className="h-2" />
                           </div>
-                          <Button className="w-full mt-3" onClick={() => navigate(`/abaixo-assinado/${p.id}`)}>
+                          <Button className="w-full mt-3" onClick={() => handleOpenPetition(p.id)}>
                             Apoiar Agora
                           </Button>
                         </div>
