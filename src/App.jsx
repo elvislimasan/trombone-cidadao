@@ -149,6 +149,13 @@ const SEO = () => {
       <meta name="description" content={pageDescription} />
       <link rel="canonical" href={canonicalUrl} />
       
+      {/* Favicons (forçar presença em todas as rotas) */}
+      <link rel="icon" href="/favicon.ico" />
+      <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+      <link rel="manifest" href="/manifest.json" />
+      <meta name="theme-color" content="#dc2626" />
+      
       {/* Open Graph Meta Tags */}
       <meta property="og:type" content="website" />
       <meta property="og:title" content={pageTitle} />
