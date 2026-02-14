@@ -69,11 +69,11 @@ const PetitionUpdates = ({ updates, action }) => {
             )}
             
             <div className="p-4 md:p-6 flex flex-col flex-grow relative z-10 min-w-0">
-                <h4 className="text-lg md:text-xl font-bold text-foreground mb-2 md:mb-3 leading-tight group-hover:text-primary transition-colors break-all overflow-hidden">
+                <h4 className="text-lg md:text-xl font-bold text-foreground mb-2 md:mb-3 leading-tight group-hover:text-primary transition-colors break-words overflow-hidden">
                     {update.title}
                 </h4>
                 <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground line-clamp-3 flex-grow overflow-hidden">
-                    <p className="whitespace-pre-line leading-relaxed text-sm break-all">
+                    <p className="whitespace-pre-line leading-relaxed text-sm break-words">
                         {update.content}
                     </p>
                 </div>

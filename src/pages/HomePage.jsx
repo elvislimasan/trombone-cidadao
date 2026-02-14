@@ -1082,7 +1082,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
           <div className="flex items-end justify-between mb-4">
             <div>
               <h2 className="text-2xl font-bold">Ajude nas Causas da Nossa Cidade</h2>
-              <p className="text-muted-foreground">Priorizamos campanhas com mais doações e, em seguida, assinaturas.</p>
+              <p className="text-muted-foreground">Escolha uma causa e faça a diferença hoje.</p>
             </div>
           </div>
           {donationLoading ? (

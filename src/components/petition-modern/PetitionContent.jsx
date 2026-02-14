@@ -55,13 +55,13 @@ const PetitionContent = ({ content, description, children, importanceList, hero 
           <div className="space-y-4 md:space-y-6 min-w-0">
             {finalContent && (
               <div 
-                className="text-sm md:text-base text-muted-foreground leading-relaxed break-all max-w-full overflow-hidden [&_p]:mb-3 md:[&_p]:mb-4 [&_h1]:text-xl md:[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3 md:[&_h1]:mb-4 [&_h2]:text-lg md:[&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-2 md:[&_h2]:mb-3 [&_h3]:text-base md:[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-1 md:[&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 md:[&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 md:[&_ol]:mb-4"
+                className="text-sm md:text-base text-muted-foreground leading-relaxed break-words max-w-full overflow-hidden [&_p]:mb-3 md:[&_p]:mb-4 [&_h1]:text-xl md:[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3 md:[&_h1]:mb-4 [&_h2]:text-lg md:[&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-2 md:[&_h2]:mb-3 [&_h3]:text-base md:[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-1 md:[&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 md:[&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 md:[&_ol]:mb-4"
                 dangerouslySetInnerHTML={{ __html: finalContent }}
               />
             )}
             
             {children && (
-              <div className="space-y-3 md:space-y-4 text-sm md:text-base text-muted-foreground leading-relaxed break-all overflow-hidden">
+              <div className="space-y-3 md:space-y-4 text-sm md:text-base text-muted-foreground leading-relaxed break-words overflow-hidden">
                 {children}
               </div>
             )}
@@ -78,7 +78,7 @@ const PetitionContent = ({ content, description, children, importanceList, hero 
             {itemsToRender.map((item, index) => {
               const IconComponent = ICON_MAP[item.icon] || Lightbulb;
               return (
-                <li key={index} className="flex items-center gap-3 text-xs md:text-sm text-muted-foreground break-all overflow-hidden">
+                <li key={index} className="flex items-center gap-3 text-xs md:text-sm text-muted-foreground break-words overflow-hidden">
                   <IconComponent className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0 text-primary" />
                   {item.text}
                 </li>
