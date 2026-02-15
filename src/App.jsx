@@ -57,6 +57,7 @@ import { VideoProcessor } from '@/plugins/VideoProcessor';
 import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
+import HomePageImproved from './pages/HomePage-improved';
 
 const SEO = () => {
   const location = useLocation();
@@ -429,7 +430,7 @@ function App() {
   return (
     <UploadProvider>
       <SEO />
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <div className="min-h-screen bg-[#FFF] text-foreground flex flex-col">
         <Header />
         <AppDownloadBanner />
         <main className="flex-grow pb-20 lg:pb-0" style={{ paddingTop: 'calc(4rem + var(--safe-area-top) + var(--app-banner-height, 0px))', paddingBottom: 'calc(4rem + var(--safe-area-bottom))' }}>
@@ -439,7 +440,8 @@ function App() {
             <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
             <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
             
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<HomePageImproved />} />
+            <Route path="/broncas" element={<HomePage />} />
             <Route path="/bronca/:reportId" element={<ReportPage />} />
           <Route path="/abaixo-assinados" element={<PetitionsOverviewPage />} />
           <Route path="/abaixo-assinado/:id" element={<PetitionPage />} />

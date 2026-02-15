@@ -29,6 +29,7 @@ export const usePetitionData = (id) => {
   const [updates, setUpdates] = useState([]);
   const [otherPetitions, setOtherPetitions] = useState([]);
   const [recentDonations, setRecentDonations] = useState([]);
+  const [totalDonations, setTotalDonations] = useState(0);
   const { toast } = useToast();
 
   const fetchUser = async () => {
@@ -95,17 +96,41 @@ export const usePetitionData = (id) => {
         const userSignature = data.find(s => s.user_id === currentUser.id);
         if (userSignature) setHasSigned(true);
       }
-      
-      // Simulating donations from signatures for now, or fetch real donations if table exists
-      // Assuming for now we use signatures as a base for recent activity
-      const donations = data.slice(0, 5).map(s => ({
-          profiles: { name: s.name || 'Apoiador Anônimo' },
-          amount: Math.floor(Math.random() * 50) + 10 // Mock amount
-      }));
-      setRecentDonations(donations);
 
     } catch (error) {
       console.error('Erro ao carregar assinaturas:', error);
+    }
+  }, [id]);
+
+  const fetchDonations = useCallback(async () => {
+    try {
+      const { data: donations, error } = await supabase
+        .from('donations')
+        .select('amount, created_at, user_id, profiles(name)')
+        .eq('petition_id', id)
+        .eq('status', 'paid')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      setRecentDonations(donations || []);
+
+      const { data: totalData, error: totalError } = await supabase
+        .from('donations')
+        .select('amount')
+        .eq('petition_id', id)
+        .eq('status', 'paid');
+
+      if (totalError) throw totalError;
+
+      const totalAmount = totalData
+        ? totalData.reduce((sum, d) => sum + (Number(d.amount) || 0), 0)
+        : 0;
+
+      setTotalDonations(totalAmount);
+    } catch (error) {
+      console.error('Erro ao carregar doações:', error);
     }
   }, [id]);
 
@@ -129,11 +154,12 @@ export const usePetitionData = (id) => {
       await fetchPetition();
       await fetchSignatures(currentUser);
       await fetchOtherPetitions();
+      await fetchDonations();
   };
 
   useEffect(() => {
     refreshData();
-  }, [id, fetchPetition, fetchSignatures, fetchOtherPetitions]);
+  }, [id, fetchPetition, fetchSignatures, fetchOtherPetitions, fetchDonations]);
 
   return {
     petition,
@@ -145,6 +171,7 @@ export const usePetitionData = (id) => {
     updates,
     otherPetitions,
     recentDonations,
+    totalDonations,
     refreshData,
     setSignatures // Exporting this to allow optimistic updates
   };

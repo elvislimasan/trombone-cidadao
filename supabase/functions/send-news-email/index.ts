@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Resend } from "npm:resend@2.0.0"
-
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,16 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get('RESEND_API_KEY')
+    const apiKey = Deno.env.get('SENDER_API_KEY')
     if (!apiKey) {
-      throw new Error('RESEND_API_KEY is not set in environment variables')
+      throw new Error('SENDER_API_KEY is not set in environment variables')
     }
-    const resend = new Resend(apiKey)
 
     const { newsId, relatedReportId, petitionUpdateId } = await req.json()
     if (!newsId && !petitionUpdateId) throw new Error('newsId or petitionUpdateId is required')
 
-    // Create Admin Client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -249,28 +245,17 @@ serve(async (req) => {
         }
     }
 
-    // 3. Send Emails in Batches
     let emailList = Array.from(recipients)
-    
-    // --- CONFIGURAÇÃO DE PRODUÇÃO VS TESTE ---
-    const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <novidades@resend.dev>'
-    const isTestingDomain = FROM_EMAIL.includes('resend.dev')
-    const TEST_EMAIL = 'lairtondasilva07@gmail.com'
 
-    if (isTestingDomain) {
-        console.log(`Modo de Teste Resend Detectado (@resend.dev): Filtrando destinatários para evitar erro 403.`);
-        // No modo de teste, só podemos enviar para o email verificado da conta
-        emailList = emailList.filter(email => email === TEST_EMAIL);
-        
-        // Se a lista ficar vazia no modo teste, mas havia destinatários, forçamos o envio para o admin para validação
-        if (emailList.length === 0 && recipients.size > 0) {
-            emailList = [TEST_EMAIL];
-        }
-        
-        console.log(`Lista de envio ajustada para modo teste: ${JSON.stringify(emailList)}`);
+    const fromEnv = Deno.env.get('SENDER_FROM_EMAIL') || Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <contato@exemplo.com>'
+    let fromEmail = fromEnv
+    let fromName = 'Trombone Cidadão'
+    const fromMatch = fromEnv.match(/^(.*)<(.+@.+)>$/)
+    if (fromMatch) {
+      fromName = fromMatch[1].trim()
+      fromEmail = fromMatch[2].trim()
     }
-    // ---------------------------------
-    
+
     console.log(`Sending emails to ${emailList.length} recipients`)
     
     if (emailList.length === 0) {
@@ -288,15 +273,47 @@ serve(async (req) => {
     const results = []
 
     for (const batch of batches) {
-        // Using bcc to hide recipients from each other
-        const { data, error } = await resend.emails.send({
-            from: FROM_EMAIL,
-            to: isTestingDomain ? [TEST_EMAIL] : [FROM_EMAIL], // Se em prod, envia para o próprio remetente e bcc para os outros
-            bcc: batch,
+        let batchError: { message: string; status?: number } | null = null
+
+        for (const recipient of batch) {
+          const payload = {
+            from: {
+              email: fromEmail,
+              name: fromName,
+            },
+            to: {
+              email: recipient,
+            },
             subject: emailSubject,
-            html: emailHtml
-        })
-        results.push({ batchSize: batch.length, success: !error, error })
+            html: emailHtml,
+          }
+
+          try {
+            const response = await fetch('https://api.sender.net/v2/message/send', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload),
+            })
+
+            if (!response.ok) {
+              const errorText = await response.text()
+              if (!batchError) {
+                batchError = { message: errorText || 'Sender API error', status: response.status }
+              }
+            }
+          } catch (err) {
+            const e = err as Error
+            if (!batchError) {
+              batchError = { message: e.message || 'Unknown error' }
+            }
+          }
+        }
+
+        results.push({ batchSize: batch.length, success: !batchError, error: batchError })
     }
 
     return new Response(
