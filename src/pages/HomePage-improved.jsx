@@ -357,10 +357,10 @@ function HomePageImproved() {
             <button
               type="button"
               onClick={() => handleStatusCardClick('active')}
-              className={`group flex items-center justify-between rounded-xl px-3 py-3 lg:px-6 lg:py-6 text-left transition cursor-pointer ${
+              className={`group flex items-center justify-between rounded-xl px-3 py-3 lg:px-6 lg:py-6 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'active'
-                  ? 'bg-white border border-[#2563EB]/60 shadow-sm'
-                  : 'bg-white border border-transparent hover:border-[#2563EB]/40 hover:shadow-sm'
+                  ? 'bg-white border border-[#2563EB]/60 shadow-md'
+                  : 'bg-white border border-transparent hover:border-[#2563EB]/40 hover:shadow-md'
               }`}
             >
               <div>
@@ -377,10 +377,10 @@ function HomePageImproved() {
             <button
               type="button"
               onClick={() => handleStatusCardClick('pending')}
-              className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer ${
+              className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'pending'
-                  ? 'bg-white border border-[#DC2626]/60 shadow-sm'
-                  : 'bg-white border border-transparent hover:border-[#DC2626]/40 hover:shadow-sm'
+                  ? 'bg-white border border-[#DC2626]/60 shadow-md'
+                  : 'bg-white border border-transparent hover:border-[#DC2626]/40 hover:shadow-md'
               }`}
             >
               <div>
@@ -397,10 +397,10 @@ function HomePageImproved() {
             <button
               type="button"
               onClick={() => handleStatusCardClick('in-progress')}
-              className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer ${
+              className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'in-progress'
-                  ? 'bg-white border border-[#D97706]/60 shadow-sm'
-                  : 'bg-white border border-transparent hover:border-[#D97706]/40 hover:shadow-sm'
+                  ? 'bg-white border border-[#D97706]/60 shadow-md'
+                  : 'bg-white border border-transparent hover:border-[#D97706]/40 hover:shadow-md'
               }`}
             >
               <div>
@@ -417,10 +417,10 @@ function HomePageImproved() {
             <button
               type="button"
               onClick={() => handleStatusCardClick('resolved')}
-              className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer ${
+              className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'resolved'
-                  ? 'bg-white border border-[#16A34A]/60 shadow-sm'
-                  : 'bg-white border border-transparent hover:border-[#16A34A]/40 hover:shadow-sm'
+                  ? 'bg-white border border-[#16A34A]/60 shadow-md'
+                  : 'bg-white border border-transparent hover:border-[#16A34A]/40 hover:shadow-md'
               }`}
             >
               <div>
