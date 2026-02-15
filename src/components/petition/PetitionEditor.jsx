@@ -1141,7 +1141,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
             {formData.status !== 'closed' && (
                 <Button onClick={() => handleSave('open')} disabled={loading} className="bg-red-500 hover:bg-red-600">
                     <Send className="w-4 h-4 mr-2" />
-                    {hideDraftOption ? 'Publicar' : 'Enviar para Moderação'}
+                    {isAdmin? 'Publicar' : 'Enviar para Moderação'}
                 </Button>
             )}
           </div>
@@ -1258,7 +1258,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
                   onClick={() => handleSave('open')}
                   disabled={loading}
                 >
-                  {petition.status === 'open' ? 'Salvar' : (hideDraftOption ? 'Publicar' : 'Enviar para Moderação')} <Send className="w-4 h-4 ml-2" />
+                  {petition.status === 'open' ? 'Salvar' : (isAdmin ? 'Publicar' : 'Enviar para Moderação')} <Send className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
                 <Button 

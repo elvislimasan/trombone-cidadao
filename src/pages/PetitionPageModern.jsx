@@ -42,6 +42,7 @@ const PetitionPageModern = () => {
     updates,
     otherPetitions,
     recentDonations,
+    totalDonations,
     setSignatures
   } = usePetitionData(id);
 
@@ -354,7 +355,7 @@ const PetitionPageModern = () => {
                 petitionId={petition.id}
                 petitionTitle={petition.title}
                 donationGoal={petition.donation_goal}
-                totalDonations={0} // This should be fetched if available
+                totalDonations={totalDonations}
                 onDonate={() => setShowDonationModal(true)}
                 onShare={async () => {
                   const shareUrl = getShareUrl();

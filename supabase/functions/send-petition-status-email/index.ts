@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Resend } from "npm:resend@2.0.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,11 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get('RESEND_API_KEY')
+    const apiKey = Deno.env.get('SENDER_API_KEY')
     if (!apiKey) {
-      throw new Error('RESEND_API_KEY is not set in environment variables')
+      throw new Error('SENDER_API_KEY is not set in environment variables')
     }
-    const resend = new Resend(apiKey)
 
     const { petitionId, authorId, status, rejectionReason, petitionTitle, petitionUrl } = await req.json()
     
@@ -25,13 +23,11 @@ serve(async (req) => {
       throw new Error('Missing required fields')
     }
 
-    // Create Admin Client to fetch user email
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Fetch User Email
     const { data: { user }, error: userError } = await supabaseAdmin.auth.admin.getUserById(authorId)
     
     if (userError || !user || !user.email) {
@@ -42,7 +38,6 @@ serve(async (req) => {
     const name = user.user_metadata?.name || 'Cidadão'
     const appUrl = Deno.env.get('APP_URL') || 'https://trombonecidadao.com.br'
 
-    // Fetch petition image/banner if petitionId is provided
     let bannerUrl: string | null = null
     if (petitionId) {
       const { data: p } = await supabaseAdmin
@@ -112,27 +107,46 @@ serve(async (req) => {
       throw new Error(`Unsupported status: ${status}`)
     }
 
-    // --- CONFIGURAÇÃO DE PRODUÇÃO VS TESTE ---
-    const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <onboarding@resend.dev>'
-    const isTestingDomain = FROM_EMAIL.includes('resend.dev')
-    const TEST_EMAIL = 'lairtondasilva07@gmail.com'
-
-    let recipient = email
-    if (isTestingDomain) {
-      console.log(`Modo de Teste Resend (@resend.dev): Redirecionando de ${email} para ${TEST_EMAIL}`)
-      recipient = TEST_EMAIL
+    const fromEnv = Deno.env.get('SENDER_FROM_EMAIL') || Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <contato@exemplo.com>'
+    let fromEmail = fromEnv
+    let fromName = 'Trombone Cidadão'
+    const fromMatch = fromEnv.match(/^(.*)<(.+@.+)>$/)
+    if (fromMatch) {
+      fromName = fromMatch[1].trim()
+      fromEmail = fromMatch[2].trim()
     }
 
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: [recipient],
+    const recipient = email
+
+    const payload = {
+      from: {
+        email: fromEmail,
+        name: fromName,
+      },
+      to: {
+        email: recipient,
+        name: name || 'Cidadão',
+      },
       subject: emailSubject,
       html: emailHtml,
+    }
+
+    const response = await fetch('https://api.sender.net/v2/message/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     })
 
-    if (error) {
-      throw error
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Sender API error: ${response.status} - ${errorText}`)
     }
+
+    const data = await response.json()
 
     return new Response(
       JSON.stringify({ message: 'Email sent successfully', data }),

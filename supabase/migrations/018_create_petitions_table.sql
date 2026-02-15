@@ -1,6 +1,9 @@
+-- Ensure uuid generation extension is available
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Create petitions table
 CREATE TABLE IF NOT EXISTS petitions (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT,
   goal INTEGER DEFAULT 100,

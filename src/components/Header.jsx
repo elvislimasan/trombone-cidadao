@@ -96,7 +96,11 @@ const Header = () => {
   }, [location]);
 
   const navLinkClass = ({ isActive }) =>
-    `relative font-semibold transition-colors duration-300 ${isActive ? 'text-tc-red' : 'hover:text-tc-red'}`;
+    `relative text-sm font-semibold tracking-tight transition-colors duration-300 ${
+      isActive ? 'text-tc-red' : 'text-white/75 hover:text-white'
+    } after:absolute after:-bottom-3 after:left-0 after:h-0.5 after:rounded-full after:bg-tc-red after:transition-all after:duration-300 ${
+      isActive ? 'after:w-full' : 'after:w-0 hover:after:w-2/3'
+    }`;
 
   const mobileNavLinkClass = ({ isActive }) =>
     `block py-3 text-2xl font-semibold transition-colors duration-300 ${isActive ? 'text-tc-red' : 'hover:text-tc-red'}`;
@@ -157,12 +161,17 @@ const Header = () => {
               }
             }}
           />
-          <span className="font-bold text-xl">{siteName}</span>
+          <span className="font-extrabold text-lg tracking-tight">{siteName}</span>
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-6">
+        <nav className="hidden lg:flex items-center gap-5">
           {visibleMenuItems.map(item => (
-            <NavLink key={item.path} to={item.path} className={navLinkClass} style={({isActive}) => isActive ? {color: '#dc2626'} : {}}>
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/'}
+              className={navLinkClass}
+            >
               {item.name}
             </NavLink>
           ))}
