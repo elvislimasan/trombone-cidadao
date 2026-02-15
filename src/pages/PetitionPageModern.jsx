@@ -256,9 +256,10 @@ const PetitionPageModern = () => {
   };
 
   const getShareUrl = () => {
-    const origin = window.location.origin.includes('localhost') 
-      ? 'https://trombone-cidadao.vercel.app' 
-      : window.location.origin;
+    const origin = window.location.origin || '';
+    if (origin.includes('localhost')) {
+      return `https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-petition?id=${id}`;
+    }
     return `${origin}/share/abaixo-assinado/${id}`;
   };
 
