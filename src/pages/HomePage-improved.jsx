@@ -437,7 +437,7 @@ function HomePageImproved() {
 
   return (
     <div className="flex flex-col bg-[#F9FAFB] md:px-6">
-      <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-4 space-y-8 max-w-[88rem] mx-auto w-full">
+      <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-4 space-y-10 max-w-[88rem] mx-auto w-full">
         <section className="space-y-4">
           <div className="lg:pt-4">
             <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827] mb-2  ">Broncas da Sua Cidade</h1>
@@ -534,7 +534,8 @@ function HomePageImproved() {
         <section ref={explorerRef} className="space-y-4">
           <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase">
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                    <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                     Explorar
                   </p>
                   <h2 className="text-sm md:text-base lg:text-md font-semibold text-[#111827]">Broncas em Floresta</h2>
@@ -650,7 +651,8 @@ function HomePageImproved() {
                         </DialogHeader>
                         <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto">
                           <div>
-                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase">
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                              <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                               Status
                             </p>
                             <div className="mt-2 space-y-2">
@@ -714,7 +716,8 @@ function HomePageImproved() {
                             </div>
                           </div>
                           <div>
-                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase">
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                              <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                               Categoria
                             </p>
                             <div className="mt-2 space-y-2">
@@ -848,7 +851,8 @@ function HomePageImproved() {
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                  <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                   Destaques
                 </p>
                 <h2 className="text-lg md:text-2xl font-bold text-[#111827]">Broncas em Destaque</h2>
@@ -967,7 +971,8 @@ function HomePageImproved() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                 Petições
               </p>
               <h2 className="text-lg md:text-2xl font-bold text-[#111827] ">Petições Ativas</h2>
