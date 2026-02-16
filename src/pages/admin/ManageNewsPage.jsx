@@ -442,7 +442,7 @@ const ManageNewsPage = () => {
                   // Show the first error message to help debugging
                   const errorMsg = failures[0].error?.message || failures[0].error?.name || "Erro desconhecido";
                   toast({ 
-                      title: "Erro no envio (Resend)", 
+                      title: "Erro no envio (Sender)", 
                       description: `Falha: ${errorMsg}. Verifique a chave de API e remetente.`, 
                       variant: "destructive" 
                   });

@@ -233,6 +233,14 @@ body > * a:not(.leaflet-container a) {
   z-index: 800 !important;
 }
 
+/* Atribuição do Leaflet (texto OpenStreetMap) abaixo do BottomNav e com respiro */
+.leaflet-control-container { z-index: 800 !important; }
+.leaflet-control-attribution, .leaflet-bottom { 
+  z-index: 800 !important;
+  bottom: 0 !important; 
+  left: 0 !important;
+}
+
 /* Ajustar posição dos controles de zoom no mobile para não sobrepor o BottomNav */
 @media (max-width: 1024px) {
   .leaflet-control-zoom {
@@ -272,7 +280,7 @@ body > * a:not(.leaflet-container a) {
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
 
-    --radius: 0.5rem;
+    --radius: 0.4rem;
   }
 
   .dark {
@@ -330,7 +338,7 @@ body > * a:not(.leaflet-container a) {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 
@@ -382,7 +390,7 @@ input[type="password"]::-ms-clear {
   --chart-3: 0 30% 25%;
   --chart-4: 30 80% 55%;
   --chart-5: 0 50% 70%;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 }
 
 .petition-theme .text-balance {

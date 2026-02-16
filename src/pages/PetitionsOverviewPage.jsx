@@ -54,17 +54,14 @@ const PetitionsOverviewPage = () => {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'victory');
 
-      // 3. Fetch Total Signatures (Global count from signatures table)
-      const { count: totalSignaturesCount } = await supabase
-        .from('signatures')
-        .select('*', { count: 'exact', head: true });
-
       // Client-side processing
       let processedData = data.map(p => ({
         ...p,
         signatureCount: p.signatures?.[0]?.count || 0,
         progress: Math.min(((p.signatures?.[0]?.count || 0) / (p.goal || 100)) * 100, 100)
       }));
+
+      const totalSignaturesSum = processedData.reduce((acc, p) => acc + (p.signatureCount || 0), 0);
 
       // Find featured petition (highest progress but not 100% yet, or just most popular)
       // Prefer one that is > 50% progress but < 100%
@@ -83,11 +80,10 @@ const PetitionsOverviewPage = () => {
 
       setPetitions(processedData);
 
-      // Update stats with real data
       setStats({
-        totalPetitions: processedData.length, // Only counting currently open/active petitions
-        totalSignatures: totalSignaturesCount || 0, // Total signatures across the platform
-        successfulPetitions: victoryCount || 0 // Closed petitions count as victories
+        totalPetitions: processedData.length,
+        totalSignatures: totalSignaturesSum,
+        successfulPetitions: victoryCount || 0
       });
 
     } catch (error) {
@@ -248,7 +244,15 @@ const PetitionsOverviewPage = () => {
                         </div>
                      </div>
                   ) : (
-                    <div className="aspect-[4/3] bg-muted animate-pulse rounded-xl" />
+                    <div className="bg-background rounded-xl overflow-hidden">
+                      <div className="aspect-auto">
+                        <img
+                          src="/abaixo-assinado.jpg"
+                          alt="Abaixo-assinado"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
                 <div className="absolute inset-0 bg-primary/20 blur-3xl -z-10 rounded-full transform translate-y-4" />

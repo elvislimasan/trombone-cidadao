@@ -1,7 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { Resend } from "npm:resend@2.0.0"
-
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,16 +17,21 @@ serve(async (req) => {
       throw new Error('Email is required')
     }
 
-    // --- CONFIGURAÇÃO DE PRODUÇÃO VS TESTE ---
-    const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <onboarding@resend.dev>'
-    const isTestingDomain = FROM_EMAIL.includes('resend.dev')
-    const TEST_EMAIL = 'lairtondasilva07@gmail.com'
+    const apiKey = Deno.env.get('SENDER_API_KEY')
+    if (!apiKey) {
+      throw new Error('SENDER_API_KEY is not set in environment variables')
+    }
+
+    const fromEnv = Deno.env.get('SENDER_FROM_EMAIL') || Deno.env.get('RESEND_FROM_EMAIL') || 'Trombone Cidadão <contato@exemplo.com>'
+    let fromEmail = fromEnv
+    let fromName = 'Trombone Cidadão'
+    const fromMatch = fromEnv.match(/^(.*)<(.+@.+)>$/)
+    if (fromMatch) {
+      fromName = fromMatch[1].trim()
+      fromEmail = fromMatch[2].trim()
+    }
 
     let recipient = email
-    if (isTestingDomain) {
-      console.log(`Modo de Teste Resend (@resend.dev): Redirecionando de ${email} para ${TEST_EMAIL}`)
-      recipient = TEST_EMAIL
-    }
 
     const BRAND_PRIMARY = '#E63946'
     const BRAND_TEXT = '#111827'
@@ -42,9 +44,15 @@ serve(async (req) => {
       ? `<img src="${petitionImage}" alt="${petitionTitle}" style="width:100%; max-height:300px; object-fit:cover; display:block; border-radius: 12px; margin-bottom: 16px;" />`
       : ''
 
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: [recipient],
+    const payload = {
+      from: {
+        email: fromEmail,
+        name: fromName,
+      },
+      to: {
+        email: recipient,
+        name: name || 'Cidadão',
+      },
       subject: `Obrigado por assinar: ${petitionTitle}`,
       html: `
       <div style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:${MUTED_BG}; padding:24px;">
@@ -83,12 +91,24 @@ serve(async (req) => {
         </div>
       </div>
       `,
+    }
+
+    const response = await fetch('https://api.sender.net/v2/message/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     })
 
-    if (error) {
-        console.error('Resend Error:', error);
-        throw error;
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Sender API error: ${response.status} - ${errorText}`)
     }
+
+    const data = await response.json()
 
     return new Response(
       JSON.stringify(data),

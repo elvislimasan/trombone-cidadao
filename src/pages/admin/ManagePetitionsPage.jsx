@@ -153,7 +153,7 @@ const ManagePetitionsPage = () => {
             .from('petitions')
             .insert({
                 title: '',
-                description: 'Descreva sua campanha aqui...',
+                description: '',
                 author_id: user.id,
                 status: 'draft',
                 goal: 100
