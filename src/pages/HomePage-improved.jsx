@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2 } from 'lucide-react';
+import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2, Search } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -90,6 +91,8 @@ function HomePageImproved() {
   const [loadingReports, setLoadingReports] = useState(true);
   const [categories, setCategories] = useState([]);
   const [filter, setFilter] = useState({ status: 'active', category: 'all' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filteredReports, setFilteredReports] = useState([]);
   const [viewMode, setViewMode] = useState('map');
   const [mapExpanded, setMapExpanded] = useState(false);
@@ -233,6 +236,7 @@ function HomePageImproved() {
         .from('reports')
         .select(`
           id,
+          protocol,
           title,
           description,
           status,
@@ -252,8 +256,7 @@ function HomePageImproved() {
           favorite_reports(user_id)
         `)
         .eq('moderation_status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(200);
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
@@ -353,15 +356,25 @@ function HomePageImproved() {
       tempReports = tempReports.filter((r) => r.category_id === filter.category);
     }
 
+    const term = searchTerm.trim().toLowerCase();
+    if (term) {
+      tempReports = tempReports.filter((r) => {
+        const title = r.title ? r.title.toLowerCase() : '';
+        const protocol = r.protocol ? String(r.protocol).toLowerCase() : '';
+        return title.includes(term) || protocol.includes(term);
+      });
+    }
+
     setFilteredReports(tempReports);
-  }, [statusFilteredReports, filter.category]);
+  }, [statusFilteredReports, filter.category, searchTerm]);
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filter.status !== 'active') count++;
     if (filter.category !== 'all') count++;
+    if (searchTerm.trim()) count++;
     return count;
-  }, [filter]);
+  }, [filter, searchTerm]);
 
   const handleExploreMap = () => {
     if (explorerRef.current) {
@@ -605,6 +618,7 @@ function HomePageImproved() {
                 </div>
                   
               </div>
+          
           <div className="grid lg:grid-cols-12 gap-4 items-start">
             <div className="lg:col-span-8 space-y-4">
               
@@ -613,6 +627,7 @@ function HomePageImproved() {
               <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-sm p-3 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
+                  
                     <Button
                       type="button"
                       variant="outline"
@@ -621,13 +636,51 @@ function HomePageImproved() {
                     >
                       <Filter className="w-4 h-4" />
                     </Button>
-                    <span className="text-[11px] text-[#6B7280]">
-                      {activeFiltersCount > 0
-                        ? `${activeFiltersCount} filtro${activeFiltersCount > 1 ? 's' : ''} ativos`
-                        : 'Todas as broncas ativas'}
-                    </span>
+                    {!searchOpen && (
+                      <span className="text-[11px] text-[#6B7280]">
+                        {activeFiltersCount > 0
+                          ? `${activeFiltersCount} filtro${activeFiltersCount > 1 ? 's' : ''} ativos`
+                          : 'Todas as broncas ativas'}
+                      </span>
+                    )}
                   </div>
+               
                   <div className="flex items-center gap-2">
+                         {/* Botão de busca compacto à esquerda dos filtros */}
+                    {!searchOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => setSearchOpen(true)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#E5E7EB] shadow-sm text-[#4B5563]"
+                        aria-label="Abrir busca"
+                      >
+                        <Search className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9CA3AF]" />
+                          <Input
+                            type="text"
+                            placeholder="Título ou protocolo..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-7 h-8 text-xs md:text-sm bg-white border-[#E5E7EB] w-40 sm:w-60"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchOpen(false);
+                            setSearchTerm('');
+                          }}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#E5E7EB] shadow-sm text-[#4B5563]"
+                          aria-label="Fechar busca"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                     <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
                       <DialogTrigger asChild>
                         <Button
@@ -643,6 +696,8 @@ function HomePageImproved() {
                           )}
                         </Button>
                       </DialogTrigger>
+                      
+                      {/* Filtros + Busca compacta no diálogo */}
                       <DialogContent
                         hideClose
                         className="w-full max-w-[480px] sm:max-w-md p-0 rounded-t-2xl sm:rounded-lg left-1/2 -translate-x-1/2 top-auto bottom-0 translate-y-0 sm:top-1/2 sm:-translate-y-1/2"
@@ -656,7 +711,10 @@ function HomePageImproved() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setFilter({ status: 'active', category: 'all' })}
+                                onClick={() => {
+                                  setFilter({ status: 'active', category: 'all' });
+                                  setSearchTerm('');
+                                }}
                                 className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-tc-red hover:bg-muted/60 rounded-full"
                               >
                                 Limpar
@@ -673,6 +731,22 @@ function HomePageImproved() {
                           </div>
                         </DialogHeader>
                         <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto">
+                          <div>
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                              <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
+                              Buscar
+                            </p>
+                            <div className="relative mt-2">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+                              <Input
+                                type="text"
+                                placeholder="Título ou protocolo..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-8 h-9 text-sm bg-white border-[#E5E7EB]"
+                              />
+                            </div>
+                          </div>
                           <div>
                             <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
                               <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
@@ -944,10 +1018,10 @@ function HomePageImproved() {
                           <MapPin className="w-3 h-3" />
                           <span className="truncate">{r.address || 'Endereço não informado'}</span>
                         </p>
-                        <p className="text-sm md:text-base font-semibold text-[#111827] line-clamp-2">
+                        <p className="text-sm md:text-base font-semibold text-[#111827] leading-snug md:leading-snug line-clamp-2 min-h-[2.5rem] md:min-h-[3rem]">
                           {r.title}
                         </p>
-                        <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">
+                        <p className="text-xs md:text-sm text-[#6B7280] mt-0.5 leading-snug md:leading-snug line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
                           {r.description}
                         </p>
                         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[#6B7280]">
@@ -1027,7 +1101,7 @@ function HomePageImproved() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25 }}
-                        className="w-full rounded-2xl bg-white border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0 overflow-hidden"
+                        className="w-full h-full flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0 overflow-hidden"
                       >
                         <div className="relative h-36 md:h-40 w-full overflow-hidden">
                           {petition.image_url ? (
@@ -1042,7 +1116,7 @@ function HomePageImproved() {
                             </div>
                           )}
                         </div>
-                        <div className="p-3 md:p-4 space-y-1.5">
+                         <div className="p-3 md:p-4 space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-[11px] md:text-xs font-semibold text-[#F97316] flex items-center gap-1">
                               <Megaphone className="w-3 h-3 md:w-4 md:h-4" />
@@ -1057,28 +1131,30 @@ function HomePageImproved() {
                               <Share2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
-                          <h3 className="text-sm md:text-base font-semibold text-[#111827] line-clamp-2">
+                         <h3 className="text-sm md:text-base font-semibold text-[#111827] leading-snug md:leading-snug line-clamp-2 min-h-[2.5rem] md:min-h-[3rem]">
                             {petition.title}
                           </h3>
-                          <p className="text-xs md:text-sm text-[#6B7280] line-clamp-2">
+                          <p className="text-xs md:text-sm text-[#6B7280] leading-snug md:leading-snug line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
                             {petition.description}
                           </p>
-                          <div className="mt-2">
-                            <div className="flex items-center justify-between text-[11px] md:text-xs text-[#6B7280] mb-1">
-                              <span>{petition.signatureCount} assinaturas</span>
-                              <span>Meta {petition.goal || 100}</span>
+                          <div className="">
+                            <div className="mt-2">
+                              <div className="flex items-center justify-between text-[11px] md:text-xs text-[#6B7280] mb-1">
+                                <span>{petition.signatureCount} assinaturas</span>
+                                <span>Meta {petition.goal || 100}</span>
+                              </div>
+                              <Progress
+                                value={petition.progress}
+                                className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full"
+                              />
                             </div>
-                            <Progress
-                              value={petition.progress}
-                              className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full"
-                            />
+                            <Button
+                              className="w-full mt-3 h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
+                              onClick={() => handleOpenPetition(petition.id)}
+                            >
+                              Apoiar Agora
+                            </Button>
                           </div>
-                          <Button
-                            className="w-full mt-3 h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
-                            onClick={() => handleOpenPetition(petition.id)}
-                          >
-                            Apoiar Agora
-                          </Button>
                         </div>
                       </motion.div>
                     </CarouselItem>

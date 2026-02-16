@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
   // Default fallback values
-  const defaultTitle = 'Abaixo-Assinado - Trombone Cidadão'
+  const defaultTitle = 'Assine o Abaixo-assinado'
   const defaultDesc = 'Assine esta petição e ajude a fazer a diferença!'
   
   // Smart App URL Detection based on Supabase Project ID
@@ -112,9 +112,9 @@ Deno.serve(async (req) => {
     }
 
     // Prepare Meta Data
-    const title = petition.title ? `${petition.title} - Trombone Cidadão` : defaultTitle
-    const description = petition.description 
-        ? (petition.description.length > 200 ? petition.description.substring(0, 197) + '...' : petition.description)
+    const title = defaultTitle
+    const description = petition.title
+        ? (petition.title.length > 200 ? petition.title.substring(0, 197) + '...' : petition.title)
         : defaultDesc
     
     // Determine Image URL
