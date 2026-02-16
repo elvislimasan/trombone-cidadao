@@ -2,7 +2,10 @@
   RewriteEngine On
   RewriteBase /
   
-  # Redirect /share/bronca/ID to Supabase Edge Function
+  # Redirect /share/abaixo-assinado/ID to Supabase Edge Function (petição)
+  RewriteRule ^share/abaixo-assinado/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-petition?id=$1 [R=302,L]
+
+  # Redirect /share/bronca/ID to Supabase Edge Function (bronca)
   RewriteRule ^share/bronca/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-preview?id=$1 [R=302,L]
   
   RewriteCond %{REQUEST_FILENAME} !-f

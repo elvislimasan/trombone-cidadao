@@ -55,7 +55,7 @@ const createMarkerIcon = (category, status) => {
   });
 };
 
-const MapView = ({ reports, onReportClick, onUpvote }) => {
+const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showModeToggle = true, interactive = true }) => {
   const { mode } = useMapModeToggle();
 
   const formatDate = (dateString) => {
@@ -71,72 +71,105 @@ const MapView = ({ reports, onReportClick, onUpvote }) => {
   };
 
   return (
-    <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
-      <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <MapScrollLock />
-        {reports.map((report) => {
-          const location = report.location;
-          if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
-            return null;
-          }
-          return (
-            <Marker
-              key={report.id}
-              position={[location.lat, location.lng]}
-              icon={createMarkerIcon(report.category, report.status)}
-              eventHandlers={{
-                dblclick: (e) => {
-                  e.originalEvent.stopPropagation();
-                  onReportClick(report);
-                },
-              }}
-            >
-              <Popup>
-                <div className="w-64">
-                  <h3 className="font-bold text-base mb-1">{report.title}</h3>
-                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{report.description}</p>
-                  <div className="flex items-center text-xs text-muted-foreground mb-3">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {formatDate(report.created_at)}
+    <div className="relative w-full h-full bg-background rounded-xl overflow-hidden flex flex-col">
+      <div className="relative flex-1">
+        <MapContainer 
+          center={FLORESTA_COORDS} 
+          zoom={INITIAL_ZOOM} 
+          scrollWheelZoom={interactive} 
+          dragging={interactive}
+          doubleClickZoom={interactive}
+          zoomControl={interactive}
+          className="w-full h-full"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapScrollLock />
+          {reports.map((report) => {
+            const location = report.location;
+            if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
+              return null;
+            }
+            return (
+              <Marker
+                key={report.id}
+                position={[location.lat, location.lng]}
+                icon={createMarkerIcon(report.category, report.status)}
+                eventHandlers={{
+                  dblclick: (e) => {
+                    e.originalEvent.stopPropagation();
+                    onReportClick(report);
+                  },
+                }}
+              >
+                <Popup>
+                  <div className="w-64">
+                    <h3 className="font-bold text-base mb-1">{report.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{report.description}</p>
+                    <div className="flex items-center text-xs text-muted-foreground mb-3">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {formatDate(report.created_at)}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onUpvote(report.id); }} className="flex items-center space-x-1">
+                        <ThumbsUp className="w-3 h-3" />
+                        <span>{report.upvotes}</span>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReportClick(report);
+                        }} 
+                        className="bg-primary hover:bg-primary/90"
+                        style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                      >
+                        Ver Detalhes
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onUpvote(report.id); }} className="flex items-center space-x-1">
-                      <ThumbsUp className="w-3 h-3" />
-                      <span>{report.upvotes}</span>
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onReportClick(report);
-                      }} 
-                      className="bg-primary hover:bg-primary/90"
-                      style={{ pointerEvents: 'auto', touchAction: 'auto' }}
-                    >
-                      Ver Detalhes
-                    </Button>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
-      <div className="absolute top-4 right-4 z-[800]">
-        <MapModeToggle />
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MapContainer>
+        {showModeToggle && (
+          <div className="absolute top-4 right-4 z-[800]">
+            <MapModeToggle />
+          </div>
+        )}
+        {showLegend && (
+          <div className="hidden sm:block absolute left-2 sm:left-4 bottom-2 sm:bottom-3 bg-card/95 backdrop-blur-sm rounded-lg px-2.5 py-2 sm:px-3 sm:py-2.5 shadow-lg border border-border z-[700] max-w-[180px] sm:max-w-[220px] pointer-events-auto">
+            <h4 className="font-semibold text-[11px] sm:text-sm mb-1.5 sm:mb-2.5">Legenda</h4>
+            <div className="space-y-1 text-[10px] sm:text-xs">
+              <div className="flex items-center space-x-1.5"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('pending')}}></div><span className="truncate">Pendente</span></div>
+              <div className="flex items-center space-x-1.5"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('in-progress')}}></div><span className="truncate">Em Andamento</span></div>
+              <div className="flex items-center space-x-1.5"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('resolved')}}></div><span className="truncate">Resolvido</span></div>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="absolute left-2 sm:left-4 bottom-2 sm:bottom-3 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto">
-        <h4 className="font-semibold text-sm mb-2.5">Legenda</h4>
-        <div className="space-y-1.5 text-xs">
-          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('pending')}}></div><span className="truncate">Pendente</span></div>
-          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('in-progress')}}></div><span className="truncate">Em Andamento</span></div>
-          <div className="flex items-center space-x-2"><div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: getStatusColor('resolved')}}></div><span className="truncate">Resolvido</span></div>
+      {showLegend && (
+        <div className="sm:hidden w-full bg-card/95 border-t border-border/80 px-3 py-2 flex items-center justify-between gap-3 text-[10px]">
+          <span className="font-semibold text-[10px] text-foreground whitespace-nowrap mr-1">Legenda</span>
+          <div className="flex items-center gap-3 flex-1 justify-end">
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getStatusColor('pending') }} />
+              <span className="truncate">Pendente</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getStatusColor('in-progress') }} />
+              <span className="truncate">Em Andamento</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getStatusColor('resolved') }} />
+              <span className="truncate">Resolvido</span>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

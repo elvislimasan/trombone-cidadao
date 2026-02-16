@@ -124,6 +124,7 @@ const PetitionPage = () => {
   const recaptchaRef = useRef(null);
   const [newComment, setNewComment] = useState('');
   const [commentSort, setCommentSort] = useState('newest');
+  const [donationFromJourney, setDonationFromJourney] = useState(false);
 
   // Unified State Wrappers for Modern Components
   const currentCity = user ? signForm.city : guestForm.city;
@@ -596,9 +597,10 @@ const PetitionPage = () => {
   };
 
   const getShareUrl = () => {
-    const origin = window.location.origin.includes('localhost') 
-      ? 'https://trombone-cidadao.vercel.app' 
-      : window.location.origin;
+    const origin = window.location.origin || '';
+    if (origin.includes('localhost')) {
+      return `https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-petition?id=${id}`;
+    }
     return `${origin}/share/abaixo-assinado/${id}`;
   };
 
@@ -955,7 +957,13 @@ const PetitionPage = () => {
 
       <DonationModal 
         isOpen={showDonationModal} 
-        onClose={() => setShowDonationModal(false)} 
+        onClose={() => {
+          setShowDonationModal(false);
+          if (donationFromJourney) {
+            setDonationFromJourney(false);
+            setShowJourney(true);
+          }
+        }} 
         petitionTitle={petition.title}
         petitionId={id}
         initialGuestName={guestForm.name}
@@ -967,7 +975,11 @@ const PetitionPage = () => {
         onClose={() => setShowJourney(false)} 
         petitionTitle={petition?.title}
         petitionUrl={getShareUrl()}
-        onDonate={() => setShowDonationModal(true)}
+        onDonate={() => {
+          setDonationFromJourney(true);
+          setShowJourney(false);
+          setTimeout(() => setShowDonationModal(true), 150);
+        }}
         userName={user ? (user.user_metadata?.name || 'Cidadão') : guestForm.name}
         guestEmail={!user ? guestForm.email : null}
         donationEnabled={petition?.donation_enabled !== false}

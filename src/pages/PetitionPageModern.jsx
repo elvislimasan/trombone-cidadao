@@ -42,6 +42,7 @@ const PetitionPageModern = () => {
     updates,
     otherPetitions,
     recentDonations,
+    totalDonations,
     setSignatures
   } = usePetitionData(id);
 
@@ -256,9 +257,10 @@ const PetitionPageModern = () => {
   };
 
   const getShareUrl = () => {
-    const origin = window.location.origin.includes('localhost') 
-      ? 'https://trombone-cidadao.vercel.app' 
-      : window.location.origin;
+    const origin = window.location.origin || '';
+    if (origin.includes('localhost')) {
+      return `https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-petition?id=${id}`;
+    }
     return `${origin}/share/abaixo-assinado/${id}`;
   };
 
@@ -353,7 +355,7 @@ const PetitionPageModern = () => {
                 petitionId={petition.id}
                 petitionTitle={petition.title}
                 donationGoal={petition.donation_goal}
-                totalDonations={0} // This should be fetched if available
+                totalDonations={totalDonations}
                 onDonate={() => setShowDonationModal(true)}
                 onShare={async () => {
                   const shareUrl = getShareUrl();
