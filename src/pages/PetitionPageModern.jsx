@@ -8,6 +8,7 @@ import { usePetitionData } from '@/hooks/usePetitionData';
 import { usePetitionSEO } from '@/hooks/usePetitionSEO';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { getPetitionShareUrl } from '@/lib/shareUtils';
 import { useToast } from '@/components/ui/use-toast';
 
 // Layout & UI
@@ -256,14 +257,6 @@ const PetitionPageModern = () => {
       }
   };
 
-  const getShareUrl = () => {
-    const origin = window.location.origin || '';
-    if (origin.includes('localhost')) {
-      return `https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-petition?id=${id}`;
-    }
-    return `${origin}/share/abaixo-assinado/${id}`;
-  };
-
   if (loading) {
     return (
         <div className="min-h-screen bg-background">
@@ -338,10 +331,12 @@ const PetitionPageModern = () => {
                  allowNotifications={currentAllowNotifications}
                  setAllowNotifications={setAllowNotifications}
                  onShare={async () => {
-                     const shareUrl = getShareUrl();
+                     const shareUrl = getPetitionShareUrl(id);
                      try {
                         await navigator.share({
-                            url: shareUrl,
+                          title: 'Assine o Abaixo-assinado',
+                          text: petition?.title || '',
+                          url: shareUrl,
                         });
                      } catch (err) {
                         navigator.clipboard.writeText(shareUrl);
@@ -358,9 +353,11 @@ const PetitionPageModern = () => {
                 totalDonations={totalDonations}
                 onDonate={() => setShowDonationModal(true)}
                 onShare={async () => {
-                  const shareUrl = getShareUrl();
+                  const shareUrl = getPetitionShareUrl(id);
                   try {
                     await navigator.share({
+                      title: 'Assine o Abaixo-assinado',
+                      text: petition?.title || '',
                       url: shareUrl,
                     });
                   } catch (err) {

@@ -12,7 +12,8 @@ import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import MapView from '@/components/MapView';
 import ReportList from '@/components/ReportList';
 import RankingSidebar from '@/components/RankingSidebar';
-import { useUpvote } from '../hooks/useUpvotes';
+import { useUpvote } from '@/hooks/useUpvotes';
+import { getReportShareUrl, getPetitionShareUrl } from '@/lib/shareUtils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import {
   DropdownMenu,
@@ -304,28 +305,6 @@ function HomePageImproved() {
     fetchCategories();
   }, [fetchStats, fetchTopPetitions, fetchReportsPreview, fetchCategories]);
 
-  const statusCounts = useMemo(() => {
-    const items = (reportsPreview || []).filter((r) => r.status !== 'duplicate');
-    const pending = items.filter((r) => r.status === 'pending').length;
-    const inProgress = items.filter((r) => r.status === 'in-progress').length;
-    const resolved = items.filter((r) => r.status === 'resolved').length;
-    const total = items.length;
-    const active = pending + inProgress;
-    const myResolved = user ? items.filter((r) => r.status === 'resolved' && r.author_id === user.id).length : 0;
-    return { total, pending, inProgress, resolved, active, myResolved };
-  }, [reportsPreview, user]);
-
-  const categoryCounts = useMemo(() => {
-    const items = (reportsPreview || []).filter((r) => r.status !== 'duplicate');
-    const map = {};
-    items.forEach((r) => {
-      const k = r.category_id;
-      if (!k) return;
-      map[k] = (map[k] || 0) + 1;
-    });
-    return map;
-  }, [reportsPreview]);
-
   const statusFilteredReports = useMemo(() => {
     let tempReports = reportsPreview.filter((r) => r.status !== 'duplicate');
 
@@ -345,6 +324,27 @@ function HomePageImproved() {
 
     return tempReports;
   }, [reportsPreview, filter.status, user]);
+
+  const statusCounts = useMemo(() => {
+    const items = (reportsPreview || []).filter((r) => r.status !== 'duplicate');
+    const pending = items.filter((r) => r.status === 'pending').length;
+    const inProgress = items.filter((r) => r.status === 'in-progress').length;
+    const resolved = items.filter((r) => r.status === 'resolved').length;
+    const total = items.length;
+    const active = pending + inProgress;
+    const myResolved = user ? items.filter((r) => r.status === 'resolved' && r.author_id === user.id).length : 0;
+    return { total, pending, inProgress, resolved, active, myResolved };
+  }, [reportsPreview, user]);
+
+  const categoryCounts = useMemo(() => {
+    const map = {};
+    statusFilteredReports.forEach((r) => {
+      const k = r.category_id;
+      if (!k) return;
+      map[k] = (map[k] || 0) + 1;
+    });
+    return map;
+  }, [statusFilteredReports]);
 
   useEffect(() => {
     let tempReports = statusFilteredReports;
@@ -411,8 +411,7 @@ function HomePageImproved() {
       e.stopPropagation();
       e.preventDefault();
     }
-    if (typeof window === 'undefined') return;
-    const url = `${window.location.origin}/bronca/${report.id}`;
+    const url = getReportShareUrl(report.id);
     if (navigator.share) {
       navigator
         .share({
@@ -433,13 +432,12 @@ function HomePageImproved() {
       e.stopPropagation();
       e.preventDefault();
     }
-    if (typeof window === 'undefined') return;
-    const url = `${window.location.origin}/abaixo-assinado/${petition.id}`;
+    const url = getPetitionShareUrl(petition.id);
     if (navigator.share) {
       navigator
         .share({
-          title: petition.title,
-          text: petition.description,
+          title: 'Assine o Abaixo-assinado',
+          text: petition.title,
           url,
         })
         .catch(() => {});

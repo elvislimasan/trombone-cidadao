@@ -13,6 +13,7 @@ import confetti from 'canvas-confetti';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
+import { getPetitionShareUrl } from '@/lib/shareUtils';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import DonationModal from '@/components/DonationModal';
 import PetitionJourney from '@/components/PetitionJourney';
@@ -119,6 +120,7 @@ const PetitionPage = () => {
     allowNotifications: true,
     comment: ''
   });
+  const [signError, setSignError] = useState('');
   const [signing, setSigning] = useState(false);
   const [captchaValue, setCaptchaValue] = useState(null);
   const recaptchaRef = useRef(null);
@@ -429,6 +431,7 @@ const PetitionPage = () => {
   };
 
   const handleSignClick = async () => {
+    setSignError('');
     if (hasSigned) {
       toast({ title: "Já assinado", description: "Você já assinou esta petição." });
       return;
@@ -483,7 +486,7 @@ const PetitionPage = () => {
                   email: user.email,
                   name: userName,
                   petitionTitle: petition.title,
-                  petitionUrl: getShareUrl(),
+                  petitionUrl: getPetitionShareUrl(id),
                   petitionImage: petition.image_url
                 }
               }).then(({ data, error }) => {
@@ -494,7 +497,7 @@ const PetitionPage = () => {
 
         } catch (error) {
             console.error("One click sign error:", error);
-            toast({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
+            setSignError(error.message || "Não foi possível registrar sua assinatura.");
         } finally {
             setSigning(false);
         }
@@ -504,17 +507,14 @@ const PetitionPage = () => {
   };
 
   const handleGuestSign = async () => {
+      setSignError('');
       if (!guestForm.name || !guestForm.email || !guestForm.city) {
-          toast({ title: "Campos obrigatórios", description: "Por favor preencha nome, email e cidade.", variant: "destructive" });
+          setSignError("Por favor preencha nome, email e cidade.");
           return;
       }
 
       if (!captchaValue) {
-          toast({ 
-              title: "Verificação necessária", 
-              description: "Por favor, complete o reCAPTCHA abaixo.", 
-              variant: "destructive" 
-          });
+          setSignError("Por favor, complete o reCAPTCHA abaixo.");
           return;
       }
 
@@ -541,10 +541,12 @@ const PetitionPage = () => {
               });
 
           if (signError) {
-             if (signError.code === '23505') { // Unique violation
-                 throw new Error("Este email já assinou esta petição.");
+             if (signError.code === '23505') {
+                 setSignError("Este email já assinou esta petição.");
+                 return;
              }
-             throw signError;
+             setSignError(signError.message || "Não foi possível registrar sua assinatura.");
+             return;
           }
 
           confetti({
@@ -581,7 +583,7 @@ const PetitionPage = () => {
               email: guestForm.email,
               name: guestForm.name,
               petitionTitle: petition.title,
-              petitionUrl: getShareUrl(),
+              petitionUrl: getPetitionShareUrl(id),
               petitionImage: petition.image_url
             }
           }).then(({ data, error }) => {
@@ -596,23 +598,19 @@ const PetitionPage = () => {
       }
   };
 
-  const getShareUrl = () => {
-    const origin = window.location.origin || '';
-    if (origin.includes('localhost')) {
-      return `https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-petition?id=${id}`;
-    }
-    return `${origin}/share/abaixo-assinado/${id}`;
-  };
-
   const handleShare = async () => {
-    const shareUrl = getShareUrl();
+    const shareUrl = getPetitionShareUrl(id);
     try {
       if (Capacitor.isNativePlatform()) {
         await Share.share({
+          title: 'Assine o Abaixo-assinado',
+          text: petition?.title || '',
           url: shareUrl,
         });
       } else if (navigator.share) {
         await navigator.share({
+          title: 'Assine o Abaixo-assinado',
+          text: petition?.title || '',
           url: shareUrl,
         });
       } else {
@@ -640,7 +638,14 @@ const PetitionPage = () => {
            comment: signForm.comment
          });
  
-       if (error) throw error;
+       if (error) {
+         if (error.code === '23505') {
+           setSignError("Você já assinou esta petição.");
+           return;
+         }
+         setSignError(error.message || "Não foi possível registrar sua assinatura.");
+         return;
+       }
  
        confetti({
          particleCount: 150,
@@ -664,7 +669,7 @@ const PetitionPage = () => {
               email: user.email,
               name: userName,
               petitionTitle: petition.title,
-              petitionUrl: getShareUrl(),
+              petitionUrl: getPetitionShareUrl(id),
               petitionImage: petition.image_url
             }
           }).then(({ data, error }) => {
@@ -674,7 +679,7 @@ const PetitionPage = () => {
         }
 
      } catch (error) {
-       toast({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
+       setSignError(error.message || "Não foi possível registrar sua assinatura.");
      } finally {
        setSigning(false);
      }
@@ -831,7 +836,7 @@ const PetitionPage = () => {
                       onDonate={(amount) => {
                           setShowDonationModal(true);
                       }}
-                      shareUrl={getShareUrl()}
+                      shareUrl={getPetitionShareUrl(id)}
                   />
               </div>
 
@@ -926,7 +931,7 @@ const PetitionPage = () => {
                       // Pass amount if DonationModal supports it, or just open
                       setShowDonationModal(true);
                   }}
-                  shareUrl={getShareUrl()}
+                  shareUrl={getPetitionShareUrl(id)}
               />
 
              
@@ -943,6 +948,7 @@ const PetitionPage = () => {
         setGuestForm={setGuestForm}
         onGuestSign={handleGuestSign}
         signing={signing}
+        errorMessage={signError}
       >
         {!user && (
           <div className="flex justify-center py-2">
@@ -974,7 +980,7 @@ const PetitionPage = () => {
         isOpen={showJourney} 
         onClose={() => setShowJourney(false)} 
         petitionTitle={petition?.title}
-        petitionUrl={getShareUrl()}
+        petitionUrl={getPetitionShareUrl(id)}
         onDonate={() => {
           setDonationFromJourney(true);
           setShowJourney(false);

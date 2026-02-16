@@ -37,7 +37,8 @@ const GuestSignModal = ({
   setGuestForm, 
   onGuestSign, 
   signing,
-  children
+  children,
+  errorMessage
 }) => {
   const navigate = useNavigate();
 
@@ -70,6 +71,9 @@ const GuestSignModal = ({
                 value={guestForm.email}
                 onChange={(e) => setGuestForm(prev => ({ ...prev, email: e.target.value }))}
               />
+              {errorMessage && (
+                <p className="text-sm text-red-600">{errorMessage}</p>
+              )}
            </div>
            <div className="space-y-2">
               <Label htmlFor="city">Cidade</Label>
@@ -134,6 +138,7 @@ GuestSignModal.propTypes = {
   onGuestSign: PropTypes.func.isRequired,
   signing: PropTypes.bool.isRequired,
   children: PropTypes.node,
+  errorMessage: PropTypes.string,
 };
 
 export default GuestSignModal;
