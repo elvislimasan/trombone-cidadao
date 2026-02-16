@@ -30,7 +30,6 @@ import PetitionComments from '@/components/petition-modern/PetitionComments';
 import PetitionSignatureCard from '@/components/petition-modern/PetitionSignatureCard';
 import PetitionSupportCard from '@/components/petition-modern/PetitionSupportCard';
 import PetitionRelatedCauses from '@/components/petition-modern/PetitionRelatedCauses';
-import GuestSignModal from '@/components/petition-modern/GuestSignModal';
 import ReCAPTCHA from "react-google-recaptcha";
 
 const Counter = ({ value }) => {
@@ -68,10 +67,10 @@ const PetitionPage = () => {
   const [hasSigned, setHasSigned] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
-  const [showSignModal, setShowSignModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const otherCausesRef = useRef(null);
   const triggerRef = useRef(null);
+  const inlineFormRef = useRef(null);
 
 
   const [isEditing, setIsEditing] = useState(false);
@@ -502,7 +501,13 @@ const PetitionPage = () => {
             setSigning(false);
         }
     } else {
-        setShowSignModal(true);
+        if (inlineFormRef.current) {
+          inlineFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => {
+            const el = document.getElementById('guest-name');
+            if (el) el.focus();
+          }, 450);
+        }
     }
   };
 
@@ -568,7 +573,6 @@ const PetitionPage = () => {
               is_public: guestForm.isPublic
           }, ...prev]);
 
-          setShowSignModal(false);
           setIsGuestSign(true);
           setShowJourney(true);
           
@@ -654,7 +658,6 @@ const PetitionPage = () => {
        toast({ title: "Assinado com sucesso! 🎉", description: "Obrigado pelo seu apoio." });
        setHasSigned(true);
        setPetition(prev => ({ ...prev, signatureCount: prev.signatureCount + 1 }));
-       setShowSignModal(false);
        setShowJourney(true);
 
        // Send confirmation email (fire and forget)
@@ -790,52 +793,61 @@ const PetitionPage = () => {
         )}
         
         <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
-             {/* Left Column: Content */}
+            {/* Left Column: Content */}
              <div className="flex flex-col gap-8 px-0 sm:px-4">
-                {/* Mobile Actions (Signature & Donation) - Rendered here for mobile order */}
-                <div className="flex flex-col gap-6 lg:hidden">
-                    <PetitionSignatureCard 
-                        signaturesCount={petition.signatureCount}
-                      goal={petition.goal}
-                      onSign={handleSignClick}
-                      isSubmitting={signing}
-                      hasSigned={hasSigned}
-                      user={user}
-                      city={currentCity}
-                      setCity={setCity}
-                      isPublic={currentIsPublic}
-                      setIsPublic={setIsPublic}
-                      allowNotifications={currentAllowNotifications}
-                      setAllowNotifications={setAllowNotifications}
-                      onShare={handleShare}
-                      recentSignatures={latestSigners}
-                      compact={true}
-                      hero={
-                        <PetitionHero 
-                          title={petition.title} 
-                          createdAt={petition.created_at} 
-                          location={signForm.city} 
-                          imageUrl={petition.image_url}
-                          gallery={petition.gallery}
-                          petition={petition}
-                          user={user}
-                          onEdit={() => setIsEditing(true)}
-                        />
-                      }
+               {/* Mobile Actions (Signature & Donation) - Visual antigo com formulário inline */}
+               <div className="flex flex-col gap-6 lg:hidden" ref={inlineFormRef}>
+                  <PetitionSignatureCard 
+                    signaturesCount={petition.signatureCount}
+                    goal={petition.goal}
+                    onSign={handleSignClick}
+                    isSubmitting={signing}
+                    hasSigned={hasSigned}
+                    user={user}
+                    city={currentCity}
+                    setCity={setCity}
+                    isPublic={currentIsPublic}
+                    setIsPublic={setIsPublic}
+                    allowNotifications={currentAllowNotifications}
+                    setAllowNotifications={setAllowNotifications}
+                    onShare={handleShare}
+                    recentSignatures={latestSigners}
+                    compact={true}
+                    hero={
+                      <PetitionHero 
+                        title={petition.title} 
+                        createdAt={petition.created_at} 
+                        location={signForm.city} 
+                        imageUrl={petition.image_url}
+                        gallery={petition.gallery}
+                        petition={petition}
+                        user={user}
+                        onEdit={() => setIsEditing(true)}
+                      />
+                    }
+                    guestForm={guestForm}
+                    setGuestForm={setGuestForm}
+                    onGuestSign={handleGuestSign}
+                    signing={signing}
+                    errorMessage={signError}
+                    recaptchaRef={recaptchaRef}
+                    onCaptchaChange={(value) => setCaptchaValue(value)}
                   />
-
+                  
+                  
+                  
                   <PetitionSupportCard 
-                      petitionId={petition.id}
-                      petitionTitle={petition.title}
-                      donationGoal={petition.donation_goal}
-                      totalDonations={totalDonations}
-                      onShare={handleShare}
-                      onDonate={(amount) => {
-                          setShowDonationModal(true);
-                      }}
-                      shareUrl={getPetitionShareUrl(id)}
+                    petitionId={petition.id}
+                    petitionTitle={petition.title}
+                    donationGoal={petition.donation_goal}
+                    totalDonations={totalDonations}
+                    onShare={handleShare}
+                    onDonate={(amount) => {
+                      setShowDonationModal(true);
+                    }}
+                    shareUrl={getPetitionShareUrl(id)}
                   />
-              </div>
+               </div>
 
               <PetitionContent 
                   hero={
@@ -899,64 +911,50 @@ const PetitionPage = () => {
               </div>
           </div>
  
-          {/* Right Column: Sidebar */}
-          <aside className="hidden lg:flex lg:flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
-             <PetitionSignatureCard 
-                 signaturesCount={petition.signatureCount}
-                 goal={petition.goal}
-                  onSign={handleSignClick}
-                  isSubmitting={signing}
-                  hasSigned={hasSigned}
-                  user={user}
-                  city={currentCity}
-                  setCity={setCity}
-                  isPublic={currentIsPublic}
-                  setIsPublic={setIsPublic}
-                  allowNotifications={currentAllowNotifications}
-                  setAllowNotifications={setAllowNotifications}
-                  onShare={handleShare}
-                  recentSignatures={latestSigners}
-              />
-
-              <PetitionSupportCard 
-                  petitionId={petition.id}
-                  petitionTitle={petition.title}
-                  donationGoal={petition.donation_goal}
-                  totalDonations={totalDonations}
-                  onShare={handleShare}
-                  onDonate={(amount) => {
-                      // Pass amount if DonationModal supports it, or just open
-                      setShowDonationModal(true);
-                  }}
-                  shareUrl={getPetitionShareUrl(id)}
-              />
-
-             
-           </aside>
+          {/* Right Column: Sidebar - Visual antigo com formulário inline */}
+          <aside className="hidden lg:flex lg:flex-col gap-6 lg:sticky lg:top-24 lg:self-start" ref={inlineFormRef}>
+            <PetitionSignatureCard 
+              signaturesCount={petition.signatureCount}
+              goal={petition.goal}
+              onSign={handleSignClick}
+              isSubmitting={signing}
+              hasSigned={hasSigned}
+              user={user}
+              city={currentCity}
+              setCity={setCity}
+              isPublic={currentIsPublic}
+              setIsPublic={setIsPublic}
+              allowNotifications={currentAllowNotifications}
+              setAllowNotifications={setAllowNotifications}
+              onShare={handleShare}
+              recentSignatures={latestSigners}
+              guestForm={guestForm}
+              setGuestForm={setGuestForm}
+              onGuestSign={handleGuestSign}
+              signing={signing}
+              errorMessage={signError}
+              recaptchaRef={recaptchaRef}
+              onCaptchaChange={(value) => setCaptchaValue(value)}
+            />
+            
+            <PetitionSupportCard 
+              petitionId={petition.id}
+              petitionTitle={petition.title}
+              donationGoal={petition.donation_goal}
+              totalDonations={totalDonations}
+              onShare={handleShare}
+              onDonate={(amount) => {
+                setShowDonationModal(true);
+              }}
+              shareUrl={getPetitionShareUrl(id)}
+            />
+          </aside>
         </div>
 
         <PetitionRelatedCauses causes={otherPetitions} />
       </main>
 
-      <GuestSignModal 
-        open={showSignModal} 
-        onOpenChange={setShowSignModal}
-        guestForm={guestForm}
-        setGuestForm={setGuestForm}
-        onGuestSign={handleGuestSign}
-        signing={signing}
-        errorMessage={signError}
-      >
-        {!user && (
-          <div className="flex justify-center py-2">
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} // Fallback to test key
-              onChange={(value) => setCaptchaValue(value)}
-            />
-          </div>
-        )}
-      </GuestSignModal>
+      
 
       <DonationModal 
         isOpen={showDonationModal} 

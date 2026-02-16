@@ -200,6 +200,21 @@ function App() {
   const location = useLocation();
   const { toast } = useToast();
 
+  // Safe area para browsers in-app (Instagram/Facebook)
+  useEffect(() => {
+    try {
+      const ua = navigator.userAgent || '';
+      const isInApp = /Instagram|FBAN|FBAV/i.test(ua);
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+      if (isInApp && isMobile) {
+        const root = document.documentElement;
+        // Ajustes conservadores para evitar sobreposição de barras
+        root.style.setProperty('--safe-area-top', '8px', 'important');
+        root.style.setProperty('--safe-area-bottom', '24px', 'important');
+      }
+    } catch {}
+  }, []);
+
   // ✅ Handler para Restauração de Estado (Android Activity Killed)
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
