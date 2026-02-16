@@ -73,6 +73,7 @@ function HomePageImproved() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { handleUpvote, loading: upvoteLoading } = useUpvote();
+  const [showPetitionsUpdate, setShowPetitionsUpdate] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -94,6 +95,32 @@ function HomePageImproved() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const explorerRef = useRef(null);
+
+  useEffect(() => {
+    const seen = localStorage.getItem('home-petitions-update-modal-v1');
+    if (!seen) {
+      setShowPetitionsUpdate(true);
+    }
+  }, []);
+
+  const handlePetitionsUpdateVisibility = (open) => {
+    setShowPetitionsUpdate(open);
+    if (!open) {
+      localStorage.setItem('home-petitions-update-modal-v1', 'true');
+    }
+  };
+
+  const handleGoToPetitionsOverview = () => {
+    localStorage.setItem('home-petitions-update-modal-v1', 'true');
+    setShowPetitionsUpdate(false);
+    navigate('/abaixo-assinados');
+  };
+
+  const handleGoToMyPetitions = () => {
+    localStorage.setItem('home-petitions-update-modal-v1', 'true');
+    setShowPetitionsUpdate(false);
+    navigate('/minhas-peticoes');
+  };
 
   const fetchStats = useCallback(async () => {
     setLoadingStats(true);
@@ -658,17 +685,6 @@ function HomePageImproved() {
                             <div className="mt-2 space-y-2">
                               <button
                                 type="button"
-                                onClick={() => setFilter((f) => ({ ...f, status: 'all' }))}
-                                className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
-                                  filter.status === 'all'
-                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827]'
-                                    : 'border-[#E5E7EB] bg-white text-[#374151]'
-                                }`}
-                              >
-                                Todas ({statusCounts.active})
-                              </button>
-                              <button
-                                type="button"
                                 onClick={() => setFilter((f) => ({ ...f, status: 'pending' }))}
                                 className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
                                   filter.status === 'pending'
@@ -721,17 +737,6 @@ function HomePageImproved() {
                               Categoria
                             </p>
                             <div className="mt-2 space-y-2">
-                              <button
-                                type="button"
-                                onClick={() => setFilter((f) => ({ ...f, category: 'all' }))}
-                                className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
-                                  filter.category === 'all'
-                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827]'
-                                    : 'border-[#E5E7EB] bg-white text-[#374151]'
-                                }`}
-                              >
-                                Todas as Categorias ({statusCounts.active})
-                              </button>
                               {categories.map((cat) => (
                                 <button
                                   key={cat.id}
@@ -1090,7 +1095,73 @@ function HomePageImproved() {
           </div>
         </section>
       </div>
-
+      <Dialog open={showPetitionsUpdate} onOpenChange={handlePetitionsUpdateVisibility}>
+        <DialogContent hideClose className="max-w-[calc(100vw-1.5rem)] sm:max-w-[520px] md:max-w-[720px] p-0 overflow-hidden border-none rounded-xl">
+          <div className="flex flex-col md:flex-row">
+            <div className="w-full md:w-1/2 bg-[#FEF2F2] overflow-hidden h-36 sm:h-56 md:h-auto">
+              <img
+                src="/abaixo-assinado.jpg"
+                alt="Criar e apoiar abaixo-assinados"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="w-full md:w-1/2 p-5 md:p-7 flex flex-col gap-4">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="sm:hidden absolute top-2 right-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#111827] shadow-md"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </DialogClose>
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="hidden sm:inline-flex absolute top-4 right-4 z-10 h-8 w-8 items-center justify-center rounded-full bg-white text-[#111827] shadow-md hover:bg-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </DialogClose>
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#F97316] uppercase tracking-[0.18em]">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]" />
+                Novidade na plataforma
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl md:text-2xl font-bold text-[#111827]">
+                  Agora você também pode criar e apoiar abaixo-assinados
+                </h2>
+                <p className="text-sm md:text-[15px] text-[#4B5563] leading-relaxed">
+                  Suas broncas podem virar campanhas completas, fortaleça causas que já estão em andamento.
+                  Assine, compartilhe e ajude a pressionar por soluções reais para a cidade.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 mt-2">
+                <Button
+                  className="w-full h-10 text-sm font-semibold rounded-full bg-tc-red hover:bg-tc-red/90"
+                  onClick={handleGoToMyPetitions}
+                >
+                  Criar meu abaixo-assinado
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full h-10 text-sm font-semibold rounded-full border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
+                  onClick={handleGoToPetitionsOverview}
+                >
+                  Ver causas para apoiar
+                </Button>
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="mt-1 text-xs text-[#6B7280] hover:text-[#111827] self-center"
+                  >
+                    Talvez depois
+                  </button>
+                </DialogClose>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <BottomNav />
     </div>
   );
