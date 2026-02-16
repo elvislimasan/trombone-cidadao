@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature, ExternalLink, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -108,6 +108,25 @@ const ManageReportsPage = () => {
       toast({ title: result.action === 'added' ? "Apoio registrado! 👍" : "Apoio removido." });
     } else {
       toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
+    }
+  };
+
+  const handleToggleFeatured = async (report) => {
+    try {
+      const toggled = !report.is_featured;
+      const updates = { is_featured: toggled, featured_at: toggled ? new Date().toISOString() : null };
+      const { error } = await supabase.from('reports').update(updates).eq('id', report.id);
+      if (error) throw error;
+      toast({
+        title: toggled ? 'Marcada como destaque' : 'Removida dos destaques',
+        description: toggled ? 'Esta bronca aparecerá na Home em Destaques.' : 'Esta bronca não aparecerá mais em Destaques.'
+      });
+      fetchReports();
+      if (selectedReport?.id === report.id) {
+        setSelectedReport(prev => ({ ...prev, ...updates }));
+      }
+    } catch (e) {
+      toast({ title: 'Erro ao alterar destaque', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -368,6 +387,15 @@ const ManageReportsPage = () => {
                         </Button>
                       )}
                       <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-8 w-8 md:h-9 md:w-9 ${report.is_featured ? 'text-yellow-500 hover:text-yellow-600' : ''}`}
+                          onClick={() => handleToggleFeatured(report)}
+                          title={report.is_featured ? 'Remover destaque' : 'Marcar como destaque'}
+                        >
+                          <Star className={`w-3 h-3 md:w-4 md:h-4 ${report.is_featured ? 'fill-yellow-400' : ''}`} />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9" onClick={() => setSelectedReport(report)} title="Editar"><Edit className="w-3 h-3 md:w-4 md:h-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-red-500 hover:text-red-600" onClick={() => setDeletingReport(report)} title="Excluir"><Trash2 className="w-3 h-3 md:w-4 md:h-4" /></Button>
                       </div>

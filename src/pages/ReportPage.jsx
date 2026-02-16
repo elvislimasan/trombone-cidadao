@@ -204,6 +204,13 @@ const ReportPage = () => {
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
+    try {
+      if (reportId) {
+        await supabase.rpc('increment_views', { table_name: 'reports', item_id: reportId });
+      }
+    } catch (e) {
+      console.error('Falha ao incrementar visualizações da bronca:', e);
+    }
     const { data, error } = await supabase
       .from('reports')
       .select(`
