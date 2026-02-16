@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from '@/lib/customSupabaseClient';
 import DynamicSEO from './DynamicSeo';
 import { Capacitor } from '@capacitor/core';
+import { getReportShareUrl, getBaseAppUrl } from '@/lib/shareUtils';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { validateVideoFile } from '@/utils/videoProcessor';
@@ -207,51 +208,8 @@ const ReportDetails = ({
 
   const formatDate = (dateString) => new Date(dateString).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  // Função para obter a URL base correta (não localhost no app)
-  const getBaseUrl = () => {
-    let baseUrl;
-    
-    // 1. Se estiver no app nativo, sempre usar produção
-    if (Capacitor.isNativePlatform()) {
-      baseUrl = 'https://trombonecidadao.com.br';
-    }
-    // 2. Se estiver no navegador, detectar automaticamente o ambiente (prioridade sobre VITE_APP_URL para suportar Dev/Preview corretamente)
-    else if (typeof window !== 'undefined') {
-      const origin = window.location.origin;
-      
-      // Se for localhost, usar localhost
-      if (origin.includes('localhost')) {
-        baseUrl = origin;
-      }
-      // Se for Vercel (dev), usar Vercel
-      else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
-       console.log("origin detected:", origin)
-        baseUrl = origin;
-      }
-      // Se for domínio de produção, usar produção
-      else if (origin.includes('trombonecidadao.com.br')) {
-        baseUrl = 'https://trombonecidadao.com.br';
-      }
-      // Fallback: usar a origem atual
-      else {
-        baseUrl = origin;
-      }
-    }
-    // 3. Fallback para Variável de ambiente (configurada no Vercel) se não detectado
-    else if (import.meta.env.VITE_APP_URL) {
-      baseUrl = import.meta.env.VITE_APP_URL;
-    }
-    // 4. Fallback final: produção
-    else {
-      baseUrl = 'https://trombonecidadao.com.br';
-    }
-    
-    // Remover barra final se existir para evitar barras duplas
-    return baseUrl.replace(/\/$/, '');
-  };
-
   // Base URL memoizada para evitar recálculos
-  const baseUrl = useMemo(() => getBaseUrl(), []);
+  const baseUrl = useMemo(() => getBaseAppUrl(), []);
   
   // Normalizar report.photos para garantir que seja sempre um array e ordenar por data de criação
   const reportPhotos = useMemo(() => {
@@ -426,24 +384,7 @@ const ReportDetails = ({
       }
     }
     
-    // URL para compartilhamento (Proxy do Vercel para Edge Function)
-    // Isso garante que o link seja amigável (trombonecidadao.com.br/share/...) e tenha a imagem correta (via Edge Function)
-    
-    // Forçar URL de produção se estiver em localhost para garantir que o link funcione
-    let shareBaseUrl = baseUrl;
-    if (shareBaseUrl.includes('localhost') || shareBaseUrl.includes('127.0.0.1')) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-        if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
-             // Development Environment
-             shareBaseUrl = 'https://trombone-cidadao.vercel.app';
-        } else {
-             // Production Environment (default fallback)
-             shareBaseUrl = 'https://trombonecidadao.com.br';
-        }
-    }
-    
-    // Link "bonito" que passa pelo Vercel Rewrite -> Edge Function -> Redirecionamento
-    const shareUrl = `${shareBaseUrl}/share/bronca/${report.id}`;
+    const shareUrl = getReportShareUrl(report.id);
     
 //     console.log('Generating Share URL:', shareUrl);
 
