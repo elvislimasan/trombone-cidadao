@@ -47,7 +47,7 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
         if (navigator.share) {
           await navigator.share(shareData);
         } else {
-          await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+          await navigator.clipboard.writeText(shareData.url);
           toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
         }
       }

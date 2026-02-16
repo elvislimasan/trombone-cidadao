@@ -436,8 +436,6 @@ function HomePageImproved() {
     if (navigator.share) {
       navigator
         .share({
-          title: 'Assine o Abaixo-assinado',
-          text: petition.title,
           url,
         })
         .catch(() => {});
