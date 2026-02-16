@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ThumbsUp, MessageSquare, TrendingUp } from 'lucide-react';
+import { ThumbsUp, Eye, TrendingUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -12,7 +12,7 @@ const RankingSidebar = ({ reports, onReportClick, embedded = false }) => {
   };
 
   const topUpvoted = getTopReports('upvotes');
-  const topCommented = getTopReports('comments_count');
+  const topViewed = getTopReports('views');
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -93,17 +93,17 @@ const RankingSidebar = ({ reports, onReportClick, embedded = false }) => {
               <ThumbsUp className="w-3 h-3 md:w-4 md:h-4" /> Mais Apoiadas
             </TabsTrigger>
             <TabsTrigger
-              value="comments"
+              value="views"
               className="gap-1 text-xs md:text-sm rounded-none data-[state=active]:text-tc-red data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-tc-red data-[state=inactive]:text-muted-foreground"
             >
-              <MessageSquare className="w-3 h-3 md:w-4 md:h-4" /> Mais Comentadas
+              <Eye className="w-3 h-3 md:w-4 md:h-4" /> Mais Visualizadas
             </TabsTrigger>
           </TabsList>
           <TabsContent value="upvotes" className="mt-3 md:mt-4 max-h-[450px] overflow-y-auto overflow-x-hidden pr-1 md:pr-2">
             <RankingList items={topUpvoted} icon={ThumbsUp} dataKey="upvotes" />
           </TabsContent>
-          <TabsContent value="comments" className="mt-3 md:mt-4 max-h-[450px] overflow-y-auto overflow-x-hidden pr-1 md:pr-2">
-            <RankingList items={topCommented} icon={MessageSquare} dataKey="comments_count" />
+          <TabsContent value="views" className="mt-3 md:mt-4 max-h-[450px] overflow-y-auto overflow-x-hidden pr-1 md:pr-2">
+            <RankingList items={topViewed} icon={Eye} dataKey="views" />
           </TabsContent>
         </Tabs>
       </CardContent>

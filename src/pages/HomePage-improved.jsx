@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check } from 'lucide-react';
+import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2 } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -12,6 +12,8 @@ import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import MapView from '@/components/MapView';
 import ReportList from '@/components/ReportList';
 import RankingSidebar from '@/components/RankingSidebar';
+import { useUpvote } from '../hooks/useUpvotes';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +72,7 @@ function MiniMapPreview() {
 function HomePageImproved() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { handleUpvote, loading: upvoteLoading } = useUpvote();
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -205,6 +208,8 @@ function HomePageImproved() {
           title,
           description,
           status,
+          views,
+          is_featured,
           created_at,
           location,
           address,
@@ -213,6 +218,8 @@ function HomePageImproved() {
           author_id,
           category:categories(name, icon),
           upvotes:signatures(count),
+          user_upvotes:signatures(user_id),
+          report_media(*),
           comments_count:comments(count),
           favorite_reports(user_id)
         `)
@@ -232,7 +239,9 @@ function HomePageImproved() {
         category: r.category_id,
         categoryName: r.category?.name,
         categoryIcon: r.category?.icon,
+        coverImage: (r.report_media || []).find((m) => m.type === 'photo')?.url || null,
         upvotes: r.upvotes?.[0]?.count || 0,
+        user_has_upvoted: user ? (r.user_upvotes || []).some((u) => u.user_id === user.id) : false,
         comments_count: r.comments_count?.[0]?.count || 0,
         is_favorited: user ? (r.favorite_reports || []).some((fav) => fav.user_id === user.id) : false,
       }));
@@ -267,6 +276,28 @@ function HomePageImproved() {
     fetchReportsPreview();
     fetchCategories();
   }, [fetchStats, fetchTopPetitions, fetchReportsPreview, fetchCategories]);
+
+  const statusCounts = useMemo(() => {
+    const items = (reportsPreview || []).filter((r) => r.status !== 'duplicate');
+    const pending = items.filter((r) => r.status === 'pending').length;
+    const inProgress = items.filter((r) => r.status === 'in-progress').length;
+    const resolved = items.filter((r) => r.status === 'resolved').length;
+    const total = items.length;
+    const active = pending + inProgress;
+    const myResolved = user ? items.filter((r) => r.status === 'resolved' && r.author_id === user.id).length : 0;
+    return { total, pending, inProgress, resolved, active, myResolved };
+  }, [reportsPreview, user]);
+
+  const categoryCounts = useMemo(() => {
+    const items = (reportsPreview || []).filter((r) => r.status !== 'duplicate');
+    const map = {};
+    items.forEach((r) => {
+      const k = r.category_id;
+      if (!k) return;
+      map[k] = (map[k] || 0) + 1;
+    });
+    return map;
+  }, [reportsPreview]);
 
   const statusFilteredReports = useMemo(() => {
     let tempReports = reportsPreview.filter((r) => r.status !== 'duplicate');
@@ -331,6 +362,67 @@ function HomePageImproved() {
     navigate(`/abaixo-assinado/${id}`);
   };
 
+  const handleFeaturedUpvote = async (report, e) => {
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    const res = await handleUpvote(report.id, report.upvotes, report.user_has_upvoted);
+    if (res && res.success) {
+      setReportsPreview((prev) =>
+        prev.map((item) =>
+          item.id === report.id
+            ? { ...item, upvotes: res.newUpvotes, user_has_upvoted: res.newUserHasUpvoted }
+            : item
+        )
+      );
+    }
+  };
+
+  const handleShareReport = (report, e) => {
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (typeof window === 'undefined') return;
+    const url = `${window.location.origin}/bronca/${report.id}`;
+    if (navigator.share) {
+      navigator
+        .share({
+          title: report.title,
+          text: report.description,
+          url,
+        })
+        .catch(() => {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).catch(() => {});
+    }
+  };
+
+  const handleSharePetition = (petition, e) => {
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (typeof window === 'undefined') return;
+    const url = `${window.location.origin}/abaixo-assinado/${petition.id}`;
+    if (navigator.share) {
+      navigator
+        .share({
+          title: petition.title,
+          text: petition.description,
+          url,
+        })
+        .catch(() => {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).catch(() => {});
+    }
+  };
+
   const formatCurrency = (value) => {
     const n = Number(value) || 0;
     return n.toLocaleString('pt-BR', {
@@ -341,6 +433,7 @@ function HomePageImproved() {
   };
 
   const isDesktopCarousel = petitions.length > 3;
+  const featuredReports = useMemo(() => (reportsPreview || []).filter(r => r.is_featured), [reportsPreview]);
 
   return (
     <div className="flex flex-col bg-[#F9FAFB] md:px-6">
@@ -570,7 +663,7 @@ function HomePageImproved() {
                                     : 'border-[#E5E7EB] bg-white text-[#374151]'
                                 }`}
                               >
-                                Todas
+                                Todas ({statusCounts.active})
                               </button>
                               <button
                                 type="button"
@@ -581,7 +674,7 @@ function HomePageImproved() {
                                     : 'border-[#E5E7EB] bg-white text-[#374151]'
                                 }`}
                               >
-                                Pendentes
+                                Pendentes ({statusCounts.pending})
                               </button>
                               <button
                                 type="button"
@@ -592,7 +685,7 @@ function HomePageImproved() {
                                     : 'border-[#E5E7EB] bg-white text-[#374151]'
                                 }`}
                               >
-                                Em Andamento
+                                Em Andamento ({statusCounts.inProgress})
                               </button>
                               <button
                                 type="button"
@@ -603,7 +696,7 @@ function HomePageImproved() {
                                     : 'border-[#E5E7EB] bg-white text-[#374151]'
                                 }`}
                               >
-                                Resolvidas
+                                Resolvidas ({statusCounts.resolved})
                               </button>
                               {user && (
                                 <button
@@ -615,7 +708,7 @@ function HomePageImproved() {
                                       : 'border-[#E5E7EB] bg-white text-[#374151]'
                                   }`}
                                 >
-                                  Minhas Resolvidas
+                                  Minhas Resolvidas ({statusCounts.myResolved})
                                 </button>
                               )}
                             </div>
@@ -634,7 +727,7 @@ function HomePageImproved() {
                                     : 'border-[#E5E7EB] bg-white text-[#374151]'
                                 }`}
                               >
-                                Todas as Categorias
+                                Todas as Categorias ({statusCounts.active})
                               </button>
                               {categories.map((cat) => (
                                 <button
@@ -650,6 +743,9 @@ function HomePageImproved() {
                                   <span className="flex items-center gap-2 flex-1 min-w-0">
                                     <span className="text-base flex-shrink-0">{cat.icon}</span>
                                     <span className="truncate">{cat.name}</span>
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {categoryCounts[cat.id] || 0}
                                   </span>
                                 </button>
                               ))}
@@ -748,6 +844,126 @@ function HomePageImproved() {
                           />
                         </div>)}
 
+        {featuredReports.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase">
+                  Destaques
+                </p>
+                <h2 className="text-lg md:text-2xl font-bold text-[#111827]">Broncas em Destaque</h2>
+                <p className="text-xs md:text-sm text-[#6B7280]">Acompanhe as principais broncas.</p>
+              </div>
+            </div>
+            <Carousel className="w-full" opts={{ align: 'start', loop: true }}>
+              <CarouselContent className="-ml-3">
+                {featuredReports.map((r) => (
+                  <CarouselItem
+                    key={r.id}
+                    className="pl-3 basis-[85%] sm:basis-[60%] md:basis-1/2 lg:basis-1/3"
+                  >
+                    <div
+                      className="h-full bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden cursor-pointer hover:shadow-lg transition"
+                      onClick={() => handleReportClick(r)}
+                      role="button"
+                    >
+                      <div className="relative h-36 md:h-40 w-full">
+                        {r.coverImage ? (
+                          <img
+                            src={r.coverImage}
+                            alt={r.title}
+                            className="w-full h-full object-cover transform transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-[#1D4ED8] via-[#2563EB] to-[#0EA5E9] flex items-center justify-center">
+                            <span className="text-4xl">{r.categoryIcon || '📍'}</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/0" />
+                        <div className="absolute top-2 left-2">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/90 text-[#111827] font-medium">
+                            {r.status === 'pending'
+                              ? 'Pendente'
+                              : r.status === 'in-progress'
+                              ? 'Em Andamento'
+                              : r.status === 'resolved'
+                              ? 'Resolvida'
+                              : r.status}
+                          </span>
+                        </div>
+                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-white/90 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-3.5 h-3.5"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            {r.views || 0}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              variant="secondary"
+                              size="icon"
+                              onClick={(e) => handleShareReport(r, e)}
+                              className="h-7 w-7 rounded-full bg-white/95 text-[#374151]"
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={upvoteLoading}
+                              onClick={(e) => handleFeaturedUpvote(r, e)}
+                              className={`h-7 px-2 rounded-full bg-white/95 text-xs font-medium ${
+                                r.user_has_upvoted ? 'text-[#EF4444]' : 'text-[#374151]'
+                              }`}
+                            >
+                              <Heart
+                                className={`w-4 h-4 mr-1 ${
+                                  r.user_has_upvoted ? 'fill-[#EF4444]' : ''
+                                }`}
+                              />
+                              {r.upvotes}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-3 space-y-1.5">
+                        <p className="text-xs text-[#6B7280] flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate">{r.address || 'Endereço não informado'}</span>
+                        </p>
+                        <p className="text-sm md:text-base font-semibold text-[#111827] line-clamp-2">
+                          {r.title}
+                        </p>
+                        <p className="text-xs text-[#6B7280] mt-0.5 line-clamp-2">
+                          {r.description}
+                        </p>
+                        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[#6B7280]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base">{r.categoryIcon}</span>
+                            <span className="truncate">{r.categoryName}</span>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] font-medium">
+                            Bronca em destaque
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="hidden md:flex" />
+              <CarouselNext className="hidden md:flex" />
+            </Carousel>
+          </section>
+        )}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -769,13 +985,10 @@ function HomePageImproved() {
             </Button>
           </div>
 
-          <div className={`flex flex-col items-center gap-3 pb-2 -mx-1 px-1 ${
-            isDesktopCarousel
-              ? 'md:flex-row md:items-stretch md:overflow-x-auto md:space-x-4 md:pr-2'
-              : 'md:grid md:grid-cols-3 md:gap-5 md:items-stretch md:overflow-visible'
-          }`}>
-            {loadingPetitions
-              ? [1, 2, 3].map((i) => (
+          <div className="pb-2 -mx-1 px-1">
+            {loadingPetitions ? (
+              <div className="flex flex-col items-center gap-3">
+                {[1, 2, 3].map((i) => (
                   <div
                     key={i}
                     className={`w-full ${
@@ -790,72 +1003,85 @@ function HomePageImproved() {
                       <div className="h-2 w-full rounded bg-[#E5E7EB] animate-pulse mt-2" />
                     </div>
                   </div>
-                ))
-              : petitions.length === 0 ? (
-                <div className="min-w-full text-center text-xs text-[#6B7280] py-6">
-                  Ainda não há petições ativas com doações registradas.
-                </div>
-              ) : (
-                petitions.map((petition) => (
-                  <motion.div
-                    key={petition.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className={`w-full ${
-                      isDesktopCarousel ? 'md:min-w-[340px] md:max-w-[340px]' : 'md:max-w-none md:min-w-0'
-                    } rounded-2xl bg-white border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0`}
-                  >
-                    <div className="relative h-40 w-full overflow-hidden rounded-t-2xl">
-                      {petition.image_url ? (
-                        <img
-                          src={petition.image_url}
-                          alt={petition.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-[#FEF2F2] flex items-center justify-center">
-                          <Megaphone className="w-8 h-8 text-[#F97316]" />
-                        </div>
-                      )}
-                      <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-[#16A34A] text-white text-[10px] font-semibold flex items-center gap-1">
-                        <Heart className="w-3 h-3" />
-                        <span>
-                          {formatCurrency(petition.donationTotal || 0)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3 md:p-4 space-y-1.5">
-                      <p className="text-[11px] md:text-xs font-semibold text-[#F97316] flex items-center gap-1">
-                        <Megaphone className="w-3 h-3 md:w-4 md:h-4" />
-                        Petição Ativa
-                      </p>
-                      <h3 className="text-sm md:text-base font-semibold text-[#111827] line-clamp-2">
-                        {petition.title}
-                      </h3>
-                      <p className="text-xs md:text-sm text-[#6B7280] line-clamp-2">
-                        {petition.description}
-                      </p>
-                      <div className="mt-2">
-                        <div className="flex items-center justify-between text-[11px] md:text-xs text-[#6B7280] mb-1">
-                          <span>{petition.signatureCount} assinaturas</span>
-                          <span>Meta {petition.goal || 100}</span>
-                        </div>
-                        <Progress
-                          value={petition.progress}
-                          className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full"
-                        />
-                      </div>
-                      <Button
-                        className="w-full mt-3 h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
-                        onClick={() => handleOpenPetition(petition.id)}
+                ))}
+              </div>
+            ) : petitions.length === 0 ? (
+              <div className="min-w-full text-center text-xs text-[#6B7280] py-6">
+                Ainda não há petições ativas com doações registradas.
+              </div>
+            ) : (
+              <Carousel className="w-full" opts={{ align: 'start', loop: true }}>
+                <CarouselContent className="-ml-3">
+                  {petitions.map((petition) => (
+                    <CarouselItem
+                      key={petition.id}
+                      className="pl-3 basis-[85%] sm:basis-[60%] md:basis-1/2 lg:basis-1/3"
+                    >
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="w-full rounded-2xl bg-white border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0 overflow-hidden"
                       >
-                        Apoiar Agora
-                      </Button>
-                    </div>
-                  </motion.div>
-                ))
-              )}
+                        <div className="relative h-36 md:h-40 w-full overflow-hidden">
+                          {petition.image_url ? (
+                            <img
+                              src={petition.image_url}
+                              alt={petition.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-[#FEF2F2] flex items-center justify-center">
+                              <Megaphone className="w-8 h-8 text-[#F97316]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3 md:p-4 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] md:text-xs font-semibold text-[#F97316] flex items-center gap-1">
+                              <Megaphone className="w-3 h-3 md:w-4 md:h-4" />
+                              Petição Ativa
+                            </p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => handleSharePetition(petition, e)}
+                              className="h-7 w-7 rounded-full text-[#6B7280]"
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                          <h3 className="text-sm md:text-base font-semibold text-[#111827] line-clamp-2">
+                            {petition.title}
+                          </h3>
+                          <p className="text-xs md:text-sm text-[#6B7280] line-clamp-2">
+                            {petition.description}
+                          </p>
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between text-[11px] md:text-xs text-[#6B7280] mb-1">
+                              <span>{petition.signatureCount} assinaturas</span>
+                              <span>Meta {petition.goal || 100}</span>
+                            </div>
+                            <Progress
+                              value={petition.progress}
+                              className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full"
+                            />
+                          </div>
+                          <Button
+                            className="w-full mt-3 h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
+                            onClick={() => handleOpenPetition(petition.id)}
+                          >
+                            Apoiar Agora
+                          </Button>
+                        </div>
+                      </motion.div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="hidden md:flex" />
+                <CarouselNext className="hidden md:flex" />
+              </Carousel>
+            )}
           </div>
         </section>
       </div>
