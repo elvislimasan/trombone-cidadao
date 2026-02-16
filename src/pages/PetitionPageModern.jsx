@@ -333,11 +333,9 @@ const PetitionPageModern = () => {
                  onShare={async () => {
                      const shareUrl = getPetitionShareUrl(id);
                      try {
-                        await navigator.share({
-                          title: 'Assine o Abaixo-assinado',
-                          text: petition?.title || '',
-                          url: shareUrl,
-                        });
+                           await navigator.share({
+                             url: shareUrl,
+                           });
                      } catch (err) {
                         navigator.clipboard.writeText(shareUrl);
                         toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
@@ -355,11 +353,9 @@ const PetitionPageModern = () => {
                 onShare={async () => {
                   const shareUrl = getPetitionShareUrl(id);
                   try {
-                    await navigator.share({
-                      title: 'Assine o Abaixo-assinado',
-                      text: petition?.title || '',
-                      url: shareUrl,
-                    });
+                   await navigator.share({
+                     url: shareUrl,
+                   });
                   } catch (err) {
                     navigator.clipboard.writeText(shareUrl);
                     toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
@@ -393,7 +389,7 @@ const PetitionPageModern = () => {
             isOpen={showJourney} 
             onClose={() => setShowJourney(false)} 
             petitionTitle={petition?.title}
-            petitionUrl={getShareUrl()}
+            petitionUrl={getPetitionShareUrl(id)}
             onDonate={() => setShowDonationModal(true)}
             userName={user ? (user.user_metadata?.name || 'Cidadão') : guestForm.name}
             guestEmail={!user ? guestForm.email : null}

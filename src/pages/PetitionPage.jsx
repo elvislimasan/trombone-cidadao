@@ -603,14 +603,11 @@ const PetitionPage = () => {
     try {
       if (Capacitor.isNativePlatform()) {
         await Share.share({
-          title: 'Assine o Abaixo-assinado',
-          text: petition?.title || '',
           url: shareUrl,
+          dialogTitle: 'Compartilhar Abaixo-assinado',
         });
       } else if (navigator.share) {
         await navigator.share({
-          title: 'Assine o Abaixo-assinado',
-          text: petition?.title || '',
           url: shareUrl,
         });
       } else {
