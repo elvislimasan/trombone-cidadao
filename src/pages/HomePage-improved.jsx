@@ -472,7 +472,7 @@ function HomePageImproved() {
   const featuredReports = useMemo(() => (reportsPreview || []).filter(r => r.is_featured), [reportsPreview]);
 
   return (
-    <div className="flex flex-col bg-[#F9FAFB] md:px-6">
+    <div className=" flex flex-col bg-[#F9FAFB] md:px-6">
       <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-4 space-y-10 max-w-[88rem] mx-auto w-full">
         <section className="space-y-4">
           <div className="lg:pt-4">

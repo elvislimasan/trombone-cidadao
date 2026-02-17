@@ -251,7 +251,11 @@ const Header = () => {
           ) : (
             <div className="hidden lg:flex items-center gap-2">
               <Button asChild variant="ghost"><Link to="/login">Entrar</Link></Button>
-              <Button asChild><Link to="/cadastro">Cadastre-se</Link></Button>
+              {location.pathname === '/login' ? (
+                <Button asChild variant="outline" className="opacity-70 hover:opacity-100"><Link to="/cadastro">Cadastre-se</Link></Button>
+              ) : (
+                <Button asChild><Link to="/cadastro">Cadastre-se</Link></Button>
+              )}
             </div>
           )}
 

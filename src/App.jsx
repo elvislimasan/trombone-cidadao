@@ -448,7 +448,13 @@ function App() {
       <div className="min-h-screen bg-[#FFF] text-foreground flex flex-col">
         <Header />
         <AppDownloadBanner />
-        <main className="flex-grow pb-20 lg:pb-0" style={{ paddingTop: 'calc(4rem + var(--safe-area-top) + var(--app-banner-height, 0px))', paddingBottom: 'calc(4rem + var(--safe-area-bottom))' }}>
+        <main
+          className="flex-grow pb-[calc(4rem+var(--safe-area-bottom))] lg:pb-0"
+          style={{
+            paddingTop:
+              'calc(4rem + var(--safe-area-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+          }}
+        >
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/cadastro" element={<RegisterPage />} />
