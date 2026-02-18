@@ -39,7 +39,7 @@ const BottomNav = () => {
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
     if (!user) return;
 
-    const { title, description, category, address, location, pole_number } = newReportData;
+    const { title, description, category, address, location, pole_number, is_from_water_utility } = newReportData;
     
     const { data, error } = await supabase
       .from('reports')
@@ -52,6 +52,7 @@ const BottomNav = () => {
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
+        is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
         status: 'pending',
         moderation_status: user?.is_admin ? 'approved' : 'pending_approval'
       })

@@ -180,7 +180,7 @@ const ReportDetails = ({
   const [isSaving, setIsSaving] = useState(false);
   const [showResolutionImage, setShowResolutionImage] = useState(false);
 
-  console.log("user", user)
+ 
   const categories = {
     'iluminacao': 'Iluminação Pública',
     'buracos': 'Buracos na Via',
@@ -1244,6 +1244,25 @@ const ReportDetails = ({
               </div>
             ) : (
               report.address && <div className="flex items-center space-x-2 text-muted-foreground"><MapPin className="w-4 h-4" /><span className="text-sm">{report.address}</span></div>
+            )}
+
+            {isEditing && (editData?.category_id === 'buracos' || report?.category === 'buracos') && (
+              <div className="mt-4">
+                <h3 className="font-semibold text-foreground mb-2">Informação adicional</h3>
+                <label className="flex items-start gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={!!editData?.is_from_water_utility}
+                    onChange={(e) =>
+                      setEditData(prev => ({ ...prev, is_from_water_utility: e.target.checked }))
+                    }
+                    className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-primary"
+                  />
+                  <span>
+                    Buraco aberto por obras de companhia de abastecimento de água/esgoto
+                  </span>
+                </label>
+              </div>
             )}
 
             {(allMedia.length > 0 || isEditing) && (

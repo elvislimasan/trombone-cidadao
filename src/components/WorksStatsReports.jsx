@@ -7,28 +7,58 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const StatCard = ({ icon: Icon, title, value, color, tooltipText }) => (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground truncate flex-1 min-w-0 pr-2">{title}</CardTitle>
-            <Icon className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${color || 'text-muted-foreground'}`} />
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 pt-0">
-            <p className={`text-xs sm:text-sm md:text-base font-bold ${color || 'text-foreground'} whitespace-nowrap overflow-hidden text-ellipsis leading-tight`} title={value}>{value}</p>
-          </CardContent>
-        </Card>
-      </TooltipTrigger>
-      {tooltipText && (
-        <TooltipContent>
-          <p>{tooltipText}</p>
-        </TooltipContent>
-      )}
-    </Tooltip>
-  </TooltipProvider>
-);
+const StatCard = ({ icon: Icon, title, value, color, tooltipText, stacked }) => {
+  const tooltipTitle =
+    typeof value === 'string' ? value : `${value?.top || ''}${value?.bottom ? ` • ${value.bottom}` : ''}`;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground truncate flex-1 min-w-0 pr-2">
+                {title}
+              </CardTitle>
+              <Icon className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${color || 'text-muted-foreground'}`} />
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4 pt-0">
+              {stacked && typeof value === 'object' ? (
+                <div className="flex flex-col gap-1">
+                  <span
+                    className={`text-[11px] sm:text-xs font-semibold ${color || 'text-foreground'} leading-tight break-words`}
+                    title={value.top}
+                  >
+                    {value.top}
+                  </span>
+                  <div className="h-px w-full bg-muted" />
+                  <span
+                    className={`text-xs sm:text-sm md:text-base font-bold ${color || 'text-foreground'} leading-tight break-words`}
+                    title={value.bottom}
+                  >
+                    {value.bottom}
+                  </span>
+                </div>
+              ) : (
+                <p
+                  className={`text-xs sm:text-sm md:text-base font-bold ${color || 'text-foreground'} leading-tight break-words`}
+                  title={tooltipTitle}
+                >
+                  {value}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TooltipTrigger>
+        {tooltipText && (
+          <TooltipContent>
+            <p>{tooltipText}</p>
+          </TooltipContent>
+        )}
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -76,12 +106,22 @@ const useSortableData = (items, config = null) => {
 
 const WorksStatsReports = ({ works }) => {
   const totalInvestment = works.reduce((acc, work) => acc + (work.total_value || 0), 0);
-  const totalStalledValue = works.filter(w => w.status === 'stalled' || w.status === 'unfinished').reduce((acc, work) => acc + (work.total_value || 0), 0);
-  
-  const statusCounts = works.reduce((acc, work) => {
-    acc[work.status] = (acc[work.status] || 0) + 1;
+  const totalStalledValue = works
+    .filter(w => w.status === 'stalled' || w.status === 'unfinished')
+    .reduce((acc, work) => acc + (work.total_value || 0), 0);
+
+  const statusCounts = works.reduce(
+    (acc, work) => {
+      acc[work.status] = (acc[work.status] || 0) + 1;
+      return acc;
+    },
+    { 'in-progress': 0, completed: 0, stalled: 0, planned: 0, tendered: 0, unfinished: 0 }
+  );
+
+  const statusValues = works.reduce((acc, work) => {
+    acc[work.status] = (acc[work.status] || 0) + (work.total_value || 0);
     return acc;
-  }, { 'in-progress': 0, 'completed': 0, 'stalled': 0, 'planned': 0, 'tendered': 0, 'unfinished': 0 });
+  }, {});
 
   // Função para traduzir e normalizar fontes de recurso
   const getFundingSourceName = (source) => {
@@ -169,12 +209,69 @@ const WorksStatsReports = ({ works }) => {
       className="space-y-8"
     >
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        <StatCard icon={DollarSign} title="Investimento Total" value={formatCurrency(totalInvestment)} tooltipText="Valor total orçado para todas as obras." />
-        <StatCard icon={AlertCircle} title="Investimento Parado" value={formatCurrency(totalStalledValue)} color="text-amber-500" tooltipText="Valor total de obras atualmente paralisadas ou inacabadas." />
-        <StatCard icon={HardHat} title="Obras em Andamento" value={statusCounts['in-progress']} color="text-blue-500" />
-        <StatCard icon={PauseCircle} title="Obras Paralisadas" value={statusCounts.stalled} color="text-amber-500" />
-        <StatCard icon={Wrench} title="Obras Inacabadas" value={statusCounts.unfinished} color="text-red-500" />
-        <StatCard icon={CheckCircle} title="Obras Concluídas" value={statusCounts.completed} color="text-green-500" />
+        <StatCard
+          icon={DollarSign}
+          title="Investimento Total"
+          value={formatCurrency(totalInvestment)}
+          tooltipText="Valor total orçado para todas as obras."
+        />
+        <StatCard
+          icon={AlertCircle}
+          title="Investimento Parado"
+          value={formatCurrency(totalStalledValue)}
+          color="text-amber-500"
+          tooltipText="Valor total de obras atualmente paralisadas ou inacabadas."
+        />
+        <StatCard
+          icon={Landmark}
+          title="Obras Previstas"
+          value={{
+            top: `${statusCounts.planned} obras`,
+            bottom: formatCurrency(statusValues.planned || 0),
+          }}
+          color="text-purple-500"
+          stacked
+          tooltipText="Quantidade e valor total de obras previstas."
+        />
+        <StatCard
+          icon={HardHat}
+          title="Obras em Andamento"
+          value={{
+            top: `${statusCounts['in-progress']} obras`,
+            bottom: formatCurrency(statusValues['in-progress'] || 0),
+          }}
+          color="text-blue-500"
+          stacked
+          tooltipText="Quantidade e valor total de obras em andamento."
+        />
+        <StatCard
+          icon={PauseCircle}
+          title="Obras Paralisadas"
+          value={{
+            top: `${statusCounts.stalled} obras`,
+            bottom: formatCurrency(statusValues.stalled || 0),
+          }}
+          color="text-amber-500"
+          stacked
+          tooltipText="Quantidade e valor total de obras paralisadas."
+        />
+        <StatCard
+          icon={Wrench}
+          title="Obras Inacabadas"
+          value={{
+            top: `${statusCounts.unfinished} obras`,
+            bottom: formatCurrency(statusValues.unfinished || 0),
+          }}
+          color="text-red-500"
+          stacked
+          tooltipText="Quantidade e valor total de obras inacabadas."
+        />
+        <StatCard
+          icon={CheckCircle}
+          title="Obras Concluídas"
+          value={statusCounts.completed}
+          color="text-green-500"
+        />
       </motion.div>
 
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">

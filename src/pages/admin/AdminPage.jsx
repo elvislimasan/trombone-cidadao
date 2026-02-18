@@ -14,6 +14,7 @@ const adminLinks = [
   { to: '/admin/broncas', icon: 'Megaphone', title: 'Gerenciar Broncas', description: 'Edite ou remova broncas publicadas.' },
   { to: '/admin/categorias', icon: 'BookMarked', title: 'Categorias (Broncas)', description: 'Gerencie as categorias das broncas.' },
   { to: '/admin/obras', icon: 'Construction', title: 'Gerenciar Obras', description: 'Adicione e atualize obras públicas.' },
+  { to: '/admin/moderacao/obras-midias', icon: 'ShieldCheck', title: 'Moderar Mídias de Obras', description: 'Aprove ou rejeite fotos e vídeos enviados.' },
   { to: '/admin/obras/opcoes', icon: 'ListChecks', title: 'Opções de Obras', description: 'Gerencie categorias e áreas das obras.' },
   { to: '/admin/pavimentacao', icon: 'Route', title: 'Gerenciar Pavimentação', description: 'Atualize o status das ruas.' },
   { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Serviços', description: 'Adicione e edite serviços e diretórios.' },

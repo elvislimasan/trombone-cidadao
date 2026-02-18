@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, Upload, Paperclip, MapPin, Image as ImageIcon, Video, Link2, Info, Wrench, Search, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,7 +13,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
+import { Progress } from '@/components/ui/progress';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -193,9 +195,18 @@ const FilterSelect = React.memo(({ id, label, value, onValueChange, options, pla
 });
 FilterSelect.displayName = 'FilterSelect';
 
-const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
+export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   const [formData, setFormData] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
+  const [createStep, setCreateStep] = useState('basic');
+  const CREATE_STEPS = [
+    { id: 'basic', label: 'Básico' },
+    { id: 'classification', label: 'Classificação' },
+    { id: 'values', label: 'Valores e Prazos' },
+    { id: 'location', label: 'Localização' },
+    { id: 'extras', label: 'Outros' },
+    { id: 'review', label: 'Revisão' },
+  ];
 
   useEffect(() => {
     if (work) {
@@ -226,6 +237,10 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         service_order_date: null,
         expected_end_date: null,
         inauguration_date: null,
+        contract_signature_date: null,
+        stalled_date: null,
+        other_details: '',
+        parliamentary_amendment: { has: false, author: '' },
       };
       setFormData(initialData);
     } else {
@@ -288,6 +303,27 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     onSave(formData);
   };
 
+  const canProceed = () => {
+    if (!formData) return false;
+    if (createStep === 'basic') {
+      return Boolean(formData.title);
+    }
+    if (createStep === 'classification') {
+      return Boolean(formData.status && formData.work_category_id && formData.bairro_id);
+    }
+    return true;
+  };
+
+  const nextStep = () => {
+    const idx = CREATE_STEPS.findIndex(s => s.id === createStep);
+    if (idx < CREATE_STEPS.length - 1) setCreateStep(CREATE_STEPS[idx + 1].id);
+  };
+
+  const prevStep = () => {
+    const idx = CREATE_STEPS.findIndex(s => s.id === createStep);
+    if (idx > 0) setCreateStep(CREATE_STEPS[idx - 1].id);
+  };
+
   if (!formData) return null;
   
   return (
@@ -300,15 +336,25 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         
         <div className="flex-grow overflow-hidden grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="md:col-span-1 overflow-y-auto pr-2">
-            <nav className="flex flex-col gap-2">
-              <Button variant={activeTab === 'info' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('info')} className="justify-start gap-2"><Info className="w-4 h-4" /> Informações</Button>
-              {formData.id && <Button variant={activeTab === 'media' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('media')} className="justify-start gap-2"><ImageIcon className="w-4 h-4" /> Mídias</Button>}
-              {formData.id && <Button variant={activeTab === 'links' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('links')} className="justify-start gap-2"><Link2 className="w-4 h-4" /> Links</Button>}
-            </nav>
+            {formData.id ? (
+              <nav className="flex flex-col gap-2">
+                <Button variant={activeTab === 'info' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('info')} className="justify-start gap-2"><Info className="w-4 h-4" /> Informações</Button>
+                {formData.id && <Button variant={activeTab === 'media' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('media')} className="justify-start gap-2"><ImageIcon className="w-4 h-4" /> Mídias</Button>}
+                {formData.id && <Button variant={activeTab === 'links' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('links')} className="justify-start gap-2"><Link2 className="w-4 h-4" /> Links</Button>}
+              </nav>
+            ) : (
+              <nav className="hidden md:flex flex-col gap-2">
+                {CREATE_STEPS.map(step => (
+                  <Button key={step.id} variant={createStep === step.id ? 'secondary' : 'ghost'} onClick={() => setCreateStep(step.id)} className="justify-start gap-2">
+                    <span className="w-6 text-center">{CREATE_STEPS.findIndex(s => s.id === step.id) + 1}</span> {step.label}
+                  </Button>
+                ))}
+              </nav>
+            )}
           </div>
 
           <div className="md:col-span-3 flex-grow overflow-y-auto pr-4 space-y-6">
-            {activeTab === 'info' && (
+            {activeTab === 'info' && formData.id && (
               <div className="space-y-6">
                 <Card>
                   <CardHeader><CardTitle>Informações Básicas</CardTitle></CardHeader>
@@ -325,7 +371,9 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                       <div className="grid gap-2">
                         <Label htmlFor="status">Status</Label>
                         <Select name="status" value={formData.status} onValueChange={(v) => handleSelectChange('status', v)} required>
-                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="planned">Prevista</SelectItem>
                             <SelectItem value="tendered">Licitada</SelectItem>
@@ -345,7 +393,9 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                       <div className="grid gap-2">
                         <Label htmlFor="work_category_id">Categoria</Label>
                         <Select name="work_category_id" value={formData.work_category_id} onValueChange={(v) => handleSelectChange('work_category_id', v)}>
-                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
                           <SelectContent>
                             {workOptions.categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                           </SelectContent>
@@ -354,7 +404,9 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                       <div className="grid gap-2">
                         <Label htmlFor="bairro_id">Bairro</Label>
                         <Select name="bairro_id" value={formData.bairro_id} onValueChange={(v) => handleSelectChange('bairro_id', v)}>
-                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
                           <SelectContent>
                             {workOptions.bairros.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                           </SelectContent>
@@ -365,7 +417,9 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                       <div className="grid gap-2">
                         <Label htmlFor="work_area_id">Área de Implementação</Label>
                         <Select name="work_area_id" value={formData.work_area_id} onValueChange={(v) => handleSelectChange('work_area_id', v)}>
-                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
                           <SelectContent>
                             {workOptions.areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                           </SelectContent>
@@ -374,7 +428,9 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                       <div className="grid gap-2">
                         <Label htmlFor="contractor_id">Construtora</Label>
                         <Select name="contractor_id" value={formData.contractor_id} onValueChange={(v) => handleSelectChange('contractor_id', v)}>
-                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
                           <SelectContent>
                             {workOptions.contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                           </SelectContent>
@@ -424,6 +480,10 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                             <Input id="service_order_date" name="service_order_date" type="date" value={formData.service_order_date || ''} onChange={handleDateChange} />
                         </div>
                         <div className="grid gap-2">
+                            <Label htmlFor="contract_signature_date">Assinatura do Contrato</Label>
+                            <Input id="contract_signature_date" name="contract_signature_date" type="date" value={formData.contract_signature_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
                             <Label htmlFor="expected_end_date">Previsão de Conclusão</Label>
                             <Input id="expected_end_date" name="expected_end_date" type="date" value={formData.expected_end_date || ''} onChange={handleDateChange} />
                         </div>
@@ -431,6 +491,47 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                             <Label htmlFor="inauguration_date">Data de Inauguração</Label>
                             <Input id="inauguration_date" name="inauguration_date" type="date" value={formData.inauguration_date || ''} onChange={handleDateChange} />
                         </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="stalled_date">Data de Paralisação</Label>
+                            <Input id="stalled_date" name="stalled_date" type="date" value={formData.stalled_date || ''} onChange={handleDateChange} />
+                        </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader><CardTitle>Outras Informações</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="other_details">Detalhes Adicionais</Label>
+                        <Textarea id="other_details" name="other_details" value={formData.other_details || ''} onChange={handleChange} placeholder="Observações gerais sobre a obra" />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Emenda Parlamentar</Label>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="parliamentary_has"
+                            checked={!!formData.parliamentary_amendment?.has}
+                            onCheckedChange={(checked) =>
+                              setFormData(prev => ({ ...prev, parliamentary_amendment: { ...(prev.parliamentary_amendment || {}), has: !!checked } }))
+                            }
+                          />
+                          <Label htmlFor="parliamentary_has">Possui emenda?</Label>
+                        </div>
+                        <div className="grid gap-2 mt-2">
+                          <Label htmlFor="parliamentary_author">Autor (se houver)</Label>
+                          <Input
+                            id="parliamentary_author"
+                            name="parliamentary_author"
+                            value={formData.parliamentary_amendment?.author || ''}
+                            onChange={(e) =>
+                              setFormData(prev => ({ ...prev, parliamentary_amendment: { ...(prev.parliamentary_amendment || {}), author: e.target.value } }))
+                            }
+                            disabled={!formData.parliamentary_amendment?.has}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -446,6 +547,239 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                     </CardContent>
                 </Card>
               </div>
+            )}
+            {activeTab === 'info' && !formData.id && (
+              <>
+                <div className="md:hidden">
+                  <div className="flex justify-between text-sm font-medium mb-2 text-muted-foreground">
+                    <span>Passo {CREATE_STEPS.findIndex(s => s.id === createStep) + 1} de {CREATE_STEPS.length}</span>
+                    <span>{Math.round(((CREATE_STEPS.findIndex(s => s.id === createStep) + 1) / CREATE_STEPS.length) * 100)}%</span>
+                  </div>
+                  <Progress value={((CREATE_STEPS.findIndex(s => s.id === createStep) + 1) / CREATE_STEPS.length) * 100} className="h-2" />
+                </div>
+
+                {createStep === 'basic' && (
+                  <Card>
+                    <CardHeader><CardTitle>Informações Básicas</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="title">Título da Obra</Label>
+                        <Input id="title" name="title" value={formData.title || ''} onChange={handleChange} placeholder="Ex.: Reforma da Escola Estadual Três Marias" />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="description">Descrição</Label>
+                        <Textarea id="description" name="description" value={formData.description || ''} onChange={handleChange} rows={4} placeholder="Contexto geral, objetivo da obra, etc." />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {createStep === 'classification' && (
+                  <Card>
+                    <CardHeader><CardTitle>Status e Classificação</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="status">Status</Label>
+                          <Select name="status" value={formData.status} onValueChange={(v) => handleSelectChange('status', v)}>
+                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="planned">Prevista</SelectItem>
+                              <SelectItem value="tendered">Licitada</SelectItem>
+                              <SelectItem value="in-progress">Em Andamento</SelectItem>
+                              <SelectItem value="stalled">Paralisada</SelectItem>
+                              <SelectItem value="unfinished">Inacabada</SelectItem>
+                              <SelectItem value="completed">Concluída</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="execution_percentage">Percentual de Execução (%)</Label>
+                          <Input id="execution_percentage" name="execution_percentage" type="number" min="0" max="100" value={formData.execution_percentage || ''} onChange={handleChange} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="work_category_id">Categoria</Label>
+                          <Select name="work_category_id" value={formData.work_category_id} onValueChange={(v) => handleSelectChange('work_category_id', v)}>
+                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {workOptions.categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="bairro_id">Bairro</Label>
+                          <Select name="bairro_id" value={formData.bairro_id} onValueChange={(v) => handleSelectChange('bairro_id', v)}>
+                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {workOptions.bairros.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)] gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="work_area_id">Área de Implementação</Label>
+                          <Select name="work_area_id" value={formData.work_area_id} onValueChange={(v) => handleSelectChange('work_area_id', v)}>
+                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {workOptions.areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="contractor_id">Construtora</Label>
+                          <Select name="contractor_id" value={formData.contractor_id} onValueChange={(v) => handleSelectChange('contractor_id', v)}>
+                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.75rem] leading-tight items-start py-2">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {workOptions.contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {createStep === 'values' && (
+                  <Card>
+                    <CardHeader><CardTitle>Valores e Prazos</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="total_value">Valor Previsto (R$)</Label>
+                          <Input id="total_value" name="total_value" value={formatCurrency(formData.total_value, false)} onChange={handleCurrencyChange} />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="amount_spent">Valor Gasto (R$)</Label>
+                          <Input id="amount_spent" name="amount_spent" value={formatCurrency(formData.amount_spent, false)} onChange={handleCurrencyChange} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="execution_period_days">Prazo de Execução (dias)</Label>
+                          <Input id="execution_period_days" name="execution_period_days" type="number" value={formData.execution_period_days || ''} onChange={handleChange} />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Fonte do Recurso</Label>
+                          <div className="flex items-center flex-wrap gap-4 pt-2">
+                            {['Federal', 'Estadual', 'Municipal'].map(source => (
+                              <div key={source} className="flex items-center space-x-2">
+                                <Checkbox id={`funding_${source}`} checked={(formData.funding_source || []).includes(source.toLowerCase())} onCheckedChange={() => handleFundingSourceChange(source.toLowerCase())} />
+                                <Label htmlFor={`funding_${source}`}>{source}</Label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="contract_signature_date">Assinatura do Contrato</Label>
+                          <Input id="contract_signature_date" name="contract_signature_date" type="date" value={formData.contract_signature_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="service_order_date">Ordem de Serviço</Label>
+                          <Input id="service_order_date" name="service_order_date" type="date" value={formData.service_order_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="start_date">Início</Label>
+                          <Input id="start_date" name="start_date" type="date" value={formData.start_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="expected_end_date">Previsão de Conclusão</Label>
+                          <Input id="expected_end_date" name="expected_end_date" type="date" value={formData.expected_end_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="inauguration_date">Inauguração</Label>
+                          <Input id="inauguration_date" name="inauguration_date" type="date" value={formData.inauguration_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="stalled_date">Paralisação</Label>
+                          <Input id="stalled_date" name="stalled_date" type="date" value={formData.stalled_date || ''} onChange={handleDateChange} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {createStep === 'location' && (
+                  <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5" /> Localização</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="h-72 w-full rounded-lg overflow-hidden border border-input">
+                        <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
+                          <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} />
+                        </Suspense>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {createStep === 'extras' && (
+                  <Card>
+                    <CardHeader><CardTitle>Outras Informações</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="other_details">Detalhes Adicionais</Label>
+                        <Textarea id="other_details" name="other_details" value={formData.other_details || ''} onChange={handleChange} rows={4} placeholder="Observações, referências, códigos, etc." />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Emenda Parlamentar</Label>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="parliamentary_has_create"
+                            checked={!!formData.parliamentary_amendment?.has}
+                            onCheckedChange={(checked) =>
+                              setFormData(prev => ({ ...prev, parliamentary_amendment: { ...(prev.parliamentary_amendment || {}), has: !!checked } }))
+                            }
+                          />
+                          <Label htmlFor="parliamentary_has_create">Possui emenda?</Label>
+                        </div>
+                        <div className="grid gap-2 mt-2">
+                          <Label htmlFor="parliamentary_author_create">Autor (se houver)</Label>
+                          <Input
+                            id="parliamentary_author_create"
+                            name="parliamentary_author_create"
+                            value={formData.parliamentary_amendment?.author || ''}
+                            onChange={(e) =>
+                              setFormData(prev => ({ ...prev, parliamentary_amendment: { ...(prev.parliamentary_amendment || {}), author: e.target.value } }))
+                            }
+                            disabled={!formData.parliamentary_amendment?.has}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {createStep === 'review' && (
+                  <Card>
+                    <CardHeader><CardTitle>Revisão</CardTitle></CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div><span className="text-muted-foreground">Título:</span> <span className="font-medium">{formData.title || '—'}</span></div>
+                      <div><span className="text-muted-foreground">Status:</span> <span className="font-medium">{formData.status || '—'}</span></div>
+                      <div><span className="text-muted-foreground">Categoria:</span> <span className="font-medium">{(workOptions.categories.find(c => c.id === formData.work_category_id)?.name) || '—'}</span></div>
+                      <div><span className="text-muted-foreground">Bairro:</span> <span className="font-medium">{(workOptions.bairros.find(b => b.id === formData.bairro_id)?.name) || '—'}</span></div>
+                      <div><span className="text-muted-foreground">Valor Previsto:</span> <span className="font-medium">{formData.total_value ? formatCurrency(formData.total_value) : '—'}</span></div>
+                      <div><span className="text-muted-foreground">Prazo Execução (dias):</span> <span className="font-medium">{formData.execution_period_days || '—'}</span></div>
+                      <div><span className="text-muted-foreground">Fontes:</span> <span className="font-medium">{(formData.funding_source || []).join(', ') || '—'}</span></div>
+                      <div><span className="text-muted-foreground">Localização:</span> <span className="font-medium">{formData.location ? `${formData.location.lat?.toFixed(5)}, ${formData.location.lng?.toFixed(5)}` : '—'}</span></div>
+                      <div><span className="text-muted-foreground">Emenda Parlamentar:</span> <span className="font-medium">{formData.parliamentary_amendment?.has ? `Sim (${formData.parliamentary_amendment?.author || 'Autor não informado'})` : 'Não'}</span></div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
             {activeTab === 'media' && <WorkMediaManager workId={formData.id} />}
             {activeTab === 'links' && (
@@ -474,16 +808,31 @@ const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
           </div>
         </div>
 
-        <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
-          <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
-          <Button type="button" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Salvar Alterações</Button>
-        </DialogFooter>
+        {formData.id ? (
+          <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
+            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+            <Button type="button" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Salvar Alterações</Button>
+          </DialogFooter>
+        ) : (
+          <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4 justify-between">
+            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" disabled={CREATE_STEPS.findIndex(s => s.id === createStep) === 0} onClick={prevStep}>Anterior</Button>
+              {createStep !== 'review' ? (
+                <Button type="button" onClick={nextStep} disabled={!canProceed()}>Próximo</Button>
+              ) : (
+                <Button type="button" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Criar Obra</Button>
+              )}
+            </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
 };
 
 const WorkMediaManager = ({ workId }) => {
+  const { user } = useAuth();
   const [media, setMedia] = useState([]);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
@@ -548,7 +897,9 @@ const WorkMediaManager = ({ workId }) => {
         work_id: workId,
         url: publicUrl,
         type: fileType,
-        name: file.name
+        name: file.name,
+        status: 'approved',
+        contributor_id: user?.id || null
       });
 
       if (dbError) {
@@ -623,6 +974,8 @@ const WorkMediaManager = ({ workId }) => {
 
 const ManageWorksPage = () => {
   const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [works, setWorks] = useState([]);
   const [workOptions, setWorkOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
   const [editingWork, setEditingWork] = useState(null);
@@ -673,6 +1026,16 @@ const ManageWorksPage = () => {
     fetchData();
     fetchOptions();
   }, [fetchData, fetchOptions]);
+
+  useEffect(() => {
+    const editId = location.state && location.state.editWorkId;
+    if (editId && works.length > 0 && !editingWork) {
+      const found = works.find(w => w.id === editId);
+      if (found) {
+        setEditingWork(found);
+      }
+    }
+  }, [location.state, works, editingWork]);
 
   const handleSaveWork = async (workToSave) => {
     const { id, location, ...data } = workToSave;
@@ -940,7 +1303,12 @@ const ManageWorksPage = () => {
       <WorkEditModal
         work={editingWork}
         onSave={handleSaveWork}
-        onClose={() => setEditingWork(null)}
+        onClose={() => {
+          setEditingWork(null);
+          if (location.state && location.state.editWorkId) {
+            navigate(location.pathname, { replace: true });
+          }
+        }}
         workOptions={workOptions}
       />
 

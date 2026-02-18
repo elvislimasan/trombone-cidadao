@@ -33,7 +33,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
     location: null, 
     photos: [], 
     videos: [], 
-    pole_number: '' 
+    pole_number: '',
+    is_from_water_utility: false,
   });
   const [errors, setErrors] = useState({});
   const { toast } = useToast();
@@ -2123,7 +2124,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
         location: null, 
         photos: [], 
         videos: [],
-        pole_number: ''
+        pole_number: '',
+        is_from_water_utility: false,
       });
         
       } catch (resetError) {
@@ -2249,6 +2251,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             )}
           </div>
 
+
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Categoria *</label>
             <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
@@ -2272,6 +2275,25 @@ const ReportModal = ({ onClose, onSubmit }) => {
               <p className="text-xs text-destructive mt-1">{errors.category}</p>
             )}
           </div>
+
+          
+          {formData.category === 'buracos' && (
+            <div className="flex items-start gap-2">
+              <input
+                id="is_from_water_utility"
+                type="checkbox"
+                checked={formData.is_from_water_utility}
+                onChange={(e) => {
+                  setFormData({ ...formData, is_from_water_utility: e.target.checked });
+                }}
+                className="mt-1 h-6 w-6 rounded border-input text-primary focus:ring-primary"
+              />
+              <label htmlFor="is_from_water_utility" className="text-xs text-foreground">
+                Marque se o buraco foi aberto por obras da companhia de abastecimento
+                de água/esgoto (por exemplo, conserto de canos).
+              </label>
+            </div>
+          )}
 
           {formData.category === 'iluminacao' && (
             <div>

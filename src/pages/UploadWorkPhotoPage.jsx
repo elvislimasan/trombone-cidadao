@@ -64,6 +64,7 @@ const UploadWorkPhotoPage = () => {
   };
 
   const handleSubmit = async () => {
+    if (isUploading) return;
     if (files.length === 0) {
       toast({ title: "Nenhuma foto selecionada", variant: "destructive" });
       return;
@@ -119,6 +120,8 @@ const UploadWorkPhotoPage = () => {
           url: publicUrl,
           type: file.type.startsWith('image') ? 'image' : 'video',
           name: uploadFile.name,
+          status: 'pending',
+          contributor_id: user.id,
         });
 
       if (dbError) {

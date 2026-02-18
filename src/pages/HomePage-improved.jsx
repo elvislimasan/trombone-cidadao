@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2, Search } from 'lucide-react';
+import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2, Search, Plus } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import ReportModal from '@/components/ReportModal';
 import { supabase } from '@/lib/customSupabaseClient';
 import BottomNav from '@/components/BottomNav';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
@@ -74,6 +76,7 @@ function MiniMapPreview() {
 function HomePageImproved() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const { handleUpvote, loading: upvoteLoading } = useUpvote();
   const [showPetitionsUpdate, setShowPetitionsUpdate] = useState(false);
   const [stats, setStats] = useState({
@@ -84,6 +87,7 @@ function HomePageImproved() {
     resolved: 0,
   });
   const [loadingStats, setLoadingStats] = useState(true);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const [petitions, setPetitions] = useState([]);
   const [loadingPetitions, setLoadingPetitions] = useState(true);
@@ -471,15 +475,83 @@ function HomePageImproved() {
   const isDesktopCarousel = petitions.length > 3;
   const featuredReports = useMemo(() => (reportsPreview || []).filter(r => r.is_featured), [reportsPreview]);
 
+  const handleNewReportClick = () => {
+    if (user) {
+      setShowReportModal(true);
+    } else {
+      toast({
+        title: "Acesso restrito",
+        description: "Você precisa fazer login para criar uma nova bronca.",
+        variant: "destructive",
+      });
+      navigate('/login');
+    }
+  };
+
+  const handleCreateReport = async (newReportData, uploadMediaCallback) => {
+    if (!user) return;
+
+    const { title, description, category, address, location, pole_number, is_from_water_utility } = newReportData;
+
+    const { data, error } = await supabase
+      .from('reports')
+      .insert({
+        title,
+        description,
+        category_id: category,
+        address,
+        location: `POINT(${location.lng} ${location.lat})`,
+        author_id: user.id,
+        protocol: `TROMB-${Date.now()}`,
+        pole_number: category === 'iluminacao' ? pole_number : null,
+        is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
+        status: 'pending',
+        moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
+      })
+      .select('id', 'title')
+      .single();
+
+    if (error) {
+      toast({ title: "Erro ao criar bronca", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    if (uploadMediaCallback) {
+      await uploadMediaCallback(data.id);
+    }
+
+    const toastMessage = user?.is_admin
+      ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
+      : { title: "Bronca enviada para moderação! 📬", description: "Sua solicitação será analisada antes de ser publicada." };
+
+    toast(toastMessage);
+    setShowReportModal(false);
+
+    setTimeout(() => {
+      fetchReportsPreview();
+    }, 1000);
+  };
+
   return (
     <div className=" flex flex-col bg-[#F9FAFB] md:px-6">
       <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-4 space-y-10 max-w-[88rem] mx-auto w-full">
         <section className="space-y-4">
-          <div className="lg:pt-4">
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827] mb-2  ">Broncas da Sua Cidade</h1>
-            <p className="text-xs lg:text-sm text-[#6B7280]">
-              Veja os problemas reportados pela comunidade e acompanhe as soluções em tempo real.
-            </p>
+          <div className="lg:pt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div>
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827] mb-2">Broncas da Sua Cidade</h1>
+              <p className="text-xs lg:text-sm text-[#6B7280]">
+                Veja os problemas reportados pela comunidade e acompanhe as soluções em tempo real.
+              </p>
+            </div>
+            <div className="hidden md:flex items-center gap-3">
+              <Button 
+                onClick={handleNewReportClick}
+                className="bg-tc-red hover:bg-tc-red/90 gap-2 text-tc-white rounded-full px-4 h-9 text-xs lg:h-10 lg:text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Nova bronca
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1235,6 +1307,12 @@ function HomePageImproved() {
         </DialogContent>
       </Dialog>
       <BottomNav />
+      {showReportModal && (
+        <ReportModal
+          onClose={() => setShowReportModal(false)}
+          onSubmit={handleCreateReport}
+        />
+      )}
     </div>
   );
 }

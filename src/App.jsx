@@ -58,6 +58,7 @@ import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
 import HomePageImproved from './pages/HomePage-improved';
+import NotFoundPage from '@/pages/NotFoundPage';
 
 const SEO = () => {
   const location = useLocation();
@@ -445,7 +446,7 @@ function App() {
   return (
     <UploadProvider>
       <SEO />
-      <div className="min-h-screen bg-[#FFF] text-foreground flex flex-col">
+      <div className="min-h-screen bg-[#F9FAFB] text-foreground flex flex-col">
         <Header />
         <AppDownloadBanner />
         <main
@@ -505,6 +506,7 @@ function App() {
             <Route path="/admin/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
             <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
             <Route path="/settings/notifications" element={<NotificationPreferences />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
         <Footer />
