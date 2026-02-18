@@ -7,10 +7,15 @@ import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, DollarSign, HardHat, PauseCircle, CheckCircle, MapPin, Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, FileCheck } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ArrowLeft, Calendar, DollarSign, HardHat, PauseCircle, CheckCircle, MapPin, Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, FileCheck, Share2, Edit } from 'lucide-react';
 import { formatCurrency, formatCnpj } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { WorkEditModal } from './admin/ManageWorksPage';
 
 // Componente para gerar thumbnail de vídeo direto (movido para fora para evitar problemas com hooks)
 const VideoThumbnail = React.memo(({ videoUrl, alt, className }) => {
@@ -94,6 +99,14 @@ const WorkDetailsPage = () => {
   const [isFavorited, setIsFavorited] = useState(false);
   const [loading, setLoading] = useState(true);
   const [viewerState, setViewerState] = useState({ isOpen: false, startIndex: 0, items: [] });
+  const [showContribDialog, setShowContribDialog] = useState(false);
+  const [contribDescription, setContribDescription] = useState('');
+  const [contribVideoUrl, setContribVideoUrl] = useState('');
+  const [contribFiles, setContribFiles] = useState([]);
+  const fileInputRef = useRef(null);
+  const [showAdminEditModal, setShowAdminEditModal] = useState(false);
+  const [workEditOptions, setWorkEditOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
+  const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
 
   const fetchWorkDetails = useCallback(async () => {
     setLoading(true);
@@ -141,6 +154,25 @@ const WorkDetailsPage = () => {
     fetchWorkDetails();
   }, [fetchWorkDetails]);
 
+  useEffect(() => {
+    const fetchEditOptions = async () => {
+      if (!user?.is_admin) return;
+      const [categories, areas, bairros, contractors] = await Promise.all([
+        supabase.from('work_categories').select('*'),
+        supabase.from('work_areas').select('*'),
+        supabase.from('bairros').select('*'),
+        supabase.from('contractors').select('*'),
+      ]);
+      setWorkEditOptions({
+        categories: categories.data || [],
+        areas: areas.data || [],
+        bairros: bairros.data || [],
+        contractors: contractors.data || [],
+      });
+    };
+    fetchEditOptions();
+  }, [user?.is_admin]);
+
   const handleFavoriteToggle = async () => {
     if (!user) {
       toast({ title: "Acesso restrito", description: "Você precisa fazer login para favoritar uma obra.", variant: "destructive" });
@@ -164,6 +196,113 @@ const WorkDetailsPage = () => {
         toast({ title: "Obra adicionada aos favoritos! ⭐" });
         setIsFavorited(true);
       }
+    }
+  };
+
+  const handleShareWork = async () => {
+    if (typeof window === 'undefined' || !work) return;
+
+    const url = window.location.href;
+    const shareData = {
+      title: work.title,
+      text: work.description || 'Confira os detalhes desta obra pública no Trombone Cidadão.',
+      url,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        toast({ title: "Compartilhado com sucesso! 📣" });
+        return;
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
+        return;
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return;
+      }
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
+      }
+    } catch {
+      toast({ title: "Erro ao compartilhar", variant: "destructive" });
+    }
+  };
+
+  const handleOpenContrib = () => {
+    if (!user) {
+      toast({ title: "Faça login para contribuir", description: "Você precisa entrar para enviar fotos ou dados.", variant: "destructive" });
+      navigate('/login');
+      return;
+    }
+    setShowContribDialog(true);
+  };
+
+  const handleContribFilesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    setContribFiles(files);
+  };
+
+  const handleSubmitContribution = async () => {
+    if (!user || !work || isSubmittingContribution) return;
+    setIsSubmittingContribution(true);
+    try {
+      // Upload arquivos (imagens/vídeos) para o bucket 'work-media'
+      if (contribFiles.length > 0) {
+        for (const file of contribFiles) {
+          const path = `works/${work.id}/${Date.now()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage.from('work-media').upload(path, file);
+          if (uploadError) throw uploadError;
+          const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(path);
+          let type = 'file';
+          if (file.type.startsWith('image')) type = 'image';
+          else if (file.type.startsWith('video')) type = 'video';
+          else if (file.type === 'application/pdf') type = 'pdf';
+          const { error: dbError } = await supabase.from('public_work_media').insert({
+            work_id: work.id,
+            url: publicUrl,
+            type,
+            name: file.name,
+            description: contribDescription || null,
+            status: 'pending',
+            contributor_id: user.id
+          });
+          if (dbError) throw dbError;
+        }
+      }
+      // Inserir link de vídeo (YouTube/Instagram) como mídia, se fornecido
+      if (contribVideoUrl && contribVideoUrl.trim().length > 0) {
+        const { error: linkErr } = await supabase.from('public_work_media').insert({
+          work_id: work.id,
+          url: contribVideoUrl.trim(),
+          type: 'video_url',
+          name: 'Vídeo do cidadão',
+          description: contribDescription || null,
+          status: 'pending',
+          contributor_id: user.id
+        });
+        if (linkErr) throw linkErr;
+      }
+      toast({ title: "Contribuição enviada! ✅", description: "Obrigado por colaborar com transparência." });
+      setShowContribDialog(false);
+      setContribDescription('');
+      setContribVideoUrl('');
+      setContribFiles([]);
+      // Atualizar galeria
+      const { data: mediaData } = await supabase.from('public_work_media').select('*').eq('work_id', work.id).order('media_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
+      setMedia(mediaData || []);
+    } catch (error) {
+      toast({ title: "Erro ao enviar contribuição", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSubmittingContribution(false);
     }
   };
 
@@ -259,6 +398,7 @@ const WorkDetailsPage = () => {
     { icon: Home, label: 'Bairro', value: work.bairro?.name },
     { icon: DollarSign, label: 'Valor Total', value: work.total_value ? formatCurrency(work.total_value) : null },
     { icon: DollarSign, label: 'Valor Gasto', value: work.amount_spent ? formatCurrency(work.amount_spent) : null },
+    { icon: Calendar, label: 'Assinatura do Contrato', value: work.contract_signature_date ? new Date(work.contract_signature_date).toLocaleDateString('pt-BR') : null },
     { icon: Calendar, label: 'Ordem de Serviço', value: work.service_order_date ? new Date(work.service_order_date).toLocaleDateString('pt-BR') : null },
     { icon: Calendar, label: 'Início', value: work.start_date ? new Date(work.start_date).toLocaleDateString('pt-BR') : null },
     { icon: Calendar, label: 'Previsão de Conclusão', value: work.expected_end_date ? new Date(work.expected_end_date).toLocaleDateString('pt-BR') : null },
@@ -388,10 +528,27 @@ const WorkDetailsPage = () => {
             <Button asChild variant="ghost" className="text-sm">
               <Link to="/obras-publicas"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Link>
             </Button>
-            <Button variant="outline" onClick={handleFavoriteToggle} className="gap-2 text-sm">
-              <Star className={`w-4 h-4 transition-colors ${isFavorited ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
-              {isFavorited ? 'Favoritado' : 'Favoritar'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {user?.is_admin ? (
+                <Button variant="default" onClick={() => setShowAdminEditModal(true)} className="gap-2 text-sm">
+                  <Edit className="w-4 h-4" />
+                  Editar
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handleOpenContrib} className="gap-2 text-sm">
+                  <UploadIcon />
+                  Enviar fotos e dados
+                </Button>
+              )}
+              <Button variant="outline" onClick={handleShareWork} className="gap-2 text-sm">
+                <Share2 className="w-4 h-4" />
+                Compartilhar
+              </Button>
+              <Button variant="outline" onClick={handleFavoriteToggle} className="gap-2 text-sm">
+                <Star className={`w-4 h-4 transition-colors ${isFavorited ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                {isFavorited ? 'Favoritado' : 'Favoritar'}
+              </Button>
+            </div>
           </div>
 
           <Card className="overflow-hidden">
@@ -453,8 +610,85 @@ const WorkDetailsPage = () => {
           </Card>
         </motion.div>
       </div>
+
+      <Dialog open={showContribDialog} onOpenChange={setShowContribDialog}>
+        <DialogContent className="sm:max-w-lg bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Contribuir com esta obra</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="contrib_description">Descrição</Label>
+              <Textarea id="contrib_description" value={contribDescription} onChange={(e) => setContribDescription(e.target.value)} placeholder="Contextualize suas fotos ou informe dados relevantes" rows={4} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="contrib_files">Fotos/Vídeos (opcional)</Label>
+              <Input id="contrib_files" ref={fileInputRef} type="file" accept="image/*,video/*,application/pdf" multiple onChange={handleContribFilesChange} />
+              <p className="text-xs text-muted-foreground">Arquivos aceitos: imagens, vídeos ou PDF. Tamanho conforme limite do servidor.</p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="contrib_video">URL de Vídeo (opcional)</Label>
+              <Input id="contrib_video" placeholder="Link do YouTube/Instagram" value={contribVideoUrl} onChange={(e) => setContribVideoUrl(e.target.value)} />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Ao contribuir, você concorda em publicar seu material para transparência da obra.
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end gap-2">
+            <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmittingContribution}>Cancelar</Button></DialogClose>
+            <Button type="button" onClick={handleSubmitContribution} disabled={isSubmittingContribution}>
+              {isSubmittingContribution ? 'Enviando...' : 'Enviar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {user?.is_admin && (
+        <WorkEditModal
+          work={showAdminEditModal ? work : null}
+          onSave={async (workToSave) => {
+            const { id, location, ...data } = workToSave;
+            delete data.bairro;
+            delete data.work_category;
+            delete data.work_area;
+            delete data.contractor;
+            const locationString = location ? `POINT(${location.lng} ${location.lat})` : null;
+            const payload = { ...data, location: locationString };
+            ['bairro_id', 'work_category_id', 'work_area_id', 'contractor_id'].forEach(key => {
+              if (payload[key] === '') payload[key] = null;
+            });
+            if (!Array.isArray(payload.funding_source)) {
+              payload.funding_source = [];
+            }
+            const result = await supabase.from('public_works').update(payload).eq('id', id).select().single();
+            if (result.error) {
+              toast({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
+            } else {
+              toast({ title: "Obra atualizada com sucesso!" });
+              setShowAdminEditModal(false);
+              // Recarrega detalhes
+              const { data: refreshed } = await supabase
+                .from('public_works')
+                .select('*, work_category:work_categories(name), work_area:work_areas(name), bairro:bairros(name), contractor:contractor_id(id, name, cnpj)')
+                .eq('id', id)
+                .single();
+              setWork(refreshed || result.data);
+            }
+          }}
+          onClose={() => setShowAdminEditModal(false)}
+          workOptions={workEditOptions}
+        />
+      )}
     </>
   );
 };
 
 export default WorkDetailsPage;
+
+const UploadIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="M7 10l5-5 5 5" />
+    <path d="M12 15V5" />
+  </svg>
+);

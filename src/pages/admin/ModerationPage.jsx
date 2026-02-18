@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft, Check, X, Eye, ChevronLeft, ChevronRight, Search, 
   MessageSquare, AlertCircle, FileText, CheckCircle2, Info, 
-  Filter, Calendar, User, Clock
+  Filter, Calendar, User, Clock, Image as ImageIcon
 } from 'lucide-react';
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -27,6 +27,7 @@ const ModerationPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [selectedWorkMedia, setSelectedWorkMedia] = useState(null);
 
   // Pagination, Search, Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,8 +45,10 @@ const ModerationPage = () => {
   const isReportModeration = type === 'broncas';
   const isResolutionModeration = type === 'resolucoes';
   const isPetitionModeration = type === 'peticoes';
+  const isWorkMediaModeration = type === 'obras-midias';
   
-  const pageTitle = isResolutionModeration ? 'Moderação de Resoluções' : 
+  const pageTitle = isWorkMediaModeration ? 'Moderação de Mídias de Obras' :
+                   isResolutionModeration ? 'Moderação de Resoluções' : 
                    isReportModeration ? 'Moderação de Broncas' : 
                    isPetitionModeration ? 'Moderação de Abaixo-Assinados' :
                    'Moderação de Comentários';
@@ -54,7 +57,15 @@ const ModerationPage = () => {
     setLoading(true);
     
     try {
-      if (isResolutionModeration) {
+      if (isWorkMediaModeration) {
+        const { data, error } = await supabase
+          .from('public_work_media')
+          .select('*, work:public_works(title), contributor:profiles!contributor_id(name)')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        setItems(data || []);
+      } else if (isResolutionModeration) {
         const { data, error } = await supabase
           .from('reports')
           .select('*, author:profiles!author_id(name)')
@@ -87,7 +98,7 @@ const ModerationPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isReportModeration, isResolutionModeration, isPetitionModeration, toast]);
+  }, [isReportModeration, isResolutionModeration, isPetitionModeration, isWorkMediaModeration, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -124,7 +135,6 @@ const ModerationPage = () => {
         const notificationData = {
           user_id: item.author_id,
           type: 'moderation_update',
-          title: newStatus === 'approved' ? 'Abaixo-assinado aprovado! 🎉' : 'Abaixo-assinado não aprovado',
           message: newStatus === 'approved' 
             ? `Seu abaixo-assinado "${item.title}" foi aprovado e já está disponível para assinaturas.`
             : `Infelizmente seu abaixo-assinado "${item.title}" não foi aprovado. Motivo: ${rejectionReason}`,
@@ -149,6 +159,36 @@ const ModerationPage = () => {
         } catch (emailError) {
           console.error('Erro ao enviar e-mail de notificação:', emailError);
           // Não falhar o processo se o e-mail falhar, mas avisar no log
+        }
+      } else if (isWorkMediaModeration) {
+        if (newStatus === 'approved') {
+          const { error } = await supabase.from('public_work_media')
+            .update({ status: 'approved', reviewed_by: user.id, reviewed_at: new Date().toISOString(), review_comment: null })
+            .eq('id', item.id);
+          if (error) throw error;
+        } else {
+          const notificationData = {
+            user_id: item.contributor_id,
+            type: 'work_media_rejected',
+            message: `A mídia enviada para a obra "${item.work?.title || 'desconhecida'}" não foi aprovada. Motivo: ${rejectionReason}`,
+            work_id: item.work_id,
+            is_read: false
+          };
+
+          if (item.contributor_id) {
+            await supabase.from('notifications').insert(notificationData);
+          }
+
+          const { error: dbError } = await supabase.from('public_work_media').delete().eq('id', item.id);
+          if (dbError) throw dbError;
+          try {
+            const url = new URL(item.url);
+            const parts = url.pathname.split('/work-media/');
+            const storagePath = parts[1];
+            if (storagePath) {
+              await supabase.storage.from('work-media').remove([decodeURIComponent(storagePath)]);
+            }
+          } catch (_) {}
         }
       } else {
         const tableToUpdate = isReportModeration ? 'reports' : 'comments';
@@ -185,8 +225,8 @@ const ModerationPage = () => {
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const searchLower = searchTerm.toLowerCase();
-      const title = item.title || item.text || '';
-      const authorName = item.author?.name || item.resolution_submission?.userName || '';
+      const title = item.title || item.text || item.work?.title || '';
+      const authorName = item.author?.name || item.resolution_submission?.userName || item.contributor?.name || '';
       return title.toLowerCase().includes(searchLower) || authorName.toLowerCase().includes(searchLower);
     });
   }, [items, searchTerm]);
@@ -238,7 +278,7 @@ const ModerationPage = () => {
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{pageTitle}</h1>
             </div>
             <p className="text-muted-foreground ml-10 md:ml-12 text-sm md:text-base">
-              {isResolutionModeration ? 'Valide as resoluções enviadas' : 'Garanta a qualidade do conteúdo da plataforma'}
+              {isWorkMediaModeration ? 'Aprove ou rejeite fotos e vídeos enviados pelos cidadãos' : isResolutionModeration ? 'Valide as resoluções enviadas' : 'Garanta a qualidade do conteúdo da plataforma'}
             </p>
           </div>
           
@@ -282,14 +322,14 @@ const ModerationPage = () => {
                     <CardContent className="p-0">
                       <div className="flex flex-row items-stretch min-h-[110px] md:min-h-[130px]">
                         {/* Icon/Visual Indicator - Always vertical stripe */}
-                        <div className={`w-1.5 md:w-2 shrink-0 ${isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
+                        <div className={`w-1.5 md:w-2 shrink-0 ${isWorkMediaModeration ? 'bg-purple-500' : isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
                         
                         <div className="flex-1 p-2.5 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-6 min-w-0">
                           <div className="space-y-1 md:space-y-2 flex-1 min-w-0 w-full">
                             <div className="flex items-center gap-1.5 md:gap-3 flex-wrap mb-0.5">
                               <Badge variant="outline" className="gap-1 font-medium py-0 h-5 md:h-6 text-[9px] md:text-xs">
-                                {isPetitionModeration ? <FileText className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isResolutionModeration ? <CheckCircle2 className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : <MessageSquare className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />}
-                                {isPetitionModeration ? 'Abaixo-Assinado' : isResolutionModeration ? 'Resolução' : 'Comentário'}
+                                {isWorkMediaModeration ? <ImageIcon className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isPetitionModeration ? <FileText className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isResolutionModeration ? <CheckCircle2 className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : <MessageSquare className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />}
+                                {isWorkMediaModeration ? 'Mídia de Obra' : isPetitionModeration ? 'Abaixo-Assinado' : isResolutionModeration ? 'Resolução' : 'Comentário'}
                               </Badge>
                               <span className="text-[9px] md:text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />
@@ -298,13 +338,15 @@ const ModerationPage = () => {
                             </div>
                             
                             <h3 className="font-bold text-sm md:text-lg leading-tight line-clamp-2 group-hover:text-tc-red transition-colors">
-                              {item.title || (item.text ? `"${item.text}"` : 'Sem título')}
+                              {isWorkMediaModeration ? (item.work?.title || 'Obra desconhecida') : (item.title || (item.text ? `"${item.text}"` : 'Sem título'))}
                             </h3>
                             
                             <div className="flex flex-col xs:flex-row xs:items-center gap-1.5 xs:gap-4 text-[10px] md:text-sm text-muted-foreground">
                               <div className="flex items-center gap-1.5">
                                 <User className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                <span className="font-medium text-foreground truncate max-w-[90px] sm:max-w-none">{item.author?.name || item.resolution_submission?.userName || 'Anônimo'}</span>
+                                <span className="font-medium text-foreground truncate max-w-[90px] sm:max-w-none">
+                                  {isWorkMediaModeration ? (item.contributor?.name || 'Cidadão') : (item.author?.name || item.resolution_submission?.userName || 'Anônimo')}
+                                </span>
                               </div>
                               {item.protocol && (
                                 <div className="flex items-center gap-1.5">
@@ -320,7 +362,15 @@ const ModerationPage = () => {
                               variant="ghost" 
                               size="sm" 
                               className="h-8 md:h-10 px-2.5 md:px-4 hover:bg-background flex-1 sm:flex-none text-[11px] md:text-sm"
-                              onClick={() => isPetitionModeration ? navigate(`/abaixo-assinado/${item.id}`) : handleViewReport(item.id)}
+                              onClick={() => {
+                                if (isPetitionModeration) {
+                                  navigate(`/abaixo-assinado/${item.id}`);
+                                } else if (isWorkMediaModeration) {
+                                  setSelectedWorkMedia(item);
+                                } else {
+                                  handleViewReport(item.id);
+                                }
+                              }}
                             >
                               <Eye className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
                               Revisar
@@ -384,7 +434,7 @@ const ModerationPage = () => {
         )}
       </div>
 
-      {/* Details View */}
+      {/* Details View for Reports */}
       {selectedReport && (
         <ReportDetails
           report={selectedReport}
@@ -400,6 +450,94 @@ const ModerationPage = () => {
           isModerationView={true}
         />
       )}
+
+      {/* Details View for Work Media */}
+      <Dialog open={isWorkMediaModeration && !!selectedWorkMedia} onOpenChange={(open) => { if (!open) setSelectedWorkMedia(null); }}>
+        <DialogContent className="max-w-lg rounded-2xl">
+          {selectedWorkMedia && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5" />
+                  Mídia enviada
+                </DialogTitle>
+                <DialogDescription className="pt-2 space-y-1">
+                  <p className="font-medium text-foreground">
+                    {selectedWorkMedia.work?.title || 'Obra desconhecida'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Por {selectedWorkMedia.contributor?.name || 'Cidadão'} em {new Date(selectedWorkMedia.created_at).toLocaleString('pt-BR')}
+                  </p>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-4 space-y-4">
+                {selectedWorkMedia.type === 'image' && (
+                  <div className="rounded-xl overflow-hidden border bg-muted/20 flex items-center justify-center">
+                    <img
+                      src={selectedWorkMedia.url}
+                      alt={selectedWorkMedia.name}
+                      className="max-h-[360px] w-full object-contain bg-black/5"
+                    />
+                  </div>
+                )}
+                {selectedWorkMedia.type === 'video' && (
+                  <div className="rounded-xl overflow-hidden border bg-black">
+                    <video
+                      src={selectedWorkMedia.url}
+                      controls
+                      className="w-full max-h-[360px]"
+                    />
+                  </div>
+                )}
+                {selectedWorkMedia.type === 'video_url' && (
+                  <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Vídeo externo enviado pelo cidadão.
+                    </p>
+                    <a
+                      href={selectedWorkMedia.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary underline break-all"
+                    >
+                      {selectedWorkMedia.url}
+                    </a>
+                  </div>
+                )}
+                {selectedWorkMedia.type === 'pdf' && (
+                  <div className="rounded-xl border bg-muted/30 p-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-6 h-6 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium break-words">{selectedWorkMedia.name}</p>
+                        <p className="text-xs text-muted-foreground">Documento PDF enviado para esta obra.</p>
+                      </div>
+                    </div>
+                    <Button asChild size="sm" variant="outline">
+                      <a href={selectedWorkMedia.url} target="_blank" rel="noopener noreferrer">
+                        Abrir
+                      </a>
+                    </Button>
+                  </div>
+                )}
+                {selectedWorkMedia.description && (
+                  <div className="rounded-xl border bg-muted/20 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">Descrição do cidadão</p>
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {selectedWorkMedia.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="mt-6">
+                <Button variant="outline" className="rounded-xl w-full" onClick={() => setSelectedWorkMedia(null)}>
+                  Fechar
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Approve/Reject Dialogs (Simplified for better UX) */}
       <Dialog open={isApproveModalOpen} onOpenChange={setIsApproveModalOpen}>

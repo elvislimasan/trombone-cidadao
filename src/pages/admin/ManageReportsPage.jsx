@@ -194,9 +194,16 @@ const ManageReportsPage = () => {
   };
 
   const handleUpdateReport = async (editData) => {
-    const { id, title, description, address, location, category_id, newPhotos, newVideos, removedMedia, status, is_recurrent, evaluation, resolution_submission } = editData;
+    const { id, title, description, address, location, category_id, newPhotos, newVideos, removedMedia, status, is_recurrent, evaluation, resolution_submission, is_from_water_utility } = editData;
 
     const reportUpdates = { title, description, address, category_id, status, is_recurrent, evaluation, resolution_submission };
+    if (typeof is_from_water_utility !== 'undefined') {
+      if (category_id === 'buracos') {
+        reportUpdates.is_from_water_utility = !!is_from_water_utility;
+      } else {
+        reportUpdates.is_from_water_utility = null;
+      }
+    }
     if (location) {
       reportUpdates.location = `POINT(${location.lng} ${location.lat})`;
     }

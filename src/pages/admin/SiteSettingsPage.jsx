@@ -23,7 +23,7 @@ const SiteSettingsPage = () => {
   const [footerSettings, setFooterSettings] = useState(defaultFooterSettings);
   const [contactSettings, setContactSettings] = useState({
     whatsapp: '5587999488360',
-    email: 'contato@trombonecidadao.com.br',
+    email: '',
     phone: '(87) 99948-8360',
   });
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,7 @@ const SiteSettingsPage = () => {
       // Usar valores padrão se a coluna não existir
       setContactSettings({
         whatsapp: '5587999488360',
-        email: 'contato@trombonecidadao.com.br',
+        email: '',
         phone: '(87) 99948-8360',
       });
     }
@@ -322,7 +322,7 @@ const SiteSettingsPage = () => {
                       type="email" 
                       value={contactSettings.email} 
                       onChange={(e) => setContactSettings(prev => ({ ...prev, email: e.target.value }))} 
-                      placeholder="contato@trombonecidadao.com.br"
+                      placeholder="trombonecidadao@gmail.com"
                     />
                   </div>
                   <div className="space-y-2">

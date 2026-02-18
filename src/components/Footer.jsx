@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { defaultFooterSettings } from '@/config/menuConfig';
 
@@ -72,7 +73,15 @@ const Footer = () => {
               {footerSettings.description}
             </p>
             <div className="flex items-center space-x-4 pt-2">
-              {footerSettings.socialMedia.map(social => social.isVisible && renderSocialIcon(social.platform, social.url))}
+              {footerSettings.socialMedia
+                .filter(social => social.isVisible && social.platform === 'Instagram')
+                .map(social => renderSocialIcon(social.platform, social.url))}
+              <a href="https://play.google.com/store/apps/details?id=com.trombonecidadao.app" target="_blank" rel="noopener noreferrer" aria-label="Baixar na Google Play">
+                <Button className="gap-2 bg-tc-red hover:bg-tc-red/90 h-9 px-3 text-sm font-semibold">
+                  <LucideIcons.Download className="w-4 h-4" />
+                  Baixar App
+                </Button>
+              </a>
             </div>
           </div>
 
@@ -115,6 +124,12 @@ const Footer = () => {
                     <span>{footerSettings.contact.address}</span>
                   </li>
                 )}
+                <li className="flex items-center gap-2">
+                  <LucideIcons.MessageSquare className="w-4 h-4" />
+                  <Link to="/contato" style={linkStyle} className="hover:underline">
+                    Página de contato
+                  </Link>
+                </li>
               </ul>
             </div>
           )}

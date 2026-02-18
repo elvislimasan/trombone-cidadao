@@ -12,6 +12,7 @@ export const defaultMenuSettings = {
     { name: 'Serviços', path: '/servicos', icon: 'Briefcase', isVisible: true },
     { name: 'Abaixo-Assinados', path: '/abaixo-assinados', icon: 'FileSignature', isVisible: true },
     { name: 'Notícias', path: '/noticias', icon: 'Newspaper', isVisible: true },
+    { name: 'Contato', path: '/contato', icon: 'Mail', isVisible: true },
   ],
 };
 
