@@ -1238,7 +1238,7 @@ const PetitionPage = () => {
               CLIQUE E
             </h2>
             <h2 className="text-6xl font-extrabold" style={{ color: '#B91C1C' }}>
-              ASSINAR AGORA
+              ASSINE AGORA
             </h2>
             <div className="text-6xl mt-6" style={{ color: '#E53935' }}>↓</div>
             <div className="w-full rounded-full py-8 px-8 mt-8 inline-block text-2xl font-medium" style={{ backgroundColor: '#E53935', color: '#FFFFFF' }}>
