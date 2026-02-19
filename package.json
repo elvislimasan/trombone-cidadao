@@ -81,6 +81,7 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.1.5",
     "framer-motion": "^10.16.4",
+    "html-to-image": "^1.11.13",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "leaflet": "^1.9.4",
