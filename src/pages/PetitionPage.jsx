@@ -1161,11 +1161,11 @@ const PetitionPage = () => {
     >
       <div
         ref={storyCardRef}
-        className="relative w-[1080px] h-[1920px] bg-gray-50 overflow-hidden font-sans"
+        className="relative w-[1080px] h-[1920px] bg-gray-50 overflow-hidden font-sans "
       >
         <svg
           className="absolute top-0 left-0 w-full"
-          viewBox="0 0 1080 300"
+          viewBox="0 0 1080 450"
           fill="none"
         >
           <path
@@ -1185,29 +1185,29 @@ const PetitionPage = () => {
             fillOpacity="0.85"
           />
         </svg>
-        <div className="relative z-10 px-[60px] pt-[24px] flex flex-col h-full">
+        <div className="relative z-10 px-[60px] mt-[32px] flex flex-col h-full">
           <div className="flex items-start justify-center">
             <div className="flex items-center gap-6 justify-center flex-col">
-              <div className="w-[96px] h-[96px] flex items-center justify-center bg-white overflow-hidden rounded-full">
+           
                 <img className='w-[64px] h-[64px]' src="/logo.png" alt="logo Trombone Cidadão" />
-              </div>
-              <div className='text-center'>
-                <h2 className="text-5xl font-bold text-[#1F2933]">
+  
+             <div className='text-center'>
+                <h2 className="text-4xl font-bold text-[#1F2933]">
                   TROMBONE CIDADÃO
                 </h2>
                 <p className="text-[#1F2933] text-2xl">
                   Sua assinatura faz a diferença
                 </p>
               </div>
-            </div>
            
-          </div>
-          <div className="mt-20 flex justify-center">
-            <div className="bg-[#111827] text-white px-10 py-4 rounded-full text-2xl font-semibold">
-              {(petition.location || signForm.city || '').toUpperCase()}
             </div>
           </div>
-          <h1 className="mt-20 text-5xl font-bold text-[#1F2933] leading-tight max-w-full text-center">
+          <div className="mt-8 flex justify-center flex-col  items-center">
+              <div className="bg-[#111827] text-white px-10 py-4 rounded-full text-5xl font-semibold">
+              ABAIXO-ASSINADO
+            </div>
+          </div>
+          <h1 className="mt-24 text-5xl font-bold text-[#1F2933] leading-tight max-w-full text-center">
             {petition.title}
           </h1>
           <div className="mt-12 rounded-[40px] overflow-hidden relative">
