@@ -233,6 +233,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         amount_spent: null,
         execution_percentage: null,
         execution_period_days: null,
+        predicted_start_date: null,
         start_date: null,
         service_order_date: null,
         expected_end_date: null,
@@ -472,6 +473,10 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="grid gap-2">
+                            <Label htmlFor="predicted_start_date">Data prevista para início</Label>
+                            <Input id="predicted_start_date" name="predicted_start_date" type="date" value={formData.predicted_start_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
                             <Label htmlFor="start_date">Data de Início</Label>
                             <Input id="start_date" name="start_date" type="date" value={formData.start_date || ''} onChange={handleDateChange} />
                         </div>
@@ -685,16 +690,20 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="grid gap-2">
+                          <Label htmlFor="predicted_start_date">Data prevista para início</Label>
+                          <Input id="predicted_start_date" name="predicted_start_date" type="date" value={formData.predicted_start_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="start_date">Início</Label>
+                          <Input id="start_date" name="start_date" type="date" value={formData.start_date || ''} onChange={handleDateChange} />
+                        </div>
+                        <div className="grid gap-2">
                           <Label htmlFor="contract_signature_date">Assinatura do Contrato</Label>
                           <Input id="contract_signature_date" name="contract_signature_date" type="date" value={formData.contract_signature_date || ''} onChange={handleDateChange} />
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="service_order_date">Ordem de Serviço</Label>
                           <Input id="service_order_date" name="service_order_date" type="date" value={formData.service_order_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="start_date">Início</Label>
-                          <Input id="start_date" name="start_date" type="date" value={formData.start_date || ''} onChange={handleDateChange} />
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="expected_end_date">Previsão de Conclusão</Label>
@@ -815,7 +824,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
           </DialogFooter>
         ) : (
           <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4 justify-between">
-            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+            {/* <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose> */}
             <div className="flex gap-2">
               <Button type="button" variant="ghost" disabled={CREATE_STEPS.findIndex(s => s.id === createStep) === 0} onClick={prevStep}>Anterior</Button>
               {createStep !== 'review' ? (

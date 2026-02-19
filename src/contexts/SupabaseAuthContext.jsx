@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   }, [fetchUserProfile]);
 
   const signUp = useCallback(async (email, password, meta) => {
-    const redirectTo = `${getSiteUrl()}/login`;
+    const redirectTo = `${getSiteUrl()}/painel-usuario`;
     const { data: { user: authUser }, error } = await supabase.auth.signUp({ 
       email, 
       password, 
