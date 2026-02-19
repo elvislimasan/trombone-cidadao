@@ -6,7 +6,8 @@ import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { 
   ArrowLeft, Share2, Calendar, Target, Users, AlertTriangle, 
-  MapPin, Clock, MessageSquare, ThumbsUp, FileSignature, Edit, Download, ShieldCheck, Heart, Megaphone, FileText, Sparkles 
+  MapPin, Clock, MessageSquare, ThumbsUp, FileSignature, Edit, Download, ShieldCheck, Heart, Megaphone, FileText, Sparkles, Instagram, 
+  User2Icon
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import confetti from 'canvas-confetti';
@@ -31,6 +32,7 @@ import PetitionSignatureCard from '@/components/petition-modern/PetitionSignatur
 import PetitionSupportCard from '@/components/petition-modern/PetitionSupportCard';
 import PetitionRelatedCauses from '@/components/petition-modern/PetitionRelatedCauses';
 import ReCAPTCHA from "react-google-recaptcha";
+import { toPng } from 'html-to-image';
 
 const Counter = ({ value }) => {
   const [count, setCount] = useState(0);
@@ -71,6 +73,7 @@ const PetitionPage = () => {
   const otherCausesRef = useRef(null);
   const triggerRef = useRef(null);
   const inlineFormRef = useRef(null);
+  const storyCardRef = useRef(null);
 
 
   const [isEditing, setIsEditing] = useState(false);
@@ -145,6 +148,11 @@ const PetitionPage = () => {
     if (user) setSignForm(prev => ({ ...prev, allowNotifications: val }));
     else setGuestForm(prev => ({ ...prev, allowNotifications: val }));
   };
+
+  const qrCodeUrl = useMemo(() => {
+    const url = getPetitionShareUrl(id);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=380x380&data=${encodeURIComponent(url)}`;
+  }, [id]);
 
   // --- SEO & Sharing Logic ---
   const getBaseUrl = useCallback(() => {
@@ -625,6 +633,92 @@ const PetitionPage = () => {
     }
   };
 
+  const handleCopyShareLink = useCallback(async () => {
+    const shareUrl = getPetitionShareUrl(id);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast({
+        title: "Link copiado!",
+        description: "Cole nos stories ou envie para seus amigos.",
+      });
+    } catch (err) {
+      console.error('Error copying share link:', err);
+      toast({
+        title: "Não foi possível copiar automaticamente",
+        description: "Selecione e copie o endereço da barra do navegador.",
+        variant: "destructive",
+      });
+    }
+  }, [id, toast]);
+
+  const handleDownloadQrCode = useCallback(async () => {
+    try {
+      const response = await fetch(qrCodeUrl, { cache: 'no-cache' });
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `qr-${id}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "QR Code baixado",
+        description: "Use este QR Code nos seus materiais impressos ou na TV.",
+      });
+    } catch (error) {
+      console.error('Erro ao baixar QR Code:', error);
+      toast({
+        title: "Não foi possível baixar o QR Code",
+        description: "Tente novamente em instantes.",
+        variant: "destructive",
+      });
+    }
+  }, [qrCodeUrl, id, toast]);
+
+  const handleDownloadStoryCard = useCallback(async () => {
+    if (!petition) return;
+    try {
+      const node = storyCardRef.current;
+      if (!node) throw new Error('Template não encontrado');
+      const images = Array.from(node.querySelectorAll('img'));
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        });
+      }));
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: '#f3f4f6'
+      });
+      const link = document.createElement('a');
+      const baseName = (petition.title || `peticao-${id}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const fileName = `${baseName}-story.png`;
+      link.href = dataUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: 'Card para stories gerado',
+        description: 'A imagem foi baixada. Abra o Instagram e adicione aos seus stories.',
+      });
+    } catch (error) {
+      console.error('Erro ao gerar card para stories:', error);
+      toast({
+        title: 'Não foi possível gerar o card',
+        description: 'Tente novamente ou tire um print da tela da petição.',
+        variant: 'destructive',
+      });
+    }
+  }, [petition, id, toast, signForm.city]);
+
   const handleConfirmSign = async () => {
      try {
        setSigning(true);
@@ -765,6 +859,7 @@ const PetitionPage = () => {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans petition-theme">
       <Helmet>
         <title>{petition.title} | Trombone Cidadão</title>
@@ -898,6 +993,72 @@ const PetitionPage = () => {
                   }
               />
 
+              <section className="mt-6">
+                <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-r from-primary/10 via-rose-50 to-amber-50 dark:from-primary/20 dark:via-slate-900 dark:to-amber-900/40 p-6 sm:p-8 flex flex-col lg:flex-row items-center gap-6">
+                  <div className="absolute inset-0 pointer-events-none opacity-40">
+                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/25 rounded-full blur-3xl" />
+                    <div className="absolute -bottom-10 -left-10 w-52 h-52 bg-amber-300/40 rounded-full blur-3xl" />
+                  </div>
+                  <div className="relative flex-1 space-y-4">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-primary shadow-sm">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Compartilhe nos stories e grupos</span>
+                    </div>
+                    <h3 className="text-2xl sm:text-3xl font-bold leading-tight">
+                      Leve esta causa para o Instagram e para seus amigos
+                    </h3>
+                    <p className="text-sm sm:text-base text-muted-foreground max-w-xl">
+                      Use o QR Code ou o link da petição para convidar mais pessoas a assinar.
+                      Quanto mais gente ver esta página, maior a pressão por mudança.
+                    </p>
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 pt-2">
+                      <Button
+                        size="sm"
+                        onClick={handleCopyShareLink}
+                        className="w-full sm:w-auto justify-center bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Copiar link da petição
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleDownloadQrCode}
+                        className="w-full sm:w-auto justify-center border-primary/40 text-primary hover:bg-primary/5"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Baixar QR Code
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleDownloadStoryCard}
+                        className="w-full sm:w-auto justify-center border-[#E53935]/60 text-[#E53935] hover:bg-[#E53935] hover:text-white hover:shadow-md transition-colors"
+                      >
+                        <Instagram className="w-4 h-4 mr-2" />
+                        Baixar card de stories
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Dica: adicione o link nos stories e mostre o QR Code na tela para quem estiver por perto.
+                    </p>
+                  </div>
+                  <div className="relative flex-shrink-0">
+                    <div className="relative z-10 flex items-center justify-center rounded-2xl bg-white/90 shadow-xl p-3">
+                      <img
+                        src={qrCodeUrl}
+                        alt="QR Code da petição"
+                        className="w-32 h-32 sm:w-36 sm:h-36 rounded-xl"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="absolute -bottom-3 -right-3 rounded-full bg-primary text-primary-foreground p-2 shadow-lg">
+                      <Heart className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               <div id="comments-section">
                   <PetitionComments 
                       user={user}
@@ -995,10 +1156,110 @@ const PetitionPage = () => {
         onSave={() => fetchPetition(false)}
       />
     </div>
+    <div
+      style={{ position: 'absolute', left: '-100000px', top: 0 }}
+    >
+      <div
+        ref={storyCardRef}
+        className="relative w-[1080px] h-[1920px] bg-gray-50 overflow-hidden font-sans"
+      >
+        <svg
+          className="absolute top-0 left-0 w-full"
+          viewBox="0 0 1080 300"
+          fill="none"
+        >
+          <path
+            d="M0 260 Q270 210 540 260 Q810 310 1080 260 L1080 0 L0 0 Z"
+            fill="rgb(220, 38, 38)"
+            fillOpacity="0.85"
+          />
+        </svg>
+        <svg
+          className="absolute bottom-0 left-0 w-full"
+          viewBox="0 0 1080 300"
+          fill="none"
+        >
+          <path
+            d="M0 300 Q270 160 540 220 Q810 280 1080 180 L1080 300 Z"
+            fill="rgb(220, 38, 38)"
+            fillOpacity="0.85"
+          />
+        </svg>
+        <div className="relative z-10 px-[60px] pt-[24px] flex flex-col h-full">
+          <div className="flex items-start justify-center">
+            <div className="flex items-center gap-6 justify-center flex-col">
+              <div className="w-[96px] h-[96px] flex items-center justify-center bg-white overflow-hidden rounded-full">
+                <img className='w-[64px] h-[64px]' src="/logo.png" alt="logo Trombone Cidadão" />
+              </div>
+              <div className='text-center'>
+                <h2 className="text-5xl font-bold text-[#1F2933]">
+                  TROMBONE CIDADÃO
+                </h2>
+                <p className="text-[#1F2933] text-2xl">
+                  Sua assinatura faz a diferença
+                </p>
+              </div>
+            </div>
+           
+          </div>
+          <div className="mt-20 flex justify-center">
+            <div className="bg-[#111827] text-white px-10 py-4 rounded-full text-2xl font-semibold">
+              {(petition.location || signForm.city || '').toUpperCase()}
+            </div>
+          </div>
+          <h1 className="mt-20 text-5xl font-bold text-[#1F2933] leading-tight max-w-full text-center">
+            {petition.title}
+          </h1>
+          <div className="mt-12 rounded-[40px] overflow-hidden relative">
+            <img
+              src={petition.image_url || (Array.isArray(petition.gallery) && petition.gallery[0]) || '/abaixo-assinado.jpg'}
+              alt=""
+              className="w-full h-[520px] object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+            <div className="absolute top-2 right-2 bg-red-50 px-8 py-4 rounded-full text-2xl font-semibold text-[#E53935]">
+              {typeof petition.signatureCount === 'number' ? petition.signatureCount : 0} <User2Icon className="inline-block w-6 h-6 ml-2" />
+            </div>
+          </div>
+          <div className="mt-12">
+            <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${Math.min(100, ((typeof petition.signatureCount === 'number' ? petition.signatureCount : 0) / (petition.goal || 100)) * 100)}%`, backgroundColor: '#E53935' }}
+              />
+            </div>
+            <div className="flex justify-between mt-4 text-xl" style={{ color: '#4B5563' }}>
+              <span>{`${Math.min(100, ((typeof petition.signatureCount === 'number' ? petition.signatureCount : 0) / (petition.goal || 100)) * 100).toFixed(0)}%`}</span>
+              <span>Meta: {petition.goal || 100}</span>
+            </div>
+          </div>
+          <div className="rounded-[40px] p-16 text-center">
+            <h2 className="text-6xl font-extrabold" style={{ color: '#B91C1C' }}>
+              CLIQUE E
+            </h2>
+            <h2 className="text-6xl font-extrabold" style={{ color: '#B91C1C' }}>
+              ASSINAR AGORA
+            </h2>
+            <div className="text-6xl mt-6" style={{ color: '#E53935' }}>↓</div>
+            <div className="w-full rounded-full py-8 px-8 mt-8 inline-block text-2xl font-medium" style={{ backgroundColor: '#E53935', color: '#FFFFFF' }}>
+              Adicione o link
+            </div>
+          </div>
+          <div className="text-center mt-10 mb-24">
+            <p className="text-2xl" style={{ color: '#4B5563' }}>
+              Acesse o link e faça a sua parte!
+            </p>
+            <p className="text-3xl font-semibold mt-2" style={{ color: '#1F2933' }}>
+              Isso pode ser resolvido.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    </>
   );
 };
 
-// Simple Footer component if not imported, or reuse existing Footer
-import Footer from '@/components/Footer';
+
 
 export default PetitionPage;
