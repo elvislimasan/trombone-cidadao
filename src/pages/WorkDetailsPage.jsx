@@ -400,6 +400,7 @@ const WorkDetailsPage = () => {
     { icon: DollarSign, label: 'Valor Gasto', value: work.amount_spent ? formatCurrency(work.amount_spent) : null },
     { icon: Calendar, label: 'Assinatura do Contrato', value: work.contract_signature_date ? new Date(work.contract_signature_date).toLocaleDateString('pt-BR') : null },
     { icon: Calendar, label: 'Ordem de Serviço', value: work.service_order_date ? new Date(work.service_order_date).toLocaleDateString('pt-BR') : null },
+    { icon: Calendar, label: 'Data prevista para início', value: work.predicted_start_date ? new Date(work.predicted_start_date).toLocaleDateString('pt-BR') : null },
     { icon: Calendar, label: 'Início', value: work.start_date ? new Date(work.start_date).toLocaleDateString('pt-BR') : null },
     { icon: Calendar, label: 'Previsão de Conclusão', value: work.expected_end_date ? new Date(work.expected_end_date).toLocaleDateString('pt-BR') : null },
     { icon: Calendar, label: 'Data da Inauguração', value: work.inauguration_date ? new Date(work.inauguration_date).toLocaleDateString('pt-BR') : null },

@@ -70,7 +70,7 @@ const Combobox = ({ options, value, onSelect, placeholder, emptyText, disabled =
 
 const RegisterPage = () => {
   const { control, register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
-  const { signUp } = useAuth();
+  const { signUp, signIn, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -159,9 +159,31 @@ const RegisterPage = () => {
     if (!error) {
       toast({
         title: "Cadastro realizado com sucesso!",
-        description: "Verifique seu e-mail para confirmar sua conta.",
+        description: "Estamos entrando na sua conta...",
       });
-      navigate('/login');
+
+      const { error: signInError } = await signIn(data.email, data.password);
+
+      if (!signInError) {
+        await refreshUserProfile();
+        navigate('/painel-usuario', { replace: true });
+      } else {
+        const msg = (signInError.message || '').toLowerCase();
+        if (msg.includes('email not confirmed') || msg.includes('confirm')) {
+          toast({
+            title: "Confirme seu e-mail",
+            description: "Enviamos um link de confirmação para o seu e-mail. Após confirmar, faça login para acessar o painel.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Cadastro realizado, mas não foi possível entrar",
+            description: signInError.message || "Tente fazer login com seu e-mail e senha.",
+            variant: "destructive",
+          });
+        }
+        navigate('/login');
+      }
     } else {
       toast({
         title: "Erro no cadastro",

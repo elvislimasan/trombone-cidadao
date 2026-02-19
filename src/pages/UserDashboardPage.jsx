@@ -187,9 +187,26 @@ const UserDashboardPage = () => {
         <meta name="description" content="Gerencie suas broncas e comentários." />
       </Helmet>
       <div className="container mx-auto px-4 py-12">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Meu Painel</h1>
-          <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">Acompanhe e gerencie suas contribuições na plataforma.</p>
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10 space-y-4">
+          <div>
+            <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Meu Painel</h1>
+            <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">Acompanhe e gerencie suas contribuições na plataforma.</p>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+            <Button
+              asChild
+              className="h-10 px-4 sm:px-6 rounded-full font-semibold bg-tc-red hover:bg-tc-red/90"
+            >
+              <a href="/nova-bronca">Cadastrar minha primeira bronca</a>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="h-10 px-4 sm:px-6 rounded-full font-semibold border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
+            >
+              <a href="/minhas-peticoes">Criar um abaixo-assinado</a>
+            </Button>
+          </div>
         </motion.div>
 
         <Tabs defaultValue="reports" className="w-full">

@@ -12,8 +12,8 @@ const NotFoundPage = () => {
   const onSubmit = (e) => {
     e.preventDefault();
     const q = term?.trim();
-    if (q) navigate(`/broncas?q=${encodeURIComponent(q)}`);
-    else navigate('/broncas');
+    if (q) navigate(`/buscar?q=${encodeURIComponent(q)}`);
+    else navigate('/buscar');
   };
 
   return (

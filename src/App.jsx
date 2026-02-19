@@ -59,6 +59,7 @@ import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
 import HomePageImproved from './pages/HomePage-improved';
 import NotFoundPage from '@/pages/NotFoundPage';
+import SearchPage from '@/pages/SearchPage';
 
 const SEO = () => {
   const location = useLocation();
@@ -463,6 +464,7 @@ function App() {
             <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
             
             <Route path="/" element={<HomePageImproved />} />
+            <Route path="/buscar" element={<SearchPage />} />
             <Route path="/broncas" element={<HomePage />} />
             <Route path="/bronca/:reportId" element={<ReportPage />} />
           <Route path="/abaixo-assinados" element={<PetitionsOverviewPage />} />
