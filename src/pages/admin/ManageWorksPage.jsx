@@ -843,6 +843,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
 const WorkMediaManager = ({ workId }) => {
   const { user } = useAuth();
   const [media, setMedia] = useState([]);
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef(null);
@@ -858,68 +859,75 @@ const WorkMediaManager = ({ workId }) => {
     fetchMedia();
   }, [fetchMedia]);
 
-  const handleFileUpload = async (e) => {
+  const handleFileSelect = (e) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    setUploading(true);
+    setPendingFiles(prev => [...prev, ...Array.from(files)]);
+    e.target.value = '';
+  };
 
-    const uploadPromises = Array.from(files).map(async (file) => {
-      let uploadFile = file;
-      if (file.type && file.type.startsWith('image')) {
-        try {
-          const dataUrl = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(file);
-          });
-          const img = await new Promise((resolve, reject) => {
-            const image = new Image();
-            image.onload = () => resolve(image);
-            image.onerror = reject;
-            image.src = dataUrl;
-          });
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-          const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
-          uploadFile = new File([blob], file.name.replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
-        } catch (_) {}
-      }
-      const filePath = `works/${workId}/${Date.now()}-${uploadFile.name}`;
-      const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
-      
-      if (uploadError) {
-        toast({ title: `Erro no upload de ${file.name}`, description: uploadError.message, variant: "destructive" });
-        return;
-      }
-      
-      const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(filePath);
-      
-      let fileType = 'file';
-      if (file.type.startsWith('image')) fileType = 'image';
-      else if (file.type.startsWith('video')) fileType = 'video';
-      else if (file.type === 'application/pdf') fileType = 'pdf';
+  const uploadSingleFile = async (file) => {
+    let uploadFile = file;
+    if (file.type && file.type.startsWith('image')) {
+      try {
+        const dataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(file);
+        });
+        const img = await new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = reject;
+          image.src = dataUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
+        uploadFile = new File([blob], file.name.replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
+      } catch (_) {}
+    }
+    const filePath = `works/${workId}/${Date.now()}-${uploadFile.name}`;
+    const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
+    
+    if (uploadError) {
+      toast({ title: `Erro no upload de ${file.name}`, description: uploadError.message, variant: "destructive" });
+      return;
+    }
+    
+    const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(filePath);
+    
+    let fileType = 'file';
+    if (file.type.startsWith('image')) fileType = 'image';
+    else if (file.type.startsWith('video')) fileType = 'video';
+    else if (file.type === 'application/pdf') fileType = 'pdf';
 
-      const { error: dbError } = await supabase.from('public_work_media').insert({
-        work_id: workId,
-        url: publicUrl,
-        type: fileType,
-        name: file.name,
-        status: 'approved',
-        contributor_id: user?.id || null
-      });
-
-      if (dbError) {
-        toast({ title: `Erro ao salvar ${file.name}`, description: dbError.message, variant: "destructive" });
-      }
+    const { error: dbError } = await supabase.from('public_work_media').insert({
+      work_id: workId,
+      url: publicUrl,
+      type: fileType,
+      name: file.name,
+      status: 'approved',
+      contributor_id: user?.id || null
     });
 
-    await Promise.all(uploadPromises);
+    if (dbError) {
+      toast({ title: `Erro ao salvar ${file.name}`, description: dbError.message, variant: "destructive" });
+    }
+  };
+
+  const handleUploadPending = async () => {
+    if (!pendingFiles.length) return;
+    setUploading(true);
+    const filesToUpload = pendingFiles;
+    setPendingFiles([]);
+    await Promise.all(filesToUpload.map(file => uploadSingleFile(file)));
     setUploading(false);
     fetchMedia();
-    toast({title: "Upload concluído!", description: "Os arquivos foram enviados."});
+    toast({ title: "Upload concluído!", description: "Os arquivos foram enviados." });
   };
 
   const deleteMedia = async (mediaId, mediaUrl) => {
@@ -955,12 +963,27 @@ const WorkMediaManager = ({ workId }) => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Mídias e Arquivos</CardTitle>
-        <Button onClick={() => fileInputRef.current.click()} disabled={uploading}>
-          <Upload className="w-4 h-4 mr-2" />{uploading ? 'Enviando...' : 'Adicionar'}
-        </Button>
-        <input type="file" multiple ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*,video/*,application/pdf" />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => fileInputRef.current.click()} disabled={uploading}>
+            <Upload className="w-4 h-4 mr-2" />Adicionar
+          </Button>
+          <Button onClick={handleUploadPending} disabled={uploading || pendingFiles.length === 0}>
+            <Save className="w-4 h-4 mr-2" />{uploading ? 'Salvando...' : 'Salvar mídias'}
+          </Button>
+        </div>
+        <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*,application/pdf" />
       </CardHeader>
       <CardContent>
+        {pendingFiles.length > 0 && (
+          <div className="mb-4">
+            <p className="text-sm font-medium mb-2">Arquivos pendentes ({pendingFiles.length}):</p>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              {pendingFiles.map((file, index) => (
+                <li key={`${file.name}-${index}`}>{file.name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {media.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">Nenhuma mídia adicionada a esta obra.</p>
         ) : (
