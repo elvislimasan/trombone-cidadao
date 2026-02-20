@@ -128,6 +128,7 @@ const PetitionPage = () => {
   const [signError, setSignError] = useState('');
   const [signing, setSigning] = useState(false);
   const [captchaValue, setCaptchaValue] = useState(null);
+  const [verifyingCaptcha, setVerifyingCaptcha] = useState(false);
   const recaptchaRef = useRef(null);
   const [newComment, setNewComment] = useState('');
   const [commentSort, setCommentSort] = useState('newest');
@@ -532,7 +533,6 @@ const PetitionPage = () => {
           const { data, error } = await supabase.functions.invoke('verify-recaptcha', {
               body: {
                   token: captchaValue,
-                  expectedAction: 'guest_sign',
                   siteKey: import.meta.env.VITE_RECAPTCHA_SITE_KEY
               }
           });
@@ -564,7 +564,9 @@ const PetitionPage = () => {
           return;
       }
 
+      setVerifyingCaptcha(true);
       const captchaOk = await verifyRecaptcha();
+      setVerifyingCaptcha(false);
       if (!captchaOk) {
           return;
       }
@@ -1056,6 +1058,7 @@ const PetitionPage = () => {
                     setGuestForm={setGuestForm}
                     onGuestSign={handleGuestSign}
                     signing={signing}
+                    verifying={verifyingCaptcha}
                     errorMessage={signError}
                     recaptchaRef={recaptchaRef}
                     onCaptchaChange={(value) => setCaptchaValue(value)}
@@ -1225,6 +1228,7 @@ const PetitionPage = () => {
               setGuestForm={setGuestForm}
               onGuestSign={handleGuestSign}
               signing={signing}
+              verifying={verifyingCaptcha}
               errorMessage={signError}
               recaptchaRef={recaptchaRef}
               onCaptchaChange={(value) => setCaptchaValue(value)}

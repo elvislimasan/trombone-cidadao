@@ -33,6 +33,7 @@ const PetitionSignatureCard = ({
   setGuestForm,
   onGuestSign,
   signing,
+  verifying,
   errorMessage,
   recaptchaRef,
   onCaptchaChange
@@ -256,7 +257,7 @@ const PetitionSignatureCard = ({
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button className="flex-1" onClick={onGuestSign} disabled={signing}>{signing ? 'Assinando...' : 'Assinar'}</Button>
+                  <Button className="flex-1" onClick={onGuestSign} disabled={signing || verifying}>{verifying ? 'Verificando...' : (signing ? 'Assinando...' : 'Assinar')}</Button>
                  
                 </div>
               </div>
