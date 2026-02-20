@@ -3,7 +3,10 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Media } from '@capacitor-community/media';
 import { Share } from '@capacitor/share';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { 
   ArrowLeft, Share2, Calendar, Target, Users, AlertTriangle, 
   MapPin, Clock, MessageSquare, ThumbsUp, FileSignature, Edit, Download, ShieldCheck, Heart, Megaphone, FileText, Sparkles, Instagram, 
@@ -519,6 +522,41 @@ const PetitionPage = () => {
     }
   };
 
+  const verifyRecaptcha = useCallback(async () => {
+      if (!captchaValue) {
+          setSignError("Por favor, complete o reCAPTCHA abaixo.");
+          return false;
+      }
+
+      try {
+          const { data, error } = await supabase.functions.invoke('verify-recaptcha', {
+              body: {
+                  token: captchaValue,
+                  expectedAction: 'guest_sign',
+                  siteKey: import.meta.env.VITE_RECAPTCHA_SITE_KEY
+              }
+          });
+
+          if (error) {
+              console.error('Erro ao verificar reCAPTCHA:', error);
+              setSignError("Erro ao verificar o reCAPTCHA. Tente novamente.");
+              return false;
+          }
+
+          if (!data?.success) {
+              console.warn('reCAPTCHA inválido ou suspeito:', data);
+              setSignError("Falha na verificação do reCAPTCHA. Atualize a página e tente novamente.");
+              return false;
+          }
+
+          return true;
+      } catch (err) {
+          console.error('Exceção ao verificar reCAPTCHA:', err);
+          setSignError("Não foi possível verificar o reCAPTCHA. Tente novamente em instantes.");
+          return false;
+      }
+  }, [captchaValue, supabase, setSignError]);
+
   const handleGuestSign = async () => {
       setSignError('');
       if (!guestForm.name || !guestForm.email || !guestForm.city) {
@@ -526,8 +564,8 @@ const PetitionPage = () => {
           return;
       }
 
-      if (!captchaValue) {
-          setSignError("Por favor, complete o reCAPTCHA abaixo.");
+      const captchaOk = await verifyRecaptcha();
+      if (!captchaOk) {
           return;
       }
 
@@ -655,14 +693,69 @@ const PetitionPage = () => {
     try {
       const response = await fetch(qrCodeUrl, { cache: 'no-cache' });
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `qr-${id}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+
+      if (Capacitor.isNativePlatform()) {
+        const fileName = `qr-${id}.png`;
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            try {
+              const result = reader.result || '';
+              const b64 = String(result).split(',')[1] || '';
+              resolve(b64);
+            } catch (e) {
+              reject(e);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        const platform = Capacitor.getPlatform();
+        let directory = Directory.Documents;
+        let downloadPath = fileName;
+        if (platform === 'android') {
+          directory = Directory.ExternalStorage;
+          downloadPath = `Pictures/TromboneCidadao/${fileName}`;
+        }
+
+        await Filesystem.writeFile({
+          path: downloadPath,
+          data: base64,
+          directory,
+          recursive: true,
+        });
+        try {
+          const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
+          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
+          const permissionStatus = await LocalNotifications.checkPermissions();
+          if (permissionStatus.display !== 'granted') {
+            await LocalNotifications.requestPermissions();
+          }
+          const notificationId = Math.floor(Date.now() % 2147483647);
+          await LocalNotifications.schedule({
+            notifications: [
+              {
+                title: 'Download concluído',
+                body: 'Imagem salva. Toque para abrir.',
+                id: notificationId,
+                schedule: { at: new Date(Date.now() + 100) },
+                extra: { filePath: uriResult.uri, contentType: 'image/png' },
+              },
+            ],
+          });
+        } catch (_) {
+        }
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `qr-${id}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
 
       toast({
         title: "QR Code baixado",
@@ -696,14 +789,53 @@ const PetitionPage = () => {
         pixelRatio: 2,
         backgroundColor: '#f3f4f6'
       });
-      const link = document.createElement('a');
       const baseName = (petition.title || `peticao-${id}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const fileName = `${baseName}-story.png`;
-      link.href = dataUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+
+      if (Capacitor.isNativePlatform()) {
+        const base64 = dataUrl.split(',')[1] || '';
+        const platform = Capacitor.getPlatform();
+        let directory = Directory.Documents;
+        let downloadPath = fileName;
+        if (platform === 'android') {
+          directory = Directory.ExternalStorage;
+          downloadPath = `Pictures/TromboneCidadao/${fileName}`;
+        }
+        await Filesystem.writeFile({
+          path: downloadPath,
+          data: base64,
+          directory,
+          recursive: true,
+        });
+        try {
+          const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
+          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
+          const permissionStatus = await LocalNotifications.checkPermissions();
+          if (permissionStatus.display !== 'granted') {
+            await LocalNotifications.requestPermissions();
+          }
+          const notificationId = Math.floor(Date.now() % 2147483647);
+          await LocalNotifications.schedule({
+            notifications: [
+              {
+                title: 'Download concluído',
+                body: 'Imagem salva. Toque para abrir.',
+                id: notificationId,
+                schedule: { at: new Date(Date.now() + 100) },
+                extra: { filePath: uriResult.uri, contentType: 'image/png' },
+              },
+            ],
+          });
+        } catch (_) {
+        }
+      } else {
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
 
       toast({
         title: 'Card para stories gerado',
