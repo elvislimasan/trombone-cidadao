@@ -9,6 +9,7 @@ import { usePetitionSEO } from '@/hooks/usePetitionSEO';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { getPetitionShareUrl } from '@/lib/shareUtils';
+import { validateEmail } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 
 // Layout & UI
@@ -163,6 +164,10 @@ const PetitionPageModern = () => {
   const handleGuestSign = async () => {
     if (!guestForm.name || !guestForm.email || !guestForm.city) {
         toast({ title: "Campos obrigatórios", description: "Por favor preencha nome, email e cidade.", variant: "destructive" });
+        return;
+    }
+    if (!validateEmail(guestForm.email)) {
+        toast({ title: "Email inválido", description: "Informe um email válido para assinar.", variant: "destructive" });
         return;
     }
 

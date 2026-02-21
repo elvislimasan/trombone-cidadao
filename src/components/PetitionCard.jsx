@@ -1,9 +1,15 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { FileSignature, Users, Heart } from 'lucide-react';
+import { getNextSignatureGoal } from '@/lib/utils';
 
 const PetitionCard = ({ petition, onClick, onDonate }) => {
-  const progress = Math.min(((petition.signatures?.[0]?.count || 0) / (petition.goal || 100)) * 100, 100);
+  const signaturesCount =
+    typeof petition.signatureCount === 'number'
+      ? petition.signatureCount
+      : petition.signatures?.[0]?.count || 0;
+  const nextGoal = getNextSignatureGoal(signaturesCount, petition.goal || 100);
+  const progress = Math.min((signaturesCount / nextGoal) * 100, 100);
   
   return (
     <div 
@@ -11,7 +17,7 @@ const PetitionCard = ({ petition, onClick, onDonate }) => {
       className="group block h-full cursor-pointer"
     >
       <Card className="h-full overflow-hidden hover:shadow-lg transition-all duration-300 border-border/60 group-hover:border-primary/50 flex flex-col">
-        <div className="h-32 sm:h-40 md:h-48 overflow-hidden bg-muted relative shrink-0">
+          <div className="h-32 sm:h-40 md:h-48 overflow-hidden bg-muted relative shrink-0">
           {petition.image_url ? (
             <img 
               src={petition.image_url} 
@@ -26,7 +32,7 @@ const PetitionCard = ({ petition, onClick, onDonate }) => {
           <div className="absolute top-2 left-2 z-10">
             <div className="bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-bold shadow-sm flex items-center gap-1 text-slate-700 border border-white/20">
                <Users className="w-3 h-3 md:w-3.5 md:h-3.5 text-primary" />
-               <span>{petition.signatures?.[0]?.count || 0}</span>
+               <span>{signaturesCount}</span>
             </div>
           </div>
         </div>
@@ -47,7 +53,7 @@ const PetitionCard = ({ petition, onClick, onDonate }) => {
             </div>
             <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground">
               <span>{Math.round(progress)}%</span>
-              <span>Meta: {petition.goal}</span>
+              <span>Meta: {nextGoal}</span>
             </div>
             
             <button 

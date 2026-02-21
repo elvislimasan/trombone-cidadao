@@ -9,18 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from '@/components/ui/use-toast';
+import { getNextSignatureGoal } from '@/lib/utils';
 
 export const PetitionProgress = ({ signatures = 0, supporters = [] }) => {
-  const calculateGoal = (current) => {
-    if (current < 100) return 100;
-    if (current < 500) return 500;
-    if (current < 1000) return 1000;
-    if (current < 5000) return 5000;
-    if (current < 10000) return 10000;
-    return Math.ceil((current + 1000) / 1000) * 1000;
-  };
-
-  const goal = calculateGoal(signatures);
+  const goal = getNextSignatureGoal(signatures, 100);
   const progress = Math.min((signatures / goal) * 100, 100);
   
   // Dynamic color based on progress percentage

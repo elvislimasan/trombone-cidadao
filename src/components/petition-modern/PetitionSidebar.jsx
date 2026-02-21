@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import Counter from './Counter';
 import PetitionDonationCard from './PetitionDonationCard';
+import { getNextSignatureGoal } from '@/lib/utils';
 
 /**
  * Sidebar component containing the signature form, progress bar, and donation call-to-action.
@@ -54,7 +55,8 @@ const PetitionSidebar = ({
   recentDonations,
   totalDonations = 0
 }) => {
-  const progress = Math.min((petition.signatureCount / petition.goal) * 100, 100);
+  const nextGoal = getNextSignatureGoal(petition.signatureCount, petition.goal);
+  const progress = Math.min((petition.signatureCount / nextGoal) * 100, 100);
   const progressColor = progress >= 80 ? "bg-red-500" : progress >= 50 ? "bg-yellow-500" : "bg-primary";
   const isExpired = petition.deadline && new Date(petition.deadline) < new Date();
 
@@ -77,7 +79,7 @@ const PetitionSidebar = ({
                 </span>
               </div>
               <p className="text-muted-foreground font-medium mb-4">
-                pessoas já assinaram. Ajude a chegar em <span className="text-foreground font-bold">{petition.goal.toLocaleString('pt-BR')}</span>!
+                pessoas já assinaram. Ajude a chegar em <span className="text-foreground font-bold">{nextGoal.toLocaleString('pt-BR')}</span>!
               </p>
               
               <div className="relative">
@@ -94,7 +96,7 @@ const PetitionSidebar = ({
               
               <div className="flex justify-between text-xs font-semibold text-muted-foreground">
                 <span>{Math.round(progress)}% da meta</span>
-                <span>{petition.goal.toLocaleString('pt-BR')} assinaturas</span>
+                <span>{nextGoal.toLocaleString('pt-BR')} assinaturas</span>
               </div>
             </div>
 

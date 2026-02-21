@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import Header from '@/components/Header';
 import PetitionCard from '@/components/PetitionCard';
+import { getNextSignatureGoal } from '@/lib/utils';
 import DonationModal from '@/components/DonationModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -39,14 +40,33 @@ const PetitionsOverviewPage = () => {
     setLoading(true);
     try {
       // 1. Fetch Open Petitions (for grid and "Causas Ativas")
-      let query = supabase
-        .from('petitions')
-        .select('*, signatures(count)')
-        .eq('status', 'open');
-
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from("petitions")
+        .select("*, signatures:signatures(count)")
+        .eq("status", "open");
 
       if (error) throw error;
+
+      const petitionsWithCounts = await Promise.all(
+        (data || []).map(async (p) => {
+          const { count, error: countError } = await supabase
+            .from("signatures")
+            .select("id", { count: "exact", head: true })
+            .eq("petition_id", p.id)
+            .not("email", "is", null)
+            .ilike("email", "%@%.%");
+
+          const signatureCount =
+            !countError && typeof count === "number"
+              ? count
+              : p.signatures?.[0]?.count || 0;
+
+          return {
+            ...p,
+            signatureCount,
+          };
+        })
+      );
 
       // 2. Fetch "Vitórias" (Closed petitions marked as victory)
       const { count: victoryCount } = await supabase
@@ -55,10 +75,12 @@ const PetitionsOverviewPage = () => {
         .eq('status', 'victory');
 
       // Client-side processing
-      let processedData = data.map(p => ({
+      let processedData = petitionsWithCounts.map((p) => ({
         ...p,
-        signatureCount: p.signatures?.[0]?.count || 0,
-        progress: Math.min(((p.signatures?.[0]?.count || 0) / (p.goal || 100)) * 100, 100)
+        progress: Math.min(
+          ((p.signatureCount || 0) / (p.goal || 100)) * 100,
+          100
+        ),
       }));
 
       const totalSignaturesSum = processedData.reduce((acc, p) => acc + (p.signatureCount || 0), 0);
@@ -234,7 +256,7 @@ const PetitionsOverviewPage = () => {
                           <div className="space-y-2">
                              <div className="flex justify-between text-sm font-medium">
                                 <span>{featuredPetition.signatureCount} assinaturas</span>
-                                <span>Meta: {featuredPetition.goal}</span>
+                                <span>Meta: {getNextSignatureGoal(featuredPetition.signatureCount, featuredPetition.goal || 100)}</span>
                              </div>
                              <Progress value={featuredPetition.progress} className="h-2" />
                           </div>

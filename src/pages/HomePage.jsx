@@ -166,15 +166,37 @@ function HomePage() {
     setDonationLoading(true);
     try {
       const { data: petitionsData, error: petitionsError } = await supabase
-        .from('petitions')
-        .select('id, title, description, image_url, goal, created_at, signatures(count)')
-        .eq('status', 'open');
+        .from("petitions")
+        .select("id, title, description, image_url, goal, created_at, signatures:signatures(count)")
+        .eq("status", "open");
       if (petitionsError) throw petitionsError;
-      let processed = (petitionsData || []).map(p => ({
-        ...p,
-        signatureCount: p.signatures?.[0]?.count || 0,
-        progress: Math.min(((p.signatures?.[0]?.count || 0) / (p.goal || 100)) * 100, 100)
-      }));
+
+      const petitionsWithCounts = await Promise.all(
+        (petitionsData || []).map(async (p) => {
+          const { count, error: countError } = await supabase
+            .from("signatures")
+            .select("id", { count: "exact", head: true })
+            .eq("petition_id", p.id)
+            .not("email", "is", null)
+            .ilike("email", "%@%.%");
+
+          const signatureCount =
+            !countError && typeof count === "number"
+              ? count
+              : p.signatures?.[0]?.count || 0;
+
+          return {
+            ...p,
+            signatureCount,
+            progress: Math.min(
+              ((signatureCount || 0) / (p.goal || 100)) * 100,
+              100
+            ),
+          };
+        })
+      );
+
+      let processed = petitionsWithCounts;
       const { data: donations } = await supabase
         .from('donations')
         .select('petition_id, amount')

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ArrowRight, MapPin, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { getNextSignatureGoal } from "@/lib/utils";
 
 const PetitionRelatedCauses = ({ causes = [] }) => {
   if (!causes || causes.length === 0) {
@@ -34,7 +35,7 @@ const PetitionRelatedCauses = ({ causes = [] }) => {
       <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {causes.map((cause) => {
           const signaturesCount = cause.signatures?.[0]?.count || 0;
-          const goal = cause.goal || 100;
+          const goal = getNextSignatureGoal(signaturesCount, cause.goal || 100);
           const progress = Math.min((signaturesCount / goal) * 100, 100);
           
           return (

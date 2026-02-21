@@ -17,6 +17,7 @@ import ReportList from '@/components/ReportList';
 import RankingSidebar from '@/components/RankingSidebar';
 import { useUpvote } from '@/hooks/useUpvotes';
 import { getReportShareUrl, getPetitionShareUrl } from '@/lib/shareUtils';
+import { getNextSignatureGoal } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import {
   DropdownMenu,
@@ -170,18 +171,36 @@ function HomePageImproved() {
     setLoadingPetitions(true);
     try {
       const { data: petitionsData, error: petitionsError } = await supabase
-        .from('petitions')
-        .select('id, title, description, image_url, goal, created_at, signatures(count)')
-        .eq('status', 'open');
+        .from("petitions")
+        .select("id, title, description, image_url, goal, created_at, signatures:signatures(count)")
+        .eq("status", "open");
 
       if (petitionsError) {
         throw petitionsError;
       }
 
-      let processed = (petitionsData || []).map((p) => ({
-        ...p,
-        signatureCount: p.signatures?.[0]?.count || 0,
-      }));
+      const petitionsWithCounts = await Promise.all(
+        (petitionsData || []).map(async (p) => {
+          const { count, error: countError } = await supabase
+            .from("signatures")
+            .select("id", { count: "exact", head: true })
+            .eq("petition_id", p.id)
+            .not("email", "is", null)
+            .ilike("email", "%@%.%");
+
+          const signatureCount =
+            !countError && typeof count === "number"
+              ? count
+              : p.signatures?.[0]?.count || 0;
+
+          return {
+            ...p,
+            signatureCount,
+          };
+        })
+      );
+
+      let processed = petitionsWithCounts;
 
       const { data: donations } = await supabase
         .from('donations')
@@ -197,7 +216,7 @@ function HomePageImproved() {
 
       processed = processed.map((p) => {
         const donationTotal = totals[p.id] || 0;
-        const goal = p.goal || 100;
+        const goal = getNextSignatureGoal(p.signatureCount || 0, p.goal || 100);
         const progress = Math.min(((p.signatureCount || 0) / goal) * 100, 100);
         return {
           ...p,

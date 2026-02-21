@@ -39,9 +39,20 @@ serve(async (req) => {
     .single()
 
   const title = report?.title || 'Abaixo-assinado'
-  // Calculate goal for text
   const signatureCount = report?.signatures?.[0]?.count || 0
-  const nextGoal = signatureCount < 100 ? 100 : Math.ceil((signatureCount + 1000) / 1000) * 1000;
+  const baseGoal = 100
+  const milestones = [
+    baseGoal,
+    Math.round(baseGoal * 1.5),
+    baseGoal * 3,
+    baseGoal * 5,
+    baseGoal * 10,
+  ]
+  let nextGoal = milestones.find(m => signatureCount < m) ?? milestones[milestones.length - 1]
+  while (signatureCount >= nextGoal) {
+    const grown = nextGoal * 1.5
+    nextGoal = Math.ceil(grown / 10) * 10
+  }
   
   const description = `${signatureCount} pessoas já assinaram. Ajude a chegar em ${nextGoal}!`
   const imageUrl = report?.report_media?.[0]?.url || `${appUrl}/logo.png`
