@@ -11,6 +11,7 @@ import { Share2, CheckCircle2, Shield, PenLine, ShieldCheck } from "lucide-react
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import ReCAPTCHA from "react-google-recaptcha";
+import { getNextSignatureGoal } from "@/lib/utils";
 
 const PetitionSignatureCard = ({ 
   signaturesCount, 
@@ -38,7 +39,8 @@ const PetitionSignatureCard = ({
   recaptchaRef,
   onCaptchaChange
 }) => {
-  const progress = Math.min((signaturesCount / goal) * 100, 100);
+  const dynamicGoal = getNextSignatureGoal(signaturesCount, goal);
+  const progress = Math.min((signaturesCount / dynamicGoal) * 100, 100);
   const [showGuestForm, setShowGuestForm] = useState(false);
   useEffect(() => {
     if (hasSigned) setShowGuestForm(false);
@@ -70,14 +72,14 @@ const PetitionSignatureCard = ({
               <div className="text-center">
                 <p className="text-xs md:text-sm text-muted-foreground">
                   <strong className="text-base md:text-lg text-primary">{signaturesCount}</strong> pessoas já assinaram. Ajude a chegar em{' '}
-                  <strong className="text-foreground">{goal}</strong>!
+                  <strong className="text-foreground">{dynamicGoal}</strong>!
                 </p>
               </div>
               <div className="mt-3 md:mt-4 space-y-1.5 md:space-y-2">
                 <Progress value={progress} className="h-2 md:h-2.5" />
                 <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground">
                   <span>{Math.round(progress)}% da meta</span>
-                  <span>Meta: {goal}</span>
+                  <span>Meta: {dynamicGoal}</span>
                 </div>
               </div>
             </CardHeader>
@@ -180,7 +182,10 @@ const PetitionSignatureCard = ({
                   Últimos Apoiadores
                 </div>
                 <div className="space-y-2 md:space-y-3">
-                  {recentSignatures.slice(0, 3).map((signer, index) => {
+                  {recentSignatures
+                    .filter((signer) => signer.is_public && signer.name)
+                    .slice(0, 3)
+                    .map((signer, index) => {
                     const isAnonymous = !signer.is_public;
                     const displayName = isAnonymous ? 'Apoiador Anônimo' : signer.name || 'Apoiador Anônimo';
                     const initials = isAnonymous ? 'AN' : getInitials(displayName);

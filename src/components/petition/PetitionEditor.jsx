@@ -682,7 +682,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
                       <div className="space-y-2">
                         <Label htmlFor="goal" className="text-base font-semibold text-foreground/80">
-                          Meta de Assinaturas
+                          Meta inicial de Assinaturas 
                         </Label>
                         <div className="relative">
                             <Users className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/50" />

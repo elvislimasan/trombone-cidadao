@@ -328,7 +328,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   if (!formData) return null;
   
   return (
-    <Dialog open={!!work} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!work}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-foreground">{formData.id ? 'Editar Obra' : 'Adicionar Nova Obra'}</DialogTitle>
@@ -819,7 +819,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
 
         {formData.id ? (
           <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
-            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="button" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Salvar Alterações</Button>
           </DialogFooter>
         ) : (
@@ -843,7 +843,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
 const WorkMediaManager = ({ workId }) => {
   const { user } = useAuth();
   const [media, setMedia] = useState([]);
-  const [pendingFiles, setPendingFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef(null);
@@ -858,13 +857,6 @@ const WorkMediaManager = ({ workId }) => {
   useEffect(() => {
     fetchMedia();
   }, [fetchMedia]);
-
-  const handleFileSelect = (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setPendingFiles(prev => [...prev, ...Array.from(files)]);
-    e.target.value = '';
-  };
 
   const uploadSingleFile = async (file) => {
     let uploadFile = file;
@@ -919,17 +911,6 @@ const WorkMediaManager = ({ workId }) => {
     }
   };
 
-  const handleUploadPending = async () => {
-    if (!pendingFiles.length) return;
-    setUploading(true);
-    const filesToUpload = pendingFiles;
-    setPendingFiles([]);
-    await Promise.all(filesToUpload.map(file => uploadSingleFile(file)));
-    setUploading(false);
-    fetchMedia();
-    toast({ title: "Upload concluído!", description: "Os arquivos foram enviados." });
-  };
-
   const deleteMedia = async (mediaId, mediaUrl) => {
     const { error: dbError } = await supabase.from('public_work_media').delete().eq('id', mediaId);
     if (dbError) {
@@ -959,31 +940,31 @@ const WorkMediaManager = ({ workId }) => {
     }
   }
 
+  const handleFileSelect = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    const toUpload = Array.from(files);
+    try {
+      await Promise.all(toUpload.map(file => uploadSingleFile(file)));
+      toast({ title: "Upload concluído!", description: "Os arquivos foram enviados." });
+      fetchMedia();
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Mídias e Arquivos</CardTitle>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => fileInputRef.current.click()} disabled={uploading}>
-            <Upload className="w-4 h-4 mr-2" />Adicionar
-          </Button>
-          <Button onClick={handleUploadPending} disabled={uploading || pendingFiles.length === 0}>
-            <Save className="w-4 h-4 mr-2" />{uploading ? 'Salvando...' : 'Salvar mídias'}
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => fileInputRef.current.click()} disabled={uploading}>
+          <Upload className="w-4 h-4 mr-2" />Adicionar
+        </Button>
         <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*,application/pdf" />
       </CardHeader>
       <CardContent>
-        {pendingFiles.length > 0 && (
-          <div className="mb-4">
-            <p className="text-sm font-medium mb-2">Arquivos pendentes ({pendingFiles.length}):</p>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              {pendingFiles.map((file, index) => (
-                <li key={`${file.name}-${index}`}>{file.name}</li>
-              ))}
-            </ul>
-          </div>
-        )}
         {media.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">Nenhuma mídia adicionada a esta obra.</p>
         ) : (
@@ -1002,7 +983,7 @@ const WorkMediaManager = ({ workId }) => {
       </CardContent>
     </Card>
   )
-}
+};
 
 const ManageWorksPage = () => {
   const { toast } = useToast();

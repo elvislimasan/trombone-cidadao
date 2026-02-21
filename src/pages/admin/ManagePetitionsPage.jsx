@@ -48,15 +48,34 @@ const ManagePetitionsPage = () => {
     if (error) {
       toast({ title: "Erro ao buscar abaixo-assinados", description: error.message, variant: "destructive" });
     } else {
-      const formattedData = data
-        .filter(p => !['draft', 'pending_moderation', 'rejected'].includes(p.status))
-        .map(p => ({
-        ...p,
-        authorName: p.author?.name || 'Anônimo',
-        authorAvatar: p.author?.avatar_url,
-        signatureCount: p.signatures?.[0]?.count || 0,
-      }));
-      setPetitions(formattedData);
+      const filtered = data.filter(
+        (p) => !["draft", "pending_moderation", "rejected"].includes(p.status)
+      );
+
+      const petitionsWithCounts = await Promise.all(
+        filtered.map(async (p) => {
+          const { count, error: countError } = await supabase
+            .from("signatures")
+            .select("id", { count: "exact", head: true })
+            .eq("petition_id", p.id)
+            .not("email", "is", null)
+            .ilike("email", "%@%.%");
+
+          const signatureCount =
+            !countError && typeof count === "number"
+              ? count
+              : p.signatures?.[0]?.count || 0;
+
+          return {
+            ...p,
+            authorName: p.author?.name || "Anônimo",
+            authorAvatar: p.author?.avatar_url,
+            signatureCount,
+          };
+        })
+      );
+
+      setPetitions(petitionsWithCounts);
     }
     setLoading(false);
   }, [toast]);

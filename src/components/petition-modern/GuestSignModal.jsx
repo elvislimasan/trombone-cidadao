@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { validateEmail } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 
@@ -41,6 +42,7 @@ const GuestSignModal = ({
   errorMessage
 }) => {
   const navigate = useNavigate();
+  const emailInvalid = guestForm.email && !validateEmail(guestForm.email);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -71,8 +73,10 @@ const GuestSignModal = ({
                 value={guestForm.email}
                 onChange={(e) => setGuestForm(prev => ({ ...prev, email: e.target.value }))}
               />
-              {errorMessage && (
-                <p className="text-sm text-red-600">{errorMessage}</p>
+              {(errorMessage || emailInvalid) && (
+                <p className="text-sm text-red-600">
+                  {emailInvalid ? "Informe um email válido." : errorMessage}
+                </p>
               )}
            </div>
            <div className="space-y-2">

@@ -96,3 +96,23 @@ export function formatTimeAgo(dateString) {
   
   return 'hoje';
 }
+
+export function getNextSignatureGoal(currentSignatures, baseGoal = 100) {
+  const current = typeof currentSignatures === 'number' && !isNaN(currentSignatures) ? currentSignatures : 0;
+  const base = typeof baseGoal === 'number' && baseGoal > 0 ? baseGoal : 100;
+  const milestones = [
+    base,
+    Math.round(base * 1.5),
+    base * 3,
+    base * 5,
+    base * 10
+  ];
+  for (let i = 0; i < milestones.length; i += 1) {
+    if (current < milestones[i]) return milestones[i];
+  }
+  let goal = milestones[milestones.length - 1];
+  while (current >= goal) {
+    goal = Math.ceil(goal * 1.5 / 10) * 10;
+  }
+  return goal;
+}

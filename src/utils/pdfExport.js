@@ -16,10 +16,20 @@ export const exportPetitionPDF = async (petition, toast) => {
       // Position for Meta info (dynamic based on title length)
       let currentY = 22 + (splitTitle.length * 8);
       
+      const { data: allSignatures, error } = await supabase
+        .from('signatures')
+        .select('name, email, city, created_at, comment')
+        .eq('petition_id', petition.id)
+        .not('email', 'is', null)
+        .ilike('email', '%@%.%')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
       // Meta info
       doc.setFontSize(10);
       doc.text(`Criado em: ${new Date(petition.created_at).toLocaleDateString('pt-BR')}`, 14, currentY);
-      doc.text(`Assinaturas: ${petition.signatureCount || 0}`, 14, currentY + 5);
+      doc.text(`Assinaturas: ${allSignatures.length}`, 14, currentY + 5);
       doc.text(`Meta: ${petition.goal || 0}`, 14, currentY + 10);
       
       currentY += 20;
@@ -36,14 +46,6 @@ export const exportPetitionPDF = async (petition, toast) => {
       
       // Signatures Table
       toast({ title: "Buscando assinaturas...", description: "Isso pode levar alguns segundos." });
-      
-      const { data: allSignatures, error } = await supabase
-        .from('signatures')
-        .select('name, email, city, created_at, comment')
-        .eq('petition_id', petition.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
       
       const tableData = allSignatures.map(sig => [
         sig.name || 'Anônimo',

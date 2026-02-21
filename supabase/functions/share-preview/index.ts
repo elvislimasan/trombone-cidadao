@@ -94,8 +94,22 @@ Deno.serve(async (req) => {
           .replace(/[\n\r]/g, ' ')
           .replace(/"/g, '&quot;')
           .substring(0, 200)
-        signatureCount = String(petition.signatures?.[0]?.count || 0)
-        goal = String(petition.goal || 100)
+        const count = petition.signatures?.[0]?.count || 0
+        const baseGoal = petition.goal || 100
+        const milestones = [
+          baseGoal,
+          Math.round(baseGoal * 1.5),
+          baseGoal * 3,
+          baseGoal * 5,
+          baseGoal * 10,
+        ]
+        let nextGoal = milestones.find(m => count < m) ?? milestones[milestones.length - 1]
+        while (count >= nextGoal) {
+          const grown = nextGoal * 1.5
+          nextGoal = Math.ceil(grown / 10) * 10
+        }
+        signatureCount = String(count)
+        goal = String(nextGoal)
         
         if (petition.image_url) {
           image = petition.image_url.startsWith('http') 

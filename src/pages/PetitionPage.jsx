@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { getPetitionShareUrl } from '@/lib/shareUtils';
+import { validateEmail } from '@/lib/utils';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import DonationModal from '@/components/DonationModal';
 import PetitionJourney from '@/components/PetitionJourney';
@@ -348,9 +349,20 @@ const PetitionPage = () => {
           }
       }
 
+      let validSignatureCount = data.signatures?.[0]?.count || 0;
+      const { count: filteredCount, error: countError } = await supabase
+        .from('signatures')
+        .select('id', { count: 'exact', head: true })
+        .eq('petition_id', id)
+        .not('email', 'is', null)
+        .ilike('email', '%@%.%');
+      if (!countError && typeof filteredCount === 'number') {
+        validSignatureCount = filteredCount;
+      }
+
       setPetition({
         ...data,
-        signatureCount: data.signatures[0]?.count || 0
+        signatureCount: validSignatureCount
       });
 
       // Fetch recent signatures with comments (Testimonials)
@@ -561,6 +573,10 @@ const PetitionPage = () => {
       setSignError('');
       if (!guestForm.name || !guestForm.email || !guestForm.city) {
           setSignError("Por favor preencha nome, email e cidade.");
+          return;
+      }
+      if (!validateEmail(guestForm.email)) {
+          setSignError("Informe um email válido para assinar.");
           return;
       }
 
