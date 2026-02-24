@@ -161,7 +161,9 @@ const ReportDetails = ({
   onLink, 
   onFavoriteToggle, 
   isModerationView = false,
-  onDonate 
+  onDonate,
+  variant = 'modal',
+  startInEdit = false
 }) => {
   const { user } = useAuth();
   const { activeUploads } = useUpload();
@@ -170,8 +172,16 @@ const ReportDetails = ({
   const [showShareModal, setShowShareModal] = useState(false);
   const [evaluation, setEvaluation] = useState({ rating: 0, comment: '' });
   const [newComment, setNewComment] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState(null);
+  const [isEditing, setIsEditing] = useState(startInEdit);
+  const [editData, setEditData] = useState(() => {
+    if (!startInEdit || !report) return null;
+    return {
+      ...report,
+      newPhotos: [],
+      newVideos: [],
+      removedMedia: [],
+    };
+  });
   const { toast } = useToast();
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
@@ -992,43 +1002,49 @@ const ReportDetails = ({
   }, [report?.id, reportPhotos, baseUrl, getReportImage]);
 
 
-  return (
-    <>
-      {/* DynamicSEO - Isso atualizará as meta tags quando o modal abrir */}
-      {/* Usar key única para garantir que o Helmet sobrescreva as meta tags do App.jsx */}
-      <DynamicSEO key={`report-${report?.id}`} {...seoData} />
+  const isPageVariant = variant === 'page';
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[2000]" onClick={onClose}>
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto border border-border" onClick={(e) => e.stopPropagation()}>
-          <div className="p-6 border-b border-border">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-4">
-                <div className="text-3xl mt-1">{getCategoryIcon(isEditing ? editData.category_id : report.category)}</div>
-                <div>
-                  {isEditing ? (
-                    <input type="text" name="title" value={editData.title} onChange={handleEditChange} className="text-2xl font-bold bg-background border-b-2 border-primary w-full" />
-                  ) : (
-                    <h2 className="text-2xl font-bold text-foreground flex items-center flex-wrap gap-2">
-                      {report.title}
-                      {report.is_recurrent && <Repeat className="w-5 h-5 text-orange-500" title="Bronca Reincidente" />}
-                    </h2>
-                  )}
-                  <p className="text-muted-foreground">{getCategoryName(isEditing ? editData.category_id : report.category)}</p>
-                  <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1">
-                    <p className="text-xs text-muted-foreground">Protocolo: {report.protocol}</p>
-                  </div>
-                  {report.category === 'iluminacao' && report.pole_number && (
-                    <p className="text-xs font-semibold text-primary mt-1 flex items-center gap-1">
-                      N° do Poste: {report.pole_number}
-                    </p>
-                  )}
-                </div>
+  const cardContent = (
+    <motion.div
+      initial={{ scale: isPageVariant ? 1 : 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: isPageVariant ? 1 : 0.9, opacity: 0 }}
+      className={
+        isPageVariant
+          ? 'w-full'
+          : 'bg-card rounded-2xl shadow-2xl border border-border max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto'
+      }
+      onClick={(e) => !isPageVariant && e.stopPropagation()}
+    >
+      <div className="p-6 border-b border-border">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-4">
+            <div className="text-3xl mt-1">{getCategoryIcon(isEditing ? editData.category_id : report.category)}</div>
+            <div>
+              {isEditing ? (
+                <input type="text" name="title" value={editData.title} onChange={handleEditChange} className="text-2xl font-bold bg-background border-b-2 border-primary w-full" />
+              ) : (
+                <h2 className="text-2xl font-bold text-foreground flex items-center flex-wrap gap-2">
+                  {report.title}
+                  {report.is_recurrent && <Repeat className="w-5 h-5 text-orange-500" title="Bronca Reincidente" />}
+                </h2>
+              )}
+              <p className="text-muted-foreground">{getCategoryName(isEditing ? editData.category_id : report.category)}</p>
+              <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1">
+                <p className="text-xs text-muted-foreground">Protocolo: {report.protocol}</p>
               </div>
-              <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
+              {report.category === 'iluminacao' && report.pole_number && (
+                <p className="text-xs font-semibold text-primary mt-1 flex items-center gap-1">
+                  N° do Poste: {report.pole_number}
+                </p>
+              )}
             </div>
           </div>
+          <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+      </div>
 
-          <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6">
             <>
             {/* Seção de Moderação de Bronca (para admins) */}
             {canModerate && !isEditing  && (report.moderation_status === 'pending_approval' || report.moderation_status === 'rejected') && (
@@ -1571,16 +1587,37 @@ const ReportDetails = ({
                         Reportar Erro
                       </Button>
                     </div>
-                  </>
+            </>
                   )}
                 </>
               )}
             </div>
-              </>
-  
+          </>
+        </div>
+    </motion.div>
+  );
+
+  return (
+    <>
+      <DynamicSEO key={`report-${report?.id}`} {...seoData} />
+
+      {isPageVariant ? (
+        <div className="flex flex-col min-h-screen bg-[#F9FAFB] md:px-6">
+          <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-6 max-w-[88rem] mx-auto w-full">
+            <div className="max-w-4xl mx-auto">{cardContent}</div>
           </div>
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[2000]"
+          onClick={onClose}
+        >
+          {cardContent}
         </motion.div>
-      </motion.div>
+      )}
 
       {/* Modal para visualizar a imagem da resolução */}
       {showResolutionImage && (

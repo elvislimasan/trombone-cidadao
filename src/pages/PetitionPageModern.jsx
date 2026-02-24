@@ -114,6 +114,8 @@ const PetitionPageModern = () => {
                 petition_id: id,
                 report_id: petition?.report_id,
                 user_id: user.id,
+                name: userName,
+                email: user.email,
                 city: userCity,
                 is_public: signForm.isPublic,
                 allow_notifications: signForm.allowNotifications,

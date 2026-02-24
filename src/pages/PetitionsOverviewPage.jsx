@@ -75,13 +75,18 @@ const PetitionsOverviewPage = () => {
         .eq('status', 'victory');
 
       // Client-side processing
-      let processedData = petitionsWithCounts.map((p) => ({
-        ...p,
-        progress: Math.min(
-          ((p.signatureCount || 0) / (p.goal || 100)) * 100,
-          100
-        ),
-      }));
+      let processedData = petitionsWithCounts.map((p) => {
+        const signatures = typeof p.signatureCount === 'number' ? p.signatureCount : 0;
+        const rawGoal = Number(p.goal);
+        const baseGoal = Number.isFinite(rawGoal) && rawGoal > 0 ? rawGoal : 100;
+        const dynamicGoal = getNextSignatureGoal(signatures, baseGoal);
+        const progress = Math.min((signatures / dynamicGoal) * 100, 100);
+        return {
+          ...p,
+          progress,
+          dynamicGoal,
+        };
+      });
 
       const totalSignaturesSum = processedData.reduce((acc, p) => acc + (p.signatureCount || 0), 0);
 
@@ -256,7 +261,7 @@ const PetitionsOverviewPage = () => {
                           <div className="space-y-2">
                              <div className="flex justify-between text-sm font-medium">
                                 <span>{featuredPetition.signatureCount} assinaturas</span>
-                                <span>Meta: {getNextSignatureGoal(featuredPetition.signatureCount, featuredPetition.goal || 100)}</span>
+                                <span>Meta: {featuredPetition.dynamicGoal}</span>
                              </div>
                              <Progress value={featuredPetition.progress} className="h-2" />
                           </div>

@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { getPetitionShareUrl } from '@/lib/shareUtils';
-import { validateEmail } from '@/lib/utils';
+import { validateEmail, getNextSignatureGoal } from '@/lib/utils';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import DonationModal from '@/components/DonationModal';
 import PetitionJourney from '@/components/PetitionJourney';
@@ -158,6 +158,13 @@ const PetitionPage = () => {
     const url = getPetitionShareUrl(id);
     return `https://api.qrserver.com/v1/create-qr-code/?size=380x380&data=${encodeURIComponent(url)}`;
   }, [id]);
+
+  const storyGoal = useMemo(() => {
+    const signatures = typeof petition?.signatureCount === 'number' ? petition.signatureCount : 0;
+    const base = Number(petition?.goal);
+    const baseValid = Number.isFinite(base) && base > 0 ? base : 100;
+    return getNextSignatureGoal(signatures, baseValid);
+  }, [petition?.signatureCount, petition?.goal]);
 
   // --- SEO & Sharing Logic ---
   const getBaseUrl = useCallback(() => {
@@ -472,10 +479,12 @@ const PetitionPage = () => {
                     petition_id: id,
                     report_id: petition?.report_id,
                     user_id: user.id,
+                    name: userName,
+                    email: user.email,
                     city: userCity,
                     is_public: true,
                     allow_notifications: true,
-                    comment: '' // No comment for one-click for now, or could ask later
+                    comment: ''
                 });
 
             if (error) throw error;
@@ -971,8 +980,12 @@ const PetitionPage = () => {
     
     // Only basic info for now as we don't have all signatures loaded
     doc.setFontSize(12);
-    doc.text(`Total de assinaturas: ${petition.signatureCount}`, 14, 32);
-    doc.text(`Meta: ${petition.goal}`, 14, 38);
+    const signatures = typeof petition.signatureCount === 'number' ? petition.signatureCount : 0;
+    const base = Number(petition.goal);
+    const baseValid = Number.isFinite(base) && base > 0 ? base : 100;
+    const pdfGoal = getNextSignatureGoal(signatures, baseValid);
+    doc.text(`Total de assinaturas: ${signatures}`, 14, 32);
+    doc.text(`Meta: ${pdfGoal}`, 14, 38);
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 44);
 
     doc.save("relatorio_peticao.pdf");
@@ -1377,12 +1390,12 @@ const PetitionPage = () => {
             <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full"
-                style={{ width: `${Math.min(100, ((typeof petition.signatureCount === 'number' ? petition.signatureCount : 0) / (petition.goal || 100)) * 100)}%`, backgroundColor: '#E53935' }}
+                style={{ width: `${Math.min(100, ((typeof petition.signatureCount === 'number' ? petition.signatureCount : 0) / storyGoal) * 100)}%`, backgroundColor: '#E53935' }}
               />
             </div>
             <div className="flex justify-between mt-4 text-xl" style={{ color: '#4B5563' }}>
-              <span>{`${Math.min(100, ((typeof petition.signatureCount === 'number' ? petition.signatureCount : 0) / (petition.goal || 100)) * 100).toFixed(0)}%`}</span>
-              <span>Meta: {petition.goal || 100}</span>
+              <span>{`${Math.min(100, ((typeof petition.signatureCount === 'number' ? petition.signatureCount : 0) / storyGoal) * 100).toFixed(0)}%`}</span>
+              <span>Meta: {storyGoal}</span>
             </div>
           </div>
           <div className="rounded-[40px] p-16 text-center">

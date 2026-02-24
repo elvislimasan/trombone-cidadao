@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2, Search, Plus } from 'lucide-react';
@@ -15,7 +15,7 @@ import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import MapView from '@/components/MapView';
 import ReportList from '@/components/ReportList';
 import RankingSidebar from '@/components/RankingSidebar';
-import { useUpvote } from '@/hooks/useUpvotes';
+import { useUpvote } from '../hooks/useUpvotes';
 import { getReportShareUrl, getPetitionShareUrl } from '@/lib/shareUtils';
 import { getNextSignatureGoal } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -1230,14 +1230,25 @@ function HomePageImproved() {
                           </p>
                           <div className="">
                             <div className="mt-2">
-                              <div className="flex items-center justify-between text-[11px] md:text-xs text-[#6B7280] mb-1">
-                                <span>{petition.signatureCount} assinaturas</span>
-                                <span>Meta {petition.goal || 100}</span>
-                              </div>
-                              <Progress
-                                value={petition.progress}
-                                className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full"
-                              />
+                              {(() => {
+                                const signatures = typeof petition.signatureCount === 'number' ? petition.signatureCount : 0;
+                                const rawGoal = Number(petition.goal);
+                                const baseGoal = Number.isFinite(rawGoal) && rawGoal > 0 ? rawGoal : 100;
+                                const displayGoal = getNextSignatureGoal(signatures, baseGoal);
+                                const progress = Math.min((signatures / displayGoal) * 100, 100);
+                                return (
+                                  <>
+                                    <div className="flex items-center justify-between text-[11px] md:text-xs text-[#6B7280] mb-1">
+                                      <span>{signatures} assinaturas</span>
+                                      <span>Meta {displayGoal}</span>
+                                    </div>
+                                    <Progress
+                                      value={progress}
+                                      className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full"
+                                    />
+                                  </>
+                                );
+                              })()}
                             </div>
                             <Button
                               className="w-full mt-3 h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
