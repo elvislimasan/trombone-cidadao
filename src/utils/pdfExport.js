@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/customSupabaseClient';
+import { getNextSignatureGoal } from '../lib/utils';
 
 export const exportPetitionPDF = async (petition, toast) => {
     try {
@@ -28,9 +29,13 @@ export const exportPetitionPDF = async (petition, toast) => {
 
       // Meta info
       doc.setFontSize(10);
+      const signaturesCount = Array.isArray(allSignatures) ? allSignatures.length : 0;
+      const rawGoal = Number(petition.goal);
+      const baseGoal = Number.isFinite(rawGoal) && rawGoal > 0 ? rawGoal : 100;
+      const signatureGoal = getNextSignatureGoal(signaturesCount, baseGoal);
       doc.text(`Criado em: ${new Date(petition.created_at).toLocaleDateString('pt-BR')}`, 14, currentY);
-      doc.text(`Assinaturas: ${allSignatures.length}`, 14, currentY + 5);
-      doc.text(`Meta: ${petition.goal || 0}`, 14, currentY + 10);
+      doc.text(`Assinaturas: ${signaturesCount}`, 14, currentY + 5);
+      doc.text(`Meta: ${signatureGoal}`, 14, currentY + 10);
       
       currentY += 20;
 

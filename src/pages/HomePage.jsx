@@ -15,6 +15,7 @@ import RankingSidebar from '@/components/RankingSidebar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Progress } from '@/components/ui/progress';
+import { getNextSignatureGoal } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -1145,11 +1146,22 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                               <h3 className="font-bold line-clamp-2">{p.title}</h3>
                               <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
                               <div className="mt-2">
-                                <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
-                                  <span>{p.signatureCount} assinaturas</span>
-                                  <span>Meta {p.goal || 100}</span>
-                                </div>
-                                <Progress value={p.progress} className="h-2" />
+                                {(() => {
+                                  const signatures = typeof p.signatureCount === 'number' ? p.signatureCount : 0;
+                                  const rawGoal = Number(p.goal);
+                                  const baseGoal = Number.isFinite(rawGoal) && rawGoal > 0 ? rawGoal : 100;
+                                  const displayGoal = getNextSignatureGoal(signatures, baseGoal);
+                                  const progress = Math.min((signatures / displayGoal) * 100, 100);
+                                  return (
+                                    <>
+                                      <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
+                                        <span>{signatures} assinaturas</span>
+                                        <span>Meta {displayGoal}</span>
+                                      </div>
+                                      <Progress value={progress} className="h-2" />
+                                    </>
+                                  );
+                                })()}
                               </div>
                               <Button className="w-full mt-3" onClick={() => handleOpenPetition(p.id)}>
                                 Apoiar Agora
@@ -1186,11 +1198,22 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                           <h3 className="font-bold line-clamp-2">{p.title}</h3>
                           <p className="text-sm text-muted-foreground line-clamp-2">{p.description}</p>
                           <div className="mt-2">
-                            <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
-                              <span>{p.signatureCount} assinaturas</span>
-                              <span>Meta {p.goal || 100}</span>
-                            </div>
-                            <Progress value={p.progress} className="h-2" />
+                            {(() => {
+                              const signatures = typeof p.signatureCount === 'number' ? p.signatureCount : 0;
+                              const rawGoal = Number(p.goal);
+                              const baseGoal = Number.isFinite(rawGoal) && rawGoal > 0 ? rawGoal : 100;
+                              const displayGoal = getNextSignatureGoal(signatures, baseGoal);
+                              const progress = Math.min((signatures / displayGoal) * 100, 100);
+                              return (
+                                <>
+                                  <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1">
+                                    <span>{signatures} assinaturas</span>
+                                    <span>Meta {displayGoal}</span>
+                                  </div>
+                                  <Progress value={progress} className="h-2" />
+                                </>
+                              );
+                            })()}
                           </div>
                           <Button className="w-full mt-3" onClick={() => handleOpenPetition(p.id)}>
                             Apoiar Agora
