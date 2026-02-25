@@ -99,6 +99,24 @@ export const AuthProvider = ({ children }) => {
     return { error };
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    const redirectTo = `${getSiteUrl()}/painel-usuario`;
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+    if (error) {
+      console.error("Erro no login com Google:", error.message);
+    }
+    return { data, error };
+  }, []);
+
   const resetPassword = useCallback(async (email) => {
     const redirectTo = `${getSiteUrl()}/alterar-senha`;
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -122,6 +140,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     signUp,
     signIn,
+    signInWithGoogle,
     resetPassword,
     signOut,
     user,
