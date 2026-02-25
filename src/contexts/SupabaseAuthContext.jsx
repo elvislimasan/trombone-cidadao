@@ -49,29 +49,120 @@ export const AuthProvider = ({ children }) => {
   }, [fetchUserProfile]);
 
   useEffect(() => {
-    const getSessionAndProfile = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error("Error getting session:", error.message);
-        // If token is invalid, sign out to clear corrupted session
-        if (error.message.includes('Invalid Refresh Token')) {
-          await supabase.auth.signOut();
+    let mounted = true;
+
+    const initAuth = async () => {
+      try {
+        // 1. Tentar recuperar sessão do hash da URL (Prioridade Máxima para callbacks OAuth)
+        const hash = window.location.hash;
+        if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
+          console.log("Auth hash detected, attempting manual recovery...");
+          try {
+            // Tenta limpar caracteres estranhos que as vezes aparecem no hash
+            const cleanHash = hash.substring(1).replace(/^#/, '');
+            const params = new URLSearchParams(cleanHash);
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+
+            if (accessToken) {
+              console.log("Found access_token in hash, attempting setSession...");
+              
+              // Tenta limpar o hash da URL para não processar duas vezes (opcional, mas bom pra UX)
+              // history.replaceState(null, null, ' '); 
+
+              const { data, error } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || '',
+              });
+
+              if (error) {
+                console.error("Manual setSession failed:", error);
+                // Se falhar, talvez o token seja inválido ou expirado.
+                // Não damos return aqui para permitir que o getSession tente (embora provavel que falhe também)
+              } else if (data?.session) {
+                console.log("Session recovered manually from hash. User:", data.session.user.email);
+                if (mounted) {
+                   await fetchUserProfile(data.session.user);
+                   // Importante: Limpar o hash da URL após sucesso para evitar reprocessamento em reload
+                   window.location.hash = ''; 
+                }
+                return;
+              } else {
+                 console.warn("Manual setSession returned no error but no session data either.");
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing auth hash:", e);
+          }
+        } else {
+             console.log("No auth hash detected.");
         }
-        setUser(null);
-        setLoading(false);
-      } else {
-        await fetchUserProfile(session?.user ?? null);
+
+        // 2. Se não houve recuperação manual (ou falhou), verificar sessão existente
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error getting session:", error.message);
+          if (error.message.includes('Invalid Refresh Token')) {
+            await supabase.auth.signOut();
+          }
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
+        } else if (session) {
+          if (mounted) await fetchUserProfile(session.user);
+        } else {
+          // Sem sessão. Se não estamos num fluxo de auth (sem hash), finalizamos o loading.
+          // Se estamos num fluxo de auth e falhou tudo acima, também finalizamos.
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error("Unexpected auth error:", err);
+        if (mounted) setLoading(false);
       }
     };
 
-    getSessionAndProfile();
+    initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      fetchUserProfile(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state change:", event);
+      if (!mounted) return;
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session) await fetchUserProfile(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setLoading(false);
+      } else if (event === 'INITIAL_SESSION') {
+        // Apenas processa INITIAL_SESSION se tiver sessão, 
+        // caso contrário deixa o initAuth decidir o destino (para evitar sobrescrever recuperação manual)
+        if (session) {
+          await fetchUserProfile(session.user);
+        }
+      }
     });
 
+    // Safety timeout para garantir que o app não fique travado no loading
+    const timeoutId = setTimeout(() => {
+      if (mounted) {
+        setLoading(prev => {
+          if (prev) {
+            console.warn("Auth loading timeout reached, forcing app render");
+            return false;
+          }
+          return prev;
+        });
+      }
+    }, 10000); // 10 segundos de timeout
+
     return () => {
+      mounted = false;
       subscription?.unsubscribe();
+      clearTimeout(timeoutId);
     };
   }, [fetchUserProfile]);
 
