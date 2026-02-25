@@ -70,7 +70,7 @@ const Combobox = ({ options, value, onSelect, placeholder, emptyText, disabled =
 
 const RegisterPage = () => {
   const { control, register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
-  const { signUp, signIn, refreshUserProfile } = useAuth();
+  const { signUp, signIn, signInWithGoogle, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -126,6 +126,21 @@ const RegisterPage = () => {
 
   const randomizeAvatar = () => {
     setAvatarConfig(genConfig());
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) throw error;
+    } catch (error) {
+       toast({
+        title: "Erro no login com Google",
+        description: error.message || "Tente novamente mais tarde.",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
   };
 
   const onSubmit = async (data) => {
@@ -350,6 +365,25 @@ const RegisterPage = () => {
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Cadastrando..." : "Cadastrar"}
+                </Button>
+
+                <div className="relative flex items-center gap-2 my-2">
+                      <div className="h-px bg-gray-200 flex-1" />
+                      <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider">ou cadastre-se com</span>
+                      <div className="h-px bg-gray-200 flex-1" />
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-10 gap-2 rounded-full border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  onClick={handleGoogleLogin}
+                  disabled={loading}
+                >
+                  <svg className="h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                    <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+                  </svg>
+                  Google
                 </Button>
               </form>
               <div className="mt-6 text-center">
