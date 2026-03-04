@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
         .replace(/[\n\r]/g, ' ')
         .replace(/"/g, '&quot;')
         .substring(0, 200)
+        .trim()
       
       // Image Logic:
       // 1. Specific thumbnail_url
