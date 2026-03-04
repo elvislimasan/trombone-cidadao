@@ -36,9 +36,23 @@ Para que o Login com Google funcione corretamente na plataforma Trombone Cidadã
 1.  No Supabase Dashboard, vá para **Authentication** > **URL Configuration**.
 2.  Em **Site URL**, certifique-se de que a URL principal da sua aplicação está configurada (ex: `http://localhost:5173` ou `https://sua-app.com`).
 3.  Em **Redirect URLs**, adicione todas as URLs para onde o usuário pode ser redirecionado após o login (ex: `http://localhost:5173/**`, `https://sua-app.com/**`).
+    *   **IMPORTANTE PARA APP NATIVO (ANDROID/IOS):**
+        Adicione a URL de callback customizada do app: `com.trombonecidadao.app://painel-usuario`
+        (Certifique-se de que esta URL está EXATAMENTE igual no Supabase, pois o login nativo depende dela)
     *   Recomendado adicionar `http://localhost:5173/painel-usuario` explicitamente se necessário.
 
-## 4. Testando
+## 4. Configuração para App Nativo (Android)
+
+Para que o redirecionamento funcione no Android, o arquivo `AndroidManifest.xml` já foi configurado com o scheme `com.trombonecidadao.app`.
+
+Se você alterar o `applicationId` do seu app, lembre-se de atualizar:
+1.  `android/app/build.gradle`
+2.  `capacitor.config.json`
+3.  `AndroidManifest.xml` (na tag `<data android:scheme="..." />`)
+4.  `src/contexts/SupabaseAuthContext.jsx` (na constante `redirectTo` para nativo)
+5.  **Redirect URLs** no Supabase Dashboard.
+
+## 5. Testando
 
 Após realizar essas configurações:
 1.  Reinicie sua aplicação local se necessário.
@@ -47,5 +61,28 @@ Após realizar essas configurações:
 4.  Você deve ser redirecionado para a tela de consentimento do Google e, após aceitar, retornar logado para o Painel do Usuário.
 
 ---
+
+## 6. Personalização Avançada: Remover URL do Supabase da Tela de Login
+
+Se você deseja que apareça **"Fazer login no serviço trombonecidadao.com.br"** em vez de `mrejgpcxaevooofyenzq.supabase.co` na tela de consentimento do Google:
+
+### Opção A: Melhorar a Apresentação (Grátis)
+No **Google Cloud Console** > **Tela de permissão OAuth**:
+1.  Edite as informações do app.
+2.  No campo **Nome do App**, coloque "Trombone Cidadão".
+3.  Adicione o logotipo do app.
+4.  Adicione o domínio `trombonecidadao.com.br` em "Domínios Autorizados".
+*Isso melhora a aparência, mas o Google ainda pode mostrar a URL do Supabase abaixo do nome por segurança.*
+
+### Opção B: Remover Totalmente a URL do Supabase (Pago)
+Para substituir completamente a URL `supabase.co`, você precisa configurar um **Domínio Personalizado (Custom Domain)** no Supabase.
+1.  Isso requer o plano **Pro** do Supabase + Add-on de Custom Domain (custo adicional).
+2.  Configuração:
+    *   No Supabase Dashboard: Settings > Custom Domains.
+    *   Configure um subdomínio como `auth.trombonecidadao.com.br`.
+    *   Atualize os registros DNS no seu provedor de domínio.
+3.  Após configurar:
+    *   No Google Cloud Console, atualize as **Origens JavaScript** e **URIs de redirecionamento** para usar `https://auth.trombonecidadao.com.br` em vez de `supabase.co`.
+    *   Atualize a variável `VITE_SUPABASE_URL` no seu arquivo `.env` para a nova URL personalizada.
 
 **Nota Importante**: Em produção, certifique-se de adicionar a URL do seu domínio final tanto no Google Cloud Console quanto nas configurações de URL do Supabase.

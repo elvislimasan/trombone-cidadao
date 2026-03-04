@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, Upload, Paperclip, MapPin, Image as ImageIcon, Video, Link2, Info, Wrench, Search, SlidersHorizontal } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, Upload, Paperclip, MapPin, Image as ImageIcon, Video, Link2, Info, Wrench, Search, SlidersHorizontal, FolderOpen, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,6 +16,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -197,6 +198,11 @@ FilterSelect.displayName = 'FilterSelect';
 
 export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   const [formData, setFormData] = useState(null);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState(null);
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const fileInputRef = useRef(null);
+
   const [activeTab, setActiveTab] = useState('info');
   const [createStep, setCreateStep] = useState('basic');
   const CREATE_STEPS = [
@@ -208,10 +214,20 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     { id: 'review', label: 'Revisão' },
   ];
 
+  const EDIT_TABS = [
+    { id: 'info', label: 'Informações', icon: Info },
+    { id: 'media', label: 'Mídias', icon: ImageIcon },
+    { id: 'links', label: 'Links', icon: Link2 },
+    { id: 'measurements', label: 'Histórico/Fases', icon: Briefcase },
+  ];
+
   useEffect(() => {
     if (work) {
+      setThumbnailFile(null);
+      setThumbnailPreview(work.thumbnail_url || null);
       const initialData = work.id ? { 
         ...work,
+        thumbnail_url: work.thumbnail_url || null,
         location: work.location ? { lat: work.location.coordinates[1], lng: work.location.coordinates[0] } : null,
         bairro_id: work.bairro?.id || work.bairro_id || '',
         work_category_id: work.work_category?.id || work.work_category_id || '',
@@ -221,6 +237,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         id: null,
         title: '',
         description: '',
+        thumbnail_url: null,
         location: null, 
         status: 'planned',
         funding_source: [],
@@ -241,11 +258,15 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         contract_signature_date: null,
         stalled_date: null,
         other_details: '',
+        long_description: '',
+        address: '',
         parliamentary_amendment: { has: false, author: '' },
       };
       setFormData(initialData);
     } else {
       setFormData(null);
+      setThumbnailFile(null);
+      setThumbnailPreview(null);
     }
   }, [work]);
   
@@ -299,9 +320,56 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     setFormData(prev => ({ ...prev, related_links: newLinks }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
+  const handleThumbnailChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setThumbnailFile(file);
+      const objectUrl = URL.createObjectURL(file);
+      setThumbnailPreview(objectUrl);
+    }
+  };
+
+  const handleRemoveThumbnail = () => {
+    setThumbnailFile(null);
+    setThumbnailPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setFormData(prev => ({ ...prev, thumbnail_url: null }));
+  };
+
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    
+    let currentThumbnailUrl = formData.thumbnail_url;
+
+    if (thumbnailFile) {
+      setIsUploadingThumbnail(true);
+      try {
+        const fileExt = thumbnailFile.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `thumbnails/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('work-media')
+          .upload(filePath, thumbnailFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('work-media')
+          .getPublicUrl(filePath);
+
+        currentThumbnailUrl = publicUrl;
+      } catch (error) {
+        console.error('Error uploading thumbnail:', error);
+        // Continue saving without updating thumbnail if upload fails
+      } finally {
+        setIsUploadingThumbnail(false);
+      }
+    }
+    
+    onSave({ ...formData, thumbnail_url: currentThumbnailUrl });
   };
 
   const canProceed = () => {
@@ -328,23 +396,42 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   if (!formData) return null;
   
   return (
-    <Dialog open={!!work}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">{formData.id ? 'Editar Obra' : 'Adicionar Nova Obra'}</DialogTitle>
-          <CardDescription>{formData.id ? 'Altere os detalhes da obra e gerencie mídias e links.' : 'Preencha as informações básicas para criar a obra.'}</CardDescription>
+    <Dialog open={!!work} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent hideClose className="w-full h-full max-w-full sm:max-w-5xl sm:h-auto sm:max-h-[90vh] flex flex-col bg-card border-border p-0 sm:p-6 gap-0">
+        <DialogHeader className="p-4 sm:p-0 border-b sm:border-none bg-background sm:bg-transparent sticky top-0 z-20 shrink-0">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                {formData.id ? 'Editar Obra' : 'Nova Obra'}
+              </DialogTitle>
+              <CardDescription className="hidden sm:block">{formData.id ? 'Altere os detalhes da obra e gerencie mídias e links.' : 'Preencha as informações básicas para criar a obra.'}</CardDescription>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 -mt-1 -mr-2 sm:hidden" onClick={onClose}>
+              <X className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 hidden sm:flex absolute right-0 top-0" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </DialogHeader>
         
-        <div className="flex-grow overflow-hidden grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="md:col-span-1 overflow-y-auto pr-2">
+        <div className="flex-grow overflow-hidden grid grid-cols-1 md:grid-cols-4 gap-6 p-4 sm:p-0">
+          <div className="hidden md:block md:col-span-1 overflow-y-auto pr-2">
             {formData.id ? (
               <nav className="flex flex-col gap-2">
-                <Button variant={activeTab === 'info' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('info')} className="justify-start gap-2"><Info className="w-4 h-4" /> Informações</Button>
-                {formData.id && <Button variant={activeTab === 'media' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('media')} className="justify-start gap-2"><ImageIcon className="w-4 h-4" /> Mídias</Button>}
-                {formData.id && <Button variant={activeTab === 'links' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('links')} className="justify-start gap-2"><Link2 className="w-4 h-4" /> Links</Button>}
+                {EDIT_TABS.map(tab => (
+                  <Button 
+                    key={tab.id}
+                    variant={activeTab === tab.id ? 'secondary' : 'ghost'} 
+                    onClick={() => setActiveTab(tab.id)} 
+                    className="justify-start gap-2"
+                  >
+                    <tab.icon className="w-4 h-4" /> {tab.label}
+                  </Button>
+                ))}
               </nav>
             ) : (
-              <nav className="hidden md:flex flex-col gap-2">
+              <nav className="flex flex-col gap-2">
                 {CREATE_STEPS.map(step => (
                   <Button key={step.id} variant={createStep === step.id ? 'secondary' : 'ghost'} onClick={() => setCreateStep(step.id)} className="justify-start gap-2">
                     <span className="w-6 text-center">{CREATE_STEPS.findIndex(s => s.id === step.id) + 1}</span> {step.label}
@@ -355,18 +442,69 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
           </div>
 
           <div className="md:col-span-3 flex-grow overflow-y-auto pr-4 space-y-6">
+            {/* Mobile Step Indicator for Edit Mode */}
+            {formData.id && (
+              <div className="md:hidden mb-4 border-b pb-2">
+                <div className="flex justify-between items-center text-sm text-muted-foreground mb-1">
+                  <span>Passo {EDIT_TABS.findIndex(t => t.id === activeTab) + 1} de {EDIT_TABS.length}</span>
+                  <span className="font-medium text-foreground">
+                    {EDIT_TABS.find(t => t.id === activeTab)?.label}
+                  </span>
+                </div>
+                <Progress value={((EDIT_TABS.findIndex(t => t.id === activeTab) + 1) / EDIT_TABS.length) * 100} className="h-1.5" />
+              </div>
+            )}
+
             {activeTab === 'info' && formData.id && (
               <div className="space-y-6">
                 <Card>
                   <CardHeader><CardTitle>Informações Básicas</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid gap-2">
+                      <Label>Imagem de Capa (Thumbnail)</Label>
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-32 h-20 bg-slate-100 rounded overflow-hidden border">
+                          {thumbnailPreview ? (
+                            <img src={thumbnailPreview} alt="Thumbnail" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                              <ImageIcon className="w-8 h-8" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleThumbnailChange}
+                            className="w-full max-w-xs"
+                          />
+                          {thumbnailPreview && (
+                            <Button type="button" variant="outline" size="sm" onClick={handleRemoveThumbnail} className="w-fit text-destructive hover:text-destructive">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Remover imagem
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Esta imagem será usada na listagem de obras e ao compartilhar o link (Open Graph).</p>
+                    </div>
+                    <div className="grid gap-2">
                       <Label htmlFor="title">Título da Obra</Label>
                       <Input id="title" name="title" value={formData.title || ''} onChange={handleChange} required />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="description">Descrição</Label>
-                      <Textarea id="description" name="description" value={formData.description || ''} onChange={handleChange} rows={4} />
+                      <Label htmlFor="description">Descrição Curta</Label>
+                      <Textarea id="description" name="description" value={formData.description || ''} onChange={handleChange} rows={3} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="long_description">Descrição Longa (Detalhada)</Label>
+                      <Textarea id="long_description" name="long_description" value={formData.long_description || ''} onChange={handleChange} rows={6} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="address">Endereço / Localização por extenso</Label>
+                      <Input id="address" name="address" value={formData.address || ''} onChange={handleChange} placeholder="Ex: Rua Principal, Centro" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
@@ -567,13 +705,51 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                   <Card>
                     <CardHeader><CardTitle>Informações Básicas</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="title">Título da Obra</Label>
+                    <div className="grid gap-2">
+                      <Label>Imagem de Capa (Thumbnail)</Label>
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-32 h-20 bg-slate-100 rounded overflow-hidden border">
+                          {thumbnailPreview ? (
+                            <img src={thumbnailPreview} alt="Thumbnail" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                              <ImageIcon className="w-8 h-8" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleThumbnailChange}
+                            className="w-full max-w-xs"
+                          />
+                          {thumbnailPreview && (
+                            <Button type="button" variant="outline" size="sm" onClick={handleRemoveThumbnail} className="w-fit text-destructive hover:text-destructive">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Remover imagem
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Esta imagem será usada na listagem de obras e ao compartilhar o link (Open Graph).</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="title">Título da Obra</Label>
                         <Input id="title" name="title" value={formData.title || ''} onChange={handleChange} placeholder="Ex.: Reforma da Escola Estadual Três Marias" />
                       </div>
                       <div className="grid gap-2">
-                        <Label htmlFor="description">Descrição</Label>
+                        <Label htmlFor="description">Descrição Curta</Label>
                         <Textarea id="description" name="description" value={formData.description || ''} onChange={handleChange} rows={4} placeholder="Contexto geral, objetivo da obra, etc." />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="long_description">Descrição Longa (Detalhada)</Label>
+                        <Textarea id="long_description" name="long_description" value={formData.long_description || ''} onChange={handleChange} rows={6} placeholder="Detalhes completos da obra..." />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="address">Endereço / Localização por extenso</Label>
+                        <Input id="address" name="address" value={formData.address || ''} onChange={handleChange} placeholder="Ex: Rua Principal, Centro" />
                       </div>
                     </CardContent>
                   </Card>
@@ -797,7 +973,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                   <CardHeader><CardTitle>Links Relacionados</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     {formData.related_links && formData.related_links.map((link, index) => (
-                      <div key={index} className="flex items-end gap-2 p-3 border rounded-lg bg-background">
+                      <div key={index} className="flex flex-col gap-2 p-3 border rounded-lg bg-background">
                         <div className="grid gap-2 flex-grow">
                           <Label>Título</Label>
                           <Input value={link.title} onChange={(e) => handleLinkChange(index, 'title', e.target.value)} />
@@ -805,8 +981,8 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                         <div className="grid gap-2 flex-grow">
                           <Label>URL</Label>
                           <Input value={link.url} onChange={(e) => handleLinkChange(index, 'url', e.target.value)} />
-                        </div>
                         <Button type="button" variant="destructive" size="icon" onClick={() => removeLink(index)}><Trash2 className="w-4 h-4" /></Button>
+                        </div>
                       </div>
                     ))}
                     <Button type="button" variant="outline" onClick={addLink}><PlusCircle className="w-4 h-4 mr-2" />Adicionar Link</Button>
@@ -814,18 +990,56 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                 </Card>
               </div>
             )}
+            {activeTab === 'measurements' && formData.id && (
+              <WorkMeasurementsTab 
+                workId={formData.id} 
+                contractors={workOptions?.contractors || []} 
+              />
+            )}
           </div>
         </div>
 
         {formData.id ? (
-          <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="button" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Salvar Alterações</Button>
+          <DialogFooter className="flex-shrink-0 p-4 sm:p-0 sm:pt-4 border-t sm:border-t-0 mt-auto sm:mt-4 bg-background sm:bg-transparent z-20 flex flex-col sm:flex-row gap-2">
+            <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
+              <Button 
+                type="button" 
+                variant="outline" 
+                disabled={EDIT_TABS.findIndex(t => t.id === activeTab) === 0}
+                onClick={() => {
+                  const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
+                  if (idx > 0) setActiveTab(EDIT_TABS[idx - 1].id);
+                }}
+              >
+                Anterior
+              </Button>
+              <Button 
+                type="button" 
+                onClick={() => {
+                  const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
+                  if (idx < EDIT_TABS.length - 1) setActiveTab(EDIT_TABS[idx + 1].id);
+                  else handleSubmit();
+                }}
+              >
+                {EDIT_TABS.findIndex(t => t.id === activeTab) === EDIT_TABS.length - 1 ? 'Salvar' : 'Próximo'}
+              </Button>
+            </div>
+            <div className="hidden sm:flex justify-end gap-2 w-full sm:border-t sm:pt-4">
+              <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+              <Button type="button" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Salvar Alterações</Button>
+            </div>
           </DialogFooter>
         ) : (
-          <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4 justify-between">
-            {/* <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose> */}
-            <div className="flex gap-2">
+          <DialogFooter className="flex-shrink-0 p-4 sm:p-0 sm:pt-4 border-t sm:border-t-0 mt-auto sm:mt-4 bg-background sm:bg-transparent z-20 flex flex-col sm:flex-row gap-2">
+            <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
+              <Button type="button" variant="outline" disabled={CREATE_STEPS.findIndex(s => s.id === createStep) === 0} onClick={prevStep}>Anterior</Button>
+              {createStep !== 'review' ? (
+                <Button type="button" onClick={nextStep} disabled={!canProceed()}>Próximo</Button>
+              ) : (
+                <Button type="button" onClick={handleSubmit}>Criar</Button>
+              )}
+            </div>
+            <div className="hidden sm:flex justify-end gap-2 w-full sm:border-t sm:pt-4">
               <Button type="button" variant="ghost" disabled={CREATE_STEPS.findIndex(s => s.id === createStep) === 0} onClick={prevStep}>Anterior</Button>
               {createStep !== 'review' ? (
                 <Button type="button" onClick={nextStep} disabled={!canProceed()}>Próximo</Button>
@@ -844,6 +1058,8 @@ const WorkMediaManager = ({ workId }) => {
   const { user } = useAuth();
   const [media, setMedia] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [galleryName, setGalleryName] = useState('');
+  const [isNewGallery, setIsNewGallery] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef(null);
   
@@ -853,6 +1069,9 @@ const WorkMediaManager = ({ workId }) => {
     if (error) toast({ title: "Erro ao buscar mídias", variant: "destructive" });
     else setMedia(data);
   }, [workId, toast]);
+
+  // Extract unique gallery names
+  const existingGalleries = Array.from(new Set(media.map(m => m.gallery_name).filter(Boolean))).sort();
 
   useEffect(() => {
     fetchMedia();
@@ -903,7 +1122,8 @@ const WorkMediaManager = ({ workId }) => {
       type: fileType,
       name: file.name,
       status: 'approved',
-      contributor_id: user?.id || null
+      contributor_id: user?.id || null,
+      gallery_name: galleryName || null
     });
 
     if (dbError) {
@@ -942,43 +1162,138 @@ const WorkMediaManager = ({ workId }) => {
 
   const handleFileSelect = async (e) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    const toUpload = Array.from(files);
-    try {
-      await Promise.all(toUpload.map(file => uploadSingleFile(file)));
-      toast({ title: "Upload concluído!", description: "Os arquivos foram enviados." });
-      fetchMedia();
-    } finally {
-      setUploading(false);
-      e.target.value = '';
+    if (files && files.length > 0) {
+      setUploading(true);
+      const toUpload = Array.from(files);
+      try {
+        await Promise.all(toUpload.map(file => uploadSingleFile(file)));
+        toast({ title: "Upload concluído!", description: "Os arquivos foram enviados." });
+        fetchMedia();
+        // Reset gallery selection if needed, or keep it for continuous upload
+      } finally {
+        setUploading(false);
+        e.target.value = '';
+      }
+    }
+  };
+
+  // Group media by gallery
+  const groupedMedia = media.reduce((acc, item) => {
+    const key = item.gallery_name || 'Sem Galeria';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+
+  const handleGalleryChange = (value) => {
+    if (value === 'new_gallery_option') {
+      setGalleryName('');
+      setIsNewGallery(true);
+    } else {
+      setGalleryName(value === 'no_gallery_option' ? '' : value);
+      setIsNewGallery(false);
     }
   };
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Mídias e Arquivos</CardTitle>
-        <Button variant="outline" onClick={() => fileInputRef.current.click()} disabled={uploading}>
-          <Upload className="w-4 h-4 mr-2" />Adicionar
-        </Button>
+      <CardHeader className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+        <div>
+          <CardTitle>Mídias e Arquivos</CardTitle>
+          <CardDescription>Gerencie fotos, vídeos e documentos da obra.</CardDescription>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-center gap-2 w-full xl:w-auto bg-muted/30 p-2 rounded-lg border border-border/50 flex-wrap">
+          <div className="flex-1 w-full sm:min-w-[200px]">
+            <Select 
+              value={isNewGallery ? 'new_gallery_option' : (galleryName || 'no_gallery_option')} 
+              onValueChange={handleGalleryChange}
+            >
+              <SelectTrigger className="w-full bg-background">
+                <SelectValue placeholder="Selecione a galeria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no_gallery_option">Sem Galeria (Geral)</SelectItem>
+                {existingGalleries.map(g => (
+                  <SelectItem key={g} value={g}>{g}</SelectItem>
+                ))}
+                <SelectItem value="new_gallery_option" className="text-primary font-medium">+ Nova Galeria</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isNewGallery && (
+            <Input 
+              placeholder="Nome da nova galeria" 
+              value={galleryName}
+              onChange={(e) => setGalleryName(e.target.value)}
+              className="w-full sm:w-[200px] bg-background"
+              autoFocus
+            />
+          )}
+          
+          <Button variant="default" onClick={() => fileInputRef.current.click()} disabled={uploading} className="w-full sm:w-auto whitespace-nowrap">
+            <Upload className="w-4 h-4 mr-2" />
+            {uploading ? 'Enviando...' : 'Adicionar Mídia'}
+          </Button>
+        </div>
         <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*,application/pdf" />
       </CardHeader>
-      <CardContent>
+      
+      <CardContent className="space-y-8">
         {media.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma mídia adicionada a esta obra.</p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {media.map(m => (
-              <Card key={m.id} className="relative group overflow-hidden">
-                <a href={m.url} target="_blank" rel="noopener noreferrer" className="flex h-32 bg-slate-100 dark:bg-slate-800 items-center justify-center">
-                  {m.type === 'image' ? <img src={m.url} alt={m.name} className="w-full h-full object-cover" /> : getFileIcon(m.type)}
-                </a>
-                <p className="text-xs p-2 truncate" title={m.name}>{m.name}</p>
-                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteMedia(m.id, m.url)}><Trash2 className="w-4 h-4" /></Button>
-              </Card>
-            ))}
+          <div className="text-center py-12 border-2 border-dashed rounded-xl bg-muted/10">
+            <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground">Nenhuma mídia adicionada a esta obra.</p>
+            <Button variant="link" onClick={() => fileInputRef.current.click()}>Adicionar agora</Button>
           </div>
+        ) : (
+          Object.entries(groupedMedia).sort((a, b) => {
+            if (a[0] === 'Sem Galeria') return -1;
+            if (b[0] === 'Sem Galeria') return 1;
+            return a[0].localeCompare(b[0]);
+          }).map(([groupName, items]) => (
+            <div key={groupName} className="space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  {groupName === 'Sem Galeria' ? <ImageIcon className="w-4 h-4 text-muted-foreground" /> : <FolderOpen className="w-4 h-4 text-primary" />}
+                  {groupName}
+                </h3>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{items.length} itens</span>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {items.map(m => (
+                  <Card key={m.id} className="relative group overflow-hidden border-muted hover:border-primary/50 transition-colors">
+                    <a href={m.url} target="_blank" rel="noopener noreferrer" className="flex aspect-square bg-slate-100 dark:bg-slate-800 items-center justify-center overflow-hidden">
+                      {m.type === 'image' ? (
+                        <img src={m.url} alt={m.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      ) : (
+                        getFileIcon(m.type)
+                      )}
+                    </a>
+                    <div className="p-2">
+                      <p className="text-xs font-medium truncate" title={m.name}>{m.name}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {new Date(m.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button 
+                      variant="destructive" 
+                      size="icon" 
+                      className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        deleteMedia(m.id, m.url);
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </CardContent>
     </Card>
@@ -1095,6 +1410,10 @@ const ManageWorksPage = () => {
       } else {
         // If editing, we close the modal on save
         setEditingWork(null);
+        // Recarregar a página após salvar alterações para garantir dados atualizados
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       }
     }
   };

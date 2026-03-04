@@ -520,6 +520,14 @@ const ModerationPage = () => {
                     </Button>
                   </div>
                 )}
+                {selectedWorkMedia.gallery_name && (
+                  <div className="rounded-xl border bg-muted/20 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">Galeria</p>
+                    <p className="text-sm font-medium">
+                      {selectedWorkMedia.gallery_name}
+                    </p>
+                  </div>
+                )}
                 {selectedWorkMedia.description && (
                   <div className="rounded-xl border bg-muted/20 p-3">
                     <p className="text-xs font-semibold text-muted-foreground mb-1">Descrição do cidadão</p>

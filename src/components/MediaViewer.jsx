@@ -3,23 +3,25 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeft, ArrowRight, Maximize, Minimize, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const MediaViewer = ({ media, startIndex, onClose }) => {
+const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  
+  const safeMedia = media || [];
 
   // Sync currentIndex if media array shrinks due to deletion
   useEffect(() => {
-    if (currentIndex >= media.length) {
-      if (media.length === 0) {
+    if (currentIndex >= safeMedia.length) {
+      if (safeMedia.length === 0) {
         onClose();
       } else {
-        setCurrentIndex(media.length - 1);
+        setCurrentIndex(safeMedia.length - 1);
       }
     }
-  }, [media.length, currentIndex, onClose]);
+  }, [safeMedia.length, currentIndex, onClose]);
 
-  const currentItem = media[currentIndex];
+  const currentItem = safeMedia[currentIndex];
 
   if (!currentItem) return null;
   useEffect(() => {
@@ -28,12 +30,12 @@ const MediaViewer = ({ media, startIndex, onClose }) => {
 
   const goToPrevious = (e) => {
     e.stopPropagation();
-    setCurrentIndex((prevIndex) => (prevIndex === 0 ? media.length - 1 : prevIndex - 1));
+    setCurrentIndex((prevIndex) => (prevIndex === 0 ? safeMedia.length - 1 : prevIndex - 1));
   };
 
   const goToNext = (e) => {
     e.stopPropagation();
-    setCurrentIndex((prevIndex) => (prevIndex === media.length - 1 ? 0 : prevIndex + 1));
+    setCurrentIndex((prevIndex) => (prevIndex === safeMedia.length - 1 ? 0 : prevIndex + 1));
   };
 
   const toggleFullscreen = (e) => {
@@ -115,7 +117,7 @@ const MediaViewer = ({ media, startIndex, onClose }) => {
             </Button>
           </div>
 
-          {media.length > 1 && (
+          {safeMedia.length > 1 && (
             <>
               <Button
                 variant="ghost"
@@ -204,9 +206,12 @@ const MediaViewer = ({ media, startIndex, onClose }) => {
             </AnimatePresence>
           </div>
 
-          <div className="absolute bottom-4 text-center text-white z-[2001]">
-            <p className="text-lg">{currentItem.name || `${(currentItem.type === 'photo' || currentItem.type === 'image') ? 'Foto' : 'Vídeo'} ${currentIndex + 1}`}</p>
-            <p className="text-sm text-gray-400">{currentIndex + 1} de {media.length}</p>
+          <div className="absolute bottom-4 text-center text-white z-[2001] max-w-2xl px-4">
+            <p className="text-lg font-semibold">{currentItem.description || currentItem.name || `${(currentItem.type === 'photo' || currentItem.type === 'image') ? 'Foto' : 'Vídeo'} ${currentIndex + 1}`}</p>
+            {currentItem.description && currentItem.name && (
+              <p className="text-sm text-gray-300 mt-1 hidden sm:block">{currentItem.name}</p>
+            )}
+            <p className="text-xs text-gray-400 mt-2">{currentIndex + 1} de {safeMedia.length}</p>
           </div>
         </motion.div>
       </motion.div>

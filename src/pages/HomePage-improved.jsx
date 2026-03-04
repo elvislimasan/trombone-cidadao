@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2, Search, Plus } from 'lucide-react';
+import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2, Search, Plus, ArrowUpDown } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,6 +97,7 @@ function HomePageImproved() {
   const [categories, setCategories] = useState([]);
   const [filter, setFilter] = useState({ status: 'active', category: 'all' });
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState('newest'); // 'newest' | 'oldest'
   const [searchOpen, setSearchOpen] = useState(false);
   const [filteredReports, setFilteredReports] = useState([]);
   const [viewMode, setViewMode] = useState('map');
@@ -279,7 +280,7 @@ function HomePageImproved() {
           favorite_reports(user_id)
         `)
         .eq('moderation_status', 'approved')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: sortOrder === 'oldest' });
 
       if (error) {
         throw error;
@@ -306,7 +307,7 @@ function HomePageImproved() {
     } finally {
       setLoadingReports(false);
     }
-  }, [user]);
+  }, [user, sortOrder]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -718,15 +719,39 @@ function HomePageImproved() {
               <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-sm p-3 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
+                    {viewMode === 'list' && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 rounded-full border-[#E5E7EB] text-[#4B5563] bg-white"
+                            title="Ordenar por data"
+                          >
+                            <ArrowUpDown className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuRadioGroup value={sortOrder} onValueChange={setSortOrder}>
+                            <DropdownMenuRadioItem value="newest">Mais Recentes</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="oldest">Mais Antigas</DropdownMenuRadioItem>
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 rounded-full border-[#E5E7EB] text-[#4B5563] bg-white"
-                    >
-                      <Filter className="w-4 h-4" />
-                    </Button>
+                    {viewMode !== 'list' && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-full border-[#E5E7EB] text-[#4B5563] bg-white"
+                      >
+                        <Filter className="w-4 h-4" />
+                      </Button>
+                    )}
                     {!searchOpen && (
                       <span className="text-[11px] text-[#6B7280]">
                         {activeFiltersCount > 0
@@ -772,27 +797,28 @@ function HomePageImproved() {
                         </button>
                       </div>
                     )}
-                    <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="relative h-8 px-3 rounded-full text-[11px] border-[#E5E7EB] text-[#374151] bg-white"
+                    {viewMode !== 'list' && (
+                      <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="relative h-8 px-3 rounded-full text-[11px] border-[#E5E7EB] text-[#374151] bg-white"
+                          >
+                            Filtros
+                            {activeFiltersCount > 0 && (
+                              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-tc-red text-white text-[10px] leading-none">
+                                {activeFiltersCount}
+                              </span>
+                            )}
+                          </Button>
+                        </DialogTrigger>
+                        
+                        {/* Filtros + Busca compacta no diálogo */}
+                        <DialogContent
+                          hideClose
+                          className="w-full max-w-[480px] sm:max-w-md p-0 rounded-t-2xl sm:rounded-lg left-1/2 -translate-x-1/2 top-auto bottom-0 translate-y-0 sm:top-1/2 sm:-translate-y-1/2"
                         >
-                          Filtros
-                          {activeFiltersCount > 0 && (
-                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-tc-red text-white text-[10px] leading-none">
-                              {activeFiltersCount}
-                            </span>
-                          )}
-                        </Button>
-                      </DialogTrigger>
-                      
-                      {/* Filtros + Busca compacta no diálogo */}
-                      <DialogContent
-                        hideClose
-                        className="w-full max-w-[480px] sm:max-w-md p-0 rounded-t-2xl sm:rounded-lg left-1/2 -translate-x-1/2 top-auto bottom-0 translate-y-0 sm:top-1/2 sm:-translate-y-1/2"
-                      >
                         <DialogHeader className="flex flex-row items-center justify-between px-4 py-3 border-b">
                           <DialogTitle className="text-base font-semibold">
                             Filtros
@@ -838,6 +864,36 @@ function HomePageImproved() {
                               />
                             </div>
                           </div>
+                          {/* <div>
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                              <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
+                              Ordenar
+                            </p>
+                            <div className="mt-2 grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSortOrder('newest')}
+                                className={`px-3 py-2 rounded-lg border text-sm text-center transition-colors ${
+                                  sortOrder === 'newest'
+                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827] font-medium'
+                                    : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'
+                                }`}
+                              >
+                                Mais Recentes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSortOrder('oldest')}
+                                className={`px-3 py-2 rounded-lg border text-sm text-center transition-colors ${
+                                  sortOrder === 'oldest'
+                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827] font-medium'
+                                    : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'
+                                }`}
+                              >
+                                Mais Antigas
+                              </button>
+                            </div>
+                          </div> */}
                           <div>
                             <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
                               <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
@@ -931,6 +987,9 @@ function HomePageImproved() {
                         </div>
                       </DialogContent>
                     </Dialog>
+                  )}
+
+                  {viewMode !== 'list' && (
                     <button
                       type="button"
                       onClick={() => setMapExpanded((prev) => !prev)}
@@ -942,6 +1001,7 @@ function HomePageImproved() {
                         <Maximize2 className="w-4 h-4" />
                       )}
                     </button>
+                  )}
                   </div>
                 </div> 
 
