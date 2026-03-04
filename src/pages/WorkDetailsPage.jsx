@@ -163,6 +163,10 @@ const WorkDetailsPage = () => {
   }, [fetchWorkDetails]);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     const fetchEditOptions = async () => {
       if (!user?.is_admin) return;
       const [categories, areas, bairros, contractors] = await Promise.all([
@@ -387,7 +391,7 @@ const WorkDetailsPage = () => {
     switch (status) {
       case 'in-progress': return { text: 'Em Andamento', icon: Activity, color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' };
       case 'completed': return { text: 'Concluída', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', border: 'border-green-200' };
-      case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200' };
+      case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-red-600', bg: 'bg-red-100', border: 'border-amber-200' };
       case 'unfinished': return { text: 'Inacabada', icon: Wrench, color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-200' };
       case 'planned': return { text: 'Prevista', icon: Calendar, color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200' };
       case 'tendered': return { text: 'Licitada', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-200' };
@@ -433,7 +437,7 @@ const WorkDetailsPage = () => {
       <DynamicSEO {...seoData} />
       
       {/* Hero Section com Thumbnail */}
-      <div className="w-full  py-6 md:py-20 relative overflow-hidden min-h-[400px] flex ">
+      <div className="w-full pt-24 pb-10 md:py-20 relative overflow-hidden min-h-[400px] flex ">
         {/* Thumbnail Background */}
         {work.thumbnail_url && (
           <div 
@@ -485,7 +489,7 @@ const WorkDetailsPage = () => {
               {work.title}
             </motion.h1>
 
-            {work.description && (
+            {work.description && work.description.length < 300 && (
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -510,17 +514,17 @@ const WorkDetailsPage = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
-              className="flex flex-col md:flex-row gap-4 mt-4"
+              className="flex flex-col md:flex-row gap-4 mt-4 flex-wrap"
             >
               {/* Botões Principais (Contribuição e Gerenciar) */}
-              <div className="flex gap-3 w-full md:w-auto">
-                <Button onClick={handleOpenContrib} className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 border-0 flex-1 md:flex-none whitespace-nowrap">
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <Button onClick={handleOpenContrib} className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 border-0 w-full sm:w-auto sm:flex-1 md:flex-none whitespace-nowrap">
                   <UploadCloud className="w-4 h-4 mr-2" />
                   Enviar Contribuição
                 </Button>
                 
                 {user?.is_admin && (
-                  <Button variant="secondary" className="bg-white text-slate-900 hover:bg-slate-100 flex-1 md:flex-none whitespace-nowrap" onClick={() => setShowAdminEditModal(true)}>
+                  <Button variant="secondary" className="bg-white text-slate-900 hover:bg-slate-100 w-full sm:w-auto sm:flex-1 md:flex-none whitespace-nowrap" onClick={() => setShowAdminEditModal(true)}>
                     <Edit className="w-4 h-4 mr-2" />
                     Gerenciar
                   </Button>
@@ -648,6 +652,19 @@ const WorkDetailsPage = () => {
                       </div>
                     )}
 
+                    {/* Endereço */}
+                    {work.address && (
+                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow col-span-1 sm:col-span-2">
+                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
+                          <MapPin className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Endereço</span>
+                          <p className="font-semibold text-neutral-800">{work.address}</p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Valor Total */}
                     <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
                       <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
@@ -771,7 +788,7 @@ const WorkDetailsPage = () => {
                   </CardTitle>
                   <CardDescription>Acompanhe a evolução da obra fase a fase</CardDescription>
                 </CardHeader>
-                <CardContent className="relative pl-6 sm:pl-10 space-y-8 before:absolute before:left-6 sm:before:left-10 before:top-4 before:h-full before:w-[2px] before:bg-slate-200">
+                <CardContent className="relative pl-6 sm:pl-10 space-y-8 before:absolute before:left-6 sm:before:left-10  before:h-full before:w-[2px] before:bg-slate-200">
                   {measurements.length > 0 ? (
                     measurements.map((item, index) => (
                       <div key={item.id} className="relative pl-8">
@@ -891,12 +908,12 @@ const WorkDetailsPage = () => {
                       documents.map((doc, idx) => (
                         <AccordionItem key={doc.id} value={`item-${idx}`}>
                           <AccordionTrigger className="hover:no-underline hover:bg-slate-50 px-4 rounded-lg">
-                            <div className="flex items-center gap-3 text-left">
-                              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                            <div className="flex items-center gap-3 text-left w-full min-w-0">
+                              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg flex-shrink-0">
                                 <FileText className="w-5 h-5" />
                               </div>
-                              <div>
-                                <p className="font-medium text-slate-800">{doc.name}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-slate-800 break-all pr-2">{doc.name}</p>
                                 <p className="text-xs text-slate-500">Adicionado em {new Date(doc.created_at).toLocaleDateString('pt-BR')}</p>
                               </div>
                             </div>

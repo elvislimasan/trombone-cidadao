@@ -1,4 +1,3 @@
-
 import React, { useState, useImperativeHandle, forwardRef, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,6 +7,8 @@ import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
 import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
@@ -20,13 +21,12 @@ const MapScrollLock = ({ mode }) => {
   return null;
 };
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-
 const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const [selectedStreet, setSelectedStreet] = useState(null);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const mapRef = useRef();
+  const markerRefs = useRef({});
   const { mode } = useMapModeToggle();
 
   useImperativeHandle(ref, () => ({
@@ -34,8 +34,8 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
       if (mapRef.current) {
         mapRef.current.flyTo([location.lat, location.lng], 18);
         const street = streets.find(s => s.location && s.location.lat === location.lat && s.location.lng === location.lng);
-        if (street) {
-          handleSelectStreet(street);
+        if (street && markerRefs.current[street.id]) {
+          markerRefs.current[street.id].openPopup();
         }
       }
     }
@@ -75,15 +75,10 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
     });
   };
 
-  const handleSelectStreet = (street) => {
+  const handleDetailsClick = (street) => {
     setSelectedStreet(street);
     setCurrentMediaIndex(0);
-    setIsDetailsOpen(false);
-  };
-
-  const handleClose = () => {
-    setSelectedStreet(null);
-    setIsDetailsOpen(false);
+    setIsDetailsOpen(true);
   };
 
   const nextMedia = () => {
@@ -109,91 +104,41 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {streets.map(street => (
-          street.location &&
-          <Marker
-            key={street.id}
-            position={[street.location.lat, street.location.lng]}
-            icon={createStreetMarkerIcon(street)}
-            eventHandlers={{
-              click: () => {
-                handleSelectStreet(street);
-              },
-              dblclick: (e) => {
-                e.originalEvent.stopPropagation();
-                handleSelectStreet(street);
-              },
-            }}
-          >
-            <Popup>{street.name}</Popup>
-          </Marker>
-        ))}
+        {streets.map(street => {
+          const streetStatusInfo = getStatusInfo(street.status, street.pavement_type);
+          return (
+            street.location &&
+            <Marker
+              key={street.id}
+              ref={(el) => { if (el) markerRefs.current[street.id] = el; }}
+              position={[street.location.lat, street.location.lng]}
+              icon={createStreetMarkerIcon(street)}
+            >
+              <Popup className="custom-popup" minWidth={200}>
+                <div className="p-1">
+                  <div className="mb-2">
+                    <h3 className="font-bold text-lg text-tc-red leading-tight">{street.name}</h3>
+                  </div>
+
+                  <div className="mt-2">
+                    <Button 
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => handleDetailsClick(street)}
+                    >
+                      <Info className="w-4 h-4 mr-2" /> Ver mais detalhes
+                    </Button>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
 
       <div className="absolute top-4 right-4 z-[800]">
         <MapModeToggle />
       </div>
-
-      <AnimatePresence>
-        {selectedStreet && (
-          <motion.div
-            layout
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ 
-              opacity: 1, 
-              y: 0,
-            }}
-            exit={{ opacity: 0, y: 50 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="absolute left-4 right-4 bottom-4 bg-card rounded-lg shadow-2xl border border-border z-[500] flex flex-col overflow-hidden"
-          >
-            <div className="flex-none p-4 pb-2 flex justify-between items-start bg-card z-10">
-              <div className="flex-1 pr-8">
-                <h3 className="font-bold text-lg text-tc-red line-clamp-1">{selectedStreet.name}</h3>
-                {selectedStreet.bairro && <p className="text-sm text-muted-foreground line-clamp-1">{selectedStreet.bairro.name}</p>}
-              </div>
-              <button onClick={handleClose} className="absolute top-2 right-2 p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="px-4 pb-4">
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full text-white ${statusInfo.color}`}>
-                  {statusInfo.icon}
-                  {statusInfo.text}
-                </span>
-                {selectedStreet.paving_date && (
-                  <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full">
-                    {new Date(selectedStreet.paving_date).getFullYear()}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedStreet.work_id && (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onWorkClick(selectedStreet.work_id);
-                    }} 
-                    className="text-sm bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-100 flex items-center gap-2 transition-colors"
-                  >
-                    <HardHat className="w-4 h-4" /> Ver obra
-                  </button>
-                )}
-                
-                <button 
-                  onClick={() => setIsDetailsOpen(true)}
-                  className="text-sm bg-secondary text-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80 flex items-center gap-2 transition-colors"
-                >
-                  <Info className="w-4 h-4" /> Ver mais detalhes
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card border-border">
@@ -297,8 +242,8 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                       {item.type === 'photo' ? (
                         <img src={item.url} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-black/10 flex items-center justify-center">
-                          <Video className="w-8 h-8 text-muted-foreground" />
+                        <div className="w-full h-full bg-black flex items-center justify-center">
+                          <Video className="w-8 h-8 text-white/70" />
                         </div>
                       )}
                     </button>
@@ -312,5 +257,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
     </div>
   );
 });
+
+PavementMapView.displayName = 'PavementMapView';
 
 export default PavementMapView;
