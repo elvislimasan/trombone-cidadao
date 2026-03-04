@@ -339,13 +339,13 @@ const WorkDetailsPage = () => {
 
     const url = getWorkShareUrl(work.id);
     const title = work.title;
-    const text = work.description || 'Confira os detalhes desta obra pública no Trombone Cidadão.';
+    // const text = work.description || 'Confira os detalhes desta obra pública no Trombone Cidadão.'; // Removido para evitar que o texto apareça no corpo da mensagem
 
     try {
       if (Capacitor.isNativePlatform()) {
         await Share.share({
           title,
-          text,
+          // text, // Removido
           url,
           dialogTitle: 'Compartilhar Obra',
         });
@@ -355,7 +355,7 @@ const WorkDetailsPage = () => {
       if (navigator.share) {
         await navigator.share({
           title,
-          text,
+          // text, // Removido
           url,
         });
         return;
