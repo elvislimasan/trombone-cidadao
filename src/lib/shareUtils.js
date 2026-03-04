@@ -61,3 +61,24 @@ export const getReportShareUrl = (id) => {
   return `${origin}/share/bronca/${id}`;
 };
 
+export const getWorkShareUrl = (id) => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+
+  if (typeof window === 'undefined') {
+    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+      return `https://trombone-cidadao.vercel.app/share/obra/${id}`;
+    }
+    return `https://trombonecidadao.com.br/share/obra/${id}`;
+  }
+
+  const origin = window.location.origin || '';
+  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+      return `https://trombone-cidadao.vercel.app/share/obra/${id}`;
+    }
+    return `https://trombonecidadao.com.br/share/obra/${id}`;
+  }
+
+  return `${origin}/share/obra/${id}`;
+};
+
