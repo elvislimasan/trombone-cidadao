@@ -565,7 +565,7 @@ const PavementMapPage = () => {
       </div>
 
       <Dialog open={!!selectedWorkId} onOpenChange={(open) => !open && setSelectedWorkId(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 z-[1200]">
           {selectedWork && (
             <>
               <DialogHeader className="p-4 border-b">
@@ -581,7 +581,7 @@ const PavementMapPage = () => {
       </Dialog>
 
       <Dialog open={streetListModal.isOpen} onOpenChange={(open) => !open && setStreetListModal({ isOpen: false, title: '', streets: [] })}>
-        <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto z-[1200]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-tc-red">
               <List className="w-6 h-6" />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Edit, Trash2, Eye, MessageSquare, FileText, Clock, CheckCircle, XCircle, PlusCircle, Send, Upload, Building, ShoppingCart } from 'lucide-react';
+import { Edit, Trash2, Eye, MessageSquare, FileText, Clock, CheckCircle, XCircle, PlusCircle, Send, Upload, Building, ShoppingCart, MapPin, Share2, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/customSupabaseClient';
+import ReportModal from '@/components/ReportModal';
 
 const UserDashboardPage = () => {
   const { user } = useAuth();
@@ -21,6 +22,7 @@ const UserDashboardPage = () => {
   const [comments, setComments] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [reportToDelete, setReportToDelete] = useState(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [newEntry, setNewEntry] = useState({ name: '', address: '', phone: '', type: 'commerce', photo: null, photoPreview: null });
   const photoInputRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -177,6 +179,51 @@ const UserDashboardPage = () => {
     }
   };
 
+  const handleCreateReport = async (newReportData, uploadMediaCallback) => {
+    if (!user) return;
+
+    const { title, description, category, address, location, pole_number, is_from_water_utility } = newReportData;
+
+    const { data, error } = await supabase
+      .from('reports')
+      .insert({
+        title,
+        description,
+        category_id: category,
+        address,
+        location: `POINT(${location.lng} ${location.lat})`,
+        author_id: user.id,
+        protocol: `TROMB-${Date.now()}`,
+        pole_number: category === 'iluminacao' ? pole_number : null,
+        is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
+        status: 'pending',
+        moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
+      })
+      .select('id, title')
+      .single();
+
+    if (error) {
+      toast({ title: "Erro ao criar bronca", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    if (uploadMediaCallback) {
+      await uploadMediaCallback(data.id);
+    }
+
+    const toastMessage = user?.is_admin
+      ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
+      : { title: "Bronca enviada para moderação! 📬", description: "Sua solicitação será analisada antes de ser publicada." };
+
+    toast(toastMessage);
+    setIsReportModalOpen(false);
+
+    // Atualiza a lista de broncas do usuário
+    setTimeout(() => {
+      fetchUserContributions();
+    }, 1000);
+  };
+
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.05 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 
@@ -194,10 +241,10 @@ const UserDashboardPage = () => {
           </div>
           <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
             <Button
-              asChild
               className="h-10 px-4 sm:px-6 rounded-full font-semibold bg-tc-red hover:bg-tc-red/90"
+              onClick={() => setIsReportModalOpen(true)}
             >
-              <a href="/nova-bronca">Cadastrar minha primeira bronca</a>
+              Cadastrar minha primeira bronca
             </Button>
             <Button
               asChild
@@ -243,28 +290,108 @@ const UserDashboardPage = () => {
                   </div>
                 </motion.div>
               ) : reports.length > 0 ? (
-                <motion.div key="reports-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" variants={containerVariants} initial="hidden" animate="visible" exit={{ opacity: 0 }}>
+                <motion.div key="reports-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" variants={containerVariants} initial="hidden" animate="visible" exit={{ opacity: 0 }}>
                   {reports.map((report) => (
                     <motion.div key={report.id} variants={itemVariants}>
-                      <Card className="h-full flex flex-col bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                        <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
-                          <CardTitle className="text-lg md:text-xl font-bold text-foreground line-clamp-1">{report.title}</CardTitle>
-                          <div className="flex items-center gap-2 text-xs md:text-sm">
-                            {getStatusInfo(report.moderation_status).icon}
-                            <span className={getStatusInfo(report.moderation_status).color}>{getStatusInfo(report.moderation_status).text}</span>
+                      <div
+                        className="h-full flex flex-col bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition cursor-pointer group"
+                        onClick={() => setSelectedReport(report)}
+                      >
+                        <div className="relative h-40 w-full overflow-hidden">
+                          {report.photos && report.photos.length > 0 ? (
+                            <img
+                              src={report.photos[0].url}
+                              alt={report.title}
+                              className="w-full h-full object-cover transform transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-[#1D4ED8] via-[#2563EB] to-[#0EA5E9] flex items-center justify-center">
+                              <span className="text-4xl">{report.categoryIcon || '📍'}</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                          
+                          <div className="absolute top-2 left-2">
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
+                              report.moderation_status === 'approved' ? 'bg-green-100 text-green-700' :
+                              report.moderation_status === 'rejected' ? 'bg-red-100 text-red-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {getStatusInfo(report.moderation_status).icon}
+                              {getStatusInfo(report.moderation_status).text}
+                            </span>
                           </div>
-                        </CardHeader>
-                        <CardContent className="flex-grow p-4 md:p-6 pt-0 md:pt-0">
-                          <p className="text-muted-foreground text-xs md:text-sm line-clamp-3">{report.description}</p>
-                        </CardContent>
-                        <CardFooter className="p-3 md:p-4 bg-muted/50 flex justify-between items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedReport(report)} className="gap-1 md:gap-2 h-8 md:h-10 text-xs md:text-sm px-2 md:px-4"><Eye className="w-3 h-3 md:w-4 md:h-4" /> Detalhes</Button>
-                          <div className="flex gap-1 md:gap-2">
-                            <Button size="icon" variant="outline" className="h-8 w-8 md:h-10 md:w-10" onClick={() => setSelectedReport(report)} disabled={report.moderation_status !== 'pending_approval'}><Edit className="w-3 h-3 md:w-4 md:h-4" /></Button>
-                            <Button size="icon" variant="destructive" className="h-8 w-8 md:h-10 md:w-10" onClick={() => openDeleteConfirmation(report)}><Trash2 className="w-3 h-3 md:w-4 md:h-4" /></Button>
+
+                          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
+                             <div className="flex items-center gap-2">
+                                <span className="text-[11px] text-white/90 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
+                                  <Eye className="w-3.5 h-3.5" />
+                                  {report.views || 0}
+                                </span>
+                                <span className="text-[11px] text-white/90 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
+                                  <Heart className="w-3.5 h-3.5" />
+                                  {report.upvotes || 0}
+                                </span>
+                             </div>
+                             
+                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <Button 
+                                  size="icon" 
+                                  variant="secondary" 
+                                  className="h-7 w-7 rounded-full bg-white/95 text-[#374151] hover:bg-white hover:text-blue-600" 
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedReport(report);
+                                  }}
+                                  disabled={report.moderation_status !== 'pending_approval'}
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button 
+                                  size="icon" 
+                                  variant="secondary"
+                                  className="h-7 w-7 rounded-full bg-white/95 text-[#374151] hover:bg-red-50 hover:text-red-600"
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      openDeleteConfirmation(report);
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                            </div>
                           </div>
-                        </CardFooter>
-                      </Card>
+                        </div>
+
+                        <div className="p-4 flex-grow flex flex-col space-y-2">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                             <div className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                <span className="truncate max-w-[150px]">{report.address || 'Endereço não informado'}</span>
+                             </div>
+                             <span className="text-[10px]">{new Date(report.created_at).toLocaleDateString('pt-BR')}</span>
+                          </div>
+
+                          <h3 className="text-base font-semibold text-[#111827] leading-snug line-clamp-2">
+                            {report.title}
+                          </h3>
+                          
+                          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                            {report.description}
+                          </p>
+
+                          <div className="pt-2 mt-auto flex items-center justify-between gap-2 border-t border-gray-100">
+                             <div className="flex items-center gap-1.5">
+                                <span className="text-lg">{report.categoryIcon}</span>
+                                <span className="text-xs font-medium text-gray-600">{report.categoryName}</span>
+                             </div>
+                             {report.is_featured && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium border border-blue-100">
+                                  Destaque
+                                </span>
+                             )}
+                          </div>
+                        </div>
+                      </div>
                     </motion.div>
                   ))}
                 </motion.div>
@@ -372,6 +499,13 @@ const UserDashboardPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {isReportModalOpen && (
+        <ReportModal
+          onClose={() => setIsReportModalOpen(false)}
+          onSubmit={handleCreateReport}
+        />
+      )}
     </>
   );
 };

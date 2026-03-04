@@ -1,5 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
 const getSiteUrl = () => {
   if (import.meta.env.VITE_APP_URL) {
@@ -48,57 +50,128 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchUserProfile]);
 
+  // Função interna para processar callback de autenticação (URL completa ou hash)
+  const _handleAuthCallback = useCallback(async (urlOrHash, mounted = true) => {
+    if (!urlOrHash) return false;
+
+    console.log("Auth callback detected, attempting manual recovery...", urlOrHash);
+    try {
+      let code = null;
+      let accessToken = null;
+      let refreshToken = null;
+      
+      // Parse robusto usando URL API
+      let urlObj;
+      try {
+        urlObj = new URL(urlOrHash);
+      } catch (e) {
+        // Se falhar (ex: path relativo), tenta montar uma URL completa
+        if (urlOrHash.startsWith('/') || urlOrHash.startsWith('#') || urlOrHash.startsWith('?')) {
+           urlObj = new URL(urlOrHash, getSiteUrl() || 'http://localhost');
+        } else {
+           // Se for apenas fragmentos ou inválido
+           console.warn("Could not parse URL:", urlOrHash);
+           return false;
+        }
+      }
+
+      // 1. Verificar Search Params (PKCE - code)
+      const searchParams = urlObj.searchParams;
+      code = searchParams.get('code');
+      
+      // 2. Verificar Hash Params (Implicit - access_token)
+      // urlObj.hash inclui o '#', removemos com substring(1)
+      if (urlObj.hash) {
+        const hashParams = new URLSearchParams(urlObj.hash.substring(1));
+        accessToken = hashParams.get('access_token');
+        refreshToken = hashParams.get('refresh_token');
+        // Às vezes o code também vem no hash em certas implementações ou redirecionamentos mal formados
+        if (!code) code = hashParams.get('code');
+      }
+
+      // Tratamento para PKCE (code exchange)
+      if (code) {
+        console.log("Found code in URL, attempting exchangeCodeForSession...");
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (error) {
+          console.error("Manual exchangeCodeForSession failed:", error);
+        } else if (data?.session) {
+          console.log("Session recovered from code. User:", data.session.user.email);
+          if (mounted) {
+            await fetchUserProfile(data.session.user);
+            // Limpar URL para evitar reuso do code
+            if (window.history.replaceState && !Capacitor.isNativePlatform()) {
+               const cleanUrl = window.location.href.split('?')[0].split('#')[0];
+               window.history.replaceState(null, '', cleanUrl);
+            }
+          }
+          return true;
+        }
+      }
+
+      // Tratamento para Implicit Flow (access_token)
+      if (accessToken) {
+        console.log("Found access_token in hash, attempting setSession...");
+        
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+
+        if (error) {
+          console.error("Manual setSession failed:", error);
+        } else if (data?.session) {
+          console.log("Session recovered manually from hash. User:", data.session.user.email);
+          if (mounted) {
+             await fetchUserProfile(data.session.user);
+             // Limpar o hash da URL após sucesso
+             if (window.location.hash && !Capacitor.isNativePlatform()) {
+                window.location.hash = ''; 
+             }
+          }
+          return true; // Sucesso
+        } else {
+           console.warn("Manual setSession returned no error but no session data either.");
+        }
+      }
+    } catch (e) {
+      console.error("Error parsing auth url/hash:", e);
+    }
+    return false;
+  }, [fetchUserProfile]);
+
   useEffect(() => {
     let mounted = true;
+    let appListener = null;
 
     const initAuth = async () => {
       try {
-        // 1. Tentar recuperar sessão do hash da URL (Prioridade Máxima para callbacks OAuth)
-        const hash = window.location.hash;
-        if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
-          console.log("Auth hash detected, attempting manual recovery...");
-          try {
-            // Tenta limpar caracteres estranhos que as vezes aparecem no hash
-            const cleanHash = hash.substring(1).replace(/^#/, '');
-            const params = new URLSearchParams(cleanHash);
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
-
-            if (accessToken) {
-              console.log("Found access_token in hash, attempting setSession...");
-              
-              // Tenta limpar o hash da URL para não processar duas vezes (opcional, mas bom pra UX)
-              // history.replaceState(null, null, ' '); 
-
-              const { data, error } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || '',
-              });
-
-              if (error) {
-                console.error("Manual setSession failed:", error);
-                // Se falhar, talvez o token seja inválido ou expirado.
-                // Não damos return aqui para permitir que o getSession tente (embora provavel que falhe também)
-              } else if (data?.session) {
-                console.log("Session recovered manually from hash. User:", data.session.user.email);
-                if (mounted) {
-                   await fetchUserProfile(data.session.user);
-                   // Importante: Limpar o hash da URL após sucesso para evitar reprocessamento em reload
-                   window.location.hash = ''; 
-                }
-                return;
-              } else {
-                 console.warn("Manual setSession returned no error but no session data either.");
-              }
-            }
-          } catch (e) {
-            console.error("Error parsing auth hash:", e);
-          }
-        } else {
-             console.log("No auth hash detected.");
+        // 1. Tentar recuperar sessão da URL atual
+        let recovered = false;
+        
+        // Se for nativo, verifica o Launch URL primeiro (Deep Link de inicialização)
+        if (Capacitor.isNativePlatform()) {
+           try {
+             const launchUrl = await App.getLaunchUrl();
+             if (launchUrl?.url) {
+                console.log("Checking Launch URL for auth:", launchUrl.url);
+                recovered = await _handleAuthCallback(launchUrl.url, mounted);
+             }
+           } catch (e) {
+             console.warn("Failed to get launch URL:", e);
+           }
         }
 
-        // 2. Se não houve recuperação manual (ou falhou), verificar sessão existente
+        // Se não recuperou via Launch URL (ou é Web), tenta URL atual
+        if (!recovered) {
+           const currentUrl = window.location.href;
+           recovered = await _handleAuthCallback(currentUrl, mounted);
+        }
+        
+        if (recovered) return;
+
+        // 2. Se não houve recuperação manual, verificar sessão existente
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -113,8 +186,6 @@ export const AuthProvider = ({ children }) => {
         } else if (session) {
           if (mounted) await fetchUserProfile(session.user);
         } else {
-          // Sem sessão. Se não estamos num fluxo de auth (sem hash), finalizamos o loading.
-          // Se estamos num fluxo de auth e falhou tudo acima, também finalizamos.
           if (mounted) {
             setUser(null);
             setLoading(false);
@@ -128,6 +199,17 @@ export const AuthProvider = ({ children }) => {
 
     initAuth();
 
+    // Listener para App Links (Capacitor/Nativo)
+    if (Capacitor.isNativePlatform()) {
+      App.addListener('appUrlOpen', async ({ url }) => {
+        console.log('App URL Open detected:', url);
+        // Pass full URL to handle both hash and search params
+        await _handleAuthCallback(url, mounted);
+      }).then(listener => {
+        appListener = listener;
+      });
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state change:", event);
       if (!mounted) return;
@@ -138,15 +220,13 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setLoading(false);
       } else if (event === 'INITIAL_SESSION') {
-        // Apenas processa INITIAL_SESSION se tiver sessão, 
-        // caso contrário deixa o initAuth decidir o destino (para evitar sobrescrever recuperação manual)
         if (session) {
           await fetchUserProfile(session.user);
         }
       }
     });
 
-    // Safety timeout para garantir que o app não fique travado no loading
+    // Safety timeout
     const timeoutId = setTimeout(() => {
       if (mounted) {
         setLoading(prev => {
@@ -157,14 +237,17 @@ export const AuthProvider = ({ children }) => {
           return prev;
         });
       }
-    }, 10000); // 10 segundos de timeout
+    }, 10000);
 
     return () => {
       mounted = false;
       subscription?.unsubscribe();
       clearTimeout(timeoutId);
+      if (appListener) {
+        appListener.remove();
+      }
     };
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, _handleAuthCallback]);
 
   const signUp = useCallback(async (email, password, meta) => {
     const redirectTo = `${getSiteUrl()}/painel-usuario`;
@@ -191,7 +274,18 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const redirectTo = `${getSiteUrl()}/painel-usuario`;
+    let redirectTo = getSiteUrl();
+
+    // Ajuste para redirecionamento em App Nativo (Capacitor)
+    if (Capacitor.isNativePlatform()) {
+      // Certifique-se de adicionar esta URL nas "Redirect URLs" no painel do Supabase
+      // Usando 'painel-usuario' conforme preferência do usuário (basta adicionar no AndroidManifest)
+      redirectTo = 'com.trombonecidadao.app://painel-usuario';
+      console.log("Native platform detected. Setting redirectTo:", redirectTo);
+    } else {
+      console.log("Web platform detected. Setting redirectTo:", redirectTo);
+    }
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

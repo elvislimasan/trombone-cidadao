@@ -1441,7 +1441,7 @@ const ReportPage = () => {
                           </div>
                         )}
 
-                        <div className="flex items-center gap-3 bg-white  px-3 py-2">
+                       { report.category === 'buracos' && <div className="flex items-center gap-3 bg-white  px-3 py-2">
                           <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
                             <Droplet className="w-4 h-4 text-red-600" />
                           </div>
@@ -1453,7 +1453,7 @@ const ReportPage = () => {
                               {isFromWaterUtility ? 'Sim' : 'Não'}
                             </div>
                           </div>
-                        </div>
+                        </div>}
 
                         <div className="flex items-center gap-3 bg-white  px-3 py-2">
                           <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">

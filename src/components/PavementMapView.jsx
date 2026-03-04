@@ -2,7 +2,7 @@
 import React, { useState, useImperativeHandle, forwardRef, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction } from 'lucide-react';
+import { X, Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction, Info } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
@@ -20,9 +20,12 @@ const MapScrollLock = ({ mode }) => {
   return null;
 };
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
 const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const [selectedStreet, setSelectedStreet] = useState(null);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const mapRef = useRef();
   const { mode } = useMapModeToggle();
 
@@ -75,10 +78,12 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const handleSelectStreet = (street) => {
     setSelectedStreet(street);
     setCurrentMediaIndex(0);
+    setIsDetailsOpen(false);
   };
 
   const handleClose = () => {
     setSelectedStreet(null);
+    setIsDetailsOpen(false);
   };
 
   const nextMedia = () => {
@@ -132,90 +137,178 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
       <AnimatePresence>
         {selectedStreet && (
           <motion.div
+            layout
             initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={{ 
+              opacity: 1, 
+              y: 0,
+            }}
             exit={{ opacity: 0, y: 50 }}
-            className="absolute bottom-4 left-4 right-4 bg-card p-4 rounded-lg shadow-2xl border border-border z-[1000] grid grid-cols-1 md:grid-cols-2 gap-4"
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="absolute left-4 right-4 bottom-4 bg-card rounded-lg shadow-2xl border border-border z-[500] flex flex-col overflow-hidden"
           >
-            <button onClick={handleClose} className="absolute top-2 right-2 text-muted-foreground hover:text-foreground z-20">
-              <X className="w-5 h-5" />
-            </button>
-            
-            <div>
-              <h3 className="font-bold text-lg mb-2 text-tc-red">{selectedStreet.name}</h3>
-              {selectedStreet.bairro && <p className="text-sm text-muted-foreground mb-2">{selectedStreet.bairro.name}</p>}
-              <div className="flex items-center gap-2 mb-2">
+            <div className="flex-none p-4 pb-2 flex justify-between items-start bg-card z-10">
+              <div className="flex-1 pr-8">
+                <h3 className="font-bold text-lg text-tc-red line-clamp-1">{selectedStreet.name}</h3>
+                {selectedStreet.bairro && <p className="text-sm text-muted-foreground line-clamp-1">{selectedStreet.bairro.name}</p>}
+              </div>
+              <button onClick={handleClose} className="absolute top-2 right-2 p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-4 pb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full text-white ${statusInfo.color}`}>
                   {statusInfo.icon}
                   {statusInfo.text}
                 </span>
+                {selectedStreet.paving_date && (
+                  <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full">
+                    {new Date(selectedStreet.paving_date).getFullYear()}
+                  </span>
+                )}
               </div>
-              {selectedStreet.paving_date && (
-                <p className="text-xs text-muted-foreground mt-1">Ano da Pavimentação: {new Date(selectedStreet.paving_date).getFullYear()}</p>
-              )}
-              {selectedStreet.work_id && (
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onWorkClick(selectedStreet.work_id);
-                  }} 
-                  className="mt-3 text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2"
-                  style={{ pointerEvents: 'auto', touchAction: 'auto' }}
-                >
-                  <HardHat className="w-4 h-4" /> Ver detalhes da obra
-                </button>
-              )}
-            </div>
 
-            <div className="relative w-full h-48 md:h-full bg-secondary rounded-md overflow-hidden">
-              {selectedStreet.media && selectedStreet.media.length > 0 ? (
-                <>
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={currentMediaIndex}
-                      initial={{ opacity: 0, x: 50 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -50 }}
-                      transition={{ duration: 0.3 }}
-                      className="w-full h-full"
-                    >
-                      {selectedStreet.media[currentMediaIndex].type === 'photo' ? (
-                        <img src={selectedStreet.media[currentMediaIndex].url} alt={selectedStreet.media[currentMediaIndex].description} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-black">
-                           <a href={selectedStreet.media[currentMediaIndex].url} target="_blank" rel="noopener noreferrer" className="text-white flex flex-col items-center">
-                            <Video className="w-12 h-12 mb-2" />
-                            <span className="text-sm">Assistir vídeo</span>
-                          </a>
-                        </div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                  <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                    <p>{selectedStreet.media[currentMediaIndex].description}</p>
-                    <p>Data: {selectedStreet.media[currentMediaIndex].date}</p>
-                  </div>
-                  {selectedStreet.media.length > 1 && (
-                    <>
-                      <button onClick={prevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-1 rounded-full hover:bg-black/50">
-                        <ChevronLeft className="w-5 h-5" />
-                      </button>
-                      <button onClick={nextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-1 rounded-full hover:bg-black/50">
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                  <ImageIcon className="w-10 h-10 mb-2" />
-                  <p className="text-sm">Nenhuma mídia disponível</p>
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedStreet.work_id && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onWorkClick(selectedStreet.work_id);
+                    }} 
+                    className="text-sm bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-100 flex items-center gap-2 transition-colors"
+                  >
+                    <HardHat className="w-4 h-4" /> Ver obra
+                  </button>
+                )}
+                
+                <button 
+                  onClick={() => setIsDetailsOpen(true)}
+                  className="text-sm bg-secondary text-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80 flex items-center gap-2 transition-colors"
+                >
+                  <Info className="w-4 h-4" /> Ver mais detalhes
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-tc-red">{selectedStreet?.name}</DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground">
+              {selectedStreet?.bairro?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-4">
+            {/* Status Info */}
+            <div className="flex flex-wrap items-center gap-3">
+              <span className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-full text-white ${statusInfo.color}`}>
+                {statusInfo.icon}
+                {statusInfo.text}
+              </span>
+              {selectedStreet?.paving_date && (
+                <span className="text-sm bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full font-medium">
+                  Realizado em: {new Date(selectedStreet.paving_date).toLocaleDateString()}
+                </span>
+              )}
+               {selectedStreet?.work_id && (
+                  <button 
+                    onClick={() => {
+                      setIsDetailsOpen(false);
+                      onWorkClick(selectedStreet.work_id);
+                    }} 
+                    className="text-sm bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-100 flex items-center gap-2 transition-colors font-medium border border-blue-100"
+                  >
+                    <HardHat className="w-4 h-4" /> Ver página da obra
+                  </button>
+                )}
+            </div>
+
+            {/* Main Media Viewer */}
+            <div className="relative bg-secondary rounded-lg overflow-hidden aspect-video w-full shadow-inner border border-border/50">
+              {selectedStreet?.media && selectedStreet.media.length > 0 ? (
+                <>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={currentMediaIndex}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="w-full h-full relative group"
+                    >
+                      {selectedStreet.media[currentMediaIndex].type === 'photo' ? (
+                        <img src={selectedStreet.media[currentMediaIndex].url} alt={selectedStreet.media[currentMediaIndex].description} className="w-full h-full object-contain bg-black/5" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-black">
+                            <a href={selectedStreet.media[currentMediaIndex].url} target="_blank" rel="noopener noreferrer" className="text-white flex flex-col items-center hover:scale-105 transition-transform">
+                            <Video className="w-16 h-16 mb-4 opacity-80" />
+                            <span className="text-lg font-medium">Assistir vídeo</span>
+                          </a>
+                        </div>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 pt-16 text-white">
+                        <p className="text-lg font-medium truncate">{selectedStreet.media[currentMediaIndex].description}</p>
+                        <p className="text-sm opacity-80">{selectedStreet.media[currentMediaIndex].date}</p>
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
+                  
+                  {selectedStreet.media.length > 1 && (
+                    <>
+                      <button onClick={prevMedia} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-colors backdrop-blur-sm">
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+                      <button onClick={nextMedia} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-colors backdrop-blur-sm">
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+                      <div className="absolute top-4 right-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
+                        {currentMediaIndex + 1} / {selectedStreet.media.length}
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
+                  <ImageIcon className="w-16 h-16 mb-4 opacity-20" />
+                  <p className="text-lg font-medium">Nenhuma mídia disponível</p>
+                  <p className="text-sm opacity-70 mt-2">Não há fotos ou vídeos registrados para esta rua.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnail Gallery */}
+            {selectedStreet?.media && selectedStreet.media.length > 1 && (
+              <div>
+                <h4 className="font-semibold mb-4 flex items-center gap-2 text-muted-foreground">
+                  <ImageIcon className="w-5 h-5" /> Galeria Completa
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {selectedStreet.media.map((item, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentMediaIndex(index)}
+                      className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${currentMediaIndex === index ? 'border-tc-red ring-2 ring-tc-red/20 opacity-100 scale-[1.02]' : 'border-transparent hover:border-muted-foreground/30 opacity-70 hover:opacity-100'}`}
+                    >
+                      {item.type === 'photo' ? (
+                        <img src={item.url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-black/10 flex items-center justify-center">
+                          <Video className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });

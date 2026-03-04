@@ -52,6 +52,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="trombonecidadao" android:host="bronca" />
             </intent-filter>
+
+            <!-- ✅ Auth Callback - Para login social (Google, etc) -->
+            <!-- Suporta tanto 'login-callback' quanto 'painel-usuario' para flexibilidade -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.trombonecidadao.app" android:host="login-callback" />
+                <data android:scheme="com.trombonecidadao.app" android:host="painel-usuario" />
+            </intent-filter>
             
             <!-- ✅ Android App Links (HTTPS) - Para links https://trombone-cidadao.vercel.app/bronca/[ID] -->
             <!-- IMPORTANTE: Requer arquivo .well-known/assetlinks.json no servidor -->
