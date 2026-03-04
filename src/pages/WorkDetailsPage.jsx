@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { getWorkShareUrl } from '@/lib/shareUtils';
 import DynamicSEO from '@/components/DynamicSeo';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -211,32 +214,81 @@ const WorkDetailsPage = () => {
     }
   };
 
+  // Função para obter URL base correta (não localhost no app)
+  const getBaseUrl = useCallback(() => {
+    let baseUrl;
+    
+    // 1. Prioridade: Variável de ambiente (configurada no Vercel)
+    if (import.meta.env.VITE_APP_URL) {
+      baseUrl = import.meta.env.VITE_APP_URL;
+    }
+    // 2. Se estiver no app nativo, sempre usar produção
+    else if (Capacitor.isNativePlatform()) {
+      baseUrl = 'https://trombonecidadao.com.br';
+    }
+    // 3. Se estiver no navegador, detectar automaticamente o ambiente
+    else if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      
+      // Se for localhost, usar localhost
+      if (origin.includes('localhost')) {
+        baseUrl = origin;
+      }
+      // Se for Vercel (dev), usar Vercel
+      else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
+        baseUrl = origin;
+      }
+      // Se for domínio de produção, usar produção
+      else if (origin.includes('trombonecidadao.com.br')) {
+        baseUrl = 'https://trombonecidadao.com.br';
+      }
+      // Fallback: usar a origem atual
+      else {
+        baseUrl = origin;
+      }
+    }
+    // 4. Fallback final: produção
+    else {
+      baseUrl = 'https://trombonecidadao.com.br';
+    }
+    
+    // Remover barra final se existir para evitar barras duplas
+    return baseUrl.replace(/\/$/, '');
+  }, []);
+
+  const baseUrl = useMemo(() => getBaseUrl(), [getBaseUrl]);
+
   const seoData = useMemo(() => {
-    const baseUrl = 'https://trombonecidadao.com.br';
     const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
     
     let workImage = defaultThumbnail;
+    let imageUrl = null;
     
     if (work && work.thumbnail_url) {
-      workImage = work.thumbnail_url;
+      imageUrl = work.thumbnail_url;
     } else if (media && media.length > 0) {
       const firstImage = media.find(m => m.type === 'image' || m.type === 'photo');
       const firstVideo = media.find(m => m.type === 'video' || m.type === 'video_url');
       const mediaItem = firstImage || firstVideo;
       
       if (mediaItem && mediaItem.url) {
-        let rawUrl = mediaItem.url;
-        if (rawUrl.startsWith('http')) {
-          try {
-             const cleanUrl = rawUrl.split('?')[0];
-             workImage = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=1200&h=630&fit=cover&q=80&output=jpg`;
-          } catch (e) { 
-             workImage = rawUrl;
-             console.error(e); 
-          }
-        } else {
-           workImage = rawUrl;
-        }
+        imageUrl = mediaItem.url;
+      }
+    }
+
+    if (imageUrl) {
+      // Garante que a URL seja absoluta e acessível
+      let absoluteUrl = imageUrl;
+      if (!imageUrl.startsWith('http')) {
+        absoluteUrl = `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+      }
+
+      try {
+        const cleanUrl = absoluteUrl.split('?')[0];
+        workImage = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=1200&h=630&fit=cover&q=80&output=jpg`;
+      } catch (e) {
+        console.error(e);
+        workImage = absoluteUrl;
       }
     }
 
@@ -248,7 +300,7 @@ const WorkDetailsPage = () => {
       image: workImage,
       url: currentUrl
     };
-  }, [work, media]);
+  }, [work, media, baseUrl]);
 
   const viewableMedia = useMemo(() => media.filter(m => ['image', 'photo', 'video', 'video_url'].includes(m.type)), [media]);
 
@@ -285,18 +337,30 @@ const WorkDetailsPage = () => {
   const handleShareWork = async () => {
     if (typeof window === 'undefined' || !work) return;
 
-    const url = window.location.href;
-    const shareData = {
-      title: work.title,
-      text: work.description || 'Confira os detalhes desta obra pública no Trombone Cidadão.',
-      url,
-    };
+    const url = getWorkShareUrl(work.id);
+    const title = work.title;
+    const text = work.description || 'Confira os detalhes desta obra pública no Trombone Cidadão.';
 
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({
+          title,
+          text,
+          url,
+          dialogTitle: 'Compartilhar Obra',
+        });
         return;
       }
+
+      if (navigator.share) {
+        await navigator.share({
+          title,
+          text,
+          url,
+        });
+        return;
+      }
+
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(url);
         toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
@@ -304,7 +368,13 @@ const WorkDetailsPage = () => {
       }
     } catch (error) {
       if (error.name === 'AbortError') return;
-      toast({ title: "Erro ao compartilhar", variant: "destructive" });
+      // Fallback para clipboard
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
+      } catch (e) {
+        toast({ title: "Erro ao compartilhar", variant: "destructive" });
+      }
     }
   };
 

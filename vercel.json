@@ -5,6 +5,10 @@
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-petition?id=:id"
     },
     {
+      "source": "/share/obra/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-work?id=:id"
+    },
+    {
       "source": "/share/bronca/:id",
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-preview?id=:id"
     },
