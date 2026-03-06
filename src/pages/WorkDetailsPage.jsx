@@ -90,13 +90,13 @@ const WorkMap = ({ location, bairro }) => {
 
 const getStatusInfo = (status) => {
   switch (status) {
-    case 'in-progress': return { text: 'Em Andamento', icon: Activity, color: 'text-blue-700', bg: 'bg-gradient-to-r from-blue-50 to-blue-100', border: 'border-blue-200' };
-    case 'completed': return { text: 'Concluída', icon: CheckCircle, color: 'text-emerald-700', bg: 'bg-gradient-to-r from-emerald-50 to-emerald-100', border: 'border-emerald-200' };
-    case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-amber-700', bg: 'bg-gradient-to-r from-amber-50 to-amber-100', border: 'border-amber-200' };
-    case 'unfinished': return { text: 'Inacabada', icon: AlertTriangle, color: 'text-rose-700', bg: 'bg-gradient-to-r from-rose-50 to-rose-100', border: 'border-rose-200' };
-    case 'planned': return { text: 'Planejamento', icon: Calendar, color: 'text-violet-700', bg: 'bg-gradient-to-r from-violet-50 to-violet-100', border: 'border-violet-200' };
-    case 'tendered': return { text: 'Em Licitação', icon: FileText, color: 'text-orange-700', bg: 'bg-gradient-to-r from-orange-50 to-orange-100', border: 'border-orange-200' };
-    default: return { text: 'Não definido', icon: HelpCircle, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' };
+    case 'in-progress': return { text: 'Em Andamento', icon: Activity, color: 'text-blue-800', bg: 'bg-gradient-to-r from-blue-50 to-blue-100', border: 'border-blue-200' };
+    case 'completed': return { text: 'Concluída', icon: CheckCircle, color: 'text-emerald-800', bg: 'bg-gradient-to-r from-emerald-50 to-emerald-100', border: 'border-emerald-200' };
+    case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-amber-800', bg: 'bg-gradient-to-r from-amber-50 to-amber-100', border: 'border-amber-200' };
+    case 'unfinished': return { text: 'Inacabada', icon: AlertTriangle, color: 'text-rose-800', bg: 'bg-gradient-to-r from-rose-50 to-rose-100', border: 'border-rose-200' };
+    case 'planned': return { text: 'Planejamento', icon: Calendar, color: 'text-violet-800', bg: 'bg-gradient-to-r from-violet-50 to-violet-100', border: 'border-violet-200' };
+    case 'tendered': return { text: 'Em Licitação', icon: FileText, color: 'text-orange-800', bg: 'bg-gradient-to-r from-orange-50 to-orange-100', border: 'border-orange-200' };
+    default: return { text: 'Não definido', icon: HelpCircle, color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-200' };
   }
 };
 
@@ -617,7 +617,7 @@ const WorkDetailsPage = () => {
             {/* Title & Progress Hero Card */}
             <div className="p-6 md:p-8">
               <div className="flex flex-wrap items-center gap-2 mb-4">
-                <Badge className={`${statusInfo.bg} ${statusInfo.color} border border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
+                <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
                   <statusInfo.icon className="w-4 h-4 mr-1.5" />
                   {statusInfo.text}
                 </Badge>
