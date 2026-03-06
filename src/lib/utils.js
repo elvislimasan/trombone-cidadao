@@ -41,9 +41,15 @@ export function formatCurrency(value, currencySymbol = true) {
 export function formatDate(dateString) {
   if (!dateString) return 'Data não informada';
   try {
+    // If it's a simple date string YYYY-MM-DD, format manually to avoid timezone issues
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-');
+      return `${day}/${month}/${year}`;
+    }
+
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Data inválida';
-    return date.toLocaleDateString('pt-BR');
+    return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' }); // Force UTC if it's a timestamp
   } catch (error) {
     console.error('Error formatting date:', error);
     return 'Data inválida';
