@@ -11,7 +11,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { Progress } from '@/components/ui/progress';
 import MediaViewer from '@/components/MediaViewer';
 import MarkResolvedModal from '@/components/MarkResolvedModal';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { supabase } from '@/lib/customSupabaseClient';
 import DynamicSEO from './DynamicSeo';
 import { Capacitor } from '@capacitor/core';
@@ -1185,31 +1185,29 @@ const ReportDetails = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Alterar Status</label>
-                    <Select value={report.status} onValueChange={handleAdminStatusChange}>
-                      <SelectTrigger className="w-full bg-background">
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
-                      <SelectContent className="z-[2100]">
-                        <SelectItem value="pending">Pendente</SelectItem>
-                        <SelectItem value="in-progress">Em Andamento</SelectItem>
-                        <SelectItem value="pending_resolution">Verificando Resolução</SelectItem>
-                        {user?.is_admin && <SelectItem value="resolved">Resolvido</SelectItem>}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      value={report.status}
+                      onSelect={handleAdminStatusChange}
+                      options={[
+                        { value: "pending", label: "Pendente" },
+                        { value: "in-progress", label: "Em Andamento" },
+                        { value: "pending_resolution", label: "Verificando Resolução" },
+                        ...(user?.is_admin ? [{ value: "resolved", label: "Resolvido" }] : [])
+                      ]}
+                      placeholder="Selecione o status"
+                      searchPlaceholder="Buscar status..."
+                    />
                   </div>
                   {user?.is_admin && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Alterar Categoria</label>
-                      <Select value={report.category} onValueChange={handleAdminCategoryChange}>
-                        <SelectTrigger className="w-full bg-background">
-                          <SelectValue placeholder="Selecione a categoria" />
-                        </SelectTrigger>
-                        <SelectContent className="z-[2100]">
-                          {Object.entries(categories).map(([key, value]) => (
-                            <SelectItem key={key} value={key}>{value}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        value={report.category}
+                        onSelect={handleAdminCategoryChange}
+                        options={Object.entries(categories).map(([key, value]) => ({ value: key, label: value }))}
+                        placeholder="Selecione a categoria"
+                        searchPlaceholder="Buscar categoria..."
+                      />
                     </div>
                   )}
                 </div>

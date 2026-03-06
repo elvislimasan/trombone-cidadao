@@ -24,9 +24,9 @@ import {
   ArrowLeft, Calendar, DollarSign, HardHat, PauseCircle, CheckCircle, MapPin, 
   Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, 
   BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, 
-  Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle 
+  Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle, Eye, Briefcase, HelpCircle
 } from 'lucide-react';
-import { formatCurrency, formatCnpj } from '@/lib/utils';
+import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { WorkEditModal } from './admin/ManageWorksPage';
@@ -88,6 +88,18 @@ const WorkMap = ({ location, bairro }) => {
   );
 };
 
+const getStatusInfo = (status) => {
+  switch (status) {
+    case 'in-progress': return { text: 'Em Andamento', icon: Activity, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' };
+    case 'completed': return { text: 'Concluída', icon: CheckCircle, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+    case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' };
+    case 'unfinished': return { text: 'Inacabada', icon: AlertTriangle, color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200' };
+    case 'planned': return { text: 'Planejamento', icon: Calendar, color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200' };
+    case 'tendered': return { text: 'Em Licitação', icon: FileText, color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' };
+    default: return { text: 'Não definido', icon: HelpCircle, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' };
+  }
+};
+
 const WorkDetailsPage = () => {
   const { workId } = useParams();
   const { toast } = useToast();
@@ -97,6 +109,7 @@ const WorkDetailsPage = () => {
   const [media, setMedia] = useState([]);
   const [isFavorited, setIsFavorited] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedMeasurement, setSelectedMeasurement] = useState(null);
   const [viewerState, setViewerState] = useState({ isOpen: false, startIndex: 0, items: [] });
   const [showContribDialog, setShowContribDialog] = useState(false);
   const [contribDescription, setContribDescription] = useState('');
@@ -302,13 +315,32 @@ const WorkDetailsPage = () => {
     };
   }, [work, media, baseUrl]);
 
-  const viewableMedia = useMemo(() => media.filter(m => ['image', 'photo', 'video', 'video_url'].includes(m.type)), [media]);
+  const viewableMedia = useMemo(() => {
+    const items = media.filter(m => ['image', 'photo', 'video', 'video_url'].includes(m.type));
+    if (work?.thumbnail_url) {
+      const exists = items.some(m => m.url === work.thumbnail_url);
+      if (!exists) {
+        return [{
+          id: 'thumbnail',
+          type: 'photo',
+          url: work.thumbnail_url,
+          description: 'Capa da Obra',
+          gallery_name: 'Geral',
+          created_at: work.created_at
+        }, ...items];
+      }
+    }
+    return items;
+  }, [media, work]);
 
-  // Group media by gallery_name
+  // Filter media specifically for the main gallery (exclude measurement-bound media)
+  const mainGalleryMedia = useMemo(() => viewableMedia.filter(m => !m.measurement_id), [viewableMedia]);
+
+  // Group media by gallery_name for the main gallery
   const galleryGroups = useMemo(() => {
     const groups = {};
     
-    viewableMedia.forEach(item => {
+    mainGalleryMedia.forEach(item => {
       const name = item.gallery_name || 'Geral';
       if (!groups[name]) {
         groups[name] = [];
@@ -325,14 +357,17 @@ const WorkDetailsPage = () => {
         if (b.name === 'Geral') return 1;
         return a.name.localeCompare(b.name);
     });
-  }, [viewableMedia]);
+  }, [mainGalleryMedia]);
 
-  // Flatten groups to get the display order for the lightbox
+  // Flatten groups to get the display order for the lightbox (main gallery only)
   const sortedViewableMedia = useMemo(() => {
     return galleryGroups.flatMap(group => group.items);
   }, [galleryGroups]);
 
-  const documents = media.filter(m => m.type === 'pdf' || m.type === 'document' || m.type === 'file');
+  // General documents (exclude measurement-bound documents)
+  const documents = media.filter(m => 
+    (m.type === 'pdf' || m.type === 'document' || m.type === 'file') && !m.measurement_id
+  );
 
   const handleShareWork = async () => {
     if (typeof window === 'undefined' || !work) return;
@@ -457,21 +492,11 @@ const WorkDetailsPage = () => {
     setViewerState({ isOpen: false, startIndex: 0, items: [] });
   };
 
-  const getStatusInfo = (status) => {
-    switch (status) {
-      case 'in-progress': return { text: 'Em Andamento', icon: Activity, color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' };
-      case 'completed': return { text: 'Concluída', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', border: 'border-green-200' };
-      case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-red-600', bg: 'bg-red-100', border: 'border-amber-200' };
-      case 'unfinished': return { text: 'Inacabada', icon: Wrench, color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-200' };
-      case 'planned': return { text: 'Prevista', icon: Calendar, color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200' };
-      case 'tendered': return { text: 'Licitada', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-200' };
-      default: return { text: 'Não definido', icon: HardHat, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' };
-    }
-  };
+
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8 space-y-8">
+      <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 py-8 space-y-8">
         <Skeleton className="h-[400px] w-full rounded-xl" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
@@ -485,13 +510,15 @@ const WorkDetailsPage = () => {
             <Skeleton className="h-32 w-full rounded-lg" />
           </div>
         </div>
+
+
       </div>
     );
   }
 
   if (!work) {
     return (
-      <div className="container mx-auto px-4 py-12 text-center">
+      <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 py-12 text-center">
         <h1 className="text-2xl font-bold text-slate-800">Obra não encontrada</h1>
         <Button asChild className="mt-4" variant="default">
           <Link to="/obras-publicas">Voltar para Obras</Link>
@@ -503,613 +530,636 @@ const WorkDetailsPage = () => {
   const statusInfo = getStatusInfo(work.status);
   
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 md:pb-12 font-sans">
+    <div className="min-h-screen bg-[#F9FAFB] font-sans pb-20 md:pb-12">
       <DynamicSEO {...seoData} />
       
-      {/* Hero Section com Thumbnail */}
-      <div className="w-full pt-24 pb-10 md:py-20 relative overflow-hidden min-h-[400px] flex ">
-        {/* Thumbnail Background */}
-        {work.thumbnail_url && (
-          <div 
-            className="absolute inset-0 z-0  bg-cover bg-center transition-transform duration-700 hover:scale-105"
-            style={{ backgroundImage: `url(${work.thumbnail_url})` }}
-          />
-        )}
-        
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/90 to-neutral-900/60 z-0" />
-        
-        {/* Padrão de fundo sutil */}
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] z-0" />
-        
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex flex-wrap gap-3 mb-6"
+      {/* Sticky Header with Back Button */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              asChild
+              size="icon"
+              variant="outline"
+              className="h-10 w-10 rounded-xl border-gray-200 bg-gray-50 hover:bg-gray-100"
             >
-              {work.work_category && (
-                <Badge variant="secondary" className="bg-white/10 text-white hover:bg-white/20 border-white/10 px-3 py-1 backdrop-blur-sm">
-                  {work.work_category.name}
-                </Badge>
-              )}
-              <Badge variant="secondary" className="bg-white/10 text-white hover:bg-white/20 border-white/10 px-3 py-1 backdrop-blur-sm">
-                {work.work_area?.name || 'Geral'}
-              </Badge>
-              <Badge className={`${statusInfo.bg} ${statusInfo.color} border-none px-3 py-1 font-semibold`}>
-                <statusInfo.icon className="w-3 h-3 mr-1.5" />
-                {statusInfo.text}
-              </Badge>
-              {work.bairro && (
-                <Badge variant="outline" className="text-white border-white/30 backdrop-blur-sm">
-                  <MapPin className="w-3 h-3 mr-1.5" />
-                  {work.bairro.name}
-                </Badge>
-              )}
-            </motion.div>
-            
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="text-2xl md:text-4xl lg:text-4xl font-bold text-white mb-4 leading-tight shadow-sm"
-            >
-              {work.title}
-            </motion.h1>
+              <Link to="/obras-publicas">
+                <ArrowLeft className="w-5 h-5 text-gray-700" />
+              </Link>
+            </Button>
+            <span className="text-sm font-bold text-gray-500 uppercase tracking-wider  sm:block">
+              Detalhes da Obra
+            </span>
+          </div>
 
-            {work.description && work.description.length < 300 && (
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="text-lg md:text-md text-neutral-200 mb-6 max-w-3xl leading-relaxed font-light"
+          <div className="flex items-center gap-2">
+             {user?.is_admin && (
+              <Button 
+                onClick={() => setShowAdminEditModal(true)}
+                variant="outline"
+                size="sm"
+                className="ml-2 text-slate-600 border-slate-200 hover:bg-slate-50 flex"
               >
-                {work.description}
-              </motion.p>
+                <Edit className="w-4 h-4 mr-2" />
+               <span  className="hidden sm:inline" >Gerenciar</span> 
+              </Button>
             )}
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="flex items-center gap-2 text-neutral-400 text-sm mb-8"
+            <Button 
+              onClick={handleShareWork}
+              variant="ghost" 
+              className="text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4"
+              title="Compartilhar"
             >
-              <Clock className="w-4 h-4" />
-              <span>Última atualização: {work.updated_at ? new Date(work.updated_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}</span>
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="flex flex-col md:flex-row gap-4 mt-4 flex-wrap"
+              <Share2 className="w-6 h-6 sm:w-5 sm:h-5 sm:mr-2" />
+              <span className="hidden sm:inline">Compartilhar</span>
+            </Button>
+            
+            <Button
+              onClick={handleFavoriteToggle}
+              variant="ghost"
+              className={`hover:bg-gray-100 rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 ${isFavorited ? 'text-red-500 hover:text-red-600' : 'text-gray-500 hover:text-gray-900'}`}
+              title={isFavorited ? 'Remover dos favoritos' : 'Favoritar'}
             >
-              {/* Botões Principais (Contribuição e Gerenciar) */}
-              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                <Button onClick={handleOpenContrib} className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 border-0 w-full sm:w-auto sm:flex-1 md:flex-none whitespace-nowrap">
-                  <UploadCloud className="w-4 h-4 mr-2" />
-                  Enviar Contribuição
-                </Button>
-                
-                {user?.is_admin && (
-                  <Button variant="secondary" className="bg-white text-slate-900 hover:bg-slate-100 w-full sm:w-auto sm:flex-1 md:flex-none whitespace-nowrap" onClick={() => setShowAdminEditModal(true)}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Gerenciar
-                  </Button>
-                )}
-              </div>
+              <Heart className={`w-6 h-6 sm:w-5 sm:h-5 ${isFavorited ? 'fill-current' : ''} sm:mr-2`} />
+              <span className="hidden sm:inline">Favoritar</span>
+            </Button>
 
-              {/* Botões Secundários (Desktop) */}
-              <div className="hidden md:flex gap-3 items-center">
-                <Button variant="outline" className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm" onClick={handleShareWork}>
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Compartilhar
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className={`hover:bg-white/10 ${isFavorited ? 'text-yellow-400' : 'text-white'}`}
-                  onClick={handleFavoriteToggle}
-                >
-                  <Star className={`w-4 h-4 mr-2 ${isFavorited ? 'fill-current' : ''}`} />
-                  {isFavorited ? 'Salvo' : 'Salvar'}
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className="text-white/70 hover:text-white hover:bg-white/10"
-                  onClick={() => setShowReportDialog(true)}
-                >
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Informar Erro
-                </Button>
-              </div>
-              {/* Botões Secundários (Mobile) */}
-              <div className="flex md:hidden gap-2 justify-end w-full">
-                <Button variant="secondary" size="icon" className="rounded-full bg-white/10 border border-white/10 text-white hover:bg-white/20 backdrop-blur-md shadow-sm" onClick={handleShareWork}>
-                  <Share2 className="w-4 h-4" />
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  size="icon"
-                  className={`rounded-full border backdrop-blur-md shadow-sm ${isFavorited ? 'bg-yellow-400/20 text-yellow-400 border-yellow-400/30' : 'bg-white/10 text-white border-white/10 hover:bg-white/20'}`}
-                  onClick={handleFavoriteToggle}
-                >
-                  <Star className={`w-4 h-4 ${isFavorited ? 'fill-current' : ''}`} />
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  size="icon"
-                  className="rounded-full bg-white/10 border border-white/10 text-white hover:bg-white/20 backdrop-blur-md shadow-sm"
-                  onClick={() => setShowReportDialog(true)}
-                >
-                  <AlertTriangle className="w-4 h-4" />
-                </Button>
-              </div>
-            </motion.div>
+           
+          </div>
+        </div>
+        <div className="hidden lg:block border-t border-gray-100">
+          <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-gray-500 flex items-center gap-1">
+            <Link to="/" className="hover:text-red-500 transition-colors">
+              Início
+            </Link>
+            <span className="opacity-50">›</span>
+            <Link to="/obras-publicas" className="hover:text-red-500 transition-colors">
+              Obras Públicas
+            </Link>
+            <span className="opacity-50">›</span>
+            <span className="text-gray-700 truncate max-w-[300px]">{work.title}</span>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 mt-8 relative z-30 mb-12">
+      <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Coluna Principal */}
-          <div className="lg:col-span-2 space-y-8">
+          {/* Main Content Column */}
+          <div className="lg:col-span-2">
             
-            {/* Card de Progresso e Orçamento (Mobile/Desktop) */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-            >
-              <Card className="border-none shadow-xl bg-white/95 backdrop-blur overflow-hidden">
-                <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  <div className="sm:col-span-2 space-y-2">
-                    <div className="flex justify-between text-sm font-medium text-slate-500 mb-1">
-                      <span>Progresso Geral</span>
-                      <span className="text-primary font-bold">{work.execution_percentage || 0}%</span>
-                    </div>
-                    <Progress value={work.execution_percentage || 0} className="h-3 bg-slate-100" />
-                    <p className="text-xs text-slate-400 mt-1">
-                      Atualizado em {work.updated_at ? new Date(work.updated_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}
-                    </p>
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            {/* Title & Progress Hero Card */}
+            <div className="p-6 md:p-8">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <Badge className={`${statusInfo.bg} ${statusInfo.color} border border-current/20 hover:bg-opacity-80`}>
+                  <statusInfo.icon className="w-3 h-3 mr-1" />
+                  {statusInfo.text}
+                </Badge>
+                {work.bairro && (
+                  <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {work.bairro.name}
+                  </Badge>
+                )}
+              </div>
+
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight mb-2">
+                {work.title}
+              </h1>
+              {work.description && (
+                <p className="text-lg text-gray-600 mb-6 font-medium leading-relaxed">
+                  {work.description}
+                </p>
+              )}
+              {!work.description && <div className="mb-6"></div>}
+
+              {/* Integrated Progress Section */}
+              <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                <div className="flex justify-between items-end mb-2">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-slate-400" />
+                    <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Progresso da Obra</span>
                   </div>
-                  <div className="flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-slate-100 pt-4 sm:pt-0 sm:pl-6">
-                    <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Orçamento Total</span>
-                    <div className="text-2xl font-bold text-slate-800 flex items-center gap-1 mt-1">
-                      <DollarSign className="w-5 h-5 text-green-600" />
-                      {work.total_value 
-                        ? formatCurrency(work.total_value) 
-                        : 'Não informado'}
-                    </div>
+                  <span className="text-2xl font-bold text-slate-900">{work.execution_percentage || 0}%</span>
+                </div>
+                
+                <Progress 
+                  value={work.execution_percentage || 0} 
+                  className="h-4 bg-slate-200 rounded-full" 
+                  indicatorClassName="bg-red-600 rounded-full" 
+                />
+                
+                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-200/60">
+                  <div>
+                    <span className="text-xs text-slate-500 block mb-1">
+                      {['planned', 'tendered'].includes(work.status) ? 'Previsão de Início' : 'Início da Obra'}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-800">
+                      {['planned', 'tendered'].includes(work.status) 
+                        ? (work.predicted_start_date ? formatDate(work.predicted_start_date) : 'A definir')
+                        : (work.start_date ? formatDate(work.start_date) : 'A definir')
+                      }
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <div className="space-y-8">
-              {/* Visão Geral */}
-              <div className="space-y-6">
-                <Card className="border-none shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-xl text-slate-800">Sobre a Obra</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed">
-                      <p className="whitespace-pre-wrap">{work.long_description || work.description}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Ficha Técnica Completa */}
-                <div className="space-y-4 pt-4 border-t border-neutral-100">
-                  <h3 className="text-lg font-bold text-neutral-800 flex items-center gap-2 mb-4">
-                    <Info className="w-5 h-5 text-neutral-600" />
-                    Ficha Técnica e Prazos
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Bairro */}
-                    {work.bairro && (
-                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <MapPin className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Bairro</span>
-                          <p className="font-semibold text-neutral-800">{work.bairro.name}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Endereço */}
-                    {work.address && (
-                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow col-span-1 sm:col-span-2">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <MapPin className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Endereço</span>
-                          <p className="font-semibold text-neutral-800">{work.address}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Valor Total */}
-                    <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                        <DollarSign className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Valor Total</span>
-                        <p className="font-semibold text-neutral-800">
-                          {work.total_value ? formatCurrency(work.total_value) : 'Não informado'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Valor Gasto */}
-                    {work.amount_spent > 0 && (
-                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <Activity className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Valor Gasto</span>
-                          <p className="font-semibold text-neutral-800">{formatCurrency(work.amount_spent)}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Construtora */}
-                    {work.contractor && (
-                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <Building className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Construtora</span>
-                          <p className="font-semibold text-neutral-800 line-clamp-1" title={work.contractor.name}>{work.contractor.name}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* CNPJ */}
-                    {work.contractor?.cnpj && (
-                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">CNPJ</span>
-                          <p className="font-semibold text-neutral-800">{formatCnpj(work.contractor.cnpj)}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Fonte de Recurso */}
-                    {work.funding_source && work.funding_source.length > 0 && (
-                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <Landmark className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Fontes de Recurso</span>
-                          <p className="font-semibold text-neutral-800">{work.funding_source.join(', ')}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Prazo */}
-                    {work.execution_period_days && (
-                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <Clock className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Prazo de Execução</span>
-                          <p className="font-semibold text-neutral-800">{work.execution_period_days} dias</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Dates Loop */}
-                    {[
-                      { label: 'Assinatura Contrato', date: work.contract_signature_date, icon: Edit },
-                      { label: 'Ordem de Serviço', date: work.service_order_date, icon: FileText },
-                      { label: 'Início Previsto', date: work.predicted_start_date, icon: Calendar },
-                      { label: 'Início Real', date: work.start_date, icon: Activity },
-                      { label: 'Previsão Entrega', date: work.expected_end_date, icon: CheckCircle },
-                      { label: 'Inauguração', date: work.inauguration_date, icon: Star },
-                    ].map((item, idx) => item.date && (
-                      <div key={idx} className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <item.icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">{item.label}</span>
-                          <p className="font-semibold text-neutral-800">{new Date(item.date).toLocaleDateString('pt-BR')}</p>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Emenda Parlamentar */}
-                    {work.parliamentary_amendment?.has && (
-                      <div className="bg-white p-4 rounded-xl border border-neutral-100 flex items-start gap-3 col-span-1 sm:col-span-2 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg">
-                          <User className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Emenda Parlamentar</span>
-                          <p className="font-semibold text-neutral-800">{work.parliamentary_amendment.author}</p>
-                        </div>
-                      </div>
-                    )}
+                  <div className="text-right">
+                    <span className="text-xs text-slate-500 block mb-1">
+                      {work.status === 'completed' ? 'Conclusão' : 
+                       work.status === 'stalled' ? 'Data de Paralisação' : 
+                       'Previsão de Término'}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-800">
+                      {work.status === 'completed' 
+                        ? (work.end_date ? formatDate(work.end_date) : (work.inauguration_date ? formatDate(work.inauguration_date) : 'Concluída'))
+                        : work.status === 'stalled'
+                          ? (work.stalled_date ? formatDate(work.stalled_date) : 'Não informada')
+                          : (work.expected_end_date ? formatDate(work.expected_end_date) : 'A definir')
+                      }
+                    </span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Linha do Tempo */}
-              <Card className="border-none shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl text-slate-800 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-primary" />
-                    Histórico de Atividades
-                  </CardTitle>
-                  <CardDescription>Acompanhe a evolução da obra fase a fase</CardDescription>
-                </CardHeader>
-                <CardContent className="relative pl-6 sm:pl-10 space-y-8 before:absolute before:left-6 sm:before:left-10  before:h-full before:w-[2px] before:bg-slate-200">
-                  {measurements.length > 0 ? (
-                    measurements.map((item, index) => (
+            <Separator className="my-0" />
+
+            {/* About Section */}
+            <div className="p-6 md:p-8">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-gray-400" />
+                Sobre a Obra
+              </h3>
+              <div className="prose prose-slate max-w-none text-gray-600 leading-relaxed">
+                <p className="whitespace-pre-wrap">{work.long_description || work.description}</p>
+              </div>
+            </div>
+
+            <Separator className="my-0" />
+
+            {/* Timeline Section */}
+            <div className="p-6 md:p-8">
+              <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-gray-400" />
+                Histórico e Fases
+              </h3>
+
+              <div className="relative pl-4 sm:pl-6 space-y-8 before:absolute before:left-4 sm:before:left-6 before:h-full before:w-[2px] before:bg-slate-100">
+                {measurements.length > 0 ? (
+                  measurements.map((item, index) => {
+                    const phaseMedia = viewableMedia.filter(m => m.measurement_id === item.id);
+                    const phaseDocs = media.filter(m => m.measurement_id === item.id && (m.type === 'pdf' || m.type === 'document' || m.type === 'file'));
+                    const dateToShow = item.contract_date;
+
+                    return (
                       <div key={item.id} className="relative pl-8">
-                        <div className={`absolute -left-[9px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm ${getStatusInfo(item.status).bg.replace('bg-', 'bg-')}`} />
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 hover:border-primary/20 hover:shadow-md transition-all duration-300">
+                        <div className={`absolute -left-[7px] top-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm ${getStatusInfo(item.status).bg.replace('bg-', 'bg-')}`} />
+                        <div className="bg-slate-50 p-5 rounded-xl border transition-colors border-slate-100 hover:border-slate-300">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                            <h4 className="font-bold text-slate-800 text-lg">{item.title}</h4>
-                            <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded-md border shadow-sm">
-                              {item.contract_date ? new Date(item.contract_date).toLocaleDateString('pt-BR') : 'Data n/d'}
+                            <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-base text-slate-800">
+                                    {item.title}
+                                </h4>
+                            </div>
+                            <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200 whitespace-nowrap">
+                              {dateToShow ? formatDate(dateToShow) : 'Data n/d'}
                             </span>
                           </div>
-                          <p className="text-slate-600 mb-4 text-sm">{item.description}</p>
                           
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-200/60">
-                            <div>
+                          {item.description && (
+                            <p className="text-slate-600 mb-4 text-sm leading-relaxed">{item.description}</p>
+                          )}
+                          
+                          {item.contractor && (
+                            <div className="flex items-center gap-2 mb-4 text-sm text-slate-700 bg-white/60 p-2.5 rounded-lg border border-slate-200/60">
+                              <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                              <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 whitespace-nowrap">Construtora:</span>
+                              <span className="font-medium truncate">{item.contractor.name}</span>
+                            </div>
+                          )}
+                          
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            {/* Status Badge - Always Visible */}
+                            <div className="col-span-2 sm:col-span-1">
                               <span className="text-xs text-slate-400 block mb-1">Status</span>
                               <Badge variant="outline" className={`${getStatusInfo(item.status).color} ${getStatusInfo(item.status).bg} border-none`}>
                                 {getStatusInfo(item.status).text}
                               </Badge>
                             </div>
-                            <div>
-                              <span className="text-xs text-slate-400 block mb-1">Valor</span>
-                              <span className="text-sm font-semibold text-slate-700 block">
-                                {item.value ? formatCurrency(item.value) : '-'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-xs text-slate-400 block mb-1">Execução</span>
-                              <span className="text-sm font-semibold text-slate-700 block">
-                                {item.execution_percentage !== null ? `${item.execution_percentage}%` : '-'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-xs text-slate-400 block mb-1">Responsável</span>
-                              <span className="text-sm font-semibold text-slate-700 block truncate" title={item.contractor?.name}>
-                                {item.contractor?.name || 'Não informado'}
-                              </span>
-                            </div>
+
+                            {/* Execution Percentage - Only for In Progress, Stalled, Completed */}
+                            {['in-progress', 'stalled', 'completed'].includes(item.status) && (
+                              <div className="col-span-2 sm:col-span-1">
+                                <span className="text-xs text-slate-400 block mb-1">Execução</span>
+                                <span className="text-sm font-semibold text-slate-700">
+                                  {item.execution_percentage != null ? `${item.execution_percentage}%` : '-'}
+                                </span>
+                              </div>
+                            )}
                           </div>
+
+                          {/* Dynamic Date Display based on Status */}
+                          <div className="mb-4 pt-3 border-t border-slate-200/60 text-xs space-y-3">
+                            
+                            {/* Unfinished / Inacabada */}
+                            {item.status === 'unfinished' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {item.start_date && (
+                                  <div>
+                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
+                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
+                                  </div>
+                                )}
+                                {item.end_date && (
+                                  <div>
+                                    <span className="text-orange-600 font-medium mb-1 block">Encerramento/Rescisão</span>
+                                    <span className="text-orange-700 font-bold text-sm">{formatDate(item.end_date)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Stalled / Paralisada */}
+                            {item.status === 'stalled' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {item.start_date && (
+                                  <div>
+                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
+                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
+                                  </div>
+                                )}
+                                {item.stalled_date && (
+                                  <div>
+                                    <span className="text-red-600 font-medium mb-1 block">Data de Paralisação</span>
+                                    <span className="text-red-700 font-bold text-sm">{formatDate(item.stalled_date)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* In Progress / Em Andamento */}
+                            {item.status === 'in-progress' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {item.start_date && (
+                                  <div>
+                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
+                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
+                                  </div>
+                                )}
+                                {item.expected_end_date && (
+                                  <div>
+                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Término</span>
+                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.expected_end_date)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Completed / Concluída */}
+                            {item.status === 'completed' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {item.start_date && (
+                                  <div>
+                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
+                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
+                                  </div>
+                                )}
+                                {item.end_date && (
+                                  <div>
+                                    <span className="text-emerald-600 font-medium mb-1 block">Conclusão Real</span>
+                                    <span className="text-emerald-700 font-bold text-sm">{formatDate(item.end_date)}</span>
+                                  </div>
+                                )}
+                                {item.inauguration_date && (
+                                  <div className="col-span-2 pt-2 mt-1 border-t border-slate-100">
+                                     <span className="text-emerald-600 font-medium mb-1 block">Inauguração</span>
+                                     <span className="text-emerald-700 font-bold text-sm">{formatDate(item.inauguration_date)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Planned / Tendered */}
+                            {['planned', 'tendered'].includes(item.status) && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {item.predicted_start_date && (
+                                  <div>
+                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Início</span>
+                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.predicted_start_date)}</span>
+                                  </div>
+                                )}
+                                {item.expected_end_date && (
+                                  <div>
+                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Conclusão</span>
+                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.expected_end_date)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full bg-white hover:bg-slate-50 hover:text-red-800 text-red-600 border-slate-200 h-auto py-2 whitespace-normal text-left justify-center sm:justify-start"
+                            onClick={() => setSelectedMeasurement({...item, media: phaseMedia, docs: phaseDocs})}
+                          >
+                            <Eye className="w-4 h-4 mr-2 flex-shrink-0" />
+                            Ver Detalhes e Arquivos
+                          </Button>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-slate-500 text-center py-8">Nenhuma atividade registrada.</p>
-                  )}
-                </CardContent>
-              </Card>
+                    );
+                  })
+                ) : (
+                  <p className="text-slate-500 text-center py-8">Nenhuma atividade registrada.</p>
+                )}
+              </div>
+            </div>
 
-              {/* Galeria */}
+            <Separator className="my-0" />
+
+            {/* Gallery Section - Compact */}
+            <div className="p-6 md:p-8">
+              <div className="flex items-center gap-2 mb-6">
+                <ImageIcon className="w-5 h-5 text-gray-400" />
+                <h3 className="text-lg font-bold text-gray-800">Galeria de Mídia</h3>
+              </div>
+              
               <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <ImageIcon className="w-5 h-5 text-primary" />
-                  <h3 className="text-xl font-bold text-slate-800">Galeria de Mídia</h3>
-                </div>
-                
                 {galleryGroups.length > 0 ? (
                   galleryGroups.map((group) => (
-                    <div key={group.name} className="space-y-4">
+                    <div key={group.name} className="space-y-3">
                       {(galleryGroups.length > 1 || group.name !== 'Geral') && (
-                        <h4 className="text-lg font-semibold text-slate-700 border-l-4 border-primary pl-3 bg-slate-50 py-1 rounded-r-lg">
+                        <h4 className="text-sm font-semibold text-slate-600 uppercase tracking-wider pl-1">
                           {group.name}
                         </h4>
                       )}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
                         {group.items.map((item, idx) => (
                           <motion.div 
                             key={item.id}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: idx * 0.05 }}
-                            className="aspect-square rounded-xl overflow-hidden cursor-pointer group relative shadow-sm hover:shadow-lg transition-all bg-slate-100"
+                            initial={{ opacity: 0 }}
+                            whileInView={{ opacity: 1 }}
+                            viewport={{ once: true }}
+                            className="aspect-square rounded-md overflow-hidden cursor-pointer group relative bg-slate-100"
                             onClick={() => openViewer(sortedViewableMedia, sortedViewableMedia.findIndex(m => m.id === item.id))}
                           >
                             {['video', 'video_url'].includes(item.type) ? (
-                              <div className="w-full h-full flex items-center justify-center bg-slate-900 group-hover:bg-slate-800 transition-colors">
-                                <Video className="w-16 h-16 text-white/50 group-hover:text-white group-hover:scale-110 transition-all duration-300" />
+                              <div className="w-full h-full flex items-center justify-center bg-slate-900">
+                                <Video className="w-8 h-8 text-white/70" />
                               </div>
                             ) : (
                               <img 
                                 src={item.url} 
-                                alt={item.description || 'Foto da obra'} 
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                                alt={item.description || 'Foto'} 
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
                                 loading="lazy"
                               />
                             )}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none" />
-                            <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                              <p className="text-white text-xs font-medium truncate drop-shadow-md">
-                                {['video', 'video_url'].includes(item.type) ? 'Vídeo' : item.description}
-                              </p>
-                            </div>
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                           </motion.div>
                         ))}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-xl">
-                    <ImageIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500">Galeria vazia por enquanto.</p>
+                  <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl">
+                    <ImageIcon className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400">Galeria vazia.</p>
                   </div>
                 )}
               </div>
-
-              {/* Documentos */}
-              <Card className="border-none shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl text-slate-800 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    Documentação Oficial
-                  </CardTitle>
-                  <CardDescription>Acesse contratos, relatórios e outros documentos públicos.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Accordion type="single" collapsible className="w-full">
-                    {documents.length > 0 ? (
-                      documents.map((doc, idx) => (
-                        <AccordionItem key={doc.id} value={`item-${idx}`}>
-                          <AccordionTrigger className="hover:no-underline hover:bg-slate-50 px-4 rounded-lg">
-                            <div className="flex items-center gap-3 text-left w-full min-w-0">
-                              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg flex-shrink-0">
-                                <FileText className="w-5 h-5" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-slate-800 break-all pr-2">{doc.name}</p>
-                                <p className="text-xs text-slate-500">Adicionado em {new Date(doc.created_at).toLocaleDateString('pt-BR')}</p>
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="px-4 pb-4 pt-2">
-                            <p className="text-sm text-slate-600 mb-4">{doc.description || 'Sem descrição adicional.'}</p>
-                            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
-                              <a href={doc.url} target="_blank" rel="noopener noreferrer" download>
-                                <Download className="w-4 h-4 mr-2" />
-                                Baixar Documento
-                              </a>
-                            </Button>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))
-                    ) : (
-                      <div className="py-8 text-center">
-                        <p className="text-slate-500">Nenhum documento disponível.</p>
-                      </div>
-                    )}
-                  </Accordion>
-                </CardContent>
-              </Card>
             </div>
+
+            <Separator className="my-0" />
+
+            {/* Contribution CTA */}
+            <div className="hidden lg:block p-6 md:p-8 bg-slate-50 border-t border-slate-100">
+              <div className="text-center max-w-2xl mx-auto">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
+                  <UploadCloud className="w-6 h-6 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Tem informações sobre esta obra?</h2>
+                <p className="text-gray-600 mb-6 text-sm">
+                  Ajude-nos a manter os dados atualizados enviando fotos, vídeos ou relatórios.
+                </p>
+                <Button onClick={handleOpenContrib} className="bg-red-600 hover:bg-red-700 text-white px-8 font-medium shadow-md shadow-red-100">
+                  <UploadCloud className="w-4 h-4 mr-2" />
+                  Enviar Contribuição
+                </Button>
+      
+            </div>
+              <div className="hidden lg:block text-center max-w-2xl mx-auto mb-12 mt-6">
+           <p className="text-xs text-gray-400 leading-relaxed">
+             Os dados são provenientes de portais de transparência e verificados pela equipe. 
+             Podem haver divergências temporais.
+             <button onClick={() => setShowReportDialog(true)} className="ml-1 text-gray-500 underline hover:text-gray-700">
+               Reportar erro
+             </button>
+           </p>
+        </div>
+                    </div>
+               {/* Disclaimer */}
+      
+            </div>
+
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar Column */}
           <div className="space-y-6">
             
-            {/* Responsável / Construtora */}
-            <Card className="border-none shadow-sm overflow-hidden">
-              <div className="h-2 bg-primary w-full" />
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Building className="w-5 h-5 text-primary" />
-                  Responsável Técnico
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {work.contractor ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12 border-2 border-slate-100">
-                        <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(work.contractor.name)}&background=random`} />
-                        <AvatarFallback><User /></AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-bold text-slate-800 text-sm">{work.contractor.name}</p>
-                        <p className="text-xs text-slate-500">Contratada Principal</p>
-                      </div>
+            {/* Financial Card */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-gray-400" />
+                Financeiro
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-1">Orçamento Total</span>
+                  <div className="text-xl font-bold text-emerald-900">
+                    {work.total_value ? formatCurrency(work.total_value) : 'Não informado'}
+                  </div>
+                </div>
+
+                {work.amount_spent > 0 && (
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Valor Pago</span>
+                    <div className="text-lg font-bold text-slate-700">
+                      {formatCurrency(work.amount_spent)}
                     </div>
-                    <Separator />
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">CNPJ</span>
-                        <span className="font-medium text-slate-700">{work.contractor.cnpj ? formatCnpj(work.contractor.cnpj) : '-'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Status</span>
-                        <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">Ativo</Badge>
-                      </div>
+                    <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
+                      <div 
+                        className="bg-emerald-500 h-1.5 rounded-full" 
+                        style={{ width: `${Math.min(((work.amount_spent / (work.total_value || 1)) * 100), 100)}%` }}
+                      />
                     </div>
                   </div>
-                ) : (
-                  <p className="text-slate-500 text-sm">Informação não disponível.</p>
                 )}
-              </CardContent>
-            </Card>
 
-            {/* Localização */}
-            <Card className="border-none shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-primary" />
+                {work.funding_source && work.funding_source.length > 0 && (
+                  <div className="pt-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Fonte de Recurso</span>
+                    <div className="flex flex-wrap gap-2">
+                      {work.funding_source.map((source, idx) => (
+                        <Badge key={idx} variant="secondary" className="bg-slate-100 text-slate-600 font-normal">
+                          {source}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Map Card */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-gray-100">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-gray-400" />
                   Localização
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                </h3>
+              </div>
+              <div className="h-64">
                 <WorkMap location={work.location} bairro={work.bairro?.name} />
-                <div className="text-sm text-slate-600">
-                  <p className="font-medium">Endereço:</p>
-                  <p>{work.address || `${work.bairro?.name || ''}, Município`}</p>
+              </div>
+              <div className="p-4 bg-gray-50 text-sm text-gray-600 space-y-3">
+                <div>
+                  <p className="font-medium text-gray-900 mb-1">Endereço:</p>
+                  <p>{work.address || 'Endereço não informado'}</p>
                 </div>
-              </CardContent>
-            </Card>
+                {work.bairro && (
+                  <div>
+                    <p className="font-medium text-gray-900 mb-1">Bairro:</p>
+                    <p>{work.bairro.name}</p>
+                  </div>
+                )}
+              </div>
+            </div>
 
-            {/* Links Úteis */}
-            {work.related_links && work.related_links.length > 0 && (
-              <Card className="border-none shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Link2 className="w-5 h-5 text-primary" />
-                    Links Relacionados
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+            {/* Technical Details Card */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Info className="w-5 h-5 text-gray-400" />
+                Detalhes Técnicos
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                  <Briefcase className="w-4 h-4 text-gray-400 mt-0.5" />
+                  <div>
+                    <span className="text-xs text-gray-400 uppercase font-bold block">Categoria</span>
+                    <span className="text-sm text-gray-700 font-medium">{work.work_category?.name || 'Não informada'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                  <HardHat className="w-4 h-4 text-gray-400 mt-0.5" />
+                  <div>
+                    <span className="text-xs text-gray-400 uppercase font-bold block">Execução</span>
+                    <span className="text-sm text-gray-700 font-medium block">{work.contractor?.name || 'Em licitação'}</span>
+                    {work.contractor?.cnpj && (
+                      <span className="text-xs text-gray-500 block mt-0.5">CNPJ: {formatCnpj(work.contractor.cnpj)}</span>
+                    )}
+                  </div>
+                </div>
+
+                {work.parliamentary_amendment?.has && (
+                  <div className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                    <User className="w-4 h-4 text-gray-400 mt-0.5" />
+                    <div>
+                      <span className="text-xs text-gray-400 uppercase font-bold block">Emenda Parlamentar</span>
+                      <span className="text-sm text-gray-700 font-medium">{work.parliamentary_amendment.author}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Important Dates List */}
+                <div className="pt-2 mt-2 border-t border-gray-100">
+                   <span className="text-xs text-gray-400 uppercase font-bold block mb-2">Prazos e Datas</span>
+                   <div className="space-y-2">
+                      {work.execution_period_days && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Prazo de Execução</span>
+                          <span className="text-gray-700 font-medium">{work.execution_period_days} dias</span>
+                        </div>
+                      )}
+                      {[
+                        { label: 'Previsão de Início', date: work.predicted_start_date },
+                        { label: 'Início Real', date: work.start_date },
+                        { label: 'Assinatura', date: work.contract_signature_date },
+                        { label: 'Ordem de Serviço', date: work.service_order_date },
+                        { label: 'Previsão Conclusão', date: work.expected_end_date },
+                        { label: 'Conclusão Real', date: work.end_date },
+                        { label: 'Inauguração', date: work.inauguration_date },
+                        { label: 'Paralisação', date: work.stalled_date, color: 'text-red-600' },
+                      ].map((item, idx) => item.date && (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-gray-500">{item.label}</span>
+                          <span className={`font-medium ${item.color || 'text-gray-700'}`}>{formatDate(item.date)}</span>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Links */}
+            {Array.isArray(work.related_links) && work.related_links.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Link2 className="w-5 h-5 text-gray-400" />
+                  Links Relacionados
+                </h3>
+                <div className="space-y-2">
                   {work.related_links.map((link, idx) => (
                     <a 
                       key={idx} 
                       href={link.url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all group"
+                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
                     >
-                      <span className="text-sm font-medium text-slate-700 truncate max-w-[200px]">{link.title}</span>
-                      <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-primary" />
+                      <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">{link.title}</span>
+                      <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
                     </a>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
+
+            {/* Mobile Contribution CTA & Disclaimer */}
+            <div className="lg:hidden space-y-6 pt-4">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center">
+                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                  <UploadCloud className="w-6 h-6 text-red-600" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900 mb-2">Tem informações?</h2>
+                <p className="text-gray-600 mb-6 text-sm">
+                  Ajude a manter os dados atualizados enviando fotos ou relatórios.
+                </p>
+                <Button onClick={handleOpenContrib} className="w-full bg-red-600 hover:bg-red-700 text-white font-medium shadow-md shadow-red-100">
+                  <UploadCloud className="w-4 h-4 mr-2" />
+                  Contribuir
+                </Button>
+              </div>
+
+              <div className="text-center px-4 pb-8">
+                 <p className="text-xs text-gray-400 leading-relaxed">
+                   Os dados são verificados pela equipe. Podem haver divergências.
+                   <button onClick={() => setShowReportDialog(true)} className="ml-1 text-gray-500 underline hover:text-gray-700">
+                     Reportar erro
+                   </button>
+                 </p>
+              </div>
+            </div>
 
           </div>
         </div>
-      </div>
+        
+       
 
-      {/* Disclaimer Section */}
-      <div className="container mx-auto px-4 mb-12">
-        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-6 text-center">
-          <p className="text-neutral-600 text-sm leading-relaxed">
-            <span className="font-semibold block mb-1">Fonte dos Dados</span>
-            Os dados publicados são fornecidos por portais da transparência e órgãos públicos, e verificados pela equipe do Trombone Cidadão.
-            <br className="hidden sm:block" />
-            Trabalhamos para manter as informações atualizadas, mas podem ocorrer divergências em relação à situação real da obra.
-          </p>
-        </div>
       </div>
 
       {viewerState.isOpen && (
@@ -1202,6 +1252,259 @@ const WorkDetailsPage = () => {
             <Button type="button" onClick={handleSubmitContribution} disabled={isSubmittingContribution} className="bg-primary text-white hover:bg-primary/90">
               {isSubmittingContribution ? 'Enviando...' : 'Enviar Contribuição'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Measurement Details Dialog */}
+      <Dialog open={!!selectedMeasurement} onOpenChange={(open) => !open && setSelectedMeasurement(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-primary" />
+              {selectedMeasurement?.title}
+            </DialogTitle>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Badge variant="outline" className={`${selectedMeasurement ? getStatusInfo(selectedMeasurement.status).color : ''} ${selectedMeasurement ? getStatusInfo(selectedMeasurement.status).bg : ''} border-none`}>
+                {selectedMeasurement ? getStatusInfo(selectedMeasurement.status).text : ''}
+              </Badge>
+              {selectedMeasurement?.contract_date && (
+                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                  {formatDate(selectedMeasurement.contract_date)}
+                </span>
+              )}
+            </div>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Description */}
+            {selectedMeasurement?.description && (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">Descrição da Fase</h4>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  {selectedMeasurement.description}
+                </p>
+              </div>
+            )}
+
+            {/* Info Cards */}
+            <div className="space-y-4">
+              {/* Main Contract Info */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-slate-500" />
+                  <h4 className="font-semibold text-slate-700 text-sm">Dados do Contrato</h4>
+                </div>
+                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {/* Contractor */}
+                   <div className="space-y-1">
+                     <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Responsável</span>
+                     <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">
+                       {selectedMeasurement?.contractor?.name || 'Não informado'}
+                     </p>
+                   </div>
+                   
+                   {/* Value & Execution */}
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor</span>
+                        <p className="font-semibold text-slate-800 text-sm md:text-base">
+                          {selectedMeasurement?.value ? formatCurrency(selectedMeasurement.value) : '-'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                         <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Execução</span>
+                         <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-800 text-sm md:text-base">
+                              {selectedMeasurement?.execution_percentage != null ? `${selectedMeasurement.execution_percentage}%` : '-'}
+                            </span>
+                            {selectedMeasurement?.execution_percentage != null && (
+                              <Progress value={selectedMeasurement.execution_percentage} className="h-2 w-16" />
+                            )}
+                         </div>
+                      </div>
+                   </div>
+                </div>
+              </div>
+
+              {/* Timeline Card */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-slate-500" />
+                  <h4 className="font-semibold text-slate-700 text-sm">Cronograma e Prazos</h4>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-6 gap-x-4">
+                     {selectedMeasurement?.contract_date && (
+                       <div>
+                         <span className="text-xs text-slate-400 block mb-1">Data do Contrato</span>
+                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.contract_date)}</span>
+                       </div>
+                     )}
+                     {selectedMeasurement?.contract_signature_date && (
+                       <div>
+                         <span className="text-xs text-slate-400 block mb-1">Assinatura</span>
+                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.contract_signature_date)}</span>
+                       </div>
+                     )}
+                     {selectedMeasurement?.service_order_date && (
+                       <div>
+                         <span className="text-xs text-slate-400 block mb-1">Ordem de Serviço</span>
+                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.service_order_date)}</span>
+                       </div>
+                     )}
+                     
+                     <div className="hidden sm:block col-span-full border-t border-slate-100 my-1"></div>
+
+                     {selectedMeasurement?.predicted_start_date && (
+                       <div>
+                         <span className="text-xs text-slate-400 block mb-1">Previsão Início</span>
+                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.predicted_start_date)}</span>
+                       </div>
+                     )}
+                     {selectedMeasurement?.start_date && (
+                       <div>
+                         <span className="text-xs text-slate-400 block mb-1">Início Real</span>
+                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.start_date)}</span>
+                       </div>
+                     )}
+                     {selectedMeasurement?.expected_end_date && (
+                       <div>
+                         <span className="text-xs text-slate-400 block mb-1">Previsão Conclusão</span>
+                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.expected_end_date)}</span>
+                       </div>
+                     )}
+                     
+                     {selectedMeasurement?.end_date && (
+                       <div>
+                         <span className={`text-xs block mb-1 ${selectedMeasurement.status === 'unfinished' ? 'text-orange-600' : 'text-slate-400'}`}>
+                           {selectedMeasurement.status === 'unfinished' ? 'Encerramento/Rescisão' : 'Conclusão Real'}
+                         </span>
+                         <span className={`font-bold text-sm block ${selectedMeasurement.status === 'unfinished' ? 'text-orange-700' : 'text-emerald-700'}`}>
+                            {formatDate(selectedMeasurement.end_date)}
+                         </span>
+                       </div>
+                     )}
+
+                     {selectedMeasurement?.inauguration_date && (
+                       <div>
+                         <span className="text-xs text-emerald-600 block mb-1">Inauguração</span>
+                         <span className="font-bold text-emerald-700 text-sm block">{formatDate(selectedMeasurement.inauguration_date)}</span>
+                       </div>
+                     )}
+
+                     {selectedMeasurement?.stalled_date && (
+                       <div className="col-span-2 sm:col-span-1">
+                         <span className="text-xs text-red-600 block mb-1">Data Paralisação</span>
+                         <span className="font-bold text-red-700 text-sm block">{formatDate(selectedMeasurement.stalled_date)}</span>
+                       </div>
+                     )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Media Gallery */}
+            <div>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-primary" />
+                Galeria de Fotos e Vídeos
+              </h4>
+              {selectedMeasurement?.media && selectedMeasurement.media.length > 0 ? (
+                <div className="space-y-6">
+                  {(() => {
+                    const groups = {};
+                    selectedMeasurement.media.forEach(item => {
+                      const name = item.gallery_name || 'Geral';
+                      if (!groups[name]) groups[name] = [];
+                      groups[name].push(item);
+                    });
+                    
+                    const sortedGroups = Object.entries(groups).map(([name, items]) => ({ name, items })).sort((a, b) => {
+                      if (a.name === selectedMeasurement.title) return -1; // Default gallery first
+                      if (a.name === 'Geral') return -1;
+                      if (b.name === selectedMeasurement.title) return 1;
+                      if (b.name === 'Geral') return 1;
+                      return a.name.localeCompare(b.name);
+                    });
+
+                    return sortedGroups.map((group) => (
+                      <div key={group.name} className="space-y-3">
+                        {(sortedGroups.length > 1 || (group.name !== 'Geral' && group.name !== selectedMeasurement.title)) && (
+                          <h5 className="text-sm font-semibold text-slate-700 border-l-4 border-primary pl-3 bg-slate-50 py-1 rounded-r-lg">
+                            {group.name}
+                          </h5>
+                        )}
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                          {group.items.map((mediaItem) => {
+                            // Find original index in the full list for correct lightbox navigation
+                            const originalIndex = selectedMeasurement.media.findIndex(m => m.id === mediaItem.id);
+                            return (
+                              <div 
+                                key={mediaItem.id}
+                                className="aspect-square rounded-lg overflow-hidden cursor-pointer bg-slate-200 relative group shadow-sm hover:shadow-md transition-all"
+                                onClick={() => openViewer(selectedMeasurement.media, originalIndex)}
+                              >
+                                {['video', 'video_url'].includes(mediaItem.type) ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-slate-800">
+                                    <Video className="w-10 h-10 text-white/70" />
+                                  </div>
+                                ) : (
+                                  <img 
+                                    src={mediaItem.url} 
+                                    alt={mediaItem.description} 
+                                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              ) : (
+                <p className="text-slate-500 italic">Nenhuma mídia registrada para esta fase.</p>
+              )}
+            </div>
+
+            {/* Documents */}
+            <div>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                Documentos Anexados
+              </h4>
+              {selectedMeasurement?.docs && selectedMeasurement.docs.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {selectedMeasurement.docs.map(doc => (
+                     <a 
+                        key={doc.id}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 rounded-lg bg-white border border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all group"
+                      >
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-700 truncate group-hover:text-primary transition-colors">{doc.name}</p>
+                          {doc.description && <p className="text-xs text-slate-500 truncate">{doc.description}</p>}
+                        </div>
+                        <Download className="w-4 h-4 text-slate-400 group-hover:text-primary transition-colors" />
+                      </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-500 italic">Nenhum documento anexado.</p>
+              )}
+            </div>
+
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setSelectedMeasurement(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

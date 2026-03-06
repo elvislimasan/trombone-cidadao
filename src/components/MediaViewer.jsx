@@ -73,6 +73,7 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
   }, [media, onClose]);
 
   const isYoutubeVideo = (url) => {
+    if (!url) return false;
     return url.includes('youtube.com') || url.includes('youtu.be');
   };
 

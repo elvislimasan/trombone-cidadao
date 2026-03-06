@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Bus, Landmark, Building, ShoppingCart, Mail, Search, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -151,17 +151,17 @@ const ServicesPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="mb-6">
-                  <Select value={selectedDestination} onValueChange={setSelectedDestination}>
-                    <SelectTrigger className="w-full sm:w-[280px]">
-                      <SelectValue placeholder="Filtrar por destino..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os Destinos</SelectItem>
-                      {transportDestinations.map(dest => (
-                        <SelectItem key={dest} value={dest}>{dest}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox 
+                    value={selectedDestination} 
+                    onChange={setSelectedDestination}
+                    options={[
+                      { value: "all", label: "Todos os Destinos" },
+                      ...transportDestinations.map(dest => ({ value: dest, label: dest }))
+                    ]}
+                    placeholder="Filtrar por destino..."
+                    searchPlaceholder="Buscar destino..."
+                    className="w-full sm:w-[280px]"
+                  />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   {filteredTransport.map((option) => (
@@ -225,17 +225,17 @@ const ServicesPage = () => {
                       onChange={(e) => setStreetSearch(e.target.value)}
                     />
                   </div>
-                  <Select value={selectedBairro} onValueChange={setSelectedBairro}>
-                    <SelectTrigger className="sm:w-[200px]">
-                      <SelectValue placeholder="Filtrar por bairro" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os bairros</SelectItem>
-                      {bairros.map(bairro => (
-                        <SelectItem key={bairro} value={bairro}>{bairro}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox 
+                    value={selectedBairro} 
+                    onChange={setSelectedBairro}
+                    options={[
+                      { value: "all", label: "Todos os bairros" },
+                      ...bairros.map(bairro => ({ value: bairro, label: bairro }))
+                    ]}
+                    placeholder="Filtrar por bairro"
+                    searchPlaceholder="Buscar bairro..."
+                    className="sm:w-[200px]"
+                  />
                 </div>
                 <div className="max-h-96 overflow-y-auto pr-2 space-y-2">
                   {filteredStreets.length > 0 ? (

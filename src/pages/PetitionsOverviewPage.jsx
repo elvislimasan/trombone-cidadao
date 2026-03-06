@@ -12,7 +12,7 @@ import { getNextSignatureGoal } from '@/lib/utils';
 import DonationModal from '@/components/DonationModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -356,19 +356,17 @@ const PetitionsOverviewPage = () => {
                     />
                   </div>
                   <div className="h-auto w-px bg-border mx-1 hidden sm:block" />
-                  <Select value={filter} onValueChange={setFilter}>
-                    <SelectTrigger className="w-full sm:w-[180px] border-none focus:ring-0 h-10">
-                       <div className="flex items-center gap-2 text-muted-foreground">
-                          <Filter className="w-4 h-4" />
-                          <span className="text-foreground"><SelectValue /></span>
-                       </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="recent">Mais Recentes</SelectItem>
-                      <SelectItem value="popular">Mais Populares</SelectItem>
-                      <SelectItem value="almost_there">Quase na Meta</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    value={filter}
+                    onSelect={setFilter}
+                    options={[
+                      { value: "recent", label: "Mais Recentes" },
+                      { value: "popular", label: "Mais Populares" },
+                      { value: "almost_there", label: "Quase na Meta" }
+                    ]}
+                    placeholder="Filtrar por..."
+                    searchPlaceholder="Buscar filtro..."
+                  />
                </div>
             </div>
 

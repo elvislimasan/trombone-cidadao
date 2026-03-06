@@ -2,7 +2,7 @@
 import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
@@ -45,21 +45,19 @@ const BlockProperties = ({ block, onChange }) => {
                  />
                </div>
                <div className="space-y-2">
-                 <Label>Nível</Label>
-                 <Select 
-                    value={content.level} 
-                    onValueChange={(val) => handleContentChange('level', val)}
-                 >
-                   <SelectTrigger>
-                     <SelectValue />
-                   </SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="h1">H1 (Título Principal)</SelectItem>
-                     <SelectItem value="h2">H2 (Subtítulo)</SelectItem>
-                     <SelectItem value="h3">H3 (Seção)</SelectItem>
-                   </SelectContent>
-                 </Select>
-               </div>
+                <Label>Nível</Label>
+                <Combobox 
+                   value={content.level} 
+                   onChange={(val) => handleContentChange('level', val)}
+                   options={[
+                     { value: "h1", label: "H1 (Título Principal)" },
+                     { value: "h2", label: "H2 (Subtítulo)" },
+                     { value: "h3", label: "H3 (Seção)" }
+                   ]}
+                   placeholder="Selecione o nível..."
+                   searchPlaceholder="Buscar nível..."
+                />
+              </div>
              </>
            )}
 
@@ -139,23 +137,21 @@ const BlockProperties = ({ block, onChange }) => {
            )}
            
            {/* Separator Properties */}
-           {type === 'separator' && (
-             <div className="space-y-2">
-               <Label>Estilo</Label>
-               <Select 
-                  value={content.style} 
-                  onValueChange={(val) => handleContentChange('style', val)}
-               >
-                 <SelectTrigger>
-                   <SelectValue />
-                 </SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="solid">Sólido</SelectItem>
-                   <SelectItem value="dotted">Pontilhado</SelectItem>
-                 </SelectContent>
-               </Select>
-             </div>
-           )}
+            {type === 'separator' && (
+              <div className="space-y-2">
+                <Label>Estilo</Label>
+                <Combobox 
+                   value={content.style} 
+                   onChange={(val) => handleContentChange('style', val)}
+                   options={[
+                     { value: "solid", label: "Sólido" },
+                     { value: "dotted", label: "Pontilhado" }
+                   ]}
+                   placeholder="Selecione o estilo..."
+                   searchPlaceholder="Buscar estilo..."
+                />
+              </div>
+            )}
          </TabsContent>
 
          <TabsContent value="style" className="space-y-4 pt-4">
@@ -176,19 +172,19 @@ const BlockProperties = ({ block, onChange }) => {
 
             <div className="space-y-2">
                 <Label>Padding (Espaçamento Interno)</Label>
-                <Select 
+                <Combobox 
                     value={styles?.padding} 
-                    onValueChange={(val) => handleStyleChange('padding', val)}
-                >
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="0px">Nenhum</SelectItem>
-                        <SelectItem value="10px">Pequeno (10px)</SelectItem>
-                        <SelectItem value="20px">Médio (20px)</SelectItem>
-                        <SelectItem value="40px">Grande (40px)</SelectItem>
-                        <SelectItem value="60px">Extra Grande (60px)</SelectItem>
-                    </SelectContent>
-                </Select>
+                    onChange={(val) => handleStyleChange('padding', val)}
+                    options={[
+                        { value: "0px", label: "Nenhum" },
+                        { value: "10px", label: "Pequeno (10px)" },
+                        { value: "20px", label: "Médio (20px)" },
+                        { value: "40px", label: "Grande (40px)" },
+                        { value: "60px", label: "Extra Grande (60px)" }
+                    ]}
+                    placeholder="Selecione o padding..."
+                    searchPlaceholder="Buscar padding..."
+                />
             </div>
 
             <div className="space-y-2">

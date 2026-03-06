@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import WorksStatsReports from '@/components/WorksStatsReports';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -462,15 +462,17 @@ const ReportsStats = () => {
                   )}
                 </div>
                 <div>
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="h-8 w-[150px] bg-white/70 border-muted text-xs">
-                      <SelectValue placeholder="Categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as categorias</SelectItem>
-                      <SelectItem value="buracos">Buracos</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Combobox 
+                    value={categoryFilter} 
+                    onChange={setCategoryFilter}
+                    options={[
+                      { value: "all", label: "Todas as categorias" },
+                      { value: "buracos", label: "Buracos" }
+                    ]}
+                    placeholder="Categoria"
+                    searchPlaceholder="Buscar categoria..."
+                    className="h-8 w-[150px] bg-white/70 border-muted text-xs"
+                  />
                 </div>
               </div>
             </CardHeader>

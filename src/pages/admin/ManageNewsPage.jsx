@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/customSupabaseClient';
 
@@ -154,19 +154,20 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="relatedReport" className="text-right">Vincular Bronca</Label>
               <div className="col-span-3">
-                <Select value={selectedReportId} onValueChange={setSelectedReportId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma bronca (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px]">
-                    <SelectItem value="none">Nenhuma</SelectItem>
-                    {reports.map(r => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.protocol} - {r.title.substring(0, 40)}...
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={[
+                    { value: 'none', label: 'Nenhuma' },
+                    ...reports.map(r => ({
+                      value: r.id,
+                      label: `${r.protocol} - ${r.title.substring(0, 40)}${r.title.length > 40 ? '...' : ''}`
+                    }))
+                  ]}
+                  value={selectedReportId}
+                  onChange={setSelectedReportId}
+                  placeholder="Selecione uma bronca (opcional)"
+                  searchPlaceholder="Buscar bronca..."
+                  notFoundText="Nenhuma bronca encontrada."
+                />
                 <p className="text-xs text-muted-foreground mt-1">
                   Se selecionado, enviará notificação também para os envolvidos nesta bronca.
                 </p>

@@ -10,7 +10,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 
@@ -103,26 +102,39 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets }
 
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="status" className="text-right">Status</Label>
-            <Select name="status" value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
-              <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="paved">Pavimentada</SelectItem>
-                <SelectItem value="unpaved">Sem Pavimentação</SelectItem>
-                <SelectItem value="partially_paved">Parcialmente Pavimentada</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="col-span-3">
+              <Combobox
+                options={[
+                  { value: 'paved', label: 'Pavimentada' },
+                  { value: 'unpaved', label: 'Sem Pavimentação' },
+                  { value: 'partially_paved', label: 'Parcialmente Pavimentada' }
+                ]}
+                value={formData.status}
+                onChange={(value) => handleSelectChange('status', value)}
+                placeholder="Selecione o status"
+                searchPlaceholder="Buscar status..."
+                notFoundText="Status não encontrado"
+              />
+            </div>
           </div>
 
           <div className={`space-y-6 transition-opacity duration-300 ${pavementFieldsEnabled ? 'opacity-100' : 'opacity-50'}`}>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="pavement_type" className="text-right">Tipo</Label>
-              <Select name="pavement_type" value={formData.pavement_type} onValueChange={(value) => handleSelectChange('pavement_type', value)} disabled={!pavementFieldsEnabled}>
-                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="asphalt">Asfáltica</SelectItem>
-                  <SelectItem value="granite">Granítica (Paralelepípedo)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Combobox
+                  options={[
+                    { value: 'asphalt', label: 'Asfáltica' },
+                    { value: 'granite', label: 'Granítica (Paralelepípedo)' }
+                  ]}
+                  value={formData.pavement_type}
+                  onChange={(value) => handleSelectChange('pavement_type', value)}
+                  placeholder="Selecione o tipo"
+                  searchPlaceholder="Buscar tipo..."
+                  notFoundText="Tipo não encontrado"
+                  disabled={!pavementFieldsEnabled}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="paving_date" className="text-right">Ano da Conclusão</Label>
