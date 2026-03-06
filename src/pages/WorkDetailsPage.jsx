@@ -90,12 +90,12 @@ const WorkMap = ({ location, bairro }) => {
 
 const getStatusInfo = (status) => {
   switch (status) {
-    case 'in-progress': return { text: 'Em Andamento', icon: Activity, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' };
-    case 'completed': return { text: 'Concluída', icon: CheckCircle, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
-    case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' };
-    case 'unfinished': return { text: 'Inacabada', icon: AlertTriangle, color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200' };
-    case 'planned': return { text: 'Planejamento', icon: Calendar, color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200' };
-    case 'tendered': return { text: 'Em Licitação', icon: FileText, color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' };
+    case 'in-progress': return { text: 'Em Andamento', icon: Activity, color: 'text-blue-700', bg: 'bg-gradient-to-r from-blue-50 to-blue-100', border: 'border-blue-200' };
+    case 'completed': return { text: 'Concluída', icon: CheckCircle, color: 'text-emerald-700', bg: 'bg-gradient-to-r from-emerald-50 to-emerald-100', border: 'border-emerald-200' };
+    case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-amber-700', bg: 'bg-gradient-to-r from-amber-50 to-amber-100', border: 'border-amber-200' };
+    case 'unfinished': return { text: 'Inacabada', icon: AlertTriangle, color: 'text-rose-700', bg: 'bg-gradient-to-r from-rose-50 to-rose-100', border: 'border-rose-200' };
+    case 'planned': return { text: 'Planejamento', icon: Calendar, color: 'text-violet-700', bg: 'bg-gradient-to-r from-violet-50 to-violet-100', border: 'border-violet-200' };
+    case 'tendered': return { text: 'Em Licitação', icon: FileText, color: 'text-orange-700', bg: 'bg-gradient-to-r from-orange-50 to-orange-100', border: 'border-orange-200' };
     default: return { text: 'Não definido', icon: HelpCircle, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' };
   }
 };
@@ -561,27 +561,31 @@ const WorkDetailsPage = () => {
                 className="ml-2 text-slate-600 border-slate-200 hover:bg-slate-50 flex"
               >
                 <Edit className="w-4 h-4 mr-2" />
-               <span  className="hidden sm:inline" >Gerenciar</span> 
+                <span  className="hidden sm:inline" >Gerenciar</span> 
               </Button>
             )}
             <Button 
               onClick={handleShareWork}
               variant="ghost" 
-              className="text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4"
+              className="text-gray-600 hover:text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 transition-all duration-300"
               title="Compartilhar"
             >
-              <Share2 className="w-6 h-6 sm:w-5 sm:h-5 sm:mr-2" />
-              <span className="hidden sm:inline">Compartilhar</span>
+              <div className="p-1.5 rounded-full bg-blue-50 group-hover:bg-blue-100 sm:bg-transparent sm:p-0">
+                <Share2 className="w-5 h-5 sm:w-5 sm:h-5 sm:mr-2 text-blue-600 sm:text-current" />
+              </div>
+              <span className="hidden sm:inline font-medium">Compartilhar</span>
             </Button>
             
             <Button
               onClick={handleFavoriteToggle}
               variant="ghost"
-              className={`hover:bg-gray-100 rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 ${isFavorited ? 'text-red-500 hover:text-red-600' : 'text-gray-500 hover:text-gray-900'}`}
+              className={`rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 transition-all duration-300 ${isFavorited ? 'text-red-600 bg-gradient-to-r from-red-50 to-pink-50 hover:from-red-100 hover:to-pink-100' : 'text-gray-600 hover:text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50'}`}
               title={isFavorited ? 'Remover dos favoritos' : 'Favoritar'}
             >
-              <Heart className={`w-6 h-6 sm:w-5 sm:h-5 ${isFavorited ? 'fill-current' : ''} sm:mr-2`} />
-              <span className="hidden sm:inline">Favoritar</span>
+              <div className={`p-1.5 rounded-full ${isFavorited ? 'bg-red-100' : 'bg-gray-100 group-hover:bg-red-100'} sm:bg-transparent sm:p-0`}>
+                 <Heart className={`w-5 h-5 sm:w-5 sm:h-5 ${isFavorited ? 'fill-current' : ''} sm:mr-2`} />
+              </div>
+              <span className="hidden sm:inline font-medium">Favoritar</span>
             </Button>
 
            
@@ -602,18 +606,19 @@ const WorkDetailsPage = () => {
         </div>
       </div>
 
-      <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-4">
+      <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Main Content Column */}
           <div className="lg:col-span-2">
             
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden relative">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 " />
             {/* Title & Progress Hero Card */}
-            <div className="p-6 md:p-8 border-t-4 border-red-600">
+            <div className="p-6 md:p-8">
               <div className="flex flex-wrap items-center gap-2 mb-4">
-                <Badge className={`${statusInfo.bg} ${statusInfo.color} border border-current/20 hover:bg-opacity-80`}>
-                  <statusInfo.icon className="w-3 h-3 mr-1" />
+                <Badge className={`${statusInfo.bg} ${statusInfo.color} border border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
+                  <statusInfo.icon className="w-4 h-4 mr-1.5" />
                   {statusInfo.text}
                 </Badge>
                 {work.bairro && (
@@ -685,11 +690,13 @@ const WorkDetailsPage = () => {
 
             {/* About Section */}
             <div className="p-6 md:p-8">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-gray-400" />
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-violet-50 text-indigo-600 mr-3 shadow-sm border border-indigo-100/50">
+                  <BookOpen className="w-4 h-4" />
+                </div>
                 Sobre a Obra
               </h3>
-              <div className="prose prose-slate max-w-none text-gray-600 leading-relaxed">
+              <div className="prose prose-slate max-w-none text-gray-600 leading-relaxed pl-1">
                 <p className="whitespace-pre-wrap">{work.long_description || work.description}</p>
               </div>
             </div>
@@ -698,8 +705,10 @@ const WorkDetailsPage = () => {
 
             {/* Timeline Section */}
             <div className="p-6 md:p-8">
-              <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-gray-400" />
+              <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-600 mr-3 shadow-sm border border-blue-100/50">
+                  <Activity className="w-4 h-4" />
+                </div>
                 Histórico e Fases
               </h3>
 
@@ -880,9 +889,11 @@ const WorkDetailsPage = () => {
 
             {/* Gallery Section - Compact */}
             <div className="p-6 md:p-8">
-              <div className="flex items-center gap-2 mb-6">
-                <ImageIcon className="w-5 h-5 text-gray-400" />
-                <h3 className="text-lg font-bold text-gray-800">Galeria de Mídia</h3>
+              <div className="flex items-center mb-6">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-pink-50 to-rose-50 text-pink-600 mr-3 shadow-sm border border-pink-100/50">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Galeria de Mídia</h3>
               </div>
               
               <div className="space-y-6">
@@ -970,8 +981,10 @@ const WorkDetailsPage = () => {
             
             {/* Financial Card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-gray-400" />
+              <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 mr-3 shadow-sm border border-emerald-100/50">
+                  <DollarSign className="w-4 h-4" />
+                </div>
                 Financeiro
               </h3>
               
@@ -1016,8 +1029,10 @@ const WorkDetailsPage = () => {
             {/* Map Card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="p-4 border-b border-gray-100">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-gray-400" />
+                <h3 className="font-bold text-gray-900 flex items-center">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
+                    <MapPin className="w-4 h-4" />
+                  </div>
                   Localização
                 </h3>
               </div>
@@ -1040,8 +1055,10 @@ const WorkDetailsPage = () => {
 
             {/* Technical Details Card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Info className="w-5 h-5 text-gray-400" />
+              <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 mr-3 shadow-sm border border-slate-200/50">
+                  <Info className="w-4 h-4" />
+                </div>
                 Detalhes Técnicos
               </h3>
               
@@ -1108,8 +1125,10 @@ const WorkDetailsPage = () => {
             {/* Links */}
             {Array.isArray(work.related_links) && work.related_links.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Link2 className="w-5 h-5 text-gray-400" />
+                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
+                    <Link2 className="w-4 h-4" />
+                  </div>
                   Links Relacionados
                 </h3>
                 <div className="space-y-2">
