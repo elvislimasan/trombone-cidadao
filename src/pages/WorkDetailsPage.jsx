@@ -553,6 +553,7 @@ const WorkDetailsPage = () => {
             </span>
           </div>
 
+          
           <div className="flex items-center gap-2">
              {user?.is_admin && (
               <Button 
@@ -611,13 +612,13 @@ const WorkDetailsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           
           {/* Main Content Column */}
-          <div className="lg:col-span-8 xl:col-span-12">
+          <div className="lg:col-span-8">
             
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden relative">
               
             {/* Title & Progress Hero Card */}
             <div className="p-5 md:p-8 lg:p-10">
-              <div className="flex flex-col xl:flex-row xl:items-start gap-8">
+              <div className="flex flex-col lg:flex-row lg:items-start gap-8">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-4">
                     <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
@@ -672,87 +673,7 @@ const WorkDetailsPage = () => {
                   </div>
                 </div>
 
-                {/* Map Section for Desktop (XL Screens) */}
-                <div className="hidden xl:block w-[350px] shrink-0 space-y-6">
-                   <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
-                      <div className="p-4 border-b border-slate-200 bg-white">
-                        <h3 className="font-bold text-gray-900 flex items-center">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
-                            <MapPin className="w-4 h-4" />
-                          </div>
-                          Localização
-                        </h3>
-                      </div>
-                      <div className="h-64">
-                        <WorkMap location={work.location} bairro={work.bairro?.name} />
-                      </div>
-                      <div className="px-4 py-4 bg-slate-50 space-y-3">
-                         <div className="flex items-start gap-3">
-                            <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                            <div>
-                               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
-                               <p className="text-sm font-medium text-slate-700 leading-tight">{work.address || 'Não informado'}</p>
-                            </div>
-                         </div>
-                         
-                         {work.bairro && (
-                           <div className="flex items-start gap-3 pt-3 border-t border-slate-200/60">
-                              <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                              <div>
-                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
-                                 <p className="text-sm font-medium text-slate-700 leading-tight">{work.bairro.name}</p>
-                              </div>
-                           </div>
-                         )}
-                      </div>
-                   </div>
-
-                   {/* Links Card */}
-                   <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                      <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                        <h3 className="font-bold text-gray-900 flex items-center">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-600 mr-3 shadow-sm border border-blue-100/50">
-                            <Link2 className="w-4 h-4" />
-                          </div>
-                          Links e Documentos
-                        </h3>
-                      </div>
-                      
-                      <div className="p-4 space-y-3">
-                        {documents.length > 0 ? (
-                          documents.map((doc) => (
-                            <a 
-                              key={doc.id}
-                              href={doc.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center p-3 rounded-lg border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all group"
-                            >
-                              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center mr-3 group-hover:bg-white group-hover:shadow-sm transition-all">
-                                <FileText className="w-5 h-5 text-slate-500 group-hover:text-blue-600" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700">
-                                  {doc.name || 'Documento sem nome'}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {doc.type.toUpperCase()} • {formatDate(doc.created_at)}
-                                </p>
-                              </div>
-                              <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
-                            </a>
-                          ))
-                        ) : (
-                          <div className="text-center py-6">
-                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-2">
-                              <FileText className="w-6 h-6 text-slate-300" />
-                            </div>
-                            <p className="text-sm text-gray-500">Nenhum documento disponível</p>
-                          </div>
-                        )}
-                      </div>
-                   </div>
-                </div>
+                
               </div>
 
               {/* Details Sections */}
@@ -1337,8 +1258,72 @@ const WorkDetailsPage = () => {
 
           </div>
 
-          {/* Sidebar Column (Visible only on LG, Hidden on XL) */}
-          <div className="lg:col-span-4 xl:hidden space-y-6">
+          {/* Sidebar Column (LG+) */}
+          <div className="hidden lg:block lg:col-span-4 space-y-6">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-gray-100">
+                <h3 className="font-bold text-gray-900 flex items-center">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  Localização
+                </h3>
+              </div>
+              <div className="h-64">
+                <WorkMap location={work.location} bairro={work.bairro?.name} />
+              </div>
+              
+              <div className="px-4 py-4 bg-slate-50 space-y-3">
+                 <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                    <div>
+                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
+                       <p className="text-sm font-medium text-slate-700 leading-tight">{work.address || 'Não informado'}</p>
+                    </div>
+                 </div>
+                 
+                 {work.bairro && (
+                   <div className="flex items-start gap-3 pt-3 border-t border-slate-200/60">
+                      <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                      <div>
+                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
+                         <p className="text-sm font-medium text-slate-700 leading-tight">{work.bairro.name}</p>
+                      </div>
+                   </div>
+                 )}
+              </div>
+            </div>
+
+            {Array.isArray(work.related_links) && work.related_links.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
+                    <Link2 className="w-4 h-4" />
+                  </div>
+                  Links Relacionados
+                </h3>
+                <div className="space-y-2">
+                  {work.related_links.map((link, idx) => (
+                    <a 
+                      key={idx} 
+                      href={link.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+                    >
+                      <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">{link.title}</span>
+                      <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+
+          </div>
+
+          {/* Sidebar Column (Mobile/Tablet Only) */}
+          <div className="lg:hidden space-y-6">
             
             {/* Map Card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
