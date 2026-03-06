@@ -850,7 +850,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end gap-2 border-t pt-4">
+        <CardFooter className="flex justify-end gap-2 border-t pt-4 sticky bottom-0 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/75 z-10">
           <Button variant="outline" type="button" onClick={handleCancel}>Cancelar</Button>
           <Button type="button" onClick={handleSave} className="gap-2">
             <Save className="w-4 h-4" />

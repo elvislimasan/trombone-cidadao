@@ -863,6 +863,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
           </div>
         </div>
 
+        {!(activeTab === 'measurements' && isMeasurementEditing) && (
         <DialogFooter className="flex-shrink-0 p-4 sm:p-0 sm:pt-4 border-t sm:border-t-0 mt-auto sm:mt-4 bg-background sm:bg-transparent z-20 flex flex-col sm:flex-row gap-2">
           <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
             <Button 
@@ -906,6 +907,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
             </Button>
           </div>
         </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
