@@ -611,69 +611,152 @@ const WorkDetailsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           
           {/* Main Content Column */}
-          <div className="lg:col-span-8 xl:col-span-9">
+          <div className="lg:col-span-8 xl:col-span-12">
             
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden relative">
               
             {/* Title & Progress Hero Card */}
             <div className="p-5 md:p-8 lg:p-10">
-              <div className="flex flex-wrap items-center gap-2 mb-4">
-                <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
-                  <statusInfo.icon className="w-4 h-4 mr-1.5" />
-                  {statusInfo.text}
-                </Badge>
-                {work.bairro && (
-                  <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50">
-                    <MapPin className="w-3 h-3 mr-1" />
-                    {work.bairro.name}
-                  </Badge>
-                )}
-              </div>
-
-              <h1 className="text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold text-gray-900 leading-tight mb-2 max-w-4xl">
-                {work.title}
-              </h1>
-              {work.description && (
-                <p className="text-lg text-gray-600 mb-6 font-medium leading-relaxed">
-                  {work.description}
-                </p>
-              )}
-              {!work.description && <div className="mb-6"></div>}
-
-              {/* Integrated Progress Section */}
-              <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 mb-8">
-                <div className="flex justify-between items-end mb-2">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-slate-400" />
-                    <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Progresso da Obra</span>
+              <div className="flex flex-col xl:flex-row xl:items-start gap-8">
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
+                      <statusInfo.icon className="w-4 h-4 mr-1.5" />
+                      {statusInfo.text}
+                    </Badge>
+                    {work.bairro && (
+                      <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50">
+                        <MapPin className="w-3 h-3 mr-1" />
+                        {work.bairro.name}
+                      </Badge>
+                    )}
                   </div>
-                  <span className="text-2xl font-bold text-slate-900">{work.execution_percentage || 0}%</span>
+
+                  <h1 className="text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold text-gray-900 leading-tight mb-2 max-w-4xl">
+                    {work.title}
+                  </h1>
+                  {work.description && (
+                    <p className="text-lg text-gray-600 mb-6 font-medium leading-relaxed">
+                      {work.description}
+                    </p>
+                  )}
+                  {!work.description && <div className="mb-6"></div>}
+
+                  {/* Integrated Progress Section */}
+                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 mb-8">
+                    <div className="flex justify-between items-end mb-2">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-slate-400" />
+                        <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Progresso da Obra</span>
+                      </div>
+                      <span className="text-2xl font-bold text-slate-900">{work.execution_percentage || 0}%</span>
+                    </div>
+                    
+                    <Progress 
+                      value={work.execution_percentage || 0} 
+                      className="h-4 bg-slate-200 rounded-full" 
+                      indicatorClassName="bg-red-600 rounded-full" 
+                    />
+                  </div>
+
+                  <div className="py-6 md:py-8">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-violet-50 text-indigo-600 mr-3 shadow-sm border border-indigo-100/50">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      Sobre a Obra
+                    </h3>
+                    <div className="prose prose-slate max-w-none text-gray-600 leading-relaxed pl-1">
+                      <p className="whitespace-pre-wrap">{work.long_description || work.description}</p>
+                    </div>
+                  </div>
                 </div>
-                
-                <Progress 
-                  value={work.execution_percentage || 0} 
-                  className="h-4 bg-slate-200 rounded-full" 
-                  indicatorClassName="bg-red-600 rounded-full" 
-                />
+
+                {/* Map Section for Desktop (XL Screens) */}
+                <div className="hidden xl:block w-[350px] shrink-0 space-y-6">
+                   <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                      <div className="p-4 border-b border-slate-200 bg-white">
+                        <h3 className="font-bold text-gray-900 flex items-center">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
+                            <MapPin className="w-4 h-4" />
+                          </div>
+                          Localização
+                        </h3>
+                      </div>
+                      <div className="h-64">
+                        <WorkMap location={work.location} bairro={work.bairro?.name} />
+                      </div>
+                      <div className="px-4 py-4 bg-slate-50 space-y-3">
+                         <div className="flex items-start gap-3">
+                            <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                            <div>
+                               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
+                               <p className="text-sm font-medium text-slate-700 leading-tight">{work.address || 'Não informado'}</p>
+                            </div>
+                         </div>
+                         
+                         {work.bairro && (
+                           <div className="flex items-start gap-3 pt-3 border-t border-slate-200/60">
+                              <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                              <div>
+                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
+                                 <p className="text-sm font-medium text-slate-700 leading-tight">{work.bairro.name}</p>
+                              </div>
+                           </div>
+                         )}
+                      </div>
+                   </div>
+
+                   {/* Links Card */}
+                   <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                      <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="font-bold text-gray-900 flex items-center">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-600 mr-3 shadow-sm border border-blue-100/50">
+                            <Link2 className="w-4 h-4" />
+                          </div>
+                          Links e Documentos
+                        </h3>
+                      </div>
+                      
+                      <div className="p-4 space-y-3">
+                        {documents.length > 0 ? (
+                          documents.map((doc) => (
+                            <a 
+                              key={doc.id}
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center p-3 rounded-lg border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all group"
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center mr-3 group-hover:bg-white group-hover:shadow-sm transition-all">
+                                <FileText className="w-5 h-5 text-slate-500 group-hover:text-blue-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700">
+                                  {doc.name || 'Documento sem nome'}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {doc.type.toUpperCase()} • {formatDate(doc.created_at)}
+                                </p>
+                              </div>
+                              <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
+                            </a>
+                          ))
+                        ) : (
+                          <div className="text-center py-6">
+                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                              <FileText className="w-6 h-6 text-slate-300" />
+                            </div>
+                            <p className="text-sm text-gray-500">Nenhum documento disponível</p>
+                          </div>
+                        )}
+                      </div>
+                   </div>
+                </div>
               </div>
-                 {/* About Section */}
-          
 
               {/* Details Sections */}
               <div className="space-y-8 mb-8">
-                  <div className="py-6 md:py-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-violet-50 text-indigo-600 mr-3 shadow-sm border border-indigo-100/50">
-                  <BookOpen className="w-4 h-4" />
-                </div>
-                Sobre a Obra
-              </h3>
-              <div className="prose prose-slate max-w-none text-gray-600 leading-relaxed pl-1">
-                <p className="whitespace-pre-wrap">{work.long_description || work.description}</p>
-              </div>
-            </div>
-
-          
                 
                 {/* 1. Execução e Responsáveis */}
                 <div>
@@ -1254,8 +1337,8 @@ const WorkDetailsPage = () => {
 
           </div>
 
-          {/* Sidebar Column */}
-          <div className="lg:col-span-4 xl:col-span-3 space-y-6">
+          {/* Sidebar Column (Visible only on LG, Hidden on XL) */}
+          <div className="lg:col-span-4 xl:hidden space-y-6">
             
             {/* Map Card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
