@@ -1,679 +1,1330 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Petição - Trombone Cidadão</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-        }
-
-        /* Header */
-        header {
-            background: linear-gradient(135deg, #8B2E2E 0%, #A03939 100%);
-            padding: 1rem 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: white;
-            font-weight: bold;
-            font-size: 1.2rem;
-        }
-
-        .logo::before {
-            content: "🎺";
-            font-size: 1.5rem;
-        }
-
-        nav ul {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-        }
-
-        nav a {
-            color: white;
-            text-decoration: none;
-            font-size: 0.95rem;
-            transition: opacity 0.3s;
-        }
-
-        nav a:hover {
-            opacity: 0.8;
-        }
-
-        /* Main Container */
-        .main-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 2rem;
-        }
-
-        /* Breadcrumb */
-        .breadcrumb {
-            color: #666;
-            font-size: 0.85rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .breadcrumb a {
-            color: #E53E3E;
-            text-decoration: none;
-        }
-
-        /* Article Section */
-        .article-section {
-            background: white;
-            border-radius: 12px;
-            padding: 2.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-
-        h1 {
-            font-size: 2rem;
-            line-height: 1.3;
-            margin-bottom: 2rem;
-            color: #1a1a1a;
-        }
-
-        .article-image {
-            width: 100%;
-            border-radius: 8px;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .section-title {
-            font-size: 1.3rem;
-            margin: 2rem 0 1rem;
-            color: #8B2E2E;
-            border-left: 4px solid #E53E3E;
-            padding-left: 1rem;
-        }
-
-        .article-content p {
-            line-height: 1.8;
-            margin-bottom: 1.2rem;
-            color: #444;
-            text-align: justify;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .petition-card {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            position: sticky;
-            top: 2rem;
-        }
-
-        .signature-count {
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .count-number {
-            font-size: 3.5rem;
-            font-weight: bold;
-            color: #E53E3E;
-            display: block;
-        }
-
-        .count-text {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #f0f0f0;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 1.5rem 0;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #E53E3E 0%, #F56565 100%);
-            width: 0%;
-            transition: width 1s ease;
-        }
-
-        .signature-info {
-            background: #FFF5F5;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-        }
-
-        .signature-info h3 {
-            font-size: 0.95rem;
-            margin-bottom: 0.8rem;
-            color: #333;
-        }
-
-        .signer-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #FFE5E5;
-        }
-
-        .signer-item:last-child {
-            border-bottom: none;
-        }
-
-        .signer-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #E53E3E;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            color: #555;
-            font-weight: 500;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #E53E3E;
-        }
-
-        .checkbox-group {
-            display: flex;
-            gap: 0.5rem;
-            margin: 1rem 0;
-            font-size: 0.85rem;
-            color: #666;
-        }
-
-        .btn-sign {
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.05rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
-        }
-
-        .btn-sign:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(229, 62, 62, 0.4);
-        }
-
-        .share-section {
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .share-btn {
-            width: 100%;
-            padding: 0.75rem;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.9rem;
-        }
-
-        .share-btn:hover {
-            border-color: #E53E3E;
-            color: #E53E3E;
-        }
-
-        /* Support Section */
-        .support-card {
-            background: linear-gradient(135deg, #FFF5F5 0%, #FED7D7 100%);
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 2px solid #FEB2B2;
-        }
-
-        .support-card h3 {
-            color: #8B2E2E;
-            margin-bottom: 1rem;
-            font-size: 1.1rem;
-        }
-
-        .support-amounts {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-            margin: 1rem 0;
-        }
-
-        .amount-btn {
-            padding: 0.75rem;
-            border: 2px solid #E53E3E;
-            background: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-
-        .amount-btn:hover {
-            background: #E53E3E;
-            color: white;
-        }
-
-        /* Comments Section */
-        .comments-section {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            margin-top: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-
-        .comment-tabs {
-            display: flex;
-            gap: 2rem;
-            border-bottom: 2px solid #f0f0f0;
-            margin-bottom: 1.5rem;
-        }
-
-        .tab {
-            padding: 0.75rem 0;
-            cursor: pointer;
-            color: #666;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s;
-        }
-
-        .tab.active {
-            color: #E53E3E;
-            border-bottom-color: #E53E3E;
-        }
-
-        .comment-input {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .comment-input input {
-            flex: 1;
-            padding: 0.75rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-        }
-
-        .comment-item {
-            padding: 1rem 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .comment-author {
-            font-weight: bold;
-            color: #8B2E2E;
-            margin-bottom: 0.5rem;
-        }
-
-        .comment-time {
-            color: #999;
-            font-size: 0.85rem;
-        }
-
-        /* Related Causes */
-        .related-section {
-            margin-top: 3rem;
-            padding-top: 3rem;
-            border-top: 2px solid #f0f0f0;
-        }
-
-        .related-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-top: 1.5rem;
-        }
-
-        .cause-card {
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .cause-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-        }
-
-        .cause-image {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-            background: #ddd;
-        }
-
-        .cause-content {
-            padding: 1.5rem;
-        }
-
-        .cause-title {
-            font-size: 1rem;
-            margin-bottom: 0.75rem;
-            color: #1a1a1a;
-        }
-
-        .cause-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            color: #666;
-            margin-top: 1rem;
-        }
-
-        /* Responsive */
-        @media (max-width: 968px) {
-            .main-container {
-                grid-template-columns: 1fr;
-            }
-
-            .petition-card {
-                position: static;
-            }
-
-            .related-grid {
-                grid-template-columns: 1fr;
-            }
-
-            nav ul {
-                display: none;
-            }
-        }
-
-        /* Animations */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .article-section, .petition-card {
-            animation: fadeIn 0.6s ease;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Obra · Trombone Cidadão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --ink:     #111009;
+  --ink-2:   #2a2820;
+  --ink-3:   #5a5850;
+  --paper:   #f5f0e8;
+  --paper-2: #ede8dc;
+  --paper-3: #e0d9cc;
+  --red:     #c8281e;
+  --red-2:   #e03528;
+  --red-3:   #f5ece9;
+  --gold:    #b89a4a;
+  --white:   #fdfbf7;
+  --f-display: 'Playfair Display', Georgia, serif;
+  --f-mono:    'DM Mono', 'Courier New', monospace;
+  --f-body:    'DM Sans', system-ui, sans-serif;
+}
+
+/* ═══════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: var(--f-body);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+img { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+
+/* ═══════════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════════ */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; height: 52px;
+  background: var(--ink);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.tb-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--f-display); font-size: .95rem; font-weight: 700;
+  color: var(--paper);
+  letter-spacing: -.01em;
+}
+.tb-logo {
+  width: 28px; height: 28px; background: var(--red);
+  border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  font-family: var(--f-body); font-size: 14px;
+}
+.tb-nav { display: flex; gap: 0; }
+.tb-nav a {
+  font-size: .75rem; font-weight: 500; color: rgba(245,240,232,.5);
+  padding: 0 14px; height: 52px; display: flex; align-items: center;
+  letter-spacing: .04em; text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+  transition: color .2s, border-color .2s;
+}
+.tb-nav a:hover { color: var(--paper); }
+.tb-nav a.cur { color: var(--red-2); border-bottom-color: var(--red-2); }
+.tb-right { display: flex; align-items: center; gap: 16px; }
+.tb-btn {
+  font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  padding: 7px 16px; border-radius: 3px;
+  background: var(--red); color: var(--white);
+  border: none; cursor: pointer; transition: background .2s;
+}
+.tb-btn:hover { background: var(--red-2); }
+.tb-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--red), var(--gold));
+  display: flex; align-items: center; justify-content: center;
+  font-size: .68rem; font-weight: 700; color: var(--white); cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════
+   HERO — FULL BLEED EDITORIAL
+═══════════════════════════════════════════ */
+.hero {
+  margin-top: 52px;
+  background: var(--ink);
+  min-height: 92vh;
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Left: editorial text block */
+.hero-left {
+  padding: 64px 56px 64px 64px;
+  display: flex; flex-direction: column;
+  position: relative; z-index: 2;
+  border-right: 1px solid rgba(245,240,232,.08);
+}
+
+.hero-eyebrow {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 40px;
+}
+.eyebrow-chip {
+  font-family: var(--f-mono); font-size: .68rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--red-2);
+  border: 1px solid rgba(200,40,30,.4);
+  padding: 4px 10px; border-radius: 2px;
+}
+.eyebrow-sep { width: 32px; height: 1px; background: rgba(245,240,232,.2); }
+.eyebrow-label {
+  font-family: var(--f-mono); font-size: .68rem; letter-spacing: .1em;
+  text-transform: uppercase; color: rgba(245,240,232,.35);
+}
+
+.hero-number {
+  font-family: var(--f-display);
+  font-size: clamp(5rem, 12vw, 10rem);
+  font-weight: 900;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(245,240,232,.1);
+  line-height: 1;
+  position: absolute;
+  top: 40px; left: 40px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.hero-title {
+  font-family: var(--f-display);
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 900;
+  color: var(--paper);
+  line-height: 1.1;
+  letter-spacing: -.03em;
+  margin-bottom: 28px;
+  position: relative; z-index: 2;
+  max-width: 600px;
+}
+.hero-title em {
+  font-style: italic;
+  color: var(--red-2);
+}
+
+.hero-desc {
+  font-size: .9rem; font-weight: 300;
+  color: rgba(245,240,232,.55);
+  line-height: 1.75;
+  max-width: 480px;
+  margin-bottom: 48px;
+}
+
+/* Progress strip */
+.progress-strip {
+  margin-bottom: 48px;
+}
+.ps-head {
+  display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px;
+}
+.ps-pct {
+  font-family: var(--f-display);
+  font-size: 4rem; font-weight: 900; line-height: 1;
+  color: var(--paper);
+  letter-spacing: -.04em;
+}
+.ps-pct sup { font-size: 1.5rem; color: var(--red-2); }
+.ps-label {
+  font-family: var(--f-mono); font-size: .7rem;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(245,240,232,.4);
+}
+.ps-track {
+  height: 3px; background: rgba(245,240,232,.1); border-radius: 0;
+  position: relative; overflow: hidden;
+}
+.ps-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: linear-gradient(90deg, var(--red), #e85a10);
+  border-radius: 0;
+  transition: width 1.4s cubic-bezier(.22,.68,0,1.2);
+}
+.ps-tick-row {
+  display: flex; justify-content: space-between;
+  margin-top: 6px;
+}
+.ps-tick {
+  font-family: var(--f-mono); font-size: .62rem;
+  color: rgba(245,240,232,.25); letter-spacing: .04em;
+}
+
+/* Action row */
+.hero-actions {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: auto;
+}
+.act-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border-radius: 3px;
+  font-size: .78rem; font-weight: 600; letter-spacing: .04em;
+  cursor: pointer; border: none; transition: all .2s;
+  text-transform: uppercase;
+}
+.act-primary { background: var(--red); color: var(--white); }
+.act-primary:hover { background: var(--red-2); transform: translateY(-1px); }
+.act-outline { background: transparent; color: rgba(245,240,232,.6); border: 1px solid rgba(245,240,232,.2); }
+.act-outline:hover { color: var(--paper); border-color: rgba(245,240,232,.5); }
+
+/* Right: data panel */
+.hero-right {
+  background: var(--ink-2);
+  padding: 56px 40px;
+  display: flex; flex-direction: column; gap: 0;
+  border-left: 1px solid rgba(245,240,232,.06);
+}
+.panel-title {
+  font-family: var(--f-mono); font-size: .65rem; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(245,240,232,.3);
+  margin-bottom: 28px; padding-bottom: 12px;
+  border-bottom: 1px solid rgba(245,240,232,.08);
+}
+.data-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(245,240,232,.05);
+}
+.data-row:last-of-type { border-bottom: none; }
+.dr-key {
+  font-family: var(--f-mono); font-size: .65rem; letter-spacing: .08em;
+  text-transform: uppercase; color: rgba(245,240,232,.3);
+  flex-shrink: 0; padding-top: 2px;
+  min-width: 100px;
+}
+.dr-val {
+  font-size: .85rem; font-weight: 500; color: var(--paper);
+  text-align: right; line-height: 1.3;
+}
+.dr-val.big {
+  font-family: var(--f-display); font-size: 1.3rem; font-weight: 700;
+  color: var(--paper); letter-spacing: -.02em;
+}
+.dr-val.accent { color: var(--red-2); }
+
+.budget-block {
+  margin-top: 32px; padding: 24px;
+  background: rgba(200,40,30,.1);
+  border: 1px solid rgba(200,40,30,.2);
+  border-radius: 4px;
+}
+.bb-label {
+  font-family: var(--f-mono); font-size: .62rem; letter-spacing: .1em;
+  text-transform: uppercase; color: rgba(245,240,232,.4);
+  margin-bottom: 8px;
+}
+.bb-value {
+  font-family: var(--f-display); font-size: 2.2rem; font-weight: 900;
+  color: var(--paper); letter-spacing: -.03em; line-height: 1;
+}
+.bb-value small { font-size: .9rem; opacity: .5; }
+.bb-sub { margin-top: 12px; display: flex; justify-content: space-between; }
+.bb-sub-item {}
+.bb-sub-lbl { font-family: var(--f-mono); font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; color: rgba(245,240,232,.3); margin-bottom: 2px; }
+.bb-sub-val { font-size: .85rem; font-weight: 600; color: rgba(245,240,232,.7); }
+
+.status-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 28px; }
+.stag {
+  font-family: var(--f-mono); font-size: .62rem; letter-spacing: .08em;
+  text-transform: uppercase; padding: 5px 10px; border-radius: 2px;
+}
+.stag-red { background: rgba(200,40,30,.2); color: var(--red-2); border: 1px solid rgba(200,40,30,.3); }
+.stag-green { background: rgba(34,197,94,.1); color: #4ade80; border: 1px solid rgba(34,197,94,.2); }
+.stag-muted { background: rgba(245,240,232,.05); color: rgba(245,240,232,.4); border: 1px solid rgba(245,240,232,.1); }
+
+/* decorative element */
+.hero-deco {
+  position: absolute; bottom: 0; left: 0;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(200,40,30,.08), transparent 70%);
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════
+   BREADCRUMB STRIP
+═══════════════════════════════════════════ */
+.breadstrip {
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--paper-3);
+  padding: 0 64px;
+  display: flex; align-items: center; gap: 8px;
+  height: 40px;
+  overflow-x: auto;
+}
+.bs-item {
+  font-family: var(--f-mono); font-size: .68rem; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-3); white-space: nowrap;
+}
+.bs-item.cur { color: var(--red); }
+.bs-sep { color: var(--paper-3); font-size: .7rem; }
+
+/* ═══════════════════════════════════════════
+   MAIN BODY LAYOUT
+═══════════════════════════════════════════ */
+.body-wrap {
+  max-width: 1360px; margin: 0 auto;
+  padding: 72px 64px;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 64px;
+}
+.col-content { display: flex; flex-direction: column; gap: 72px; min-width: 0; }
+.col-aside { display: flex; flex-direction: column; gap: 32px; }
+
+/* ═══════════════════════════════════════════
+   SECTION HEADERS
+═══════════════════════════════════════════ */
+.sec-head {
+  display: flex; align-items: center; gap: 20px;
+  margin-bottom: 32px;
+}
+.sec-num {
+  font-family: var(--f-display); font-size: 5rem; font-weight: 900;
+  color: var(--paper-3); line-height: 1;
+  flex-shrink: 0; letter-spacing: -.04em;
+  margin-top: -8px;
+}
+.sec-meta {}
+.sec-label {
+  font-family: var(--f-mono); font-size: .65rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--red);
+  margin-bottom: 4px;
+}
+.sec-title {
+  font-family: var(--f-display); font-size: 1.6rem; font-weight: 900;
+  color: var(--ink); letter-spacing: -.02em; line-height: 1.1;
+}
+.sec-line {
+  flex: 1; height: 1px; background: var(--paper-3);
+}
+
+/* ═══════════════════════════════════════════
+   TIMELINE — BOLD EDITORIAL
+═══════════════════════════════════════════ */
+.timeline { display: flex; flex-direction: column; gap: 0; }
+
+.tl-entry {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 0;
+  position: relative;
+}
+.tl-entry::before {
+  content: '';
+  position: absolute; left: 35px; top: 60px; bottom: 0;
+  width: 1px; background: var(--paper-3);
+}
+.tl-entry:last-child::before { display: none; }
+
+.tl-left {
+  display: flex; flex-direction: column; align-items: center;
+  padding-top: 6px;
+}
+.tl-index {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--f-display); font-size: 1rem; font-weight: 900;
+  flex-shrink: 0; position: relative; z-index: 1;
+}
+.tl-index.phase-active {
+  background: var(--red); color: var(--white);
+  box-shadow: 0 0 0 4px rgba(200,40,30,.15), 0 0 0 8px rgba(200,40,30,.06);
+}
+.tl-index.phase-done {
+  background: var(--ink); color: var(--paper);
+  border: 2px solid var(--ink-3);
+}
+
+.tl-right {
+  padding: 0 0 56px 28px;
+}
+
+.tl-meta-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.tl-date {
+  font-family: var(--f-mono); font-size: .65rem; letter-spacing: .08em;
+  color: var(--ink-3); text-transform: uppercase;
+}
+.tl-badge {
+  font-family: var(--f-mono); font-size: .62rem; letter-spacing: .06em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 2px;
+}
+.tb-previsto { background: #fff8e8; color: #92640a; border: 1px solid #f0d080; }
+.tb-licitado { background: #f0f4ff; color: #3b52cc; border: 1px solid #c0cef8; }
+.tb-andamento { background: #f0fdf4; color: #166534; border: 1px solid #a3e8b0; }
+
+.tl-phase-title {
+  font-family: var(--f-display); font-size: 1.5rem; font-weight: 900;
+  color: var(--ink); letter-spacing: -.02em; line-height: 1.1;
+  margin-bottom: 10px;
+}
+
+.tl-desc {
+  font-size: .875rem; color: var(--ink-3); line-height: 1.65;
+  margin-bottom: 20px;
+}
+
+.tl-data-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 1px; background: var(--paper-3);
+  border: 1px solid var(--paper-3);
+  border-radius: 6px; overflow: hidden;
+}
+.tdg-cell {
+  background: var(--white); padding: 14px 16px;
+}
+.tdg-lbl {
+  font-family: var(--f-mono); font-size: .6rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px;
+}
+.tdg-val { font-size: .9rem; font-weight: 600; color: var(--ink); }
+.tdg-val.money { font-family: var(--f-display); font-size: 1.05rem; color: var(--red); }
+
+.exec-row { margin-top: 14px; }
+.exec-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.exec-label { font-family: var(--f-mono); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.exec-pct { font-family: var(--f-display); font-size: 1.1rem; font-weight: 900; color: var(--ink); }
+.exec-track { height: 4px; background: var(--paper-3); border-radius: 0; overflow: hidden; }
+.exec-fill { height: 100%; border-radius: 0; transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+/* ═══════════════════════════════════════════
+   FICHA TÉCNICA — DATA TABLE
+═══════════════════════════════════════════ */
+.data-table { border: 1px solid var(--paper-3); border-radius: 6px; overflow: hidden; }
+.dt-row {
+  display: grid; grid-template-columns: 180px 1fr;
+  border-bottom: 1px solid var(--paper-3);
+}
+.dt-row:last-child { border-bottom: none; }
+.dt-row:nth-child(even) .dt-key { background: var(--paper-2); }
+.dt-row:nth-child(even) .dt-val { background: var(--white); }
+.dt-key {
+  background: var(--paper); padding: 13px 16px;
+  font-family: var(--f-mono); font-size: .65rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-3);
+  display: flex; align-items: center;
+  border-right: 1px solid var(--paper-3);
+}
+.dt-val {
+  background: var(--white); padding: 13px 18px;
+  font-size: .875rem; font-weight: 500; color: var(--ink);
+  display: flex; align-items: center;
+}
+.dt-val.highlight { color: var(--red); font-family: var(--f-display); font-size: 1rem; font-weight: 700; }
+
+/* ═══════════════════════════════════════════
+   GALLERY — MAGAZINE GRID
+═══════════════════════════════════════════ */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: auto auto;
+  gap: 8px;
+}
+.g-item {
+  border-radius: 4px; overflow: hidden;
+  position: relative; cursor: pointer;
+  background: var(--paper-3);
+}
+.g-item img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s cubic-bezier(.4,0,.2,1); display: block; }
+.g-item:hover img { transform: scale(1.04); }
+.g-item-1 { grid-column: span 7; height: 320px; }
+.g-item-2 { grid-column: span 5; height: 320px; }
+.g-item-3 { grid-column: span 4; height: 200px; }
+.g-item-4 { grid-column: span 4; height: 200px; }
+.g-item-5 { grid-column: span 4; height: 200px; }
+
+.g-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(17,16,9,.7) 0%, transparent 50%);
+  opacity: 0; transition: opacity .3s;
+  display: flex; align-items: flex-end; padding: 16px;
+}
+.g-item:hover .g-overlay { opacity: 1; }
+.g-caption {
+  font-family: var(--f-mono); font-size: .65rem; letter-spacing: .06em;
+  text-transform: uppercase; color: rgba(245,240,232,.8);
+}
+
+.gal-section-label {
+  font-family: var(--f-mono); font-size: .65rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3);
+  margin-bottom: 12px; display: flex; align-items: center; gap: 12px;
+}
+.gal-section-label::after { content: ''; flex: 1; height: 1px; background: var(--paper-3); }
+
+/* ═══════════════════════════════════════════
+   DOCS
+═══════════════════════════════════════════ */
+.doc-list { display: flex; flex-direction: column; gap: 8px; }
+.doc-entry {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 16px;
+  background: var(--white); border: 1px solid var(--paper-3);
+  border-radius: 4px;
+  cursor: pointer; transition: border-color .2s, transform .2s;
+}
+.doc-entry:hover { border-color: var(--red); transform: translateX(4px); }
+.doc-type {
+  font-family: var(--f-mono); font-size: .6rem; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--white);
+  background: var(--red); padding: 4px 8px; border-radius: 2px;
+  flex-shrink: 0;
+}
+.doc-info { flex: 1; }
+.doc-name { font-size: .85rem; font-weight: 500; color: var(--ink); margin-bottom: 2px; }
+.doc-date { font-family: var(--f-mono); font-size: .62rem; color: var(--ink-3); letter-spacing: .04em; }
+.doc-dl { color: var(--ink-3); flex-shrink: 0; }
+.doc-dl svg { display: block; }
+
+/* ═══════════════════════════════════════════
+   ASIDE CARDS
+═══════════════════════════════════════════ */
+.aside-card {
+  background: var(--white);
+  border: 1px solid var(--paper-3);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ac-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--paper-3);
+  display: flex; align-items: center; gap: 10px;
+}
+.ac-head-icon {
+  width: 28px; height: 28px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ac-head-title {
+  font-family: var(--f-mono); font-size: .68rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-2); font-weight: 500;
+}
+.ac-body { padding: 20px; }
+
+/* Map */
+.map-visual {
+  height: 180px; background: var(--paper-2);
+  border-radius: 3px; overflow: hidden; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+}
+.map-address {
+  font-size: .8rem; color: var(--ink-3); line-height: 1.4;
+  display: flex; gap: 8px;
+}
+.map-address svg { flex-shrink: 0; margin-top: 2px; }
+
+/* Aside stat rows */
+.as-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--paper-2);
+  font-size: .82rem;
+}
+.as-row:last-child { border-bottom: none; padding-bottom: 0; }
+.as-key { color: var(--ink-3); font-weight: 400; }
+.as-val { font-weight: 600; color: var(--ink); }
+.as-badge {
+  font-family: var(--f-mono); font-size: .62rem; letter-spacing: .05em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 2px;
+}
+.asb-green { background: #f0fdf4; color: #166534; border: 1px solid #a3e8b0; }
+.asb-amber { background: #fff8e8; color: #92640a; border: 1px solid #f0d080; }
+.asb-slate { background: var(--paper-2); color: var(--ink-3); border: 1px solid var(--paper-3); }
+
+/* Links */
+.ext-link {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--paper-2);
+  font-size: .82rem; color: var(--ink); cursor: pointer;
+  transition: color .15s; gap: 8px;
+}
+.ext-link:last-child { border-bottom: none; padding-bottom: 0; }
+.ext-link:hover { color: var(--red); }
+.ext-link-name { flex: 1; font-weight: 500; }
+.ext-link svg { flex-shrink: 0; color: var(--ink-3); }
+
+/* ═══════════════════════════════════════════
+   CTA BAR
+═══════════════════════════════════════════ */
+.cta-bar {
+  background: var(--ink);
+  padding: 56px 64px;
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 40px; align-items: center;
+}
+.cta-left {}
+.cta-eyebrow {
+  font-family: var(--f-mono); font-size: .65rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--red-2); margin-bottom: 10px;
+}
+.cta-title {
+  font-family: var(--f-display); font-size: 1.8rem; font-weight: 900;
+  color: var(--paper); letter-spacing: -.02em; line-height: 1.1;
+}
+.cta-desc {
+  margin-top: 12px; font-size: .85rem; color: rgba(245,240,232,.45);
+  line-height: 1.6; max-width: 500px;
+}
+.cta-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 16px 32px; background: var(--red);
+  color: var(--white); border: none; border-radius: 3px;
+  font-size: .85rem; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; cursor: pointer;
+  transition: background .2s, transform .2s;
+  white-space: nowrap;
+}
+.cta-btn:hover { background: var(--red-2); transform: translateY(-2px); }
+
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+footer {
+  background: var(--ink-2);
+  border-top: 1px solid rgba(245,240,232,.06);
+  padding: 48px 64px 28px;
+}
+.footer-inner {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px; margin-bottom: 40px;
+}
+.f-brand {
+  font-family: var(--f-display); font-size: 1.1rem; font-weight: 900;
+  color: var(--paper); letter-spacing: -.01em; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.f-desc { font-size: .8rem; color: rgba(245,240,232,.35); line-height: 1.6; }
+.f-col-title {
+  font-family: var(--f-mono); font-size: .62rem; letter-spacing: .12em;
+  text-transform: uppercase; color: rgba(245,240,232,.25);
+  margin-bottom: 14px;
+}
+.f-col a {
+  display: block; font-size: .8rem; color: rgba(245,240,232,.45);
+  margin-bottom: 8px; transition: color .15s;
+}
+.f-col a:hover { color: var(--red-2); }
+.f-divider { height: 1px; background: rgba(245,240,232,.06); margin-bottom: 24px; }
+.f-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--f-mono); font-size: .62rem; letter-spacing: .06em;
+  color: rgba(245,240,232,.2); text-transform: uppercase;
+}
+.f-contact-item { display: flex; align-items: center; gap: 6px; color: rgba(245,240,232,.3); font-size: .78rem; margin-bottom: 8px; }
+
+/* ═══════════════════════════════════════════
+   LIGHTBOX
+═══════════════════════════════════════════ */
+.lb {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(17,16,9,.96);
+  align-items: center; justify-content: center;
+  padding: 40px;
+}
+.lb.open { display: flex; }
+.lb img { max-width: 90vw; max-height: 88vh; border-radius: 4px; object-fit: contain; }
+.lb-x {
+  position: absolute; top: 24px; right: 24px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(245,240,232,.1); border: none; color: var(--paper);
+  font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-family: var(--f-mono);
+}
+
+/* ═══════════════════════════════════════════
+   LOAD ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero-eyebrow { animation: fadeUp .5s .1s both; }
+.hero-title   { animation: fadeUp .6s .2s both; }
+.hero-desc    { animation: fadeUp .6s .3s both; }
+.progress-strip{ animation: fadeUp .6s .4s both; }
+.hero-actions { animation: fadeUp .6s .5s both; }
+.hero-right   { animation: fadeUp .7s .2s both; }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .hero { grid-template-columns: 1fr; min-height: auto; }
+  .hero-right { border-left: none; border-top: 1px solid rgba(245,240,232,.06); }
+  .hero-left { padding: 48px 32px; }
+  .hero-right { padding: 40px 32px; }
+  .body-wrap { grid-template-columns: 1fr; padding: 48px 32px; gap: 48px; }
+  .col-aside { display: grid; grid-template-columns: repeat(2, 1fr); }
+  .footer-inner { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 720px) {
+  .tb-nav { display: none; }
+  .hero-left { padding: 36px 20px; }
+  .hero-right { padding: 32px 20px; }
+  .body-wrap { padding: 36px 20px; gap: 36px; }
+  .breadstrip { padding: 0 20px; }
+  .gallery { display: flex; flex-direction: column; }
+  .g-item { height: 220px; }
+  .tl-data-grid { grid-template-columns: repeat(2,1fr); }
+  .dt-row { grid-template-columns: 130px 1fr; }
+  .col-aside { grid-template-columns: 1fr; }
+  .footer-inner { grid-template-columns: 1fr; }
+  .cta-bar { grid-template-columns: 1fr; padding: 40px 20px; }
+  footer { padding: 40px 20px 24px; }
+}
+</style>
 </head>
 <body>
-    <header>
-        <div class="header-content">
-            <div class="logo">Trombone Cidadão</div>
-            <nav>
-                <ul>
-                    <li><a href="#">Início</a></li>
-                    <li><a href="#">Sobre</a></li>
-                    <li><a href="#">Estatísticas</a></li>
-                    <li><a href="#">Petições</a></li>
-                    <li><a href="#">Serviços</a></li>
-                    <li><a href="#">Notícias</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
 
-    <div class="main-container">
-        <div>
-            <div class="breadcrumb">
-                <a href="#">PETIÇÃO</a> • 27 de janeiro de 2026
-            </div>
+<!-- ═══════ TOPBAR ═══════ -->
+<header class="topbar">
+  <div class="tb-brand">
+    <div class="tb-logo">🎺</div>
+    Trombone Cidadão
+  </div>
+  <nav class="tb-nav">
+    <a href="#">Início</a>
+    <a href="#">Sobre</a>
+    <a href="#">Estatísticas</a>
+    <a href="#" class="cur">Obras</a>
+    <a href="#">Pavimentação</a>
+    <a href="#">Serviços</a>
+    <a href="#">Petições</a>
+    <a href="#">Notícias</a>
+    <a href="#">Contato</a>
+  </nav>
+  <div class="tb-right">
+    <button class="tb-btn">Baixar App</button>
+    <div class="tb-avatar">AB</div>
+  </div>
+</header>
 
-            <div class="article-section">
-                <h1>Pela construção de uma caixa d'água elevada para resolver o problema do abastecimento em Floresta</h1>
+<!-- ═══════ HERO ═══════ -->
+<section class="hero">
+  <div class="hero-deco"></div>
 
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Crect fill='%23e0e0e0' width='800' height='400'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23999'%3EImagem: Abastecimento de Água%3C/text%3E%3C/svg%3E" alt="Abastecimento de água" class="article-image">
-
-                <h2 class="section-title">O problema</h2>
-                <div class="article-content">
-                    <p>Os moradores dos bairros DHTR e Bela Vista, em Floresta, no Sertão de Pernambuco, vêm por meio desta abaixo-assinado, manifestar indignação e solicitar providências urgentes diante da grave e histórica falta de abastecimento de água que afeta essas comunidades há vários anos.</p>
-
-                    <p>A realidade enfrentada pelas famílias é desumana: nem sempre existe sequer rede de abastecimento, e onde há rede instalada, a água chega de forma irregular, insuficiente ou simplesmente não chega, comprometendo necessidades básicas como higiene, alimentação e saúde.</p>
-
-                    <p>Segundo informações da própria Compesa, a solução definitiva para o problema passa pela construção de uma nova caixa d'água elevada, uma vez que a caixa existente não possui altura suficiente para atender a demanda. Isso prejudica diretamente trabalhadores, idosos, crianças e pessoas com doenças que dependem do acesso regular à água potável.</p>
-
-                    <p><strong>Diante disso, os abaixo-assinados exigem:</strong></p>
-
-                    <p>A elaboração e execução imediata de um projeto técnico para ampliação do sistema de abastecimento dos bairros DHTR e Bela Vista;</p>
-
-                    <p>A construção urgente de uma nova caixa d'água elevada, conforme já apontado como solução pela própria concessionária;</p>
-
-                    <p>A implantação de rede de abastecimento nas ruas que ainda não contam com esse serviço;</p>
-
-                    <p>Transparência quanto aos prazos, recursos e cronograma das ações a serem adotadas.</p>
-
-                    <p>A água é um direito básico e sua falta contínua configura uma grave violação à dignidade da população. Por isso, reforçamos que os órgãos responsáveis tomem essa demanda com a seriedade e a agilidade que o caso exige.</p>
-                </div>
-
-                <div class="comments-section">
-                    <div class="comment-tabs">
-                        <div class="tab active">Recentes</div>
-                        <div class="tab">Antigos</div>
-                    </div>
-
-                    <div class="comment-input">
-                        <input type="text" placeholder="Eu achei, pensando porque...">
-                        <button class="share-btn">Publicar Comentário</button>
-                    </div>
-
-                    <div class="comment-item">
-                        <div class="comment-author">Leirison da Silva</div>
-                        <div class="comment-time">Recente • há 3 dias</div>
-                        <p>"toppz"</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="related-section">
-                <h2 class="section-title">Outras causas que precisam de você</h2>
-                <p style="color: #666; margin-bottom: 1rem;">Junte-se a milhares de pessoas que estão fazendo a diferença hoje.</p>
-                
-                <div class="related-grid">
-                    <div class="cause-card">
-                        <div class="cause-image"></div>
-                        <div class="cause-content">
-                            <h3 class="cause-title">Pela conclusão da construção da quadra do bairro DNER</h3>
-                            <div class="cause-meta">
-                                <span>📍 Floresta, PE</span>
-                                <span>Meta: 100</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="cause-card">
-                        <div class="cause-image"></div>
-                        <div class="cause-content">
-                            <h3 class="cause-title">Pela construção de uma passagem molhada elevada sobre o Rio Pajeú</h3>
-                            <div class="cause-meta">
-                                <span>📍 Floresta, PE</span>
-                                <span>Meta: 100</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <aside class="sidebar">
-            <div class="petition-card">
-                <div class="signature-count">
-                    <span class="count-number" id="signatureCount">0</span>
-                    <span class="count-text">pessoas já assinaram. Ajude a chegar em <strong>100</strong></span>
-                </div>
-
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressBar"></div>
-                </div>
-
-                <div class="signature-info">
-                    <h3>✅ Assine este abaixo-assinado</h3>
-                    
-                    <div class="signer-item">
-                        <div class="signer-avatar">LA</div>
-                        <div>
-                            <div style="font-weight: 600; font-size: 0.9rem;">Leirison da Silva</div>
-                            <div style="font-size: 0.8rem; color: #999;">Há 3 dias atrás</div>
-                        </div>
-                    </div>
-                </div>
-
-                <form id="signatureForm">
-                    <div class="form-group">
-                        <label>Nome</label>
-                        <input type="text" placeholder="Insira seu nome" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" placeholder="Insira seu email" required>
-                    </div>
-
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="notify">
-                        <label for="notify">Não quero receber atualizações publicamente</label>
-                    </div>
-
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="public">
-                        <label for="public">Quero receber novidades sobre esta causa</label>
-                    </div>
-
-                    <button type="submit" class="btn-sign">Assinar Abaixo-assinado</button>
-
-                    <p style="font-size: 0.75rem; color: #999; margin-top: 1rem; text-align: center;">
-                        Ao assinar, você concorda que a Trombone Cidadão processe seus dados
-                    </p>
-                </form>
-
-                <div class="share-section">
-                    <button class="share-btn" onclick="alert('Função de compartilhamento!')">🔗 Compartilhar</button>
-                </div>
-            </div>
-
-            <div class="support-card">
-                <h3>❤️ Apoie esta causa</h3>
-                <p style="font-size: 0.9rem; margin-bottom: 1rem;">Sua contribuição mantém esta plataforma livre para criar e assinar petições.</p>
-                
-                <div class="support-amounts">
-                    <button class="amount-btn">R$ 10</button>
-                    <button class="amount-btn">R$ 25</button>
-                    <button class="amount-btn">R$ 50</button>
-                </div>
-
-                <input type="number" placeholder="Outro valor..." style="width: 100%; padding: 0.75rem; border: 2px solid #E53E3E; border-radius: 6px; margin: 0.5rem 0;">
-                
-                <button class="btn-sign">Contribuir agora</button>
-            </div>
-        </aside>
+  <div class="hero-left">
+    <div class="hero-eyebrow">
+      <span class="eyebrow-chip">Em execução</span>
+      <span class="eyebrow-sep"></span>
+      <span class="eyebrow-label">Caetano 1 · Floresta · PE</span>
     </div>
 
-    <script>
-        // Animar barra de progresso ao carregar
-        window.addEventListener('load', () => {
-            const progressBar = document.getElementById('progressBar');
-            setTimeout(() => {
-                progressBar.style.width = '1%'; // Baseado em 1/100
-            }, 500);
-        });
+    <div class="hero-number" aria-hidden="true">81</div>
 
-        // Tabs de comentários
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', function() {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-            });
-        });
+    <h1 class="hero-title">
+      Calçamento de<br>
+      <em>diversas ruas</em> com<br>
+      blocos de concreto<br>intertravado
+    </h1>
 
-        // Simular assinatura (demo)
-        document.getElementById('signatureForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const count = document.getElementById('signatureCount');
-            const current = parseInt(count.textContent);
-            count.textContent = current + 1;
-            
-            const progressBar = document.getElementById('progressBar');
-            progressBar.style.width = ((current + 1) / 100 * 100) + '%';
-            
-            alert('Assinatura registrada com sucesso!');
-            this.reset();
-        });
+    <p class="hero-desc">
+      Obra de pavimentação urbana contemplando múltiplas vias do bairro Caetano 1.
+      Recursos estaduais via emenda parlamentar, execução pela BWS Construções LTDA.
+      Início previsto em 02/03/2026, entrega em 09/02/2027.
+    </p>
 
-        // Efeito nos botões de valor
-        document.querySelectorAll('.amount-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.amount-btn').forEach(b => {
-                    b.style.background = 'white';
-                    b.style.color = 'black';
-                });
-                this.style.background = '#E53E3E';
-                this.style.color = 'white';
-            });
-        });
-    </script>
+    <div class="progress-strip">
+      <div class="ps-head">
+        <div class="ps-pct" id="ps-pct">0<sup>%</sup></div>
+        <div class="ps-label">concluído</div>
+      </div>
+      <div class="ps-track">
+        <div class="ps-fill" id="ps-fill" style="width:0%"></div>
+      </div>
+      <div class="ps-tick-row">
+        <span class="ps-tick">0%</span>
+        <span class="ps-tick">25%</span>
+        <span class="ps-tick">50%</span>
+        <span class="ps-tick">75%</span>
+        <span class="ps-tick">100%</span>
+      </div>
+    </div>
+
+    <div class="hero-actions">
+      <button class="act-btn act-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Gerenciar
+      </button>
+      <button class="act-btn act-outline">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Compartilhar
+      </button>
+      <button class="act-btn act-outline">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Salvar
+      </button>
+      <button class="act-btn act-outline" style="color:rgba(248,113,113,.8);border-color:rgba(248,113,113,.25)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Informar Erro
+      </button>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="panel-title">Dados da Obra · Ficha Rápida</div>
+
+    <div class="data-row">
+      <span class="dr-key">Endereço</span>
+      <span class="dr-val">R. Esmeralda Soares de Oliveira</span>
+    </div>
+    <div class="data-row">
+      <span class="dr-key">Bairro</span>
+      <span class="dr-val">Caetano 1</span>
+    </div>
+    <div class="data-row">
+      <span class="dr-key">Construtora</span>
+      <span class="dr-val">BWS Construções LTDA</span>
+    </div>
+    <div class="data-row">
+      <span class="dr-key">CNP / UO</span>
+      <span class="dr-val" style="font-family:var(--f-mono);font-size:.75rem">00.079.526/0001-09</span>
+    </div>
+    <div class="data-row">
+      <span class="dr-key">Prazo</span>
+      <span class="dr-val big">60 dias</span>
+    </div>
+    <div class="data-row">
+      <span class="dr-key">Início previsto</span>
+      <span class="dr-val" style="font-family:var(--f-mono);font-size:.78rem">02 · 03 · 2026</span>
+    </div>
+    <div class="data-row">
+      <span class="dr-key">Entrega prevista</span>
+      <span class="dr-val accent" style="font-family:var(--f-mono);font-size:.78rem">09 · 02 · 2027</span>
+    </div>
+    <div class="data-row">
+      <span class="dr-key">Emenda</span>
+      <span class="dr-val">Lairton da Silva</span>
+    </div>
+    <div class="data-row">
+      <span class="dr-key">Contrato</span>
+      <span class="dr-val" style="font-family:var(--f-mono);font-size:.78rem">08 · 02 · 2026</span>
+    </div>
+
+    <div class="budget-block">
+      <div class="bb-label">Orçamento Total</div>
+      <div class="bb-value"><small>R$</small> 100.000<small>,00</small></div>
+      <div class="bb-sub">
+        <div class="bb-sub-item">
+          <div class="bb-sub-lbl">Valor dado</div>
+          <div class="bb-sub-val">R$ 50.000,00</div>
+        </div>
+        <div class="bb-sub-item" style="text-align:right">
+          <div class="bb-sub-lbl">Fontes</div>
+          <div class="bb-sub-val">Estadual</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-tags">
+      <span class="stag stag-red">Licitação</span>
+      <span class="stag stag-green">No prazo</span>
+      <span class="stag stag-muted">Transparência pública</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ BREADCRUMB ═══════ -->
+<div class="breadstrip">
+  <span class="bs-item">Obras</span>
+  <span class="bs-sep">›</span>
+  <span class="bs-item">Pavimentação</span>
+  <span class="bs-sep">›</span>
+  <span class="bs-item">Construção</span>
+  <span class="bs-sep">›</span>
+  <span class="bs-item cur">Calçamento intertravado · Caetano 1</span>
+</div>
+
+<!-- ═══════ BODY ═══════ -->
+<div class="body-wrap">
+  <div class="col-content">
+
+    <!-- ── SOBRE ── -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">01</div>
+        <div class="sec-meta">
+          <div class="sec-label">Descrição</div>
+          <div class="sec-title">Sobre a Obra</div>
+        </div>
+        <div class="sec-line"></div>
+      </div>
+      <p style="font-size:.95rem;color:var(--ink-3);line-height:1.8;max-width:680px">
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur ullamcorper vel massa quis imperdiet. Pellentesque aliquet nisi. Pellentesque vitae justo ornare, scelerisque eros sit, consectetur mauris. A obra contempla diversas ruas do bairro Caetano 1, promovendo melhoria estrutural na infraestrutura urbana de Floresta-PE, com impacto direto na qualidade de vida dos moradores e na mobilidade local.
+      </p>
+    </section>
+
+    <!-- ── FICHA TÉCNICA ── -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">02</div>
+        <div class="sec-meta">
+          <div class="sec-label">Dados técnicos</div>
+          <div class="sec-title">Ficha Técnica</div>
+        </div>
+        <div class="sec-line"></div>
+      </div>
+      <div class="data-table">
+        <div class="dt-row"><span class="dt-key">Endereço</span><span class="dt-val">Rua Esmeralda Soares de Oliveira</span></div>
+        <div class="dt-row"><span class="dt-key">Bairro</span><span class="dt-val">Caetano 1, Floresta — PE</span></div>
+        <div class="dt-row"><span class="dt-key">Valor Total</span><span class="dt-val highlight">R$ 100.000,00</span></div>
+        <div class="dt-row"><span class="dt-key">Valor Dado</span><span class="dt-val">R$ 50.000,00</span></div>
+        <div class="dt-row"><span class="dt-key">Construtora</span><span class="dt-val">BWS Construções LTDA</span></div>
+        <div class="dt-row"><span class="dt-key">CNP / UO</span><span class="dt-val" style="font-family:var(--f-mono);font-size:.78rem">00.079.526/0001-09</span></div>
+        <div class="dt-row"><span class="dt-key">Fontes de Recurso</span><span class="dt-val">Estadual</span></div>
+        <div class="dt-row"><span class="dt-key">Assinatura Contrato</span><span class="dt-val" style="font-family:var(--f-mono)">08/02/2026</span></div>
+        <div class="dt-row"><span class="dt-key">Prazo de Execução</span><span class="dt-val">60 dias</span></div>
+        <div class="dt-row"><span class="dt-key">Início Previsto</span><span class="dt-val" style="font-family:var(--f-mono)">02/03/2026</span></div>
+        <div class="dt-row"><span class="dt-key">Previsão de Entrega</span><span class="dt-val" style="font-family:var(--f-mono)">09/02/2027</span></div>
+        <div class="dt-row"><span class="dt-key">Emenda Parlamentar</span><span class="dt-val">Lairton da Silva</span></div>
+      </div>
+    </section>
+
+    <!-- ── TIMELINE ── -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">03</div>
+        <div class="sec-meta">
+          <div class="sec-label">Histórico</div>
+          <div class="sec-title">Fase a Fase</div>
+        </div>
+        <div class="sec-line"></div>
+      </div>
+
+      <div class="timeline">
+
+        <div class="tl-entry">
+          <div class="tl-left">
+            <div class="tl-index phase-active">3</div>
+          </div>
+          <div class="tl-right">
+            <div class="tl-meta-row">
+              <span class="tl-date">05 Jan 2026</span>
+              <span class="tl-badge tb-previsto">Previsto</span>
+            </div>
+            <h3 class="tl-phase-title">3ª Licitação</h3>
+            <p class="tl-desc">Terceira fase do processo licitatório. Empresa responsável pela execução da etapa final de calçamento e acabamento das vias contempladas.</p>
+            <div class="tl-data-grid">
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Status</div>
+                <div class="tdg-val">Previsto</div>
+              </div>
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Execução</div>
+                <div class="tdg-val">70%</div>
+              </div>
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Responsável</div>
+                <div class="tdg-val">OPA Locações</div>
+              </div>
+            </div>
+            <div class="exec-row">
+              <div class="exec-header">
+                <span class="exec-label">Progresso de execução</span>
+                <span class="exec-pct">70%</span>
+              </div>
+              <div class="exec-track">
+                <div class="exec-fill" style="width:70%;background:var(--gold)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-entry">
+          <div class="tl-left">
+            <div class="tl-index phase-done">2</div>
+          </div>
+          <div class="tl-right">
+            <div class="tl-meta-row">
+              <span class="tl-date">05 Mar 2026</span>
+              <span class="tl-badge tb-previsto">Previsto</span>
+            </div>
+            <h3 class="tl-phase-title">2ª Licitação</h3>
+            <p class="tl-desc">Segunda licitação da obra com novo processo de contratação e ajuste de escopo. Novos trechos incluídos no processo.</p>
+            <div class="tl-data-grid">
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Valor</div>
+                <div class="tdg-val money">R$ 200.000</div>
+              </div>
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Execução</div>
+                <div class="tdg-val">51%</div>
+              </div>
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Responsável</div>
+                <div class="tdg-val">B L Construtora</div>
+              </div>
+            </div>
+            <div class="exec-row">
+              <div class="exec-header">
+                <span class="exec-label">Progresso de execução</span>
+                <span class="exec-pct">51%</span>
+              </div>
+              <div class="exec-track">
+                <div class="exec-fill" style="width:51%;background:var(--red)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-entry">
+          <div class="tl-left">
+            <div class="tl-index phase-done">1</div>
+          </div>
+          <div class="tl-right">
+            <div class="tl-meta-row">
+              <span class="tl-date">02 Jan 2026</span>
+              <span class="tl-badge tb-licitado">Licitado</span>
+            </div>
+            <h3 class="tl-phase-title">1ª Licitação da Obra</h3>
+            <p class="tl-desc">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur ullamcorper vel massa quis imperdiet. Pellentesque a aliquet nisi. Processo inicial de contratação da empresa executora.</p>
+            <div class="tl-data-grid">
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Valor</div>
+                <div class="tdg-val money">R$ 133.445</div>
+              </div>
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Execução</div>
+                <div class="tdg-val">51%</div>
+              </div>
+              <div class="tdg-cell">
+                <div class="tdg-lbl">Responsável</div>
+                <div class="tdg-val">GN Botão Me</div>
+              </div>
+            </div>
+            <div class="exec-row">
+              <div class="exec-header">
+                <span class="exec-label">Progresso de execução</span>
+                <span class="exec-pct">51%</span>
+              </div>
+              <div class="exec-track">
+                <div class="exec-fill" style="width:51%;background:var(--ink-3)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── GALERIA ── -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">04</div>
+        <div class="sec-meta">
+          <div class="sec-label">Registro fotográfico</div>
+          <div class="sec-title">Galeria de Mídia</div>
+        </div>
+        <div class="sec-line"></div>
+      </div>
+
+      <div class="gal-section-label">Geral</div>
+      <div class="gallery" style="margin-bottom:24px">
+        <div class="g-item g-item-1" onclick="openLB(this)">
+          <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=500&fit=crop" alt="Rua calçada">
+          <div class="g-overlay"><span class="g-caption">Rua calçada com blocos</span></div>
+        </div>
+        <div class="g-item g-item-2" onclick="openLB(this)">
+          <img src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&h=500&fit=crop" alt="Vista do local">
+          <div class="g-overlay"><span class="g-caption">Vista do local</span></div>
+        </div>
+        <div class="g-item g-item-3" onclick="openLB(this)">
+          <img src="https://images.unsplash.com/photo-1590856029826-c7a73142bbf1?w=400&h=300&fit=crop" alt="Detalhe">
+          <div class="g-overlay"><span class="g-caption">Detalhe do pavimento</span></div>
+        </div>
+        <div class="g-item g-item-4" onclick="openLB(this)">
+          <img src="https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400&h=300&fit=crop" alt="Construção">
+          <div class="g-overlay"><span class="g-caption">Fase inicial</span></div>
+        </div>
+        <div class="g-item g-item-5" onclick="openLB(this)">
+          <img src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=400&h=300&fit=crop" alt="Pavimentação">
+          <div class="g-overlay"><span class="g-caption">Equipe em campo</span></div>
+        </div>
+      </div>
+
+      <div class="gal-section-label">Minha Galeria</div>
+      <div class="gallery">
+        <div class="g-item g-item-3" onclick="openLB(this)">
+          <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop" alt="Registro pessoal">
+          <div class="g-overlay"><span class="g-caption">Registro pessoal</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── DOCS ── -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">05</div>
+        <div class="sec-meta">
+          <div class="sec-label">Transparência</div>
+          <div class="sec-title">Documentação Oficial</div>
+        </div>
+        <div class="sec-line"></div>
+      </div>
+      <div class="doc-list">
+        <div class="doc-entry">
+          <span class="doc-type">PDF</span>
+          <div class="doc-info">
+            <div class="doc-name">aviso licitacao calcamento intertravado floresta-pe.pdf</div>
+            <div class="doc-date">Adicionado em 26/02/2026</div>
+          </div>
+          <div class="doc-dl">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /col-content -->
+
+  <!-- ─── ASIDE ─── -->
+  <div class="col-aside">
+
+    <!-- Mapa -->
+    <div class="aside-card">
+      <div class="ac-head">
+        <div class="ac-head-icon" style="background:var(--paper-2)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <span class="ac-head-title">Localização</span>
+      </div>
+      <div class="ac-body">
+        <div class="map-visual">
+          <svg viewBox="0 0 320 180" style="position:absolute;inset:0;width:100%;height:100%">
+            <rect width="320" height="180" fill="#e8e3d8"/>
+            <rect x="0" y="72" width="320" height="6" fill="#d0c9bc"/>
+            <rect x="0" y="116" width="320" height="4" fill="#d0c9bc"/>
+            <rect x="55" y="0" width="5" height="180" fill="#d0c9bc"/>
+            <rect x="148" y="0" width="4" height="180" fill="#d0c9bc"/>
+            <rect x="226" y="0" width="5" height="180" fill="#d0c9bc"/>
+            <rect x="10" y="16" width="36" height="28" rx="2" fill="#c8c1b4"/>
+            <rect x="64" y="12" width="46" height="22" rx="2" fill="#c8c1b4"/>
+            <rect x="158" y="16" width="40" height="26" rx="2" fill="#c8c1b4"/>
+            <rect x="235" y="8" width="46" height="32" rx="2" fill="#c8c1b4"/>
+            <rect x="10" y="90" width="32" height="22" rx="2" fill="#c8c1b4"/>
+            <rect x="158" y="86" width="46" height="28" rx="2" fill="#c8c1b4"/>
+            <rect x="235" y="90" width="36" height="22" rx="2" fill="#c8c1b4"/>
+            <rect x="10" y="134" width="36" height="28" rx="2" fill="#c8c1b4"/>
+            <rect x="64" y="130" width="50" height="32" rx="2" fill="#c8c1b4"/>
+            <rect x="158" y="135" width="42" height="26" rx="2" fill="#c8c1b4"/>
+          </svg>
+          <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center">
+            <div style="width:22px;height:22px;background:var(--red);border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 3px 10px rgba(200,40,30,.5)">
+            </div>
+          </div>
+        </div>
+        <div class="map-address">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Rua Esmeralda Soares de Oliveira, Caetano 1 — Floresta, PE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="aside-card">
+      <div class="ac-head">
+        <div class="ac-head-icon" style="background:var(--paper-2)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <span class="ac-head-title">Status Atual</span>
+      </div>
+      <div class="ac-body">
+        <div class="as-row">
+          <span class="as-key">Fase</span>
+          <span class="as-badge asb-amber">3ª Licitação</span>
+        </div>
+        <div class="as-row">
+          <span class="as-key">Dentro do prazo</span>
+          <span class="as-badge asb-green">Sim</span>
+        </div>
+        <div class="as-row">
+          <span class="as-key">Transparência</span>
+          <span class="as-badge asb-slate">Pública</span>
+        </div>
+        <div class="as-row">
+          <span class="as-key">Última atualização</span>
+          <span class="as-val" style="font-family:var(--f-mono);font-size:.72rem">04/03/2026</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Links -->
+    <div class="aside-card">
+      <div class="ac-head">
+        <div class="ac-head-icon" style="background:var(--paper-2)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <span class="ac-head-title">Links Relacionados</span>
+      </div>
+      <div class="ac-body">
+        <div class="ext-link">
+          <span class="ext-link-name">Governo de Pernambuco</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-aside -->
+</div><!-- /body-wrap -->
+
+<!-- ═══════ CTA ═══════ -->
+<div class="cta-bar">
+  <div class="cta-left">
+    <div class="cta-eyebrow">Participe · Fiscalize · Contribua</div>
+    <h2 class="cta-title">Você tem informações<br>sobre esta obra?</h2>
+    <p class="cta-desc">Registre o que viu em campo. Fotos, relatos, irregularidades — cada contribuição fortalece a fiscalização cidadã e garante mais transparência para toda a comunidade.</p>
+  </div>
+  <button class="cta-btn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    Enviar Contribuição
+  </button>
+</div>
+
+<!-- ═══════ FOOTER ═══════ -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="f-brand">
+        <div style="width:24px;height:24px;background:var(--red);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🎺</div>
+        Trombone Cidadão
+      </div>
+      <p class="f-desc">Sua voz, nossa ação. Juntos por uma cidade melhor e mais transparente.</p>
+      <div style="margin-top:16px">
+        <div class="f-contact-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>trombonecidadao@gmail.com</div>
+        <div class="f-contact-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>(87) 99840-8080</div>
+        <div class="f-contact-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Floresta, Pernambuco, Brasil</div>
+      </div>
+    </div>
+    <div class="f-col">
+      <div class="f-col-title">Navegação</div>
+      <a href="#">Início</a><a href="#">Sobre</a><a href="#">Estatísticas</a><a href="#">Notícias</a>
+    </div>
+    <div class="f-col">
+      <div class="f-col-title">Recursos</div>
+      <a href="#">Obras Públicas</a><a href="#">Mapa de Pavimentação</a><a href="#">Serviços</a><a href="#">Termos de Uso</a>
+    </div>
+    <div class="f-col">
+      <div class="f-col-title">Contato</div>
+      <a href="#">Email</a><a href="#">Telefone</a><a href="#">Localização</a><a href="#">Página de contato</a>
+    </div>
+  </div>
+  <div class="f-divider"></div>
+  <div class="f-bottom">
+    <span>© 2026 Trombone Cidadão · Todos os direitos reservados</span>
+    <span>Fonte dos dados: órgãos públicos de transparência</span>
+  </div>
+</footer>
+
+<!-- LIGHTBOX -->
+<div class="lb" id="lb" onclick="closeLB()">
+  <button class="lb-x" onclick="closeLB()">✕</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<script>
+// Progress animation
+window.addEventListener('load', () => {
+  const T = 81;
+  const fill = document.getElementById('ps-fill');
+  const num  = document.getElementById('ps-pct');
+  let c = 0;
+  const go = () => {
+    if (c < T) {
+      c++;
+      fill.style.width = c + '%';
+      num.innerHTML = c + '<sup>%</sup>';
+      requestAnimationFrame(go);
+    }
+  };
+  setTimeout(() => requestAnimationFrame(go), 600);
+});
+
+// Timeline bar animations on scroll
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('.exec-fill').forEach(f => {
+        const w = f.style.width;
+        f.style.width = '0';
+        setTimeout(() => {
+          f.style.transition = 'width .9s cubic-bezier(.22,.68,0,1.1)';
+          f.style.width = w;
+        }, 80);
+      });
+      obs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.4 });
+document.querySelectorAll('.tl-right').forEach(el => obs.observe(el));
+
+// Lightbox
+function openLB(el) {
+  document.getElementById('lb-img').src = el.querySelector('img').src;
+  document.getElementById('lb').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLB() {
+  document.getElementById('lb').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLB(); });
+</script>
 </body>
 </html>

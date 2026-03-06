@@ -10,15 +10,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
+import { WorkMediaManager } from '@/components/admin/WorkMediaManager';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
+
+import { Combobox } from '@/components/ui/combobox';
 
 // Componente de Filtros com tratamento de erros
 const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap }) => {
@@ -47,85 +49,95 @@ const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t">
-        <FilterSelect
-          id="filter-status"
-          label="Status"
-          value={filters.status || ''}
-          onValueChange={(value) => {
-            try {
-              setFilters(prev => ({ ...prev, status: value }));
-            } catch (error) {
-              console.error('Erro ao alterar filtro de status:', error);
-              setHasError(true);
-            }
-          }}
-          options={Object.entries(statusMap).map(([value, label]) => ({ value, label }))}
-          placeholder="Todos"
-        />
+        <div className="grid gap-2">
+          <Label>Status</Label>
+          <Combobox
+            value={filters.status || ''}
+            onChange={(value) => {
+              try {
+                setFilters(prev => ({ ...prev, status: value }));
+              } catch (error) {
+                console.error('Erro ao alterar filtro de status:', error);
+                setHasError(true);
+              }
+            }}
+            options={Object.entries(statusMap).map(([value, label]) => ({ value, label }))}
+            placeholder="Todos"
+            searchPlaceholder="Buscar status..."
+          />
+        </div>
 
-        <FilterSelect
-          id="filter-category"
-          label="Categoria"
-          value={filters.category || ''}
-          onValueChange={(value) => {
-            try {
-              setFilters(prev => ({ ...prev, category: value }));
-            } catch (error) {
-              console.error('Erro ao alterar filtro de categoria:', error);
-              setHasError(true);
-            }
-          }}
-          options={(workOptions.categories || []).map(cat => ({ value: cat.id, label: cat.name }))}
-          placeholder="Todas"
-        />
+        <div className="grid gap-2">
+          <Label>Categoria</Label>
+          <Combobox
+            value={filters.category || ''}
+            onChange={(value) => {
+              try {
+                setFilters(prev => ({ ...prev, category: value }));
+              } catch (error) {
+                console.error('Erro ao alterar filtro de categoria:', error);
+                setHasError(true);
+              }
+            }}
+            options={(workOptions.categories || []).map(cat => ({ value: cat.id, label: cat.name }))}
+            placeholder="Todas"
+            searchPlaceholder="Buscar categoria..."
+          />
+        </div>
 
-        <FilterSelect
-          id="filter-bairro"
-          label="Bairro"
-          value={filters.bairro || ''}
-          onValueChange={(value) => {
-            try {
-              setFilters(prev => ({ ...prev, bairro: value }));
-            } catch (error) {
-              console.error('Erro ao alterar filtro de bairro:', error);
-              setHasError(true);
-            }
-          }}
-          options={(workOptions.bairros || []).map(b => ({ value: b.id, label: b.name }))}
-          placeholder="Todos"
-        />
+        <div className="grid gap-2">
+          <Label>Bairro</Label>
+          <Combobox
+            value={filters.bairro || ''}
+            onChange={(value) => {
+              try {
+                setFilters(prev => ({ ...prev, bairro: value }));
+              } catch (error) {
+                console.error('Erro ao alterar filtro de bairro:', error);
+                setHasError(true);
+              }
+            }}
+            options={(workOptions.bairros || []).map(b => ({ value: b.id, label: b.name }))}
+            placeholder="Todos"
+            searchPlaceholder="Buscar bairro..."
+          />
+        </div>
 
-        <FilterSelect
-          id="filter-area"
-          label="Área"
-          value={filters.area || ''}
-          onValueChange={(value) => {
-            try {
-              setFilters(prev => ({ ...prev, area: value }));
-            } catch (error) {
-              console.error('Erro ao alterar filtro de área:', error);
-              setHasError(true);
-            }
-          }}
-          options={(workOptions.areas || []).map(a => ({ value: a.id, label: a.name }))}
-          placeholder="Todas"
-        />
+        <div className="grid gap-2">
+          <Label>Área</Label>
+          <Combobox
+            value={filters.area || ''}
+            onChange={(value) => {
+              try {
+                setFilters(prev => ({ ...prev, area: value }));
+              } catch (error) {
+                console.error('Erro ao alterar filtro de área:', error);
+                setHasError(true);
+              }
+            }}
+            options={(workOptions.areas || []).map(a => ({ value: a.id, label: a.name }))}
+            placeholder="Todas"
+            searchPlaceholder="Buscar área..."
+          />
+        </div>
 
-        <FilterSelect
-          id="filter-contractor"
-          label="Construtora"
-          value={filters.contractor || ''}
-          onValueChange={(value) => {
-            try {
-              setFilters(prev => ({ ...prev, contractor: value }));
-            } catch (error) {
-              console.error('Erro ao alterar filtro de construtora:', error);
-              setHasError(true);
-            }
-          }}
-          options={(workOptions.contractors || []).map(c => ({ value: c.id, label: c.name }))}
-          placeholder="Todas"
-        />
+        <div className="grid gap-2">
+          <Label>Construtora</Label>
+          <Combobox
+            value={filters.contractor || ''}
+            onChange={(value) => {
+              try {
+                setFilters(prev => ({ ...prev, contractor: value }));
+              } catch (error) {
+                console.error('Erro ao alterar filtro de construtora:', error);
+                setHasError(true);
+              }
+            }}
+            options={(workOptions.contractors || []).map(c => ({ value: c.id, label: c.name }))}
+            placeholder="Todas"
+            searchPlaceholder="Buscar construtora..."
+          />
+        </div>
       </div>
     );
   } catch (error) {
@@ -140,62 +152,6 @@ const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap
 });
 FiltersSection.displayName = 'FiltersSection';
 
-// Componente individual de Select com tratamento de erros
-const FilterSelect = React.memo(({ id, label, value, onValueChange, options, placeholder }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
-
-  if (!Array.isArray(options)) {
-    return null;
-  }
-
-  // Converter valor vazio para undefined para mostrar placeholder
-  const selectValue = value === '' ? undefined : value;
-
-  const handleValueChange = (newValue) => {
-    // Converter undefined de volta para string vazia
-    onValueChange(newValue === undefined ? '' : newValue);
-  };
-
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Select
-        value={selectValue}
-        onValueChange={handleValueChange}
-        onOpenChange={setIsOpen}
-      >
-        <SelectTrigger id={id} className="w-full">
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent 
-          className="z-[1500] max-h-[200px] overflow-y-auto"
-          position="popper"
-          sideOffset={5}
-        >
-          {options
-            .filter(option => {
-              // Filtrar valores inválidos
-              if (option.value === null || option.value === undefined || option.value === '') {
-                return false;
-              }
-              const optionValue = String(option.value);
-              return optionValue !== '' && optionValue !== 'undefined' && optionValue !== 'null';
-            })
-            .map(option => {
-              const optionValue = String(option.value);
-              return (
-                <SelectItem key={optionValue} value={optionValue}>
-                  {option.label || 'Sem nome'}
-                </SelectItem>
-              );
-            })}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-});
-FilterSelect.displayName = 'FilterSelect';
-
 export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   const [formData, setFormData] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
@@ -204,15 +160,48 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   const fileInputRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState('info');
-  const [createStep, setCreateStep] = useState('basic');
-  const CREATE_STEPS = [
-    { id: 'basic', label: 'Básico' },
-    { id: 'classification', label: 'Classificação' },
-    { id: 'values', label: 'Valores e Prazos' },
-    { id: 'location', label: 'Localização' },
-    { id: 'extras', label: 'Outros' },
-    { id: 'review', label: 'Revisão' },
-  ];
+  const [isMeasurementEditing, setIsMeasurementEditing] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [newWorkMedia, setNewWorkMedia] = useState([]); // Array of { file, galleryName }
+
+  // Auto-save logic
+  useEffect(() => {
+    if (formData && work) {
+      const draftKey = work.id ? `work_draft_${work.id}` : `work_draft_new`;
+      localStorage.setItem(draftKey, JSON.stringify(formData));
+    }
+  }, [formData, work]);
+
+  const clearDraft = () => {
+    if (work) {
+      const draftKey = work.id ? `work_draft_${work.id}` : `work_draft_new`;
+      localStorage.removeItem(draftKey);
+    }
+  };
+
+  const validateDates = (data) => {
+    const newErrors = {};
+    
+    if (!data) return newErrors;
+
+    const start = data.start_date;
+    const end = data.end_date;
+    const predictedStart = data.predicted_start_date;
+    const expectedEnd = data.expected_end_date;
+
+    if (start && end && start > end) {
+      newErrors.start_date = "Início posterior ao término.";
+      newErrors.end_date = "Término anterior ao início.";
+    }
+
+    if (predictedStart && expectedEnd && predictedStart > expectedEnd) {
+      newErrors.predicted_start_date = "Início posterior à conclusão.";
+      newErrors.expected_end_date = "Conclusão anterior ao início.";
+    }
+
+    return newErrors;
+  };
+  const CREATE_STEPS = [];
 
   const EDIT_TABS = [
     { id: 'info', label: 'Informações', icon: Info },
@@ -223,16 +212,35 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
 
   useEffect(() => {
     if (work) {
+      // Reset navigation state when opening modal or switching modes
+      setActiveTab('info');
+      setNewWorkMedia([]);
+
       setThumbnailFile(null);
       setThumbnailPreview(work.thumbnail_url || null);
+      const parseLocation = (loc) => {
+        if (!loc) return null;
+        if (typeof loc === 'object' && loc.coordinates) {
+          return { lat: loc.coordinates[1], lng: loc.coordinates[0] };
+        }
+        if (typeof loc === 'string') {
+          const match = loc.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+          if (match) {
+            return { lat: parseFloat(match[2]), lng: parseFloat(match[1]) };
+          }
+        }
+        return null;
+      };
+
       const initialData = work.id ? { 
         ...work,
         thumbnail_url: work.thumbnail_url || null,
-        location: work.location ? { lat: work.location.coordinates[1], lng: work.location.coordinates[0] } : null,
+        location: parseLocation(work.location),
         bairro_id: work.bairro?.id || work.bairro_id || '',
         work_category_id: work.work_category?.id || work.work_category_id || '',
         work_area_id: work.work_area?.id || work.work_area_id || '',
         contractor_id: work.contractor?.id || work.contractor_id || '',
+        end_date: work.end_date || null,
       } : { 
         id: null,
         title: '',
@@ -252,6 +260,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         execution_period_days: null,
         predicted_start_date: null,
         start_date: null,
+        end_date: null,
         service_order_date: null,
         expected_end_date: null,
         inauguration_date: null,
@@ -263,6 +272,22 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         parliamentary_amendment: { has: false, author: '' },
       };
       setFormData(initialData);
+
+      // Restore draft if exists
+      const draftKey = work.id ? `work_draft_${work.id}` : `work_draft_new`;
+      const savedDraft = localStorage.getItem(draftKey);
+      if (savedDraft) {
+        try {
+          const parsedDraft = JSON.parse(savedDraft);
+          // Only restore if it matches the current work ID (or is new)
+          if ((work.id && parsedDraft.id === work.id) || (!work.id && !parsedDraft.id)) {
+            setFormData(prev => ({ ...prev, ...parsedDraft }));
+            // toast({ title: "Rascunho restaurado", description: "Seus dados não salvos foram recuperados." });
+          }
+        } catch (e) {
+          console.error("Erro ao restaurar rascunho:", e);
+        }
+      }
     } else {
       setFormData(null);
       setThumbnailFile(null);
@@ -283,7 +308,13 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   
   const handleDateChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
+    setFormData(prev => {
+        const newData = { ...prev, [name]: value === '' ? null : value };
+        if (errors[name]) {
+            setErrors(prevErrors => ({ ...prevErrors, [name]: null }));
+        }
+        return newData;
+    });
   };
 
   const handleSelectChange = (name, value) => {
@@ -341,6 +372,21 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     
+    if (!formData) return;
+
+    if (isMeasurementEditing) {
+      if (!window.confirm("Você possui uma medição em edição. Ao salvar a obra, as alterações não salvas na medição serão perdidas. Deseja continuar mesmo assim?")) {
+        return;
+      }
+    }
+
+    const dateErrors = validateDates(formData);
+    if (Object.keys(dateErrors).length > 0) {
+        setErrors(dateErrors);
+        toast({ title: "Erro de validação", description: "Verifique as datas inseridas.", variant: "destructive" });
+        return;
+    }
+
     let currentThumbnailUrl = formData.thumbnail_url;
 
     if (thumbnailFile) {
@@ -369,34 +415,32 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
       }
     }
     
-    onSave({ ...formData, thumbnail_url: currentThumbnailUrl });
+    clearDraft();
+    await onSave({ ...formData, thumbnail_url: currentThumbnailUrl }, newWorkMedia);
   };
 
   const canProceed = () => {
     if (!formData) return false;
-    if (createStep === 'basic') {
-      return Boolean(formData.title);
-    }
-    if (createStep === 'classification') {
-      return Boolean(formData.status && formData.work_category_id && formData.bairro_id);
-    }
+    if (!formData.title || !String(formData.title).trim()) return false;
+    if (!formData.work_category_id) return false;
+    if (!formData.bairro_id) return false;
     return true;
-  };
-
-  const nextStep = () => {
-    const idx = CREATE_STEPS.findIndex(s => s.id === createStep);
-    if (idx < CREATE_STEPS.length - 1) setCreateStep(CREATE_STEPS[idx + 1].id);
-  };
-
-  const prevStep = () => {
-    const idx = CREATE_STEPS.findIndex(s => s.id === createStep);
-    if (idx > 0) setCreateStep(CREATE_STEPS[idx - 1].id);
   };
 
   if (!formData) return null;
   
   return (
-    <Dialog open={!!work} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!work} onOpenChange={(open) => {
+      if (!open) {
+        if (isMeasurementEditing) {
+          if (!window.confirm("Você possui uma medição em edição. Ao fechar, as alterações não salvas serão perdidas. Deseja continuar?")) {
+            return;
+          }
+        }
+        clearDraft();
+        onClose();
+      }
+    }}>
       <DialogContent hideClose className="w-full h-full max-w-full sm:max-w-5xl sm:h-auto sm:max-h-[90vh] flex flex-col bg-card border-border p-0 sm:p-6 gap-0">
         <DialogHeader className="p-4 sm:p-0 border-b sm:border-none bg-background sm:bg-transparent sticky top-0 z-20 shrink-0">
           <div className="flex justify-between items-start">
@@ -417,46 +461,34 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         
         <div className="flex-grow overflow-hidden grid grid-cols-1 md:grid-cols-4 gap-6 p-4 sm:p-0">
           <div className="hidden md:block md:col-span-1 overflow-y-auto pr-2">
-            {formData.id ? (
-              <nav className="flex flex-col gap-2">
-                {EDIT_TABS.map(tab => (
-                  <Button 
-                    key={tab.id}
-                    variant={activeTab === tab.id ? 'secondary' : 'ghost'} 
-                    onClick={() => setActiveTab(tab.id)} 
-                    className="justify-start gap-2"
-                  >
-                    <tab.icon className="w-4 h-4" /> {tab.label}
-                  </Button>
-                ))}
-              </nav>
-            ) : (
-              <nav className="flex flex-col gap-2">
-                {CREATE_STEPS.map(step => (
-                  <Button key={step.id} variant={createStep === step.id ? 'secondary' : 'ghost'} onClick={() => setCreateStep(step.id)} className="justify-start gap-2">
-                    <span className="w-6 text-center">{CREATE_STEPS.findIndex(s => s.id === step.id) + 1}</span> {step.label}
-                  </Button>
-                ))}
-              </nav>
-            )}
+            <nav className="flex flex-col gap-2">
+              {EDIT_TABS.map(tab => (
+                <Button 
+                  key={tab.id}
+                  type="button"
+                  variant={activeTab === tab.id ? 'secondary' : 'ghost'} 
+                  onClick={() => setActiveTab(tab.id)} 
+                  className="justify-start gap-2"
+                >
+                  <tab.icon className="w-4 h-4" /> {tab.label}
+                </Button>
+              ))}
+            </nav>
           </div>
 
           <div className="md:col-span-3 flex-grow overflow-y-auto pr-4 space-y-6">
-            {/* Mobile Step Indicator for Edit Mode */}
-            {formData.id && (
-              <div className="md:hidden mb-4 border-b pb-2">
-                <div className="flex justify-between items-center text-sm text-muted-foreground mb-1">
-                  <span>Passo {EDIT_TABS.findIndex(t => t.id === activeTab) + 1} de {EDIT_TABS.length}</span>
-                  <span className="font-medium text-foreground">
-                    {EDIT_TABS.find(t => t.id === activeTab)?.label}
-                  </span>
-                </div>
-                <Progress value={((EDIT_TABS.findIndex(t => t.id === activeTab) + 1) / EDIT_TABS.length) * 100} className="h-1.5" />
+            {/* Mobile Tab Indicator */}
+            <div className="md:hidden mb-4 border-b pb-2">
+              <div className="flex justify-between items-center text-sm text-muted-foreground mb-1">
+                <span>Passo {EDIT_TABS.findIndex(t => t.id === activeTab) + 1} de {EDIT_TABS.length}</span>
+                <span className="font-medium text-foreground">
+                  {EDIT_TABS.find(t => t.id === activeTab)?.label}
+                </span>
               </div>
-            )}
+              <Progress value={((EDIT_TABS.findIndex(t => t.id === activeTab) + 1) / EDIT_TABS.length) * 100} className="h-1.5" />
+            </div>
 
-            {activeTab === 'info' && formData.id && (
-              <div className="space-y-6">
+            <div className={`space-y-6 ${activeTab === 'info' ? 'block' : 'hidden'}`}>
                 <Card>
                   <CardHeader><CardTitle>Informações Básicas</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
@@ -495,7 +527,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                       <Input id="title" name="title" value={formData.title || ''} onChange={handleChange} required />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="description">Descrição Curta</Label>
+                      <Label htmlFor="description">Subtítulo</Label>
                       <Textarea id="description" name="description" value={formData.description || ''} onChange={handleChange} rows={3} />
                     </div>
                     <div className="grid gap-2">
@@ -509,19 +541,21 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="status">Status</Label>
-                        <Select name="status" value={formData.status} onValueChange={(v) => handleSelectChange('status', v)} required>
-                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="planned">Prevista</SelectItem>
-                            <SelectItem value="tendered">Licitada</SelectItem>
-                            <SelectItem value="in-progress">Em Andamento</SelectItem>
-                            <SelectItem value="stalled">Paralisada</SelectItem>
-                            <SelectItem value="unfinished">Inacabada</SelectItem>
-                            <SelectItem value="completed">Concluída</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Combobox
+                          value={formData.status}
+                          onChange={(v) => handleSelectChange('status', v)}
+                          options={[
+                            { value: 'planned', label: 'Prevista' },
+                            { value: 'tendered', label: 'Licitada' },
+                            { value: 'in-progress', label: 'Em Andamento' },
+                            { value: 'stalled', label: 'Paralisada' },
+                            { value: 'unfinished', label: 'Inacabada' },
+                            { value: 'completed', label: 'Concluída' }
+                          ]}
+                          placeholder="Selecione o status..."
+                          searchPlaceholder="Buscar status..."
+                          modal
+                        />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="execution_percentage">Percentual de Execução (%)</Label>
@@ -531,49 +565,49 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="work_category_id">Categoria</Label>
-                        <Select name="work_category_id" value={formData.work_category_id} onValueChange={(v) => handleSelectChange('work_category_id', v)}>
-                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {workOptions.categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Combobox
+                          value={formData.work_category_id}
+                          onChange={(v) => handleSelectChange('work_category_id', v)}
+                          options={workOptions.categories.map(c => ({ value: c.id, label: c.name }))}
+                          placeholder="Selecione a categoria..."
+                          searchPlaceholder="Buscar categoria..."
+                          modal
+                        />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="bairro_id">Bairro</Label>
-                        <Select name="bairro_id" value={formData.bairro_id} onValueChange={(v) => handleSelectChange('bairro_id', v)}>
-                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {workOptions.bairros.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Combobox
+                          value={formData.bairro_id}
+                          onChange={(v) => handleSelectChange('bairro_id', v)}
+                          options={workOptions.bairros.map(b => ({ value: b.id, label: b.name }))}
+                          placeholder="Selecione o bairro..."
+                          searchPlaceholder="Buscar bairro..."
+                          modal
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="work_area_id">Área de Implementação</Label>
-                        <Select name="work_area_id" value={formData.work_area_id} onValueChange={(v) => handleSelectChange('work_area_id', v)}>
-                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {workOptions.areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Combobox
+                          value={formData.work_area_id}
+                          onChange={(v) => handleSelectChange('work_area_id', v)}
+                          options={workOptions.areas.map(a => ({ value: a.id, label: a.name }))}
+                          placeholder="Selecione a área..."
+                          searchPlaceholder="Buscar área..."
+                          modal
+                        />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="contractor_id">Construtora</Label>
-                        <Select name="contractor_id" value={formData.contractor_id} onValueChange={(v) => handleSelectChange('contractor_id', v)}>
-                          <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {workOptions.contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Combobox
+                          value={formData.contractor_id}
+                          onChange={(v) => handleSelectChange('contractor_id', v)}
+                          options={workOptions.contractors.map(c => ({ value: c.id, label: c.name }))}
+                          placeholder="Selecione a construtora..."
+                          searchPlaceholder="Buscar construtora..."
+                          modal
+                        />
                       </div>
                     </div>
                   </CardContent>
@@ -609,35 +643,56 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                           </div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="predicted_start_date">Data prevista para início</Label>
-                            <Input id="predicted_start_date" name="predicted_start_date" type="date" value={formData.predicted_start_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="start_date">Data de Início</Label>
-                            <Input id="start_date" name="start_date" type="date" value={formData.start_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="service_order_date">Data da Ordem de Serviço</Label>
-                            <Input id="service_order_date" name="service_order_date" type="date" value={formData.service_order_date || ''} onChange={handleDateChange} />
-                        </div>
+
+                    <div className="border-t pt-4">
+                      <Label className="mb-4 block text-base font-semibold text-slate-700">
+                        Datas e Prazos
+                      </Label>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="contract_signature_date">Assinatura do Contrato</Label>
                             <Input id="contract_signature_date" name="contract_signature_date" type="date" value={formData.contract_signature_date || ''} onChange={handleDateChange} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="expected_end_date">Previsão de Conclusão</Label>
-                            <Input id="expected_end_date" name="expected_end_date" type="date" value={formData.expected_end_date || ''} onChange={handleDateChange} />
+                            <Label htmlFor="service_order_date">Data da Ordem de Serviço</Label>
+                            <Input id="service_order_date" name="service_order_date" type="date" value={formData.service_order_date || ''} onChange={handleDateChange} />
                         </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="predicted_start_date">Data prevista para início</Label>
+                            <Input id="predicted_start_date" name="predicted_start_date" type="date" value={formData.predicted_start_date || ''} onChange={handleDateChange} className={errors.predicted_start_date ? "border-red-500" : ""} />
+                            {errors.predicted_start_date && <p className="text-xs text-red-500">{errors.predicted_start_date}</p>}
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="start_date">Data de Início (Real)</Label>
+                            <Input id="start_date" name="start_date" type="date" value={formData.start_date || ''} onChange={handleDateChange} className={errors.start_date ? "border-red-500" : ""} />
+                            {errors.start_date && <p className="text-xs text-red-500">{errors.start_date}</p>}
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="expected_end_date">Previsão de Conclusão</Label>
+                            <Input id="expected_end_date" name="expected_end_date" type="date" value={formData.expected_end_date || ''} onChange={handleDateChange} className={errors.expected_end_date ? "border-red-500" : ""} />
+                            {errors.expected_end_date && <p className="text-xs text-red-500">{errors.expected_end_date}</p>}
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="end_date">Data de Término (Real)</Label>
+                            <Input id="end_date" name="end_date" type="date" value={formData.end_date || ''} onChange={handleDateChange} className={errors.end_date ? "border-red-500" : ""} />
+                            {errors.end_date && <p className="text-xs text-red-500">{errors.end_date}</p>}
+                        </div>
+                        
                         <div className="grid gap-2">
                             <Label htmlFor="inauguration_date">Data de Inauguração</Label>
                             <Input id="inauguration_date" name="inauguration_date" type="date" value={formData.inauguration_date || ''} onChange={handleDateChange} />
                         </div>
+
                         <div className="grid gap-2">
                             <Label htmlFor="stalled_date">Data de Paralisação</Label>
                             <Input id="stalled_date" name="stalled_date" type="date" value={formData.stalled_date || ''} onChange={handleDateChange} />
                         </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -690,284 +745,80 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                     </CardContent>
                 </Card>
               </div>
-            )}
-            {activeTab === 'info' && !formData.id && (
-              <>
-                <div className="md:hidden">
-                  <div className="flex justify-between text-sm font-medium mb-2 text-muted-foreground">
-                    <span>Passo {CREATE_STEPS.findIndex(s => s.id === createStep) + 1} de {CREATE_STEPS.length}</span>
-                    <span>{Math.round(((CREATE_STEPS.findIndex(s => s.id === createStep) + 1) / CREATE_STEPS.length) * 100)}%</span>
-                  </div>
-                  <Progress value={((CREATE_STEPS.findIndex(s => s.id === createStep) + 1) / CREATE_STEPS.length) * 100} className="h-2" />
-                </div>
-
-                {createStep === 'basic' && (
-                  <Card>
-                    <CardHeader><CardTitle>Informações Básicas</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label>Imagem de Capa (Thumbnail)</Label>
-                      <div className="flex items-center gap-4">
-                        <div className="relative w-32 h-20 bg-slate-100 rounded overflow-hidden border">
-                          {thumbnailPreview ? (
-                            <img src={thumbnailPreview} alt="Thumbnail" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400">
-                              <ImageIcon className="w-8 h-8" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <Input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleThumbnailChange}
-                            className="w-full max-w-xs"
-                          />
-                          {thumbnailPreview && (
-                            <Button type="button" variant="outline" size="sm" onClick={handleRemoveThumbnail} className="w-fit text-destructive hover:text-destructive">
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Remover imagem
-                            </Button>
-                          )}
-                        </div>
+        
+            {activeTab === 'media' && (
+              <div className="space-y-4">
+                {formData.id ? (
+                  <WorkMediaManager key={formData.id} workId={formData.id} />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label>Mídias para Upload ({newWorkMedia.length})</Label>
+                      <div className="flex gap-2">
+                         <Input 
+                           type="file" 
+                           multiple 
+                           className="hidden" 
+                           id="media-upload"
+                           accept="image/*,video/*,application/pdf"
+                           onChange={(e) => {
+                             const files = Array.from(e.target.files || []);
+                             if (files.length > 0) {
+                               setNewWorkMedia(prev => [...prev, ...files.map(f => ({ file: f, galleryName: '' }))]);
+                             }
+                             e.target.value = '';
+                           }}
+                         />
+                         <Button variant="outline" size="sm" onClick={() => document.getElementById('media-upload').click()}>
+                           <Upload className="w-4 h-4 mr-2" /> Adicionar Arquivos
+                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground">Esta imagem será usada na listagem de obras e ao compartilhar o link (Open Graph).</p>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="title">Título da Obra</Label>
-                        <Input id="title" name="title" value={formData.title || ''} onChange={handleChange} placeholder="Ex.: Reforma da Escola Estadual Três Marias" />
+                    
+                    {newWorkMedia.length === 0 ? (
+                      <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                        <p className="text-muted-foreground">Nenhuma mídia selecionada.</p>
+                        <p className="text-xs text-muted-foreground mt-2">Você poderá adicionar mais mídias após criar a obra.</p>
                       </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="description">Descrição Curta</Label>
-                        <Textarea id="description" name="description" value={formData.description || ''} onChange={handleChange} rows={4} placeholder="Contexto geral, objetivo da obra, etc." />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="long_description">Descrição Longa (Detalhada)</Label>
-                        <Textarea id="long_description" name="long_description" value={formData.long_description || ''} onChange={handleChange} rows={6} placeholder="Detalhes completos da obra..." />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="address">Endereço / Localização por extenso</Label>
-                        <Input id="address" name="address" value={formData.address || ''} onChange={handleChange} placeholder="Ex: Rua Principal, Centro" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {createStep === 'classification' && (
-                  <Card>
-                    <CardHeader><CardTitle>Status e Classificação</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="status">Status</Label>
-                          <Select name="status" value={formData.status} onValueChange={(v) => handleSelectChange('status', v)}>
-                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="planned">Prevista</SelectItem>
-                              <SelectItem value="tendered">Licitada</SelectItem>
-                              <SelectItem value="in-progress">Em Andamento</SelectItem>
-                              <SelectItem value="stalled">Paralisada</SelectItem>
-                              <SelectItem value="unfinished">Inacabada</SelectItem>
-                              <SelectItem value="completed">Concluída</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="execution_percentage">Percentual de Execução (%)</Label>
-                          <Input id="execution_percentage" name="execution_percentage" type="number" min="0" max="100" value={formData.execution_percentage || ''} onChange={handleChange} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="work_category_id">Categoria</Label>
-                          <Select name="work_category_id" value={formData.work_category_id} onValueChange={(v) => handleSelectChange('work_category_id', v)}>
-                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {workOptions.categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="bairro_id">Bairro</Label>
-                          <Select name="bairro_id" value={formData.bairro_id} onValueChange={(v) => handleSelectChange('bairro_id', v)}>
-                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {workOptions.bairros.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)] gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="work_area_id">Área de Implementação</Label>
-                          <Select name="work_area_id" value={formData.work_area_id} onValueChange={(v) => handleSelectChange('work_area_id', v)}>
-                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.5rem] leading-tight">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {workOptions.areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="contractor_id">Construtora</Label>
-                          <Select name="contractor_id" value={formData.contractor_id} onValueChange={(v) => handleSelectChange('contractor_id', v)}>
-                            <SelectTrigger className="whitespace-normal text-sm text-left min-h-[2.75rem] leading-tight items-start py-2">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {workOptions.contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {createStep === 'values' && (
-                  <Card>
-                    <CardHeader><CardTitle>Valores e Prazos</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="total_value">Valor Previsto (R$)</Label>
-                          <Input id="total_value" name="total_value" value={formatCurrency(formData.total_value, false)} onChange={handleCurrencyChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="amount_spent">Valor Gasto (R$)</Label>
-                          <Input id="amount_spent" name="amount_spent" value={formatCurrency(formData.amount_spent, false)} onChange={handleCurrencyChange} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="execution_period_days">Prazo de Execução (dias)</Label>
-                          <Input id="execution_period_days" name="execution_period_days" type="number" value={formData.execution_period_days || ''} onChange={handleChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label>Fonte do Recurso</Label>
-                          <div className="flex items-center flex-wrap gap-4 pt-2">
-                            {['Federal', 'Estadual', 'Municipal'].map(source => (
-                              <div key={source} className="flex items-center space-x-2">
-                                <Checkbox id={`funding_${source}`} checked={(formData.funding_source || []).includes(source.toLowerCase())} onCheckedChange={() => handleFundingSourceChange(source.toLowerCase())} />
-                                <Label htmlFor={`funding_${source}`}>{source}</Label>
-                              </div>
-                            ))}
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto p-2">
+                        {newWorkMedia.map((item, idx) => (
+                          <div key={idx} className="relative group border rounded-lg p-2 bg-muted/20">
+                            <div className="aspect-square bg-muted rounded-md mb-2 flex items-center justify-center overflow-hidden">
+                              {item.file.type.startsWith('image') ? (
+                                <img src={URL.createObjectURL(item.file)} alt="preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <Paperclip className="w-8 h-8 text-muted-foreground" />
+                              )}
+                            </div>
+                            <p className="text-xs truncate mb-2" title={item.file.name}>{item.file.name}</p>
+                            <Input 
+                              placeholder="Galeria (opcional)" 
+                              className="h-6 text-xs" 
+                              value={item.galleryName}
+                              onChange={(e) => {
+                                const updated = [...newWorkMedia];
+                                updated[idx] = { ...updated[idx], galleryName: e.target.value };
+                                setNewWorkMedia(updated);
+                              }}
+                            />
+                            <Button 
+                              variant="destructive" 
+                              size="icon" 
+                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => setNewWorkMedia(prev => prev.filter((_, i) => i !== idx))}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="predicted_start_date">Data prevista para início</Label>
-                          <Input id="predicted_start_date" name="predicted_start_date" type="date" value={formData.predicted_start_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="start_date">Início</Label>
-                          <Input id="start_date" name="start_date" type="date" value={formData.start_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="contract_signature_date">Assinatura do Contrato</Label>
-                          <Input id="contract_signature_date" name="contract_signature_date" type="date" value={formData.contract_signature_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="service_order_date">Ordem de Serviço</Label>
-                          <Input id="service_order_date" name="service_order_date" type="date" value={formData.service_order_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="expected_end_date">Previsão de Conclusão</Label>
-                          <Input id="expected_end_date" name="expected_end_date" type="date" value={formData.expected_end_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="inauguration_date">Inauguração</Label>
-                          <Input id="inauguration_date" name="inauguration_date" type="date" value={formData.inauguration_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="stalled_date">Paralisação</Label>
-                          <Input id="stalled_date" name="stalled_date" type="date" value={formData.stalled_date || ''} onChange={handleDateChange} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    )}
+                  </div>
                 )}
-
-                {createStep === 'location' && (
-                  <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5" /> Localização</CardTitle></CardHeader>
-                    <CardContent>
-                      <div className="h-72 w-full rounded-lg overflow-hidden border border-input">
-                        <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                          <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} />
-                        </Suspense>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {createStep === 'extras' && (
-                  <Card>
-                    <CardHeader><CardTitle>Outras Informações</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="other_details">Detalhes Adicionais</Label>
-                        <Textarea id="other_details" name="other_details" value={formData.other_details || ''} onChange={handleChange} rows={4} placeholder="Observações, referências, códigos, etc." />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Emenda Parlamentar</Label>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="parliamentary_has_create"
-                            checked={!!formData.parliamentary_amendment?.has}
-                            onCheckedChange={(checked) =>
-                              setFormData(prev => ({ ...prev, parliamentary_amendment: { ...(prev.parliamentary_amendment || {}), has: !!checked } }))
-                            }
-                          />
-                          <Label htmlFor="parliamentary_has_create">Possui emenda?</Label>
-                        </div>
-                        <div className="grid gap-2 mt-2">
-                          <Label htmlFor="parliamentary_author_create">Autor (se houver)</Label>
-                          <Input
-                            id="parliamentary_author_create"
-                            name="parliamentary_author_create"
-                            value={formData.parliamentary_amendment?.author || ''}
-                            onChange={(e) =>
-                              setFormData(prev => ({ ...prev, parliamentary_amendment: { ...(prev.parliamentary_amendment || {}), author: e.target.value } }))
-                            }
-                            disabled={!formData.parliamentary_amendment?.has}
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {createStep === 'review' && (
-                  <Card>
-                    <CardHeader><CardTitle>Revisão</CardTitle></CardHeader>
-                    <CardContent className="space-y-3 text-sm">
-                      <div><span className="text-muted-foreground">Título:</span> <span className="font-medium">{formData.title || '—'}</span></div>
-                      <div><span className="text-muted-foreground">Status:</span> <span className="font-medium">{formData.status || '—'}</span></div>
-                      <div><span className="text-muted-foreground">Categoria:</span> <span className="font-medium">{(workOptions.categories.find(c => c.id === formData.work_category_id)?.name) || '—'}</span></div>
-                      <div><span className="text-muted-foreground">Bairro:</span> <span className="font-medium">{(workOptions.bairros.find(b => b.id === formData.bairro_id)?.name) || '—'}</span></div>
-                      <div><span className="text-muted-foreground">Valor Previsto:</span> <span className="font-medium">{formData.total_value ? formatCurrency(formData.total_value) : '—'}</span></div>
-                      <div><span className="text-muted-foreground">Prazo Execução (dias):</span> <span className="font-medium">{formData.execution_period_days || '—'}</span></div>
-                      <div><span className="text-muted-foreground">Fontes:</span> <span className="font-medium">{(formData.funding_source || []).join(', ') || '—'}</span></div>
-                      <div><span className="text-muted-foreground">Localização:</span> <span className="font-medium">{formData.location ? `${formData.location.lat?.toFixed(5)}, ${formData.location.lng?.toFixed(5)}` : '—'}</span></div>
-                      <div><span className="text-muted-foreground">Emenda Parlamentar:</span> <span className="font-medium">{formData.parliamentary_amendment?.has ? `Sim (${formData.parliamentary_amendment?.author || 'Autor não informado'})` : 'Não'}</span></div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
+              </div>
             )}
-            {activeTab === 'media' && <WorkMediaManager workId={formData.id} />}
-            {activeTab === 'links' && (
+            <div className={activeTab === 'links' ? 'block' : 'hidden'}>
               <div className="space-y-4">
                 <Card>
                   <CardHeader><CardTitle>Links Relacionados</CardTitle></CardHeader>
@@ -989,318 +840,81 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                   </CardContent>
                 </Card>
               </div>
-            )}
-            {activeTab === 'measurements' && formData.id && (
-              <WorkMeasurementsTab 
-                workId={formData.id} 
-                contractors={workOptions?.contractors || []} 
-              />
-            )}
+            </div>
+            <div className={activeTab === 'measurements' ? 'block' : 'hidden'}>
+              {formData.id ? (
+                <WorkMeasurementsTab 
+                  workId={formData.id} 
+                  contractors={workOptions?.contractors || []} 
+                  onEditingChange={setIsMeasurementEditing}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                    <Briefcase className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">Salve a obra primeiro</h3>
+                    <p className="text-muted-foreground max-w-sm mt-2">
+                      Para adicionar medições, fases e histórico de execução, é necessário salvar as informações básicas da obra primeiro.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
 
-        {formData.id ? (
-          <DialogFooter className="flex-shrink-0 p-4 sm:p-0 sm:pt-4 border-t sm:border-t-0 mt-auto sm:mt-4 bg-background sm:bg-transparent z-20 flex flex-col sm:flex-row gap-2">
-            <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
-              <Button 
-                type="button" 
-                variant="outline" 
-                disabled={EDIT_TABS.findIndex(t => t.id === activeTab) === 0}
-                onClick={() => {
-                  const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
-                  if (idx > 0) setActiveTab(EDIT_TABS[idx - 1].id);
-                }}
-              >
-                Anterior
-              </Button>
-              <Button 
-                type="button" 
-                onClick={() => {
-                  const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
-                  if (idx < EDIT_TABS.length - 1) setActiveTab(EDIT_TABS[idx + 1].id);
-                  else handleSubmit();
-                }}
-              >
-                {EDIT_TABS.findIndex(t => t.id === activeTab) === EDIT_TABS.length - 1 ? 'Salvar' : 'Próximo'}
-              </Button>
-            </div>
-            <div className="hidden sm:flex justify-end gap-2 w-full sm:border-t sm:pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-              <Button type="button" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Salvar Alterações</Button>
-            </div>
-          </DialogFooter>
-        ) : (
-          <DialogFooter className="flex-shrink-0 p-4 sm:p-0 sm:pt-4 border-t sm:border-t-0 mt-auto sm:mt-4 bg-background sm:bg-transparent z-20 flex flex-col sm:flex-row gap-2">
-            <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
-              <Button type="button" variant="outline" disabled={CREATE_STEPS.findIndex(s => s.id === createStep) === 0} onClick={prevStep}>Anterior</Button>
-              {createStep !== 'review' ? (
-                <Button type="button" onClick={nextStep} disabled={!canProceed()}>Próximo</Button>
-              ) : (
-                <Button type="button" onClick={handleSubmit}>Criar</Button>
-              )}
-            </div>
-            <div className="hidden sm:flex justify-end gap-2 w-full sm:border-t sm:pt-4">
-              <Button type="button" variant="ghost" disabled={CREATE_STEPS.findIndex(s => s.id === createStep) === 0} onClick={prevStep}>Anterior</Button>
-              {createStep !== 'review' ? (
-                <Button type="button" onClick={nextStep} disabled={!canProceed()}>Próximo</Button>
-              ) : (
-                <Button type="button" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Criar Obra</Button>
-              )}
-            </div>
-          </DialogFooter>
-        )}
+        <DialogFooter className="flex-shrink-0 p-4 sm:p-0 sm:pt-4 border-t sm:border-t-0 mt-auto sm:mt-4 bg-background sm:bg-transparent z-20 flex flex-col sm:flex-row gap-2">
+          <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
+            <Button 
+              type="button" 
+              variant="outline" 
+              disabled={EDIT_TABS.findIndex(t => t.id === activeTab) === 0}
+              onClick={() => {
+                if (activeTab === 'measurements' && isMeasurementEditing) {
+                  if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+                    return;
+                  }
+                }
+                const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
+                if (idx > 0) setActiveTab(EDIT_TABS[idx - 1].id);
+              }}
+            >
+              Anterior
+            </Button>
+            <Button 
+              type="button" 
+              onClick={() => {
+                const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
+                if (idx < EDIT_TABS.length - 1) {
+                  if (activeTab === 'measurements' && isMeasurementEditing) {
+                    if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+                      return;
+                    }
+                  }
+                  setActiveTab(EDIT_TABS[idx + 1].id);
+                }
+                else handleSubmit();
+              }}
+            >
+              {EDIT_TABS.findIndex(t => t.id === activeTab) === EDIT_TABS.length - 1 ? (formData.id ? 'Salvar' : 'Criar Obra') : 'Próximo'}
+            </Button>
+          </div>
+          <div className="hidden sm:flex justify-end gap-2 w-full sm:border-t sm:pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="button" onClick={handleSubmit} disabled={!canProceed()} className="gap-2">
+              <Save className="w-4 h-4" /> {formData.id ? 'Salvar Alterações' : 'Criar Obra'}
+            </Button>
+          </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
 
-const WorkMediaManager = ({ workId }) => {
-  const { user } = useAuth();
-  const [media, setMedia] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [galleryName, setGalleryName] = useState('');
-  const [isNewGallery, setIsNewGallery] = useState(false);
-  const { toast } = useToast();
-  const fileInputRef = useRef(null);
-  
-  const fetchMedia = useCallback(async () => {
-    if (!workId) return;
-    const { data, error } = await supabase.from('public_work_media').select('*').eq('work_id', workId).order('created_at');
-    if (error) toast({ title: "Erro ao buscar mídias", variant: "destructive" });
-    else setMedia(data);
-  }, [workId, toast]);
-
-  // Extract unique gallery names
-  const existingGalleries = Array.from(new Set(media.map(m => m.gallery_name).filter(Boolean))).sort();
-
-  useEffect(() => {
-    fetchMedia();
-  }, [fetchMedia]);
-
-  const uploadSingleFile = async (file) => {
-    let uploadFile = file;
-    if (file.type && file.type.startsWith('image')) {
-      try {
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(file);
-        });
-        const img = await new Promise((resolve, reject) => {
-          const image = new Image();
-          image.onload = () => resolve(image);
-          image.onerror = reject;
-          image.src = dataUrl;
-        });
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
-        uploadFile = new File([blob], file.name.replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
-      } catch (_) {}
-    }
-    const filePath = `works/${workId}/${Date.now()}-${uploadFile.name}`;
-    const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
-    
-    if (uploadError) {
-      toast({ title: `Erro no upload de ${file.name}`, description: uploadError.message, variant: "destructive" });
-      return;
-    }
-    
-    const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(filePath);
-    
-    let fileType = 'file';
-    if (file.type.startsWith('image')) fileType = 'image';
-    else if (file.type.startsWith('video')) fileType = 'video';
-    else if (file.type === 'application/pdf') fileType = 'pdf';
-
-    const { error: dbError } = await supabase.from('public_work_media').insert({
-      work_id: workId,
-      url: publicUrl,
-      type: fileType,
-      name: file.name,
-      status: 'approved',
-      contributor_id: user?.id || null,
-      gallery_name: galleryName || null
-    });
-
-    if (dbError) {
-      toast({ title: `Erro ao salvar ${file.name}`, description: dbError.message, variant: "destructive" });
-    }
-  };
-
-  const deleteMedia = async (mediaId, mediaUrl) => {
-    const { error: dbError } = await supabase.from('public_work_media').delete().eq('id', mediaId);
-    if (dbError) {
-      toast({ title: "Erro ao remover mídia do banco", variant: "destructive" });
-      return;
-    }
-    
-    try {
-      const filePath = new URL(mediaUrl).pathname.split('/work-media/')[1];
-      if (filePath) {
-        await supabase.storage.from('work-media').remove([decodeURIComponent(filePath)]);
-      }
-    } catch (e) {
-      // Erro ao parsear ou deletar arquivo do storage
-    }
-
-    toast({ title: "Mídia removida!" });
-    fetchMedia();
-  };
-  
-  const getFileIcon = (type) => {
-    switch(type) {
-      case 'image': return <ImageIcon className="w-10 h-10 text-gray-500" />;
-      case 'video': return <Video className="w-10 h-10 text-gray-500" />;
-      case 'pdf': return <Paperclip className="w-10 h-10 text-red-500" />;
-      default: return <Paperclip className="w-10 h-10 text-gray-500" />;
-    }
-  }
-
-  const handleFileSelect = async (e) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      setUploading(true);
-      const toUpload = Array.from(files);
-      try {
-        await Promise.all(toUpload.map(file => uploadSingleFile(file)));
-        toast({ title: "Upload concluído!", description: "Os arquivos foram enviados." });
-        fetchMedia();
-        // Reset gallery selection if needed, or keep it for continuous upload
-      } finally {
-        setUploading(false);
-        e.target.value = '';
-      }
-    }
-  };
-
-  // Group media by gallery
-  const groupedMedia = media.reduce((acc, item) => {
-    const key = item.gallery_name || 'Sem Galeria';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {});
-
-  const handleGalleryChange = (value) => {
-    if (value === 'new_gallery_option') {
-      setGalleryName('');
-      setIsNewGallery(true);
-    } else {
-      setGalleryName(value === 'no_gallery_option' ? '' : value);
-      setIsNewGallery(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
-        <div>
-          <CardTitle>Mídias e Arquivos</CardTitle>
-          <CardDescription>Gerencie fotos, vídeos e documentos da obra.</CardDescription>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-center gap-2 w-full xl:w-auto bg-muted/30 p-2 rounded-lg border border-border/50 flex-wrap">
-          <div className="flex-1 w-full sm:min-w-[200px]">
-            <Select 
-              value={isNewGallery ? 'new_gallery_option' : (galleryName || 'no_gallery_option')} 
-              onValueChange={handleGalleryChange}
-            >
-              <SelectTrigger className="w-full bg-background">
-                <SelectValue placeholder="Selecione a galeria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="no_gallery_option">Sem Galeria (Geral)</SelectItem>
-                {existingGalleries.map(g => (
-                  <SelectItem key={g} value={g}>{g}</SelectItem>
-                ))}
-                <SelectItem value="new_gallery_option" className="text-primary font-medium">+ Nova Galeria</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {isNewGallery && (
-            <Input 
-              placeholder="Nome da nova galeria" 
-              value={galleryName}
-              onChange={(e) => setGalleryName(e.target.value)}
-              className="w-full sm:w-[200px] bg-background"
-              autoFocus
-            />
-          )}
-          
-          <Button variant="default" onClick={() => fileInputRef.current.click()} disabled={uploading} className="w-full sm:w-auto whitespace-nowrap">
-            <Upload className="w-4 h-4 mr-2" />
-            {uploading ? 'Enviando...' : 'Adicionar Mídia'}
-          </Button>
-        </div>
-        <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*,application/pdf" />
-      </CardHeader>
-      
-      <CardContent className="space-y-8">
-        {media.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed rounded-xl bg-muted/10">
-            <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">Nenhuma mídia adicionada a esta obra.</p>
-            <Button variant="link" onClick={() => fileInputRef.current.click()}>Adicionar agora</Button>
-          </div>
-        ) : (
-          Object.entries(groupedMedia).sort((a, b) => {
-            if (a[0] === 'Sem Galeria') return -1;
-            if (b[0] === 'Sem Galeria') return 1;
-            return a[0].localeCompare(b[0]);
-          }).map(([groupName, items]) => (
-            <div key={groupName} className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  {groupName === 'Sem Galeria' ? <ImageIcon className="w-4 h-4 text-muted-foreground" /> : <FolderOpen className="w-4 h-4 text-primary" />}
-                  {groupName}
-                </h3>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{items.length} itens</span>
-              </div>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {items.map(m => (
-                  <Card key={m.id} className="relative group overflow-hidden border-muted hover:border-primary/50 transition-colors">
-                    <a href={m.url} target="_blank" rel="noopener noreferrer" className="flex aspect-square bg-slate-100 dark:bg-slate-800 items-center justify-center overflow-hidden">
-                      {m.type === 'image' ? (
-                        <img src={m.url} alt={m.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                      ) : (
-                        getFileIcon(m.type)
-                      )}
-                    </a>
-                    <div className="p-2">
-                      <p className="text-xs font-medium truncate" title={m.name}>{m.name}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {new Date(m.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Button 
-                      variant="destructive" 
-                      size="icon" 
-                      className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        deleteMedia(m.id, m.url);
-                      }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
-  )
-};
+// WorkMediaManager is now imported from '@/components/admin/WorkMediaManager'
 
 const ManageWorksPage = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1365,7 +979,7 @@ const ManageWorksPage = () => {
     }
   }, [location.state, works, editingWork]);
 
-  const handleSaveWork = async (workToSave) => {
+  const handleSaveWork = async (workToSave, mediaFiles = []) => {
     const { id, location, ...data } = workToSave;
     
     delete data.bairro;
@@ -1396,25 +1010,66 @@ const ManageWorksPage = () => {
       toast({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
       console.error("Save error:", result.error);
     } else {
-      toast({ title: `Obra ${id ? 'atualizada' : 'criada'} com sucesso!` });
-      fetchData();
-      
-      if (!id && result.data) {
-        // If it's a new work, we keep the modal open and switch to the new work's data
-        const { data: newWorkWithRelations } = await supabase
-          .from('public_works')
-          .select('*, bairro:bairros(id, name), work_category:work_categories(id, name), work_area:work_areas(id, name), contractor:contractors(id, name)')
-          .eq('id', result.data.id)
-          .single();
-        setEditingWork(newWorkWithRelations || null);
-      } else {
-        // If editing, we close the modal on save
-        setEditingWork(null);
-        // Recarregar a página após salvar alterações para garantir dados atualizados
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
+      const savedWorkId = result.data.id;
+      console.log('Obra salva com ID:', savedWorkId);
+
+      // Handle media uploads if any
+      if (mediaFiles && mediaFiles.length > 0) {
+        toast({ title: "Salvando mídias...", description: `Enviando ${mediaFiles.length} arquivos.` });
+        console.log('Iniciando upload de', mediaFiles.length, 'arquivos de mídia.');
+        
+        const uploadPromises = mediaFiles.map(async ({ file, galleryName }) => {
+          let uploadFile = file;
+          // Image optimization removed to avoid mime type issues with supabase storage
+          
+          const filePath = `works/${savedWorkId}/${Date.now()}-${uploadFile.name}`;
+          const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
+          
+          if (uploadError) {
+            console.error(`Error uploading ${file.name}:`, uploadError);
+            toast({ title: `Erro ao enviar ${file.name}`, description: uploadError.message, variant: "destructive" });
+            return null;
+          }
+          
+          const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(filePath);
+          
+          let fileType = 'file';
+          if (file.type.startsWith('image')) fileType = 'image';
+          else if (file.type.startsWith('video')) fileType = 'video';
+          else if (file.type === 'application/pdf') fileType = 'pdf';
+
+          return {
+            work_id: savedWorkId,
+            url: publicUrl,
+            type: fileType,
+            name: file.name,
+            status: 'approved',
+            contributor_id: user?.id || null,
+            gallery_name: galleryName || null
+          };
+        });
+
+        const uploadedMedia = (await Promise.all(uploadPromises)).filter(Boolean);
+        console.log('Arquivos enviados com sucesso:', uploadedMedia.length, uploadedMedia);
+        
+        if (uploadedMedia.length > 0) {
+          const { error: dbError } = await supabase.from('public_work_media').insert(uploadedMedia);
+          if (dbError) {
+             console.error("Error saving media records:", dbError);
+             toast({ title: "Erro ao salvar registros de mídia", description: dbError.message, variant: "destructive" });
+          } else {
+             console.log('Registros de mídia salvos no banco com sucesso.');
+             toast({ title: "Mídias vinculadas", description: `${uploadedMedia.length} arquivos foram anexados à obra.` });
+          }
+        } else {
+            console.warn('Nenhuma mídia foi enviada com sucesso.');
+        }
       }
+
+      toast({ title: `Obra ${id ? 'atualizada' : 'criada'} com sucesso!` });
+      await fetchData();
+      
+      setEditingWork(null);
     }
   };
   

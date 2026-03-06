@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import ReportDetails from '@/components/ReportDetails';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -30,6 +30,20 @@ const ManageReportsPage = () => {
     'iluminacao': 'Iluminação Pública', 'buracos': 'Buracos na Via', 'esgoto': 'Esgoto Entupido',
     'limpeza': 'Limpeza Urbana', 'poda': 'Poda de Árvore', 'vazamento-de-agua': 'Vazamento de Água', 'outros': 'Outros',
   };
+
+  const statusOptions = [
+    { value: 'all', label: 'Todos os Status' },
+    { value: 'pending', label: 'Pendente' },
+    { value: 'in-progress', label: 'Em Andamento' },
+    { value: 'resolved', label: 'Resolvido' },
+    { value: 'duplicate', label: 'Duplicada' },
+    { value: 'pending_resolution', label: 'Verificando Resolução' },
+  ];
+
+  const categoryOptions = [
+    { value: 'all', label: 'Todas as Categorias' },
+    ...Object.entries(categories).map(([value, label]) => ({ value, label }))
+  ];
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -331,26 +345,20 @@ const ManageReportsPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Buscar por título, protocolo..." className="pl-10" value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} />
             </div>
-            <Select value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
-              <SelectTrigger><SelectValue placeholder="Filtrar por status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
-                <SelectItem value="pending">Pendente</SelectItem>
-                <SelectItem value="in-progress">Em Andamento</SelectItem>
-                <SelectItem value="resolved">Resolvido</SelectItem>
-                <SelectItem value="duplicate">Duplicada</SelectItem>
-                <SelectItem value="pending_resolution">Verificando Resolução</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filters.category} onValueChange={(v) => handleFilterChange('category', v)}>
-              <SelectTrigger><SelectValue placeholder="Filtrar por categoria" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as Categorias</SelectItem>
-                {Object.entries(categories).map(([key, value]) => (
-                  <SelectItem key={key} value={key}>{value}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={filters.status}
+              onChange={(v) => handleFilterChange('status', v)}
+              options={statusOptions}
+              placeholder="Filtrar por status"
+              searchPlaceholder="Buscar status..."
+            />
+            <Combobox
+              value={filters.category}
+              onChange={(v) => handleFilterChange('category', v)}
+              options={categoryOptions}
+              placeholder="Filtrar por categoria"
+              searchPlaceholder="Buscar categoria..."
+            />
           </CardContent>
         </Card>
 

@@ -9,11 +9,79 @@ import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { defaultMenuSettings, defaultFooterSettings, availableIcons, socialPlatforms } from '@/config/menuConfig';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Combobox } from "@/components/ui/combobox";
+
+const IconPicker = ({ value, onChange, icons }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full sm:w-[180px] justify-between"
+        >
+          <div className="flex items-center gap-2">
+             {React.createElement(LucideIcons[value] || LucideIcons.HelpCircle, { className: "w-4 h-4" })}
+             {value}
+          </div>
+          <LucideIcons.ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0">
+        <Command>
+          <CommandInput placeholder="Buscar ícone..." />
+          <CommandList>
+            <CommandEmpty>Ícone não encontrado.</CommandEmpty>
+            <CommandGroup className="max-h-[200px] overflow-auto">
+              {icons.map((iconName) => (
+                <CommandItem
+                  key={iconName}
+                  value={iconName}
+                  onSelect={() => {
+                    onChange(iconName);
+                    setOpen(false);
+                  }}
+                >
+                  <LucideIcons.Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === iconName ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex items-center gap-2">
+                     {React.createElement(LucideIcons[iconName] || LucideIcons.HelpCircle, { className: "w-4 h-4" })}
+                     {iconName}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const SiteSettingsPage = () => {
   const { toast } = useToast();
@@ -281,7 +349,13 @@ const SiteSettingsPage = () => {
                       return (
                         <div key={item.path} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg gap-4">
                           <div className="flex items-center gap-3 flex-grow"><Switch id={`switch-${item.path}`} checked={item.isVisible} onCheckedChange={() => setMenuSettings(prev => ({ ...prev, items: prev.items.map(i => i.path === item.path ? { ...i, isVisible: !i.isVisible } : i) }))} /><Label htmlFor={`switch-${item.path}`} className="text-base">{item.name}</Label></div>
-                          <div className="flex items-center gap-2 w-full sm:w-auto"><Icon className="w-5 h-5 text-muted-foreground" /><Select value={item.icon} onValueChange={(newIcon) => setMenuSettings(prev => ({ ...prev, items: prev.items.map(i => i.path === item.path ? { ...i, icon: newIcon } : i) }))}><SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Selecionar ícone" /></SelectTrigger><SelectContent>{availableIcons.map(iconName => (<SelectItem key={iconName} value={iconName}><div className="flex items-center gap-2">{React.createElement(LucideIcons[iconName] || LucideIcons.HelpCircle, { className: "w-4 h-4" })} {iconName}</div></SelectItem>))}</SelectContent></Select></div>
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <IconPicker 
+                              value={item.icon} 
+                              onChange={(newIcon) => setMenuSettings(prev => ({ ...prev, items: prev.items.map(i => i.path === item.path ? { ...i, icon: newIcon } : i) }))}
+                              icons={availableIcons}
+                            />
+                          </div>
                         </div>
                       );
                     })}
@@ -341,7 +415,14 @@ const SiteSettingsPage = () => {
                     <div key={index} className="p-3 border rounded-lg space-y-3">
                       <div className="flex items-center justify-between"><div className="flex items-center gap-2"><Switch id={`social-visible-${index}`} checked={social.isVisible} onCheckedChange={(c) => handleFooterSocialChange(index, 'isVisible', c)} /><Label htmlFor={`social-visible-${index}`}>Exibir {social.platform}</Label></div></div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Plataforma</Label><Select value={social.platform} onValueChange={(p) => handleFooterSocialChange(index, 'platform', p)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{socialPlatforms.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="space-y-2">
+                          <Label>Plataforma</Label>
+                          <Combobox
+                            value={social.platform}
+                            onChange={(p) => handleFooterSocialChange(index, 'platform', p)}
+                            options={socialPlatforms.map(p => ({ label: p, value: p }))}
+                          />
+                        </div>
                         <div className="space-y-2"><Label>URL</Label><Input value={social.url} onChange={(e) => handleFooterSocialChange(index, 'url', e.target.value)} /></div>
                       </div>
                     </div>

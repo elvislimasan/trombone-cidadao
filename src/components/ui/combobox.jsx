@@ -18,21 +18,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-export function Combobox({ options, value, onChange, placeholder, searchPlaceholder, notFoundText }) {
+export function Combobox({ options, value, onChange, placeholder, searchPlaceholder, notFoundText, disabled, className, modal = false }) {
   const [open, setOpen] = useState(false);
 
   const selectedOption = options.find(
-    (option) => option.value.toLowerCase() === value?.toLowerCase()
+    (option) => String(option.value).toLowerCase() === String(value || "").toLowerCase()
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className={cn("w-full justify-between", className)}
+          disabled={disabled}
         >
           {value
             ? selectedOption?.label

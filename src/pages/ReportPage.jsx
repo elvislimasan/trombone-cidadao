@@ -18,7 +18,7 @@ import DynamicSEO from '../components/DynamicSeo';
 import DonationModal from '@/components/DonationModal';
 import MarkResolvedModal from '@/components/MarkResolvedModal';
 import MediaViewer from '@/components/MediaViewer';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import {
   ArrowLeft,
   MapPin,
@@ -633,21 +633,19 @@ const ReportPage = () => {
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
                   Alterar Status
                 </div>
-                <Select value={report.status} onValueChange={handleAdminStatusChange}>
-                  <SelectTrigger className="w-full bg-white border-gray-200 text-xs">
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[2100]">
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="in-progress">Em Andamento</SelectItem>
-                    <SelectItem value="pending_resolution">
-                      Verificando Resolução
-                    </SelectItem>
-                    {user?.is_admin && (
-                      <SelectItem value="resolved">Resolvido</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={[
+                    { value: 'pending', label: 'Pendente' },
+                    { value: 'in-progress', label: 'Em Andamento' },
+                    { value: 'pending_resolution', label: 'Verificando Resolução' },
+                    ...(user?.is_admin ? [{ value: 'resolved', label: 'Resolvido' }] : [])
+                  ]}
+                  value={report.status}
+                  onChange={handleAdminStatusChange}
+                  placeholder="Selecione o status"
+                  searchPlaceholder="Buscar status..."
+                  notFoundText="Status não encontrado"
+                />
               </div>
 
               {canEditCategory && (
@@ -655,21 +653,14 @@ const ReportPage = () => {
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
                     Alterar Categoria
                   </div>
-                  <Select
+                  <Combobox
+                    options={Object.entries(categories).map(([key, value]) => ({ value: key, label: value }))}
                     value={report.category}
-                    onValueChange={handleAdminCategoryChange}
-                  >
-                    <SelectTrigger className="w-full bg-white border-gray-200 text-xs">
-                      <SelectValue placeholder="Selecione a categoria" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[2100]">
-                      {Object.entries(categories).map(([key, value]) => (
-                        <SelectItem key={key} value={key}>
-                          {value}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={handleAdminCategoryChange}
+                    placeholder="Selecione a categoria"
+                    searchPlaceholder="Buscar categoria..."
+                    notFoundText="Categoria não encontrada"
+                  />
                 </div>
               )}
 
@@ -678,18 +669,17 @@ const ReportPage = () => {
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
                     Aberto pela COMPESA?
                   </div>
-                  <Select
+                  <Combobox
+                    options={[
+                      { value: 'yes', label: 'Sim' },
+                      { value: 'no', label: 'Não' }
+                    ]}
                     value={isFromWaterUtility ? 'yes' : 'no'}
-                    onValueChange={handleAdminWaterUtilityChange}
-                  >
-                    <SelectTrigger className="w-full bg-white border-gray-200 text-xs">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[2100]">
-                      <SelectItem value="yes">Sim</SelectItem>
-                      <SelectItem value="no">Não</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={handleAdminWaterUtilityChange}
+                    placeholder="Selecione"
+                    searchPlaceholder="Buscar..."
+                    notFoundText="Opção não encontrada"
+                  />
                 </div>
               )}
             </AccordionContent>
@@ -1131,7 +1121,7 @@ const ReportPage = () => {
       {!loading && report && (
         <>
           <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
-            <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+            <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-14 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Button
                   size="icon"
@@ -1178,7 +1168,7 @@ const ReportPage = () => {
               </div>
             </div>
             <div className="hidden lg:block border-t border-gray-100">
-              <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 py-2 text-[11px] text-gray-500 flex items-center gap-1">
+              <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-gray-500 flex items-center gap-1">
                 <Link to="/" className="hover:text-red-500 transition-colors">
                   Início
                 </Link>
@@ -1191,8 +1181,8 @@ const ReportPage = () => {
           </div>
 
           <div className="bg-[#F4F6F9] min-h-screen overflow-x-hidden">
-            <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 py-4 lg:py-8 grid gap-6 lg:grid-cols-[minmax(0,2fr)_320px]">
-              <div>
+            <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-4 lg:py-8 grid gap-8 grid-cols-1 lg:grid-cols-3">
+              <div className="lg:col-span-2">
                   {managementPanel && (
                       <div className="mb-4 lg:hidden">{managementPanel}</div>
                     )}

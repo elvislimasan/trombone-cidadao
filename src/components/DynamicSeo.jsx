@@ -148,6 +148,24 @@ const DynamicSEO = ({
           </>
         );
       })()}
+
+      {url && url.includes('/obras-publicas/') && (() => {
+        const workId = url.split('/obras-publicas/')[1]?.split('?')[0]?.split('#')[0] || '';
+        if (!workId) return null;
+        const deepLinkUrl = `trombonecidadao://obras-publicas/${workId}`;
+        return (
+          <>
+            <meta property="al:android:app_name" content="Trombone Cidadão" />
+            <meta property="al:android:package" content="com.trombonecidadao.app" />
+            <meta property="al:android:url" content={deepLinkUrl} />
+            <meta property="al:ios:app_name" content="Trombone Cidadão" />
+            <meta property="al:ios:app_store_id" content="" />
+            <meta property="al:ios:url" content={deepLinkUrl} />
+            <meta property="al:web:url" content={url} />
+            <meta property="al:web:should_fallback" content="true" />
+          </>
+        );
+      })()}
       
       {/* JSON-LD para SEO estruturado */}
       <script type="application/ld+json">

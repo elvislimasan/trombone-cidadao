@@ -14,7 +14,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { exportPetitionPDF } from '@/utils/pdfExport';
 
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import {
   Dialog,
@@ -237,26 +237,24 @@ const MyPetitionsPage = () => {
             />
         </div>
         <div className="w-full md:w-48 shrink-0">
-            <Select 
-                value={filterStatus} 
-                onValueChange={(value) => {
+            <Combobox
+                value={filterStatus}
+                onSelect={(value) => {
                     setFilterStatus(value);
                     setCurrentPage(1);
                 }}
-            >
-                <SelectTrigger>
-                    <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">Todos os Status</SelectItem>
-                    <SelectItem value="open">Aprovadas / Abertas</SelectItem>
-                    <SelectItem value="pending_moderation">Em Análise</SelectItem>
-                    <SelectItem value="rejected">Rejeitadas</SelectItem>
-                    <SelectItem value="draft">Rascunhos</SelectItem>
-                    <SelectItem value="victory">Vitória</SelectItem>
-                    <SelectItem value="closed">Encerradas</SelectItem>
-                </SelectContent>
-            </Select>
+                options={[
+                    { value: "all", label: "Todos os Status" },
+                    { value: "open", label: "Aprovadas / Abertas" },
+                    { value: "pending_moderation", label: "Em Análise" },
+                    { value: "rejected", label: "Rejeitadas" },
+                    { value: "draft", label: "Rascunhos" },
+                    { value: "victory", label: "Vitória" },
+                    { value: "closed", label: "Encerradas" }
+                ]}
+                placeholder="Status"
+                searchPlaceholder="Buscar status..."
+            />
         </div>
       </div>
 

@@ -6,9 +6,19 @@ export function cn(...inputs) {
 }
 
 export function formatCurrency(value, currencySymbol = true) {
-  if (typeof value !== 'number' || value === null || value === undefined || isNaN(value)) {
+  if (value === null || value === undefined) {
     return null;
   }
+  
+  let numberValue = value;
+  if (typeof value === 'string') {
+    numberValue = parseFloat(value);
+  }
+
+  if (isNaN(numberValue)) {
+    return null;
+  }
+
   const options = {
     style: 'currency',
     currency: 'BRL',
@@ -20,8 +30,26 @@ export function formatCurrency(value, currencySymbol = true) {
     options.maximumFractionDigits = 2;
   }
 
-  return new Intl.NumberFormat('pt-BR', options).format(value);
+  try {
+    return new Intl.NumberFormat('pt-BR', options).format(numberValue);
+  } catch (error) {
+    console.error('Error formatting currency:', error);
+    return null;
+  }
 }
+
+export function formatDate(dateString) {
+  if (!dateString) return 'Data não informada';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Data inválida';
+    return date.toLocaleDateString('pt-BR');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Data inválida';
+  }
+}
+
 
 
 export function parseCurrency(value) {

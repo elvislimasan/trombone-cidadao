@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import ReportDetails from '@/components/ReportDetails';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Input } from '@/components/ui/input';
 
 const UserEditModal = ({ user, onSave, onClose }) => {
@@ -31,6 +31,11 @@ const UserEditModal = ({ user, onSave, onClose }) => {
 
   if (!user) return null;
 
+  const userTypeOptions = [
+    { value: "citizen", label: "Cidadão" },
+    { value: "public_official", label: "Órgão Público" }
+  ];
+
   return (
     <Dialog open={!!user} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -44,13 +49,13 @@ const UserEditModal = ({ user, onSave, onClose }) => {
           </div>
           <div>
             <label htmlFor="userType" className="block text-sm font-medium text-gray-700">Tipo de Usuário</label>
-            <Select value={userType} onValueChange={setUserType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="citizen">Cidadão</SelectItem>
-                <SelectItem value="public_official">Órgão Público</SelectItem>
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={userType}
+              onChange={setUserType}
+              options={userTypeOptions}
+              placeholder="Selecione o tipo"
+              searchPlaceholder="Buscar tipo..."
+            />
           </div>
           <div className="flex items-center space-x-2">
             <input type="checkbox" id="isAdmin" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="h-4 w-4 rounded" />

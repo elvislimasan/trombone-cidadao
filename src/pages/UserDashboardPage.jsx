@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import ReportModal from '@/components/ReportModal';
 
@@ -454,13 +454,17 @@ const UserDashboardPage = () => {
                   </div>
                   <div className="grid gap-2">
                     <Label>Tipo</Label>
-                    <Select value={newEntry.type} onValueChange={(value) => setNewEntry(prev => ({ ...prev, type: value }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="commerce"><div className="flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> Comércio Local</div></SelectItem>
-                        <SelectItem value="public"><div className="flex items-center gap-2"><Building className="w-4 h-4" /> Serviço Público</div></SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={[
+                        { value: 'commerce', label: 'Comércio Local' },
+                        { value: 'public', label: 'Serviço Público' }
+                      ]}
+                      value={newEntry.type}
+                      onChange={(value) => setNewEntry(prev => ({ ...prev, type: value }))}
+                      placeholder="Selecione o tipo"
+                      searchPlaceholder="Buscar tipo..."
+                      notFoundText="Tipo não encontrado"
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label>Foto do Local (Opcional)</Label>

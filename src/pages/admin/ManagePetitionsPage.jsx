@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { exportPetitionPDF } from '@/utils/pdfExport';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -36,6 +36,19 @@ const ManagePetitionsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+
+  const statusOptions = [
+    { value: 'all', label: 'Todos os Status' },
+    { value: 'open', label: 'Publicadas' },
+    { value: 'victory', label: 'Vitórias' },
+    { value: 'closed', label: 'Encerradas' },
+  ];
+
+  const sortOptions = [
+    { value: 'newest', label: 'Mais Recentes' },
+    { value: 'oldest', label: 'Mais Antigos' },
+    { value: 'most_signed', label: 'Mais Assinaturas' },
+  ];
 
   const fetchPetitions = useCallback(async () => {
     setLoading(true);
@@ -240,31 +253,24 @@ const ManagePetitionsPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-11 bg-background border-none shadow-sm w-full">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os Status</SelectItem>
-                      <SelectItem value="open">Publicadas</SelectItem>
-                      <SelectItem value="victory">Vitórias</SelectItem>
-                      <SelectItem value="closed">Encerradas</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    options={statusOptions}
+                    placeholder="Status"
+                    searchPlaceholder="Buscar status..."
+                  />
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="h-11 bg-background border-none shadow-sm w-full">
-                      <SelectValue placeholder="Ordenar por" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="newest">Mais Recentes</SelectItem>
-                      <SelectItem value="oldest">Mais Antigos</SelectItem>
-                      <SelectItem value="most_signed">Mais Assinaturas</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    value={sortBy}
+                    onChange={setSortBy}
+                    options={sortOptions}
+                    placeholder="Ordenar por"
+                    searchPlaceholder="Buscar ordenação..."
+                  />
                 </div>
               </div>
             </div>
