@@ -24,7 +24,8 @@ import {
   ArrowLeft, Calendar, DollarSign, HardHat, PauseCircle, CheckCircle, MapPin, 
   Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, 
   BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, 
-  Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle, Eye, Briefcase, HelpCircle
+  Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle, Eye, Briefcase, HelpCircle,
+  FolderOpen
 } from 'lucide-react';
 import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
@@ -606,16 +607,16 @@ const WorkDetailsPage = () => {
         </div>
       </div>
 
-      <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-5xl lg:max-w-7xl 2xl:max-w-[100rem] mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           
           {/* Main Content Column */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-8 xl:col-span-9">
             
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden relative">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 " />
+              
             {/* Title & Progress Hero Card */}
-            <div className="p-6 md:p-8">
+            <div className="p-5 md:p-8 lg:p-10">
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
                   <statusInfo.icon className="w-4 h-4 mr-1.5" />
@@ -629,7 +630,7 @@ const WorkDetailsPage = () => {
                 )}
               </div>
 
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight mb-2">
+              <h1 className="text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold text-gray-900 leading-tight mb-2 max-w-4xl">
                 {work.title}
               </h1>
               {work.description && (
@@ -640,7 +641,7 @@ const WorkDetailsPage = () => {
               {!work.description && <div className="mb-6"></div>}
 
               {/* Integrated Progress Section */}
-              <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+              <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 mb-8">
                 <div className="flex justify-between items-end mb-2">
                   <div className="flex items-center gap-2">
                     <Activity className="w-5 h-5 text-slate-400" />
@@ -654,42 +655,13 @@ const WorkDetailsPage = () => {
                   className="h-4 bg-slate-200 rounded-full" 
                   indicatorClassName="bg-red-600 rounded-full" 
                 />
-                
-                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-200/60">
-                  <div>
-                    <span className="text-xs text-slate-500 block mb-1">
-                      {['planned', 'tendered'].includes(work.status) ? 'Previsão de Início' : 'Início da Obra'}
-                    </span>
-                    <span className="text-sm font-semibold text-slate-800">
-                      {['planned', 'tendered'].includes(work.status) 
-                        ? (work.predicted_start_date ? formatDate(work.predicted_start_date) : 'A definir')
-                        : (work.start_date ? formatDate(work.start_date) : 'A definir')
-                      }
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-slate-500 block mb-1">
-                      {work.status === 'completed' ? 'Conclusão' : 
-                       work.status === 'stalled' ? 'Data de Paralisação' : 
-                       'Previsão de Término'}
-                    </span>
-                    <span className="text-sm font-semibold text-slate-800">
-                      {work.status === 'completed' 
-                        ? (work.end_date ? formatDate(work.end_date) : (work.inauguration_date ? formatDate(work.inauguration_date) : 'Concluída'))
-                        : work.status === 'stalled'
-                          ? (work.stalled_date ? formatDate(work.stalled_date) : 'Não informada')
-                          : (work.expected_end_date ? formatDate(work.expected_end_date) : 'A definir')
-                      }
-                    </span>
-                  </div>
-                </div>
               </div>
-            </div>
+                 {/* About Section */}
+          
 
-            <Separator className="my-0" />
-
-            {/* About Section */}
-            <div className="p-6 md:p-8">
+              {/* Details Sections */}
+              <div className="space-y-8 mb-8">
+                  <div className="py-6 md:py-8">
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-violet-50 text-indigo-600 mr-3 shadow-sm border border-indigo-100/50">
                   <BookOpen className="w-4 h-4" />
@@ -701,7 +673,233 @@ const WorkDetailsPage = () => {
               </div>
             </div>
 
+          
+                
+                {/* 1. Execução e Responsáveis */}
+                <div>
+                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                     <Building className="w-4 h-4" /> Execução e Responsáveis
+                   </h3>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                           <Building className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Construtora</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.contractor?.name || 'Em licitação'}</p>
+                        </div>
+                     </div>
+
+                     {work.contractor?.cnpj && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <FileText className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">CNPJ</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatCnpj(work.contractor.cnpj)}</p>
+                          </div>
+                       </div>
+                     )}
+
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                           <Briefcase className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Categoria</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.work_category?.name || 'Não informada'}</p>
+                        </div>
+                     </div>
+                   </div>
+                </div>
+
+                {/* 3. Financeiro */}
+                <div>
+                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                     <DollarSign className="w-4 h-4" /> Financeiro
+                   </h3>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
+                     {work.funding_source && work.funding_source.length > 0 && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <Landmark className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Fonte de Recurso</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">
+                                {work.funding_source.map(source => source).join(', ')}
+                             </p>
+                          </div>
+                       </div>
+                     )}
+
+                     {work.parliamentary_amendment?.has && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <User className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Emenda Parlamentar</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.parliamentary_amendment.author}</p>
+                          </div>
+                       </div>
+                     )}
+
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                           <DollarSign className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Total</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.total_value ? formatCurrency(work.total_value) : 'Não informado'}</p>
+                        </div>
+                     </div>
+
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
+                        <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                           <DollarSign className="w-5 h-5" />
+                        </div>
+                        <div className="w-full min-w-0">
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Pago</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(work.amount_spent || 0)}</p>
+                           <Progress 
+                             value={work.total_value ? Math.min(((work.amount_spent || 0) / work.total_value) * 100, 100) : 0} 
+                             className="h-1.5 bg-slate-100 w-full" 
+                             indicatorClassName="bg-emerald-500" 
+                           />
+                        </div>
+                     </div>
+                   </div>
+                </div>
+
+                {/* 4. Prazos e Cronograma */}
+                <div>
+                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                     <Calendar className="w-4 h-4" /> Prazos e Cronograma
+                   </h3>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
+                     {work.execution_period_days && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <Clock className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Prazo de Execução</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.execution_period_days} dias</p>
+                          </div>
+                       </div>
+                     )}
+
+                     {work.contract_signature_date && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <Calendar className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Assinatura</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.contract_signature_date)}</p>
+                          </div>
+                       </div>
+                     )}
+
+                     {work.service_order_date && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <FileText className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Ordem de Serviço</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.service_order_date)}</p>
+                          </div>
+                       </div>
+                     )}
+                     
+                     {(work.start_date_forecast || work.predicted_start_date) && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <Calendar className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Previsão Início</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.start_date_forecast || work.predicted_start_date)}</p>
+                          </div>
+                       </div>
+                     )}
+
+                     {work.start_date && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <CheckCircle className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Início Real</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.start_date)}</p>
+                          </div>
+                       </div>
+                     )}
+
+                     {(work.end_date_forecast || work.expected_end_date) && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <Calendar className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Previsão de Conclusão</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.end_date_forecast || work.expected_end_date)}</p>
+                          </div>
+                       </div>
+                     )}
+
+                     {work.end_date && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <CheckCircle className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Término Real</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.end_date)}</p>
+                          </div>
+                       </div>
+                     )}
+
+                     {work.inauguration_date && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <Award className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Data de Inauguração</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.inauguration_date)}</p>
+                          </div>
+                       </div>
+                     )}
+
+                     {work.stalled_date && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <AlertTriangle className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Data de Paralisação</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.stalled_date)}</p>
+                          </div>
+                       </div>
+                     )}
+
+                   </div>
+                </div>
+
+              </div>
+
+
+
+            </div>
+
             <Separator className="my-0" />
+
+         
 
             {/* Timeline Section */}
             <div className="p-6 md:p-8">
@@ -887,59 +1085,139 @@ const WorkDetailsPage = () => {
 
             <Separator className="my-0" />
 
-            {/* Gallery Section - Compact */}
+            <Separator className="my-0" />
+
+            {/* Galeria e Documentos */}
             <div className="p-6 md:p-8">
-              <div className="flex items-center mb-6">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-pink-50 to-rose-50 text-pink-600 mr-3 shadow-sm border border-pink-100/50">
-                  <ImageIcon className="w-4 h-4" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900">Galeria de Mídia</h3>
-              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                 <ImageIcon className="w-5 h-5 text-red-500" />
+                 Galeria e Documentos
+              </h3>
               
-              <div className="space-y-6">
-                {galleryGroups.length > 0 ? (
-                  galleryGroups.map((group) => (
-                    <div key={group.name} className="space-y-3">
-                      {(galleryGroups.length > 1 || group.name !== 'Geral') && (
-                        <h4 className="text-sm font-semibold text-slate-600 uppercase tracking-wider pl-1">
-                          {group.name}
-                        </h4>
-                      )}
-                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
-                        {group.items.map((item, idx) => (
-                          <motion.div 
-                            key={item.id}
-                            initial={{ opacity: 0 }}
-                            whileInView={{ opacity: 1 }}
-                            viewport={{ once: true }}
-                            className="aspect-square rounded-md overflow-hidden cursor-pointer group relative bg-slate-100"
-                            onClick={() => openViewer(sortedViewableMedia, sortedViewableMedia.findIndex(m => m.id === item.id))}
+              {/* Grouped Galleries */}
+              {(() => {
+                const groups = {};
+                // Group media by gallery_name
+                mainGalleryMedia.forEach(item => {
+                  if (!['image', 'photo', 'video', 'video_url'].includes(item.type)) return;
+                  const name = item.gallery_name || 'Geral';
+                  if (!groups[name]) groups[name] = [];
+                  groups[name].push(item);
+                });
+
+                const sortedNames = Object.keys(groups).sort((a, b) => {
+                  if (a === 'Geral') return -1;
+                  if (b === 'Geral') return 1;
+                  return a.localeCompare(b);
+                });
+
+                if (sortedNames.length === 0 && (!documents || documents.length === 0)) {
+                  return (
+                    <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/50">
+                       <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <ImageIcon className="w-6 h-6 text-slate-300" />
+                       </div>
+                       <p className="text-sm text-slate-500 font-medium">Nenhuma mídia disponível</p>
+                       <p className="text-xs text-slate-400 mt-1">As fotos e vídeos desta obra aparecerão aqui.</p>
+                    </div>
+                  );
+                }
+
+                return sortedNames.map(name => {
+                  const items = groups[name];
+                  const hasMore = items.length > 4;
+                  const displayItems = hasMore ? items.slice(0, 4) : items;
+
+                  return (
+                    <div key={name} className="mb-10">
+                      <h4 className="text-sm font-bold text-blue-950 mb-4 flex items-center gap-2 uppercase tracking-wide">
+                        {name === 'Geral' ? (
+                          <ImageIcon className="w-4 h-4 text-blue-900" /> 
+                        ) : (
+                          <FolderOpen className="w-4 h-4 text-blue-900" /> 
+                        )}
+                        {name === 'Geral' ? 'Galeria Geral' : name}
+                      </h4>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {displayItems.map((item, idx) => (
+                          <div 
+                            key={item.id} 
+                            className="group cursor-pointer"
+                            onClick={() => openViewer(items, idx)}
                           >
-                            {['video', 'video_url'].includes(item.type) ? (
-                              <div className="w-full h-full flex items-center justify-center bg-slate-900">
-                                <Video className="w-8 h-8 text-white/70" />
-                              </div>
-                            ) : (
-                              <img 
-                                src={item.url} 
-                                alt={item.description || 'Foto'} 
-                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
-                                loading="lazy"
-                              />
-                            )}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                          </motion.div>
+                            <div className="aspect-[4/3] rounded-xl overflow-hidden mb-2 relative bg-gray-100 shadow-sm border border-gray-100">
+                              {['video', 'video_url'].includes(item.type) ? (
+                                 <div className="w-full h-full flex items-center justify-center bg-slate-900">
+                                    <Video className="w-10 h-10 text-white/80 group-hover:scale-110 transition-transform" />
+                                 </div>
+                              ) : (
+                                <img 
+                                  src={item.url} 
+                                  alt={item.description || 'Foto da obra'} 
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  loading="lazy"
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                            </div>
+                            <p className="text-xs text-blue-600 font-semibold pl-1">
+                              {item.created_at ? formatDate(item.created_at) : 'Data não informada'}
+                            </p>
+                          </div>
                         ))}
+                        
+                        {/* Folder Idea for "Many Images" */}
+                        {hasMore && (
+                          <div 
+                            className="aspect-[4/3] rounded-xl bg-blue-50 border-2 border-dashed border-blue-200 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors group"
+                            onClick={() => openViewer(items, 4)}
+                          >
+                             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-2 group-hover:bg-blue-200 transition-colors">
+                                <FolderOpen className="w-5 h-5 text-blue-600" />
+                             </div>
+                             <span className="text-sm font-bold text-blue-700">Ver todas</span>
+                             <span className="text-xs text-blue-500 font-medium">+{items.length - 4} fotos</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl">
-                    <ImageIcon className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-400">Galeria vazia.</p>
+                  );
+                });
+              })()}
+
+               {/* Documentos */}
+               {documents && documents.length > 0 && (
+                <div>
+                  <h4 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2 uppercase tracking-wide text-xs">
+                    <FileText className="w-4 h-4 text-gray-400" /> Documentos
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {documents.map((doc) => (
+                      <a 
+                        key={doc.id}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center p-3 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50/30 transition-all group"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-red-500 mr-3 shrink-0 group-hover:bg-red-100 transition-colors">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="text-sm font-medium text-gray-700 truncate group-hover:text-red-700 transition-colors">
+                            {doc.title || doc.name || 'Documento sem título'}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {doc.created_at ? formatDate(doc.created_at) : 'Data não informada'}
+                          </p>
+                        </div>
+                        <ArrowUpRight className="w-4 h-4 text-gray-300 ml-auto group-hover:text-red-400 transition-colors" />
+                      </a>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             <Separator className="my-0" />
@@ -977,55 +1255,8 @@ const WorkDetailsPage = () => {
           </div>
 
           {/* Sidebar Column */}
-          <div className="space-y-6">
+          <div className="lg:col-span-4 xl:col-span-3 space-y-6">
             
-            {/* Financial Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 mr-3 shadow-sm border border-emerald-100/50">
-                  <DollarSign className="w-4 h-4" />
-                </div>
-                Financeiro
-              </h3>
-              
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-1">Orçamento Total</span>
-                  <div className="text-xl font-bold text-emerald-900">
-                    {work.total_value ? formatCurrency(work.total_value) : 'Não informado'}
-                  </div>
-                </div>
-
-                {work.amount_spent > 0 && (
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Valor Pago</span>
-                    <div className="text-lg font-bold text-slate-700">
-                      {formatCurrency(work.amount_spent)}
-                    </div>
-                    <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
-                      <div 
-                        className="bg-emerald-500 h-1.5 rounded-full" 
-                        style={{ width: `${Math.min(((work.amount_spent / (work.total_value || 1)) * 100), 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {work.funding_source && work.funding_source.length > 0 && (
-                  <div className="pt-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Fonte de Recurso</span>
-                    <div className="flex flex-wrap gap-2">
-                      {work.funding_source.map((source, idx) => (
-                        <Badge key={idx} variant="secondary" className="bg-slate-100 text-slate-600 font-normal">
-                          {source}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* Map Card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="p-4 border-b border-gray-100">
@@ -1039,89 +1270,31 @@ const WorkDetailsPage = () => {
               <div className="h-64">
                 <WorkMap location={work.location} bairro={work.bairro?.name} />
               </div>
-              <div className="p-4 bg-gray-50 text-sm text-gray-600 space-y-3">
-                <div>
-                  <p className="font-medium text-gray-900 mb-1">Endereço:</p>
-                  <p>{work.address || 'Endereço não informado'}</p>
-                </div>
-                {work.bairro && (
-                  <div>
-                    <p className="font-medium text-gray-900 mb-1">Bairro:</p>
-                    <p>{work.bairro.name}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Technical Details Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 mr-3 shadow-sm border border-slate-200/50">
-                  <Info className="w-4 h-4" />
-                </div>
-                Detalhes Técnicos
-              </h3>
               
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                  <Briefcase className="w-4 h-4 text-gray-400 mt-0.5" />
-                  <div>
-                    <span className="text-xs text-gray-400 uppercase font-bold block">Categoria</span>
-                    <span className="text-sm text-gray-700 font-medium">{work.work_category?.name || 'Não informada'}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                  <HardHat className="w-4 h-4 text-gray-400 mt-0.5" />
-                  <div>
-                    <span className="text-xs text-gray-400 uppercase font-bold block">Execução</span>
-                    <span className="text-sm text-gray-700 font-medium block">{work.contractor?.name || 'Em licitação'}</span>
-                    {work.contractor?.cnpj && (
-                      <span className="text-xs text-gray-500 block mt-0.5">CNPJ: {formatCnpj(work.contractor.cnpj)}</span>
-                    )}
-                  </div>
-                </div>
-
-                {work.parliamentary_amendment?.has && (
-                  <div className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                    <User className="w-4 h-4 text-gray-400 mt-0.5" />
+              <div className="px-4 py-4 bg-slate-50 space-y-3">
+                 <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                     <div>
-                      <span className="text-xs text-gray-400 uppercase font-bold block">Emenda Parlamentar</span>
-                      <span className="text-sm text-gray-700 font-medium">{work.parliamentary_amendment.author}</span>
+                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
+                       <p className="text-sm font-medium text-slate-700 leading-tight">{work.address || 'Não informado'}</p>
                     </div>
-                  </div>
-                )}
-
-                {/* Important Dates List */}
-                <div className="pt-2 mt-2 border-t border-gray-100">
-                   <span className="text-xs text-gray-400 uppercase font-bold block mb-2">Prazos e Datas</span>
-                   <div className="space-y-2">
-                      {work.execution_period_days && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Prazo de Execução</span>
-                          <span className="text-gray-700 font-medium">{work.execution_period_days} dias</span>
-                        </div>
-                      )}
-                      {[
-                        { label: 'Previsão de Início', date: work.predicted_start_date },
-                        { label: 'Início Real', date: work.start_date },
-                        { label: 'Assinatura', date: work.contract_signature_date },
-                        { label: 'Ordem de Serviço', date: work.service_order_date },
-                        { label: 'Previsão Conclusão', date: work.expected_end_date },
-                        { label: 'Conclusão Real', date: work.end_date },
-                        { label: 'Inauguração', date: work.inauguration_date },
-                        { label: 'Paralisação', date: work.stalled_date, color: 'text-red-600' },
-                      ].map((item, idx) => item.date && (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span className="text-gray-500">{item.label}</span>
-                          <span className={`font-medium ${item.color || 'text-gray-700'}`}>{formatDate(item.date)}</span>
-                        </div>
-                      ))}
+                 </div>
+                 
+                 {work.bairro && (
+                   <div className="flex items-start gap-3 pt-3 border-t border-slate-200/60">
+                      <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                      <div>
+                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
+                         <p className="text-sm font-medium text-slate-700 leading-tight">{work.bairro.name}</p>
+                      </div>
                    </div>
-                </div>
+                 )}
               </div>
-            </div>
+             </div>
 
+            {/* Technical Details Card (Redundant info removed) */}
+            {/* Kept minimal or removed if all info is now in main grid */}
+            
             {/* Links */}
             {Array.isArray(work.related_links) && work.related_links.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
