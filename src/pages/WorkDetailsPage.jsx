@@ -547,7 +547,7 @@ const WorkDetailsPage = () => {
                 <ArrowLeft className="w-5 h-5 text-gray-700" />
               </Link>
             </Button>
-            <span className="text-sm font-bold text-gray-500 uppercase tracking-wider  sm:block">
+            <span className="text-sm font-bold text-gray-500  tracking-wider  sm:block">
               Detalhes da Obra
             </span>
           </div>
@@ -610,7 +610,7 @@ const WorkDetailsPage = () => {
             
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             {/* Title & Progress Hero Card */}
-            <div className="p-6 md:p-8">
+            <div className="p-6 md:p-8 border-t-4 border-red-600">
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Badge className={`${statusInfo.bg} ${statusInfo.color} border border-current/20 hover:bg-opacity-80`}>
                   <statusInfo.icon className="w-3 h-3 mr-1" />
