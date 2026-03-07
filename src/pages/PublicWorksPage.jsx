@@ -52,8 +52,12 @@ const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, on
 
 const PublicWorksPage = () => {
   const [view, setView] = useState('map');
-  const [works, setWorks] = useState([]);
-  const [filteredWorks, setFilteredWorks] = useState([]);
+  const [works, setWorks] = useState([]); // dataset para modo mapa
+  const [filteredWorks, setFilteredWorks] = useState([]); // filtrado para mapa
+  const [listWorks, setListWorks] = useState([]); // dataset paginado para lista
+  const [listTotal, setListTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 9;
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     area: [],
@@ -69,6 +73,7 @@ const PublicWorksPage = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const mapViewRef = useRef();
+  const listTopRef = useRef();
 
   const workStatuses = {
     'planned': 'Prevista',
@@ -117,7 +122,7 @@ const PublicWorksPage = () => {
       const { data, error } = await supabase
         .from('public_works')
         .select(`
-          id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update,
+          id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update, thumbnail_url,
           work_category:work_category_id(id, name),
           work_area:work_area_id(id, name),
           bairro:bairro_id(id, name),
@@ -141,6 +146,57 @@ const PublicWorksPage = () => {
       setLoading(false);
     }
   }, [toast]);
+
+  const fetchListWorks = useCallback(async (page = 1) => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('public_works')
+        .select(`
+          id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update, thumbnail_url,
+          work_category:work_category_id(id, name),
+          work_area:work_area_id(id, name),
+          bairro:bairro_id(id, name),
+          contractor:contractor_id(id, name, cnpj)
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false });
+
+      if (searchTerm && searchTerm.trim()) {
+        const term = searchTerm.trim();
+        query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+      }
+      if (filters.status.length > 0) {
+        query = query.in('status', filters.status);
+      }
+      if (filters.area.length > 0) {
+        query = query.in('work_area_id', filters.area);
+      }
+      if (filters.contractor.length > 0) {
+        query = query.in('contractor_id', filters.contractor);
+      }
+      if (filters.bairro.length > 0) {
+        query = query.in('bairro_id', filters.bairro);
+      }
+
+      const offset = (page - 1) * pageSize;
+      const { data, error, count } = await query.range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      const formattedData = (data || []).map(w => ({
+        ...w,
+        location: w.location ? { lat: w.location.coordinates[1], lng: w.location.coordinates[0] } : null
+      }));
+      setListWorks(formattedData);
+      setListTotal(count || 0);
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar lista de obras",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize]);
 
   useEffect(() => {
     fetchWorks();
@@ -168,7 +224,26 @@ const PublicWorksPage = () => {
     }
 
     setFilteredWorks(result);
-  }, [searchTerm, filters, works]);
+    if (view === 'list') {
+      setCurrentPage(1);
+      fetchListWorks(1);
+    }
+  }, [searchTerm, filters, works, view, fetchListWorks]);
+  
+  const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  
+  useEffect(() => {
+    if (view === 'list' && listTopRef.current) {
+      listTopRef.current.scrollIntoView({ behavior: 'auto', block: 'start' });
+    }
+  }, [currentPage, view]);
+  
+  useEffect(() => {
+    if (view === 'list') {
+      fetchListWorks(currentPage);
+    }
+  }, [view, currentPage, fetchListWorks]);
   
   const handleMultiSelectFilterChange = (type, value) => {
     setFilters(prev => {
@@ -257,37 +332,49 @@ const PublicWorksPage = () => {
               <WorksMapView ref={mapViewRef} works={filteredWorks} />
             </div>
           ) : (
+            <>
+            <div ref={listTopRef} />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredWorks.length > 0 ? filteredWorks.map(work => {
+              {listWorks.length > 0 ? listWorks.map(work => {
                 const statusInfo = getStatusInfo(work.status);
+                const progress = Number.isFinite(work.execution_percentage) ? Math.max(0, Math.min(100, work.execution_percentage)) : 0;
                 return (
-                  <Card key={work.id} className="flex flex-col justify-between hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-bold mb-2">{work.title}</h3>
-                        <div className={`flex items-center text-xs font-semibold ${statusInfo.color}`}>
-                          <statusInfo.icon className="w-3 h-3 mr-1" />
-                          {statusInfo.text}
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{work.description}</p>
-                      {work.execution_percentage > 0 && (
-                        <div className="mb-2">
-                          <div className="flex justify-between text-xs mb-1">
-                            <span>Execução</span>
-                            <span>{work.execution_percentage}%</span>
-                          </div>
-                          <div className="w-full bg-muted rounded-full h-1.5"><div className="bg-tc-red h-1.5 rounded-full" style={{ width: `${work.execution_percentage}%` }}></div></div>
+                  <Card key={work.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full">
+                    <div className="relative h-36 w-full bg-muted">
+                      {work.thumbnail_url ? (
+                        <img src={work.thumbnail_url} alt={work.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          <HardHat className="w-8 h-8" />
                         </div>
                       )}
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        {work.total_value && <p><strong>Valor:</strong> {formatCurrency(work.total_value)}</p>}
-                        {work.contractor?.name && <p><strong>Construtora:</strong> {work.contractor.name}</p>}
-                        {work.last_update && <p><strong>Última Atualização:</strong> {formatTimeAgo(work.last_update)}</p>}
+                      <div className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-semibold bg-white/85 backdrop-blur border">
+                        <span className={`${statusInfo.color} flex items-center gap-1`}>
+                          <statusInfo.icon className="w-3 h-3" />
+                          {statusInfo.text}
+                        </span>
+                      </div>
+                    </div>
+                    <CardContent className="p-4 flex flex-col flex-1">
+                      <h3 className="font-bold mb-1 line-clamp-2">{work.title}</h3>
+                      {work.description && <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{work.description}</p>}
+                      <div className="mb-3">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span>Execução</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div className="bg-tc-red h-2 rounded-full" style={{ width: `${progress}%` }}></div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2 mt-auto">
+                        {work.total_value && <p className="col-span-2"><strong>Valor:</strong> {formatCurrency(work.total_value)}</p>}
+                        {work.contractor?.name && <p className="col-span-2"><strong>Construtora:</strong> {work.contractor.name}</p>}
+                        {work.last_update && <p className="col-span-2"><strong>Última Atualização:</strong> {formatTimeAgo(work.last_update)}</p>}
                       </div>
                     </CardContent>
-                    <div className="p-4 border-t flex gap-2">
-                      <Link to={`/obras-publicas/${work.id}`} className="flex-1"><Button size="sm" className="w-full">Mais Detalhes</Button></Link>
+                    <div className="p-4 pt-0 flex gap-2 mt-auto">
+                      <Link to={`/obras-publicas/${work.id}`} className="flex-1"><Button className="w-full">Mais Detalhes</Button></Link>
                     </div>
                   </Card>
                 );
@@ -297,11 +384,34 @@ const PublicWorksPage = () => {
                 </div>
               )}
             </div>
+            {filteredWorks.length > 0 && (
+              <div className="mt-6 flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">
+                  Exibindo {Math.min(filteredWorks.length, startIndex + 1)}–{Math.min(filteredWorks.length, startIndex + pageSize)} de {filteredWorks.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>Anterior</Button>
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <Button
+                      key={i}
+                      variant={currentPage === i + 1 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(i + 1)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                  <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>Próxima</Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </motion.div>
       </AnimatePresence>}
     </div>
   </>;
 };
+
 
 export default PublicWorksPage;

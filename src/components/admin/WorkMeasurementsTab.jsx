@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, DollarSign, Percent, ArrowLeft, Save } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, parseCurrency } from '@/lib/utils';
 
 export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange }) {
   const [measurements, setMeasurements] = useState([]);
@@ -291,7 +291,11 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contract_signature_date: measurement.contract_signature_date || '',
         expected_end_date: measurement.expected_end_date || '',
         inauguration_date: measurement.inauguration_date || '',
-        stalled_date: measurement.stalled_date || ''
+        stalled_date: measurement.stalled_date || '',
+        expected_value: measurement.expected_value || '',
+        amount_spent: measurement.amount_spent || '',
+        execution_period_days: measurement.execution_period_days || '',
+        funding_source: Array.isArray(measurement.funding_source) ? [...measurement.funding_source] : []
       });
       baselineRef.current = {
         title: measurement.title,
@@ -401,7 +405,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contractor_id: formData.contractor_id || null,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
-        value: formData.value ? Number(formData.value) : null,
+        value: formData.value ? parseCurrency(String(formData.value)) : null,
         execution_percentage: formData.execution_percentage ? Number(formData.execution_percentage) : null,
         status: formData.status,
         predicted_start_date: formData.predicted_start_date || null,
@@ -410,8 +414,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_end_date: formData.expected_end_date || null,
         inauguration_date: formData.inauguration_date || null,
         stalled_date: formData.stalled_date || null,
-        expected_value: formData.expected_value ? Number(formData.expected_value) : null,
-        amount_spent: formData.amount_spent ? Number(formData.amount_spent) : null,
+        expected_value: formData.expected_value ? parseCurrency(String(formData.expected_value)) : null,
+        amount_spent: formData.amount_spent ? parseCurrency(String(formData.amount_spent)) : null,
         execution_period_days: formData.execution_period_days ? Number(formData.execution_period_days) : null,
         funding_source: Array.isArray(formData.funding_source) ? formData.funding_source : []
       };
@@ -664,7 +668,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 <Combobox 
                   value={formData.contractor_id} 
                   onChange={(v) => handleSelectChange('contractor_id', v)}
-                  options={contractors.map(c => ({ value: c.id, label: c.name }))}
+                  options={[{ value: '', label: 'Selecionar' }, ...contractors.map(c => ({ value: c.id, label: c.name }))]}
                   placeholder="Selecione..."
                   searchPlaceholder="Buscar construtora..."
                   modal

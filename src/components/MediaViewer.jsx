@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeft, ArrowRight, Maximize, Minimize, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -92,13 +93,13 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
     }
   };
 
-  return (
+  const overlay = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[2000] media-viewer-container"
+        className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[2147483647] media-viewer-container"
         onClick={onClose}
       >
         <motion.div
@@ -218,6 +219,8 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
       </motion.div>
     </AnimatePresence>
   );
+
+  return createPortal(overlay, document.body);
 };
 
 export default MediaViewer;
