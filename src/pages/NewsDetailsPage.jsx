@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon } from 'lucide-react';
+import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -20,6 +20,8 @@ const NewsDetailsPage = () => {
   const [newComment, setNewComment] = useState('');
   const [gallery, setGallery] = useState([]);
   const [mediaViewerState, setMediaViewerState] = useState({ isOpen: false, startIndex: 0 });
+  const [relatedWorks, setRelatedWorks] = useState([]);
+  const bodyRef = useRef(null);
 
   const fetchNewsDetails = useCallback(async () => {
     const { data, error } = await supabase
@@ -46,6 +48,16 @@ const NewsDetailsPage = () => {
       toast({ title: "Erro ao buscar galeria", description: mediaError.message, variant: "destructive" });
     } else {
       setGallery(mediaData || []);
+    }
+
+    // Buscar obras relacionadas
+    const { data: relData, error: relError } = await supabase
+      .from('news_public_works')
+      .select('work:public_works(id, title, status, thumbnail_url, address, bairro:bairros(name))')
+      .eq('news_id', newsId);
+    if (!relError && relData) {
+      const works = relData.map(r => r.work).filter(Boolean);
+      setRelatedWorks(works);
     }
   }, [newsId, toast, navigate]);
 
@@ -117,6 +129,28 @@ const NewsDetailsPage = () => {
     setMediaViewerState({ isOpen: true, startIndex: index, items: galleryMedia });
   };
 
+  const renderBodyHtml = useMemo(() => {
+    let html = newsItem?.body || '';
+    if (!html) return '';
+    if (!/<a\s/i.test(html)) {
+      html = html.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline font-semibold break-all">${url}</a>`;
+      });
+    }
+    html = html.replace(/\n/g, '<br />');
+    return html;
+  }, [newsItem?.body]);
+
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    const anchors = bodyRef.current.querySelectorAll('a');
+    anchors.forEach(a => {
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.classList.add('text-primary','underline','font-semibold','break-all');
+    });
+  }, [renderBodyHtml]);
+
   if (!newsItem) {
     return <div className="container mx-auto px-4 py-12 text-center">Carregando notícia...</div>;
   }
@@ -144,7 +178,7 @@ const NewsDetailsPage = () => {
             <img src={newsItem.image_url} alt={newsItem.title} className="w-full rounded-2xl shadow-lg aspect-video object-cover" />
           </motion.div>
 
-          <div className="prose prose-lg dark:prose-invert max-w-none text-foreground/90 mb-12" dangerouslySetInnerHTML={{ __html: newsItem.body?.replace(/\n/g, '<br />') || '' }} />
+          <div ref={bodyRef} className="prose prose-lg dark:prose-invert max-w-none text-foreground/90 mb-12" dangerouslySetInnerHTML={{ __html: renderBodyHtml }} />
 
           {videoEmbedUrl && (
             <div className="my-12">
@@ -179,6 +213,47 @@ const NewsDetailsPage = () => {
                 <CarouselPrevious />
                 <CarouselNext />
               </Carousel>
+            </div>
+          )}
+
+          {relatedWorks.length > 0 && (
+            <div className="my-12">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><ImageIcon className="w-6 h-6 text-primary" /> Obras relacionadas</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {relatedWorks.map((w) => {
+                  const statusText = ({
+                    'planned': 'Prevista',
+                    'tendered': 'Licitada',
+                    'in-progress': 'Em Andamento',
+                    'stalled': 'Paralisada',
+                    'unfinished': 'Inacabada',
+                    'completed': 'Concluída',
+                  }[w.status]) || 'N/A';
+                  const locationText = w.address || (w.bairro && w.bairro.name) || 'Local não informado';
+                  return (
+                    <Link key={w.id} to={`/obras-publicas/${w.id}`} className="flex gap-3 p-3 rounded-lg border hover:bg-muted transition-colors">
+                      <div className="w-24 h-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                        {w.thumbnail_url ? (
+                          <img src={w.thumbnail_url} alt={w.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Sem imagem</div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold leading-tight">{w.title}</p>
+                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="font-semibold">{statusText}</span>
+                          <span className="w-px h-3 bg-border" />
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {locationText}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           )}
 

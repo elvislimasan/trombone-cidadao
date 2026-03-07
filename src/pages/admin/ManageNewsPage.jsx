@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/customSupabaseClient';
+import RichTextEditor from '@/components/petition/RichTextEditor';
 
 const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [formData, setFormData] = useState(null);
@@ -23,6 +24,8 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [sendNotification, setSendNotification] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState('');
   const [reports, setReports] = useState([]);
+  const [works, setWorks] = useState([]);
+  const [selectedWorkId, setSelectedWorkId] = useState('');
   const featuredImageInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
@@ -38,6 +41,18 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
     fetchReports();
   }, []);
 
+  // Fetch works for selection
+  useEffect(() => {
+    const fetchWorks = async () => {
+      const { data } = await supabase
+        .from('public_works')
+        .select('id, title')
+        .order('created_at', { ascending: false });
+      if (data) setWorks(data);
+    };
+    fetchWorks();
+  }, []);
+
   useEffect(() => {
     if (newsItem) {
       setFormData({
@@ -47,6 +62,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
       setRemovedGalleryIds([]);
       setSendNotification(!newsItem.id);
       setSelectedReportId(''); // Reset or set if we had a field
+      setSelectedWorkId('');
       
       // Buscar imagens existentes da galeria
       if (newsItem.id) {
@@ -60,8 +76,21 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
               setExistingGallery(data);
             }
           });
+        supabase
+          .from('news_public_works')
+          .select('work_id')
+          .eq('news_id', newsItem.id)
+          .limit(1)
+          .then(({ data, error }) => {
+            if (!error && data && data.length > 0) {
+              setSelectedWorkId(data[0].work_id || '');
+            } else {
+              setSelectedWorkId('');
+            }
+          });
       } else {
         setExistingGallery([]);
+        setSelectedWorkId('');
       }
     } else {
       setFormData(null);
@@ -113,7 +142,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData, galleryFiles, removedGalleryIds, sendNotification, selectedReportId);
+    onSave(formData, galleryFiles, removedGalleryIds, sendNotification, selectedReportId, selectedWorkId);
   };
 
   if (!formData) return null;
@@ -144,7 +173,13 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="body" className="text-right pt-2">Corpo da Notícia</Label>
-              <Textarea id="body" name="body" value={formData.body} onChange={handleChange} className="col-span-3" rows={8} />
+              <div className="col-span-3">
+                <RichTextEditor
+                  value={formData.body || ''}
+                  onChange={(html) => setFormData(prev => ({ ...prev, body: html }))}
+                  placeholder="Escreva o conteúdo da notícia, use o botão de link para inserir URLs."
+                />
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="video_url" className="text-right">URL do Vídeo</Label>
@@ -170,6 +205,30 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Se selecionado, enviará notificação também para os envolvidos nesta bronca.
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="relatedWork" className="text-right">Vincular Obra</Label>
+              <div className="col-span-3">
+                <Combobox
+                  options={[
+                    { value: 'none', label: 'Nenhuma' },
+                    ...works.map(w => ({
+                      value: w.id,
+                      label: w.title
+                    }))
+                  ]}
+                  value={selectedWorkId}
+                  onChange={setSelectedWorkId}
+                  placeholder="Selecione uma obra (opcional)"
+                  searchPlaceholder="Buscar obra..."
+                  notFoundText="Nenhuma obra encontrada."
+                  modal
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se vinculado, esta notícia aparecerá como relacionada na página da obra.
                 </p>
               </div>
             </div>
@@ -301,7 +360,7 @@ const ManageNewsPage = () => {
     fetchNewsAndComments();
   }, [fetchNewsAndComments]);
 
-  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportId = null) => {
+  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportId = null, relatedWorkId = null) => {
     const { id, comments, ...dataToSave } = newsToSave;
     
     // Remove campos que não existem na tabela news
@@ -329,6 +388,19 @@ const ManageNewsPage = () => {
     if (error) {
       toast({ title: "Erro ao salvar notícia", description: error.message, variant: "destructive" });
       return;
+    }
+
+    // Atualizar vínculo notícia-obra
+    if (savedNewsId) {
+      // Limpar vínculos existentes para esta notícia
+      await supabase.from('news_public_works').delete().eq('news_id', savedNewsId);
+      // Inserir novo vínculo se houver obra selecionada
+      if (relatedWorkId && relatedWorkId !== 'none') {
+        await supabase.from('news_public_works').insert({
+          news_id: savedNewsId,
+          work_id: relatedWorkId
+        });
+      }
     }
 
     // Remover imagens marcadas para exclusão
