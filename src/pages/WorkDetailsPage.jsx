@@ -24,7 +24,7 @@ import {
   ArrowLeft, Calendar, DollarSign, HardHat, PauseCircle, CheckCircle, MapPin, 
   Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, 
   BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, 
-  Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle, Eye, Briefcase, HelpCircle,
+  Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle, Eye, Briefcase, HelpCircle, Newspaper,
   FolderOpen
 } from 'lucide-react';
 import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
@@ -122,6 +122,10 @@ const WorkDetailsPage = () => {
   const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [measurements, setMeasurements] = useState([]);
+  const [relatedNews, setRelatedNews] = useState([]);
+  useEffect(() => {
+    console.log('relatedNews_state', relatedNews);
+  }, [relatedNews]);
 
   const fetchWorkDetails = useCallback(async () => {
     setLoading(true);
@@ -153,6 +157,25 @@ const WorkDetailsPage = () => {
       .select('*, contractor:contractor_id(name, cnpj)')
       .eq('work_id', workId)
       .order('created_at', { ascending: false });
+
+    let related = [];
+    const { data: relRaw, error: relErr } = await supabase
+      .from('news_public_works')
+      .select('news_id')
+      .eq('work_id', workId);
+    if (!relErr && relRaw && relRaw.length > 0) {
+      const ids = relRaw.map(r => r.news_id).filter(Boolean);
+      if (ids.length > 0) {
+        const { data: newsList } = await supabase
+          .from('news')
+          .select('id, title, date, image_url')
+          .in('id', ids)
+          .order('date', { ascending: false });
+        related = newsList || [];
+      }
+    }
+    console.log(related)
+    setRelatedNews(related);
 
     if (user) {
       const { data: favoriteData, error: favoriteError } = await supabase
@@ -1354,6 +1377,39 @@ const WorkDetailsPage = () => {
               </div>
             )}
 
+            {relatedNews.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
+                    <Newspaper className="w-4 h-4" />
+                  </div>
+                  Notícias relacionadas
+                </h3>
+                <div className="space-y-3">
+                  {relatedNews.map((n) => {
+                    const d = n.date ? new Date(n.date) : null;
+                    const valid = d && !isNaN(d.getTime());
+                    return (
+                      <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
+                        <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                          {n.image_url ? (
+                            <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm leading-tight">{n.title}</p>
+                          {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
+                        </div>
+                        <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             </div>
           {/* Sidebar Column (Mobile/Tablet Only) */}
           <div className="lg:hidden space-y-6">
@@ -1423,6 +1479,39 @@ const WorkDetailsPage = () => {
               </div>
             )}
 
+            {relatedNews.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
+                    <Newspaper className="w-4 h-4" />
+                  </div>
+                  Notícias relacionadas
+                </h3>
+                <div className="space-y-3">
+                  {relatedNews.map((n) => {
+                    const d = n.date ? new Date(n.date) : null;
+                    const valid = d && !isNaN(d.getTime());
+                    return (
+                      <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
+                        <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                          {n.image_url ? (
+                            <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm leading-tight">{n.title}</p>
+                          {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
+                        </div>
+                        <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Mobile Contribution CTA & Disclaimer */}
             <div className="lg:hidden space-y-6 pt-4">
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center">
@@ -1438,6 +1527,39 @@ const WorkDetailsPage = () => {
                   Contribuir
                 </Button>
               </div>
+
+              {relatedNews.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                  <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
+                      <Newspaper className="w-4 h-4" />
+                    </div>
+                    Notícias relacionadas
+                  </h3>
+                  <div className="space-y-3">
+                    {relatedNews.map((n) => {
+                      const d = n.date ? new Date(n.date) : null;
+                      const valid = d && !isNaN(d.getTime());
+                      return (
+                        <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
+                          <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                            {n.image_url ? (
+                              <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm leading-tight">{n.title}</p>
+                            {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
+                          </div>
+                          <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="text-center px-4 pb-8">
                  <p className="text-xs text-gray-400 leading-relaxed">
