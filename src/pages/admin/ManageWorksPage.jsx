@@ -580,7 +580,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                         <Combobox
                           value={formData.work_category_id}
                           onChange={(v) => handleSelectChange('work_category_id', v)}
-                          options={workOptions.categories.map(c => ({ value: c.id, label: c.name }))}
+                          options={[{ value: '', label: 'Selecionar' }, ...workOptions.categories.map(c => ({ value: c.id, label: c.name }))]}
                           placeholder="Selecione a categoria..."
                           searchPlaceholder="Buscar categoria..."
                           modal
@@ -591,7 +591,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                         <Combobox
                           value={formData.bairro_id}
                           onChange={(v) => handleSelectChange('bairro_id', v)}
-                          options={workOptions.bairros.map(b => ({ value: b.id, label: b.name }))}
+                          options={[{ value: '', label: 'Selecionar' }, ...workOptions.bairros.map(b => ({ value: b.id, label: b.name }))]}
                           placeholder="Selecione o bairro..."
                           searchPlaceholder="Buscar bairro..."
                           modal
@@ -604,7 +604,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                         <Combobox
                           value={formData.work_area_id}
                           onChange={(v) => handleSelectChange('work_area_id', v)}
-                          options={workOptions.areas.map(a => ({ value: a.id, label: a.name }))}
+                          options={[{ value: '', label: 'Selecionar' }, ...workOptions.areas.map(a => ({ value: a.id, label: a.name }))]}
                           placeholder="Selecione a área..."
                           searchPlaceholder="Buscar área..."
                           modal
@@ -615,7 +615,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                         <Combobox
                           value={formData.contractor_id}
                           onChange={(v) => handleSelectChange('contractor_id', v)}
-                          options={workOptions.contractors.map(c => ({ value: c.id, label: c.name }))}
+                          options={[{ value: '', label: 'Selecionar' }, ...workOptions.contractors.map(c => ({ value: c.id, label: c.name }))]}
                           placeholder="Selecione a construtora..."
                           searchPlaceholder="Buscar construtora..."
                           modal

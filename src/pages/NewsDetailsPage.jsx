@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin } from 'lucide-react';
+import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -229,25 +229,43 @@ const NewsDetailsPage = () => {
                     'unfinished': 'Inacabada',
                     'completed': 'Concluída',
                   }[w.status]) || 'N/A';
+                  const statusStyles = ({
+                    'planned': 'text-violet-700 bg-violet-50',
+                    'tendered': 'text-orange-700 bg-orange-50',
+                    'in-progress': 'text-blue-700 bg-blue-50',
+                    'stalled': 'text-amber-700 bg-amber-50',
+                    'unfinished': 'text-rose-700 bg-rose-50',
+                    'completed': 'text-emerald-700 bg-emerald-50',
+                  }[w.status]) || 'text-slate-700 bg-slate-100';
                   const locationText = w.address || (w.bairro && w.bairro.name) || 'Local não informado';
                   return (
-                    <Link key={w.id} to={`/obras-publicas/${w.id}`} className="flex gap-3 p-3 rounded-lg border hover:bg-muted transition-colors">
-                      <div className="w-24 h-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                    <Link
+                      key={w.id}
+                      to={`/obras-publicas/${w.id}`}
+                      className="group flex items-center gap-3 p-3 rounded-xl border bg-white hover:border-primary/50 hover:bg-primary/5 transition-colors shadow-sm"
+                    >
+                      <div className="w-24 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                         {w.thumbnail_url ? (
                           <img src={w.thumbnail_url} alt={w.title} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Sem imagem</div>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold leading-tight">{w.title}</p>
-                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="font-semibold">{statusText}</span>
-                          <span className="w-px h-3 bg-border" />
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {locationText}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold leading-tight text-slate-900 truncate">{w.title}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${statusStyles}`}>
+                            {statusText}
                           </span>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+                            <MapPin className="w-3 h-3" />
+                            <span className="truncate">{locationText}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="self-center">
+                        <div className="w-8 h-8 rounded-full border bg-white flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary transition-colors">
+                          <ArrowUpRight className="w-4 h-4" />
                         </div>
                       </div>
                     </Link>

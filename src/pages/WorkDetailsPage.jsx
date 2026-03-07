@@ -111,6 +111,7 @@ const WorkDetailsPage = () => {
   const [isFavorited, setIsFavorited] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedMeasurement, setSelectedMeasurement] = useState(null);
+  const previousMeasurementRef = useRef(null);
   const [viewerState, setViewerState] = useState({ isOpen: false, startIndex: 0, items: [] });
   const [showContribDialog, setShowContribDialog] = useState(false);
   const [contribDescription, setContribDescription] = useState('');
@@ -177,29 +178,33 @@ const WorkDetailsPage = () => {
     console.log(related)
     setRelatedNews(related);
 
-    if (user) {
-      const { data: favoriteData, error: favoriteError } = await supabase
-        .from('favorite_works')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id)
-        .eq('work_id', workId);
-      
-      if (!favoriteError) {
-        setIsFavorited(favoriteData.length > 0);
-      }
-    } else {
-      setIsFavorited(false);
-    }
-
     setWork(workData);
     setMedia(mediaData || []);
     setMeasurements(measurementsData || []);
     setLoading(false);
-  }, [workId, toast, user]);
+  }, [workId, toast]);
 
   useEffect(() => {
     fetchWorkDetails();
   }, [fetchWorkDetails]);
+
+  useEffect(() => {
+    const checkFavorite = async () => {
+      if (!user) {
+        setIsFavorited(false);
+        return;
+      }
+      const { data: favoriteData, error: favoriteError } = await supabase
+        .from('favorite_works')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('work_id', workId);
+      if (!favoriteError) {
+        setIsFavorited((favoriteData || []).length > 0);
+      }
+    };
+    checkFavorite();
+  }, [user, workId]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -340,19 +345,6 @@ const WorkDetailsPage = () => {
 
   const viewableMedia = useMemo(() => {
     const items = media.filter(m => ['image', 'photo', 'video', 'video_url'].includes(m.type));
-    if (work?.thumbnail_url) {
-      const exists = items.some(m => m.url === work.thumbnail_url);
-      if (!exists) {
-        return [{
-          id: 'thumbnail',
-          type: 'photo',
-          url: work.thumbnail_url,
-          description: 'Capa da Obra',
-          gallery_name: 'Geral',
-          created_at: work.created_at
-        }, ...items];
-      }
-    }
     return items;
   }, [media, work]);
 
@@ -510,6 +502,10 @@ const WorkDetailsPage = () => {
   };
 
   const openViewer = (items, startIndex) => {
+    if (selectedMeasurement) {
+      previousMeasurementRef.current = selectedMeasurement;
+      setSelectedMeasurement(null);
+    }
     const viewerItems = items.map(m => {
       if (m.type === 'image') return { ...m, type: 'photo' };
       if (m.type === 'video_url') return { ...m, type: 'video' };
@@ -520,6 +516,10 @@ const WorkDetailsPage = () => {
 
   const closeViewer = () => {
     setViewerState({ isOpen: false, startIndex: 0, items: [] });
+    if (previousMeasurementRef.current) {
+      setSelectedMeasurement(previousMeasurementRef.current);
+      previousMeasurementRef.current = null;
+    }
   };
 
 
@@ -1673,7 +1673,7 @@ const WorkDetailsPage = () => {
       </Dialog>
 
       {/* Measurement Details Dialog */}
-      <Dialog open={!!selectedMeasurement} onOpenChange={(open) => !open && setSelectedMeasurement(null)}>
+      <Dialog open={!!selectedMeasurement && !viewerState.isOpen} onOpenChange={(open) => !open && setSelectedMeasurement(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -1747,6 +1747,47 @@ const WorkDetailsPage = () => {
                           )}
                         </div>
                       )}
+
+                      {(selectedMeasurement?.expected_value != null || selectedMeasurement?.amount_spent != null) && (
+                        <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                          {selectedMeasurement?.expected_value != null && (
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Previsto</span>
+                              <p className="font-semibold text-slate-800 text-sm md:text-base">
+                                {formatCurrency(selectedMeasurement.expected_value)}
+                              </p>
+                            </div>
+                          )}
+                          {selectedMeasurement?.amount_spent != null && (
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Pago</span>
+                              <p className="font-semibold text-slate-800 text-sm md:text-base">
+                                {formatCurrency(selectedMeasurement.amount_spent)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {Array.isArray(selectedMeasurement?.funding_source) && selectedMeasurement.funding_source.length > 0 && (
+                        <div className="md:col-span-2 space-y-2">
+                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Fontes do Recurso</span>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedMeasurement.funding_source.map((src) => {
+                              const label = src === 'federal' ? 'Federal' : src === 'estadual' ? 'Estadual' : src === 'municipal' ? 'Municipal' : src;
+                              const styles = src === 'federal' ? 'bg-blue-50 text-blue-700' :
+                                             src === 'estadual' ? 'bg-orange-50 text-orange-700' :
+                                             src === 'municipal' ? 'bg-emerald-50 text-emerald-700' :
+                                             'bg-slate-100 text-slate-700';
+                              return (
+                                <span key={src} className={`text-xs font-semibold px-2 py-1 rounded-full border ${styles}`}>
+                                  {label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm text-slate-500 italic">Sem informações nesta seção.</p>
@@ -1765,7 +1806,7 @@ const WorkDetailsPage = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-6 gap-x-4">
                        {selectedMeasurement?.contract_signature_date && (
                          <div>
-                           <span className="text-xs text-slate-400 block mb-1">Assinatura</span>
+                           <span className="text-xs text-slate-400 block mb-1">Assinatura do contrato</span>
                            <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.contract_signature_date)}</span>
                          </div>
                        )}
@@ -1818,6 +1859,12 @@ const WorkDetailsPage = () => {
                     </div>
                   ) : (
                     <p className="text-sm text-slate-500 italic">Sem informações nesta seção.</p>
+                  )}
+                  {selectedMeasurement?.execution_period_days != null && (
+                    <div className="mt-4">
+                      <span className="text-xs text-slate-400 block mb-1">Prazo de Execução</span>
+                      <span className="font-semibold text-slate-700 text-sm">{selectedMeasurement.execution_period_days} dias</span>
+                    </div>
                   )}
                 </div>
               </div>
