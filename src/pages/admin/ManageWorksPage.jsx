@@ -161,6 +161,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
 
   const [activeTab, setActiveTab] = useState('info');
   const [isMeasurementEditing, setIsMeasurementEditing] = useState(false);
+  const [hasUnsavedMeasurementChanges, setHasUnsavedMeasurementChanges] = useState(false);
   const [errors, setErrors] = useState({});
   const [newWorkMedia, setNewWorkMedia] = useState([]); // Array of { file, galleryName }
 
@@ -209,6 +210,17 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     { id: 'links', label: 'Links', icon: Link2 },
     { id: 'measurements', label: 'Histórico/Fases', icon: Briefcase },
   ];
+
+  const goToTab = (nextTabId) => {
+    if (activeTab === 'measurements') {
+      if (hasUnsavedMeasurementChanges) {
+        if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+          return;
+        }
+      }
+    }
+    setTimeout(() => setActiveTab(nextTabId), 0);
+  };
 
   useEffect(() => {
     if (work) {
@@ -467,7 +479,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                   key={tab.id}
                   type="button"
                   variant={activeTab === tab.id ? 'secondary' : 'ghost'} 
-                  onClick={() => setActiveTab(tab.id)} 
+                  onClick={() => goToTab(tab.id)} 
                   className="justify-start gap-2"
                 >
                   <tab.icon className="w-4 h-4" /> {tab.label}
@@ -841,12 +853,13 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                 </Card>
               </div>
             </div>
-            <div className={activeTab === 'measurements' ? 'block' : 'hidden'}>
-              {formData.id ? (
+            {activeTab === 'measurements' && (
+              formData.id ? (
                 <WorkMeasurementsTab 
                   workId={formData.id} 
                   contractors={workOptions?.contractors || []} 
                   onEditingChange={setIsMeasurementEditing}
+                  onDirtyChange={(dirty) => setHasUnsavedMeasurementChanges(dirty)}
                 />
               ) : (
                 <Card>
@@ -858,8 +871,8 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                     </p>
                   </CardContent>
                 </Card>
-              )}
-            </div>
+              )
+            )}
           </div>
         </div>
 
@@ -871,7 +884,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
               variant="outline" 
               disabled={EDIT_TABS.findIndex(t => t.id === activeTab) === 0}
               onClick={() => {
-                if (activeTab === 'measurements' && isMeasurementEditing) {
+                if (activeTab === 'measurements' && hasUnsavedMeasurementChanges) {
                   if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
                     return;
                   }
@@ -887,7 +900,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
               onClick={() => {
                 const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
                 if (idx < EDIT_TABS.length - 1) {
-                  if (activeTab === 'measurements' && isMeasurementEditing) {
+                  if (activeTab === 'measurements' && hasUnsavedMeasurementChanges) {
                     if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
                       return;
                     }

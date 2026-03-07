@@ -150,9 +150,8 @@ const WorkDetailsPage = () => {
 
     const { data: measurementsData, error: measurementsError } = await supabase
       .from('public_work_measurements')
-      .select('*, contractor:contractor_id(name)')
+      .select('*, contractor:contractor_id(name, cnpj)')
       .eq('work_id', workId)
-      .order('contract_date', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (user) {
@@ -365,6 +364,13 @@ const WorkDetailsPage = () => {
     return galleryGroups.flatMap(group => group.items);
   }, [galleryGroups]);
 
+  const heroMedia = useMemo(() => {
+    if (work?.thumbnail_url) {
+      return { id: 'hero', type: 'photo', url: work.thumbnail_url };
+    }
+    return sortedViewableMedia[0] || null;
+  }, [work?.thumbnail_url, sortedViewableMedia]);
+
   // General documents (exclude measurement-bound documents)
   const documents = media.filter(m => 
     (m.type === 'pdf' || m.type === 'document' || m.type === 'file') && !m.measurement_id
@@ -548,9 +554,9 @@ const WorkDetailsPage = () => {
                 <ArrowLeft className="w-5 h-5 text-gray-700" />
               </Link>
             </Button>
-            <span className="text-sm font-bold text-gray-500  tracking-wider  sm:block">
-              Detalhes da Obra
-            </span>
+          <span className="text-xs sm:text-sm font-bold text-gray-500 tracking-wider max-w-[100px] sm:max-w-none block">
+  Voltar para mapa de obras
+</span>
           </div>
 
           
@@ -615,6 +621,32 @@ const WorkDetailsPage = () => {
           <div className="lg:col-span-8">
             
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden relative">
+              
+            {/* Top Thumbnail Preview */}
+            {heroMedia && (
+              <div className="relative overflow-hidden">
+                <button
+                  type="button"
+                  className="absolute inset-0 w-full h-full z-10"
+                  onClick={() => openViewer(sortedViewableMedia, 0)}
+                  title="Ver mídias"
+                />
+                <div className="w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden">
+                  {['video', 'video_url'].includes(heroMedia.type) ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                      <Video className="w-10 h-10 text-white/80" />
+                    </div>
+                  ) : (
+                    <img
+                      src={heroMedia.url}
+                      alt="Capa da obra"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 via-black/30 to-transparent" />
+                </div>
+              </div>
+            )}
               
             {/* Title & Progress Hero Card */}
             <div className="p-5 md:p-8 lg:p-10">
@@ -685,15 +717,17 @@ const WorkDetailsPage = () => {
                      <Building className="w-4 h-4" /> Execução e Responsáveis
                    </h3>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                           <Building className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Construtora</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.contractor?.name || 'Em licitação'}</p>
-                        </div>
-                     </div>
+                     {work.contractor?.name && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <Building className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Construtora</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.contractor.name}</p>
+                          </div>
+                       </div>
+                     )}
 
                      {work.contractor?.cnpj && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
@@ -707,15 +741,17 @@ const WorkDetailsPage = () => {
                        </div>
                      )}
 
-                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                           <Briefcase className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Categoria</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.work_category?.name || 'Não informada'}</p>
-                        </div>
-                     </div>
+                     {work.work_category?.name && (
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                             <Briefcase className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Categoria</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.work_category.name}</p>
+                          </div>
+                       </div>
+                     )}
                    </div>
                 </div>
 
@@ -751,6 +787,7 @@ const WorkDetailsPage = () => {
                        </div>
                      )}
 
+                     {work.total_value != null && (
                      <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                         <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
@@ -760,7 +797,9 @@ const WorkDetailsPage = () => {
                            <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.total_value ? formatCurrency(work.total_value) : 'Não informado'}</p>
                         </div>
                      </div>
+                     )}
 
+                     {work.amount_spent != null && workEditOptions.amount_spent > 0 && (
                      <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
                         <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
@@ -775,6 +814,7 @@ const WorkDetailsPage = () => {
                            />
                         </div>
                      </div>
+                     )}
                    </div>
                 </div>
 
@@ -919,8 +959,6 @@ const WorkDetailsPage = () => {
                   measurements.map((item, index) => {
                     const phaseMedia = viewableMedia.filter(m => m.measurement_id === item.id);
                     const phaseDocs = media.filter(m => m.measurement_id === item.id && (m.type === 'pdf' || m.type === 'document' || m.type === 'file'));
-                    const dateToShow = item.contract_date;
-
                     return (
                       <div key={item.id} className="relative pl-8">
                         <div className={`absolute -left-[7px] top-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm ${getStatusInfo(item.status).bg.replace('bg-', 'bg-')}`} />
@@ -931,9 +969,6 @@ const WorkDetailsPage = () => {
                                     {item.title}
                                 </h4>
                             </div>
-                            <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200 whitespace-nowrap">
-                              {dateToShow ? formatDate(dateToShow) : 'Data n/d'}
-                            </span>
                           </div>
                           
                           {item.description && (
@@ -1309,9 +1344,9 @@ const WorkDetailsPage = () => {
                       href={link.url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+                      className="flex items-start justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
                     >
-                      <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">{link.title}</span>
+                      <span className="text-sm font-medium text-gray-700 break-words leading-snug">{link.title}</span>
                       <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
                     </a>
                   ))}
@@ -1319,11 +1354,10 @@ const WorkDetailsPage = () => {
               </div>
             )}
 
-
-          </div>
-
+            </div>
           {/* Sidebar Column (Mobile/Tablet Only) */}
           <div className="lg:hidden space-y-6">
+            
             
             {/* Map Card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -1379,9 +1413,9 @@ const WorkDetailsPage = () => {
                       href={link.url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+                      className="flex items-start justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
                     >
-                      <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">{link.title}</span>
+                      <span className="text-sm font-medium text-gray-700 break-words leading-snug">{link.title}</span>
                       <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
                     </a>
                   ))}
@@ -1523,16 +1557,14 @@ const WorkDetailsPage = () => {
             <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <Briefcase className="w-5 h-5 text-primary" />
               {selectedMeasurement?.title}
+              {selectedMeasurement?.contractor?.name ? ` — Empresa responsável: ${selectedMeasurement.contractor.name}` : ''}
             </DialogTitle>
             <div className="flex flex-wrap gap-2 mt-2">
               <Badge variant="outline" className={`${selectedMeasurement ? getStatusInfo(selectedMeasurement.status).color : ''} ${selectedMeasurement ? getStatusInfo(selectedMeasurement.status).bg : ''} border-none`}>
                 {selectedMeasurement ? getStatusInfo(selectedMeasurement.status).text : ''}
               </Badge>
-              {selectedMeasurement?.contract_date && (
-                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
-                  {formatDate(selectedMeasurement.contract_date)}
-                </span>
-              )}
+            
+             
             </div>
           </DialogHeader>
           
@@ -1555,35 +1587,48 @@ const WorkDetailsPage = () => {
                   <Briefcase className="w-4 h-4 text-slate-500" />
                   <h4 className="font-semibold text-slate-700 text-sm">Dados do Contrato</h4>
                 </div>
-                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-                   {/* Contractor */}
-                   <div className="space-y-1">
-                     <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Responsável</span>
-                     <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">
-                       {selectedMeasurement?.contractor?.name || 'Não informado'}
-                     </p>
-                   </div>
-                   
-                   {/* Value & Execution */}
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor</span>
-                        <p className="font-semibold text-slate-800 text-sm md:text-base">
-                          {selectedMeasurement?.value ? formatCurrency(selectedMeasurement.value) : '-'}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                         <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Execução</span>
-                         <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-800 text-sm md:text-base">
-                              {selectedMeasurement?.execution_percentage != null ? `${selectedMeasurement.execution_percentage}%` : '-'}
-                            </span>
-                            {selectedMeasurement?.execution_percentage != null && (
-                              <Progress value={selectedMeasurement.execution_percentage} className="h-2 w-16" />
-                            )}
-                         </div>
-                      </div>
-                   </div>
+                <div className="p-5">
+                  {(selectedMeasurement?.contractor?.name || selectedMeasurement?.value != null || selectedMeasurement?.execution_percentage != null) ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {selectedMeasurement?.contractor?.name && (
+                        <div className="space-y-1">
+                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Empresa Responsável</span>
+                          <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">
+                            {selectedMeasurement.contractor.name}
+                          </p>
+                          {selectedMeasurement?.contractor?.cnpj && (
+                            <p className="text-xs text-slate-500">CNPJ: {selectedMeasurement.contractor.cnpj}</p>
+                          )}
+                        </div>
+                      )}
+                      
+                      {(selectedMeasurement?.value != null || selectedMeasurement?.execution_percentage != null) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          {selectedMeasurement?.value != null && (
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor</span>
+                              <p className="font-semibold text-slate-800 text-sm md:text-base">
+                                {formatCurrency(selectedMeasurement.value)}
+                              </p>
+                            </div>
+                          )}
+                          {selectedMeasurement?.execution_percentage != null && (
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Execução</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-slate-800 text-sm md:text-base">
+                                  {`${selectedMeasurement.execution_percentage}%`}
+                                </span>
+                                <Progress value={selectedMeasurement.execution_percentage} className="h-2 w-16" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 italic">Sem informações nesta seção.</p>
+                  )}
                 </div>
               </div>
 
@@ -1594,72 +1639,64 @@ const WorkDetailsPage = () => {
                   <h4 className="font-semibold text-slate-700 text-sm">Cronograma e Prazos</h4>
                 </div>
                 <div className="p-5">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-6 gap-x-4">
-                     {selectedMeasurement?.contract_date && (
-                       <div>
-                         <span className="text-xs text-slate-400 block mb-1">Data do Contrato</span>
-                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.contract_date)}</span>
-                       </div>
-                     )}
-                     {selectedMeasurement?.contract_signature_date && (
-                       <div>
-                         <span className="text-xs text-slate-400 block mb-1">Assinatura</span>
-                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.contract_signature_date)}</span>
-                       </div>
-                     )}
-                     {selectedMeasurement?.service_order_date && (
-                       <div>
-                         <span className="text-xs text-slate-400 block mb-1">Ordem de Serviço</span>
-                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.service_order_date)}</span>
-                       </div>
-                     )}
-                     
-                     <div className="hidden sm:block col-span-full border-t border-slate-100 my-1"></div>
-
-                     {selectedMeasurement?.predicted_start_date && (
-                       <div>
-                         <span className="text-xs text-slate-400 block mb-1">Previsão Início</span>
-                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.predicted_start_date)}</span>
-                       </div>
-                     )}
-                     {selectedMeasurement?.start_date && (
-                       <div>
-                         <span className="text-xs text-slate-400 block mb-1">Início Real</span>
-                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.start_date)}</span>
-                       </div>
-                     )}
-                     {selectedMeasurement?.expected_end_date && (
-                       <div>
-                         <span className="text-xs text-slate-400 block mb-1">Previsão Conclusão</span>
-                         <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.expected_end_date)}</span>
-                       </div>
-                     )}
-                     
-                     {selectedMeasurement?.end_date && (
-                       <div>
-                         <span className={`text-xs block mb-1 ${selectedMeasurement.status === 'unfinished' ? 'text-orange-600' : 'text-slate-400'}`}>
-                           {selectedMeasurement.status === 'unfinished' ? 'Encerramento/Rescisão' : 'Conclusão Real'}
-                         </span>
-                         <span className={`font-bold text-sm block ${selectedMeasurement.status === 'unfinished' ? 'text-orange-700' : 'text-emerald-700'}`}>
-                            {formatDate(selectedMeasurement.end_date)}
-                         </span>
-                       </div>
-                     )}
-
-                     {selectedMeasurement?.inauguration_date && (
-                       <div>
-                         <span className="text-xs text-emerald-600 block mb-1">Inauguração</span>
-                         <span className="font-bold text-emerald-700 text-sm block">{formatDate(selectedMeasurement.inauguration_date)}</span>
-                       </div>
-                     )}
-
-                     {selectedMeasurement?.stalled_date && (
-                       <div className="col-span-2 sm:col-span-1">
-                         <span className="text-xs text-red-600 block mb-1">Data Paralisação</span>
-                         <span className="font-bold text-red-700 text-sm block">{formatDate(selectedMeasurement.stalled_date)}</span>
-                       </div>
-                     )}
-                  </div>
+                  {(selectedMeasurement?.contract_signature_date || selectedMeasurement?.service_order_date || selectedMeasurement?.predicted_start_date || selectedMeasurement?.start_date || selectedMeasurement?.expected_end_date || selectedMeasurement?.end_date || selectedMeasurement?.inauguration_date || selectedMeasurement?.stalled_date) ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-6 gap-x-4">
+                       {selectedMeasurement?.contract_signature_date && (
+                         <div>
+                           <span className="text-xs text-slate-400 block mb-1">Assinatura</span>
+                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.contract_signature_date)}</span>
+                         </div>
+                       )}
+                       {selectedMeasurement?.service_order_date && (
+                         <div>
+                           <span className="text-xs text-slate-400 block mb-1">Ordem de Serviço</span>
+                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.service_order_date)}</span>
+                         </div>
+                       )}
+                       {selectedMeasurement?.predicted_start_date && (
+                         <div>
+                           <span className="text-xs text-slate-400 block mb-1">Previsão Início</span>
+                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.predicted_start_date)}</span>
+                         </div>
+                       )}
+                       {selectedMeasurement?.start_date && (
+                         <div>
+                           <span className="text-xs text-slate-400 block mb-1">Início Real</span>
+                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.start_date)}</span>
+                         </div>
+                       )}
+                       {selectedMeasurement?.expected_end_date && (
+                         <div>
+                           <span className="text-xs text-slate-400 block mb-1">Previsão Conclusão</span>
+                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.expected_end_date)}</span>
+                         </div>
+                       )}
+                       {selectedMeasurement?.end_date && (
+                         <div>
+                           <span className={`text-xs block mb-1 ${selectedMeasurement.status === 'unfinished' ? 'text-orange-600' : 'text-slate-400'}`}>
+                             {selectedMeasurement.status === 'unfinished' ? 'Encerramento/Rescisão' : 'Conclusão Real'}
+                           </span>
+                           <span className={`font-bold text-sm block ${selectedMeasurement.status === 'unfinished' ? 'text-orange-700' : 'text-emerald-700'}`}>
+                              {formatDate(selectedMeasurement.end_date)}
+                           </span>
+                         </div>
+                       )}
+                       {selectedMeasurement?.inauguration_date && (
+                         <div>
+                           <span className="text-xs text-emerald-600 block mb-1">Inauguração</span>
+                           <span className="font-bold text-emerald-700 text-sm block">{formatDate(selectedMeasurement.inauguration_date)}</span>
+                         </div>
+                       )}
+                       {selectedMeasurement?.stalled_date && (
+                         <div className="col-span-2 sm:col-span-1">
+                           <span className="text-xs text-red-600 block mb-1">Data Paralisação</span>
+                           <span className="font-bold text-red-700 text-sm block">{formatDate(selectedMeasurement.stalled_date)}</span>
+                         </div>
+                       )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 italic">Sem informações nesta seção.</p>
+                  )}
                 </div>
               </div>
             </div>

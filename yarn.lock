@@ -1063,6 +1063,11 @@
     tslib "2.6.2"
     yargs "17.7.2"
 
+"@capacitor/browser@^7.0.0":
+  version "7.0.4"
+  resolved "https://registry.yarnpkg.com/@capacitor/browser/-/browser-7.0.4.tgz#05d33240f285f81c7c9c83206575c4c4b1ed0851"
+  integrity sha512-XjooNDHEalQoMAb5/Ip7pGcPCIPHEaBv/s/B6K83qVZE66MXC/6enhw18TNaMNtL7U8bGOe6tEG1FFbQVf3PHw==
+
 "@capacitor/camera@^7.0.2":
   version "7.0.2"
   resolved "https://registry.npmjs.org/@capacitor/camera/-/camera-7.0.2.tgz"
