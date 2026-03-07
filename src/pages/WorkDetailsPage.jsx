@@ -715,7 +715,7 @@ const WorkDetailsPage = () => {
                     />
                   </div>
 
-                  <div className="py-6 md:py-8">
+                 {work.long_description  && <div className="py-6 md:py-8">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                       <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-violet-50 text-indigo-600 mr-3 shadow-sm border border-indigo-100/50">
                         <BookOpen className="w-4 h-4" />
@@ -725,7 +725,7 @@ const WorkDetailsPage = () => {
                     <div className="prose prose-slate max-w-none text-gray-600 leading-relaxed pl-1">
                       <p className="whitespace-pre-wrap">{work.long_description || work.description}</p>
                     </div>
-                  </div>
+                  </div>}
                 </div>
 
                 
