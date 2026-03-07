@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 
 const getSiteUrl = () => {
@@ -204,7 +205,14 @@ export const AuthProvider = ({ children }) => {
       App.addListener('appUrlOpen', async ({ url }) => {
         console.log('App URL Open detected:', url);
         // Pass full URL to handle both hash and search params
-        await _handleAuthCallback(url, mounted);
+        const recovered = await _handleAuthCallback(url, mounted);
+        if (recovered) {
+          try {
+            await Browser.close();
+          } catch (e) {
+            // Ignore if Browser.close fails or Browser not open
+          }
+        }
       }).then(listener => {
         appListener = listener;
       });
@@ -286,16 +294,35 @@ export const AuthProvider = ({ children }) => {
       console.log("Web platform detected. Setting redirectTo:", redirectTo);
     }
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectTo,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    // Em plataformas nativas, usamos Browser.open com skipBrowserRedirect para garantir retorno ao app via deep link
+    let data, error;
+    if (Capacitor.isNativePlatform()) {
+      ({ data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          skipBrowserRedirect: true,
         },
-      },
-    });
+      }));
+      if (!error && data?.url) {
+        await Browser.open({ url: data.url, presentationStyle: 'fullscreen' });
+      }
+    } else {
+      ({ data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      }));
+    }
     if (error) {
       console.error("Erro no login com Google:", error.message);
     }

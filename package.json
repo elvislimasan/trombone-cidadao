@@ -35,6 +35,7 @@
     "build:standalone:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat bundleRelease"
   },
   "dependencies": {
+    "@capacitor/browser": "^7.0.0",
     "@capacitor-community/camera-preview": "^7.0.2",
     "@capacitor-community/file-opener": "^8.0.0",
     "@capacitor-community/media": "^8.0.1",

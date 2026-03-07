@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, DollarSign, Percent, ArrowLeft, Save } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
-export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange }) {
+export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange }) {
   const [measurements, setMeasurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -24,7 +24,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
     title: '',
     description: '',
     contractor_id: '',
-    contract_date: '',
     start_date: '',
     end_date: '',
     value: '',
@@ -35,32 +34,15 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
     contract_signature_date: '',
     expected_end_date: '',
     inauguration_date: '',
-    stalled_date: ''
+    stalled_date: '',
+    expected_value: '',
+    amount_spent: '',
+    execution_period_days: '',
+    funding_source: []
   });
 
-  // Auto-save & Restore Draft Logic
-  useEffect(() => {
-    // Restore draft on mount
-    const savedDraft = localStorage.getItem(`measurement_draft_${workId}`);
-    if (savedDraft && !isEditing) {
-      try {
-        const draft = JSON.parse(savedDraft);
-        if (draft.workId === workId) {
-          setFormData(draft.formData);
-          if (draft.measurementId) {
-            // Reconstruct minimal currentMeasurement object needed for logic
-            setCurrentMeasurement({ id: draft.measurementId, ...draft.formData });
-          } else {
-            setCurrentMeasurement(null);
-          }
-          setIsEditing(true);
-          // toast({ title: "Rascunho restaurado", description: "Continuando edição da medição." });
-        }
-      } catch (e) {
-        console.error("Erro ao restaurar rascunho de medição", e);
-      }
-    }
-  }, [workId]); // Run once when workId changes/mounts
+  // Auto-save Logic (sem restauração automática na abertura do modal)
+  // Rascunho é salvo apenas enquanto em edição; ao abrir modal novamente, inicia fechado.
 
   useEffect(() => {
     // Save draft while editing
@@ -89,6 +71,9 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
   const [customGalleryName, setCustomGalleryName] = useState('');
 
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isDirty, setIsDirty] = useState(false);
+  const baselineRef = React.useRef(null);
+  const editContainerRef = React.useRef(null);
 
   useEffect(() => {
     if (workId) {
@@ -308,13 +293,32 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
         inauguration_date: measurement.inauguration_date || '',
         stalled_date: measurement.stalled_date || ''
       });
+      baselineRef.current = {
+        title: measurement.title,
+        description: measurement.description || '',
+        contractor_id: measurement.contractor_id || '',
+        start_date: measurement.start_date || '',
+        end_date: measurement.end_date || '',
+        value: measurement.value || '',
+        execution_percentage: measurement.execution_percentage || '',
+        status: measurement.status || 'planned',
+        predicted_start_date: measurement.predicted_start_date || '',
+        service_order_date: measurement.service_order_date || '',
+        contract_signature_date: measurement.contract_signature_date || '',
+        expected_end_date: measurement.expected_end_date || '',
+        inauguration_date: measurement.inauguration_date || '',
+        stalled_date: measurement.stalled_date || '',
+        expected_value: measurement.expected_value || '',
+        amount_spent: measurement.amount_spent || '',
+        execution_period_days: measurement.execution_period_days || '',
+        funding_source: Array.isArray(measurement.funding_source) ? [...measurement.funding_source] : []
+      };
     } else {
       setCurrentMeasurement(null);
       setFormData({
         title: '',
         description: '',
         contractor_id: '',
-        contract_date: '',
         start_date: '',
         end_date: '',
         value: '',
@@ -325,17 +329,47 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
         contract_signature_date: '',
         expected_end_date: '',
         inauguration_date: '',
-        stalled_date: ''
+        stalled_date: '',
+        expected_value: '',
+        amount_spent: '',
+        execution_period_days: '',
+        funding_source: []
       });
+      baselineRef.current = {
+        title: '',
+        description: '',
+        contractor_id: '',
+        start_date: '',
+        end_date: '',
+        value: '',
+        execution_percentage: '',
+        status: 'planned',
+        predicted_start_date: '',
+        service_order_date: '',
+        contract_signature_date: '',
+        expected_end_date: '',
+        inauguration_date: '',
+        stalled_date: '',
+        expected_value: '',
+        amount_spent: '',
+        execution_period_days: '',
+        funding_source: []
+      };
     }
     setIsEditing(true);
     setErrors({});
+    setIsDirty(false);
+    if (onDirtyChange) onDirtyChange(false);
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setCurrentMeasurement(null);
     setMeasurementMedia([]);
+    setSelectedFiles([]);
+    setIsDirty(false);
+    baselineRef.current = null;
+    if (onDirtyChange) onDirtyChange(false);
   };
 
   const handleSave = async () => {
@@ -365,7 +399,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
         title: formData.title,
         description: formData.description || null,
         contractor_id: formData.contractor_id || null,
-        contract_date: formData.contract_date || null,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         value: formData.value ? Number(formData.value) : null,
@@ -376,7 +409,11 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
         contract_signature_date: formData.contract_signature_date || null,
         expected_end_date: formData.expected_end_date || null,
         inauguration_date: formData.inauguration_date || null,
-        stalled_date: formData.stalled_date || null
+        stalled_date: formData.stalled_date || null,
+        expected_value: formData.expected_value ? Number(formData.expected_value) : null,
+        amount_spent: formData.amount_spent ? Number(formData.amount_spent) : null,
+        execution_period_days: formData.execution_period_days ? Number(formData.execution_period_days) : null,
+        funding_source: Array.isArray(formData.funding_source) ? formData.funding_source : []
       };
 
       let error;
@@ -425,6 +462,9 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
       setCurrentMeasurement(null);
       setMeasurementMedia([]);
       setSelectedFiles([]);
+      setIsDirty(false);
+      baselineRef.current = null;
+      if (onDirtyChange) onDirtyChange(false);
       
     } catch (error) {
       console.error('Error saving measurement:', error);
@@ -477,6 +517,39 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Track dirty state precisely (only when editing)
+  useEffect(() => {
+    const normalize = (obj) => {
+      const out = {};
+      Object.keys(formData).forEach(k => {
+        if (k === 'funding_source') {
+          const arr = Array.isArray(obj?.funding_source) ? [...obj.funding_source].sort() : [];
+          out.funding_source = arr;
+        } else {
+          out[k] = obj && obj[k] !== undefined ? obj[k] : '';
+        }
+      });
+      return out;
+    };
+    if (isEditing) {
+      const base = normalize(baselineRef.current || {});
+      const curr = normalize(formData || {});
+      const hasFiles = selectedFiles.length > 0;
+      const dirty = JSON.stringify(base) !== JSON.stringify(curr) || hasFiles;
+      if (dirty !== isDirty) {
+        setIsDirty(dirty);
+        if (onDirtyChange) onDirtyChange(dirty);
+      }
+    } else {
+      if (isDirty) {
+        setIsDirty(false);
+        if (onDirtyChange) onDirtyChange(false);
+      }
+    }
+  }, [isEditing, formData, selectedFiles]);
+
+  
+
   const getStatusLabel = (status) => {
     const map = {
       'planned': 'Planejada',
@@ -491,7 +564,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
 
   if (isEditing) {
     return (
-      <Card className="border-l-4 border-l-primary shadow-sm">
+      <Card className="border-l-4 border-l-primary shadow-sm" ref={editContainerRef}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -528,6 +601,61 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
                 placeholder="Detalhes sobre o que foi realizado nesta fase..." 
                 rows={3}
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="expected_value">Valor Previsto (R$)</Label>
+                <Input 
+                  id="expected_value" 
+                  name="expected_value" 
+                  type="number" 
+                  value={formData.expected_value} 
+                  onChange={handleChange} 
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="amount_spent">Valor Pago (R$)</Label>
+                <Input 
+                  id="amount_spent" 
+                  name="amount_spent" 
+                  type="number" 
+                  value={formData.amount_spent} 
+                  onChange={handleChange} 
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="execution_period_days">Prazo de Execução (dias)</Label>
+                <Input 
+                  id="execution_period_days" 
+                  name="execution_period_days" 
+                  type="number" 
+                  value={formData.execution_period_days} 
+                  onChange={handleChange} 
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Fontes do Recurso</Label>
+                <div className="flex items-center gap-4 pt-2">
+                  {['federal','estadual','municipal'].map(src => (
+                    <label key={src} className="inline-flex items-center gap-2 text-sm">
+                      <input 
+                        type="checkbox" 
+                        checked={(formData.funding_source || []).includes(src)} 
+                        onChange={() => {
+                          const current = formData.funding_source || [];
+                          const next = current.includes(src) ? current.filter(s => s !== src) : [...current, src];
+                          setFormData(prev => ({ ...prev, funding_source: next }));
+                        }} 
+                      />
+                      <span className="capitalize">{src}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -601,16 +729,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange 
                 <div>
                   <h5 className="text-sm font-medium text-slate-500 mb-2 border-b pb-1">Marcos Contratuais</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="contract_date">Data Publicação</Label>
-                      <Input 
-                        id="contract_date" 
-                        name="contract_date" 
-                        type="date" 
-                        value={formData.contract_date} 
-                        onChange={handleChange} 
-                      />
-                    </div>
                     <div className="grid gap-2">
                       <Label htmlFor="contract_signature_date">Assinatura Contrato</Label>
                       <Input 
