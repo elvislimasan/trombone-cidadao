@@ -816,13 +816,13 @@ const WorkDetailsPage = () => {
                            <DollarSign className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Total</p>
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Previsto</p>
                            <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.total_value ? formatCurrency(work.total_value) : 'Não informado'}</p>
                         </div>
                      </div>
                      )}
 
-                     {work.amount_spent != null && workEditOptions.amount_spent > 0 && (
+                     {work.amount_spent != null && (
                      <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
                         <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
@@ -1710,7 +1710,7 @@ const WorkDetailsPage = () => {
                   <h4 className="font-semibold text-slate-700 text-sm">Dados do Contrato</h4>
                 </div>
                 <div className="p-5">
-                  {(selectedMeasurement?.contractor?.name || selectedMeasurement?.value != null || selectedMeasurement?.execution_percentage != null) ? (
+                  {(selectedMeasurement?.contractor?.name || selectedMeasurement?.execution_percentage != null) ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {selectedMeasurement?.contractor?.name && (
                         <div className="space-y-1">
@@ -1724,27 +1724,17 @@ const WorkDetailsPage = () => {
                         </div>
                       )}
                       
-                      {(selectedMeasurement?.value != null || selectedMeasurement?.execution_percentage != null) && (
+                      {selectedMeasurement?.execution_percentage != null && (
                         <div className="grid grid-cols-2 gap-4">
-                          {selectedMeasurement?.value != null && (
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor</span>
-                              <p className="font-semibold text-slate-800 text-sm md:text-base">
-                                {formatCurrency(selectedMeasurement.value)}
-                              </p>
+                          <div className="space-y-1">
+                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Execução</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-800 text-sm md:text-base">
+                                {`${selectedMeasurement.execution_percentage}%`}
+                              </span>
+                              <Progress value={selectedMeasurement.execution_percentage} className="h-2 w-full" />
                             </div>
-                          )}
-                          {selectedMeasurement?.execution_percentage != null && (
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Execução</span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-slate-800 text-sm md:text-base">
-                                  {`${selectedMeasurement.execution_percentage}%`}
-                                </span>
-                                <Progress value={selectedMeasurement.execution_percentage} className="h-2 w-16" />
-                              </div>
-                            </div>
-                          )}
+                          </div>
                         </div>
                       )}
 
