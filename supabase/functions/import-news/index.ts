@@ -123,6 +123,10 @@ function sanitizeHtml(html?: string): string | undefined {
   html = html.replace(/<img[^>]*>/gi, '')
   // Remove figures inside body
   html = html.replace(/<figure[\s\S]*?<\/figure>/gi, '')
+  // Remove social embeds blockquotes (Instagram/Twitter) and generic blockquote
+  html = html.replace(/<blockquote[\s\S]*?<\/blockquote>/gi, '')
+  // Remove any element with instagram-media class (defensive)
+  html = html.replace(/<[^>]*class="[^"]*instagram-media[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, '')
   // Remove custom data-* attributes noise
   html = html.replace(/\sdata-[\w-]+="[^"]*"/gi, '')
   // Basic cleanup
@@ -209,19 +213,26 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
   let cleanedBody = body
   // Trim tudo após o marcador "Assista o vídeo" / "Veja o vídeo"
   if (cleanedBody) {
-    // 1) Corte baseado em tags (parágrafo/cabeçalhos)
-    const cutRegexTagged = /<(?:p|h2|h3)[^>]*>[\s\S]*?(assista|veja)[\s\S]*?(?:abaixo|v(?:&iacute;|í|i)de(?:&oacute;|ó|o)|reportagem)[\s\S]*?<\/(?:p|h2|h3)>[\s\S]*$/i
     let cutApplied = false
-    if (cutRegexTagged.test(cleanedBody)) {
-      cleanedBody = cleanedBody.replace(cutRegexTagged, '').trim()
+    const tagMarker = /<(?:p|h2|h3)[^>]*>[\s\S]*?(assista|veja)[\s\S]*?(?:abaixo|v(?:&iacute;|í|i)de(?:&oacute;|ó|o)|reportagem)[\s\S]*?<\/(?:p|h2|h3)>/gi
+    let mTag
+    let lastIdx = -1
+    while ((mTag = tagMarker.exec(cleanedBody)) !== null) {
+      lastIdx = mTag.index
+    }
+    if (lastIdx >= 0) {
+      cleanedBody = cleanedBody.slice(0, lastIdx).trim()
       cutApplied = true
     }
-    // 2) Se não cortou por tags, tentar por índice no HTML base (independente de marcação)
     if (!cutApplied && baseBody) {
-      const generalMarker = /(assista|veja)[^<]{0,200}(abaixo|vídeo|reportagem)/i
-      const m = baseBody.match(generalMarker)
-      if (m && m.index !== undefined && m.index > 0) {
-        cleanedBody = sanitizeHtml(baseBody.slice(0, m.index).trim())
+      const generalMarker = /(assista|veja)[^<]{0,200}(abaixo|vídeo|reportagem)/gi
+      let mGen
+      let lastGen = -1
+      while ((mGen = generalMarker.exec(baseBody)) !== null) {
+        lastGen = mGen.index
+      }
+      if (lastGen > 0) {
+        cleanedBody = sanitizeHtml(baseBody.slice(0, lastGen).trim())
         cutApplied = true
       }
     }
@@ -234,8 +245,20 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
     const rmAssista = /<(p|h2|h3)[^>]*>[\s\S]*?assista[\s\S]*?v(?:&iacute;|í|i)de(?:&oacute;|ó|o)[\s\S]*?<\/\1>/gi
     const rmVeja = /<(p|h2|h3)[^>]*>[\s\S]*?veja[\s\S]*?v(?:&iacute;|í|i)de(?:&oacute;|ó|o)[\s\S]*?<\/\1>/gi
     cleanedBody = cleanedBody.replace(rmAssista, '').replace(rmVeja, '')
+    // Cut everything from the first marker paragraph onward (defensive)
+    cleanedBody = cleanedBody.replace(/<(?:p|h2|h3|div)[^>]*>[\s\S]*?(assista|veja)[\s\S]*$/i, (m) => {
+      const idx = m.search(/(assista|veja)/i)
+      return idx > 0 ? m.slice(0, idx) : ''
+    })
+    // Remove "Via Blog do Elvis" footer lines if present
+    cleanedBody = cleanedBody.replace(/<(p|h2|h3)[^>]*>[\s\S]*?via\s+blog\s+do\s+elvis[\s\S]*?<\/\1>/gi, '')
     // Remove variações sem tags explícitas
     cleanedBody = cleanedBody.replace(/assista[^<]{0,80}v(?:&iacute;|í|i)de(?:&oacute;|ó|o)/gi, '')
+    // Hard cut: find first occurrence of 'assista' or 'veja' and truncate everything after it
+    const anyMarkerIndex = cleanedBody.search(/assista|veja/i)
+    if (anyMarkerIndex >= 0) {
+      cleanedBody = cleanedBody.slice(0, anyMarkerIndex).trim()
+    }
     // Fallback: se não houver tags de bloco, criar parágrafos
     if (!/(<p|<br|<ul|<ol|<h2|<h3)/i.test(cleanedBody)) {
       let parts = cleanedBody.split(/(?:\r?\n){2,}/).map(s => s.trim()).filter(Boolean)
@@ -243,9 +266,34 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
         parts = cleanedBody.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean)
       }
       if (parts.length > 0) {
-        cleanedBody = parts.map(p => `<p>${p}</p>`).join('\n')
+        cleanedBody = parts.map(p => `<p>${p}</p>`).join('</p><p>&nbsp;</p><p>')
       }
     }
+    // Normalize spacing when content uses <br><br> for paragraph breaks
+    if (!/<p\b/i.test(cleanedBody)) {
+      cleanedBody = `<p>${cleanedBody}</p>`
+    }
+    cleanedBody = cleanedBody.replace(/(?:<br\s*\/?>\s*){2,}/gi, '</p><p>&nbsp;</p><p>')
+  }
+  if (!cleanedBody || cleanedBody.replace(/<[^>]+>/g, '').trim().length === 0) {
+    let fallbackHtml = baseBody || ''
+    const markerHtml = /(assista|veja)[\s\S]{0,200}(abaixo|vídeo|reportagem)/i
+    const m = fallbackHtml.match(markerHtml)
+    if (m && m.index !== undefined && m.index > 0) {
+      fallbackHtml = fallbackHtml.slice(0, m.index)
+    }
+    let sanitized = sanitizeHtml(fallbackHtml).trim()
+    if (!sanitized || sanitized.replace(/<[^>]+>/g, '').trim().length === 0) {
+      // As último recurso, reconstruir parágrafos a partir do texto
+      let plain = fallbackHtml
+        .replace(/<\/(p|br|h[1-6]|li|div)>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+      const idx = plain.search(/(assista|veja)[^\n]{0,200}(abaixo|vídeo|reportagem)/i)
+      if (idx > 0) plain = plain.slice(0, idx)
+      const lines = plain.split(/\n+/).map(s => s.trim()).filter(Boolean)
+      sanitized = lines.length > 0 ? lines.map(p => `<p>${p}</p>`).join('</p><p>&nbsp;</p><p>') : ''
+    }
+    cleanedBody = sanitized
   }
 
   return {
@@ -392,13 +440,38 @@ serve(async (req) => {
       const bodyHtml = (art.body_html || '').trim()
       const videoUrlRecord = extractVideoUrl(articleHtml)
       const plainTextLength = bodyHtml.replace(/<[^>]+>/g, '').trim().length
-      if (!title || (!bodyHtml && !videoUrlRecord)) {
+      if (!title) {
         const errMsg = 'Conteúdo insuficiente (sem título ou corpo/vídeo)'
         errors.push({ url, error: errMsg })
         console.warn('[import-news] descartado', errMsg, { url, titleLen: title.length, bodyLen: bodyHtml.length, hasVideo: !!videoUrlRecord })
         continue
       }
-      if (!videoUrlRecord && plainTextLength < 40) {
+      // Se corpo muito curto, tenta reconstruir pelos parágrafos plain
+      let finalBodyHtml = bodyHtml
+      if (plainTextLength < 40) {
+        const vBody = extractBodySection(articleHtml) || extractBodyHtml(articleHtml) || ''
+        const markerHtml = /(assista|veja)[\s\S]{0,200}(abaixo|vídeo|reportagem)/i
+        const m = vBody.match(markerHtml)
+        let sliceHtml = vBody
+        if (m && m.index !== undefined && m.index > 0) {
+          sliceHtml = vBody.slice(0, m.index)
+        }
+        const sanitized = sanitizeHtml(sliceHtml)
+        if (sanitized && sanitized.replace(/<[^>]+>/g, '').trim().length >= 1) {
+          finalBodyHtml = sanitized
+        } else {
+          // Fallback: reconstruir a partir de texto
+          let plain = vBody.replace(/<\/(p|br|h[1-6]|li|div)>/gi, '\n').replace(/<[^>]+>/g, '')
+          const idx = plain.search(/(assista|veja)[^\n]{0,200}(abaixo|vídeo|reportagem)/i)
+          if (idx > 0) plain = plain.slice(0, idx)
+          const lines = plain.split(/\n+/).map(s => s.trim()).filter(Boolean)
+          if (lines.length > 0) {
+            finalBodyHtml = lines.map(p => `<p>${p}</p>`).join('</p><p>&nbsp;</p><p>')
+          }
+        }
+      }
+      const finalPlainLen = (finalBodyHtml || '').replace(/<[^>]+>/g, '').trim().length
+      if (!videoUrlRecord && finalPlainLen < 40) {
         const errMsg = 'Corpo muito curto e sem vídeo'
         errors.push({ url, error: errMsg })
         console.warn('[import-news] descartado', errMsg, { url, titleLen: title.length, bodyLen: bodyHtml.length })
@@ -410,7 +483,7 @@ serve(async (req) => {
         source: 'Blog do Elvis',
         date: art.date_iso || new Date().toISOString(),
         description: art.description || '',
-        body: bodyHtml,
+        body: finalBodyHtml,
         image_url: art.image_url || null,
         link: normalizeLink(art.url),
         video_url: videoUrlRecord || null

@@ -133,6 +133,16 @@ const NewsDetailsPage = () => {
   const renderBodyHtml = useMemo(() => {
     let html = newsItem?.body || '';
     if (!html) return '';
+    // Defensive cleanup: strip social embeds that may have slipped into the body
+    html = html.replace(/<blockquote[\s\S]*?<\/blockquote>/gi, '');
+    html = html.replace(/<[^>]*class="[^"]*instagram-media[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, '');
+    // Remove paragraphs or headings that contain "Assista/Veja ..."
+    html = html.replace(/<(p|h2|h3)[^>]*>[\s\S]*?(assista|veja)[\s\S]*?<\/\1>/gi, '');
+    // Remove anything after the first plain occurrence of "assista/veja" as a last resort
+    const cutIdx = html.search(/assista|veja/i);
+    if (cutIdx >= 0) {
+      html = html.slice(0, cutIdx);
+    }
     if (!/<a\s/i.test(html)) {
       html = html.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline font-semibold break-all">${url}</a>`;
