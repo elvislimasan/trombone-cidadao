@@ -204,13 +204,27 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
   const h1 = h1TitleMatch ? h1TitleMatch[1].trim() : extractFirstTag(html, 'h1')
   const bodySection = extractBodySection(html)
   const videoUrl = extractVideoUrlFromBody(bodySection)
-  const body = sanitizeHtml(bodySection || extractBodyHtml(html))
+  const baseBody = bodySection || extractBodyHtml(html)
+  const body = sanitizeHtml(baseBody)
   let cleanedBody = body
   // Trim tudo após o marcador "Assista o vídeo" / "Veja o vídeo"
   if (cleanedBody) {
-    // Remove todo bloco contendo o marcador e tudo que vem depois dele, preservando HTML antes
-    const cutRegex = /<(?:p|h2|h3)[^>]*>[\s\S]*?(assista|veja)[\s\S]*?v(?:&iacute;|í|i)de(?:&oacute;|ó|o)[\s\S]*?<\/(?:p|h2|h3)>[\s\S]*$/i
-    cleanedBody = cleanedBody.replace(cutRegex, '').trim()
+    // 1) Corte baseado em tags (parágrafo/cabeçalhos)
+    const cutRegexTagged = /<(?:p|h2|h3)[^>]*>[\s\S]*?(assista|veja)[\s\S]*?(?:abaixo|v(?:&iacute;|í|i)de(?:&oacute;|ó|o)|reportagem)[\s\S]*?<\/(?:p|h2|h3)>[\s\S]*$/i
+    let cutApplied = false
+    if (cutRegexTagged.test(cleanedBody)) {
+      cleanedBody = cleanedBody.replace(cutRegexTagged, '').trim()
+      cutApplied = true
+    }
+    // 2) Se não cortou por tags, tentar por índice no HTML base (independente de marcação)
+    if (!cutApplied && baseBody) {
+      const generalMarker = /(assista|veja)[^<]{0,200}(abaixo|vídeo|reportagem)/i
+      const m = baseBody.match(generalMarker)
+      if (m && m.index !== undefined && m.index > 0) {
+        cleanedBody = sanitizeHtml(baseBody.slice(0, m.index).trim())
+        cutApplied = true
+      }
+    }
   }
   if (cleanedBody && videoUrl) {
     const esc = videoUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

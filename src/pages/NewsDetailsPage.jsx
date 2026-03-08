@@ -207,16 +207,14 @@ const NewsDetailsPage = () => {
             <div className="my-12">
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Video className="w-6 h-6 text-primary" /> Vídeo</h2>
               {isInstagram ? (
-                <div className="w-full max-w-[420px] mx-auto rounded-xl shadow-lg overflow-visible">
+                <div className="w-full max-w-[560px] rounded-xl shadow-lg overflow-visible">
                   <blockquote 
                     className="instagram-media w-full" 
                     data-instgrm-permalink={videoEmbedUrl} 
                     data-instgrm-version="14"
-                    style={{ maxWidth: '100%', margin: '0 auto' }}
+                    style={{ maxWidth: '100%', margin: 0 }}
                   ></blockquote>
-                  <div className="mt-2 text-sm">
-                    <a href={videoEmbedUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Abrir no Instagram</a>
-                  </div>
+                 
                 </div>
               ) : (
                 <div className="aspect-video rounded-xl overflow-hidden shadow-lg">
