@@ -117,19 +117,40 @@ function extractBodySection(html: string): string | undefined {
 
 function sanitizeHtml(html?: string): string | undefined {
   if (!html) return undefined
+  
   // Remove script/style tags for safety
   html = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
+  
   // Remove images inside body to avoid duplicating featured image and ads
   html = html.replace(/<img[^>]*>/gi, '')
+  
   // Remove figures inside body
   html = html.replace(/<figure[\s\S]*?<\/figure>/gi, '')
-  // Remove social embeds blockquotes (Instagram/Twitter) and generic blockquote
-  html = html.replace(/<blockquote[\s\S]*?<\/blockquote>/gi, '')
+  
+  // REMOVER BLOCKQUOTES COMPLETAMENTE (incluindo conteúdo interno)
+  // Esta regex captura blockquotes com qualquer atributo e seu conteúdo
+  html = html.replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi, '')
+  
+  // Remover qualquer blockquote que possa ter sido inserido sem fechamento correto
+  html = html.replace(/<blockquote[^>]*>/gi, '')
+  html = html.replace(/<\/blockquote>/gi, '')
+  
   // Remove any element with instagram-media class (defensive)
   html = html.replace(/<[^>]*class="[^"]*instagram-media[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, '')
+  
   // Remove custom data-* attributes noise
   html = html.replace(/\sdata-[\w-]+="[^"]*"/gi, '')
-  // Basic cleanup
+  
+  // Remove any remaining blockquote-related content
+  html = html.replace(/<[\/]?blockquote[^>]*>/gi, '')
+  
+  // Basic cleanup - remove empty paragraphs that might result from blockquote removal
+  html = html.replace(/<p>\s*<\/p>/gi, '')
+  html = html.replace(/<p><\/p>/gi, '')
+  
+  // Remove multiple consecutive newlines/spaces
+  html = html.replace(/\n\s*\n/g, '\n')
+  
   return html.trim()
 }
 
