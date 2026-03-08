@@ -121,7 +121,8 @@ const NewsDetailsPage = () => {
   const getInstagramEmbedUrl = (url) => {
     if (!url) return null;
     const match = url.match(/(?:https?:\/\/)?(?:www\.)?instagram\.com\/(p|reel)\/([a-zA-Z0-9_-]+)/);
-    return match ? `${url}embed` : null;
+    if (!match) return null;
+    return `https://www.instagram.com/${match[1]}/${match[2]}/`;
   };
 
   const openMediaViewer = (index) => {
@@ -151,11 +152,28 @@ const NewsDetailsPage = () => {
     });
   }, [renderBodyHtml]);
 
+  const videoEmbedUrl = newsItem?.video_url ? (getYoutubeEmbedUrl(newsItem?.video_url) || getInstagramEmbedUrl(newsItem?.video_url)) : null;
+  const isInstagram = !!(newsItem?.video_url && /instagram\.com/.test(newsItem.video_url));
+  useEffect(() => {
+    if (!isInstagram || !videoEmbedUrl) return;
+    const existing = document.getElementById('instagram-embed');
+    if (!existing) {
+      const s = document.createElement('script');
+      s.id = 'instagram-embed';
+      s.src = 'https://www.instagram.com/embed.js';
+      s.async = true;
+      document.body.appendChild(s);
+    } else {
+      if (window.instgrm && window.instgrm.Embeds && window.instgrm.Embeds.process) {
+        window.instgrm.Embeds.process();
+      }
+    }
+  }, [isInstagram, videoEmbedUrl]);
+
   if (!newsItem) {
     return <div className="container mx-auto px-4 py-12 text-center">Carregando notícia...</div>;
   }
 
-  const videoEmbedUrl = newsItem.video_url ? (getYoutubeEmbedUrl(newsItem.video_url) || getInstagramEmbedUrl(newsItem.video_url)) : null;
 
   return (
     <>
@@ -171,6 +189,11 @@ const NewsDetailsPage = () => {
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-muted-foreground text-sm">
               <div className="flex items-center gap-2"><User className="w-4 h-4" /> {newsItem.source}</div>
               <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {new Date(newsItem.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })}</div>
+              {newsItem.link && (
+                <a href={newsItem.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                  Ver na fonte <ArrowUpRight className="w-4 h-4" />
+                </a>
+              )}
             </div>
           </header>
 
@@ -183,17 +206,32 @@ const NewsDetailsPage = () => {
           {videoEmbedUrl && (
             <div className="my-12">
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Video className="w-6 h-6 text-primary" /> Vídeo</h2>
-              <div className="aspect-video rounded-xl overflow-hidden shadow-lg">
-                <iframe
-                  src={videoEmbedUrl}
-                  width="100%"
-                  height="100%"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="Vídeo incorporado"
-                  className="border-0"
-                ></iframe>
-              </div>
+              {isInstagram ? (
+                <div className="w-full rounded-xl shadow-lg overflow-visible">
+                  <blockquote 
+                    className="instagram-media w-full" 
+                    data-instgrm-permalink={videoEmbedUrl} 
+                    data-instgrm-version="14"
+                    style={{ maxWidth: '100%', margin: '0 auto' }}
+                  ></blockquote>
+                  <div className="mt-2 text-sm">
+                    <a href={videoEmbedUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Abrir no Instagram</a>
+                  </div>
+                </div>
+              ) : (
+                <div className="aspect-video rounded-xl overflow-hidden shadow-lg">
+                  <iframe
+                    src={videoEmbedUrl}
+                    width="100%"
+                    height="100%"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    referrerPolicy="no-referrer"
+                    allowFullScreen
+                    title="Vídeo incorporado"
+                    className="border-0"
+                  ></iframe>
+                </div>
+              )}
             </div>
           )}
 

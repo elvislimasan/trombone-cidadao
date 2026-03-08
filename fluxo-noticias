@@ -1,0 +1,140 @@
+Arquitetura para importar notícias quase em tempo real
+
+A ideia é monitorar apenas a primeira página da categoria e detectar quando surge um novo item.
+
+Fonte monitorada:
+
+https://blogdoelvis.com.br/trombone-cidadao
+
+Quando uma nova notícia aparece ali, o sistema:
+
+detecta a nova URL
+
+extrai os dados da notícia
+
+salva no Supabase
+
+publica automaticamente no Trombone
+
+Tempo médio de atualização: 30min.
+
+Estrutura geral
+Blog do Elvis
+      ↓
+Monitor de novas notícias
+      ↓
+Edge Function (Supabase)
+      ↓
+Parser HTML
+      ↓
+Banco de dados Trombone
+      ↓
+Frontend mostra notícia
+Passo 1 — Monitorar apenas a primeira página
+
+A primeira página sempre mostra as notícias mais recentes.
+
+URL:
+
+https://blogdoelvis.com.br/trombone-cidadao
+
+Seu sistema só precisa:
+
+baixar o HTML
+
+pegar o primeiro link de notícia
+
+Exemplo no HTML:
+
+<a href="https://blogdoelvis.com.br/noticia/56237/...">
+
+Extrair:
+
+external_id = 56237
+Passo 2 — Comparar com a última notícia importada
+
+No banco você guarda:
+
+last_imported_id
+
+Se:
+
+novo_id > last_imported_id
+
+Então existem notícias novas.
+
+Passo 3 — Buscar a notícia completa
+
+URL padrão:
+
+https://blogdoelvis.com.br/noticia/{id}
+
+Exemplo:
+
+https://blogdoelvis.com.br/noticia/56237
+
+Ali você extrai:
+
+título
+
+imagem
+
+texto
+
+autor
+
+data
+
+categoria
+
+Tudo direto do HTML.
+
+Passo 4 — Salvar no Supabase
+
+Tabela exemplo:
+
+trombone_posts
+
+Campos:
+
+id
+external_id
+title
+summary
+content
+image_url
+source_url
+created_at
+Passo 5 — atualizar último ID
+
+Após salvar:
+
+last_imported_id = 56237
+Automação com Supabase Cron
+
+Criar um job:
+
+a cada 1 minuto
+
+Ele executa:
+
+checkNewPosts()
+Fluxo final
+Cron (1 minuto)
+     ↓
+Edge Function
+     ↓
+Baixa HTML da página
+     ↓
+Detecta novo ID
+     ↓
+Busca notícia completa
+     ↓
+Salva no banco
+Vantagens desse modelo
+
+✔ muito mais rápido
+✔ muito menos requisições
+✔ não precisa percorrer paginação
+✔ escalável
+✔ fácil manutenção
