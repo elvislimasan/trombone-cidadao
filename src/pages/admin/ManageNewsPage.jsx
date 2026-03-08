@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Image as ImageIcon, Video, Check, XCircle } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Image as ImageIcon, Video, Check, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -345,6 +345,7 @@ const ManageNewsPage = () => {
   const [editingNews, setEditingNews] = useState(null);
   const [deletingNews, setDeletingNews] = useState(null);
   const [pendingComments, setPendingComments] = useState([]);
+  const [isImporting, setIsImporting] = useState(false);
 
   const fetchNewsAndComments = useCallback(async () => {
     const { data: newsData, error: newsError } = await supabase.from('news').select('*').order('date', { ascending: false });
@@ -359,6 +360,26 @@ const ManageNewsPage = () => {
   useEffect(() => {
     fetchNewsAndComments();
   }, [fetchNewsAndComments]);
+
+  const handleRunImporter = async () => {
+    if (isImporting) return;
+    setIsImporting(true);
+    toast({ title: "Importando notícias...", description: "Buscando novas publicações do Blog do Elvis." });
+    try {
+      const { data, error } = await supabase.functions.invoke('import-news', { body: { limit: 100, pages: 0 } });
+      if (error) {
+        toast({ title: "Erro ao importar", description: error.message, variant: "destructive" });
+      } else {
+        const imported = data?.imported_count || 0;
+        toast({ title: "Importação concluída", description: `${imported} notícia(s) nova(s) importada(s).` });
+        fetchNewsAndComments();
+      }
+    } catch (e) {
+      toast({ title: "Falha na função de importação", description: e.message, variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportId = null, relatedWorkId = null) => {
     const { id, comments, ...dataToSave } = newsToSave;
@@ -603,7 +624,20 @@ const ManageNewsPage = () => {
               <p className="mt-2 text-lg text-muted-foreground">Adicione, edite, remova notícias e modere comentários.</p>
             </div>
           </div>
-          <Button onClick={handleAddNew} className="gap-2"><PlusCircle className="w-4 h-4" /> Adicionar Notícia</Button>
+          <div className="flex gap-2">
+            <Button onClick={handleRunImporter} variant="outline" className="gap-2" disabled={isImporting}>
+              {isImporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Importando...
+                </>
+              ) : (
+                <>
+                  <Video className="w-4 h-4" /> Importar do Blog do Elvis
+                </>
+              )}
+            </Button>
+            <Button onClick={handleAddNew} className="gap-2"><PlusCircle className="w-4 h-4" /> Adicionar Notícia</Button>
+          </div>
         </motion.div>
 
         <Tabs defaultValue="news">
