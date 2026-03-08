@@ -822,14 +822,14 @@ const WorkDetailsPage = () => {
                      </div>
                      )}
 
-                     {work.amount_spent != null && (
+                     {work.amount_spent != null && Number(work.amount_spent) > 0 && (
                      <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
                         <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
                         </div>
                         <div className="w-full min-w-0">
                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Pago</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(work.amount_spent || 0)}</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(work.amount_spent)}</p>
                            <Progress 
                              value={work.total_value ? Math.min(((work.amount_spent || 0) / work.total_value) * 100, 100) : 0} 
                              className="h-1.5 bg-slate-100 w-full" 
@@ -1748,7 +1748,7 @@ const WorkDetailsPage = () => {
                               </p>
                             </div>
                           )}
-                          {selectedMeasurement?.amount_spent != null && (
+                          {selectedMeasurement?.amount_spent != null && Number(selectedMeasurement.amount_spent) > 0 && (
                             <div className="space-y-1">
                               <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Pago</span>
                               <p className="font-semibold text-slate-800 text-sm md:text-base">
