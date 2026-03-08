@@ -208,20 +208,9 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
   let cleanedBody = body
   // Trim tudo após o marcador "Assista o vídeo" / "Veja o vídeo"
   if (cleanedBody) {
-    const markers = [
-      /assista[^<]{0,120}v(?:&iacute;|í|i)de(?:&oacute;|ó|o)[:\s]?/i,
-      /veja[^<]{0,120}v(?:&iacute;|í|i)de(?:&oacute;|ó|o)[:\s]?/i
-    ]
-    let cutIndex = -1
-    for (const re of markers) {
-      const m = re.exec(cleanedBody)
-      if (m && (cutIndex === -1 || (m.index >= 0 && m.index < cutIndex))) {
-        cutIndex = m.index
-      }
-    }
-    if (cutIndex >= 0) {
-      cleanedBody = cleanedBody.slice(0, cutIndex).trim()
-    }
+    // Remove todo bloco contendo o marcador e tudo que vem depois dele, preservando HTML antes
+    const cutRegex = /<(?:p|h2|h3)[^>]*>[\s\S]*?(assista|veja)[\s\S]*?v(?:&iacute;|í|i)de(?:&oacute;|ó|o)[\s\S]*?<\/(?:p|h2|h3)>[\s\S]*$/i
+    cleanedBody = cleanedBody.replace(cutRegex, '').trim()
   }
   if (cleanedBody && videoUrl) {
     const esc = videoUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -233,6 +222,16 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
     cleanedBody = cleanedBody.replace(rmAssista, '').replace(rmVeja, '')
     // Remove variações sem tags explícitas
     cleanedBody = cleanedBody.replace(/assista[^<]{0,80}v(?:&iacute;|í|i)de(?:&oacute;|ó|o)/gi, '')
+    // Fallback: se não houver tags de bloco, criar parágrafos
+    if (!/(<p|<br|<ul|<ol|<h2|<h3)/i.test(cleanedBody)) {
+      let parts = cleanedBody.split(/(?:\r?\n){2,}/).map(s => s.trim()).filter(Boolean)
+      if (parts.length <= 1) {
+        parts = cleanedBody.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean)
+      }
+      if (parts.length > 0) {
+        cleanedBody = parts.map(p => `<p>${p}</p>`).join('\n')
+      }
+    }
   }
 
   return {
