@@ -207,7 +207,7 @@ const NewsDetailsPage = () => {
             <div className="my-12">
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Video className="w-6 h-6 text-primary" /> Vídeo</h2>
               {isInstagram ? (
-                <div className="w-full rounded-xl shadow-lg overflow-visible">
+                <div className="w-full max-w-[420px] mx-auto rounded-xl shadow-lg overflow-visible">
                   <blockquote 
                     className="instagram-media w-full" 
                     data-instgrm-permalink={videoEmbedUrl} 
