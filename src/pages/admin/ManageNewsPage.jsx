@@ -26,6 +26,8 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [reports, setReports] = useState([]);
   const [works, setWorks] = useState([]);
   const [selectedWorkId, setSelectedWorkId] = useState('');
+  const [petitions, setPetitions] = useState([]);
+  const [selectedPetitionId, setSelectedPetitionId] = useState('');
   const featuredImageInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
@@ -53,6 +55,18 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
     fetchWorks();
   }, []);
 
+  // Fetch petitions for selection
+  useEffect(() => {
+    const fetchPetitions = async () => {
+      const { data } = await supabase
+        .from('petitions')
+        .select('id, title')
+        .order('created_at', { ascending: false });
+      if (data) setPetitions(data);
+    };
+    fetchPetitions();
+  }, []);
+
   useEffect(() => {
     if (newsItem) {
       setFormData({
@@ -63,6 +77,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
       setSendNotification(!newsItem.id);
       setSelectedReportId(''); // Reset or set if we had a field
       setSelectedWorkId('');
+      setSelectedPetitionId('');
       
       // Buscar imagens existentes da galeria
       if (newsItem.id) {
@@ -88,9 +103,22 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
               setSelectedWorkId('');
             }
           });
+        supabase
+          .from('news_petitions')
+          .select('petition_id')
+          .eq('news_id', newsItem.id)
+          .limit(1)
+          .then(({ data, error }) => {
+            if (!error && data && data.length > 0) {
+              setSelectedPetitionId(data[0].petition_id || '');
+            } else {
+              setSelectedPetitionId('');
+            }
+          });
       } else {
         setExistingGallery([]);
         setSelectedWorkId('');
+        setSelectedPetitionId('');
       }
     } else {
       setFormData(null);
@@ -142,7 +170,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData, galleryFiles, removedGalleryIds, sendNotification, selectedReportId, selectedWorkId);
+    onSave(formData, galleryFiles, removedGalleryIds, sendNotification, selectedReportId, selectedWorkId, selectedPetitionId);
   };
 
   if (!formData) return null;
@@ -233,6 +261,30 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Se vinculado, esta notícia aparecerá como relacionada na página da obra.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="relatedPetition" className="text-right">Vincular Petição</Label>
+              <div className="col-span-3">
+                <Combobox
+                  options={[
+                    { value: 'none', label: 'Nenhuma' },
+                    ...petitions.map(p => ({
+                      value: p.id,
+                      label: p.title
+                    }))
+                  ]}
+                  value={selectedPetitionId}
+                  onChange={setSelectedPetitionId}
+                  placeholder="Selecione uma petição (opcional)"
+                  searchPlaceholder="Buscar petição..."
+                  notFoundText="Nenhuma petição encontrada."
+                  modal
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se vinculado, esta notícia aparecerá como relacionada na página da petição.
                 </p>
               </div>
             </div>
@@ -385,7 +437,7 @@ const ManageNewsPage = () => {
     }
   };
 
-  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportId = null, relatedWorkId = null) => {
+  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportId = null, relatedWorkId = null, relatedPetitionId = null) => {
     const { id, comments, ...dataToSave } = newsToSave;
     
     // Remove campos que não existem na tabela news
@@ -424,6 +476,19 @@ const ManageNewsPage = () => {
         await supabase.from('news_public_works').insert({
           news_id: savedNewsId,
           work_id: relatedWorkId
+        });
+      }
+    }
+
+    // Atualizar vínculo notícia-petição
+    if (savedNewsId) {
+      // Limpar vínculos existentes para esta notícia
+      await supabase.from('news_petitions').delete().eq('news_id', savedNewsId);
+      // Inserir novo vínculo se houver petição selecionada
+      if (relatedPetitionId && relatedPetitionId !== 'none') {
+        await supabase.from('news_petitions').insert({
+          news_id: savedNewsId,
+          petition_id: relatedPetitionId
         });
       }
     }
