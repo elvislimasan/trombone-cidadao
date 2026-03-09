@@ -295,6 +295,8 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
   const ogTitle = extractMetaContent(html, 'og:title')
   const ogDesc = extractMetaContent(html, 'og:description')
   const ogImage = extractFeaturedImage(html)
+  const h2SubtitleMatch = html.match(/<h2[^>]*class="[^"]*subtitulo-post[^"]*"[^>]*>([\s\S]*?)<\/h2>/i)
+  const h2Subtitle = h2SubtitleMatch ? h2SubtitleMatch[1].replace(/<[^>]+>/g, '').trim() : undefined
   const metaAuthor = extractMetaContent(html, 'author') || extractMetaContent(html, 'article:author')
   const jsonLd = extractJsonLdArticle(html)
   const metaDate = extractMetaContent(html, 'article:published_time') || jsonLd.datePublished
@@ -322,7 +324,11 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
     body_html: styledBody,
     author: metaAuthor || jsonLd.authorName,
     date_iso: metaDate,
-    category: metaSection
+    category: metaSection,
+    // Não persiste aqui, apenas retorna para o caller salvar em subtitle
+    // subtitle será salvo no record usando h2Subtitle ou og:description como fallback
+    // @ts-ignore
+    subtitle: h2Subtitle || ogDesc
   }
 }
 
@@ -509,6 +515,7 @@ serve(async (req) => {
         source: 'Blog do Elvis',
         date: art.date_iso || new Date().toISOString(),
         description: art.description || '',
+        subtitle: (art as any).subtitle || null,
         body: bodyHtml,
         image_url: art.image_url || null,
         link: normalizeLink(art.url),

@@ -7,6 +7,14 @@
 
   # Redirect /share/bronca/ID to Supabase Edge Function (bronca)
   RewriteRule ^share/bronca/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-preview?id=$1 [R=302,L]
+
+  # Redirect /share/noticia/ID to Supabase Edge Function (noticia)
+  RewriteRule ^share/noticia/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-news?id=$1 [R=302,L]
+
+  # Redirect /share/obra/ID to Supabase Edge Function (obra)
+  RewriteRule ^share/obra/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-work?id=$1 [R=302,L]
+
+
   
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import MediaViewer from '@/components/MediaViewer';
 import { supabase } from '@/lib/customSupabaseClient';
+import { getNewsShareUrl } from '@/lib/shareUtils';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
@@ -66,17 +67,13 @@ const NewsDetailsPage = () => {
   }, [fetchNewsDetails]);
 
   const handleShare = async () => {
-    const shareData = {
-      title: newsItem.title,
-      text: `Confira esta notícia no Trombone Cidadão: "${newsItem.title}"`,
-      url: window.location.href,
-    };
+    const shareUrl = getNewsShareUrl(newsItem.id);
     try {
       if (navigator.share) {
-        await navigator.share(shareData);
+        await navigator.share({ title: newsItem.title, url: shareUrl });
         toast({ title: "Compartilhado com sucesso! 📣" });
       } else {
-        await navigator.clipboard.writeText(shareData.url);
+        await navigator.clipboard.writeText(shareUrl);
         toast({ title: "Link copiado! 📋", description: "O link da notícia foi copiado." });
       }
     } catch (error) {
@@ -179,13 +176,24 @@ const NewsDetailsPage = () => {
     <>
       <Helmet>
         <title>{`${newsItem.title} - Trombone Cidadão`}</title>
-        <meta name="description" content={newsItem.description} />
+        <meta name="description" content={newsItem.subtitle || newsItem.description || ''} />
+        <meta property="og:title" content={newsItem.title} />
+        <meta property="og:description" content={newsItem.subtitle || newsItem.description || ''} />
+        <meta property="og:image" content={newsItem.image_url || ''} />
+        <meta property="og:type" content="article" />
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:title" content={newsItem.title} />
+        <meta property="twitter:description" content={newsItem.subtitle || newsItem.description || ''} />
+        <meta property="twitter:image" content={newsItem.image_url || ''} />
       </Helmet>
       <div className="container mx-auto max-w-4xl px-4 py-12">
         <motion.article initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <header className="mb-8">
             <Link to="/noticias" className="text-sm text-primary hover:underline mb-4 block">&larr; Voltar para todas as notícias</Link>
             <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight mb-4">{newsItem.title}</h1>
+            {newsItem.subtitle && (
+              <p className="text-lg text-muted-foreground mb-4">{newsItem.subtitle}</p>
+            )}
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-muted-foreground text-sm">
               <div className="flex items-center gap-2"><User className="w-4 h-4" /> {newsItem.source}</div>
               <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {new Date(newsItem.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })}</div>
