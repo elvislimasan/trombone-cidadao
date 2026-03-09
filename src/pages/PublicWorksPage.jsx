@@ -385,22 +385,25 @@ const PublicWorksPage = () => {
               )}
             </div>
             {filteredWorks.length > 0 && (
-              <div className="mt-6 flex items-center justify-between">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-xs text-muted-foreground">
                   Exibindo {Math.min(filteredWorks.length, startIndex + 1)}–{Math.min(filteredWorks.length, startIndex + pageSize)} de {filteredWorks.length}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:overflow-x-auto sm:max-w-[70vw]">
                   <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>Anterior</Button>
-                  {Array.from({ length: totalPages }).map((_, i) => (
-                    <Button
-                      key={i}
-                      variant={currentPage === i + 1 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentPage(i + 1)}
-                    >
-                      {i + 1}
-                    </Button>
-                  ))}
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <Button
+                        key={i}
+                        variant={currentPage === i + 1 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(i + 1)}
+                        className="flex-shrink-0"
+                      >
+                        {i + 1}
+                      </Button>
+                    ))}
+                  </div>
                   <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>Próxima</Button>
                 </div>
               </div>
