@@ -39,10 +39,6 @@ function findAllArticleIds(categoryHtml: string): string[] {
 }
 
 function extractCategoryArticleLinks(categoryHtml: string): string[] {
-  // Scope to the main list container of the category page
-  // Atenção: regex de container pode capturar apenas parte devido a divs aninhadas.
-  // Para robustez, varremos TODO o HTML e filtramos por anchors com class listagem-interna.
-  const scoped = categoryHtml
   const links: string[] = []
   const normalizeLink = (href: string) => {
     if (!href) return href
@@ -53,25 +49,21 @@ function extractCategoryArticleLinks(categoryHtml: string): string[] {
     out = out.replace(/\/$/, '')
     return out
   }
-  // Find all anchor opening tags and extract href regardless of attribute order
   const anchorTagRe = /<a[^>]*?>/gi
   let tagMatch
-  while ((tagMatch = anchorTagRe.exec(scoped)) !== null) {
+  while ((tagMatch = anchorTagRe.exec(categoryHtml)) !== null) {
     const tag = tagMatch[0]
-    // Must be one of the list items in the category (listagem-interna)
     if (/class="[^"]*listagem-interna[^"]*"/i.test(tag)) {
       const hrefMatch = tag.match(/href="([^"]+)"/i)
       if (hrefMatch) {
-        let href = normalizeLink(hrefMatch[1])
+        const href = normalizeLink(hrefMatch[1])
         console.log('[import-news] href normalizado', href)
-        // Accept both absolute and normalized links
         if (/^https?:\/\/blogdoelvis\.com\.br\/noticia\/\d+/.test(href)) {
           links.push(href)
         }
       }
     }
   }
-  // Fallback to global extraction if scoped is empty
   if (links.length === 0) {
     return findAllArticleIds(categoryHtml).map(id => `https://blogdoelvis.com.br/noticia/${id}`)
   }
@@ -91,12 +83,10 @@ function extractFirstTag(html: string, tag: string): string | undefined {
 }
 
 function extractBodyHtml(html: string): string | undefined {
-  // Prefer the site-specific container: .pos-texto > .texto (Blog do Elvis)
   const reSite = /<div[^>]*class="[^"]*pos-texto[^"]*"[^>]*>[\s\S]*?<div[^>]*class="[^"]*texto[^"]*"[^>]*>([\s\S]*?)<\/div>/i
   const mSite = html.match(reSite)
   if (mSite) return mSite[1].trim()
 
-  // Common WordPress-like containers as fallback
   const candidates = [
     /<article[^>]*class="[^"]*post[^"]*"[^>]*>[\s\S]*?<div[^>]*class="[^"]*(?:entry-content|post-content|single-content)[^"]*"[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/article>/i,
     /<div[^>]*class="[^"]*(entry-content|post-content|single-content)[^"]*"[^>]*>([\s\S]*?)<\/div>/i
@@ -115,44 +105,75 @@ function extractBodySection(html: string): string | undefined {
   return undefined
 }
 
+// ─── REMOÇÃO DO INSTAGRAM ────────────────────────────────────────────────────
+
+function removeInstagramOnly(html: string): string {
+  if (!html) return html
+
+  // 1. Remove iframes do Instagram (qualquer iframe com "instagram" nos atributos)
+  let prev = ''
+  while (prev !== html) {
+    prev = html
+    html = html.replace(/<iframe\b[^>]*instagram[^>]*>[\s\S]*?<\/iframe>/gi, '')
+    html = html.replace(/<iframe\b[^>]*instagram[^>]*\/>/gi, '')
+  }
+
+  // 2. Remove blockquotes com "instagram-media" no class (tolera espaço inicial no valor)
+  prev = ''
+  while (prev !== html) {
+    prev = html
+    html = html.replace(/<blockquote\b[^>]*class="\s*[^"]*instagram-media[^"]*"[^>]*>[\s\S]*?<\/blockquote>/gi, '')
+  }
+
+  // 3. Remove divs com classe "instagram-media-registered"
+  prev = ''
+  while (prev !== html) {
+    prev = html
+    html = html.replace(/<div\b[^>]*class="\s*[^"]*instagram-media-registered[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
+  }
+
+  // 4. Remove qualquer elemento que possua data-instgrm-payload-id
+  prev = ''
+  while (prev !== html) {
+    prev = html
+    html = html.replace(/<[a-z][^>]*\bdata-instgrm-payload-id\b[^>]*>[\s\S]*?<\/[a-z]+>/gi, '')
+  }
+
+  // 5. Remove o parágrafo "Assista o vídeo:" que fica órfão após remover o embed
+  html = html.replace(/<p[^>]*>\s*Assista\s+o\s+v[íi]deo\s*:?\s*<\/p>/gi, '')
+  html = html.replace(/Assista\s+o\s+v[íi]deo\s*:?\s*(<br\s*\/?>)?\s*/gi, '')
+
+  // 6. Remove URLs soltas do Instagram
+  html = html.replace(/https?:\/\/(?:www\.)?instagram\.com\/[^\s<>"']+/g, '')
+
+  // 7. Limpa tags completamente vazias que sobraram
+  prev = ''
+  while (prev !== html) {
+    prev = html
+    html = html.replace(/<p[^>]*>\s*<\/p>/gi, '')
+    html = html.replace(/<div[^>]*>\s*<\/div>/gi, '')
+  }
+
+  return html
+}
+
+// ─── SANITIZAÇÃO GERAL ───────────────────────────────────────────────────────
+
 function sanitizeHtml(html?: string): string | undefined {
   if (!html) return undefined
-  
-  // Remove script/style tags for safety
-  html = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
-  
-  // Remove images inside body to avoid duplicating featured image and ads
-  html = html.replace(/<img[^>]*>/gi, '')
-  
-  // Remove figures inside body
-  html = html.replace(/<figure[\s\S]*?<\/figure>/gi, '')
-  
-  // REMOVER BLOCKQUOTES COMPLETAMENTE (incluindo conteúdo interno)
-  // Esta regex captura blockquotes com qualquer atributo e seu conteúdo
-  html = html.replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi, '')
-  
-  // Remover qualquer blockquote que possa ter sido inserido sem fechamento correto
-  html = html.replace(/<blockquote[^>]*>/gi, '')
-  html = html.replace(/<\/blockquote>/gi, '')
-  
-  // Remove any element with instagram-media class (defensive)
-  html = html.replace(/<[^>]*class="[^"]*instagram-media[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, '')
-  
-  // Remove custom data-* attributes noise
-  html = html.replace(/\sdata-[\w-]+="[^"]*"/gi, '')
-  
-  // Remove any remaining blockquote-related content
-  html = html.replace(/<[\/]?blockquote[^>]*>/gi, '')
-  
-  // Basic cleanup - remove empty paragraphs that might result from blockquote removal
-  html = html.replace(/<p>\s*<\/p>/gi, '')
-  html = html.replace(/<p><\/p>/gi, '')
-  
-  // Remove multiple consecutive newlines/spaces
-  html = html.replace(/\n\s*\n/g, '\n')
-  
-  return html.trim()
+
+  // Remove script/style por segurança
+  html = html.replace(/<script[\s\S]*?<\/script>/gi, '')
+             .replace(/<style[\s\S]*?<\/style>/gi, '')
+             .replace(/<!--[\s\S]*?-->/gi, '')
+
+  // Remove apenas Instagram
+  html = removeInstagramOnly(html)
+
+  return html
 }
+
+// ─── EXTRAÇÃO DE METADADOS ───────────────────────────────────────────────────
 
 function extractJsonLdArticle(html: string): { datePublished?: string, authorName?: string } {
   const results: { datePublished?: string, authorName?: string } = {}
@@ -183,11 +204,19 @@ function extractJsonLdArticle(html: string): { datePublished?: string, authorNam
   return results
 }
 
+function normalizeTitle(t?: string): string {
+  if (!t) return ''
+  return t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
 function extractFeaturedImage(html: string): string | undefined {
-  // Prefer og:image
   const ogImage = extractMetaContent(html, 'og:image')
   if (ogImage) return ogImage
-  // Fallback to figure in .pos-texto
   const m = html.match(/<div[^>]*class="[^"]*pos-texto[^"]*"[^>]*>[\s\S]*?<figure[^>]*class="[^"]*image[^"]*"[^>]*>[\s\S]*?<img[^>]*(?:data-src="([^"]+)"|src="([^"]+)")[^>]*>/i)
   if (m) return m[1] || m[2]
   return undefined
@@ -195,12 +224,10 @@ function extractFeaturedImage(html: string): string | undefined {
 
 function extractVideoUrlFromBody(bodyHtml: string | undefined): string | undefined {
   if (!bodyHtml) return undefined
-  // Prefer Instagram post/reel inside the body
   const instaMatch = bodyHtml.match(/https?:\/\/(?:www\.)?instagram\.com\/(p|reel)\/([a-zA-Z0-9_-]+)/i)
   if (instaMatch) {
     return `https://www.instagram.com/${instaMatch[1]}/${instaMatch[2]}/`
   }
-  // Fallback to YouTube video (avoid channel links)
   const ytMatch =
     bodyHtml.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/i)
     || bodyHtml.match(/https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/i)
@@ -208,7 +235,6 @@ function extractVideoUrlFromBody(bodyHtml: string | undefined): string | undefin
   if (ytMatch) {
     return `https://www.youtube.com/watch?v=${ytMatch[1]}`
   }
-  // Fallback to iframe src within body
   const iframe = bodyHtml.match(/<iframe[^>]*src="([^"]+)"[^>]*><\/iframe>/i)
   const src = iframe ? iframe[1] : undefined
   if (src && (/instagram\.com|youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com/i.test(src))) {
@@ -217,7 +243,55 @@ function extractVideoUrlFromBody(bodyHtml: string | undefined): string | undefin
   return undefined
 }
 
+function extractVideoUrl(articleHtml: string): string | undefined {
+  if (!articleHtml) return undefined
+  // Extrai a URL do vídeo do HTML ORIGINAL (antes da sanitização), para não perder a referência
+  const body = extractBodySection(articleHtml) || extractBodyHtml(articleHtml) || ''
+  const fromBody = extractVideoUrlFromBody(body)
+  if (fromBody) return fromBody
+  const insta = articleHtml.match(/https?:\/\/(?:www\.)?instagram\.com\/(p|reel)\/([a-zA-Z0-9_-]+)/i)
+  if (insta) return `https://www.instagram.com/${insta[1]}/${insta[2]}/`
+  const yt =
+    articleHtml.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/i) ||
+    articleHtml.match(/https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/i) ||
+    articleHtml.match(/https?:\/\/(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/i)
+  if (yt) return `https://www.youtube.com/watch?v=${yt[1]}`
+  const iframe = articleHtml.match(/<iframe[^>]*src="([^"]+)"[^>]*><\/iframe>/i)
+  const src = iframe ? iframe[1] : undefined
+  if (src && (/instagram\.com|youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com/i.test(src))) return src
+  return undefined
+}
+
+// ─── ESTILOS DE LEITURA ──────────────────────────────────────────────────────
+
+function applyReadableStyles(html: string): string {
+  if (!html) return html
+
+  // h2 — negrito, maior, espaçado
+  html = html.replace(
+    /<h2([^>]*)>/gi,
+    '<h2$1 style="font-size:1.25rem;font-weight:700;margin-top:1.5rem;margin-bottom:0.5rem;">'
+  )
+
+  // h3 — negrito, levemente maior, espaçado
+  html = html.replace(
+    /<h3([^>]*)>/gi,
+    '<h3$1 style="font-size:1.1rem;font-weight:700;margin-top:1.25rem;margin-bottom:0.4rem;">'
+  )
+
+  // parágrafos — espaçamento vertical e altura de linha confortável
+  html = html.replace(
+    /<p([^>]*)>/gi,
+    '<p$1 style="margin-top:0.75rem;margin-bottom:0.75rem;line-height:1.6;">'
+  )
+
+  return html
+}
+
+// ─── EXTRAÇÃO DO ARTIGO ──────────────────────────────────────────────────────
+
 function extractArticle(html: string, id: string, url: string): ExtractedArticle {
+  // Metadados extraídos do HTML original (og:image, og:title etc. não são afetados pela sanitização)
   const ogTitle = extractMetaContent(html, 'og:title')
   const ogDesc = extractMetaContent(html, 'og:description')
   const ogImage = extractFeaturedImage(html)
@@ -227,95 +301,17 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
   const metaSection = extractMetaContent(html, 'article:section')
   const h1TitleMatch = html.match(/<h1[^>]*class="[^"]*titulo-post[^"]*"[^>]*>([\s\S]*?)<\/h1>/i)
   const h1 = h1TitleMatch ? h1TitleMatch[1].trim() : extractFirstTag(html, 'h1')
-  const bodySection = extractBodySection(html)
-  const videoUrl = extractVideoUrlFromBody(bodySection)
-  const baseBody = bodySection || extractBodyHtml(html)
-  const body = sanitizeHtml(baseBody)
-  let cleanedBody = body
-  // Trim tudo após o marcador "Assista o vídeo" / "Veja o vídeo"
-  if (cleanedBody) {
-    let cutApplied = false
-    const tagMarker = /<(?:p|h2|h3)[^>]*>[\s\S]*?(assista|veja)[\s\S]*?(?:abaixo|v(?:&iacute;|í|i)de(?:&oacute;|ó|o)|reportagem)[\s\S]*?<\/(?:p|h2|h3)>/gi
-    let mTag
-    let lastIdx = -1
-    while ((mTag = tagMarker.exec(cleanedBody)) !== null) {
-      lastIdx = mTag.index
-    }
-    if (lastIdx >= 0) {
-      cleanedBody = cleanedBody.slice(0, lastIdx).trim()
-      cutApplied = true
-    }
-    if (!cutApplied && baseBody) {
-      const generalMarker = /(assista|veja)[^<]{0,200}(abaixo|vídeo|reportagem)/gi
-      let mGen
-      let lastGen = -1
-      while ((mGen = generalMarker.exec(baseBody)) !== null) {
-        lastGen = mGen.index
-      }
-      if (lastGen > 0) {
-        cleanedBody = sanitizeHtml(baseBody.slice(0, lastGen).trim())
-        cutApplied = true
-      }
-    }
-  }
-  if (cleanedBody && videoUrl) {
-    const esc = videoUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    cleanedBody = cleanedBody.replace(new RegExp(esc, 'g'), '')
-  }
-  if (cleanedBody) {
-    const rmAssista = /<(p|h2|h3)[^>]*>[\s\S]*?assista[\s\S]*?v(?:&iacute;|í|i)de(?:&oacute;|ó|o)[\s\S]*?<\/\1>/gi
-    const rmVeja = /<(p|h2|h3)[^>]*>[\s\S]*?veja[\s\S]*?v(?:&iacute;|í|i)de(?:&oacute;|ó|o)[\s\S]*?<\/\1>/gi
-    cleanedBody = cleanedBody.replace(rmAssista, '').replace(rmVeja, '')
-    // Cut everything from the first marker paragraph onward (defensive)
-    cleanedBody = cleanedBody.replace(/<(?:p|h2|h3|div)[^>]*>[\s\S]*?(assista|veja)[\s\S]*$/i, (m) => {
-      const idx = m.search(/(assista|veja)/i)
-      return idx > 0 ? m.slice(0, idx) : ''
-    })
-    // Remove "Via Blog do Elvis" footer lines if present
-    cleanedBody = cleanedBody.replace(/<(p|h2|h3)[^>]*>[\s\S]*?via\s+blog\s+do\s+elvis[\s\S]*?<\/\1>/gi, '')
-    // Remove variações sem tags explícitas
-    cleanedBody = cleanedBody.replace(/assista[^<]{0,80}v(?:&iacute;|í|i)de(?:&oacute;|ó|o)/gi, '')
-    // Hard cut: find first occurrence of 'assista' or 'veja' and truncate everything after it
-    const anyMarkerIndex = cleanedBody.search(/assista|veja/i)
-    if (anyMarkerIndex >= 0) {
-      cleanedBody = cleanedBody.slice(0, anyMarkerIndex).trim()
-    }
-    // Fallback: se não houver tags de bloco, criar parágrafos
-    if (!/(<p|<br|<ul|<ol|<h2|<h3)/i.test(cleanedBody)) {
-      let parts = cleanedBody.split(/(?:\r?\n){2,}/).map(s => s.trim()).filter(Boolean)
-      if (parts.length <= 1) {
-        parts = cleanedBody.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean)
-      }
-      if (parts.length > 0) {
-        cleanedBody = parts.map(p => `<p>${p}</p>`).join('</p><p>&nbsp;</p><p>')
-      }
-    }
-    // Normalize spacing when content uses <br><br> for paragraph breaks
-    if (!/<p\b/i.test(cleanedBody)) {
-      cleanedBody = `<p>${cleanedBody}</p>`
-    }
-    cleanedBody = cleanedBody.replace(/(?:<br\s*\/?>\s*){2,}/gi, '</p><p>&nbsp;</p><p>')
-  }
-  if (!cleanedBody || cleanedBody.replace(/<[^>]+>/g, '').trim().length === 0) {
-    let fallbackHtml = baseBody || ''
-    const markerHtml = /(assista|veja)[\s\S]{0,200}(abaixo|vídeo|reportagem)/i
-    const m = fallbackHtml.match(markerHtml)
-    if (m && m.index !== undefined && m.index > 0) {
-      fallbackHtml = fallbackHtml.slice(0, m.index)
-    }
-    let sanitized = sanitizeHtml(fallbackHtml).trim()
-    if (!sanitized || sanitized.replace(/<[^>]+>/g, '').trim().length === 0) {
-      // As último recurso, reconstruir parágrafos a partir do texto
-      let plain = fallbackHtml
-        .replace(/<\/(p|br|h[1-6]|li|div)>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-      const idx = plain.search(/(assista|veja)[^\n]{0,200}(abaixo|vídeo|reportagem)/i)
-      if (idx > 0) plain = plain.slice(0, idx)
-      const lines = plain.split(/\n+/).map(s => s.trim()).filter(Boolean)
-      sanitized = lines.length > 0 ? lines.map(p => `<p>${p}</p>`).join('</p><p>&nbsp;</p><p>') : ''
-    }
-    cleanedBody = sanitized
-  }
+
+  // ✅ SANITIZA O HTML COMPLETO PRIMEIRO — garante que iframe/blockquote do Instagram
+  // sejam removidos antes de qualquer extração de corpo, independente de onde estejam
+  const sanitizedFullHtml = sanitizeHtml(html) ?? html
+
+  // Agora extrai o corpo do HTML já limpo
+  const bodySection = extractBodySection(sanitizedFullHtml)
+  const baseBody = bodySection || extractBodyHtml(sanitizedFullHtml) || ''
+
+  // Aplica estilos inline para garantir formatação correta no app
+  const styledBody = applyReadableStyles(baseBody.trim())
 
   return {
     id,
@@ -323,12 +319,14 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
     title: ogTitle || h1,
     description: ogDesc,
     image_url: ogImage,
-    body_html: cleanedBody,
+    body_html: styledBody,
     author: metaAuthor || jsonLd.authorName,
     date_iso: metaDate,
     category: metaSection
   }
 }
+
+// ─── HANDLER PRINCIPAL ───────────────────────────────────────────────────────
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -356,17 +354,24 @@ serve(async (req) => {
         // ignore body parsing errors
       }
     }
+
     console.log('[import-news] início', { limit, pages })
     const categoryUrl = 'https://blogdoelvis.com.br/trombone-cidadao'
     const html = await fetchText(categoryUrl)
     if (!html) {
-      return new Response(JSON.stringify({ error: 'Falha ao baixar página da categoria' }), { status: 502, headers: { ...corsHeaders, 'content-type': 'application/json' } })
+      return new Response(
+        JSON.stringify({ error: 'Falha ao baixar página da categoria' }),
+        { status: 502, headers: { ...corsHeaders, 'content-type': 'application/json' } }
+      )
     }
     console.log('[import-news] página da categoria baixada')
 
     let linksFromList = extractCategoryArticleLinks(html)
     if (linksFromList.length === 0) {
-      return new Response(JSON.stringify({ message: 'Nenhum link de notícia encontrado' }), { status: 200, headers: { ...corsHeaders, 'content-type': 'application/json' } })
+      return new Response(
+        JSON.stringify({ message: 'Nenhum link de notícia encontrado' }),
+        { status: 200, headers: { ...corsHeaders, 'content-type': 'application/json' } }
+      )
     }
     console.log('[import-news] links extraídos página 1', linksFromList.length)
 
@@ -379,7 +384,6 @@ serve(async (req) => {
         return out
       }
       const seen = new Set(linksFromList.map(normalize))
-      // Detect máximo de páginas pela paginação do HTML inicial
       const pageMatches = html.match(/\/trombone-cidadao\/pagina\/(\d+)/gi) || html.match(/\/pagina\/(\d+)/gi) || []
       let maxPagesDetected = 1
       for (const m of pageMatches) {
@@ -399,14 +403,10 @@ serve(async (req) => {
         const moreLinks = extractCategoryArticleLinks(pageHtml)
         const normalizedNew = moreLinks.map(normalize).filter(l => !seen.has(l))
         console.log('[import-news] links extraídos página', i, moreLinks.length, 'novos', normalizedNew.length)
-        if (normalizedNew.length === 0) {
-          // Nada novo nesta página — parar
-          break
-        }
+        if (normalizedNew.length === 0) break
         normalizedNew.forEach(l => seen.add(l))
         linksFromList = linksFromList.concat(moreLinks)
         i++
-        // Segurança: limite superior para evitar loop infinito por páginas artificiais
         if (i > 100) {
           console.warn('[import-news] limite de páginas atingido (100), encerrando paginação')
           break
@@ -414,10 +414,8 @@ serve(async (req) => {
       }
     }
 
-    // Limit to recent N items to reduce noise/backlog (configurável)
     const links = linksFromList.slice(0, limit)
 
-    // Check which links already exist in news
     const { data: existing } = await supabaseAdmin
       .from('news')
       .select('id, link')
@@ -430,16 +428,38 @@ serve(async (req) => {
       out = out.replace(/\/$/, '')
       return out
     }
+
     const existingSet = new Set((existing || []).map(n => normalizeLink(n.link)))
-    // Also check imported registry
     const { data: importedLinks } = await supabaseAdmin
       .from('news_imported_links')
       .select('link')
       .in('link', links)
     const importedSet = new Set((importedLinks || []).map(r => normalizeLink(r.link)))
+
     const toImport = links
       .map(normalizeLink)
       .filter(l => !existingSet.has(l) && !importedSet.has(l))
+
+    // Registra também os links que JÁ existem em news mas ainda não estão em news_imported_links
+    const existingNotRecorded = links
+      .map(normalizeLink)
+      .filter(l => existingSet.has(l) && !importedSet.has(l))
+    if (existingNotRecorded.length > 0) {
+      const payload = existingNotRecorded.map(link => ({ link, source: 'blogdoelvis' }))
+      const { error: recordErr } = await supabaseAdmin
+        .from('news_imported_links')
+        .upsert(payload, { onConflict: 'link' })
+      if (recordErr) {
+        console.error('[import-news] falha ao registrar links já existentes', recordErr.message, existingNotRecorded)
+      }
+    }
+
+    const { data: recentNews } = await supabaseAdmin
+      .from('news')
+      .select('id,title')
+      .order('date', { ascending: false })
+      .limit(1000)
+    const normalizedTitleSet = new Set((recentNews || []).map(n => normalizeTitle(n.title)))
 
     const imported: any[] = []
     const errors: any[] = []
@@ -455,47 +475,32 @@ serve(async (req) => {
         console.error('[import-news] erro', errMsg, url)
         continue
       }
-      const art = extractArticle(articleHtml, id, url)
 
+      // Extrai video_url do HTML original ANTES da sanitização
+      const videoUrlRecord = extractVideoUrl(articleHtml)
+
+      // extractArticle já sanitiza internamente
+      const art = extractArticle(articleHtml, id, url)
       const title = (art.title || '').trim()
       const bodyHtml = (art.body_html || '').trim()
-      const videoUrlRecord = extractVideoUrl(articleHtml)
-      const plainTextLength = bodyHtml.replace(/<[^>]+>/g, '').trim().length
-      if (!title) {
-        const errMsg = 'Conteúdo insuficiente (sem título ou corpo/vídeo)'
-        errors.push({ url, error: errMsg })
-        console.warn('[import-news] descartado', errMsg, { url, titleLen: title.length, bodyLen: bodyHtml.length, hasVideo: !!videoUrlRecord })
+
+      const normalizedNewTitle = normalizeTitle(title)
+      if (normalizedNewTitle && normalizedTitleSet.has(normalizedNewTitle)) {
+        const { error: dupErr } = await supabaseAdmin
+          .from('news_imported_links')
+          .upsert({ link: normalizeLink(url), source: 'blogdoelvis' }, { onConflict: 'link' })
+        if (dupErr) {
+          console.error('[import-news] falha ao registrar duplicata por título', dupErr.message, url)
+        }
+        errors.push({ url, error: 'Duplicado por título (já existe no Trombone)' })
+        console.warn('[import-news] duplicado por título, ignorando', { url, title })
         continue
       }
-      // Se corpo muito curto, tenta reconstruir pelos parágrafos plain
-      let finalBodyHtml = bodyHtml
-      if (plainTextLength < 40) {
-        const vBody = extractBodySection(articleHtml) || extractBodyHtml(articleHtml) || ''
-        const markerHtml = /(assista|veja)[\s\S]{0,200}(abaixo|vídeo|reportagem)/i
-        const m = vBody.match(markerHtml)
-        let sliceHtml = vBody
-        if (m && m.index !== undefined && m.index > 0) {
-          sliceHtml = vBody.slice(0, m.index)
-        }
-        const sanitized = sanitizeHtml(sliceHtml)
-        if (sanitized && sanitized.replace(/<[^>]+>/g, '').trim().length >= 1) {
-          finalBodyHtml = sanitized
-        } else {
-          // Fallback: reconstruir a partir de texto
-          let plain = vBody.replace(/<\/(p|br|h[1-6]|li|div)>/gi, '\n').replace(/<[^>]+>/g, '')
-          const idx = plain.search(/(assista|veja)[^\n]{0,200}(abaixo|vídeo|reportagem)/i)
-          if (idx > 0) plain = plain.slice(0, idx)
-          const lines = plain.split(/\n+/).map(s => s.trim()).filter(Boolean)
-          if (lines.length > 0) {
-            finalBodyHtml = lines.map(p => `<p>${p}</p>`).join('</p><p>&nbsp;</p><p>')
-          }
-        }
-      }
-      const finalPlainLen = (finalBodyHtml || '').replace(/<[^>]+>/g, '').trim().length
-      if (!videoUrlRecord && finalPlainLen < 40) {
-        const errMsg = 'Corpo muito curto e sem vídeo'
+
+      if (!title) {
+        const errMsg = 'Conteúdo insuficiente (sem título)'
         errors.push({ url, error: errMsg })
-        console.warn('[import-news] descartado', errMsg, { url, titleLen: title.length, bodyLen: bodyHtml.length })
+        console.warn('[import-news] descartado', errMsg, { url })
         continue
       }
 
@@ -504,7 +509,7 @@ serve(async (req) => {
         source: 'Blog do Elvis',
         date: art.date_iso || new Date().toISOString(),
         description: art.description || '',
-        body: finalBodyHtml,
+        body: bodyHtml,
         image_url: art.image_url || null,
         link: normalizeLink(art.url),
         video_url: videoUrlRecord || null
@@ -516,10 +521,15 @@ serve(async (req) => {
         console.error('[import-news] erro inserindo', error.message, url)
       } else {
         imported.push({ id: data.id, link: data.link })
-        await supabaseAdmin.from('news_imported_links').insert({ link: data.link, source: 'blogdoelvis' })
+        const { error: impErr } = await supabaseAdmin
+          .from('news_imported_links')
+          .upsert({ link: normalizeLink(data.link), source: 'blogdoelvis' }, { onConflict: 'link' })
+        if (impErr) {
+          console.error('[import-news] falha ao registrar link importado', impErr.message, data.link)
+        }
         console.log('[import-news] importado', data.id, data.link)
       }
-      // Be polite to origin
+
       await new Promise(r => setTimeout(r, 300))
     }
 
@@ -531,24 +541,11 @@ serve(async (req) => {
     }
     console.log('[import-news] concluído', { imported_count: imported.length, errors_count: errors.length })
     return new Response(JSON.stringify(payload), { headers: { ...corsHeaders, 'content-type': 'application/json' } })
+
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message || 'Erro inesperado' }), { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } })
+    return new Response(
+      JSON.stringify({ error: (e as Error).message || 'Erro inesperado' }),
+      { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } }
+    )
   }
 })
-function extractVideoUrl(articleHtml: string): string | undefined {
-  if (!articleHtml) return undefined
-  const body = extractBodySection(articleHtml) || extractBodyHtml(articleHtml) || ''
-  const fromBody = extractVideoUrlFromBody(body)
-  if (fromBody) return fromBody
-  const insta = articleHtml.match(/https?:\/\/(?:www\.)?instagram\.com\/(p|reel)\/([a-zA-Z0-9_-]+)/i)
-  if (insta) return `https://www.instagram.com/${insta[1]}/${insta[2]}/`
-  const yt =
-    articleHtml.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/i) ||
-    articleHtml.match(/https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/i) ||
-    articleHtml.match(/https?:\/\/(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/i)
-  if (yt) return `https://www.youtube.com/watch?v=${yt[1]}`
-  const iframe = articleHtml.match(/<iframe[^>]*src="([^"]+)"[^>]*><\/iframe>/i)
-  const src = iframe ? iframe[1] : undefined
-  if (src && (/instagram\.com|youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com/i.test(src))) return src
-  return undefined
-}
