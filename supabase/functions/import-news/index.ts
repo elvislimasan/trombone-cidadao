@@ -332,6 +332,54 @@ function extractArticle(html: string, id: string, url: string): ExtractedArticle
   }
 }
 
+// ─── UPLOAD DE IMAGEM ────────────────────────────────────────────────────────
+
+async function uploadImageToStorage(imageUrl: string, supabaseAdmin: any): Promise<string | null> {
+  try {
+    console.log('[import-news] downloading image', imageUrl)
+    const res = await fetch(imageUrl)
+    if (!res.ok) {
+      console.warn('[import-news] failed to fetch image', res.status, imageUrl)
+      return null
+    }
+    const blob = await res.blob()
+    // Tenta extrair a extensão da URL ou do content-type
+    let ext = imageUrl.split('.').pop()?.split('?')[0] || 'jpg'
+    if (ext.length > 4 || !/^[a-z0-9]+$/i.test(ext)) {
+       const ct = res.headers.get('content-type')
+       if (ct === 'image/webp') ext = 'webp'
+       else if (ct === 'image/png') ext = 'png'
+       else if (ct === 'image/jpeg') ext = 'jpg'
+       else ext = 'jpg'
+    }
+
+    const filename = `${crypto.randomUUID()}.${ext}`
+
+    const { data, error } = await supabaseAdmin
+      .storage
+      .from('news-images')
+      .upload(filename, blob, {
+        contentType: res.headers.get('content-type') || 'image/jpeg',
+        upsert: false
+      })
+
+    if (error) {
+      console.error('[import-news] storage upload error', error)
+      return null
+    }
+    
+    const { data: { publicUrl } } = supabaseAdmin
+      .storage
+      .from('news-images')
+      .getPublicUrl(filename)
+      
+    return publicUrl
+  } catch (err) {
+    console.error('[import-news] image upload exception', err)
+    return null
+  }
+}
+
 // ─── HANDLER PRINCIPAL ───────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -510,6 +558,15 @@ serve(async (req) => {
         continue
       }
 
+      let finalImageUrl = art.image_url || null
+      // Se tiver imagem e for externa, tenta salvar no storage
+      if (finalImageUrl && (finalImageUrl.startsWith('http') && !finalImageUrl.includes('supabase.co'))) {
+        const storedUrl = await uploadImageToStorage(finalImageUrl, supabaseAdmin)
+        if (storedUrl) {
+          finalImageUrl = storedUrl
+        }
+      }
+
       const record = {
         title,
         source: 'Blog do Elvis',
@@ -517,7 +574,7 @@ serve(async (req) => {
         description: art.description || '',
         subtitle: (art as any).subtitle || null,
         body: bodyHtml,
-        image_url: art.image_url || null,
+        image_url: finalImageUrl,
         link: normalizeLink(art.url),
         video_url: videoUrlRecord || null
       }

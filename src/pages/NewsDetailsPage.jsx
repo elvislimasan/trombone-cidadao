@@ -22,6 +22,7 @@ const NewsDetailsPage = () => {
   const [gallery, setGallery] = useState([]);
   const [mediaViewerState, setMediaViewerState] = useState({ isOpen: false, startIndex: 0 });
   const [relatedWorks, setRelatedWorks] = useState([]);
+  const [relatedPetitions, setRelatedPetitions] = useState([]);
   const bodyRef = useRef(null);
 
   const fetchNewsDetails = useCallback(async () => {
@@ -59,6 +60,16 @@ const NewsDetailsPage = () => {
     if (!relError && relData) {
       const works = relData.map(r => r.work).filter(Boolean);
       setRelatedWorks(works);
+    }
+
+    // Buscar petições relacionadas
+    const { data: relPet, error: relPetError } = await supabase
+      .from('news_petitions')
+      .select('petition:petitions(id, title, image_url, status)')
+      .eq('news_id', newsId);
+    if (!relPetError && relPet) {
+      const petitions = relPet.map(r => r.petition).filter(Boolean);
+      setRelatedPetitions(petitions);
     }
   }, [newsId, toast, navigate]);
 
@@ -315,6 +326,42 @@ const NewsDetailsPage = () => {
                     </Link>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {relatedPetitions.length > 0 && (
+            <div className="my-12">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><ImageIcon className="w-6 h-6 text-primary" /> Petições relacionadas</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {relatedPetitions.map((p) => (
+                  <Link
+                    key={p.id}
+                    to={`/abaixo-assinado/${p.id}`}
+                    className="group flex items-center gap-3 p-3 rounded-xl border bg-white hover:border-primary/50 hover:bg-primary/5 transition-colors shadow-sm"
+                  >
+                    <div className="w-24 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Sem imagem</div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold leading-tight text-slate-900 truncate">{p.title}</p>
+                      {p.status && (
+                        <span className="mt-2 inline-block text-[10px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                          {p.status === 'open' ? 'Aberta' : p.status === 'victory' ? 'Vitória' : p.status === 'closed' ? 'Encerrada' : 'Rascunho'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="self-center">
+                      <div className="w-8 h-8 rounded-full border bg-white flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary transition-colors">
+                        <ArrowUpRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </div>
           )}
