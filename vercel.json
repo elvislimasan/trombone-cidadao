@@ -13,6 +13,10 @@
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-preview?id=:id"
     },
     {
+      "source": "/share/noticia/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-news?id=:id"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

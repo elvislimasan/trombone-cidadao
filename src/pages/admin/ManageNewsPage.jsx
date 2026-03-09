@@ -160,6 +160,10 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
               <Input id="title" name="title" value={formData.title} onChange={handleChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="subtitle" className="text-right">Subtítulo</Label>
+              <Input id="subtitle" name="subtitle" value={formData.subtitle || ''} onChange={handleChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="source" className="text-right">Fonte</Label>
               <Input id="source" name="source" value={formData.source} onChange={handleChange} className="col-span-3" />
             </div>
@@ -386,7 +390,7 @@ const ManageNewsPage = () => {
     
     // Remove campos que não existem na tabela news
     // Apenas campos válidos da tabela news serão salvos
-    const validFields = ['title', 'source', 'date', 'description', 'body', 'image_url', 'link', 'video_url'];
+    const validFields = ['title', 'source', 'date', 'description', 'subtitle', 'body', 'image_url', 'link', 'video_url'];
     const filteredData = Object.keys(dataToSave)
       .filter(key => validFields.includes(key))
       .reduce((obj, key) => {

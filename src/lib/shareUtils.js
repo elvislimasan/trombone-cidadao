@@ -82,3 +82,23 @@ export const getWorkShareUrl = (id) => {
   return `${origin}/share/obra/${id}`;
 };
 
+export const getNewsShareUrl = (id) => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+
+  if (typeof window === 'undefined') {
+    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+      return `https://trombone-cidadao.vercel.app/share/noticia/${id}`;
+    }
+    return `https://trombonecidadao.com.br/share/noticia/${id}`;
+  }
+
+  const origin = window.location.origin || '';
+  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
+      return `https://trombone-cidadao.vercel.app/share/noticia/${id}`;
+    }
+    return `https://trombonecidadao.com.br/share/noticia/${id}`;
+  }
+
+  return `${origin}/share/noticia/${id}`;
+};
