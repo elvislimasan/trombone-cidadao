@@ -25,6 +25,7 @@ import PetitionJourney from '@/components/PetitionJourney';
 import PetitionEditor from '@/components/petition/PetitionEditor';
 import PetitionUpdateModal from '@/components/petition/PetitionUpdateModal';
 import PetitionUpdates from '@/components/petition-modern/PetitionUpdates';
+import PetitionFlyerModal from '@/components/petition/PetitionFlyerModal';
 
 import BlockRenderer from '@/components/petition/builder/BlockRenderer';
 
@@ -74,6 +75,7 @@ const PetitionPage = () => {
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showFlyerModal, setShowFlyerModal] = useState(false);
   const otherCausesRef = useRef(null);
   const triggerRef = useRef(null);
   const inlineFormRef = useRef(null);
@@ -716,87 +718,7 @@ const PetitionPage = () => {
     }
   }, [id, toast]);
 
-  const handleDownloadQrCode = useCallback(async () => {
-    try {
-      const response = await fetch(qrCodeUrl, { cache: 'no-cache' });
-      const blob = await response.blob();
-
-      if (Capacitor.isNativePlatform()) {
-        const fileName = `qr-${id}.png`;
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            try {
-              const result = reader.result || '';
-              const b64 = String(result).split(',')[1] || '';
-              resolve(b64);
-            } catch (e) {
-              reject(e);
-            }
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-
-        const platform = Capacitor.getPlatform();
-        let directory = Directory.Documents;
-        let downloadPath = fileName;
-        if (platform === 'android') {
-          directory = Directory.ExternalStorage;
-          downloadPath = `Pictures/TromboneCidadao/${fileName}`;
-        }
-
-        await Filesystem.writeFile({
-          path: downloadPath,
-          data: base64,
-          directory,
-          recursive: true,
-        });
-        try {
-          const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
-          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
-          const permissionStatus = await LocalNotifications.checkPermissions();
-          if (permissionStatus.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Download concluído',
-                body: 'Imagem salva. Toque para abrir.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-                extra: { filePath: uriResult.uri, contentType: 'image/png' },
-              },
-            ],
-          });
-        } catch (_) {
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `qr-${id}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-
-      toast({
-        title: "QR Code baixado",
-        description: "Use este QR Code nos seus materiais impressos ou na TV.",
-      });
-    } catch (error) {
-      console.error('Erro ao baixar QR Code:', error);
-      toast({
-        title: "Não foi possível baixar o QR Code",
-        description: "Tente novamente em instantes.",
-        variant: "destructive",
-      });
-    }
-  }, [qrCodeUrl, id, toast]);
+  
 
   const handleDownloadStoryCard = useCallback(async () => {
     if (!petition) return;
@@ -1054,7 +976,7 @@ const PetitionPage = () => {
             {/* Left Column: Content */}
              <div className="flex flex-col gap-8 px-0 sm:px-4">
                {/* Mobile Actions (Signature & Donation) - Visual antigo com formulário inline */}
-               <div className="flex flex-col gap-6 lg:hidden" ref={inlineFormRef}>
+               <div className="flex flex-col gap-6 lg:hidden pb-24" ref={inlineFormRef}>
                   <PetitionSignatureCard 
                     signaturesCount={petition.signatureCount}
                     goal={petition.goal}
@@ -1184,14 +1106,15 @@ const PetitionPage = () => {
                         <Share2 className="w-4 h-4 mr-2" />
                         Copiar link da petição
                       </Button>
+                    
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={handleDownloadQrCode}
+                        onClick={() => setShowFlyerModal(true)}
                         className="w-full sm:w-auto justify-center border-primary/40 text-primary hover:bg-primary/5"
                       >
-                        <Download className="w-4 h-4 mr-2" />
-                        Baixar QR Code
+                        <FileText className="w-4 h-4 mr-2" />
+                        Baixar  Qr Code
                       </Button>
                       <Button
                         size="sm"
@@ -1295,6 +1218,13 @@ const PetitionPage = () => {
         petitionId={id}
         initialGuestName={guestForm.name}
         initialGuestEmail={guestForm.email}
+      />
+
+      <PetitionFlyerModal 
+        isOpen={showFlyerModal}
+        onClose={() => setShowFlyerModal(false)}
+        petition={petition}
+        qrCodeUrl={qrCodeUrl}
       />
 
       <PetitionJourney 

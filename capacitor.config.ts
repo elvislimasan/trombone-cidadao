@@ -8,9 +8,10 @@ const config: CapacitorConfig = {
   // Não há server.url configurado, então o app carrega arquivos locais do dist/
   // Isso significa que o app funciona completamente offline após instalação
   server: {
-    androidScheme: 'https',
+    androidScheme: 'http',
     // ⚠️ ATENÇÃO: Para Live Reload funcionar com 'yarn android:live', descomente as linhas abaixo
-    url: 'https://trombonecidadao.com.br',
+    // url: 'https://trombonecidadao.com.br',
+    url:  'https://2e08-2804-e94-93b-f200-65a2-6b74-cead-60ad.ngrok-free.app',
     cleartext: true
   },
   plugins: {

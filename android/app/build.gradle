@@ -18,7 +18,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // ⚠️ IMPORTANTE: Incremente versionCode a cada release na Play Store
         // O versionCode deve ser sempre maior que o anterior
-        versionCode 5
+        versionCode 8
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

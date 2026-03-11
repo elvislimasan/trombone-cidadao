@@ -132,7 +132,7 @@ function HomePageImproved() {
     navigate('/minhas-peticoes');
   };
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (retryCount = 0) => {
     setLoadingStats(true);
     try {
       const { data, error } = await supabase
@@ -163,12 +163,16 @@ function HomePageImproved() {
       });
     } catch (err) {
       console.error('Erro ao buscar estatísticas da home:', err);
+      // 🔥 Retry mechanism para falhas intermitentes
+      if (retryCount < 2) {
+        setTimeout(() => fetchStats(retryCount + 1), 2000);
+      }
     } finally {
       setLoadingStats(false);
     }
   }, [user]);
 
-  const fetchTopPetitions = useCallback(async () => {
+  const fetchTopPetitions = useCallback(async (retryCount = 0) => {
     setLoadingPetitions(true);
     try {
       const { data: petitionsData, error: petitionsError } = await supabase
@@ -248,12 +252,15 @@ function HomePageImproved() {
       setPetitions(ranked.slice(0, 10));
     } catch (err) {
       console.error('Erro ao buscar petições para a home:', err);
+      if (retryCount < 2) {
+        setTimeout(() => fetchTopPetitions(retryCount + 1), 2000);
+      }
     } finally {
       setLoadingPetitions(false);
     }
   }, []);
 
-  const fetchReportsPreview = useCallback(async () => {
+  const fetchReportsPreview = useCallback(async (retryCount = 0) => {
     setLoadingReports(true);
     try {
       const { data, error } = await supabase
@@ -304,12 +311,15 @@ function HomePageImproved() {
       setReportsPreview(formatted);
     } catch (err) {
       console.error('Erro ao buscar broncas para o mapa da home:', err);
+      if (retryCount < 2) {
+        setTimeout(() => fetchReportsPreview(retryCount + 1), 2000);
+      }
     } finally {
       setLoadingReports(false);
     }
   }, [user, sortOrder]);
 
-  const fetchCategories = useCallback(async () => {
+  const fetchCategories = useCallback(async (retryCount = 0) => {
     try {
       const { data, error } = await supabase
         .from('categories')
@@ -322,6 +332,9 @@ function HomePageImproved() {
       setCategories(data || []);
     } catch (err) {
       console.error('Erro ao buscar categorias:', err);
+      if (retryCount < 2) {
+        setTimeout(() => fetchCategories(retryCount + 1), 2000);
+      }
     }
   }, []);
 

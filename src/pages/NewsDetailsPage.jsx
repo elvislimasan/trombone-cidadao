@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin, ArrowUpRight } from 'lucide-react';
+import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin, ArrowUpRight, Megaphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -11,6 +11,8 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import MediaViewer from '@/components/MediaViewer';
 import { supabase } from '@/lib/customSupabaseClient';
 import { getNewsShareUrl } from '@/lib/shareUtils';
+import { Progress } from '@/components/ui/progress';
+import { getNextSignatureGoal } from '@/lib/utils';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
@@ -23,6 +25,8 @@ const NewsDetailsPage = () => {
   const [mediaViewerState, setMediaViewerState] = useState({ isOpen: false, startIndex: 0 });
   const [relatedWorks, setRelatedWorks] = useState([]);
   const [relatedPetitions, setRelatedPetitions] = useState([]);
+  const [relatedReports, setRelatedReports] = useState([]);
+  const [relatedNews, setRelatedNews] = useState([]);
   const bodyRef = useRef(null);
 
   const fetchNewsDetails = useCallback(async () => {
@@ -55,11 +59,34 @@ const NewsDetailsPage = () => {
     // Buscar obras relacionadas
     const { data: relData, error: relError } = await supabase
       .from('news_public_works')
-      .select('work:public_works(id, title, status, thumbnail_url, address, bairro:bairros(name))')
+      .select('work_id')
       .eq('news_id', newsId);
-    if (!relError && relData) {
-      const works = relData.map(r => r.work).filter(Boolean);
-      setRelatedWorks(works);
+    if (!relError && relData && relData.length > 0) {
+      const workIds = relData.map(r => r.work_id).filter(Boolean);
+      if (workIds.length > 0) {
+        const { data: worksData, error: worksError } = await supabase
+          .from('public_works')
+          .select('id, title, status, thumbnail_url, address, bairro:bairros(name)')
+          .in('id', workIds);
+        
+        if (!worksError && worksData) {
+          // Buscar mídias para cada obra
+          const { data: allMedia, error: mediaError } = await supabase
+            .from('public_work_media')
+            .select('work_id, url, type')
+            .in('work_id', workIds);
+
+          
+          const works = worksData.map(w => {
+            const mediaForWork = allMedia?.filter(m => m.work_id === w.id) || [];
+            return {
+              ...w,
+              image_url: w.thumbnail_url || mediaForWork.find(m => m.type === 'image')?.url || null
+            };
+          });
+          setRelatedWorks(works);
+        }
+      }
     }
 
     // Buscar petições relacionadas
@@ -70,6 +97,45 @@ const NewsDetailsPage = () => {
     if (!relPetError && relPet) {
       const petitions = relPet.map(r => r.petition).filter(Boolean);
       setRelatedPetitions(petitions);
+    }
+
+    const { data: relRep, error: relRepErr } = await supabase
+      .from('news_reports')
+      .select('report:reports(id, title, description, address, report_media(*))')
+      .eq('news_id', newsId);
+    if (!relRepErr && relRep) {
+      const reps = relRep.map(r => ({
+        ...r.report,
+        image_url: (r.report?.report_media || []).find((m) => m.type === 'photo')?.url || null
+      })).filter(Boolean);
+      setRelatedReports(reps);
+    } else if (relRepErr) {
+      console.error('Erro ao buscar broncas relacionadas:', relRepErr);
+    }
+
+    // Buscar notícias relacionadas (bidirecional)
+    const { data: relNews, error: relNewsErr } = await supabase
+      .from('news_related')
+      .select(`
+        news_id,
+        related_news_id,
+        news!news_id(id, title, image_url, date, description),
+        related:news!related_news_id(id, title, image_url, date, description)
+      `)
+      .or(`news_id.eq.${newsId},related_news_id.eq.${newsId}`);
+    
+    if (!relNewsErr && relNews) {
+      const list = relNews.map(r => {
+        // Se a notícia atual é a news_id, o relacionado é o related_news_id (aliased as 'related')
+        // Se a notícia atual é a related_news_id, o relacionado é o news_id (aliased as 'news')
+        return r.news_id === newsId ? r.related : r.news;
+      }).filter(Boolean);
+      
+      // Remover duplicatas (caso existam links em ambos os sentidos)
+      const uniqueList = Array.from(new Map(list.map(n => [n.id, n])).values());
+      setRelatedNews(uniqueList);
+    } else if (relNewsErr) {
+      console.error('Erro ao buscar notícias relacionadas:', relNewsErr);
     }
   }, [newsId, toast, navigate]);
 
@@ -222,7 +288,7 @@ const NewsDetailsPage = () => {
 
           <div ref={bodyRef} className="prose prose-lg dark:prose-invert max-w-none text-foreground/90 mb-12" dangerouslySetInnerHTML={{ __html: renderBodyHtml }} />
 
-          {videoEmbedUrl && (
+          {videoEmbedUrl && videoEmbedUrl.trim() !== '' && (
             <div className="my-12">
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Video className="w-6 h-6 text-primary" /> Vídeo</h2>
               {isInstagram ? (
@@ -258,7 +324,7 @@ const NewsDetailsPage = () => {
               <Carousel className="w-full" opts={{ align: "start", loop: true }}>
                 <CarouselContent className="-ml-4">
                   {gallery.map((item, index) => (
-                    <CarouselItem key={item.id} className="pl-4 md:basis-1/2 lg:basis-1/3">
+                    <CarouselItem key={item.id} className="pl-4 md:basis-1/2">
                       <button onClick={() => openMediaViewer(index)} className="w-full aspect-video rounded-lg overflow-hidden border border-border group bg-background flex items-center justify-center relative">
                         <img alt={item.name || `Galeria ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" src={item.url} />
                       </button>
@@ -274,7 +340,67 @@ const NewsDetailsPage = () => {
           {relatedWorks.length > 0 && (
             <div className="my-12">
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><ImageIcon className="w-6 h-6 text-primary" /> Obras relacionadas</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Carousel className="w-full hidden md:block" opts={{ align: "start", loop: true }}>
+                <CarouselContent className="-ml-4">
+                  {relatedWorks.map((w) => {
+                    const statusText = ({
+                      'planned': 'Prevista',
+                      'tendered': 'Licitada',
+                      'in-progress': 'Em Andamento',
+                      'stalled': 'Paralisada',
+                      'unfinished': 'Inacabada',
+                      'completed': 'Concluída',
+                    }[w.status]) || 'N/A';
+                    const statusStyles = ({
+                      'planned': 'text-violet-700 bg-violet-50',
+                      'tendered': 'text-orange-700 bg-orange-50',
+                      'in-progress': 'text-blue-700 bg-blue-50',
+                      'stalled': 'text-amber-700 bg-amber-50',
+                      'unfinished': 'text-rose-700 bg-rose-50',
+                      'completed': 'text-emerald-700 bg-emerald-50',
+                    }[w.status]) || 'text-slate-700 bg-slate-100';
+                    const locationText = w.address || (w.bairro && w.bairro.name) || 'Local não informado';
+                    return (
+                      <CarouselItem key={w.id} className="pl-4 md:basis-1/2">
+                        <Link
+                          to={`/obras-publicas/${w.id}`}
+                          className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                        >
+                          <div className="relative h-40 w-full overflow-hidden bg-muted">
+              { w.thumbnail_url ||w.image_url ? (
+                            <img src={ w.thumbnail_url || w.image_url } alt={w.title} className="w-full h-full object-cover" />
+                          ) : (
+                              <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Sem imagem</div>
+                            )}
+                          </div>
+                          <div className="p-4 flex flex-col flex-1">
+                            <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 mb-2">
+                              {w.title}
+                            </h3>
+                            <div className="flex items-center gap-2 mb-4">
+                              <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${statusStyles}`}>
+                                {statusText}
+                              </span>
+                            </div>
+                            <div className="mt-auto flex items-center justify-between pt-2 border-t">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                                <MapPin className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{locationText}</span>
+                              </span>
+                              <span className="text-xs font-medium text-primary group-hover:underline flex items-center gap-1 flex-shrink-0">
+                                Ver mais <ArrowUpRight className="w-3 h-3" />
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      </CarouselItem>
+                    );
+                  })}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
                 {relatedWorks.map((w) => {
                   const statusText = ({
                     'planned': 'Prevista',
@@ -297,30 +423,32 @@ const NewsDetailsPage = () => {
                     <Link
                       key={w.id}
                       to={`/obras-publicas/${w.id}`}
-                      className="group flex items-center gap-3 p-3 rounded-xl border bg-white hover:border-primary/50 hover:bg-primary/5 transition-colors shadow-sm"
+                      className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
                     >
-                      <div className="w-24 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                      <div className="relative h-40 w-full overflow-hidden bg-muted">
                         {w.thumbnail_url ? (
                           <img src={w.thumbnail_url} alt={w.title} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Sem imagem</div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold leading-tight text-slate-900 truncate">{w.title}</p>
-                        <div className="mt-2 flex items-center gap-2">
+                      <div className="p-4 flex flex-col flex-1">
+                        <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 mb-2">
+                          {w.title}
+                        </h3>
+                        <div className="flex items-center gap-2 mb-4">
                           <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${statusStyles}`}>
                             {statusText}
                           </span>
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
-                            <MapPin className="w-3 h-3" />
+                        </div>
+                        <div className="mt-auto flex items-center justify-between pt-2 border-t">
+                          <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                            <MapPin className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{locationText}</span>
                           </span>
-                        </div>
-                      </div>
-                      <div className="self-center">
-                        <div className="w-8 h-8 rounded-full border bg-white flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary transition-colors">
-                          <ArrowUpRight className="w-4 h-4" />
+                          <span className="text-xs font-medium text-primary group-hover:underline flex items-center gap-1 flex-shrink-0">
+                            Ver mais <ArrowUpRight className="w-3 h-3" />
+                          </span>
                         </div>
                       </div>
                     </Link>
@@ -332,32 +460,282 @@ const NewsDetailsPage = () => {
 
           {relatedPetitions.length > 0 && (
             <div className="my-12">
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><ImageIcon className="w-6 h-6 text-primary" /> Petições relacionadas</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {relatedPetitions.map((p) => (
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Megaphone className="w-6 h-6 text-primary" /> Petições relacionadas</h2>
+              <Carousel className="w-full hidden md:block" opts={{ align: "start", loop: true }}>
+                <CarouselContent className="-ml-4">
+                  {relatedPetitions.map((p) => {
+                    const signatures = Array.isArray(p.signatures) && p.signatures[0]?.count ? p.signatures[0].count : (p.signatureCount || 0);
+                    const rawGoal = Number(p.goal);
+                    const baseGoal = Number.isFinite(rawGoal) && rawGoal > 0 ? rawGoal : 100;
+                    const displayGoal = getNextSignatureGoal(signatures, baseGoal);
+                    const progress = Math.min((signatures / displayGoal) * 100, 100);
+                    return (
+                      <CarouselItem key={p.id} className="pl-4 md:basis-1/2">
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="w-full h-full flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden h-full"
+                        >
+                          <div className="relative h-40 w-full overflow-hidden bg-muted">
+                            {p.image_url ? (
+                              <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-[#FEF2F2] flex items-center justify-center">
+                                <Megaphone className="w-8 h-8 text-[#F97316]" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-4 flex flex-col flex-1">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                              <span className="font-semibold text-[#F97316] flex items-center gap-1">
+                                <Megaphone className="w-3 h-3" />
+                                Petição Ativa
+                              </span>
+                            </div>
+                            <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 mb-2">
+                              {p.title}
+                            </h3>
+                            {p.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{p.description}</p>
+                            )}
+                            <div className="mt-auto">
+                              <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-2">
+                                <span>{signatures} assinaturas</span>
+                                <span>Meta {displayGoal}</span>
+                              </div>
+                              <Progress value={progress} className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full mb-3" />
+                              <Button
+                                className="w-full h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
+                                onClick={() => navigate(`/abaixo-assinado/${p.id}`)}
+                              >
+                                Assinar abaixo-assinado
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      </CarouselItem>
+                    );
+                  })}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                {relatedPetitions.map((p) => {
+                  const signatures = Array.isArray(p.signatures) && p.signatures[0]?.count ? p.signatures[0].count : (p.signatureCount || 0);
+                  const rawGoal = Number(p.goal);
+                  const baseGoal = Number.isFinite(rawGoal) && rawGoal > 0 ? rawGoal : 100;
+                  const displayGoal = getNextSignatureGoal(signatures, baseGoal);
+                  const progress = Math.min((signatures / displayGoal) * 100, 100);
+                  return (
+                    <div
+                      key={p.id}
+                      className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden h-full"
+                    >
+                      <div className="relative h-40 w-full overflow-hidden bg-muted">
+                        {p.image_url ? (
+                          <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-[#FEF2F2] flex items-center justify-center">
+                            <Megaphone className="w-8 h-8 text-[#F97316]" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4 flex flex-col flex-1">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                          <span className="font-semibold text-[#F97316] flex items-center gap-1">
+                            <Megaphone className="w-3 h-3" />
+                            Petição Ativa
+                          </span>
+                        </div>
+                        <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 mb-2">
+                          {p.title}
+                        </h3>
+                        {p.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{p.description}</p>
+                        )}
+                        <div className="mt-auto">
+                          <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-2">
+                            <span>{signatures} assinaturas</span>
+                            <span>Meta {displayGoal}</span>
+                          </div>
+                          <Progress value={progress} className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full mb-3" />
+                          <Button
+                            className="w-full h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
+                            onClick={() => navigate(`/abaixo-assinado/${p.id}`)}
+                          >
+                            Apoiar Agora
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {relatedReports.length > 0 && (
+            <div className="my-12">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><ImageIcon className="w-6 h-6 text-primary" /> Broncas relacionadas</h2>
+              <Carousel className="w-full hidden md:block" opts={{ align: "start", loop: true }}>
+                <CarouselContent className="-ml-4">
+                  {relatedReports.map((r) => (
+                    <CarouselItem key={r.id} className="pl-4 md:basis-1/2">
+                      <Link
+                        to={`/bronca/${r.id}`}
+                        className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                      >
+                        <div className="relative h-40 w-full overflow-hidden bg-muted">
+                          {r.image_url ? (
+                            <img src={r.image_url} alt={r.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+                              <span className="text-3xl">📍</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-4 flex flex-col flex-1">
+                          <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 mb-2">
+                            {r.title}
+                          </h3>
+                          {r.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{r.description}</p>
+                          )}
+                          <div className="mt-auto flex items-center justify-between pt-2 border-t">
+                            {r.address && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                                <MapPin className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{r.address}</span>
+                              </p>
+                            )}
+                            <span className="text-xs font-medium text-primary group-hover:underline flex items-center gap-1 flex-shrink-0">
+                              Ver mais <ArrowUpRight className="w-3 h-3" />
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                {relatedReports.map((r) => (
                   <Link
-                    key={p.id}
-                    to={`/abaixo-assinado/${p.id}`}
-                    className="group flex items-center gap-3 p-3 rounded-xl border bg-white hover:border-primary/50 hover:bg-primary/5 transition-colors shadow-sm"
+                    key={r.id}
+                    to={`/bronca/${r.id}`}
+                    className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
                   >
-                    <div className="w-24 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                      {p.image_url ? (
-                        <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                    <div className="relative h-40 w-full overflow-hidden bg-muted">
+                      {r.image_url ? (
+                        <img src={r.image_url} alt={r.title} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Sem imagem</div>
+                        <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+                          <span className="text-3xl">📍</span>
+                        </div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold leading-tight text-slate-900 truncate">{p.title}</p>
-                      {p.status && (
-                        <span className="mt-2 inline-block text-[10px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-700">
-                          {p.status === 'open' ? 'Aberta' : p.status === 'victory' ? 'Vitória' : p.status === 'closed' ? 'Encerrada' : 'Rascunho'}
+                    <div className="p-4 flex flex-col flex-1">
+                      <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 mb-2">
+                        {r.title}
+                      </h3>
+                      {r.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{r.description}</p>
+                      )}
+                      <div className="mt-auto flex items-center justify-between pt-2 border-t">
+                        {r.address && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{r.address}</span>
+                          </p>
+                        )}
+                        <span className="text-xs font-medium text-primary group-hover:underline flex items-center gap-1 flex-shrink-0">
+                          Ver mais <ArrowUpRight className="w-3 h-3" />
                         </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {relatedNews.length > 0 && (
+            <div className="my-12">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><ImageIcon className="w-6 h-6 text-primary" /> Notícias relacionadas</h2>
+              <Carousel className="w-full hidden md:block" opts={{ align: "start", loop: true }}>
+                <CarouselContent className="-ml-4">
+                  {relatedNews.map((n) => (
+                    <CarouselItem key={n.id} className="pl-4 md:basis-1/2">
+                      <Link
+                        to={`/noticias/${n.id}`}
+                        className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                      >
+                        <div className="relative h-40 w-full overflow-hidden bg-muted">
+                          {n.image_url ? (
+                            <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-slate-100" />
+                          )}
+                        </div>
+                        <div className="p-4 flex flex-col flex-1">
+                          <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 mb-2">
+                            {n.title}
+                          </h3>
+                          {n.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{n.description}</p>
+                          )}
+                          <div className="mt-auto flex items-center justify-between pt-2 border-t">
+                            {n.date && (
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(n.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                              </p>
+                            )}
+                            <span className="text-xs font-medium text-primary group-hover:underline flex items-center gap-1">
+                              Ver mais <ArrowUpRight className="w-3 h-3" />
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                {relatedNews.map((n) => (
+                  <Link
+                    key={n.id}
+                    to={`/noticias/${n.id}`}
+                    className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                  >
+                    <div className="relative h-40 w-full overflow-hidden bg-muted">
+                      {n.image_url ? (
+                        <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-slate-100" />
                       )}
                     </div>
-                    <div className="self-center">
-                      <div className="w-8 h-8 rounded-full border bg-white flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary transition-colors">
-                        <ArrowUpRight className="w-4 h-4" />
+                    <div className="p-4 flex flex-col flex-1">
+                      <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 mb-2">
+                        {n.title}
+                      </h3>
+                      {n.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{n.description}</p>
+                      )}
+                      <div className="mt-auto flex items-center justify-between pt-2 border-t">
+                        {n.date && (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(n.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                          </p>
+                        )}
+                        <span className="text-xs font-medium text-primary group-hover:underline flex items-center gap-1">
+                          Ver mais <ArrowUpRight className="w-3 h-3" />
+                        </span>
                       </div>
                     </div>
                   </Link>

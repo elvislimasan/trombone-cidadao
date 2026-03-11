@@ -451,10 +451,11 @@ function App() {
         <Header />
         <AppDownloadBanner />
         <main
-          className="flex-grow pb-[calc(4rem+var(--safe-area-bottom))] lg:pb-0"
+          className="flex-grow pb-20 lg:pb-0"
           style={{
             paddingTop:
-              'calc(4rem + var(--safe-area-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+              'calc(4rem + max(env(safe-area-inset-top), 0px) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+            paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
           }}
         >
           <Routes>

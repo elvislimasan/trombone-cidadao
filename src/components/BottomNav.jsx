@@ -103,12 +103,12 @@ const BottomNav = () => {
         className="fixed left-0 right-0 bg-card border-t border-border z-[900] lg:hidden" 
         style={{ 
           bottom: 0,
-          paddingBottom: 'var(--safe-area-bottom)',
-          height: 'calc(4rem + var(--safe-area-bottom))',
+          paddingBottom: 'max(env(safe-area-inset-bottom), 0px)',
+          minHeight: '4rem',
           marginBottom: 0
         }}
       >
-        <div className="container mx-auto h-full">
+        <div className="container mx-auto h-16">
           <div className="flex justify-around items-center h-full">
             {navItems.map((item) => {
               if (item.path === 'modal') {

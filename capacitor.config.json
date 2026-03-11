@@ -3,7 +3,9 @@
   "appName": "Trombone Cidadão",
   "webDir": "dist",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "url": "https://2e08-2804-e94-93b-f200-65a2-6b74-cead-60ad.ngrok-free.app",
+    "cleartext": true
   },
   "plugins": {
     "SplashScreen": {

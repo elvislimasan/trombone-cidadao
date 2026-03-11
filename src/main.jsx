@@ -175,35 +175,47 @@ if (Capacitor.isNativePlatform()) {
   }
 }
 
-// Registrar service worker com atualização automática
+// Registrar service worker com atualização automática (apenas em produção)
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', {
-      scope: '/',
-      updateViaCache: 'none' // Sempre verificar atualizações
-    })
-      .then((registration) => {
-        // Verificar atualizações periodicamente
-        const updateInterval = setInterval(() => {
-          registration.update();
-        }, 60000); // A cada 1 minuto
-        
-        // Forçar atualização quando a página ganha foco
-        const handleFocus = () => {
-          registration.update();
-        };
-        window.addEventListener('focus', handleFocus);
-        
-        // Limpar listeners quando necessário (se a página for descarregada)
-        window.addEventListener('beforeunload', () => {
-          clearInterval(updateInterval);
-          window.removeEventListener('focus', handleFocus);
-        });
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  if (isLocalhost) {
+    // No localhost, vamos garantir que qualquer SW antigo seja desinstalado para evitar loops de HMR
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      for (let registration of registrations) {
+        registration.unregister();
+        console.log('[SW] Desinstalado para desenvolvimento local');
+      }
+    });
+  } else {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
+        updateViaCache: 'none' // Sempre verificar atualizações
       })
-      .catch((registrationError) => {
-        console.error('SW registration failed: ', registrationError);
-      });
-  });
+        .then((registration) => {
+          // Verificar atualizações periodicamente
+          const updateInterval = setInterval(() => {
+            registration.update();
+          }, 60000); // A cada 1 minuto
+          
+          // Forçar atualização quando a página ganha foco
+          const handleFocus = () => {
+            registration.update();
+          };
+          window.addEventListener('focus', handleFocus);
+          
+          // Limpar listeners quando necessário (se a página for descarregada)
+          window.addEventListener('beforeunload', () => {
+            clearInterval(updateInterval);
+            window.removeEventListener('focus', handleFocus);
+          });
+        })
+        .catch((registrationError) => {
+          console.error('SW registration failed: ', registrationError);
+        });
+    });
+  }
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

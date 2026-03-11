@@ -243,6 +243,7 @@ export default defineConfig({
 		cors: true,
 		headers: {
 			'Cross-Origin-Embedder-Policy': 'credentialless',
+			'ngrok-skip-browser-warning': 'true',
 		},
 		allowedHosts: true,
 	},
