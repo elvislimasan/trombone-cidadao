@@ -2,10 +2,10 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Heart, TrendingUp } from "lucide-react";
+import { Heart, TrendingUp, FileText } from "lucide-react";
 import DonationForm from "@/components/DonationForm";
 
-const PetitionSupportCard = ({ onDonate, onShare, petitionId, petitionTitle, donationGoal = null, totalDonations = 0 }) => {
+const PetitionSupportCard = ({ onDonate, onShare, onChooseFlyer, petitionId, petitionTitle, donationGoal = null, totalDonations = 0 }) => {
   const raised = totalDonations || 0;
   const goal = Number(donationGoal);
   const progress = (goal && goal > 0) ? Math.min((raised / goal) * 100, 100) : 0;
@@ -42,12 +42,15 @@ const PetitionSupportCard = ({ onDonate, onShare, petitionId, petitionTitle, don
             )}
 
             {/* Contribute Button */}
-            <Button 
-                className="h-10 md:h-12 w-full text-sm md:text-base font-semibold shadow-md transition-all hover:shadow-lg"
-                onClick={() => onDonate && onDonate()}
-            >
-              Contribuir agora
-            </Button>
+            <div className="flex flex-col gap-2">
+                <Button 
+                    className="h-10 md:h-12 w-full text-sm md:text-base font-semibold shadow-md transition-all hover:shadow-lg"
+                    onClick={() => onDonate && onDonate()}
+                >
+                  Contribuir agora
+                </Button>
+                
+            </div>
           </CardContent>
         </Card>
       </div>

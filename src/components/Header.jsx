@@ -138,8 +138,8 @@ const Header = () => {
       style={{
         ...headerStyle, 
         top: 0,
-        paddingTop: 'calc(var(--safe-area-top))',
-        height: 'calc(4rem + var(--safe-area-top))',
+        paddingTop: 'max(env(safe-area-inset-top), 0px)',
+        height: 'calc(4rem + max(env(safe-area-inset-top), 0px))',
         marginTop: 0
       }} 
       className="fixed left-0 right-0 z-[1001] border-b"

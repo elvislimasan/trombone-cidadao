@@ -47,6 +47,14 @@
     /* Garantir que o viewport respeite safe areas */
     overflow-x: hidden;
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
   
   /* Remove qualquer margin/padding padrão do body */
   body {

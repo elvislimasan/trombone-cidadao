@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Image as ImageIcon, Video, Check, XCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Image as ImageIcon, Video, Check, XCircle, Loader2, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from '@/lib/customSupabaseClient';
 import RichTextEditor from '@/components/petition/RichTextEditor';
 
@@ -22,14 +24,20 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [existingGallery, setExistingGallery] = useState([]);
   const [removedGalleryIds, setRemovedGalleryIds] = useState([]);
   const [sendNotification, setSendNotification] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState('');
   const [reports, setReports] = useState([]);
+  const [selectedReportIds, setSelectedReportIds] = useState([]);
   const [works, setWorks] = useState([]);
-  const [selectedWorkId, setSelectedWorkId] = useState('');
+  const [selectedWorkIds, setSelectedWorkIds] = useState([]);
   const [petitions, setPetitions] = useState([]);
-  const [selectedPetitionId, setSelectedPetitionId] = useState('');
+  const [selectedPetitionIds, setSelectedPetitionIds] = useState([]);
+  const [allNews, setAllNews] = useState([]);
+  const [selectedRelatedNewsIds, setSelectedRelatedNewsIds] = useState([]);
   const featuredImageInputRef = useRef(null);
   const galleryInputRef = useRef(null);
+  const [relatedNewsOpen, setRelatedNewsOpen] = useState(false);
+  const [worksOpen, setWorksOpen] = useState(false);
+  const [petitionsOpen, setPetitionsOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   // Fetch reports for selection
   useEffect(() => {
@@ -67,6 +75,18 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
     fetchPetitions();
   }, []);
 
+  // Fetch all news for related selection
+  useEffect(() => {
+    const fetchAllNews = async () => {
+      const { data } = await supabase
+        .from('news')
+        .select('id, title, date')
+        .order('date', { ascending: false });
+      if (data) setAllNews(data);
+    };
+    fetchAllNews();
+  }, []);
+
   useEffect(() => {
     if (newsItem) {
       setFormData({
@@ -75,9 +95,10 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
       setGalleryFiles([]); // Resetar galeria ao abrir modal
       setRemovedGalleryIds([]);
       setSendNotification(!newsItem.id);
-      setSelectedReportId(''); // Reset or set if we had a field
-      setSelectedWorkId('');
-      setSelectedPetitionId('');
+      setSelectedReportIds([]);
+      setSelectedWorkIds([]);
+      setSelectedPetitionIds([]);
+      setSelectedRelatedNewsIds([]);
       
       // Buscar imagens existentes da galeria
       if (newsItem.id) {
@@ -95,30 +116,59 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
           .from('news_public_works')
           .select('work_id')
           .eq('news_id', newsItem.id)
-          .limit(1)
           .then(({ data, error }) => {
             if (!error && data && data.length > 0) {
-              setSelectedWorkId(data[0].work_id || '');
+              const ids = data.map(r => r.work_id).filter(Boolean);
+              setSelectedWorkIds(ids);
             } else {
-              setSelectedWorkId('');
+              setSelectedWorkIds([]);
             }
           });
         supabase
           .from('news_petitions')
           .select('petition_id')
           .eq('news_id', newsItem.id)
-          .limit(1)
           .then(({ data, error }) => {
             if (!error && data && data.length > 0) {
-              setSelectedPetitionId(data[0].petition_id || '');
+              const ids = data.map(r => r.petition_id).filter(Boolean);
+              setSelectedPetitionIds(ids);
             } else {
-              setSelectedPetitionId('');
+              setSelectedPetitionIds([]);
+            }
+          });
+        supabase
+          .from('news_reports')
+          .select('report_id')
+          .eq('news_id', newsItem.id)
+          .then(({ data, error }) => {
+            if (!error && data && data.length > 0) {
+              const ids = data.map(r => r.report_id).filter(Boolean);
+              setSelectedReportIds(ids);
+            } else {
+              setSelectedReportIds([]);
+            }
+          });
+        supabase
+          .from('news_related')
+          .select('related_news_id')
+          .eq('news_id', newsItem.id)
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('Erro ao buscar notícias relacionadas vinculadas:', error);
+            }
+            if (!error && data && data.length > 0) {
+              const ids = data.map(r => r.related_news_id).filter(Boolean);
+              setSelectedRelatedNewsIds(ids);
+            } else {
+              setSelectedRelatedNewsIds([]);
             }
           });
       } else {
         setExistingGallery([]);
-        setSelectedWorkId('');
-        setSelectedPetitionId('');
+        setSelectedWorkIds([]);
+        setSelectedPetitionIds([]);
+        setSelectedReportIds([]);
+        setSelectedRelatedNewsIds([]);
       }
     } else {
       setFormData(null);
@@ -170,7 +220,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData, galleryFiles, removedGalleryIds, sendNotification, selectedReportId, selectedWorkId, selectedPetitionId);
+    onSave(formData, galleryFiles, removedGalleryIds, sendNotification, selectedReportIds, selectedWorkIds, selectedPetitionIds, selectedRelatedNewsIds);
   };
 
   if (!formData) return null;
@@ -219,72 +269,357 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="relatedReport" className="text-right">Vincular Bronca</Label>
+              <Label htmlFor="relatedReport" className="text-right">Vincular Broncas</Label>
               <div className="col-span-3">
-                <Combobox
-                  options={[
-                    { value: 'none', label: 'Nenhuma' },
-                    ...reports.map(r => ({
-                      value: r.id,
-                      label: `${r.protocol} - ${r.title.substring(0, 40)}${r.title.length > 40 ? '...' : ''}`
-                    }))
-                  ]}
-                  value={selectedReportId}
-                  onChange={setSelectedReportId}
-                  placeholder="Selecione uma bronca (opcional)"
-                  searchPlaceholder="Buscar bronca..."
-                  notFoundText="Nenhuma bronca encontrada."
-                />
+                <Popover open={reportsOpen} onOpenChange={setReportsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={reportsOpen}
+                      className="w-full justify-between"
+                      type="button"
+                    >
+                      {selectedReportIds.length > 0
+                        ? `${selectedReportIds.length} selecionada(s)`
+                        : "Selecionar broncas..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar bronca..." />
+                      <CommandList className="max-h-[300px] overflow-y-auto">
+                        <CommandEmpty>Nenhuma bronca encontrada.</CommandEmpty>
+                        <CommandGroup heading="Broncas">
+                          {reports.map((r) => {
+                            const checked = selectedReportIds.includes(r.id);
+                            return (
+                              <CommandItem
+                                key={r.id}
+                                value={`${r.protocol} ${r.title} ${r.id}`}
+                                onSelect={() => {
+                                  setSelectedReportIds(prev => {
+                                    if (prev.includes(r.id)) {
+                                      return prev.filter(id => id !== r.id);
+                                    }
+                                    return [...prev, r.id];
+                                  });
+                                }}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Check className={`h-4 w-4 ${checked ? 'opacity-100' : 'opacity-0'}`} />
+                                  <span className="truncate">{r.protocol} - {r.title.substring(0, 30)}{r.title.length > 30 ? '...' : ''}</span>
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                        {selectedReportIds.length > 0 && (
+                          <CommandGroup heading="Ações">
+                            <CommandItem onSelect={() => setSelectedReportIds([])}>
+                              Limpar seleção
+                            </CommandItem>
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedReportIds.length > 0 && reports.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedReportIds.map(id => {
+                      const item = reports.find(r => r.id === id);
+                      if (!item) return null;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
+                          <span className="max-w-[200px] truncate">{item.protocol} - {item.title.substring(0, 20)}</span>
+                          <button
+                            type="button"
+                            className="ml-1 text-primary/60 hover:text-primary transition-colors"
+                            onClick={() => setSelectedReportIds(prev => prev.filter(x => x !== id))}
+                            aria-label={`Remover ${item.title}`}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  Se selecionado, enviará notificação também para os envolvidos nesta bronca.
+                  Selecione uma ou mais broncas. Se selecionadas, enviará notificação também para os envolvidos.
                 </p>
               </div>
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="relatedWork" className="text-right">Vincular Obra</Label>
+              <Label htmlFor="relatedWork" className="text-right">Vincular Obras</Label>
               <div className="col-span-3">
-                <Combobox
-                  options={[
-                    { value: 'none', label: 'Nenhuma' },
-                    ...works.map(w => ({
-                      value: w.id,
-                      label: w.title
-                    }))
-                  ]}
-                  value={selectedWorkId}
-                  onChange={setSelectedWorkId}
-                  placeholder="Selecione uma obra (opcional)"
-                  searchPlaceholder="Buscar obra..."
-                  notFoundText="Nenhuma obra encontrada."
-                  modal
-                />
+                <Popover open={worksOpen} onOpenChange={setWorksOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={worksOpen}
+                      className="w-full justify-between"
+                      type="button"
+                    >
+                      {selectedWorkIds.length > 0
+                        ? `${selectedWorkIds.length} selecionada(s)`
+                        : "Selecionar obras..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar obra..." />
+                      <CommandList className="max-h-[300px] overflow-y-auto">
+                        <CommandEmpty>Nenhuma obra encontrada.</CommandEmpty>
+                        <CommandGroup heading="Obras">
+                          {works.map((w) => {
+                            const checked = selectedWorkIds.includes(w.id);
+                            return (
+                              <CommandItem
+                                key={w.id}
+                                value={`${w.title} ${w.id}`}
+                                onSelect={() => {
+                                  setSelectedWorkIds(prev => {
+                                    if (prev.includes(w.id)) {
+                                      return prev.filter(id => id !== w.id);
+                                    }
+                                    return [...prev, w.id];
+                                  });
+                                }}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Check className={`h-4 w-4 ${checked ? 'opacity-100' : 'opacity-0'}`} />
+                                  <span className="truncate">{w.title}</span>
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                        {selectedWorkIds.length > 0 && (
+                          <CommandGroup heading="Ações">
+                            <CommandItem onSelect={() => setSelectedWorkIds([])}>
+                              Limpar seleção
+                            </CommandItem>
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedWorkIds.length > 0 && works.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedWorkIds.map(id => {
+                      const item = works.find(w => w.id === id);
+                      if (!item) return null;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
+                          <span className="max-w-[200px] truncate">{item.title}</span>
+                          <button
+                            type="button"
+                            className="ml-1 text-primary/60 hover:text-primary transition-colors"
+                            onClick={() => setSelectedWorkIds(prev => prev.filter(x => x !== id))}
+                            aria-label={`Remover ${item.title}`}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  Se vinculado, esta notícia aparecerá como relacionada na página da obra.
+                  Selecione uma ou mais obras. Se vinculadas, esta notícia aparecerá como relacionada nas páginas das obras.
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="relatedPetition" className="text-right">Vincular Petição</Label>
+              <Label htmlFor="relatedPetition" className="text-right">Vincular Petições</Label>
               <div className="col-span-3">
-                <Combobox
-                  options={[
-                    { value: 'none', label: 'Nenhuma' },
-                    ...petitions.map(p => ({
-                      value: p.id,
-                      label: p.title
-                    }))
-                  ]}
-                  value={selectedPetitionId}
-                  onChange={setSelectedPetitionId}
-                  placeholder="Selecione uma petição (opcional)"
-                  searchPlaceholder="Buscar petição..."
-                  notFoundText="Nenhuma petição encontrada."
-                  modal
-                />
+                <Popover open={petitionsOpen} onOpenChange={setPetitionsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={petitionsOpen}
+                      className="w-full justify-between"
+                      type="button"
+                    >
+                      {selectedPetitionIds.length > 0
+                        ? `${selectedPetitionIds.length} selecionada(s)`
+                        : "Selecionar petições..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar petição..." />
+                      <CommandList className="max-h-[300px] overflow-y-auto">
+                        <CommandEmpty>Nenhuma petição encontrada.</CommandEmpty>
+                        <CommandGroup heading="Petições">
+                          {petitions.map((p) => {
+                            const checked = selectedPetitionIds.includes(p.id);
+                            return (
+                              <CommandItem
+                                key={p.id}
+                                value={`${p.title} ${p.id}`}
+                                onSelect={() => {
+                                  setSelectedPetitionIds(prev => {
+                                    if (prev.includes(p.id)) {
+                                      return prev.filter(id => id !== p.id);
+                                    }
+                                    return [...prev, p.id];
+                                  });
+                                }}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Check className={`h-4 w-4 ${checked ? 'opacity-100' : 'opacity-0'}`} />
+                                  <span className="truncate">{p.title}</span>
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                        {selectedPetitionIds.length > 0 && (
+                          <CommandGroup heading="Ações">
+                            <CommandItem onSelect={() => setSelectedPetitionIds([])}>
+                              Limpar seleção
+                            </CommandItem>
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedPetitionIds.length > 0 && petitions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedPetitionIds.map(id => {
+                      const item = petitions.find(p => p.id === id);
+                      if (!item) return null;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
+                          <span className="max-w-[200px] truncate">{item.title}</span>
+                          <button
+                            type="button"
+                            className="ml-1 text-primary/60 hover:text-primary transition-colors"
+                            onClick={() => setSelectedPetitionIds(prev => prev.filter(x => x !== id))}
+                            aria-label={`Remover ${item.title}`}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  Se vinculado, esta notícia aparecerá como relacionada na página da petição.
+                  Selecione uma ou mais petições. Se vinculadas, esta notícia aparecerá como relacionada nas páginas das petições.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="relatedNews" className="text-right pt-2">Vincular Notícias</Label>
+              <div className="col-span-3">
+                <Popover open={relatedNewsOpen} onOpenChange={setRelatedNewsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={relatedNewsOpen}
+                      className="w-full justify-between"
+                      type="button"
+                    >
+                      {selectedRelatedNewsIds.length > 0
+                        ? `${selectedRelatedNewsIds.length} selecionada(s)`
+                        : "Selecionar notícias..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar notícia..." />
+                      <CommandList className="max-h-[300px] overflow-y-auto">
+                        <CommandEmpty>Nenhuma notícia encontrada.</CommandEmpty>
+                        <CommandGroup heading="Notícias">
+                          {allNews
+                            .filter(n => n.id !== newsItem?.id)
+                            .map((n) => {
+                              const checked = selectedRelatedNewsIds.includes(n.id);
+                              return (
+                                <CommandItem
+                                  key={n.id}
+                                  value={`${n.title} ${n.id}`}
+                                  onSelect={() => {
+                                    setSelectedRelatedNewsIds(prev => {
+                                      if (prev.includes(n.id)) {
+                                        return prev.filter(id => id !== n.id);
+                                      }
+                                      return [...prev, n.id];
+                                    });
+                                  }}
+                                  className="flex items-center justify-between"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Check className={`h-4 w-4 ${checked ? 'opacity-100' : 'opacity-0'}`} />
+                                    <span className="truncate">{n.title}</span>
+                                  </div>
+                                </CommandItem>
+                              );
+                            })}
+                        </CommandGroup>
+                        {selectedRelatedNewsIds.length > 0 && (
+                          <CommandGroup heading="Ações">
+                            <CommandItem
+                              onSelect={() => setSelectedRelatedNewsIds([])}
+                            >
+                              Limpar seleção
+                            </CommandItem>
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedRelatedNewsIds.length > 0 && allNews.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedRelatedNewsIds.map(id => {
+                      const item = allNews.find(n => n.id === id);
+                      if (!item) return null;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
+                          <span className="max-w-[200px] truncate">{item.title}</span>
+                          {item.date && (
+                            <span className="text-[9px] opacity-60">
+                              ({new Date(item.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="ml-1 text-primary/60 hover:text-primary transition-colors"
+                            onClick={() => setSelectedRelatedNewsIds(prev => prev.filter(x => x !== id))}
+                            aria-label={`Remover ${item.title}`}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedRelatedNewsIds.length > 0 && allNews.length === 0 && (
+                   <p className="text-xs text-muted-foreground mt-2 italic">Carregando detalhes das notícias vinculadas...</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Selecione uma ou mais notícias para exibir como relacionadas.
                 </p>
               </div>
             </div>
@@ -437,7 +772,7 @@ const ManageNewsPage = () => {
     }
   };
 
-  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportId = null, relatedWorkId = null, relatedPetitionId = null) => {
+  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportIds = [], relatedWorkIds = [], relatedPetitionIds = [], relatedNewsIds = []) => {
     const { id, comments, ...dataToSave } = newsToSave;
     
     // Remove campos que não existem na tabela news
@@ -467,29 +802,67 @@ const ManageNewsPage = () => {
       return;
     }
 
-    // Atualizar vínculo notícia-obra
+    // Atualizar vínculo notícia-obra (múltiplas)
     if (savedNewsId) {
-      // Limpar vínculos existentes para esta notícia
       await supabase.from('news_public_works').delete().eq('news_id', savedNewsId);
-      // Inserir novo vínculo se houver obra selecionada
-      if (relatedWorkId && relatedWorkId !== 'none') {
-        await supabase.from('news_public_works').insert({
-          news_id: savedNewsId,
-          work_id: relatedWorkId
-        });
+      if (Array.isArray(relatedWorkIds) && relatedWorkIds.length > 0) {
+        const workRows = relatedWorkIds
+          .filter(workId => !!workId)
+          .map(workId => ({ news_id: savedNewsId, work_id: workId }));
+        if (workRows.length > 0) {
+          const { error: linkErr } = await supabase.from('news_public_works').insert(workRows);
+          if (linkErr) {
+            toast({ title: "Erro ao vincular obras", description: linkErr.message, variant: "destructive" });
+          }
+        }
       }
     }
 
-    // Atualizar vínculo notícia-petição
+    // Atualizar vínculo notícia-petição (múltiplas)
     if (savedNewsId) {
-      // Limpar vínculos existentes para esta notícia
       await supabase.from('news_petitions').delete().eq('news_id', savedNewsId);
-      // Inserir novo vínculo se houver petição selecionada
-      if (relatedPetitionId && relatedPetitionId !== 'none') {
-        await supabase.from('news_petitions').insert({
-          news_id: savedNewsId,
-          petition_id: relatedPetitionId
-        });
+      if (Array.isArray(relatedPetitionIds) && relatedPetitionIds.length > 0) {
+        const petitionRows = relatedPetitionIds
+          .filter(petitionId => !!petitionId)
+          .map(petitionId => ({ news_id: savedNewsId, petition_id: petitionId }));
+        if (petitionRows.length > 0) {
+          const { error: linkErr } = await supabase.from('news_petitions').insert(petitionRows);
+          if (linkErr) {
+            toast({ title: "Erro ao vincular petições", description: linkErr.message, variant: "destructive" });
+          }
+        }
+      }
+    }
+
+    // Atualizar vínculo notícia-bronca (múltiplas)
+    if (savedNewsId) {
+      await supabase.from('news_reports').delete().eq('news_id', savedNewsId);
+      if (Array.isArray(relatedReportIds) && relatedReportIds.length > 0) {
+        const reportRows = relatedReportIds
+          .filter(reportId => !!reportId)
+          .map(reportId => ({ news_id: savedNewsId, report_id: reportId }));
+        if (reportRows.length > 0) {
+          const { error: linkErr } = await supabase.from('news_reports').insert(reportRows);
+          if (linkErr) {
+            toast({ title: "Erro ao vincular broncas", description: linkErr.message, variant: "destructive" });
+          }
+        }
+      }
+    }
+
+    // Atualizar vínculo notícia-notícia
+    if (savedNewsId) {
+      await supabase.from('news_related').delete().eq('news_id', savedNewsId);
+      if (Array.isArray(relatedNewsIds) && relatedNewsIds.length > 0) {
+        const rows = relatedNewsIds
+          .filter(newsId => !!newsId)
+          .map(newsId => ({ news_id: savedNewsId, related_news_id: newsId }));
+        if (rows.length > 0) {
+          const { error: linkErr } = await supabase.from('news_related').insert(rows);
+          if (linkErr) {
+            toast({ title: "Erro ao vincular notícias relacionadas", description: linkErr.message, variant: "destructive" });
+          }
+        }
       }
     }
 

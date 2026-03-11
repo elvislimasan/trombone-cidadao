@@ -1,4 +1,80 @@
-import { POPUP_STYLES } from './plugins/visual-editor/visual-editor-config.js';
+const POPUP_STYLES = `
+#inline-editor-popup {
+  width: 360px;
+  position: fixed;
+  z-index: 10000;
+  background: #161718;
+  color: white;
+  border: 1px solid #4a5568;
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  flex-direction: column;
+  gap: 10px;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  #inline-editor-popup {
+    width: calc(100% - 20px);
+  }
+}
+
+#inline-editor-popup.is-active {
+  display: flex;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+#inline-editor-popup.is-disabled-view {
+  padding: 10px 15px;
+}
+
+#inline-editor-popup textarea {
+  height: 100px;
+  padding: 4px 8px;
+  background: transparent;
+  color: white;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.42;
+  resize: none;
+  outline: none;
+}
+
+#inline-editor-popup .button-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+#inline-editor-popup .popup-button {
+  border: none;
+  padding: 6px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  height: 34px;
+  outline: none;
+}
+
+#inline-editor-popup .save-button {
+  background: #673de6;
+  color: white;
+}
+
+#inline-editor-popup .cancel-button {
+  background: transparent;
+  border: 1px solid #3b3d4a;
+  color: white;
+
+  &:hover {
+    background:#474958;
+  }
+}
+`;
 
 const PLUGIN_APPLY_EDIT_API_URL = '/api/apply-edit';
 

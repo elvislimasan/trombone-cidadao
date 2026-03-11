@@ -27,6 +27,7 @@ import PetitionSignatureCard from '@/components/petition-modern/PetitionSignatur
 import PetitionSupportCard from '@/components/petition-modern/PetitionSupportCard';
 import PetitionRelatedCauses from '@/components/petition-modern/PetitionRelatedCauses';
 import GuestSignModal from '@/components/petition-modern/GuestSignModal';
+import PetitionFlyerModal from '@/components/petition/PetitionFlyerModal';
 
 const PetitionPageModern = () => {
   const { id } = useParams();
@@ -55,7 +56,10 @@ const PetitionPageModern = () => {
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
+  const [showFlyerModal, setShowFlyerModal] = useState(false);
   const [signing, setSigning] = useState(false);
+  
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=380x380&data=${encodeURIComponent(getPetitionShareUrl(id))}`;
   
   // Forms State
   const [guestForm, setGuestForm] = useState({
@@ -323,7 +327,7 @@ const PetitionPageModern = () => {
            </div>
            
            {/* Right Column: Sidebar */}
-           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start pb-24 lg:pb-0">
               <PetitionSignatureCard 
                  signaturesCount={signatures.length}
                  goal={petition.goal || 100}
@@ -357,6 +361,7 @@ const PetitionPageModern = () => {
                 donationGoal={petition.donation_goal}
                 totalDonations={totalDonations}
                 onDonate={() => setShowDonationModal(true)}
+                onChooseFlyer={() => setShowFlyerModal(true)}
                 onShare={async () => {
                   const shareUrl = getPetitionShareUrl(id);
                   try {
@@ -389,6 +394,13 @@ const PetitionPageModern = () => {
         setGuestForm={setGuestForm}
         onGuestSign={handleGuestSign}
         signing={signing}
+      />
+
+      <PetitionFlyerModal 
+        isOpen={showFlyerModal}
+        onClose={() => setShowFlyerModal(false)}
+        petition={petition}
+        qrCodeUrl={qrCodeUrl}
       />
       
       {showJourney && (

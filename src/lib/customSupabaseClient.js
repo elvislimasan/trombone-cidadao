@@ -21,6 +21,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    storageKey: 'supabase-trombone-auth',
+    storage: window.localStorage,
     // Desabilitamos detectSessionInUrl para Web também, pois estamos lidando com a recuperação manualmente
     // no SupabaseAuthContext.jsx para evitar race conditions.
     detectSessionInUrl: false, 
