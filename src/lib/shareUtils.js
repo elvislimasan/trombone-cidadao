@@ -28,77 +28,41 @@ export const getPetitionShareUrl = (id) => {
     import.meta.env.VITE_SUPABASE_URL ||
     'https://xxdletrjyjajtrmhwzev.supabase.co';
 
-  if (typeof window === 'undefined') {
-    return `${supabaseUrl}/functions/v1/share-petition?id=${id}`;
-  }
+  const prodUrl = supabaseUrl.includes('xxdletrjyjajtrmhwzev') 
+    ? 'https://trombone-cidadao.vercel.app' 
+    : 'https://trombonecidadao.com.br';
 
-  const origin = window.location.origin || '';
-  if (origin.includes('localhost')) {
-    return `${supabaseUrl}/functions/v1/share-petition?id=${id}`;
-  }
-
-  return `${getBaseAppUrl()}/share/abaixo-assinado/${id}`;
+  return `${prodUrl}/share/abaixo-assinado/${id}`;
 };
 
 export const getReportShareUrl = (id) => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 
-  if (typeof window === 'undefined') {
-    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
-      return `https://trombone-cidadao.vercel.app/share/bronca/${id}`;
-    }
-    return `https://trombonecidadao.com.br/share/bronca/${id}`;
-  }
+  const prodUrl = supabaseUrl.includes('xxdletrjyjajtrmhwzev') 
+    ? 'https://trombone-cidadao.vercel.app' 
+    : 'https://trombonecidadao.com.br';
 
-  const origin = window.location.origin || '';
-  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
-      return `https://trombone-cidadao.vercel.app/share/bronca/${id}`;
-    }
-    return `https://trombonecidadao.com.br/share/bronca/${id}`;
-  }
-
-  return `${origin}/share/bronca/${id}`;
+  return `${prodUrl}/share/bronca/${id}`;
 };
 
 export const getWorkShareUrl = (id) => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 
-  if (typeof window === 'undefined') {
-    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
-      return `https://trombone-cidadao.vercel.app/share/obra/${id}`;
-    }
-    return `https://trombonecidadao.com.br/share/obra/${id}`;
-  }
+  const prodUrl = supabaseUrl.includes('xxdletrjyjajtrmhwzev') 
+    ? 'https://trombone-cidadao.vercel.app' 
+    : 'https://trombonecidadao.com.br';
 
-  const origin = window.location.origin || '';
-  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
-      return `https://trombone-cidadao.vercel.app/share/obra/${id}`;
-    }
-    return `https://trombonecidadao.com.br/share/obra/${id}`;
-  }
-
-  return `${origin}/share/obra/${id}`;
+  return `${prodUrl}/share/obra/${id}`;
 };
 
 export const getNewsShareUrl = (id) => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 
-  if (typeof window === 'undefined') {
-    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
-      return `https://trombone-cidadao.vercel.app/share/noticia/${id}`;
-    }
-    return `https://trombonecidadao.com.br/share/noticia/${id}`;
-  }
+  // Sempre usar o domínio de produção para garantir que as meta tags (OG) funcionem
+  // via redirecionamento da Edge Function do Supabase.
+  const prodUrl = supabaseUrl.includes('xxdletrjyjajtrmhwzev') 
+    ? 'https://trombone-cidadao.vercel.app' 
+    : 'https://trombonecidadao.com.br';
 
-  const origin = window.location.origin || '';
-  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-    if (supabaseUrl.includes('xxdletrjyjajtrmhwzev')) {
-      return `https://trombone-cidadao.vercel.app/share/noticia/${id}`;
-    }
-    return `https://trombonecidadao.com.br/share/noticia/${id}`;
-  }
-
-  return `${origin}/share/noticia/${id}`;
+  return `${prodUrl}/share/noticia/${id}`;
 };
