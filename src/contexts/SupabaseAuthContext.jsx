@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
@@ -19,6 +19,12 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const userRef = useRef(null);
+
+  // Sincronizar userRef com o estado user
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const fetchUserProfile = useCallback(async (authUser) => {
     if (!authUser) {
@@ -27,21 +33,33 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
 
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authUser.id)
-      .single();
+    try {
+      // Adicionar timeout para a busca de perfil para evitar "travar" a inicialização
+      const fetchPromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+      );
 
-    if (error) {
-      console.error("Error fetching user profile:", error);
-      setUser(authUser); // Fallback to auth user
-    } else {
-      const fullUser = { ...authUser, ...profile };
-      setUser(fullUser);
+      const { data: profile, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        setUser(authUser); // Fallback to auth user
+      } else {
+        const fullUser = { ...authUser, ...profile };
+        setUser(fullUser);
+      }
+    } catch (err) {
+      console.error("Profile fetch exception or timeout:", err);
+      setUser(authUser); // Fallback to auth user em caso de timeout/erro
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    return profile;
   }, []);
 
   const refreshUserProfile = useCallback(async () => {
@@ -145,9 +163,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
     let appListener = null;
+    let resumeListener = null;
 
     const initAuth = async () => {
       try {
+        console.log("Initializing auth...");
         // 1. Tentar recuperar sessão da URL atual
         let recovered = false;
         
@@ -173,27 +193,45 @@ export const AuthProvider = ({ children }) => {
         if (recovered) return;
 
         // 2. Se não houve recuperação manual, verificar sessão existente
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log("Getting current session...");
         
-        if (error) {
-          console.error("Error getting session:", error.message);
-          if (error.message.includes('Invalid Refresh Token')) {
-            await supabase.auth.signOut();
+        // Timeout para getSession()
+        const sessionPromise = supabase.auth.getSession();
+        const sessionTimeout = new Promise((_, reject) => 
+           setTimeout(() => reject(new Error('getSession timeout')), 8000)
+        );
+
+        try {
+          const { data: { session }, error } = await Promise.race([sessionPromise, sessionTimeout]);
+          
+          if (error) {
+            console.error("Error getting session:", error.message);
+            if (error.message.includes('Invalid Refresh Token') || error.message.includes('not found')) {
+              await supabase.auth.signOut();
+            }
+            if (mounted) {
+              setUser(null);
+              setLoading(false);
+            }
+          } else if (session) {
+            console.log("Session found for user:", session.user.email);
+            if (mounted) await fetchUserProfile(session.user);
+          } else {
+            console.log("No session found.");
+            if (mounted) {
+              setUser(null);
+              setLoading(false);
+            }
           }
-          if (mounted) {
-            setUser(null);
-            setLoading(false);
-          }
-        } else if (session) {
-          if (mounted) await fetchUserProfile(session.user);
-        } else {
+        } catch (sessionErr) {
+          console.error("getSession failed or timed out:", sessionErr);
           if (mounted) {
             setUser(null);
             setLoading(false);
           }
         }
       } catch (err) {
-        console.error("Unexpected auth error:", err);
+        console.error("Unexpected auth error during initAuth:", err);
         if (mounted) setLoading(false);
       }
     };
@@ -216,36 +254,72 @@ export const AuthProvider = ({ children }) => {
       }).then(listener => {
         appListener = listener;
       });
+
+      // Listener para retorno do background (Resume)
+      // 🔥 CRÍTICO: Quando o app volta de um longo período em background,
+      // a sessão pode ter expirado ou o webview pode estar em estado inconsistente.
+      App.addListener('appStateChange', async ({ isActive }) => {
+        if (isActive) {
+          console.log('App resumed. Verifying session...');
+          try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error) {
+              console.error("Error verifying session on resume:", error);
+              if (error.message.includes('Invalid Refresh Token')) {
+                await supabase.auth.signOut();
+                setUser(null);
+              }
+            } else if (session) {
+              console.log("Session verified on resume.");
+              // Opcional: atualizar perfil se necessário
+            } else if (userRef.current) {
+              // Se tínhamos um usuário mas agora não temos sessão, forçar logout
+              console.warn("Session lost on resume. Clearing user state.");
+              setUser(null);
+            }
+          } catch (e) {
+            console.error("Unexpected error verifying session on resume:", e);
+          }
+        }
+      }).then(listener => {
+        resumeListener = listener;
+      });
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state change:", event);
+      console.log("Auth state change event:", event);
       if (!mounted) return;
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        if (session) await fetchUserProfile(session.user);
+        if (session) {
+          console.log("User signed in or token refreshed. Fetching profile...");
+          await fetchUserProfile(session.user);
+        }
       } else if (event === 'SIGNED_OUT') {
+        console.log("User signed out.");
         setUser(null);
         setLoading(false);
       } else if (event === 'INITIAL_SESSION') {
         if (session) {
           await fetchUserProfile(session.user);
         }
+      } else if (event === 'USER_UPDATED') {
+        if (session) await fetchUserProfile(session.user);
       }
     });
 
-    // Safety timeout
+    // Safety timeout (reduzido para 12s para dar tempo aos timeouts internos)
     const timeoutId = setTimeout(() => {
       if (mounted) {
         setLoading(prev => {
           if (prev) {
-            console.warn("Auth loading timeout reached, forcing app render");
+            console.warn("Auth loading global timeout reached, forcing app render to prevent white screen");
             return false;
           }
           return prev;
         });
       }
-    }, 10000);
+    }, 12000);
 
     return () => {
       mounted = false;
@@ -253,6 +327,9 @@ export const AuthProvider = ({ children }) => {
       clearTimeout(timeoutId);
       if (appListener) {
         appListener.remove();
+      }
+      if (resumeListener) {
+        resumeListener.remove();
       }
     };
   }, [fetchUserProfile, _handleAuthCallback]);

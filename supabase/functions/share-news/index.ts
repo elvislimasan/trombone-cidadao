@@ -53,12 +53,13 @@ Deno.serve(async (req) => {
       .single()
 
     if (!error && news) {
-      title = news.title ? `${news.title} - Trombone Cidadão` : defaultTitle
+      // Usar apenas o título da notícia para evitar cortes desnecessários nas redes sociais
+      title = news.title || defaultTitle
       const descSource = news.subtitle || news.description || defaultDesc
       description = String(descSource)
         .replace(/[\n\r]/g, ' ')
         .replace(/"/g, '&quot;')
-        .substring(0, 200)
+        .substring(0, 300) // Aumentado para 300 para dar mais contexto
         .trim()
       if (news.image_url) {
         image = news.image_url
