@@ -18,7 +18,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { supabase } from '@/lib/customSupabaseClient';
 import RichTextEditor from '@/components/petition/RichTextEditor';
 
-const NewsEditModal = ({ newsItem, onSave, onClose }) => {
+export const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [formData, setFormData] = useState(null);
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [existingGallery, setExistingGallery] = useState([]);
@@ -38,6 +38,13 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [worksOpen, setWorksOpen] = useState(false);
   const [petitionsOpen, setPetitionsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Fetch reports for selection
   useEffect(() => {
@@ -227,62 +234,65 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 
   return (
     <Dialog open={!!newsItem} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[800px] bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">{formData.id ? 'Editar Notícia' : 'Adicionar Nova Notícia'}</DialogTitle>
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[800px] p-0 overflow-hidden bg-card border-border">
+        <DialogHeader className="p-4 sm:p-6 pb-0">
+          <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground truncate">{formData.id ? 'Editar Notícia' : 'Adicionar Nova Notícia'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
-          <div className="space-y-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">Título</Label>
-              <Input id="title" name="title" value={formData.title} onChange={handleChange} className="col-span-3" />
+        <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[85vh] overflow-hidden">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-300">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+              <Label htmlFor="title" className="sm:text-right sm:pt-2 font-semibold">Título</Label>
+              <Textarea id="title" name="title" value={formData.title} onChange={handleChange} className="sm:col-span-3 w-full min-h-[80px]" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="subtitle" className="text-right">Subtítulo</Label>
-              <Input id="subtitle" name="subtitle" value={formData.subtitle || ''} onChange={handleChange} className="col-span-3" />
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+              <Label htmlFor="subtitle" className="sm:text-right sm:pt-2 font-semibold">Subtítulo</Label>
+              <Textarea id="subtitle" name="subtitle" value={formData.subtitle || ''} onChange={handleChange} className="sm:col-span-3 w-full min-h-[60px]" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="source" className="text-right">Fonte</Label>
-              <Input id="source" name="source" value={formData.source} onChange={handleChange} className="col-span-3" />
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+              <Label htmlFor="source" className="sm:text-right sm:pt-2 font-semibold">Fonte</Label>
+              <Textarea id="source" name="source" value={formData.source} onChange={handleChange} className="sm:col-span-3 w-full min-h-[40px]" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="date" className="text-right">Data</Label>
-              <Input id="date" name="date" type="date" value={formData.date} onChange={handleChange} className="col-span-3" />
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="date" className="sm:text-right font-semibold">Data</Label>
+              <Input id="date" name="date" type="date" value={formData.date} onChange={handleChange} className="sm:col-span-3 w-full" />
             </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="description" className="text-right pt-2">Resumo</Label>
-              <Textarea id="description" name="description" value={formData.description} onChange={handleChange} className="col-span-3" />
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+              <Label htmlFor="description" className="sm:text-right sm:pt-2 font-semibold">Resumo</Label>
+              <Textarea id="description" name="description" value={formData.description} onChange={handleChange} className="sm:col-span-3 h-24 w-full" />
             </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="body" className="text-right pt-2">Corpo da Notícia</Label>
-              <div className="col-span-3">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+              <Label htmlFor="body" className="sm:text-right sm:pt-2 font-semibold">Corpo da Notícia</Label>
+              <div className="sm:col-span-3 w-full overflow-hidden">
                 <RichTextEditor
                   value={formData.body || ''}
                   onChange={(html) => setFormData(prev => ({ ...prev, body: html }))}
                   placeholder="Escreva o conteúdo da notícia, use o botão de link para inserir URLs."
+                  isMobile={isMobile}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="video_url" className="text-right">URL do Vídeo</Label>
-              <Input id="video_url" name="video_url" value={formData.video_url} onChange={handleChange} className="col-span-3" placeholder="Link do YouTube ou Instagram" />
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+              <Label htmlFor="video_url" className="sm:text-right sm:pt-2 font-semibold">URL do Vídeo</Label>
+              <Textarea id="video_url" name="video_url" value={formData.video_url} onChange={handleChange} className="sm:col-span-3 w-full min-h-[40px]" placeholder="Link do YouTube ou Instagram" />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="relatedReport" className="text-right">Vincular Broncas</Label>
-              <div className="col-span-3">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4 border-t pt-6 mt-6">
+              <Label htmlFor="relatedReport" className="sm:text-right">Vincular Broncas</Label>
+              <div className="sm:col-span-3">
                 <Popover open={reportsOpen} onOpenChange={setReportsOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
                       aria-expanded={reportsOpen}
-                      className="w-full justify-between"
+                      className="w-full justify-between h-auto py-2 px-3 text-left"
                       type="button"
                     >
-                      {selectedReportIds.length > 0
-                        ? `${selectedReportIds.length} selecionada(s)`
-                        : "Selecionar broncas..."}
+                      <span className="truncate">
+                        {selectedReportIds.length > 0
+                          ? `${selectedReportIds.length} selecionada(s)`
+                          : "Selecionar broncas..."}
+                      </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -297,7 +307,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                             return (
                               <CommandItem
                                 key={r.id}
-                                value={`${r.protocol} ${r.title} ${r.id}`}
+                                value={`${r.title} ${r.id}`}
                                 onSelect={() => {
                                   setSelectedReportIds(prev => {
                                     if (prev.includes(r.id)) {
@@ -306,11 +316,13 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                                     return [...prev, r.id];
                                   });
                                 }}
-                                className="flex items-center justify-between"
+                                className="flex items-center justify-between py-3 px-4 border-b last:border-b-0"
                               >
-                                <div className="flex items-center gap-2">
-                                  <Check className={`h-4 w-4 ${checked ? 'opacity-100' : 'opacity-0'}`} />
-                                  <span className="truncate">{r.protocol} - {r.title.substring(0, 30)}{r.title.length > 30 ? '...' : ''}</span>
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div className={`flex-shrink-0 h-4 w-4 rounded border border-primary flex items-center justify-center ${checked ? 'bg-primary text-primary-foreground' : 'bg-transparent'}`}>
+                                    {checked && <Check className="h-3 w-3" />}
+                                  </div>
+                                  <span className="truncate font-medium">{r.title}</span>
                                 </div>
                               </CommandItem>
                             );
@@ -318,7 +330,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                         </CommandGroup>
                         {selectedReportIds.length > 0 && (
                           <CommandGroup heading="Ações">
-                            <CommandItem onSelect={() => setSelectedReportIds([])}>
+                            <CommandItem onSelect={() => setSelectedReportIds([])} className="justify-center text-tc-red font-semibold py-3">
                               Limpar seleção
                             </CommandItem>
                           </CommandGroup>
@@ -333,11 +345,11 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                       const item = reports.find(r => r.id === id);
                       if (!item) return null;
                       return (
-                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
-                          <span className="max-w-[200px] truncate">{item.protocol} - {item.title.substring(0, 20)}</span>
+                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20 max-w-full">
+                          <span className="truncate">{item.title}</span>
                           <button
                             type="button"
-                            className="ml-1 text-primary/60 hover:text-primary transition-colors"
+                            className="ml-1 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
                             onClick={() => setSelectedReportIds(prev => prev.filter(x => x !== id))}
                             aria-label={`Remover ${item.title}`}
                           >
@@ -348,27 +360,29 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                     })}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Selecione uma ou mais broncas. Se selecionadas, enviará notificação também para os envolvidos.
                 </p>
               </div>
             </div>
             
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="relatedWork" className="text-right">Vincular Obras</Label>
-              <div className="col-span-3">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="relatedWork" className="sm:text-right">Vincular Obras</Label>
+              <div className="sm:col-span-3">
                 <Popover open={worksOpen} onOpenChange={setWorksOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
                       aria-expanded={worksOpen}
-                      className="w-full justify-between"
+                      className="w-full justify-between h-auto py-2 px-3 text-left"
                       type="button"
                     >
-                      {selectedWorkIds.length > 0
-                        ? `${selectedWorkIds.length} selecionada(s)`
-                        : "Selecionar obras..."}
+                      <span className="truncate">
+                        {selectedWorkIds.length > 0
+                          ? `${selectedWorkIds.length} selecionada(s)`
+                          : "Selecionar obras..."}
+                      </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -392,11 +406,13 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                                     return [...prev, w.id];
                                   });
                                 }}
-                                className="flex items-center justify-between"
+                                className="flex items-center justify-between py-3 px-4 border-b last:border-b-0"
                               >
-                                <div className="flex items-center gap-2">
-                                  <Check className={`h-4 w-4 ${checked ? 'opacity-100' : 'opacity-0'}`} />
-                                  <span className="truncate">{w.title}</span>
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div className={`flex-shrink-0 h-4 w-4 rounded border border-primary flex items-center justify-center ${checked ? 'bg-primary text-primary-foreground' : 'bg-transparent'}`}>
+                                    {checked && <Check className="h-3 w-3" />}
+                                  </div>
+                                  <span className="truncate font-medium">{w.title}</span>
                                 </div>
                               </CommandItem>
                             );
@@ -404,7 +420,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                         </CommandGroup>
                         {selectedWorkIds.length > 0 && (
                           <CommandGroup heading="Ações">
-                            <CommandItem onSelect={() => setSelectedWorkIds([])}>
+                            <CommandItem onSelect={() => setSelectedWorkIds([])} className="justify-center text-tc-red font-semibold py-3">
                               Limpar seleção
                             </CommandItem>
                           </CommandGroup>
@@ -419,11 +435,11 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                       const item = works.find(w => w.id === id);
                       if (!item) return null;
                       return (
-                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
-                          <span className="max-w-[200px] truncate">{item.title}</span>
+                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20 max-w-full">
+                          <span className="truncate">{item.title}</span>
                           <button
                             type="button"
-                            className="ml-1 text-primary/60 hover:text-primary transition-colors"
+                            className="ml-1 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
                             onClick={() => setSelectedWorkIds(prev => prev.filter(x => x !== id))}
                             aria-label={`Remover ${item.title}`}
                           >
@@ -434,27 +450,29 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                     })}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Selecione uma ou mais obras. Se vinculadas, esta notícia aparecerá como relacionada nas páginas das obras.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="relatedPetition" className="text-right">Vincular Petições</Label>
-              <div className="col-span-3">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="relatedPetition" className="sm:text-right">Vincular Petições</Label>
+              <div className="sm:col-span-3">
                 <Popover open={petitionsOpen} onOpenChange={setPetitionsOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
                       aria-expanded={petitionsOpen}
-                      className="w-full justify-between"
+                      className="w-full justify-between h-auto py-2 px-3 text-left"
                       type="button"
                     >
-                      {selectedPetitionIds.length > 0
-                        ? `${selectedPetitionIds.length} selecionada(s)`
-                        : "Selecionar petições..."}
+                      <span className="truncate">
+                        {selectedPetitionIds.length > 0
+                          ? `${selectedPetitionIds.length} selecionada(s)`
+                          : "Selecionar petições..."}
+                      </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -478,11 +496,13 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                                     return [...prev, p.id];
                                   });
                                 }}
-                                className="flex items-center justify-between"
+                                className="flex items-center justify-between py-3 px-4 border-b last:border-b-0"
                               >
-                                <div className="flex items-center gap-2">
-                                  <Check className={`h-4 w-4 ${checked ? 'opacity-100' : 'opacity-0'}`} />
-                                  <span className="truncate">{p.title}</span>
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div className={`flex-shrink-0 h-4 w-4 rounded border border-primary flex items-center justify-center ${checked ? 'bg-primary text-primary-foreground' : 'bg-transparent'}`}>
+                                    {checked && <Check className="h-3 w-3" />}
+                                  </div>
+                                  <span className="truncate font-medium">{p.title}</span>
                                 </div>
                               </CommandItem>
                             );
@@ -490,7 +510,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                         </CommandGroup>
                         {selectedPetitionIds.length > 0 && (
                           <CommandGroup heading="Ações">
-                            <CommandItem onSelect={() => setSelectedPetitionIds([])}>
+                            <CommandItem onSelect={() => setSelectedPetitionIds([])} className="justify-center text-tc-red font-semibold py-3">
                               Limpar seleção
                             </CommandItem>
                           </CommandGroup>
@@ -505,11 +525,11 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                       const item = petitions.find(p => p.id === id);
                       if (!item) return null;
                       return (
-                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
-                          <span className="max-w-[200px] truncate">{item.title}</span>
+                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20 max-w-full">
+                          <span className="truncate">{item.title}</span>
                           <button
                             type="button"
-                            className="ml-1 text-primary/60 hover:text-primary transition-colors"
+                            className="ml-1 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
                             onClick={() => setSelectedPetitionIds(prev => prev.filter(x => x !== id))}
                             aria-label={`Remover ${item.title}`}
                           >
@@ -520,27 +540,29 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                     })}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Selecione uma ou mais petições. Se vinculadas, esta notícia aparecerá como relacionada nas páginas das petições.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="relatedNews" className="text-right pt-2">Vincular Notícias</Label>
-              <div className="col-span-3">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+              <Label htmlFor="relatedNews" className="sm:text-right sm:pt-2">Vincular Notícias</Label>
+              <div className="sm:col-span-3">
                 <Popover open={relatedNewsOpen} onOpenChange={setRelatedNewsOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
                       aria-expanded={relatedNewsOpen}
-                      className="w-full justify-between"
+                      className="w-full justify-between h-auto py-2 px-3 text-left"
                       type="button"
                     >
-                      {selectedRelatedNewsIds.length > 0
-                        ? `${selectedRelatedNewsIds.length} selecionada(s)`
-                        : "Selecionar notícias..."}
+                      <span className="truncate">
+                        {selectedRelatedNewsIds.length > 0
+                          ? `${selectedRelatedNewsIds.length} selecionada(s)`
+                          : "Selecionar notícias..."}
+                      </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -566,11 +588,20 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                                       return [...prev, n.id];
                                     });
                                   }}
-                                  className="flex items-center justify-between"
+                                  className="flex items-center justify-between py-3 px-4 border-b last:border-b-0"
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <Check className={`h-4 w-4 ${checked ? 'opacity-100' : 'opacity-0'}`} />
-                                    <span className="truncate">{n.title}</span>
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className={`flex-shrink-0 h-4 w-4 rounded border border-primary flex items-center justify-center ${checked ? 'bg-primary text-primary-foreground' : 'bg-transparent'}`}>
+                                      {checked && <Check className="h-3 w-3" />}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="truncate font-medium">{n.title}</span>
+                                      {n.date && (
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {new Date(n.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </CommandItem>
                               );
@@ -578,9 +609,7 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                         </CommandGroup>
                         {selectedRelatedNewsIds.length > 0 && (
                           <CommandGroup heading="Ações">
-                            <CommandItem
-                              onSelect={() => setSelectedRelatedNewsIds([])}
-                            >
+                            <CommandItem onSelect={() => setSelectedRelatedNewsIds([])} className="justify-center text-tc-red font-semibold py-3">
                               Limpar seleção
                             </CommandItem>
                           </CommandGroup>
@@ -595,16 +624,11 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                       const item = allNews.find(n => n.id === id);
                       if (!item) return null;
                       return (
-                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
-                          <span className="max-w-[200px] truncate">{item.title}</span>
-                          {item.date && (
-                            <span className="text-[9px] opacity-60">
-                              ({new Date(item.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})
-                            </span>
-                          )}
+                        <span key={id} className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium border border-primary/20 max-w-full">
+                          <span className="truncate">{item.title}</span>
                           <button
                             type="button"
-                            className="ml-1 text-primary/60 hover:text-primary transition-colors"
+                            className="ml-1 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
                             onClick={() => setSelectedRelatedNewsIds(prev => prev.filter(x => x !== id))}
                             aria-label={`Remover ${item.title}`}
                           >
@@ -615,17 +639,14 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                     })}
                   </div>
                 )}
-                {selectedRelatedNewsIds.length > 0 && allNews.length === 0 && (
-                   <p className="text-xs text-muted-foreground mt-2 italic">Carregando detalhes das notícias vinculadas...</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Selecione uma ou mais notícias para exibir como relacionadas.
                 </p>
               </div>
             </div>
             
-            <div className="grid grid-cols-4 items-center gap-4">
-              <div className="col-start-2 col-span-3 flex items-center space-x-2">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <div className="sm:col-start-2 sm:col-span-3 flex items-center space-x-2">
                 <Checkbox 
                   id="sendNotification" 
                   checked={sendNotification} 
@@ -637,17 +658,25 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">Imagem Destaque</Label>
-              <div className="col-span-3">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4 border-t pt-6 mt-6">
+              <Label className="sm:text-right sm:pt-2 font-semibold text-sm">Imagem Destaque</Label>
+              <div className="sm:col-span-3">
                 <input type="file" accept="image/*" ref={featuredImageInputRef} onChange={(e) => handleFileChange(e, 'image_url')} className="hidden" />
-                <Button type="button" variant="outline" onClick={() => featuredImageInputRef.current.click()}><ImageIcon className="w-4 h-4 mr-2" /> Selecionar Imagem</Button>
-                {formData.image_url && <img src={formData.image_url} alt="Preview" className="mt-2 rounded-md max-h-40" />}
+                <Button type="button" variant="outline" onClick={() => featuredImageInputRef.current.click()} className="w-full sm:w-auto"><ImageIcon className="w-4 h-4 mr-2" /> Selecionar Imagem</Button>
+                {formData.image_url && (
+                  <div className="mt-3 relative inline-block group">
+                    <img src={formData.image_url} alt="Preview" className="rounded-lg max-h-48 border border-border shadow-sm group-hover:opacity-90 transition-opacity" />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button type="button" variant="secondary" size="sm" onClick={() => featuredImageInputRef.current.click()}>Trocar Imagem</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">Galeria de Imagens</Label>
-              <div className="col-span-3">
+
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4 border-t pt-6 mt-6">
+              <Label className="sm:text-right sm:pt-2 font-semibold text-sm">Galeria de Imagens</Label>
+              <div className="sm:col-span-3">
                 <input 
                   type="file" 
                   accept="image/*" 
@@ -660,27 +689,31 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
                   type="button" 
                   variant="outline" 
                   onClick={() => galleryInputRef.current.click()}
+                  className="w-full sm:w-auto"
                 >
                   <ImageIcon className="w-4 h-4 mr-2" /> Adicionar Imagens à Galeria
                 </Button>
                 
                 {/* Imagens existentes */}
                 {existingGallery.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm text-muted-foreground mb-2">Imagens já cadastradas:</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mt-6">
+                    <p className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2">
+                      <Check className="w-4 h-4 text-green-500" />
+                      Imagens já cadastradas:
+                    </p>
+                    <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-3">
                       {existingGallery.map((item) => (
-                        <div key={item.id} className="relative">
+                        <div key={item.id} className="relative aspect-square group">
                           <img 
                             src={item.url} 
                             alt={item.name || 'Imagem da galeria'} 
-                            className="h-24 w-24 object-cover rounded-md border border-border" 
+                            className="h-full w-full object-cover rounded-lg border border-border shadow-sm group-hover:opacity-90 transition-opacity" 
                           />
                           <Button 
                             type="button" 
                             variant="destructive" 
                             size="icon" 
-                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full" 
+                            className="absolute -top-2 -right-2 h-7 w-7 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" 
                             onClick={() => removeExistingImage(item.id)}
                           >
                             <X className="w-4 h-4" />
@@ -693,36 +726,39 @@ const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 
                 {/* Novas imagens (preview) */}
                 {galleryFiles.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm text-muted-foreground mb-2">Novas imagens a adicionar:</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mt-6 border-t border-dashed pt-4">
+                    <p className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                      <PlusCircle className="w-4 h-4" />
+                      Novas imagens a adicionar:
+                    </p>
+                    <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-3">
                       {galleryFiles.map((item, index) => (
-                    <div key={index} className="relative">
+                        <div key={index} className="relative aspect-square group">
                           <img 
                             src={item.preview} 
                             alt={`Preview ${index}`} 
-                            className="h-24 w-24 object-cover rounded-md border border-border" 
+                            className="h-full w-full object-cover rounded-lg border border-primary/30 shadow-sm group-hover:opacity-90 transition-opacity" 
                           />
                           <Button 
                             type="button" 
                             variant="destructive" 
                             size="icon" 
-                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full" 
+                            className="absolute -top-2 -right-2 h-7 w-7 rounded-full shadow-lg" 
                             onClick={() => removeGalleryImage(index)}
                           >
                             <X className="w-4 h-4" />
                           </Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
-            <Button type="submit" className="gap-2"><Save className="w-4 h-4" /> Salvar</Button>
+          <DialogFooter className="p-6 pt-2 flex flex-col sm:flex-row gap-2 sm:gap-0">
+            <DialogClose asChild><Button type="button" variant="outline" className="w-full sm:w-auto">Cancelar</Button></DialogClose>
+            <Button type="submit" className="w-full sm:w-auto gap-2"><Save className="w-4 h-4" /> Salvar</Button>
           </DialogFooter>
         </form>
       </DialogContent>

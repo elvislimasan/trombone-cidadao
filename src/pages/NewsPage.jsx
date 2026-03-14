@@ -53,7 +53,7 @@ const NewsPage = () => {
         <title>Notícias - Trombone Cidadão</title>
         <meta name="description" content="Fique por dentro de todas as novidades sobre a plataforma Trombone Cidadão e o impacto na nossa cidade." />
       </Helmet>
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-12 max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -69,31 +69,31 @@ const NewsPage = () => {
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
           {newsItems.map((item) => (
             <motion.div key={item.id} variants={itemVariants}>
-              <Card className="h-full flex flex-col bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300">
-                <CardHeader className="p-0">
-                  <img src={item.image_url} alt={item.title} className="w-full h-48 object-cover" />
-                </CardHeader>
-                <CardContent className="flex-grow p-6">
-                  <p className="text-sm font-semibold text-tc-red mb-2">{item.source}</p>
-                  <CardTitle className="text-xl font-bold text-foreground mb-3">{item.title}</CardTitle>
-                  <p className="text-muted-foreground text-sm">{item.description}</p>
-                </CardContent>
-                <CardFooter className="p-6 bg-muted/50 flex justify-between items-center">
-                  <p className="text-xs text-muted-foreground">{new Date(item.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
-                  <Button asChild variant="ghost" size="sm" className="text-tc-red hover:bg-tc-red/10 hover:text-tc-red">
-                    <Link to={`/noticias/${item.id}`}>
+              <Link to={`/noticias/${item.id}`} className="block h-full">
+                <Card className="h-full flex flex-col bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer hover:border-tc-red/50">
+                  <CardHeader className="p-0">
+                    <img src={item.image_url} alt={item.title} className="w-full aspect-video object-cover object-top" loading="lazy" />
+                  </CardHeader>
+                  <CardContent className="flex-grow p-6">
+                    <p className="text-sm font-semibold text-tc-red mb-2">{item.source}</p>
+                    <CardTitle className="text-xl font-bold text-foreground mb-3 line-clamp-3">{item.title}</CardTitle>
+                    <p className="text-muted-foreground text-sm line-clamp-3">{item.description}</p>
+                  </CardContent>
+                  <CardFooter className="p-6 bg-muted/50 flex justify-between items-center">
+                    <p className="text-xs text-muted-foreground">{new Date(item.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
+                    <Button variant="ghost" size="sm" className="text-tc-red hover:bg-tc-red/10 hover:text-tc-red">
                       Ler mais <ExternalLink className="w-4 h-4 ml-2" />
-                    </Link>
-                  </Button>
-                </CardFooter>
-              </Card>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </Link>
             </motion.div>
           ))}
         </motion.div>

@@ -26,6 +26,7 @@ import PetitionEditor from '@/components/petition/PetitionEditor';
 import PetitionUpdateModal from '@/components/petition/PetitionUpdateModal';
 import PetitionUpdates from '@/components/petition-modern/PetitionUpdates';
 import PetitionFlyerModal from '@/components/petition/PetitionFlyerModal';
+import PetitionStoryModal from '@/components/petition/PetitionStoryModal';
 
 import BlockRenderer from '@/components/petition/builder/BlockRenderer';
 
@@ -76,6 +77,7 @@ const PetitionPage = () => {
   const [showJourney, setShowJourney] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showFlyerModal, setShowFlyerModal] = useState(false);
+  const [showStoryModal, setShowStoryModal] = useState(false);
   const otherCausesRef = useRef(null);
   const triggerRef = useRef(null);
   const inlineFormRef = useRef(null);
@@ -720,85 +722,11 @@ const PetitionPage = () => {
 
   
 
+  /* 
   const handleDownloadStoryCard = useCallback(async () => {
-    if (!petition) return;
-    try {
-      const node = storyCardRef.current;
-      if (!node) throw new Error('Template não encontrado');
-      const images = Array.from(node.querySelectorAll('img'));
-      await Promise.all(images.map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-        });
-      }));
-      const dataUrl = await toPng(node, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: '#f3f4f6'
-      });
-      const baseName = (petition.title || `peticao-${id}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const fileName = `${baseName}-story.png`;
-
-      if (Capacitor.isNativePlatform()) {
-        const base64 = dataUrl.split(',')[1] || '';
-        const platform = Capacitor.getPlatform();
-        let directory = Directory.Documents;
-        let downloadPath = fileName;
-        if (platform === 'android') {
-          directory = Directory.ExternalStorage;
-          downloadPath = `Pictures/TromboneCidadao/${fileName}`;
-        }
-        await Filesystem.writeFile({
-          path: downloadPath,
-          data: base64,
-          directory,
-          recursive: true,
-        });
-        try {
-          const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
-          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
-          const permissionStatus = await LocalNotifications.checkPermissions();
-          if (permissionStatus.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Download concluído',
-                body: 'Imagem salva. Toque para abrir.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-                extra: { filePath: uriResult.uri, contentType: 'image/png' },
-              },
-            ],
-          });
-        } catch (_) {
-        }
-      } else {
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-
-      toast({
-        title: 'Card para stories gerado',
-        description: 'A imagem foi baixada. Abra o Instagram e adicione aos seus stories.',
-      });
-    } catch (error) {
-      console.error('Erro ao gerar card para stories:', error);
-      toast({
-        title: 'Não foi possível gerar o card',
-        description: 'Tente novamente ou tire um print da tela da petição.',
-        variant: 'destructive',
-      });
-    }
+    ...
   }, [petition, id, toast, signForm.city]);
+  */
 
   const handleConfirmSign = async () => {
      try {
@@ -903,9 +831,7 @@ const PetitionPage = () => {
     // Only basic info for now as we don't have all signatures loaded
     doc.setFontSize(12);
     const signatures = typeof petition.signatureCount === 'number' ? petition.signatureCount : 0;
-    const base = Number(petition.goal);
-    const baseValid = Number.isFinite(base) && base > 0 ? base : 100;
-    const pdfGoal = getNextSignatureGoal(signatures, baseValid);
+    const pdfGoal = storyGoal;
     doc.text(`Total de assinaturas: ${signatures}`, 14, 32);
     doc.text(`Meta: ${pdfGoal}`, 14, 38);
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 44);
@@ -1119,7 +1045,7 @@ const PetitionPage = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={handleDownloadStoryCard}
+                        onClick={() => setShowStoryModal(true)}
                         className="w-full sm:w-auto justify-center border-[#E53935]/60 text-[#E53935] hover:bg-[#E53935] hover:text-white hover:shadow-md transition-colors"
                       >
                         <Instagram className="w-4 h-4 mr-2" />
@@ -1227,6 +1153,14 @@ const PetitionPage = () => {
         qrCodeUrl={qrCodeUrl}
       />
 
+      <PetitionStoryModal
+        isOpen={showStoryModal}
+        onClose={() => setShowStoryModal(false)}
+        petition={petition}
+        qrCodeUrl={qrCodeUrl}
+        coverPhotoUrl={petition.image_url || (Array.isArray(petition.gallery) && petition.gallery[0])}
+      />
+
       <PetitionJourney 
         isOpen={showJourney} 
         onClose={() => setShowJourney(false)} 
@@ -1251,106 +1185,7 @@ const PetitionPage = () => {
         onSave={() => fetchPetition(false)}
       />
     </div>
-    <div
-      style={{ position: 'absolute', left: '-100000px', top: 0 }}
-    >
-      <div
-        ref={storyCardRef}
-        className="relative w-[1080px] h-[1920px] bg-gray-50 overflow-hidden font-sans "
-      >
-        <svg
-          className="absolute top-0 left-0 w-full"
-          viewBox="0 0 1080 450"
-          fill="none"
-        >
-          <path
-            d="M0 260 Q270 210 540 260 Q810 310 1080 260 L1080 0 L0 0 Z"
-            fill="rgb(220, 38, 38)"
-            fillOpacity="0.85"
-          />
-        </svg>
-        <svg
-          className="absolute bottom-0 left-0 w-full"
-          viewBox="0 0 1080 300"
-          fill="none"
-        >
-          <path
-            d="M0 300 Q270 160 540 220 Q810 280 1080 180 L1080 300 Z"
-            fill="rgb(220, 38, 38)"
-            fillOpacity="0.85"
-          />
-        </svg>
-        <div className="relative z-10 px-[60px] mt-[32px] flex flex-col h-full">
-          <div className="flex items-start justify-center">
-            <div className="flex items-center gap-6 justify-center flex-col">
-           
-                <img className='w-[64px] h-[64px]' src="/logo.png" alt="logo Trombone Cidadão" />
-  
-             <div className='text-center'>
-                <h2 className="text-4xl font-bold text-[#1F2933]">
-                  TROMBONE CIDADÃO
-                </h2>
-                <p className="text-[#1F2933] text-2xl">
-                  Sua assinatura faz a diferença
-                </p>
-              </div>
-           
-            </div>
-          </div>
-          <div className="mt-8 flex justify-center flex-col  items-center">
-              <div className="bg-[#111827] text-white px-10 py-4 rounded-full text-5xl font-semibold">
-              ABAIXO-ASSINADO
-            </div>
-          </div>
-          <h1 className="mt-24 text-5xl font-bold text-[#1F2933] leading-tight max-w-full text-center">
-            {petition.title}
-          </h1>
-          <div className="mt-12 rounded-[40px] overflow-hidden relative">
-            <img
-              src={petition.image_url || (Array.isArray(petition.gallery) && petition.gallery[0]) || '/abaixo-assinado.jpg'}
-              alt=""
-              className="w-full h-[520px] object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-            <div className="absolute top-2 right-2 bg-red-50 px-8 py-4 rounded-full text-2xl font-semibold text-[#E53935]">
-              {typeof petition.signatureCount === 'number' ? petition.signatureCount : 0} <User2Icon className="inline-block w-6 h-6 ml-2" />
-            </div>
-          </div>
-          <div className="mt-12">
-            <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${Math.min(100, ((typeof petition.signatureCount === 'number' ? petition.signatureCount : 0) / storyGoal) * 100)}%`, backgroundColor: '#E53935' }}
-              />
-            </div>
-            <div className="flex justify-between mt-4 text-xl" style={{ color: '#4B5563' }}>
-              <span>{`${Math.min(100, ((typeof petition.signatureCount === 'number' ? petition.signatureCount : 0) / storyGoal) * 100).toFixed(0)}%`}</span>
-              <span>Meta: {storyGoal}</span>
-            </div>
-          </div>
-          <div className="rounded-[40px] p-16 text-center">
-            <h2 className="text-6xl font-extrabold" style={{ color: '#B91C1C' }}>
-              CLIQUE E
-            </h2>
-            <h2 className="text-6xl font-extrabold" style={{ color: '#B91C1C' }}>
-              ASSINE AGORA
-            </h2>
-            <div className="text-6xl mt-6" style={{ color: '#E53935' }}>↓</div>
-            <div className="w-full rounded-full py-8 px-8 mt-8 inline-block text-2xl font-medium" style={{ backgroundColor: '#E53935', color: '#FFFFFF' }}>
-              Adicione o link
-            </div>
-          </div>
-          <div className="text-center mt-10 mb-24">
-            <p className="text-2xl" style={{ color: '#4B5563' }}>
-              Acesse o link e faça a sua parte!
-            </p>
-            <p className="text-3xl font-semibold mt-2" style={{ color: '#1F2933' }}>
-              Isso pode ser resolvido.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+    {/* Antigo Story Card Legado Removido daqui, agora é gerado pelo PetitionStoryModal */}
     </>
   );
 };
