@@ -109,8 +109,8 @@ const RichTextEditor = ({ value, onChange, placeholder, isMobile = false }) => {
   ];
 
   return (
-    <div className={`border rounded-lg overflow-hidden transition-colors ${isFocused ? 'border-primary ring-1 ring-primary' : 'border-border'}`}>
-      <div className="bg-muted/50 border-b p-1 flex flex-wrap gap-1 items-center">
+    <div className={`border rounded-lg overflow-hidden transition-colors w-full max-w-full ${isFocused ? 'border-primary ring-1 ring-primary' : 'border-border'}`}>
+      <div className="bg-muted/50 border-b p-1 flex flex-wrap gap-1 items-center overflow-x-hidden">
         
         {/* Group: History */}
         <div className="flex items-center gap-0.5 mr-1">

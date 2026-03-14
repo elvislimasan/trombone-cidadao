@@ -13,6 +13,8 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { getNewsShareUrl } from '@/lib/shareUtils';
 import { Progress } from '@/components/ui/progress';
 import { getNextSignatureGoal } from '@/lib/utils';
+import { NewsEditModal } from './admin/ManageNewsPage';
+import { Edit } from 'lucide-react';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
@@ -27,6 +29,7 @@ const NewsDetailsPage = () => {
   const [relatedPetitions, setRelatedPetitions] = useState([]);
   const [relatedReports, setRelatedReports] = useState([]);
   const [relatedNews, setRelatedNews] = useState([]);
+  const [showEditModal, setShowEditModal] = useState(false);
   const bodyRef = useRef(null);
 
   const fetchNewsDetails = useCallback(async () => {
@@ -174,6 +177,85 @@ const NewsDetailsPage = () => {
     }
   };
 
+  const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportIds = [], relatedWorkIds = [], relatedPetitionIds = [], relatedNewsIds = []) => {
+    const { id, comments, ...dataToSave } = newsToSave;
+    const validFields = ['title', 'source', 'date', 'description', 'subtitle', 'body', 'image_url', 'link', 'video_url'];
+    const filteredData = Object.keys(dataToSave)
+      .filter(key => validFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = dataToSave[key];
+        return obj;
+      }, {});
+    
+    let error;
+    let savedNewsId;
+
+    if (id) {
+      ({ error } = await supabase.from('news').update(filteredData).eq('id', id));
+      savedNewsId = id;
+    }
+
+    if (error) {
+      toast({ title: "Erro ao salvar notícia", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    // Atualizar vínculos
+    if (savedNewsId) {
+      await Promise.all([
+        supabase.from('news_public_works').delete().eq('news_id', savedNewsId),
+        supabase.from('news_petitions').delete().eq('news_id', savedNewsId),
+        supabase.from('news_reports').delete().eq('news_id', savedNewsId),
+        supabase.from('news_related').delete().eq('news_id', savedNewsId)
+      ]);
+
+      if (relatedWorkIds?.length > 0) {
+        await supabase.from('news_public_works').insert(relatedWorkIds.map(wid => ({ news_id: savedNewsId, work_id: wid })));
+      }
+      if (relatedPetitionIds?.length > 0) {
+        await supabase.from('news_petitions').insert(relatedPetitionIds.map(pid => ({ news_id: savedNewsId, petition_id: pid })));
+      }
+      if (relatedReportIds?.length > 0) {
+        await supabase.from('news_reports').insert(relatedReportIds.map(rid => ({ news_id: savedNewsId, report_id: rid })));
+      }
+      if (relatedNewsIds?.length > 0) {
+        await supabase.from('news_related').insert(relatedNewsIds.map(rnid => ({ news_id: savedNewsId, related_news_id: rnid })));
+      }
+    }
+
+    // Remover imagens
+    if (removedGalleryIds?.length > 0) {
+      for (const imageId of removedGalleryIds) {
+        const { data: imageData } = await supabase.from('news_image').select('url').eq('id', imageId).single();
+        if (imageData) {
+          try {
+            const url = new URL(imageData.url);
+            const filePath = url.pathname.split('/news-images/')[1];
+            if (filePath) await supabase.storage.from('news-images').remove([decodeURIComponent(filePath)]);
+          } catch (e) {}
+        }
+        await supabase.from('news_image').delete().eq('id', imageId);
+      }
+    }
+
+    // Upload galeria
+    if (savedNewsId && galleryFiles?.length > 0) {
+      const uploadPromises = galleryFiles.map(async ({ file }) => {
+        let uploadFile = file;
+        const filePath = `news/${savedNewsId}/${Date.now()}-${uploadFile.name}`;
+        const { error: uploadError } = await supabase.storage.from('news-images').upload(filePath, uploadFile);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('news-images').getPublicUrl(filePath);
+        await supabase.from('news_image').insert({ news_id: savedNewsId, url: publicUrl, type: 'image', name: uploadFile.name });
+      });
+      await Promise.all(uploadPromises);
+    }
+
+    toast({ title: "Notícia atualizada com sucesso! ✨" });
+    setShowEditModal(false);
+    fetchNewsDetails();
+  };
+
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
@@ -282,24 +364,39 @@ const NewsDetailsPage = () => {
       <div className="container mx-auto max-w-4xl px-4 py-12">
         <motion.article initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <header className="mb-8">
-            <Link to="/noticias" className="text-sm text-primary hover:underline mb-4 block">&larr; Voltar para todas as notícias</Link>
+            <div className="flex items-center justify-between mb-4">
+              <Link to="/noticias" className="text-sm text-primary hover:underline">&larr; Voltar para todas as notícias</Link>
+              {user?.is_admin && (
+                <Button 
+                  onClick={() => setShowEditModal(true)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-slate-600 border-slate-200 hover:bg-slate-50"
+                >
+                  <Edit className="w-4 h-4" />
+                  Editar Notícia
+                </Button>
+              )}
+            </div>
             <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight mb-4">{newsItem.title}</h1>
             {newsItem.subtitle && (
               <p className="text-lg text-muted-foreground mb-4">{newsItem.subtitle}</p>
             )}
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-muted-foreground text-sm">
-              <div className="flex items-center gap-2"><User className="w-4 h-4" /> {newsItem.source}</div>
-              <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {new Date(newsItem.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })}</div>
-              {newsItem.link && (
-                <a href={newsItem.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
-                  Ver na fonte <ArrowUpRight className="w-4 h-4" />
+               <a href={newsItem.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                 <div className="flex items-center gap-2"><User className="w-4 h-4" /> {newsItem.source}</div>
                 </a>
-              )}
-            </div>
+
+              </div>
           </header>
 
           <motion.div className="mb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-            <img src={newsItem.image_url} alt={newsItem.title} className="w-full rounded-2xl shadow-lg aspect-video object-cover" />
+            <img
+              src={newsItem.image_url}
+              alt={newsItem.title}
+              className="w-full h-auto rounded-2xl shadow-lg"
+              loading="lazy"
+            />
           </motion.div>
 
           <div ref={bodyRef} className="prose prose-lg dark:prose-invert max-w-none text-foreground/90 mb-12" dangerouslySetInnerHTML={{ __html: renderBodyHtml }} />
@@ -816,6 +913,14 @@ const NewsDetailsPage = () => {
           media={mediaViewerState.items}
           startIndex={mediaViewerState.startIndex}
           onClose={() => setMediaViewerState({ isOpen: false, startIndex: 0, items: [] })}
+        />
+      )}
+
+      {showEditModal && newsItem && (
+        <NewsEditModal
+          newsItem={newsItem}
+          onSave={handleSaveNews}
+          onClose={() => setShowEditModal(false)}
         />
       )}
     </>
