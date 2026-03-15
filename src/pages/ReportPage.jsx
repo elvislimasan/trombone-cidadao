@@ -679,10 +679,19 @@ const ReportPage = () => {
 
                   {/* media hero */}
                   <div className="relative overflow-hidden px-6">
+                       {/* Título para desktop (mantido no lugar original) */}
+                    <div className="hidden lg:block  pt-5 pb-4 border-b border-gray-100">
+                      <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-gray-900">{report.title}</h1>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                        <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /><span>Cadastrado em {formatDateTime(report.created_at)}</span></div>
+                        
+                        
+                      </div>
+                    </div>
                     <div className="w-full max-w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden ">
                       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
                       {hasMedia ? (
-                        <button type="button" className="absolute inset-0 w-full h-full" onClick={() => setMediaViewerState({ isOpen: true, startIndex: 0 })}>
+                        <button type="button" className="absolute inset-0 w-full h-full " onClick={() => setMediaViewerState({ isOpen: true, startIndex: 0 })}>
                           {firstIsVideo ? (
                             firstVideoThumb ? (
                               <div className="w-full h-full relative">
@@ -738,14 +747,7 @@ const ReportPage = () => {
                       
                     </div>
 
-                    {/* Título para desktop (mantido no lugar original) */}
-                    <div className="hidden lg:block px-6 pt-5 pb-4 border-b border-gray-100">
-                      <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-gray-900">{report.title}</h1>
-                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                        <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /><span>Cadastrado em {formatDateTime(report.created_at)}</span></div>
-                        {report.address && <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /><span className="truncate max-w-[220px] sm:max-w-xs">{report.address}</span></div>}
-                      </div>
-                    </div>
+                 
                   </div>
 
                   <div className="px-6 py-6 space-y-8">
