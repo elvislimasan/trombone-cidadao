@@ -586,6 +586,25 @@ function StoryTemplateInstagram({ petition, coverPhotoUrl, bgStyle, enableImageE
           alignItems: 'center',
         }}
       >
+        {/* Tag: Abaixo Assinado */}
+        <div
+          style={{
+            fontSize: 32,
+            lineHeight: 1,
+            fontWeight: 800,
+            textAlign: 'center',
+            textTransform: 'uppercase',
+            color: '#ffd20c',
+            textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            marginBottom: 20,
+            width: '100%',
+            maxWidth: 960,
+            letterSpacing: '0.1em',
+          }}
+        >
+          ABAIXO-ASSINADO
+        </div>
+
         {/* Title */}
         <div
           style={{
