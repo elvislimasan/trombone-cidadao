@@ -2,30 +2,25 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { getWorkShareUrl } from '@/lib/shareUtils';
 import DynamicSEO from '@/components/DynamicSeo';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { 
-  ArrowLeft, Calendar, DollarSign, HardHat, PauseCircle, CheckCircle, MapPin, 
-  Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, 
-  BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, 
-  Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle, Eye, Briefcase, HelpCircle, Newspaper,
-  FolderOpen, Calculator
+import {
+  ArrowLeft, Calendar, DollarSign, PauseCircle, CheckCircle, MapPin,
+  Video, Image as ImageIcon, FileText, Building, Award,
+  BookOpen, Heart, Link2, Share2, Edit, UploadCloud, User, Activity,
+  ArrowUpRight, AlertTriangle, HelpCircle, Newspaper, FolderOpen,
+  ChevronRight, TrendingUp, Layers, CreditCard,
+  Banknote, ExternalLink
 } from 'lucide-react';
 import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
@@ -35,1679 +30,984 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { FLORESTA_COORDS } from '@/config/mapConfig';
-
-// Fix for Leaflet default icon
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
+L.Icon.Default.mergeOptions({ iconRetinaUrl: markerIcon2x, iconUrl: markerIcon, shadowUrl: markerShadow });
 
+// ─── Map ─────────────────────────────────────────────────────────────────────
 const WorkMap = ({ location, bairro }) => {
-  // Parse POINT(lng lat) if available, otherwise use default
   const position = useMemo(() => {
     if (location) {
-      // Handle WKT string format: POINT(lng lat)
       if (typeof location === 'string') {
-        const match = location.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
-        if (match) {
-          return [parseFloat(match[2]), parseFloat(match[1])]; // Leaflet uses [lat, lng]
-        }
-      } 
-      // Handle GeoJSON object format: { type: 'Point', coordinates: [lng, lat] }
-      else if (typeof location === 'object' && location.coordinates && Array.isArray(location.coordinates)) {
-        return [location.coordinates[1], location.coordinates[0]]; // Leaflet uses [lat, lng]
+        const m = location.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+        if (m) return [parseFloat(m[2]), parseFloat(m[1])];
+      } else if (typeof location === 'object' && location.coordinates) {
+        return [location.coordinates[1], location.coordinates[0]];
       }
     }
     return FLORESTA_COORDS;
   }, [location]);
-
   return (
-    <div className="h-64 w-full rounded-lg overflow-hidden relative z-0">
-      <MapContainer 
-        center={position} 
-        zoom={15} 
-        style={{ height: '100%', width: '100%' }}
-        scrollWheelZoom={false}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={position}>
-          <Popup>
-            {bairro || 'Localização da Obra'}
-          </Popup>
-        </Marker>
+    <div className="h-full w-full relative z-0">
+      <MapContainer center={position} zoom={15} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
+        <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <Marker position={position}><Popup>{bairro || 'Localização da Obra'}</Popup></Marker>
       </MapContainer>
     </div>
   );
 };
 
-const getStatusInfo = (status) => {
-  switch (status) {
-    case 'in-progress': return { text: 'Em Andamento', icon: Activity, color: 'text-blue-800', bg: 'bg-gradient-to-r from-blue-50 to-blue-100', border: 'border-blue-200' };
-    case 'completed': return { text: 'Concluída', icon: CheckCircle, color: 'text-emerald-800', bg: 'bg-gradient-to-r from-emerald-50 to-emerald-100', border: 'border-emerald-200' };
-    case 'stalled': return { text: 'Paralisada', icon: PauseCircle, color: 'text-amber-800', bg: 'bg-gradient-to-r from-amber-50 to-amber-100', border: 'border-amber-200' };
-    case 'unfinished': return { text: 'Inacabada', icon: AlertTriangle, color: 'text-rose-800', bg: 'bg-gradient-to-r from-rose-50 to-rose-100', border: 'border-rose-200' };
-    case 'planned': return { text: 'Planejamento', icon: Calendar, color: 'text-violet-800', bg: 'bg-gradient-to-r from-violet-50 to-violet-100', border: 'border-violet-200' };
-    case 'tendered': return { text: 'Em Licitação', icon: FileText, color: 'text-orange-800', bg: 'bg-gradient-to-r from-orange-50 to-orange-100', border: 'border-orange-200' };
-    default: return { text: 'Não definido', icon: HelpCircle, color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-200' };
-  }
+// ─── Status ──────────────────────────────────────────────────────────────────
+const STATUS = {
+  'in-progress': { text: 'Em Andamento',  icon: Activity,      color: 'text-blue-700',    bg: 'bg-blue-100',    dot: 'bg-blue-500'    },
+  'completed':   { text: 'Concluída',     icon: CheckCircle,   color: 'text-emerald-700', bg: 'bg-emerald-100', dot: 'bg-emerald-500' },
+  'stalled':     { text: 'Paralisada',    icon: PauseCircle,   color: 'text-amber-700',   bg: 'bg-amber-100',   dot: 'bg-amber-500'   },
+  'unfinished':  { text: 'Inacabada',     icon: AlertTriangle, color: 'text-rose-700',    bg: 'bg-rose-100',    dot: 'bg-rose-500'    },
+  'planned':     { text: 'Planejamento',  icon: Calendar,      color: 'text-violet-700',  bg: 'bg-violet-100',  dot: 'bg-violet-500'  },
+  'tendered':    { text: 'Em Licitação',  icon: FileText,      color: 'text-orange-700',  bg: 'bg-orange-100',  dot: 'bg-orange-500'  },
 };
+const getStatusInfo = (s) => STATUS[s] || { text: 'Não definido', icon: HelpCircle, color: 'text-slate-600', bg: 'bg-slate-100', dot: 'bg-slate-400' };
 
-const WorkDetailsPage = () => {
-  const { workId } = useParams();
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [work, setWork] = useState(null);
-  const [media, setMedia] = useState([]);
-  const [isFavorited, setIsFavorited] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [selectedMeasurement, setSelectedMeasurement] = useState(null);
-  const previousMeasurementRef = useRef(null);
-  const [viewerState, setViewerState] = useState({ isOpen: false, startIndex: 0, items: [] });
-  const [showContribDialog, setShowContribDialog] = useState(false);
-  const [contribDescription, setContribDescription] = useState('');
-  const [contribVideoUrl, setContribVideoUrl] = useState('');
-  const [contribFiles, setContribFiles] = useState([]);
-  const fileInputRef = useRef(null);
-  const [showAdminEditModal, setShowAdminEditModal] = useState(false);
-  const [workEditOptions, setWorkEditOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
-  const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
-  const [showReportDialog, setShowReportDialog] = useState(false);
-  const [measurements, setMeasurements] = useState([]);
-  const [biddings, setBiddings] = useState([]);
-  const [relatedNews, setRelatedNews] = useState([]);
+// ─── Atoms ───────────────────────────────────────────────────────────────────
+const InfoRow = ({ icon: Icon, label, value, accent }) => (
+  <div className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
+    <div className="w-7 h-7 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+      <Icon className="w-3.5 h-3.5 text-slate-400" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide">{label}</p>
+      <p className={`text-sm font-semibold leading-snug mt-0.5 break-words ${accent ? 'text-red-600' : 'text-slate-800'}`}>{value || '—'}</p>
+    </div>
+  </div>
+);
 
-  const totalSpentFromPayments = useMemo(() => {
-    return biddings.reduce((acc, bidding) => {
-      const biddingPaid = (bidding.payments || []).reduce((pAcc, p) => pAcc + (Number(p.value) || 0), 0);
-      return acc + biddingPaid;
-    }, 0);
-  }, [biddings]);
+const PanelHeader = ({ icon: Icon, children }) => (
+  <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
+    <Icon className="w-3.5 h-3.5 text-slate-400" />
+    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{children}</span>
+  </div>
+);
 
-  useEffect(() => {
-    console.log('relatedNews_state', relatedNews);
-  }, [relatedNews]);
+// ─── TAB: Visão Geral ─────────────────────────────────────────────────────────
+const TabOverview = ({ work, totalSpentFromPayments, measurements }) => {
+  const spentValue = totalSpentFromPayments || work.amount_spent || 0;
+  const spentPct   = work.total_value ? Math.min((spentValue / work.total_value) * 100, 100) : 0;
+  const startDate  = work.start_date ? new Date(work.start_date) : null;
+  const endDate    = (work.end_date_forecast || work.expected_end_date) ? new Date(work.end_date_forecast || work.expected_end_date) : null;
+  const today      = new Date();
+  const daysElapsed   = startDate ? Math.floor((today - startDate) / 86400000) : null;
+  const daysRemaining = endDate ? Math.max(0, Math.floor((endDate - today) / 86400000)) : null;
+  const timePct       = (startDate && endDate && endDate > startDate) ? Math.min(((today - startDate) / (endDate - startDate)) * 100, 100) : 0;
+  const BARS = ['bg-emerald-500','bg-blue-500','bg-amber-400','bg-violet-400','bg-rose-400','bg-slate-300'];
 
-  const fetchWorkDetails = useCallback(async () => {
-    setLoading(true);
-    const { data: workData, error: workError } = await supabase
-      .from('public_works')
-      .select('*, work_category:work_categories(name), work_area:work_areas(name), bairro:bairros(name), contractor:contractor_id(id, name, cnpj)')
-      .eq('id', workId)
-      .single();
-
-    if (workError) {
-      toast({ title: "Erro ao buscar detalhes da obra", description: workError.message, variant: "destructive" });
-      setLoading(false);
-      return;
-    }
-
-    const { data: mediaData, error: mediaError } = await supabase
-      .from('public_work_media')
-      .select('*')
-      .eq('work_id', workId)
-      .order('media_date', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false });
-
-    if (mediaError) {
-      toast({ title: "Erro ao buscar mídias da obra", description: mediaError.message, variant: "destructive" });
-    }
-
-    const { data: measurementsData, error: measurementsError } = await supabase
-      .from('public_work_measurements')
-      .select('*, contractor:contractor_id(name, cnpj), payments:public_work_payments(*)')
-      .eq('work_id', workId)
-      .order('created_at', { ascending: false });
-
-    if (measurementsError) {
-      console.error('Error fetching measurements:', measurementsError);
-    }
-
-    let related = [];
-    const { data: relRaw, error: relErr } = await supabase
-      .from('news_public_works')
-      .select('news_id')
-      .eq('work_id', workId);
-    if (!relErr && relRaw && relRaw.length > 0) {
-      const ids = relRaw.map(r => r.news_id).filter(Boolean);
-      if (ids.length > 0) {
-        const { data: newsList } = await supabase
-          .from('news')
-          .select('id, title, date, image_url')
-          .in('id', ids)
-          .order('date', { ascending: false });
-        related = newsList || [];
-      }
-    }
-    console.log(related)
-    setRelatedNews(related);
-
-    setWork(workData);
-    setMedia(mediaData || []);
-    setMeasurements(measurementsData || []);
-    setBiddings(measurementsData || []); // Use measurements as biddings for compatibility with the UI
-    setLoading(false);
-  }, [workId, toast]);
-
-  useEffect(() => {
-    fetchWorkDetails();
-  }, [fetchWorkDetails]);
-
-  useEffect(() => {
-    const checkFavorite = async () => {
-      if (!user) {
-        setIsFavorited(false);
-        return;
-      }
-      const { data: favoriteData, error: favoriteError } = await supabase
-        .from('favorite_works')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('work_id', workId);
-      if (!favoriteError) {
-        setIsFavorited((favoriteData || []).length > 0);
-      }
-    };
-    checkFavorite();
-  }, [user, workId]);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
-  useEffect(() => {
-    const fetchEditOptions = async () => {
-      if (!user?.is_admin) return;
-      const [categories, areas, bairros, contractors] = await Promise.all([
-        supabase.from('work_categories').select('*'),
-        supabase.from('work_areas').select('*'),
-        supabase.from('bairros').select('*'),
-        supabase.from('contractors').select('*'),
-      ]);
-      setWorkEditOptions({
-        categories: categories.data || [],
-        areas: areas.data || [],
-        bairros: bairros.data || [],
-        contractors: contractors.data || [],
-      });
-    };
-    fetchEditOptions();
-  }, [user?.is_admin]);
-
-  const handleFavoriteToggle = async () => {
-    if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login para favoritar uma obra.", variant: "destructive" });
-      navigate('/login');
-      return;
-    }
-
-    if (isFavorited) {
-      const { error } = await supabase.from('favorite_works').delete().match({ user_id: user.id, work_id: workId });
-      if (error) {
-        toast({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Obra removida dos favoritos! 💔" });
-        setIsFavorited(false);
-      }
-    } else {
-      const { error } = await supabase.from('favorite_works').insert({ user_id: user.id, work_id: workId });
-      if (error) {
-        toast({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Obra adicionada aos favoritos! ⭐" });
-        setIsFavorited(true);
-      }
-    }
-  };
-
-  // Função para obter URL base correta (não localhost no app)
-  const getBaseUrl = useCallback(() => {
-    let baseUrl;
-    
-    // 1. Prioridade: Variável de ambiente (configurada no Vercel)
-    if (import.meta.env.VITE_APP_URL) {
-      baseUrl = import.meta.env.VITE_APP_URL;
-    }
-    // 2. Se estiver no app nativo, sempre usar produção
-    else if (Capacitor.isNativePlatform()) {
-      baseUrl = 'https://trombonecidadao.com.br';
-    }
-    // 3. Se estiver no navegador, detectar automaticamente o ambiente
-    else if (typeof window !== 'undefined') {
-      const origin = window.location.origin;
-      
-      // Se for localhost, usar localhost
-      if (origin.includes('localhost')) {
-        baseUrl = origin;
-      }
-      // Se for Vercel (dev), usar Vercel
-      else if (origin.includes('trombone-cidadao.vercel.app') || origin.includes('vercel.app')) {
-        baseUrl = origin;
-      }
-      // Se for domínio de produção, usar produção
-      else if (origin.includes('trombonecidadao.com.br')) {
-        baseUrl = 'https://trombonecidadao.com.br';
-      }
-      // Fallback: usar a origem atual
-      else {
-        baseUrl = origin;
-      }
-    }
-    // 4. Fallback final: produção
-    else {
-      baseUrl = 'https://trombonecidadao.com.br';
-    }
-    
-    // Remover barra final se existir para evitar barras duplas
-    return baseUrl.replace(/\/$/, '');
-  }, []);
-
-  const baseUrl = useMemo(() => getBaseUrl(), [getBaseUrl]);
-
-  const seoData = useMemo(() => {
-    const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
-    
-    let workImage = defaultThumbnail;
-    let imageUrl = null;
-    
-    if (work && work.thumbnail_url) {
-      imageUrl = work.thumbnail_url;
-    } else if (media && media.length > 0) {
-      const firstImage = media.find(m => m.type === 'image' || m.type === 'photo');
-      const firstVideo = media.find(m => m.type === 'video' || m.type === 'video_url');
-      const mediaItem = firstImage || firstVideo;
-      
-      if (mediaItem && mediaItem.url) {
-        imageUrl = mediaItem.url;
-      }
-    }
-
-    if (imageUrl) {
-      // Garante que a URL seja absoluta e acessível
-      let absoluteUrl = imageUrl;
-      if (!imageUrl.startsWith('http')) {
-        absoluteUrl = `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
-      }
-
-      try {
-        const cleanUrl = absoluteUrl.split('?')[0];
-        workImage = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=1200&h=630&fit=cover&q=80&output=jpg`;
-      } catch (e) {
-        console.error(e);
-        workImage = absoluteUrl;
-      }
-    }
-
-    const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-
-    return {
-      title: work ? `Obra: ${work.title} - Trombone Cidadão` : 'Detalhes da Obra - Trombone Cidadão',
-      description: work?.description || 'Acompanhe esta obra pública no Trombone Cidadão.',
-      image: workImage,
-      url: currentUrl
-    };
-  }, [work, media, baseUrl]);
-
-  const viewableMedia = useMemo(() => {
-    const items = media.filter(m => ['image', 'photo', 'video', 'video_url'].includes(m.type));
-    return items;
-  }, [media, work]);
-
-  // Filter media specifically for the main gallery (exclude measurement-bound media)
-  const mainGalleryMedia = useMemo(() => viewableMedia.filter(m => !m.measurement_id), [viewableMedia]);
-
-  // Group media by gallery_name for the main gallery
-  const galleryGroups = useMemo(() => {
-    const groups = {};
-    
-    mainGalleryMedia.forEach(item => {
-      const name = item.gallery_name || 'Geral';
-      if (!groups[name]) {
-        groups[name] = [];
-      }
-      groups[name].push(item);
-    });
-    
-    // Sort: 'Geral' first, then alphabetical
-    return Object.entries(groups).map(([name, items]) => ({
-      name,
-      items
-    })).sort((a, b) => {
-        if (a.name === 'Geral') return -1;
-        if (b.name === 'Geral') return 1;
-        return a.name.localeCompare(b.name);
-    });
-  }, [mainGalleryMedia]);
-
-  // Flatten groups to get the display order for the lightbox (main gallery only)
-  const sortedViewableMedia = useMemo(() => {
-    return galleryGroups.flatMap(group => group.items);
-  }, [galleryGroups]);
-
-  const heroMedia = useMemo(() => {
-    if (work?.thumbnail_url) {
-      return { id: 'hero', type: 'photo', url: work.thumbnail_url };
-    }
-    return sortedViewableMedia[0] || null;
-  }, [work?.thumbnail_url, sortedViewableMedia]);
-
-  // General documents (exclude measurement-bound documents)
-  const documents = media.filter(m => 
-    (m.type === 'pdf' || m.type === 'document' || m.type === 'file') && !m.measurement_id
-  );
-
-  const handleShareWork = async () => {
-    if (typeof window === 'undefined' || !work) return;
-
-    const url = getWorkShareUrl(work.id);
-    const title = work.title;
-    // const text = work.description || 'Confira os detalhes desta obra pública no Trombone Cidadão.'; // Removido para evitar que o texto apareça no corpo da mensagem
-
-    try {
-      if (Capacitor.isNativePlatform()) {
-        await Share.share({
-          title,
-          // text, // Removido
-          url,
-          dialogTitle: 'Compartilhar Obra',
-        });
-        return;
-      }
-
-      if (navigator.share) {
-        await navigator.share({
-          title,
-          // text, // Removido
-          url,
-        });
-        return;
-      }
-
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(url);
-        toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
-        return;
-      }
-    } catch (error) {
-      if (error.name === 'AbortError') return;
-      // Fallback para clipboard
-      try {
-        await navigator.clipboard.writeText(url);
-        toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
-      } catch (e) {
-        toast({ title: "Erro ao compartilhar", variant: "destructive" });
-      }
-    }
-  };
-
-  const handleOpenContrib = () => {
-    if (!user) {
-      toast({ title: "Faça login para contribuir", description: "Você precisa entrar para enviar fotos ou dados.", variant: "destructive" });
-      navigate('/login');
-      return;
-    }
-    setShowContribDialog(true);
-  };
-
-  const handleContribFilesChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    setContribFiles(files);
-  };
-
-  const handleSubmitContribution = async () => {
-    if (!user || !work || isSubmittingContribution) return;
-    setIsSubmittingContribution(true);
-    try {
-      if (contribFiles.length > 0) {
-        for (const file of contribFiles) {
-          const path = `works/${work.id}/${Date.now()}-${file.name}`;
-          const { error: uploadError } = await supabase.storage.from('work-media').upload(path, file);
-          if (uploadError) throw uploadError;
-          const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(path);
-          let type = 'file';
-          if (file.type.startsWith('image')) type = 'image';
-          else if (file.type.startsWith('video')) type = 'video';
-          else if (file.type === 'application/pdf') type = 'pdf';
-          const { error: dbError } = await supabase.from('public_work_media').insert({
-            work_id: work.id,
-            url: publicUrl,
-            type,
-            name: file.name,
-            description: contribDescription || null,
-            status: 'pending',
-            contributor_id: user.id
-          });
-          if (dbError) throw dbError;
-        }
-      }
-      if (contribVideoUrl && contribVideoUrl.trim().length > 0) {
-        const { error: linkErr } = await supabase.from('public_work_media').insert({
-          work_id: work.id,
-          url: contribVideoUrl.trim(),
-          type: 'video_url',
-          name: 'Vídeo do cidadão',
-          description: contribDescription || null,
-          status: 'pending',
-          contributor_id: user.id
-        });
-        if (linkErr) throw linkErr;
-      }
-      toast({ title: "Contribuição enviada! ✅", description: "Obrigado por colaborar com transparência." });
-      setShowContribDialog(false);
-      setContribDescription('');
-      setContribVideoUrl('');
-      setContribFiles([]);
-      const { data: mediaData } = await supabase.from('public_work_media').select('*').eq('work_id', work.id).order('media_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
-      setMedia(mediaData || []);
-    } catch (error) {
-      toast({ title: "Erro ao enviar contribuição", description: error.message, variant: "destructive" });
-    } finally {
-      setIsSubmittingContribution(false);
-    }
-  };
-
-  const openViewer = (items, startIndex) => {
-    if (selectedMeasurement) {
-      previousMeasurementRef.current = selectedMeasurement;
-      setSelectedMeasurement(null);
-    }
-    const viewerItems = items.map(m => {
-      if (m.type === 'image') return { ...m, type: 'photo' };
-      if (m.type === 'video_url') return { ...m, type: 'video' };
-      return m;
-    });
-    setViewerState({ isOpen: true, startIndex, items: viewerItems });
-  };
-
-  const closeViewer = () => {
-    setViewerState({ isOpen: false, startIndex: 0, items: [] });
-    if (previousMeasurementRef.current) {
-      setSelectedMeasurement(previousMeasurementRef.current);
-      previousMeasurementRef.current = null;
-    }
-  };
-
-
-
-  if (loading) {
-    return (
-      <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 py-8 space-y-8">
-        <Skeleton className="h-[400px] w-full rounded-xl" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            <Skeleton className="h-8 w-1/3" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-64 w-full rounded-lg" />
-          </div>
-          <div className="space-y-4">
-            <Skeleton className="h-48 w-full rounded-lg" />
-            <Skeleton className="h-32 w-full rounded-lg" />
-          </div>
-        </div>
-
-
-      </div>
-    );
-  }
-
-  if (!work) {
-    return (
-      <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold text-slate-800">Obra não encontrada</h1>
-        <Button asChild className="mt-4" variant="default">
-          <Link to="/obras-publicas">Voltar para Obras</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  const statusInfo = getStatusInfo(work.status);
-  
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans pb-20 md:pb-12">
-      <DynamicSEO {...seoData} />
-      
-      {/* Sticky Header with Back Button */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              asChild
-              size="icon"
-              variant="outline"
-              className="h-10 w-10 rounded-xl border-gray-200 bg-gray-50 hover:bg-gray-100"
-            >
-              <Link to="/obras-publicas">
-                <ArrowLeft className="w-5 h-5 text-gray-700" />
-              </Link>
-            </Button>
-          <span className="text-xs sm:text-sm font-bold text-gray-500 tracking-wider max-w-[100px] sm:max-w-none block">
-  Voltar para mapa de obras
-</span>
-          </div>
-
-          
-          <div className="flex items-center gap-2">
-             {user?.is_admin && (
-              <Button 
-                onClick={() => setShowAdminEditModal(true)}
-                variant="outline"
-                size="sm"
-                className="ml-2 text-slate-600 border-slate-200 hover:bg-slate-50 flex"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                <span  className="hidden sm:inline" >Gerenciar</span> 
-              </Button>
-            )}
-            <Button 
-              onClick={handleShareWork}
-              variant="ghost" 
-              className="text-gray-600 hover:text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 transition-all duration-300"
-              title="Compartilhar"
-            >
-              <div className="p-1.5 rounded-full bg-blue-50 group-hover:bg-blue-100 sm:bg-transparent sm:p-0">
-                <Share2 className="w-5 h-5 sm:w-5 sm:h-5 sm:mr-2 text-blue-600 sm:text-current" />
-              </div>
-              <span className="hidden sm:inline font-medium">Compartilhar</span>
-            </Button>
-            
-            <Button
-              onClick={handleFavoriteToggle}
-              variant="ghost"
-              className={`rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 transition-all duration-300 ${isFavorited ? 'text-red-600 bg-gradient-to-r from-red-50 to-pink-50 hover:from-red-100 hover:to-pink-100' : 'text-gray-600 hover:text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50'}`}
-              title={isFavorited ? 'Remover dos favoritos' : 'Favoritar'}
-            >
-              <div className={`p-1.5 rounded-full ${isFavorited ? 'bg-red-100' : 'bg-gray-100 group-hover:bg-red-100'} sm:bg-transparent sm:p-0`}>
-                 <Heart className={`w-5 h-5 sm:w-5 sm:h-5 ${isFavorited ? 'fill-current' : ''} sm:mr-2`} />
-              </div>
-              <span className="hidden sm:inline font-medium">Favoritar</span>
-            </Button>
-
-           
-          </div>
-        </div>
-        <div className="hidden lg:block border-t border-gray-100">
-          <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-gray-500 flex items-center gap-1">
-            <Link to="/" className="hover:text-red-500 transition-colors">
-              Início
-            </Link>
-            <span className="opacity-50">›</span>
-            <Link to="/obras-publicas" className="hover:text-red-500 transition-colors">
-              Obras Públicas
-            </Link>
-            <span className="opacity-50">›</span>
-            <span className="text-gray-700 truncate max-w-[300px]">{work.title}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-5xl lg:max-w-7xl 2xl:max-w-[100rem] mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          
-          {/* Main Content Column */}
-          <div className="lg:col-span-8">
-            
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden relative">
-              
-            {/* Top Thumbnail Preview */}
-            {heroMedia && (
-              <div className="relative overflow-hidden">
-                <button
-                  type="button"
-                  className="absolute inset-0 w-full h-full z-10"
-                  onClick={() => openViewer(sortedViewableMedia, 0)}
-                  title="Ver mídias"
-                />
-                <div className="w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden">
-                  {['video', 'video_url'].includes(heroMedia.type) ? (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                      <Video className="w-10 h-10 text-white/80" />
-                    </div>
-                  ) : (
-                    <img
-                      src={heroMedia.url}
-                      alt="Capa da obra"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 via-black/30 to-transparent" />
-                </div>
-              </div>
-            )}
-              
-            {/* Title & Progress Hero Card */}
-            <div className="p-5 md:p-8 lg:p-10">
-              <div className="flex flex-col lg:flex-row lg:items-start gap-8">
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
-                      <statusInfo.icon className="w-4 h-4 mr-1.5" />
-                      {statusInfo.text}
-                    </Badge>
-                    {work.bairro && (
-                      <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50">
-                        <MapPin className="w-3 h-3 mr-1" />
-                        {work.bairro.name}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <h1 className="text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold text-gray-900 leading-tight mb-2 max-w-4xl">
-                    {work.title}
-                  </h1>
-                  {work.description && (
-                    <p className="text-lg text-gray-600 mb-6 font-medium leading-relaxed">
-                      {work.description}
-                    </p>
-                  )}
-                  {!work.description && <div className="mb-6"></div>}
-
-                  {/* Integrated Progress Section */}
-                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 mb-8">
-                    <div className="flex justify-between items-end mb-2">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-slate-400" />
-                        <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Progresso da Obra</span>
-                      </div>
-                      <span className="text-2xl font-bold text-slate-900">{work.execution_percentage || 0}%</span>
-                    </div>
-                    
-                    <Progress 
-                      value={work.execution_percentage || 0} 
-                      className="h-4 bg-slate-200 rounded-full" 
-                      indicatorClassName="bg-red-600 rounded-full" 
-                    />
-                  </div>
-
-                 {work.long_description  && <div className="py-6 md:py-8">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-violet-50 text-indigo-600 mr-3 shadow-sm border border-indigo-100/50">
-                        <BookOpen className="w-4 h-4" />
-                      </div>
-                      Sobre a Obra
-                    </h3>
-                    <div className="prose prose-slate max-w-none text-gray-600 leading-relaxed pl-1">
-                      <p className="whitespace-pre-wrap">{work.long_description || work.description}</p>
-                    </div>
-                  </div>}
-                </div>
-
-                
-              </div>
-
-              {/* Details Sections */}
-              <div className="space-y-8 mb-8">
-                
-                {/* 1. Execução e Responsáveis */}
-                <div>
-                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-                     <Building className="w-4 h-4" /> Execução e Responsáveis
-                   </h3>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-                     {work.contractor?.name && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <Building className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Construtora</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.contractor.name}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.contractor?.cnpj && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <FileText className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">CNPJ</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatCnpj(work.contractor.cnpj)}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.work_category?.name && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <Briefcase className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Categoria</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.work_category.name}</p>
-                          </div>
-                       </div>
-                     )}
-                   </div>
-                </div>
-
-                {/* 3. Financeiro */}
-                <div>
-                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-                     <DollarSign className="w-4 h-4" /> Financeiro
-                   </h3>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-                     {work.funding_source && work.funding_source.length > 0 && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <Landmark className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Fonte de Recurso</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">
-                                {work.funding_source.map(source => source).join(', ')}
-                             </p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.parliamentary_amendment?.has && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <User className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Emenda Parlamentar</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.parliamentary_amendment.author}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.total_value != null && (
-                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                           <DollarSign className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Previsto</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.total_value ? formatCurrency(work.total_value) : 'Não informado'}</p>
-                        </div>
-                     </div>
-                     )}
-
-                     { (totalSpentFromPayments > 0 || (work.amount_spent != null && Number(work.amount_spent) > 0)) && (
-                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
-                        <div className="bg-emerald-50 text-emerald-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                           <DollarSign className="w-5 h-5" />
-                        </div>
-                        <div className="w-full min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Gasto (Pagamentos)</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(totalSpentFromPayments || work.amount_spent)}</p>
-                           <Progress 
-                             value={work.total_value ? Math.min(((totalSpentFromPayments || work.amount_spent || 0) / work.total_value) * 100, 100) : 0} 
-                             className="h-1.5 bg-slate-100 w-full" 
-                             indicatorClassName="bg-emerald-500" 
-                           />
-                        </div>
-                     </div>
-                     )}
-                   </div>
-                </div>
-
-                {/* 4. Prazos e Cronograma */}
-                <div>
-                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-                     <Calendar className="w-4 h-4" /> Prazos e Cronograma
-                   </h3>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-                     {work.execution_period_days && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <Clock className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Prazo de Execução</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.execution_period_days} dias</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.contract_signature_date && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <Calendar className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Assinatura</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.contract_signature_date)}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.service_order_date && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <FileText className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Ordem de Serviço</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.service_order_date)}</p>
-                          </div>
-                       </div>
-                     )}
-                     
-                     {(work.start_date_forecast || work.predicted_start_date) && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <Calendar className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Previsão Início</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.start_date_forecast || work.predicted_start_date)}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.start_date && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <CheckCircle className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Início Real</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.start_date)}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {(work.end_date_forecast || work.expected_end_date) && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <Calendar className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Previsão de Conclusão</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.end_date_forecast || work.expected_end_date)}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.end_date && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <CheckCircle className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Término Real</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.end_date)}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.inauguration_date && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <Award className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Data de Inauguração</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.inauguration_date)}</p>
-                          </div>
-                       </div>
-                     )}
-
-                     {work.stalled_date && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                             <AlertTriangle className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Data de Paralisação</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.stalled_date)}</p>
-                          </div>
-                       </div>
-                     )}
-
-                   </div>
-                </div>
-
-              </div>
-
-
-
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      {/* Left 3/5 */}
+      <div className="lg:col-span-3 space-y-4">
+        {/* Detalhes */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <PanelHeader icon={FileText}>Detalhes da obra</PanelHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2">
+            <div className="px-5 py-3 sm:border-r border-slate-100">
+              <InfoRow icon={FileText}   label="Categoria"      value={work.work_category?.name} />
+              <InfoRow icon={Activity}   label="Status"         value={getStatusInfo(work.status).text} />
+              <InfoRow icon={Calendar}   label="Início real"    value={work.start_date ? formatDate(work.start_date) : null} />
+              <InfoRow icon={Calendar}   label="Previsão conclusão" value={work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : null} />
             </div>
+            <div className="px-5 py-3">
+              <InfoRow icon={DollarSign} label="Valor previsto" value={work.total_value ? formatCurrency(work.total_value) : null} />
+              <InfoRow icon={CreditCard} label="Total pago"     value={spentValue > 0 ? formatCurrency(spentValue) : null} accent />
+              <InfoRow icon={MapPin}     label="Bairro"         value={work.bairro?.name} />
+              <InfoRow icon={Building}   label="Construtora"    value={work.contractor?.name} />
+            </div>
+          </div>
+        </div>
 
-            <Separator className="my-0" />
-
-         
-
-            {/* Timeline Section */}
-            <div className="p-6 md:p-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-600 mr-3 shadow-sm border border-blue-100/50">
-                  <Activity className="w-4 h-4" />
-                </div>
-                Histórico e Fases
-              </h3>
-
-              <div className="relative pl-4 sm:pl-6 space-y-8 before:absolute before:left-4 sm:before:left-6 before:h-full before:w-[2px] before:bg-slate-100">
-                {measurements.length > 0 ? (
-                  measurements.map((item, index) => {
-                    const phaseMedia = viewableMedia.filter(m => m.measurement_id === item.id);
-                    const phaseDocs = media.filter(m => m.measurement_id === item.id && (m.type === 'pdf' || m.type === 'document' || m.type === 'file'));
-                    return (
-                      <div key={item.id} className="relative pl-8">
-                        <div className={`absolute -left-[7px] top-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm ${getStatusInfo(item.status).bg.replace('bg-', 'bg-')}`} />
-                        <div className="bg-slate-50 p-5 rounded-xl border transition-colors border-slate-100 hover:border-slate-300">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-base text-slate-800">
-                                    {item.title}
-                                </h4>
-                            </div>
-                          </div>
-                          
-                          {item.description && (
-                            <p className="text-slate-600 mb-4 text-sm leading-relaxed">{item.description}</p>
-                          )}
-                          
-                          {item.contractor && (
-                            <div className="flex items-center gap-2 mb-4 text-sm text-slate-700 bg-white/60 p-2.5 rounded-lg border border-slate-200/60">
-                              <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                              <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 whitespace-nowrap">Construtora:</span>
-                              <span className="font-medium truncate">{item.contractor.name}</span>
-                            </div>
-                          )}
-                          
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            {/* Status Badge - Always Visible */}
-                            <div className="col-span-2 sm:col-span-1">
-                              <span className="text-xs text-slate-400 block mb-1">Status</span>
-                              <Badge variant="outline" className={`${getStatusInfo(item.status).color} ${getStatusInfo(item.status).bg} border-none`}>
-                                {getStatusInfo(item.status).text}
-                              </Badge>
-                            </div>
-
-                            {/* Execution Percentage - Only for In Progress, Stalled, Completed */}
-                            {['in-progress', 'stalled', 'completed'].includes(item.status) && (
-                              <div className="col-span-2 sm:col-span-1">
-                                <span className="text-xs text-slate-400 block mb-1">Execução</span>
-                                <span className="text-sm font-semibold text-slate-700">
-                                  {item.execution_percentage != null ? `${item.execution_percentage}%` : '-'}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Dynamic Date Display based on Status */}
-                          <div className="mb-4 pt-3 border-t border-slate-200/60 text-xs space-y-3">
-                            
-                            {/* Unfinished / Inacabada */}
-                            {item.status === 'unfinished' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
-                                  </div>
-                                )}
-                                {item.end_date && (
-                                  <div>
-                                    <span className="text-orange-600 font-medium mb-1 block">Encerramento/Rescisão</span>
-                                    <span className="text-orange-700 font-bold text-sm">{formatDate(item.end_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Stalled / Paralisada */}
-                            {item.status === 'stalled' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
-                                  </div>
-                                )}
-                                {item.stalled_date && (
-                                  <div>
-                                    <span className="text-red-600 font-medium mb-1 block">Data de Paralisação</span>
-                                    <span className="text-red-700 font-bold text-sm">{formatDate(item.stalled_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* In Progress / Em Andamento */}
-                            {item.status === 'in-progress' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
-                                  </div>
-                                )}
-                                {item.expected_end_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Término</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.expected_end_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Completed / Concluída */}
-                            {item.status === 'completed' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
-                                  </div>
-                                )}
-                                {item.end_date && (
-                                  <div>
-                                    <span className="text-emerald-600 font-medium mb-1 block">Conclusão Real</span>
-                                    <span className="text-emerald-700 font-bold text-sm">{formatDate(item.end_date)}</span>
-                                  </div>
-                                )}
-                                {item.inauguration_date && (
-                                  <div className="col-span-2 pt-2 mt-1 border-t border-slate-100">
-                                     <span className="text-emerald-600 font-medium mb-1 block">Inauguração</span>
-                                     <span className="text-emerald-700 font-bold text-sm">{formatDate(item.inauguration_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Planned / Tendered */}
-                            {['planned', 'tendered'].includes(item.status) && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.predicted_start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Início</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.predicted_start_date)}</span>
-                                  </div>
-                                )}
-                                {item.expected_end_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Conclusão</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.expected_end_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="w-full bg-white hover:bg-slate-50 hover:text-red-800 text-red-600 border-slate-200 h-auto py-2 whitespace-normal text-left justify-center sm:justify-start"
-                            onClick={() => setSelectedMeasurement({...item, media: phaseMedia, docs: phaseDocs})}
-                          >
-                            <Eye className="w-4 h-4 mr-2 flex-shrink-0" />
-                            Ver Detalhes e Arquivos
-                          </Button>
-                        </div>
+        {/* Andamento */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <PanelHeader icon={TrendingUp}>Andamento da Obra</PanelHeader>
+          <div className="p-5">
+            <div className="flex items-end justify-between mb-2">
+              <div>
+                <span className="text-3xl font-black text-slate-900">{work.execution_percentage || 0}%</span>
+                <span className="text-sm text-slate-400 ml-2">concluído</span>
+              </div>
+              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${getStatusInfo(work.status).bg} ${getStatusInfo(work.status).color}`}>
+                {getStatusInfo(work.status).text}
+              </span>
+            </div>
+            <div className="h-3 bg-slate-100 rounded-full overflow-hidden mb-4">
+              <div className="h-full bg-red-500 rounded-full transition-all duration-700" style={{ width: `${work.execution_percentage || 0}%` }} />
+            </div>
+            {measurements.length > 0 && (
+              <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                {measurements.slice(0, 6).map((m, i) => {
+                  const pct = m.execution_percentage || 0;
+                  const si  = getStatusInfo(m.status);
+                  return (
+                    <div key={m.id} className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${BARS[i] || 'bg-slate-300'}`} />
+                      <span className="text-xs text-slate-700 font-medium truncate flex-1">{m.title}</span>
+                      <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
+                        <div className={`h-full rounded-full ${BARS[i] || 'bg-slate-300'}`} style={{ width: `${pct}%` }} />
                       </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-slate-500 text-center py-8">Nenhuma atividade registrada.</p>
+                      <span className="text-[10px] text-slate-400 w-28 text-right flex-shrink-0 truncate">{si.text} — {pct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Descrição */}
+        {(work.long_description || work.description) && (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <PanelHeader icon={BookOpen}>Descrição</PanelHeader>
+            <div className="px-5 py-4">
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{work.long_description || work.description}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Financeiro extra */}
+        {work.total_value && (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <PanelHeader icon={DollarSign}>Financeiro</PanelHeader>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold mb-1">Valor Previsto</p>
+                  <p className="text-xl font-black text-slate-800">{formatCurrency(work.total_value)}</p>
+                </div>
+                {spentValue > 0 && (
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold mb-1">Total Pago</p>
+                    <p className="text-xl font-black text-emerald-600">{formatCurrency(spentValue)}</p>
+                  </div>
                 )}
               </div>
-            </div>
-
-            <Separator className="my-0" />
-
-            {/* Financial Section */}
-            {biddings && biddings.length > 0 && (
-              <div className="p-6 md:p-8 bg-white border-t border-slate-100">
-                <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 mr-3 shadow-sm border border-emerald-100/50">
-                    <Calculator className="w-4 h-4" />
+              {spentValue > 0 && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-slate-400">Execução financeira</span>
+                    <span className="font-bold text-slate-600">{spentPct.toFixed(1)}%</span>
                   </div>
-                  Licitações e Pagamentos
-                </h3>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${spentPct}%` }} />
+                  </div>
+                </div>
+              )}
+              {work.funding_source?.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold mb-2">Fonte de Recursos</p>
+                  <div className="flex flex-wrap gap-2">
+                    {work.funding_source.map(src => (
+                      <span key={src} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 capitalize">{src}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {work.parliamentary_amendment?.has && (
+                <InfoRow icon={User} label="Emenda Parlamentar" value={work.parliamentary_amendment.author} />
+              )}
+              {work.contractor?.cnpj && (
+                <InfoRow icon={FileText} label="CNPJ da Construtora" value={formatCnpj(work.contractor.cnpj)} />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
-                <div className="space-y-6">
-                  {biddings.map((bidding) => {
-                    const totalPaid = (bidding.payments || []).reduce((acc, p) => acc + (Number(p.value) || 0), 0);
-                    return (
-                      <div key={bidding.id} className="bg-slate-50/50 border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="p-5 bg-white border-b border-slate-100">
-                          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none font-bold text-[10px] uppercase">Fase / Licitação</Badge>
-                                <h4 className="font-bold text-lg text-slate-800">{bidding.title}</h4>
-                              </div>
-                              <p className="text-sm text-slate-500 leading-relaxed">{bidding.description}</p>
-                            </div>
-                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 min-w-[160px]">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total do Contrato</span>
-                              <span className="text-lg font-bold text-emerald-700">{formatCurrency(bidding.value)}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="p-5">
-                          <div className="flex items-center justify-between mb-4">
-                            <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                              <DollarSign className="w-3 h-3" /> Listagem de Pagamentos
-                            </h5>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold">
-                              Pago: {formatCurrency(totalPaid)}
-                            </Badge>
-                          </div>
-
-                          {bidding.payments && bidding.payments.length > 0 ? (
-                            <div className="space-y-3">
-                              {bidding.payments.sort((a,b) => new Date(b.payment_date) - new Date(a.payment_date)).map((payment) => (
-                                <div key={payment.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:border-emerald-200 transition-all gap-4">
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex flex-col items-center justify-center shrink-0">
-                                      <Calendar className="w-4 h-4 text-blue-500 mb-0.5" />
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-bold text-slate-700">{formatDate(payment.payment_date)}</p>
-                                      <p className="text-xs text-slate-400 font-medium">OB/Empenho: {payment.banking_order || '-'}</p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="flex items-center justify-between sm:justify-end gap-6">
-                                    <div className="text-right">
-                                      <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Valor Pago</p>
-                                      <p className="text-base font-bold text-blue-700">{formatCurrency(payment.value)}</p>
-                                    </div>
-                                    
-                                    {payment.portal_link && (
-                                      <Button asChild size="icon" variant="ghost" className="h-10 w-10 rounded-full text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
-                                        <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência">
-                                          <Link2 className="w-5 h-5" />
-                                        </a>
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-6 bg-white rounded-xl border border-dashed border-slate-200">
-                              <p className="text-sm text-slate-400">Nenhum pagamento registrado para esta licitação.</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+      {/* Right 2/5 */}
+      <div className="lg:col-span-2 space-y-4">
+        {/* Cronograma */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <PanelHeader icon={Calendar}>Cronograma</PanelHeader>
+          <div className="p-5 space-y-3">
+            {startDate && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Início real</span>
+                <span className="text-xs font-bold text-slate-700">{formatDate(work.start_date)}</span>
+              </div>
+            )}
+            {(work.end_date_forecast || work.expected_end_date) && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Previsão conclusão</span>
+                <span className="text-xs font-bold text-amber-600">{formatDate(work.end_date_forecast || work.expected_end_date)}</span>
+              </div>
+            )}
+            {work.contract_signature_date && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Assinatura contrato</span>
+                <span className="text-xs font-semibold text-slate-600">{formatDate(work.contract_signature_date)}</span>
+              </div>
+            )}
+            {work.service_order_date && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Ordem de serviço</span>
+                <span className="text-xs font-semibold text-slate-600">{formatDate(work.service_order_date)}</span>
+              </div>
+            )}
+            {work.inauguration_date && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Inauguração</span>
+                <span className="text-xs font-bold text-emerald-600">{formatDate(work.inauguration_date)}</span>
+              </div>
+            )}
+            {work.stalled_date && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Data paralisação</span>
+                <span className="text-xs font-bold text-red-600">{formatDate(work.stalled_date)}</span>
+              </div>
+            )}
+            {daysElapsed !== null && (
+              <div className="pt-2 border-t border-slate-100">
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-1.5">
+                  <div className="h-full bg-red-400 rounded-full" style={{ width: `${timePct}%` }} />
+                </div>
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate-400"><span className="font-bold text-slate-700">{daysElapsed}</span> dias decorridos</span>
+                  {daysRemaining !== null && (
+                    <span className="text-slate-400"><span className="font-bold text-emerald-600">{daysRemaining}</span> restantes</span>
+                  )}
                 </div>
               </div>
             )}
+            {work.execution_period_days && (
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-xs text-slate-400">Prazo contratual</span>
+                <span className="text-xs font-bold text-slate-700">{work.execution_period_days} dias</span>
+              </div>
+            )}
+          </div>
+        </div>
 
-            <Separator className="my-0" />
+        {/* Mapa */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <PanelHeader icon={MapPin}>Localização</PanelHeader>
+          <div className="h-52">
+            <WorkMap location={work.location} bairro={work.bairro?.name} />
+          </div>
+          {(work.address || work.bairro) && (
+            <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
+              {work.address && <p className="text-xs font-semibold text-slate-700">{work.address}</p>}
+              {work.bairro && <p className="text-xs text-slate-400 mt-0.5">{work.bairro.name}</p>}
+            </div>
+          )}
+        </div>
 
-            {/* Galeria e Documentos */}
-            <div className="p-6 md:p-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                 <ImageIcon className="w-5 h-5 text-red-500" />
-                 Galeria e Documentos
-              </h3>
-              
-              {/* Grouped Galleries */}
-              {(() => {
-                const groups = {};
-                // Group media by gallery_name
-                mainGalleryMedia.forEach(item => {
-                  if (!['image', 'photo', 'video', 'video_url'].includes(item.type)) return;
-                  const name = item.gallery_name || 'Geral';
-                  if (!groups[name]) groups[name] = [];
-                  groups[name].push(item);
-                });
+        {/* Links */}
+        {Array.isArray(work.related_links) && work.related_links.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <PanelHeader icon={Link2}>Links Relacionados</PanelHeader>
+            <div className="p-3 space-y-1">
+              {work.related_links.map((link, idx) => (
+                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors group">
+                  <span className="text-sm text-slate-700 truncate">{link.title}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-red-500 ml-2 flex-shrink-0" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
-                const sortedNames = Object.keys(groups).sort((a, b) => {
-                  if (a === 'Geral') return -1;
-                  if (b === 'Geral') return 1;
-                  return a.localeCompare(b);
-                });
-
-                if (sortedNames.length === 0 && (!documents || documents.length === 0)) {
-                  return (
-                    <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/50">
-                       <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <ImageIcon className="w-6 h-6 text-slate-300" />
-                       </div>
-                       <p className="text-sm text-slate-500 font-medium">Nenhuma mídia disponível</p>
-                       <p className="text-xs text-slate-400 mt-1">As fotos e vídeos desta obra aparecerão aqui.</p>
+// ─── TAB: Etapas ─────────────────────────────────────────────────────────────
+const TabPhases = ({ measurements, media, viewableMedia, openViewer }) => {
+  if (measurements.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-dashed border-slate-200 py-20 text-center">
+        <Layers className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+        <p className="text-slate-400 text-sm font-medium">Nenhuma etapa registrada.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="relative pl-6 space-y-4 before:absolute before:left-[11px] before:top-4 before:bottom-4 before:w-px before:bg-slate-200">
+      {measurements.map((item) => {
+        const si         = getStatusInfo(item.status);
+        const phaseMedia = viewableMedia.filter(m => m.measurement_id === item.id);
+        const phaseDocs  = media.filter(m => m.measurement_id === item.id && ['pdf','document','file'].includes(m.type));
+        const totalPaid  = (item.payments || []).reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+        return (
+          <div key={item.id} className="relative pl-6">
+            <div className={`absolute left-0 top-4 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${si.dot}`} style={{ transform: 'translateX(-50%)' }} />
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="p-5 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${si.bg} ${si.color}`}>{si.text}</span>
                     </div>
-                  );
-                }
-
-                return sortedNames.map(name => {
-                  const items = groups[name];
-                  const hasMore = items.length > 4;
-                  const displayItems = hasMore ? items.slice(0, 4) : items;
-
-                  return (
-                    <div key={name} className="mb-10">
-                      <h4 className="text-sm font-bold text-blue-950 mb-4 flex items-center gap-2 uppercase tracking-wide">
-                        {name === 'Geral' ? (
-                          <ImageIcon className="w-4 h-4 text-blue-900" /> 
-                        ) : (
-                          <FolderOpen className="w-4 h-4 text-blue-900" /> 
-                        )}
-                        {name === 'Geral' ? 'Galeria Geral' : name}
-                      </h4>
-                      
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {displayItems.map((item, idx) => (
-                          <div 
-                            key={item.id} 
-                            className="group cursor-pointer"
-                            onClick={() => openViewer(items, idx)}
-                          >
-                            <div className="aspect-[4/3] rounded-xl overflow-hidden mb-2 relative bg-gray-100 shadow-sm border border-gray-100">
-                              {['video', 'video_url'].includes(item.type) ? (
-                                 <div className="w-full h-full flex items-center justify-center bg-slate-900">
-                                    <Video className="w-10 h-10 text-white/80 group-hover:scale-110 transition-transform" />
-                                 </div>
-                              ) : (
-                                <img 
-                                  src={item.url} 
-                                  alt={item.description || 'Foto da obra'} 
-                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                  loading="lazy"
-                                />
-                              )}
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                            </div>
-                            <p className="text-xs text-blue-600 font-semibold pl-1">
-                              {item.created_at ? formatDate(item.created_at) : 'Data não informada'}
-                            </p>
-                          </div>
-                        ))}
-                        
-                        {/* Folder Idea for "Many Images" */}
-                        {hasMore && (
-                          <div 
-                            className="aspect-[4/3] rounded-xl bg-blue-50 border-2 border-dashed border-blue-200 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors group"
-                            onClick={() => openViewer(items, 4)}
-                          >
-                             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-2 group-hover:bg-blue-200 transition-colors">
-                                <FolderOpen className="w-5 h-5 text-blue-600" />
-                             </div>
-                             <span className="text-sm font-bold text-blue-700">Ver todas</span>
-                             <span className="text-xs text-blue-500 font-medium">+{items.length - 4} fotos</span>
-                          </div>
-                        )}
-                      </div>
+                    <h4 className="font-bold text-base text-slate-900">{item.title}</h4>
+                    {item.contractor && (
+                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                        <Building className="w-3 h-3" /> {item.contractor.name}
+                      </p>
+                    )}
+                  </div>
+                  {item.execution_percentage != null && (
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-2xl font-black text-slate-900">{item.execution_percentage}%</p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide">executado</p>
                     </div>
-                  );
-                });
-              })()}
-
-               {/* Documentos */}
-               {documents && documents.length > 0 && (
-                <div>
-                  <h4 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2 uppercase tracking-wide text-xs">
-                    <FileText className="w-4 h-4 text-gray-400" /> Documentos
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {documents.map((doc) => (
-                      <a 
-                        key={doc.id}
-                        href={doc.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-3 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50/30 transition-all group"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-red-500 mr-3 shrink-0 group-hover:bg-red-100 transition-colors">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div className="overflow-hidden">
-                          <p className="text-sm font-medium text-gray-700 truncate group-hover:text-red-700 transition-colors">
-                            {doc.title || doc.name || 'Documento sem título'}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {doc.created_at ? formatDate(doc.created_at) : 'Data não informada'}
-                          </p>
-                        </div>
-                        <ArrowUpRight className="w-4 h-4 text-gray-300 ml-auto group-hover:text-red-400 transition-colors" />
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 bg-slate-50/40">
+                <div className="p-3.5"><p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Valor Contrato</p><p className="text-sm font-bold text-slate-700">{item.value ? formatCurrency(item.value) : '—'}</p></div>
+                <div className="p-3.5"><p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Total Pago</p><p className="text-sm font-bold text-emerald-600">{totalPaid > 0 ? formatCurrency(totalPaid) : '—'}</p></div>
+                <div className="p-3.5"><p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Pagamentos</p><p className="text-sm font-bold text-blue-600">{(item.payments || []).length}</p></div>
+                <div className="p-3.5"><p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Mídias</p><p className="text-sm font-bold text-slate-600">{phaseMedia.length}</p></div>
+              </div>
+              {(item.description || item.start_date || item.end_date || item.expected_end_date || item.stalled_date || item.inauguration_date) && (
+                <div className="p-5 space-y-2.5">
+                  {item.description && <p className="text-sm text-slate-500 leading-relaxed">{item.description}</p>}
+                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+                    {item.start_date       && <span><span className="text-slate-400">Início: </span><span className="font-semibold text-slate-700">{formatDate(item.start_date)}</span></span>}
+                    {item.end_date         && <span><span className="text-slate-400">Término: </span><span className="font-semibold text-slate-700">{formatDate(item.end_date)}</span></span>}
+                    {item.expected_end_date && <span><span className="text-slate-400">Previsão: </span><span className="font-semibold text-amber-600">{formatDate(item.expected_end_date)}</span></span>}
+                    {item.stalled_date     && <span><span className="text-slate-400">Paralisado: </span><span className="font-semibold text-red-600">{formatDate(item.stalled_date)}</span></span>}
+                    {item.inauguration_date && <span><span className="text-slate-400">Inauguração: </span><span className="font-semibold text-emerald-600">{formatDate(item.inauguration_date)}</span></span>}
+                  </div>
+                </div>
+              )}
+              {phaseMedia.length > 0 && (
+                <div className="px-5 pb-5 border-t border-slate-100 pt-4">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Galeria da fase</p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {phaseMedia.slice(0, 8).map((m, idx) => (
+                      <button key={m.id} onClick={() => openViewer(phaseMedia, idx)}
+                        className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-slate-200 hover:border-red-400 hover:shadow-sm transition-all bg-slate-100">
+                        {['video','video_url'].includes(m.type)
+                          ? <div className="w-full h-full flex items-center justify-center bg-slate-800"><Video className="w-5 h-5 text-white/60" /></div>
+                          : <img src={m.url} alt="" className="w-full h-full object-cover" />}
+                      </button>
+                    ))}
+                    {phaseMedia.length > 8 && (
+                      <button onClick={() => openViewer(phaseMedia, 8)}
+                        className="flex-shrink-0 w-16 h-16 rounded-xl bg-slate-50 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center hover:bg-slate-100 transition-colors">
+                        <span className="text-xs font-bold text-slate-500">+{phaseMedia.length - 8}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {phaseDocs.length > 0 && (
+                <div className="px-5 pb-5 border-t border-slate-100 pt-4">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Documentos</p>
+                  <div className="space-y-1.5">
+                    {phaseDocs.map(doc => (
+                      <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 hover:bg-red-50 border border-slate-100 hover:border-red-200 transition-all group text-sm">
+                        <FileText className="w-4 h-4 text-slate-400 group-hover:text-red-500 flex-shrink-0" />
+                        <span className="truncate font-medium text-slate-700 group-hover:text-red-700">{doc.name || 'Documento'}</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-red-400 ml-auto flex-shrink-0" />
                       </a>
                     ))}
                   </div>
                 </div>
               )}
             </div>
-
-            <Separator className="my-0" />
-
-            {/* Contribution CTA */}
-            <div className="hidden lg:block p-6 md:p-8 bg-slate-50 border-t border-slate-100">
-              <div className="text-center max-w-2xl mx-auto">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
-                  <UploadCloud className="w-6 h-6 text-red-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Tem informações sobre esta obra?</h2>
-                <p className="text-gray-600 mb-6 text-sm">
-                  Ajude-nos a manter os dados atualizados enviando fotos, vídeos ou relatórios.
-                </p>
-                <Button onClick={handleOpenContrib} className="bg-red-600 hover:bg-red-700 text-white px-8 font-medium shadow-md shadow-red-100">
-                  <UploadCloud className="w-4 h-4 mr-2" />
-                  Enviar Contribuição
-                </Button>
-      
-            </div>
-              <div className="hidden lg:block text-center max-w-2xl mx-auto mb-12 mt-6">
-           <p className="text-xs text-gray-400 leading-relaxed">
-             Os dados são provenientes de portais de transparência e verificados pela equipe. 
-             Podem haver divergências temporais.
-             <button onClick={() => setShowReportDialog(true)} className="ml-1 text-gray-500 underline hover:text-gray-700">
-               Reportar erro
-             </button>
-           </p>
-        </div>
-                    </div>
-               {/* Disclaimer */}
-      
-            </div>
-
           </div>
+        );
+      })}
+    </div>
+  );
+};
 
-          {/* Sidebar Column (LG+) */}
-          <div className="hidden lg:block lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="font-bold text-gray-900 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  Localização
-                </h3>
-              </div>
-              <div className="h-64">
-                <WorkMap location={work.location} bairro={work.bairro?.name} />
-              </div>
-              
-              <div className="px-4 py-4 bg-slate-50 space-y-3">
-                 <div className="flex items-start gap-3">
-                    <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                    <div>
-                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
-                       <p className="text-sm font-medium text-slate-700 leading-tight">{work.address || 'Não informado'}</p>
-                    </div>
-                 </div>
-                 
-                 {work.bairro && (
-                   <div className="flex items-start gap-3 pt-3 border-t border-slate-200/60">
-                      <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                      <div>
-                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
-                         <p className="text-sm font-medium text-slate-700 leading-tight">{work.bairro.name}</p>
-                      </div>
-                   </div>
-                 )}
-              </div>
-            </div>
+// ─── TAB: Pagamentos (accordion) ─────────────────────────────────────────────
+const TabPayments = ({ biddings }) => {
+  const totalGeral = biddings.reduce((acc, b) =>
+    acc + (b.payments || []).reduce((pa, p) => pa + (Number(p.value) || 0), 0), 0);
 
-            {Array.isArray(work.related_links) && work.related_links.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
-                    <Link2 className="w-4 h-4" />
-                  </div>
-                  Links Relacionados
-                </h3>
-                <div className="space-y-2">
-                  {work.related_links.map((link, idx) => (
-                    <a 
-                      key={idx} 
-                      href={link.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-start justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
-                    >
-                      <span className="text-sm font-medium text-gray-700 break-words leading-snug">{link.title}</span>
-                      <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {relatedNews.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
-                    <Newspaper className="w-4 h-4" />
-                  </div>
-                  Notícias relacionadas
-                </h3>
-                <div className="space-y-3">
-                  {relatedNews.map((n) => {
-                    const d = n.date ? new Date(n.date) : null;
-                    const valid = d && !isNaN(d.getTime());
-                    return (
-                      <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                        <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                          {n.image_url ? (
-                            <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm leading-tight">{n.title}</p>
-                          {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
-                        </div>
-                        <ArrowUpRight className="w-4 h-4 text-gray-400" />
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            </div>
-          {/* Sidebar Column (Mobile/Tablet Only) */}
-          <div className="lg:hidden space-y-6">
-            
-            
-            {/* Map Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="font-bold text-gray-900 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  Localização
-                </h3>
-              </div>
-              <div className="h-64">
-                <WorkMap location={work.location} bairro={work.bairro?.name} />
-              </div>
-              
-              <div className="px-4 py-4 bg-slate-50 space-y-3">
-                 <div className="flex items-start gap-3">
-                    <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                    <div>
-                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
-                       <p className="text-sm font-medium text-slate-700 leading-tight">{work.address || 'Não informado'}</p>
-                    </div>
-                 </div>
-                 
-                 {work.bairro && (
-                   <div className="flex items-start gap-3 pt-3 border-t border-slate-200/60">
-                      <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                      <div>
-                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
-                         <p className="text-sm font-medium text-slate-700 leading-tight">{work.bairro.name}</p>
-                      </div>
-                   </div>
-                 )}
-              </div>
-             </div>
-
-            {/* Technical Details Card (Redundant info removed) */}
-            {/* Kept minimal or removed if all info is now in main grid */}
-            
-            {/* Links */}
-            {Array.isArray(work.related_links) && work.related_links.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
-                    <Link2 className="w-4 h-4" />
-                  </div>
-                  Links Relacionados
-                </h3>
-                <div className="space-y-2">
-                  {work.related_links.map((link, idx) => (
-                    <a 
-                      key={idx} 
-                      href={link.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-start justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
-                    >
-                      <span className="text-sm font-medium text-gray-700 break-words leading-snug">{link.title}</span>
-                      <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {relatedNews.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
-                    <Newspaper className="w-4 h-4" />
-                  </div>
-                  Notícias relacionadas
-                </h3>
-                <div className="space-y-3">
-                  {relatedNews.map((n) => {
-                    const d = n.date ? new Date(n.date) : null;
-                    const valid = d && !isNaN(d.getTime());
-                    return (
-                      <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                        <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                          {n.image_url ? (
-                            <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm leading-tight">{n.title}</p>
-                          {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
-                        </div>
-                        <ArrowUpRight className="w-4 h-4 text-gray-400" />
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Mobile Contribution CTA & Disclaimer */}
-            <div className="lg:hidden space-y-6 pt-4">
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center">
-                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                  <UploadCloud className="w-6 h-6 text-red-600" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900 mb-2">Tem informações?</h2>
-                <p className="text-gray-600 mb-6 text-sm">
-                  Ajude a manter os dados atualizados enviando fotos ou relatórios.
-                </p>
-                <Button onClick={handleOpenContrib} className="w-full bg-red-600 hover:bg-red-700 text-white font-medium shadow-md shadow-red-100">
-                  <UploadCloud className="w-4 h-4 mr-2" />
-                  Contribuir
-                </Button>
-              </div>
-
-              {relatedNews.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                  <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
-                      <Newspaper className="w-4 h-4" />
-                    </div>
-                    Notícias relacionadas
-                  </h3>
-                  <div className="space-y-3">
-                    {relatedNews.map((n) => {
-                      const d = n.date ? new Date(n.date) : null;
-                      const valid = d && !isNaN(d.getTime());
-                      return (
-                        <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                          <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                            {n.image_url ? (
-                              <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-sm leading-tight">{n.title}</p>
-                            {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
-                          </div>
-                          <ArrowUpRight className="w-4 h-4 text-gray-400" />
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="text-center px-4 pb-8">
-                 <p className="text-xs text-gray-400 leading-relaxed">
-                   Os dados são verificados pela equipe. Podem haver divergências.
-                   <button onClick={() => setShowReportDialog(true)} className="ml-1 text-gray-500 underline hover:text-gray-700">
-                     Reportar erro
-                   </button>
-                 </p>
-              </div>
-            </div>
-
-          </div>
-        </div>
-        
-       
-
+  if (biddings.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-dashed border-slate-200 py-20 text-center">
+        <CreditCard className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+        <p className="text-slate-400 text-sm font-medium">Nenhuma licitação cadastrada.</p>
       </div>
+    );
+  }
 
-      {viewerState.isOpen && (
-        <MediaViewer 
-          onClose={closeViewer} 
-          media={viewerState.items} 
-          startIndex={viewerState.startIndex} 
-        />
+  return (
+    <div className="space-y-4">
+      {/* Resumo total */}
+      {totalGeral > 0 && (
+        <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-100 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-12 h-12 bg-white rounded-xl border border-emerald-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Banknote className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Total pago — todas as fases</p>
+            <p className="text-2xl font-black text-emerald-800 mt-0.5">{formatCurrency(totalGeral)}</p>
+          </div>
+          <div className="ml-auto text-right hidden sm:block">
+            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">{biddings.length} licitaç{biddings.length === 1 ? 'ão' : 'ões'}</p>
+            <p className="text-sm font-semibold text-emerald-700 mt-0.5">{biddings.reduce((a, b) => a + (b.payments || []).length, 0)} pagamentos</p>
+          </div>
+        </div>
       )}
 
-      {/* Report Error Dialog */}
-      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+      {/* Accordion: uma licitação por item */}
+      <Accordion type="multiple" className="space-y-3">
+        {biddings.map((bidding, idx) => {
+          const payments  = [...(bidding.payments || [])].sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date));
+          const totalPaid = payments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+          const paidPct   = bidding.value ? Math.min((totalPaid / bidding.value) * 100, 100) : 0;
+
+          return (
+            <AccordionItem key={bidding.id} value={bidding.id}
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm data-[state=open]:border-slate-300 transition-colors">
+              {/* Trigger */}
+              <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-slate-50/60 data-[state=open]:bg-slate-50/60 transition-colors [&>svg]:hidden">
+                <div className="flex items-center gap-4 w-full text-left">
+                  {/* Number badge */}
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0 text-xs font-black">
+                    {String(idx + 1).padStart(2, '0')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-0.5">Fase / Licitação</p>
+                    <p className="font-bold text-slate-900 text-sm truncate">{bidding.title}</p>
+                    {bidding.description && <p className="text-xs text-slate-400 truncate mt-0.5">{bidding.description}</p>}
+                  </div>
+                  {/* Summary right */}
+                  <div className="text-right flex-shrink-0 mr-2">
+                    <p className="text-[10px] text-slate-400 font-medium">Pago</p>
+                    <p className="text-sm font-black text-emerald-600">{formatCurrency(totalPaid)}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{payments.length} pgto{payments.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {/* Expand icon */}
+                  <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 group-data-[state=open]:rotate-180 transition-transform">
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-500 rotate-90" />
+                  </div>
+                </div>
+              </AccordionTrigger>
+
+              {/* Content */}
+              <AccordionContent className="border-t border-slate-100">
+                {/* Progress bar */}
+                {bidding.value > 0 && (
+                  <div className="px-5 pt-4 pb-3 bg-slate-50/60 border-b border-slate-100">
+                    <div className="flex justify-between text-xs mb-1.5">
+                      <span className="text-slate-400 font-medium">Execução financeira</span>
+                      <span className="font-bold text-slate-700">{paidPct.toFixed(1)}%</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${paidPct}%` }} />
+                    </div>
+                    <div className="flex justify-between text-[11px] mt-1.5 text-slate-400">
+                      <span>Pago: <span className="font-semibold text-emerald-600">{formatCurrency(totalPaid)}</span></span>
+                      <span>Contrato: <span className="font-semibold text-slate-600">{formatCurrency(bidding.value)}</span></span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Table */}
+                {payments.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100">
+                          <th className="text-left px-5 py-2.5 font-bold text-slate-400 uppercase tracking-wide text-[9px]">Data</th>
+                          <th className="text-left px-5 py-2.5 font-bold text-slate-400 uppercase tracking-wide text-[9px]">OB / Empenho</th>
+                          <th className="text-right px-5 py-2.5 font-bold text-slate-400 uppercase tracking-wide text-[9px]">Valor</th>
+                          <th className="text-center px-4 py-2.5 font-bold text-slate-400 uppercase tracking-wide text-[9px]">Portal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {payments.map(p => (
+                          <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                                <span className="font-semibold text-slate-700">{formatDate(p.payment_date)}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-slate-500">{p.banking_order || '—'}</td>
+                            <td className="px-5 py-3 text-right font-black text-blue-600">{formatCurrency(p.value)}</td>
+                            <td className="px-4 py-3 text-center">
+                              {p.portal_link
+                                ? <a href={p.portal_link} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors">
+                                    <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                                  </a>
+                                : <span className="text-slate-300">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-50 border-t border-slate-200">
+                          <td colSpan={2} className="px-5 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                            Subtotal — {payments.length} pagamento(s)
+                          </td>
+                          <td className="px-5 py-2.5 text-right">
+                            <span className="text-sm font-black text-emerald-700">{formatCurrency(totalPaid)}</span>
+                          </td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="px-5 py-8 text-center">
+                    <CreditCard className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400 italic">Nenhum pagamento nesta fase.</p>
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+    </div>
+  );
+};
+
+// ─── TAB: Documentos ─────────────────────────────────────────────────────────
+const TabDocuments = ({ galleryGroups, openViewer, documents, relatedNews }) => (
+  <div className="space-y-6">
+    {galleryGroups.length === 0 && documents.length === 0 && relatedNews.length === 0 && (
+      <div className="bg-white rounded-2xl border border-dashed border-slate-200 py-20 text-center">
+        <ImageIcon className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+        <p className="text-slate-400 text-sm font-medium">Nenhuma mídia disponível.</p>
+      </div>
+    )}
+    {galleryGroups.map(({ name, items }) => {
+      const hasMore = items.length > 9;
+      const display = hasMore ? items.slice(0, 9) : items;
+      return (
+        <div key={name}>
+          <div className="flex items-center gap-2 mb-3">
+            {name === 'Geral' ? <ImageIcon className="w-4 h-4 text-slate-400" /> : <FolderOpen className="w-4 h-4 text-slate-400" />}
+            <h4 className="text-sm font-bold text-slate-700">{name === 'Geral' ? 'Galeria Geral' : name}</h4>
+            <span className="text-[11px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{items.length}</span>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+            {display.map((item, idx) => (
+              <button key={item.id} onClick={() => openViewer(items, idx)}
+                className="aspect-square rounded-xl overflow-hidden border border-slate-200 hover:border-red-400 hover:shadow-md transition-all group bg-slate-100">
+                {['video','video_url'].includes(item.type)
+                  ? <div className="w-full h-full flex items-center justify-center bg-slate-800 group-hover:bg-slate-700 transition-colors"><Video className="w-6 h-6 text-white/60" /></div>
+                  : <img src={item.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />}
+              </button>
+            ))}
+            {hasMore && (
+              <button onClick={() => openViewer(items, 9)}
+                className="aspect-square rounded-xl bg-slate-50 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center hover:bg-slate-100 transition-colors">
+                <FolderOpen className="w-5 h-5 text-slate-400 mb-1" />
+                <span className="text-xs font-bold text-slate-500">+{items.length - 9}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    })}
+    {documents.length > 0 && (
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <FileText className="w-4 h-4 text-slate-400" />
+          <h4 className="text-sm font-bold text-slate-700">Documentos</h4>
+          <span className="text-[11px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{documents.length}</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {documents.map(doc => (
+            <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-red-300 hover:bg-red-50/30 transition-all group">
+              <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
+                <FileText className="w-4 h-4 text-red-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-700 truncate group-hover:text-red-700">{doc.title || doc.name || 'Documento'}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{doc.created_at ? formatDate(doc.created_at) : ''}</p>
+              </div>
+              <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-red-400 flex-shrink-0" />
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+    {relatedNews.length > 0 && (
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Newspaper className="w-4 h-4 text-slate-400" />
+          <h4 className="text-sm font-bold text-slate-700">Notícias relacionadas</h4>
+        </div>
+        <div className="space-y-2">
+          {relatedNews.map(n => {
+            const d = n.date ? new Date(n.date) : null;
+            const valid = d && !isNaN(d.getTime());
+            return (
+              <Link key={n.id} to={`/noticias/${n.id}`}
+                className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-blue-200 hover:bg-blue-50/20 transition-all group">
+                <div className="w-16 h-12 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
+                  {n.image_url ? <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Newspaper className="w-5 h-5 text-slate-300" /></div>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-700 leading-tight line-clamp-2">{n.title}</p>
+                  {valid && <p className="text-xs text-slate-400 mt-0.5">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-blue-400 flex-shrink-0" />
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+// ─── MAIN ────────────────────────────────────────────────────────────────────
+const WorkDetailsPage = () => {
+  const { workId } = useParams();
+  const { toast }  = useToast();
+  const { user }   = useAuth();
+  const navigate   = useNavigate();
+
+  const [work, setWork]           = useState(null);
+  const [media, setMedia]         = useState([]);
+  const [isFavorited, setFav]     = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [activeTab, setTab]       = useState('overview');
+
+  const [viewerState, setViewer]              = useState({ isOpen: false, startIndex: 0, items: [] });
+  const [showContrib, setShowContrib]         = useState(false);
+  const [contribDesc, setContribDesc]         = useState('');
+  const [contribVideo, setContribVideo]       = useState('');
+  const [contribFiles, setContribFiles]       = useState([]);
+  const fileRef                               = useRef(null);
+  const [showAdminEdit, setShowAdminEdit]     = useState(false);
+  const [editOptions, setEditOptions]         = useState({ categories:[], areas:[], bairros:[], contractors:[] });
+  const [submitting, setSubmitting]           = useState(false);
+  const [showReport, setShowReport]           = useState(false);
+  const [measurements, setMeasurements]       = useState([]);
+  const [biddings, setBiddings]               = useState([]);
+  const [relatedNews, setRelatedNews]         = useState([]);
+
+  const totalSpent = useMemo(() =>
+    biddings.reduce((a, b) => a + (b.payments || []).reduce((pa, p) => pa + (Number(p.value) || 0), 0), 0),
+  [biddings]);
+
+  const fetchWork = useCallback(async () => {
+    setLoading(true);
+    const { data: w, error } = await supabase
+      .from('public_works')
+      .select('*, work_category:work_categories(name), work_area:work_areas(name), bairro:bairros(name), contractor:contractor_id(id,name,cnpj)')
+      .eq('id', workId).single();
+    if (error) { toast({ title:'Erro', description:error.message, variant:'destructive' }); setLoading(false); return; }
+
+    const [{ data: md }, { data: ms }] = await Promise.all([
+      supabase.from('public_work_media').select('*').eq('work_id', workId)
+        .order('media_date', { ascending:false, nullsFirst:false }).order('created_at', { ascending:false }),
+      supabase.from('public_work_measurements')
+        .select('*, contractor:contractor_id(name,cnpj), payments:public_work_payments(*)')
+        .eq('work_id', workId).order('created_at', { ascending:false }),
+    ]);
+
+    let news = [];
+    const { data: rel } = await supabase.from('news_public_works').select('news_id').eq('work_id', workId);
+    if (rel?.length) {
+      const ids = rel.map(r => r.news_id).filter(Boolean);
+      if (ids.length) {
+        const { data: nl } = await supabase.from('news').select('id,title,date,image_url').in('id', ids).order('date', { ascending:false });
+        news = nl || [];
+      }
+    }
+    setWork(w); setMedia(md || []); setMeasurements(ms || []); setBiddings(ms || []); setRelatedNews(news);
+    setLoading(false);
+  }, [workId, toast]);
+
+  useEffect(() => { fetchWork(); }, [fetchWork]);
+  useEffect(() => {
+    if (!user) { setFav(false); return; }
+    supabase.from('favorite_works').select('id').eq('user_id', user.id).eq('work_id', workId)
+      .then(({ data }) => setFav((data || []).length > 0));
+  }, [user, workId]);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    if (!user?.is_admin) return;
+    Promise.all([
+      supabase.from('work_categories').select('*'),
+      supabase.from('work_areas').select('*'),
+      supabase.from('bairros').select('*'),
+      supabase.from('contractors').select('*'),
+    ]).then(([c,a,b,co]) => setEditOptions({ categories:c.data||[], areas:a.data||[], bairros:b.data||[], contractors:co.data||[] }));
+  }, [user?.is_admin]);
+
+  const toggleFav = async () => {
+    if (!user) { toast({ title:'Faça login', variant:'destructive' }); navigate('/login'); return; }
+    if (isFavorited) {
+      await supabase.from('favorite_works').delete().match({ user_id:user.id, work_id:workId });
+      toast({ title:'Removido dos favoritos 💔' }); setFav(false);
+    } else {
+      await supabase.from('favorite_works').insert({ user_id:user.id, work_id:workId });
+      toast({ title:'Adicionado aos favoritos ⭐' }); setFav(true);
+    }
+  };
+
+  const getBase = useCallback(() => {
+    if (import.meta.env.VITE_APP_URL) return import.meta.env.VITE_APP_URL;
+    if (Capacitor.isNativePlatform()) return 'https://trombonecidadao.com.br';
+    return typeof window !== 'undefined' ? window.location.origin : 'https://trombonecidadao.com.br';
+  }, []);
+
+  const seoData = useMemo(() => {
+    const base = getBase();
+    let img = `${base}/images/thumbnail.jpg`;
+    if (work?.thumbnail_url) { try { img = `https://wsrv.nl/?url=${encodeURIComponent(work.thumbnail_url.split('?')[0])}&w=1200&h=630&fit=cover&q=80&output=jpg`; } catch {} }
+    return { title: work ? `Obra: ${work.title} - Trombone Cidadão` : 'Detalhes da Obra', description: work?.description || '', image: img, url: typeof window !== 'undefined' ? window.location.href : '' };
+  }, [work, getBase]);
+
+  const viewable    = useMemo(() => media.filter(m => ['image','photo','video','video_url'].includes(m.type)), [media]);
+  const mainMedia   = useMemo(() => viewable.filter(m => !m.measurement_id), [viewable]);
+  const groups      = useMemo(() => {
+    const g = {};
+    mainMedia.forEach(i => { const n = i.gallery_name || 'Geral'; if (!g[n]) g[n] = []; g[n].push(i); });
+    return Object.entries(g).map(([name, items]) => ({ name, items }))
+      .sort((a, b) => a.name === 'Geral' ? -1 : b.name === 'Geral' ? 1 : a.name.localeCompare(b.name));
+  }, [mainMedia]);
+  const allViewable = useMemo(() => groups.flatMap(g => g.items), [groups]);
+  const heroMedia   = useMemo(() => work?.thumbnail_url ? { id:'hero', type:'photo', url:work.thumbnail_url } : allViewable[0] || null, [work?.thumbnail_url, allViewable]);
+  const docs        = media.filter(m => ['pdf','document','file'].includes(m.type) && !m.measurement_id);
+
+  const shareWork = async () => {
+    if (!work) return;
+    const url = getWorkShareUrl(work.id);
+    try {
+      if (Capacitor.isNativePlatform()) { await Share.share({ title:work.title, url, dialogTitle:'Compartilhar' }); return; }
+      if (navigator.share) { await navigator.share({ title:work.title, url }); return; }
+      await navigator.clipboard.writeText(url); toast({ title:'Link copiado!' });
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      try { await navigator.clipboard.writeText(url); toast({ title:'Link copiado!' }); } catch { toast({ title:'Erro', variant:'destructive' }); }
+    }
+  };
+
+  const submitContrib = async () => {
+    if (!user || !work || submitting) return;
+    setSubmitting(true);
+    try {
+      for (const f of contribFiles) {
+        const path = `works/${work.id}/${Date.now()}-${f.name}`;
+        const { error: ue } = await supabase.storage.from('work-media').upload(path, f);
+        if (ue) throw ue;
+        const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(path);
+        const type = f.type.startsWith('image') ? 'image' : f.type.startsWith('video') ? 'video' : f.type === 'application/pdf' ? 'pdf' : 'file';
+        await supabase.from('public_work_media').insert({ work_id:work.id, url:publicUrl, type, name:f.name, description:contribDesc||null, status:'pending', contributor_id:user.id });
+      }
+      if (contribVideo?.trim()) await supabase.from('public_work_media').insert({ work_id:work.id, url:contribVideo.trim(), type:'video_url', name:'Vídeo do cidadão', description:contribDesc||null, status:'pending', contributor_id:user.id });
+      toast({ title:'Contribuição enviada! ✅' });
+      setShowContrib(false); setContribDesc(''); setContribVideo(''); setContribFiles([]);
+      const { data: m } = await supabase.from('public_work_media').select('*').eq('work_id', work.id).order('created_at', { ascending:false });
+      setMedia(m || []);
+    } catch (e) { toast({ title:'Erro', description:e.message, variant:'destructive' }); }
+    finally { setSubmitting(false); }
+  };
+
+  const openViewer = (items, startIndex) => {
+    const vi = items.map(m => m.type==='image' ? {...m,type:'photo'} : m.type==='video_url' ? {...m,type:'video'} : m);
+    setViewer({ isOpen:true, startIndex, items:vi });
+  };
+
+  // Loading
+  if (loading) return (
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+      <Skeleton className="h-10 w-40 rounded-xl" />
+      <Skeleton className="h-72 w-full rounded-2xl" />
+      <Skeleton className="h-8 w-2/3 rounded-xl" />
+      <div className="grid grid-cols-4 gap-3">{[...Array(4)].map((_,i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
+      <Skeleton className="h-12 w-full rounded-2xl" />
+      <div className="grid grid-cols-3 gap-4"><Skeleton className="col-span-2 h-80 rounded-2xl" /><Skeleton className="h-80 rounded-2xl" /></div>
+    </div>
+  );
+
+  if (!work) return (
+    <div className="max-w-6xl mx-auto px-4 py-16 text-center">
+      <p className="text-xl font-bold text-slate-700 mb-4">Obra não encontrada</p>
+      <Button asChild><Link to="/obras-publicas">Voltar</Link></Button>
+    </div>
+  );
+
+  const si         = getStatusInfo(work.status);
+  const spentValue = totalSpent || work.amount_spent || 0;
+
+  const TABS = [
+    { id:'overview',  label:'Visão Geral',      icon:Activity   },
+    { id:'phases',    label:'Etapas do Projeto', icon:Layers     },
+    { id:'payments',  label:'Pagamentos',        icon:CreditCard },
+    { id:'documents', label:'Documentos',        icon:FolderOpen },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#F2F3F5] pb-20 md:pb-10">
+      <DynamicSEO {...seoData} />
+
+      {/* ── Top bar ── */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Button asChild size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-slate-100 flex-shrink-0">
+              <Link to="/obras-publicas"><ArrowLeft className="w-4 h-4 text-slate-600" /></Link>
+            </Button>
+            <span className="text-xs font-semibold text-slate-500 hidden sm:block">Voltar para o mapa de obras</span>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-1 text-[11px] text-slate-400">
+            <Link to="/" className="hover:text-red-500 transition-colors">Início</Link>
+            <ChevronRight className="w-3 h-3" />
+            <Link to="/obras-publicas" className="hover:text-red-500 transition-colors">Obras Públicas</Link>
+            <ChevronRight className="w-3 h-3" />
+            <span className="text-slate-600 font-medium truncate max-w-[220px]">{work.title}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {user?.is_admin && (
+              <Button onClick={() => setShowAdminEdit(true)} size="sm" variant="outline" className="h-8 text-xs border-slate-200 text-slate-600 px-3">
+                <Edit className="w-3.5 h-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Gerenciar</span>
+              </Button>
+            )}
+            <Button onClick={shareWork} size="sm" variant="outline" className="h-8 text-xs border-slate-200 text-slate-600 px-3">
+              <Share2 className="w-3.5 h-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Compartilhar</span>
+            </Button>
+            <Button onClick={toggleFav} size="icon" variant="outline"
+              className={`h-8 w-8 ${isFavorited ? 'text-red-500 bg-red-50 border-red-200 hover:bg-red-100' : 'border-slate-200 text-slate-500 hover:text-red-500'}`}>
+              <Heart className={`w-3.5 h-3.5 ${isFavorited ? 'fill-current' : ''}`} />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 pt-5 space-y-4">
+
+        {/* ── Hero image FIRST ── */}
+        {heroMedia && (
+          <div
+            className="relative w-full rounded-2xl overflow-hidden cursor-pointer bg-slate-900 shadow-md"
+            style={{ height: '300px' }}
+            onClick={() => allViewable.length > 0 && openViewer(allViewable, 0)}
+          >
+            {['video','video_url'].includes(heroMedia.type)
+              ? <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900"><Video className="w-14 h-14 text-white/30" /></div>
+              : <img src={heroMedia.url} alt="Capa da obra" className="w-full h-full object-cover" />}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+            {/* Badges bottom-left */}
+            <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
+              <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-white/92 backdrop-blur-sm shadow-sm ${si.color}`}>
+                <si.icon className="w-3.5 h-3.5" />{si.text}
+              </span>
+              {work.bairro && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-white/92 backdrop-blur-sm shadow-sm text-slate-700">
+                  <MapPin className="w-3 h-3 text-slate-400" />{work.bairro.name}
+                </span>
+              )}
+            </div>
+            {allViewable.length > 1 && (
+              <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5" />{allViewable.length} fotos
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Title block ── */}
+        <div>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">{work.title}</h1>
+          {work.description && !work.long_description && (
+            <p className="text-sm text-slate-500 mt-1 leading-relaxed max-w-3xl">{work.description}</p>
+          )}
+        </div>
+
+        {/* ── Metrics ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { icon: DollarSign, label: 'Pago', value: spentValue > 0 ? formatCurrency(spentValue) : '—', bg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
+            { icon: TrendingUp, label: 'Concluído', value: `${work.execution_percentage || 0}%`, bg: 'bg-blue-100', iconColor: 'text-blue-600' },
+            { icon: Building,   label: 'Construtora', value: work.contractor?.name || '—', bg: 'bg-amber-100', iconColor: 'text-amber-600' },
+            { icon: MapPin,     label: 'Local', value: work.bairro?.name || work.address || '—', bg: 'bg-red-100', iconColor: 'text-red-500' },
+          ].map(({ icon: Icon, label, value, bg, iconColor }) => (
+            <div key={label} className="bg-white rounded-2xl border border-slate-200 px-4 py-3.5 flex items-center gap-3 shadow-sm">
+              <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
+                <Icon className={`w-4 h-4 ${iconColor}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">{label}</p>
+                <p className="text-sm font-black text-slate-800 truncate">{value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Tabs ── */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="flex overflow-x-auto scrollbar-none">
+            {TABS.map(tab => (
+              <button key={tab.id} onClick={() => setTab(tab.id)}
+                className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${
+                  activeTab === tab.id ? 'border-red-500 text-red-600 bg-red-50/40' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}>
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Tab content ── */}
+        <div>
+          {activeTab === 'overview'  && <TabOverview  work={work} totalSpentFromPayments={totalSpent} measurements={measurements} />}
+          {activeTab === 'phases'    && <TabPhases    measurements={measurements} media={media} viewableMedia={viewable} openViewer={openViewer} />}
+          {activeTab === 'payments'  && <TabPayments  biddings={biddings} />}
+          {activeTab === 'documents' && <TabDocuments galleryGroups={groups} openViewer={openViewer} documents={docs} relatedNews={relatedNews} />}
+        </div>
+
+        {/* ── CTA bar ── */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col sm:flex-row items-center gap-4 shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+            <UploadCloud className="w-5 h-5 text-red-500" />
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <p className="text-sm font-bold text-slate-800">Tem informações sobre esta obra?</p>
+            <p className="text-xs text-slate-400 mt-0.5">Envie fotos, vídeos ou relatórios para manter os dados atualizados.</p>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <Button onClick={() => { if (!user) { toast({ title:'Faça login', variant:'destructive' }); navigate('/login'); return; } setShowContrib(true); }}
+              size="sm" className="bg-red-600 hover:bg-red-700 text-white shadow-sm">
+              <UploadCloud className="w-3.5 h-3.5 mr-1.5" />Contribuir
+            </Button>
+            <Button onClick={() => setShowReport(true)} size="sm" variant="outline" className="border-slate-200 text-slate-500 text-xs">
+              Reportar erro
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Viewer */}
+      {viewerState.isOpen && (
+        <MediaViewer onClose={() => setViewer({ isOpen:false, startIndex:0, items:[] })} media={viewerState.items} startIndex={viewerState.startIndex} />
+      )}
+
+      {/* Report dialog */}
+      <Dialog open={showReport} onOpenChange={setShowReport}>
         <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-neutral-800 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              Informar Erro ou Inconsistência
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <AlertTriangle className="w-5 h-5 text-amber-500" /> Informar Erro
             </DialogTitle>
-            <p className="text-sm text-neutral-500">
-              Ajude-nos a manter os dados corretos. Se você identificou algum erro nesta obra, por favor nos avise.
-            </p>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div className="bg-amber-50 p-4 rounded-lg border border-amber-100 text-amber-800 text-sm">
-              <p>Ao clicar no botão abaixo, seu gerenciador de e-mail será aberto com as informações da obra já preenchidas.</p>
-            </div>
-          </div>
+          <p className="text-sm text-slate-500">Identificou alguma inconsistência? Nos envie um e-mail.</p>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowReportDialog(false)}>Cancelar</Button>
-            <Button asChild className="bg-neutral-900 text-white hover:bg-neutral-800">
-              <a 
-                href={`mailto:contato@trombonecidadao.com.br?subject=Erro na Obra: ${encodeURIComponent(work.title)}&body=Olá, gostaria de informar um erro na obra "${work.title}" (ID: ${work.id}).%0D%0A%0D%0ADetalhes do erro:%0D%0A`}
-              >
+            <Button variant="ghost" onClick={() => setShowReport(false)}>Cancelar</Button>
+            <Button asChild className="bg-slate-900 text-white hover:bg-slate-800">
+              <a href={`mailto:contato@trombonecidadao.com.br?subject=Erro na Obra: ${encodeURIComponent(work.title)}&body=Olá, gostaria de informar um erro na obra "${work.title}" (ID: ${work.id}).%0D%0A%0D%0ADetalhes:%0D%0A`}>
                 Enviar E-mail
               </a>
             </Button>
@@ -1715,383 +1015,57 @@ const WorkDetailsPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showContribDialog} onOpenChange={setShowContribDialog}>
+      {/* Contrib dialog */}
+      <Dialog open={showContrib} onOpenChange={setShowContrib}>
         <DialogContent className="sm:max-w-lg bg-white">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-800">Contribuir com esta obra</DialogTitle>
-            <p className="text-sm text-slate-500">Ajude a monitorar o progresso enviando fotos ou informações.</p>
+            <DialogTitle className="font-bold text-slate-800">Contribuir com esta obra</DialogTitle>
+            <p className="text-sm text-slate-500">Envie fotos, vídeos ou informações atualizadas.</p>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor="contrib_description">Descrição</Label>
-              <Textarea 
-                id="contrib_description" 
-                value={contribDescription} 
-                onChange={(e) => setContribDescription(e.target.value)} 
-                placeholder="O que você observou? (ex: 'Fundações concluídas')" 
-                rows={3} 
-                className="resize-none"
-              />
+              <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Descrição</Label>
+              <Textarea value={contribDesc} onChange={e => setContribDesc(e.target.value)} placeholder="O que você observou?" rows={3} className="resize-none rounded-xl border-slate-200 text-sm" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="contrib_files">Fotos/Vídeos</Label>
-              <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm text-slate-600">Clique para selecionar arquivos</p>
-                <Input 
-                  id="contrib_files" 
-                  ref={fileInputRef} 
-                  type="file" 
-                  accept="image/*,video/*,application/pdf" 
-                  multiple 
-                  className="hidden" 
-                  onChange={handleContribFilesChange} 
-                />
+              <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Fotos / Vídeos / PDFs</Label>
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => fileRef.current?.click()}>
+                <UploadCloud className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">Clique para selecionar arquivos</p>
+                <Input ref={fileRef} type="file" accept="image/*,video/*,application/pdf" multiple className="hidden" onChange={e => setContribFiles(Array.from(e.target.files || []))} />
               </div>
-              {contribFiles.length > 0 && (
-                <p className="text-xs font-medium text-green-600">{contribFiles.length} arquivo(s) selecionado(s)</p>
-              )}
+              {contribFiles.length > 0 && <p className="text-xs text-emerald-600 font-semibold">{contribFiles.length} arquivo(s) selecionado(s)</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="contrib_video">Link de Vídeo (Opcional)</Label>
-              <Input 
-                id="contrib_video" 
-                placeholder="https://youtube.com/..." 
-                value={contribVideoUrl} 
-                onChange={(e) => setContribVideoUrl(e.target.value)} 
-              />
+              <Label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Link de Vídeo (Opcional)</Label>
+              <Input placeholder="https://youtube.com/..." value={contribVideo} onChange={e => setContribVideo(e.target.value)} className="rounded-xl border-slate-200 text-sm" />
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="ghost" onClick={() => setShowContribDialog(false)} disabled={isSubmittingContribution}>Cancelar</Button>
-            <Button type="button" onClick={handleSubmitContribution} disabled={isSubmittingContribution} className="bg-primary text-white hover:bg-primary/90">
-              {isSubmittingContribution ? 'Enviando...' : 'Enviar Contribuição'}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowContrib(false)} disabled={submitting}>Cancelar</Button>
+            <Button onClick={submitContrib} disabled={submitting} className="bg-red-600 hover:bg-red-700 text-white">
+              {submitting ? 'Enviando...' : 'Enviar Contribuição'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Measurement Details Dialog */}
-      <Dialog open={!!selectedMeasurement && !viewerState.isOpen} onOpenChange={(open) => !open && setSelectedMeasurement(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Briefcase className="w-5 h-5 text-primary" />
-              {selectedMeasurement?.title}
-              {selectedMeasurement?.contractor?.name ? ` — Empresa responsável: ${selectedMeasurement.contractor.name}` : ''}
-            </DialogTitle>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Badge variant="outline" className={`${selectedMeasurement ? getStatusInfo(selectedMeasurement.status).color : ''} ${selectedMeasurement ? getStatusInfo(selectedMeasurement.status).bg : ''} border-none`}>
-                {selectedMeasurement ? getStatusInfo(selectedMeasurement.status).text : ''}
-              </Badge>
-            
-             
-            </div>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
-            {/* Description */}
-            {selectedMeasurement?.description && (
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <h4 className="text-sm font-semibold text-slate-700 mb-2">Descrição da Fase</h4>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  {selectedMeasurement.description}
-                </p>
-              </div>
-            )}
-
-            {/* Info Cards */}
-            <div className="space-y-4">
-              {/* Main Contract Info */}
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-slate-500" />
-                  <h4 className="font-semibold text-slate-700 text-sm">Dados do Contrato</h4>
-                </div>
-                <div className="p-5">
-                  {(selectedMeasurement?.contractor?.name || selectedMeasurement?.execution_percentage != null) ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {selectedMeasurement?.contractor?.name && (
-                        <div className="space-y-1">
-                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Empresa Responsável</span>
-                          <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">
-                            {selectedMeasurement.contractor.name}
-                          </p>
-                          {selectedMeasurement?.contractor?.cnpj && (
-                            <p className="text-xs text-slate-500">CNPJ: {selectedMeasurement.contractor.cnpj}</p>
-                          )}
-                        </div>
-                      )}
-                      
-                      {selectedMeasurement?.execution_percentage != null && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Execução</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-800 text-sm md:text-base">
-                                {`${selectedMeasurement.execution_percentage}%`}
-                              </span>
-                              <Progress value={selectedMeasurement.execution_percentage} className="h-2 w-full" />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {(selectedMeasurement?.expected_value != null || selectedMeasurement?.amount_spent != null) && (
-                        <div className="grid grid-cols-2 gap-4 md:col-span-2">
-                          {selectedMeasurement?.expected_value != null && (
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Previsto</span>
-                              <p className="font-semibold text-slate-800 text-sm md:text-base">
-                                {formatCurrency(selectedMeasurement.expected_value)}
-                              </p>
-                            </div>
-                          )}
-                          {selectedMeasurement?.amount_spent != null && Number(selectedMeasurement.amount_spent) > 0 && (
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Pago</span>
-                              <p className="font-semibold text-slate-800 text-sm md:text-base">
-                                {formatCurrency(selectedMeasurement.amount_spent)}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {Array.isArray(selectedMeasurement?.funding_source) && selectedMeasurement.funding_source.length > 0 && (
-                        <div className="md:col-span-2 space-y-2">
-                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Fontes do Recurso</span>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedMeasurement.funding_source.map((src) => {
-                              const label = src === 'federal' ? 'Federal' : src === 'estadual' ? 'Estadual' : src === 'municipal' ? 'Municipal' : src;
-                              const styles = src === 'federal' ? 'bg-blue-50 text-blue-700' :
-                                             src === 'estadual' ? 'bg-orange-50 text-orange-700' :
-                                             src === 'municipal' ? 'bg-emerald-50 text-emerald-700' :
-                                             'bg-slate-100 text-slate-700';
-                              return (
-                                <span key={src} className={`text-xs font-semibold px-2 py-1 rounded-full border ${styles}`}>
-                                  {label}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-500 italic">Sem informações nesta seção.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Timeline Card */}
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-slate-500" />
-                  <h4 className="font-semibold text-slate-700 text-sm">Cronograma e Prazos</h4>
-                </div>
-                <div className="p-5">
-                  {(selectedMeasurement?.contract_signature_date || selectedMeasurement?.service_order_date || selectedMeasurement?.predicted_start_date || selectedMeasurement?.start_date || selectedMeasurement?.expected_end_date || selectedMeasurement?.end_date || selectedMeasurement?.inauguration_date || selectedMeasurement?.stalled_date) ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-6 gap-x-4">
-                       {selectedMeasurement?.contract_signature_date && (
-                         <div>
-                           <span className="text-xs text-slate-400 block mb-1">Assinatura do contrato</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.contract_signature_date)}</span>
-                         </div>
-                       )}
-                       {selectedMeasurement?.service_order_date && (
-                         <div>
-                           <span className="text-xs text-slate-400 block mb-1">Ordem de Serviço</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.service_order_date)}</span>
-                         </div>
-                       )}
-                       {selectedMeasurement?.predicted_start_date && (
-                         <div>
-                           <span className="text-xs text-slate-400 block mb-1">Previsão Início</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.predicted_start_date)}</span>
-                         </div>
-                       )}
-                       {selectedMeasurement?.start_date && (
-                         <div>
-                           <span className="text-xs text-slate-400 block mb-1">Início Real</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.start_date)}</span>
-                         </div>
-                       )}
-                       {selectedMeasurement?.expected_end_date && (
-                         <div>
-                           <span className="text-xs text-slate-400 block mb-1">Previsão Conclusão</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.expected_end_date)}</span>
-                         </div>
-                       )}
-                       {selectedMeasurement?.end_date && (
-                         <div>
-                           <span className={`text-xs block mb-1 ${selectedMeasurement.status === 'unfinished' ? 'text-orange-600' : 'text-slate-400'}`}>
-                             {selectedMeasurement.status === 'unfinished' ? 'Encerramento/Rescisão' : 'Conclusão Real'}
-                           </span>
-                           <span className={`font-bold text-sm block ${selectedMeasurement.status === 'unfinished' ? 'text-orange-700' : 'text-emerald-700'}`}>
-                              {formatDate(selectedMeasurement.end_date)}
-                           </span>
-                         </div>
-                       )}
-                       {selectedMeasurement?.inauguration_date && (
-                         <div>
-                           <span className="text-xs text-emerald-600 block mb-1">Inauguração</span>
-                           <span className="font-bold text-emerald-700 text-sm block">{formatDate(selectedMeasurement.inauguration_date)}</span>
-                         </div>
-                       )}
-                       {selectedMeasurement?.stalled_date && (
-                         <div className="col-span-2 sm:col-span-1">
-                           <span className="text-xs text-red-600 block mb-1">Data Paralisação</span>
-                           <span className="font-bold text-red-700 text-sm block">{formatDate(selectedMeasurement.stalled_date)}</span>
-                         </div>
-                       )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-500 italic">Sem informações nesta seção.</p>
-                  )}
-                  {selectedMeasurement?.execution_period_days != null && (
-                    <div className="mt-4">
-                      <span className="text-xs text-slate-400 block mb-1">Prazo de Execução</span>
-                      <span className="font-semibold text-slate-700 text-sm">{selectedMeasurement.execution_period_days} dias</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Media Gallery */}
-            <div>
-              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-primary" />
-                Galeria de Fotos e Vídeos
-              </h4>
-              {selectedMeasurement?.media && selectedMeasurement.media.length > 0 ? (
-                <div className="space-y-6">
-                  {(() => {
-                    const groups = {};
-                    selectedMeasurement.media.forEach(item => {
-                      const name = item.gallery_name || 'Geral';
-                      if (!groups[name]) groups[name] = [];
-                      groups[name].push(item);
-                    });
-                    
-                    const sortedGroups = Object.entries(groups).map(([name, items]) => ({ name, items })).sort((a, b) => {
-                      if (a.name === selectedMeasurement.title) return -1; // Default gallery first
-                      if (a.name === 'Geral') return -1;
-                      if (b.name === selectedMeasurement.title) return 1;
-                      if (b.name === 'Geral') return 1;
-                      return a.name.localeCompare(b.name);
-                    });
-
-                    return sortedGroups.map((group) => (
-                      <div key={group.name} className="space-y-3">
-                        {(sortedGroups.length > 1 || (group.name !== 'Geral' && group.name !== selectedMeasurement.title)) && (
-                          <h5 className="text-sm font-semibold text-slate-700 border-l-4 border-primary pl-3 bg-slate-50 py-1 rounded-r-lg">
-                            {group.name}
-                          </h5>
-                        )}
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                          {group.items.map((mediaItem) => {
-                            // Find original index in the full list for correct lightbox navigation
-                            const originalIndex = selectedMeasurement.media.findIndex(m => m.id === mediaItem.id);
-                            return (
-                              <div 
-                                key={mediaItem.id}
-                                className="aspect-square rounded-lg overflow-hidden cursor-pointer bg-slate-200 relative group shadow-sm hover:shadow-md transition-all"
-                                onClick={() => openViewer(selectedMeasurement.media, originalIndex)}
-                              >
-                                {['video', 'video_url'].includes(mediaItem.type) ? (
-                                  <div className="w-full h-full flex items-center justify-center bg-slate-800">
-                                    <Video className="w-10 h-10 text-white/70" />
-                                  </div>
-                                ) : (
-                                  <img 
-                                    src={mediaItem.url} 
-                                    alt={mediaItem.description} 
-                                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              ) : (
-                <p className="text-slate-500 italic">Nenhuma mídia registrada para esta fase.</p>
-              )}
-            </div>
-
-            {/* Documents */}
-            <div>
-              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" />
-                Documentos Anexados
-              </h4>
-              {selectedMeasurement?.docs && selectedMeasurement.docs.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {selectedMeasurement.docs.map(doc => (
-                     <a 
-                        key={doc.id}
-                        href={doc.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-lg bg-white border border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all group"
-                      >
-                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-700 truncate group-hover:text-primary transition-colors">{doc.name}</p>
-                          {doc.description && <p className="text-xs text-slate-500 truncate">{doc.description}</p>}
-                        </div>
-                        <Download className="w-4 h-4 text-slate-400 group-hover:text-primary transition-colors" />
-                      </a>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-slate-500 italic">Nenhum documento anexado.</p>
-              )}
-            </div>
-
-          </div>
-
-          <DialogFooter>
-            <Button onClick={() => setSelectedMeasurement(null)}>Fechar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      {/* Admin modal */}
       {user?.is_admin && (
         <WorkEditModal
-          work={showAdminEditModal ? work : null}
-          onSave={async (workToSave) => {
-            const { id, location, ...data } = workToSave;
-            delete data.bairro;
-            delete data.work_category;
-            delete data.work_area;
-            delete data.contractor;
-            const locationString = location ? `POINT(${location.lng} ${location.lat})` : null;
-            const payload = { ...data, location: locationString };
-            ['bairro_id', 'work_category_id', 'work_area_id', 'contractor_id'].forEach(key => {
-              if (payload[key] === '') payload[key] = null;
-            });
-            if (!Array.isArray(payload.funding_source)) {
-              payload.funding_source = [];
-            }
-            const result = await supabase.from('public_works').update(payload).eq('id', id).select().single();
-            if (result.error) {
-              toast({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
-            } else {
-              toast({ title: "Obra atualizada com sucesso!" });
-              setShowAdminEditModal(false);
-              fetchWorkDetails();
-            }
+          work={showAdminEdit ? work : null}
+          onSave={async (ws) => {
+            const { id, location, ...data } = ws;
+            ['bairro','work_category','work_area','contractor'].forEach(k => delete data[k]);
+            const payload = { ...data, location: location ? `POINT(${location.lng} ${location.lat})` : null };
+            ['bairro_id','work_category_id','work_area_id','contractor_id'].forEach(k => { if (payload[k]==='') payload[k]=null; });
+            if (!Array.isArray(payload.funding_source)) payload.funding_source = [];
+            const { error } = await supabase.from('public_works').update(payload).eq('id', id);
+            if (error) { toast({ title:'Erro', description:error.message, variant:'destructive' }); }
+            else { toast({ title:'Obra atualizada!' }); setShowAdminEdit(false); fetchWork(); }
           }}
-          onClose={() => setShowAdminEditModal(false)}
-          workOptions={workEditOptions}
+          onClose={() => setShowAdminEdit(false)}
+          workOptions={editOptions}
         />
       )}
     </div>
