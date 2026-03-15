@@ -556,7 +556,7 @@ function StoryTemplateInstagram({ petition, coverPhotoUrl, bgStyle, enableImageE
        <div
          style={{
            position: 'absolute',
-           top: 80,
+           top: 120,
            left: 0,
            right: 0,
            display: 'flex',
@@ -577,7 +577,7 @@ function StoryTemplateInstagram({ petition, coverPhotoUrl, bgStyle, enableImageE
       <div
         style={{
           position: 'absolute',
-          top: 320,
+          top: 380,
           left: 60,
           right: 60,
           bottom: 60,
@@ -596,7 +596,7 @@ function StoryTemplateInstagram({ petition, coverPhotoUrl, bgStyle, enableImageE
             textTransform: 'uppercase',
             color: '#eceade',
             textShadow: '0 4px 12px rgba(0,0,0,0.5)',
-            marginBottom: 120,
+            marginBottom: 80,
             width: '100%',
             maxWidth: 960,
           }}
