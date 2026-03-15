@@ -8,14 +8,17 @@ import { Combobox } from '@/components/ui/combobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, DollarSign, Percent, ArrowLeft, Save } from 'lucide-react';
-import { formatCurrency, parseCurrency } from '@/lib/utils';
+import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, DollarSign, Percent, ArrowLeft, Save, Calculator, Link2 } from 'lucide-react';
+import { formatCurrency, parseCurrency, formatDate } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange }) {
   const [measurements, setMeasurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
+  const [currentPayment, setCurrentPayment] = useState(null);
   const [errors, setErrors] = useState({});
   const { toast } = useToast();
   const { user } = useAuth();
@@ -39,6 +42,13 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     amount_spent: '',
     execution_period_days: '',
     funding_source: []
+  });
+
+  const [paymentForm, setPaymentForm] = useState({
+    payment_date: '',
+    banking_order: '',
+    value: '',
+    portal_link: ''
   });
 
   // Auto-save Logic (sem restauração automática na abertura do modal)
@@ -216,7 +226,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
   };
 
   const handleDeleteMedia = async (mediaId, path) => {
-    if (!confirm('Tem certeza que deseja excluir esta mídia?')) return;
+    if (!window.confirm('Tem certeza que deseja excluir esta mídia?')) return;
 
     try {
       const { error } = await supabase
@@ -254,7 +264,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         .from('public_work_measurements')
         .select(`
           *,
-          contractor:contractors(id, name)
+          contractor:contractors(id, name),
+          payments:public_work_payments(*)
         `)
         .eq('work_id', workId)
         .order('created_at', { ascending: true });
@@ -270,6 +281,74 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Payment Handlers
+  const handleEditPayment = (measurementId, payment = null) => {
+    setCurrentMeasurement({ id: measurementId }); // Store which measurement we're adding to
+    if (payment) {
+      setCurrentPayment(payment);
+      setPaymentForm({
+        payment_date: payment.payment_date,
+        banking_order: payment.banking_order || '',
+        value: payment.value || '',
+        portal_link: payment.portal_link || ''
+      });
+    } else {
+      setCurrentPayment(null);
+      setPaymentForm({
+        payment_date: new Date().toISOString().split('T')[0],
+        banking_order: '',
+        value: '',
+        portal_link: ''
+      });
+    }
+    setIsEditingPayment(true);
+    if (onEditingChange) onEditingChange(true);
+  };
+
+  const handleSavePayment = async () => {
+    try {
+      if (!paymentForm.payment_date || !paymentForm.value) {
+        toast({ title: "Erro", description: "Data e valor são obrigatórios.", variant: "destructive" });
+        return;
+      }
+
+      const payload = {
+        measurement_id: currentMeasurement.id,
+        payment_date: paymentForm.payment_date,
+        banking_order: paymentForm.banking_order || null,
+        value: Number(paymentForm.value),
+        portal_link: paymentForm.portal_link || null
+      };
+
+      let error;
+      if (currentPayment) {
+        ({ error } = await supabase.from('public_work_payments').update(payload).eq('id', currentPayment.id));
+      } else {
+        ({ error } = await supabase.from('public_work_payments').insert([payload]));
+      }
+
+      if (error) throw error;
+      toast({ title: "Sucesso", description: "Pagamento registrado!" });
+      setIsEditingPayment(false);
+      if (onEditingChange) onEditingChange(false);
+      fetchMeasurements();
+    } catch (error) {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleDeletePayment = async (id) => {
+    if (!window.confirm('Excluir este pagamento?')) return;
+    try {
+      const { error } = await supabase.from('public_work_payments').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: "Sucesso", description: "Pagamento excluído." });
+      fetchMeasurements();
+    } catch (error) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     }
   };
 
@@ -405,7 +484,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contractor_id: formData.contractor_id || null,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
-        value: formData.value ? parseCurrency(String(formData.value)) : null,
+        value: formData.value ? Number(formData.value) : null,
         execution_percentage: formData.execution_percentage ? Number(formData.execution_percentage) : null,
         status: formData.status,
         predicted_start_date: formData.predicted_start_date || null,
@@ -414,8 +493,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_end_date: formData.expected_end_date || null,
         inauguration_date: formData.inauguration_date || null,
         stalled_date: formData.stalled_date || null,
-        expected_value: formData.expected_value ? parseCurrency(String(formData.expected_value)) : null,
-        amount_spent: formData.amount_spent ? parseCurrency(String(formData.amount_spent)) : null,
+        expected_value: formData.expected_value ? Number(formData.expected_value) : null,
+        amount_spent: formData.amount_spent ? Number(formData.amount_spent) : null,
         execution_period_days: formData.execution_period_days ? Number(formData.execution_period_days) : null,
         funding_source: Array.isArray(formData.funding_source) ? formData.funding_source : []
       };
@@ -481,7 +560,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Tem certeza que deseja excluir esta medição?')) return;
+    if (!window.confirm('Tem certeza que deseja excluir esta medição?')) return;
 
     try {
       const { error } = await supabase
@@ -535,7 +614,68 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       });
       return out;
     };
-    if (isEditing) {
+    if (isEditingPayment) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{currentPayment ? 'Editar Pagamento' : 'Novo Pagamento'}</CardTitle>
+              <CardDescription>
+                Registrando pagamento para: <strong>{measurements.find(m => m.id === currentMeasurement.id)?.title}</strong>
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => { setIsEditingPayment(false); if(onEditingChange) onEditingChange(false); }}>
+              <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Data do Pagamento</Label>
+              <Input 
+                type="date" 
+                value={paymentForm.payment_date} 
+                onChange={(e) => setPaymentForm({...paymentForm, payment_date: e.target.value})} 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Valor (R$)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={paymentForm.value} 
+                onChange={(e) => setPaymentForm({...paymentForm, value: e.target.value})} 
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Ordem Bancária / Empenho</Label>
+            <Input 
+              value={paymentForm.banking_order} 
+              onChange={(e) => setPaymentForm({...paymentForm, banking_order: e.target.value})} 
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>Link do Portal da Transparência</Label>
+            <Input 
+              placeholder="https://..."
+              value={paymentForm.portal_link} 
+              onChange={(e) => setPaymentForm({...paymentForm, portal_link: e.target.value})} 
+            />
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => { setIsEditingPayment(false); if(onEditingChange) onEditingChange(false); }}>Cancelar</Button>
+          <Button onClick={handleSavePayment} className="gap-2"><Save className="w-4 h-4" /> Salvar Pagamento</Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  if (isEditing) {
       const base = normalize(baselineRef.current || {});
       const curr = normalize(formData || {});
       const hasFiles = selectedFiles.length > 0;
@@ -564,6 +704,18 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       'completed': 'Concluída'
     };
     return map[status] || status;
+  };
+
+  const getStatusBadgeClass = (status) => {
+    const map = {
+      'completed': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+      'in-progress': 'bg-blue-100 text-blue-700 border-blue-200',
+      'stalled': 'bg-amber-100 text-amber-700 border-amber-200',
+      'tendered': 'bg-purple-100 text-purple-700 border-purple-200',
+      'planned': 'bg-slate-100 text-slate-700 border-slate-200',
+      'unfinished': 'bg-rose-100 text-rose-700 border-rose-200'
+    };
+    return map[status] || 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
   if (isEditing) {
@@ -613,7 +765,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 <Input 
                   id="expected_value" 
                   name="expected_value" 
-                  type="number" 
+                  type="number"
+                  step="0.01"
                   value={formData.expected_value} 
                   onChange={handleChange} 
                   placeholder="0.00"
@@ -624,7 +777,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 <Input 
                   id="amount_spent" 
                   name="amount_spent" 
-                  type="number" 
+                  type="number"
+                  step="0.01"
                   value={formData.amount_spent} 
                   onChange={handleChange} 
                   placeholder="0.00"
@@ -701,7 +855,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 <Input 
                   id="value" 
                   name="value" 
-                  type="number" 
+                  type="number"
+                  step="0.01"
                   value={formData.value} 
                   onChange={handleChange} 
                   placeholder="0.00"
@@ -985,95 +1140,185 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">Histórico de Medições e Contratos</h3>
-        <Button type="button" onClick={() => handleEdit()} className="gap-2">
+      <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Briefcase className="w-5 h-5 text-primary" />
+            Histórico de Fases e Licitações
+          </h3>
+          <p className="text-sm text-muted-foreground">Gerencie o ciclo de vida da obra: licitações, contratos e medições.</p>
+        </div>
+        <Button type="button" onClick={() => handleEdit()} className="gap-2 shadow-sm">
           <PlusCircle className="w-4 h-4" />
-          Adicionar Fase/Contrato
+          Nova Fase/Contrato
         </Button>
       </div>
 
       {loading ? (
-        <div className="text-center py-4">Carregando medições...</div>
+        <div className="text-center py-12">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando medições...</p>
+        </div>
       ) : measurements.length === 0 ? (
-        <Card className="bg-muted/50 border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-            <Briefcase className="w-10 h-10 mb-2 opacity-50" />
-            <p>Nenhuma medição ou contrato registrado para esta obra.</p>
-            <Button type="button" variant="link" onClick={() => handleEdit()}>
-              Adicionar o primeiro registro
+        <Card className="bg-muted/30 border-dashed border-2">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+            <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+              <Briefcase className="w-10 h-10 opacity-20 text-primary" />
+            </div>
+            <h4 className="font-semibold text-slate-700 mb-1">Nenhuma fase registrada</h4>
+            <p className="max-w-xs mb-6">Comece cadastrando a primeira licitação ou contrato para acompanhar o progresso.</p>
+            <Button type="button" variant="outline" onClick={() => handleEdit()} className="gap-2">
+              <PlusCircle className="w-4 h-4" /> Adicionar Fase
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4">
           {measurements.map((measurement) => (
-            <Card key={measurement.id} className="overflow-hidden hover:border-primary/50 transition-colors">
-              <div className="bg-muted/30 p-4 flex flex-col sm:flex-row justify-between gap-4 border-b">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-base">{measurement.title}</h4>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                      measurement.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
-                      measurement.status === 'in-progress' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                      measurement.status === 'stalled' ? 'bg-red-100 text-red-700 border-red-200' :
-                      'bg-gray-100 text-gray-700 border-gray-200'
-                    }`}>
+            <Card key={measurement.id} className="overflow-hidden border-slate-200 hover:shadow-md transition-all group">
+              <div className="bg-white p-4 flex flex-col sm:flex-row justify-between gap-4 border-b group-hover:bg-slate-50/50 transition-colors">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-3">
+                    <h4 className="font-bold text-lg text-slate-800">{measurement.title}</h4>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${getStatusBadgeClass(measurement.status)}`}>
                       {getStatusLabel(measurement.status)}
                     </span>
                   </div>
-                  {measurement.contractor && (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Briefcase className="w-3 h-3" />
-                      {measurement.contractor.name}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    {measurement.contractor && (
+                      <div className="flex items-center gap-1.5">
+                        <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-medium text-slate-600">{measurement.contractor.name}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Início: {measurement.start_date ? new Date(measurement.start_date).toLocaleDateString('pt-BR') : 'Não definido'}</span>
                     </div>
-                  )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(measurement)}>
-                    <Edit className="w-4 h-4 mr-1" /> Editar
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(measurement)} className="h-9 px-3 border-slate-200 hover:bg-white hover:text-primary hover:border-primary shadow-sm">
+                    <Edit className="w-4 h-4 mr-2" /> Editar
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(measurement.id)}>
-                    <Trash2 className="w-4 h-4 mr-1" /> Excluir
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-destructive hover:bg-destructive/5" onClick={() => handleDelete(measurement.id)}>
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
-              <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground block mb-1">Valor do Contrato</span>
-                  <span className="font-medium flex items-center gap-1">
-                    <DollarSign className="w-3 h-3 text-muted-foreground" />
-                    {measurement.value ? formatCurrency(measurement.value) : '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block mb-1">Execução</span>
-                  <span className="font-medium flex items-center gap-1">
-                    <Percent className="w-3 h-3 text-muted-foreground" />
-                    {measurement.execution_percentage !== null ? `${measurement.execution_percentage}%` : '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block mb-1">Data Contrato</span>
-                  <span className="font-medium flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-muted-foreground" />
-                    {measurement.contract_date ? new Date(measurement.contract_date).toLocaleDateString('pt-BR') : '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block mb-1">Período</span>
-                  <span className="font-medium block">
-                    {measurement.start_date ? new Date(measurement.start_date).toLocaleDateString('pt-BR') : '?'} 
-                    {' até '} 
-                    {measurement.end_date ? new Date(measurement.end_date).toLocaleDateString('pt-BR') : '?'}
-                  </span>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
+                  <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor do Contrato</span>
+                    <p className="font-bold text-slate-700 text-sm">
+                      {measurement.value ? formatCurrency(measurement.value) : 'R$ 0,00'}
+                    </p>
+                  </div>
+                  <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor Pago</span>
+                    <p className="font-bold text-blue-600 text-sm">
+                      {measurement.amount_spent ? formatCurrency(measurement.amount_spent) : 'R$ 0,00'}
+                    </p>
+                  </div>
+                  <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Execução</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-grow bg-slate-100 h-1.5 rounded-full overflow-hidden max-w-[60px]">
+                        <div 
+                          className="bg-emerald-500 h-full rounded-full" 
+                          style={{ width: `${measurement.execution_percentage || 0}%` }}
+                        ></div>
+                      </div>
+                      <span className="font-bold text-emerald-600 text-sm">
+                        {measurement.execution_percentage !== null ? `${measurement.execution_percentage}%` : '0%'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Status Atual</span>
+                    <p className="font-semibold text-slate-600 text-xs truncate">
+                      {measurement.status === 'completed' ? 'Concluída ✅' : 
+                       measurement.status === 'in-progress' ? 'Em execução...' :
+                       measurement.status === 'stalled' ? 'Paralisada ⚠️' : 
+                       getStatusLabel(measurement.status)}
+                    </p>
+                  </div>
                 </div>
                 {measurement.description && (
-                  <div className="col-span-full mt-2 pt-2 border-t">
-                    <span className="text-muted-foreground block mb-1">Descrição</span>
-                    <p className="text-muted-foreground/80">{measurement.description}</p>
+                  <div className="px-4 pb-4">
+                    <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-100">
+                      <p className="text-xs text-slate-500 leading-relaxed italic line-clamp-2">
+                        "{measurement.description}"
+                      </p>
+                    </div>
                   </div>
                 )}
+                
+                {/* Unified Payments Section */}
+                <div className="border-t bg-slate-50/30">
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="payments" className="border-none">
+                      <AccordionTrigger className="px-4 py-2.5 hover:no-underline hover:bg-slate-100/50 transition-colors">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500 tracking-wider">
+                          <Calculator className="w-3.5 h-3.5" />
+                          Pagamentos Realizados ({measurement.payments?.length || 0})
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 pt-0">
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Listagem de Pagamentos</h5>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px] uppercase font-bold bg-white border-slate-200" onClick={() => handleEditPayment(measurement.id)}>
+                              <PlusCircle className="w-3 h-3 mr-1" /> Add Pagamento
+                            </Button>
+                          </div>
+                          
+                          {measurement.payments && measurement.payments.length > 0 ? (
+                            <div className="overflow-x-auto border rounded-lg bg-white">
+                              <table className="w-full text-sm">
+                                <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
+                                  <tr>
+                                    <th className="px-3 py-2 font-bold">Data</th>
+                                    <th className="px-3 py-2 font-bold">OB/Empenho</th>
+                                    <th className="px-3 py-2 font-bold">Valor</th>
+                                    <th className="px-3 py-2 font-bold">Portal</th>
+                                    <th className="px-3 py-2 font-bold text-right">Ações</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y text-xs">
+                                  {measurement.payments.sort((a,b) => new Date(b.payment_date) - new Date(a.payment_date)).map(payment => (
+                                    <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
+                                      <td className="px-3 py-2 whitespace-nowrap">{formatDate(payment.payment_date)}</td>
+                                      <td className="px-3 py-2 font-medium text-slate-600">{payment.banking_order || '-'}</td>
+                                      <td className="px-3 py-2 font-bold text-blue-600">{formatCurrency(payment.value)}</td>
+                                      <td className="px-3 py-2">
+                                        {payment.portal_link && (
+                                          <a href={payment.portal_link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-700">
+                                            <Link2 className="w-4 h-4" />
+                                          </a>
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        <div className="flex justify-end gap-1">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditPayment(measurement.id, payment)}><Edit className="w-3 h-3" /></Button>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/5" onClick={() => handleDeletePayment(payment.id)}><Trash2 className="w-3 h-3" /></Button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 bg-white rounded-lg border border-dashed border-slate-200">
+                              <p className="text-xs italic text-muted-foreground">Nenhum pagamento registrado para esta fase.</p>
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </div>
               </CardContent>
             </Card>
           ))}
