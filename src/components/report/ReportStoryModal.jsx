@@ -48,6 +48,45 @@ const getShortAddress = (address = '') => {
   return clampText(clean, 58);
 };
 
+const getCityFromAddress = (address = '', report = {}) => {
+  // Prioridade 1: Se o objeto report já tiver a cidade explicitamente
+  if (report.city) {
+    const uf = report.state || report.uf || 'PE';
+    return `${report.city}-${uf}`.toUpperCase();
+  }
+
+  const clean = normalizeText(address);
+  if (!clean) return 'FLORESTA-PE';
+  
+  // Tenta encontrar o padrão "Cidade - UF" ou "Cidade, UF" no final da string
+  const parts = clean.split(/[,-]/).map(p => p.trim());
+  
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    const secondLast = parts[parts.length - 2];
+    
+    // Caso 1: Última parte é UF (2 letras) - Ex: "Floresta - PE"
+    if (last.length === 2 && /^[A-Z]{2}$/i.test(last)) {
+      return `${secondLast}-${last}`.toUpperCase();
+    }
+    
+    // Caso 2: Penúltima parte é UF e a última é algo como "Brasil" (comum em geocoders)
+    if (secondLast.length === 2 && /^[A-Z]{2}$/i.test(secondLast)) {
+      const thirdLast = parts[parts.length - 3];
+      if (thirdLast) return `${thirdLast}-${secondLast}`.toUpperCase();
+    }
+  }
+
+  // Se não encontrou padrão de cidade no endereço, mas contém Floresta em qualquer lugar
+  if (clean.toUpperCase().includes('FLORESTA')) {
+    return 'FLORESTA-PE';
+  }
+
+  // Fallback radical: Para este card, se não for um endereço formatado,
+  // assume a cidade padrão do projeto para não poluir o layout com descrições.
+  return 'FLORESTA-PE';
+};
+
 const getDynamicFontSize = (text, baseSize = 92) => {
   if (!text) return baseSize;
   const length = text.length;
@@ -1050,8 +1089,281 @@ function StoryTemplateMinimal({ report, qrCodeUrl, coverPhotoUrl, showQRCode = t
   );
 }
 
+function StoryTemplateInstagram({ report, coverPhotoUrl, bgStyle, enableImageEffect = true }) {
+  const title = report?.title || '';
+  const titleLines = splitHeadline(title, 20, 6);
+  const address = report?.address || '';
+  
+  // Play Store URL for QR Code
+  const playStoreUrl = "https://play.google.com/store/apps/details?id=com.trombonecidadao.app&pcampaignid=web_share";
+  const qrCodePlayStore = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(playStoreUrl)}`;
+
+  return (
+    <div
+      style={{
+        width: STORY_WIDTH,
+        height: STORY_HEIGHT,
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        color: '#fff',
+        ...bgStyle,
+      }}
+    >
+      {/* Header with Logo and Megaphone */}
+       <div
+         style={{
+           position: 'absolute',
+           top: 120,
+           left: 0,
+           right: 0,
+           display: 'flex',
+           flexDirection: 'row',
+           alignItems: 'center',
+           justifyContent: 'center',
+           gap: 20,
+         }}
+       >
+         
+          <img src="/logo.png" style={{ width: 196, height: 196, objectFit: 'contain' }} alt="Logo" />
+         <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 68, fontWeight: 900, color: '#d52407', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 4px 8px rgba(0,0,0,0.3)' }}>TROMBONE</span>
+            <span style={{ fontSize: 68, fontWeight: 900, color: '#ffd20c', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 4px 8px rgba(0,0,0,0.3)' }}>CIDADÃO</span>
+         </div>
+       </div>
+
+      {/* Main Content Area */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 420,
+          left: 60,
+          right: 60,
+          bottom: 60,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        {/* Title */}
+        <div
+          style={{
+            fontSize: 72,
+            lineHeight: 1.05,
+            fontWeight: 900,
+            textAlign: 'center',
+            textTransform: 'uppercase',
+            color: '#eceade',
+            textShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            marginBottom: 120,
+            width: '100%',
+            maxWidth: 960,
+          }}
+        >
+          {titleLines.join('\n')}
+        </div>
+
+        {/* Image Box */}
+          {coverPhotoUrl && (
+            <div
+              style={{
+                width: '100%',
+                aspectRatio: '16/9',
+                borderRadius: enableImageEffect ? 4 : 12,
+                overflow: 'hidden',
+                position: 'relative',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                border: enableImageEffect ? '1px solid rgba(255,255,255,0.05)' : '4px solid rgba(255,255,255,0.15)',
+                marginBottom: 40,
+                // WebkitMaskImage and MaskImage to fade edges
+                WebkitMaskImage: enableImageEffect ? 'radial-gradient(ellipse at center, black 60%, transparent 100%)' : 'none',
+                maskImage: enableImageEffect ? 'radial-gradient(ellipse at center, black 60%, transparent 100%)' : 'none',
+              }}
+            >
+              <img 
+                src={coverPhotoUrl} 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  filter: enableImageEffect ? 'contrast(1.1) brightness(0.8) saturate(0.85) sepia(0.1)' : 'none', 
+                  mixBlendMode: enableImageEffect ? 'lighten' : 'normal',
+                }} 
+                alt="Report" 
+              />
+              
+              {/* Grunge / Vignette Overlay */}
+              {enableImageEffect && (
+                <div 
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'radial-gradient(circle at center, transparent 20%, rgba(0,0,0,0.6) 100%)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
+              
+              {/* Texture Overlay */}
+              {enableImageEffect && (
+                <div 
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: 0.25,
+                    backgroundImage: 'url("https://www.transparenttextures.com/patterns/p6.png")', 
+                    mixBlendMode: 'overlay',
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
+              
+              {/* Inner Glow */}
+              {enableImageEffect && (
+                <div 
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    boxShadow: 'inset 0 0 80px rgba(0,0,0,0.8)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
+            </div>
+          )}
+
+        {/* Location Tag - Outside Image */}
+        {address && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 12,
+              width: 'max-content',
+              marginBottom: 40,
+            }}
+          >
+            <MapPin 
+              size={44} 
+              color="#FF3B30" 
+              fill="#FF3B30" 
+              style={{ 
+                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
+                flexShrink: 0
+              }}
+            />
+            <span 
+              style={{ 
+                fontSize: 44, 
+                fontWeight: 900, 
+                color: '#eceade', 
+                textTransform: 'uppercase',
+                textShadow: '0 4px 12px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.6)',
+                letterSpacing: '0.02em',
+                textAlign: 'center',
+              }}
+            >
+              {getCityFromAddress(address, report)}
+            </span>
+          </div>
+        )}
+
+        {/* Spacer for layout */}
+        <div style={{ flex: 1 }} />
+
+        {/* Footer Box */}
+        <div
+          style={{
+            width: '100%',
+            backgroundColor: 'transparent',
+            border: '3px solid #ffd20c',
+            borderRadius: 12,
+            padding: '30px 40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 30,
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Decorative red lines like reference */}
+          <div style={{ position: 'absolute', bottom: -10, right: -10, width: 400, height: 15, background: '#FF3B30', transform: 'rotate(-15deg)', opacity: 0.6, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: 10, right: -10, width: 400, height: 10, background: '#FF3B30', transform: 'rotate(-15deg)', opacity: 0.4, pointerEvents: 'none' }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 15, flex: 1, position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+               <div 
+                 style={{ 
+                   backgroundColor: '#c41f1f', 
+                   width: 110, 
+                   height: 110, 
+                   borderRadius: '50%', 
+                   display: 'flex', 
+                   alignItems: 'center', 
+                   justifyContent: 'center',
+                   flexShrink: 0,
+                   boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                 }}
+               >
+                  <img src="/card-instagram/like-svgrepo-com (1).svg" style={{ width: 75, height: 75 }} alt="Like" />
+               </div>
+               <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+                  <div>
+                    <span style={{ fontSize: 38, fontWeight: 900, color: '#ffd20c', letterSpacing: '0.02em' }}>BAIXE O APP</span>
+                    <span style={{ fontSize: 32, fontWeight: 600, color: '#eceade', marginLeft: 10 }}>E CADASTRE</span>
+                  </div>
+                  <span style={{ fontSize: 32, fontWeight: 600, color: '#eceade' }}>SUA BRONCA TAMBÉM</span>
+               </div>
+            </div>
+            
+            <div
+              style={{
+                backgroundColor: '#ffd20c',
+                color: '#000000',
+                padding: '12px 30px',
+                borderRadius: 999,
+                fontSize: 34,
+                fontWeight: 900,
+                textAlign: 'center',
+                textTransform: 'uppercase',
+                boxShadow: '0 6px 15px rgba(0,0,0,0.3)',
+                width: 'fit-content',
+                marginTop: 5,
+                backgroundImage: 'linear-gradient(180deg, #ffd20c 0%, #f4ca14 100%)',
+              }}
+            >
+              APOIAR NO TROMBONE
+            </div>
+          </div>
+
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              padding: 12,
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 180,
+              height: 180,
+              flexShrink: 0,
+              position: 'relative',
+              zIndex: 1,
+              boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
+            }}
+          >
+            <img src={qrCodePlayStore} alt="QR Code Play Store" style={{ width: '100%', height: '100%' }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const StoryRenderer = React.forwardRef(function StoryRenderer(
-  { layout, report, qrCodeUrl, coverPhotoUrl, showQRCode = true, primaryColor = '#e52a2a', imageMode = 'background' },
+  { layout, report, qrCodeUrl, coverPhotoUrl, showQRCode = true, primaryColor = '#e52a2a', imageMode = 'background', bgStyle, enableImageEffect = true },
   ref
 ) {
   const commonStyle = {
@@ -1061,7 +1373,9 @@ const StoryRenderer = React.forwardRef(function StoryRenderer(
 
   return (
     <div ref={ref} style={commonStyle}>
-      {layout === 'editorial' ? (
+      {layout === 'instagram' ? (
+        <StoryTemplateInstagram report={report} coverPhotoUrl={coverPhotoUrl} bgStyle={bgStyle} enableImageEffect={enableImageEffect} />
+      ) : layout === 'editorial' ? (
         <StoryTemplateEditorial report={report} qrCodeUrl={qrCodeUrl} coverPhotoUrl={coverPhotoUrl} showQRCode={showQRCode} />
       ) : layout === 'minimal' ? (
         <StoryTemplateMinimal report={report} qrCodeUrl={qrCodeUrl} coverPhotoUrl={coverPhotoUrl} showQRCode={showQRCode} />
@@ -1081,22 +1395,15 @@ const StoryRenderer = React.forwardRef(function StoryRenderer(
 
 const layoutOptions = [
   {
+    value: 'instagram',
+    label: 'Instagram',
+    description: 'Layout oficial para stories do Instagram',
+  },
+  /* {
     value: 'urgent',
     label: 'Urgente',
     description: 'Mais forte, urbano e chamativo',
-  },
-  /* 
-  {
-    value: 'editorial',
-    label: 'Editorial',
-    description: 'Mais sofisticado e estilo matéria',
-  },
-  {
-    value: 'minimal',
-    label: 'Minimal',
-    description: 'Mais limpo e moderno',
-  },
-  */
+  }, */
 ];
 
 const PRESET_COLORS = [
@@ -1113,11 +1420,29 @@ const ReportStoryModal = ({
   coverPhotoUrl,
 }) => {
   const exportRef = useRef(null);
-  const [layout, setLayout] = useState('urgent');
+  const [layout, setLayout] = useState('instagram');
   const [downloading, setDownloading] = useState(false);
   const [showQRCode, setShowQRCode] = useState(true);
   const [imageMode, setImageMode] = useState('background'); // 'background', 'boxed', 'none'
   const [primaryColor, setPrimaryColor] = useState('#e52a2a');
+  const [enableImageEffect, setEnableImageEffect] = useState(true);
+
+  // New Background states
+  const [bgType, setBgType] = useState('default'); // 'default', 'second', 'third', 'color'
+  const [customBgColor, setCustomBgColor] = useState('#111111');
+
+  const currentBgStyle = useMemo(() => {
+    if (bgType === 'color') return { backgroundColor: customBgColor };
+    let bgUrl = '/card-instagram/bg-stories.png';
+    if (bgType === 'second') bgUrl = '/card-instagram/bg-second.png';
+    if (bgType === 'third') bgUrl = '/card-instagram/bg-third.png';
+    
+    return { 
+      backgroundImage: `url(${bgUrl})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
+    };
+  }, [bgType, customBgColor]);
 
   const safeTitle = useMemo(
     () => getSafeFilename(report?.title || 'trombone-cidadao'),
@@ -1211,7 +1536,82 @@ const ReportStoryModal = ({
                 </div>
               </div>
 
-              {layout === 'urgent' && (
+              {layout === 'instagram' && (
+                <div className="pt-2 border-t border-gray-100 space-y-4">
+                  <div>
+                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                      Fundo do Story
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setBgType('default')}
+                        className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
+                          bgType === 'default' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        Padrão
+                      </button>
+
+                      <button
+                        onClick={() => setBgType('second')}
+                        className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
+                          bgType === 'second' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        Mapa Azul
+                      </button>
+
+                      <button
+                        onClick={() => setBgType('third')}
+                        className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
+                          bgType === 'third' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        Perigo
+                      </button>
+                      
+                      <button
+                        onClick={() => setBgType('color')}
+                        className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold flex items-center justify-between ${
+                          bgType === 'color' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <span>Cor</span>
+                        <input 
+                          type="color" 
+                          value={customBgColor} 
+                          onChange={(e) => {
+                            setCustomBgColor(e.target.value);
+                            setBgType('color');
+                          }}
+                          className="w-4 h-4 p-0 border-0 rounded cursor-pointer"
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                      Efeitos
+                    </h3>
+                    <button
+                      onClick={() => setEnableImageEffect(!enableImageEffect)}
+                      className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all ${
+                        enableImageEffect 
+                          ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold' 
+                          : 'border-gray-200 bg-white text-gray-600'
+                      }`}
+                    >
+                      <span className="text-[10px]">Suavizar Imagem</span>
+                      <div className={`w-8 h-4 rounded-full relative transition-colors ${enableImageEffect ? 'bg-tc-red' : 'bg-gray-200'}`}>
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${enableImageEffect ? 'right-0.5' : 'left-0.5'}`} />
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(layout === 'urgent') && (
                 <div className="pt-2 sm:pt-2 border-t border-gray-100 sm:border-none">
                   <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-3">
                     Cor do Card
@@ -1240,7 +1640,7 @@ const ReportStoryModal = ({
                 </div>
               )}
 
-              {layout === 'urgent' && (
+              {(layout === 'urgent') && (
                 <div className="pt-2 sm:pt-2 border-t border-gray-100 sm:border-none space-y-4">
                   <div>
                     <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-3">
@@ -1320,6 +1720,8 @@ const ReportStoryModal = ({
                         showQRCode={showQRCode}
                         primaryColor={primaryColor}
                         imageMode={imageMode}
+                        bgStyle={currentBgStyle}
+                        enableImageEffect={enableImageEffect}
                       />
                     </div>
                   </div>
@@ -1369,6 +1771,8 @@ const ReportStoryModal = ({
           showQRCode={showQRCode}
           primaryColor={primaryColor}
           imageMode={imageMode}
+          bgStyle={currentBgStyle}
+          enableImageEffect={enableImageEffect}
           // secondaryColor={secondaryColor}
         />
       </div>
