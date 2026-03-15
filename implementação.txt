@@ -1,0 +1,534 @@
+O que eu mudaria no fluxo
+1. Separar melhor o nível “Obra” do nível “Fase/Medição”
+
+Hoje a obra é a entidade principal, mas a aba de medições quase vira um sistema próprio dentro do modal.
+
+Melhor fluxo:
+
+Nível 1 — Obra
+
+Campos da obra:
+
+título
+
+subtítulo
+
+descrição
+
+categoria
+
+bairro
+
+área
+
+status
+
+localização
+
+imagem de capa
+
+valores gerais
+
+prazos gerais
+
+links
+
+mídias gerais
+
+Nível 2 — Fases / medições
+
+Cada fase deve ser gerenciada como um bloco separado, com:
+
+timeline/lista lateral
+
+detalhes da fase
+
+pagamentos da fase
+
+galeria da fase
+
+Ou seja: a fase não deve disputar atenção com o formulário principal da obra.
+
+2. Transformar o modal de edição em layout de painel, não só “form grandão”
+
+Hoje ele parece um modal com várias abas, mas a complexidade já pede quase uma mini página administrativa.
+
+Eu faria assim:
+
+Estrutura ideal do modal
+
+Header fixo
+
+título da obra
+
+status
+
+botão fechar
+
+Sidebar esquerda
+
+Geral
+
+Cronograma e valores
+
+Localização
+
+Mídias
+
+Links
+
+Fases e pagamentos
+
+Conteúdo central
+
+apenas a seção ativa
+
+Footer fixo
+
+cancelar
+
+salvar
+
+indicador de alterações pendentes
+
+Isso deixa muito mais claro.
+
+Problemas de UX que existem hoje
+1. Informação demais com o mesmo peso visual
+
+Quase todos os blocos têm importância parecida:
+
+título
+
+descrição
+
+datas
+
+galeria
+
+pagamentos
+
+links
+
+mapa
+
+Mas na prática o usuário precisa de hierarquia:
+
+Ordem mental real
+
+identificar a obra
+
+definir status e localização
+
+preencher valores e prazos
+
+anexar mídia
+
+organizar fases
+
+registrar pagamentos
+
+2. Medições dentro do mesmo contexto de edição da obra
+
+Esse é o ponto mais pesado.
+
+Você já até criou proteções como:
+
+isMeasurementEditing
+
+hasUnsavedMeasurementChanges
+
+confirmação ao trocar aba
+
+confirmação ao fechar modal
+
+Isso mostra que a interface está pedindo separação.
+
+3. Muitos campos de data ao mesmo tempo
+
+Hoje o usuário vê um monte de datas:
+
+assinatura
+
+ordem de serviço
+
+previsão início
+
+início real
+
+previsão conclusão
+
+término real
+
+inauguração
+
+paralisação
+
+Isso é importante, mas visualmente cansa.
+
+Melhor:
+
+agrupar em cards menores
+
+usar labels curtas
+
+usar descrições auxiliares
+
+exibir apenas datas relevantes conforme status
+
+Exemplo:
+
+se status = planned, priorizar previsões
+
+se status = in-progress, priorizar início real e previsão final
+
+se status = stalled, destacar data de paralisação
+
+se status = completed, destacar término e inauguração
+
+Melhor organização que eu recomendo
+Página “Gerenciar Obras”
+
+Trocar a listagem atual para esse formato:
+
+topo
+
+título
+
+botão “Nova obra”
+
+botão “Gerenciar opções”
+
+bloco de filtros
+
+busca
+
+filtros em drawer/expandível
+
+chips ativos dos filtros aplicados
+
+bloco de resultados
+
+Cada obra em card compacto com:
+
+thumbnail
+
+título
+
+bairro/categoria
+
+status badge
+
+percentual
+
+valor previsto / gasto
+
+botão editar
+
+botão excluir
+
+Hoje sua listagem está funcional, mas muito simples para a quantidade de informação disponível.
+
+Modal “Editar Obra”
+
+Sugestão de seções:
+
+1. Visão geral
+
+thumbnail
+
+título
+
+subtítulo
+
+descrição longa
+
+status
+
+categoria
+
+bairro
+
+área
+
+construtora
+
+2. Financeiro e cronograma
+
+valor previsto
+
+valor gasto
+
+percentual
+
+prazo em dias
+
+fontes do recurso
+
+bloco de datas
+
+3. Localização
+
+endereço
+
+mapa
+
+observações
+
+4. Mídias e links
+
+mídias gerais da obra
+
+links relacionados
+
+5. Fases e pagamentos
+
+timeline/lista de fases
+
+resumo de pagamentos por fase
+
+entrar para editar fase
+
+Melhor solução para “Fases e medições”
+
+Hoje você mostra cards de fase e dentro deles accordion de pagamentos.
+Eu mudaria para:
+
+Layout em 2 colunas
+esquerda
+
+Lista de fases:
+
+título
+
+status
+
+percentual
+
+valor
+
+data início
+
+badge se paralisada/concluída
+
+direita
+
+Detalhes da fase selecionada:
+
+descrição
+
+dados principais
+
+galeria
+
+pagamentos
+
+ações
+
+Assim o usuário não precisa abrir e fechar vários accordions.
+
+Melhorias visuais rápidas que já fariam diferença
+1. Criar resumo superior na aba de fases
+
+Antes da lista de fases:
+
+total de fases
+
+total contratado
+
+total pago
+
+média de execução
+
+última atualização
+
+2. Transformar pagamentos em tabela mais forte visualmente
+
+Hoje está boa, mas pode ficar mais clara com:
+
+cabeçalho sticky
+
+total pago da fase no topo
+
+ação “Adicionar pagamento” mais destacada
+
+portal com texto “Abrir” ao invés de só ícone
+
+3. Melhorar estados vazios
+
+Você já tem estados vazios, mas pode deixá-los mais orientativos:
+
+“Cadastre a primeira fase para começar o histórico desta obra”
+
+“Depois da fase criada, você poderá registrar pagamentos e anexar documentos”
+
+4. Footer fixo sempre consistente
+
+Hoje já tem sticky em algumas partes. Eu deixaria padrão:
+
+cancelar
+
+salvar
+
+feedback “Alterações não salvas”
+
+Refatoração de componentes que eu faria
+
+Hoje essa tela está muito grande e mistura regra, layout e upload.
+Eu separaria em componentes assim:
+
+ManageWorksPage
+ ├ WorksToolbar
+ ├ WorksFiltersCard
+ ├ WorksList
+ ├ WorkListCard
+ ├ WorkEditModal
+ │   ├ WorkEditSidebar
+ │   ├ WorkGeneralSection
+ │   ├ WorkFinanceSection
+ │   ├ WorkLocationSection
+ │   ├ WorkLinksSection
+ │   ├ WorkMediaSection
+ │   └ WorkPhasesSection
+ │       ├ MeasurementsSummary
+ │       ├ MeasurementsList
+ │       ├ MeasurementDetailsPanel
+ │       └ PaymentTable
+
+Isso melhora:
+
+manutenção
+
+legibilidade
+
+teste
+
+evolução de UX
+
+O principal ajuste técnico de fluxo
+
+Hoje você tem muitos estados:
+
+isEditing
+
+isEditingPayment
+
+currentMeasurement
+
+currentPayment
+
+isDirty
+
+hasUnsavedMeasurementChanges
+
+isMeasurementEditing
+
+activeTab
+
+Isso indica que o estado está muito distribuído.
+
+Eu centralizaria o fluxo de edição de fase assim:
+
+const [phaseView, setPhaseView] = useState<'list' | 'form' | 'payment-form'>('list');
+const [selectedMeasurement, setSelectedMeasurement] = useState(null);
+const [selectedPayment, setSelectedPayment] = useState(null);
+
+Fica muito mais previsível.
+
+Layout que eu recomendo para você implementar
+Página principal
+
+cards mais visuais na listagem
+
+busca + filtros melhores
+
+contador de resultados
+
+status badge mais forte
+
+Modal obra
+
+sidebar fixa
+
+conteúdo por seção
+
+footer sticky
+
+seções menores e mais claras
+
+Aba fases
+
+lista lateral + painel de detalhes
+
+pagamentos fora do accordion
+
+galeria da fase mais organizada
+
+resumo financeiro da fase no topo
+
+Exemplo de estrutura visual melhor para o modal
+<DialogContent className="max-w-7xl h-[92vh] p-0 overflow-hidden">
+  <div className="grid grid-cols-[260px_1fr] h-full">
+    <aside className="border-r bg-slate-50 p-4">
+      <WorkEditSidebar />
+    </aside>
+
+    <div className="flex flex-col min-h-0">
+      <header className="border-b px-6 py-4 bg-white">
+        <WorkEditHeader />
+      </header>
+
+      <main className="flex-1 overflow-y-auto px-6 py-6">
+        <ActiveSection />
+      </main>
+
+      <footer className="border-t px-6 py-4 bg-white flex justify-between items-center">
+        <UnsavedIndicator />
+        <div className="flex gap-2">
+          <Button variant="outline">Cancelar</Button>
+          <Button>Salvar alterações</Button>
+        </div>
+      </footer>
+    </div>
+  </div>
+</DialogContent>
+Exemplo melhor para a aba de fases
+<div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-6">
+  <Card>
+    <CardHeader>
+      <CardTitle>Fases da obra</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <MeasurementsList />
+    </CardContent>
+  </Card>
+
+  <Card>
+    <CardHeader>
+      <CardTitle>Detalhes da fase</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <MeasurementDetailsPanel />
+    </CardContent>
+  </Card>
+</div>
+Minha avaliação direta
+
+Seu sistema já está com cara de produto real, não de CRUD simples.
+Então a UI precisa sair do modelo:
+
+“um modal com muitas abas e formulários”
+
+para algo mais próximo de:
+
+“painel administrativo estruturado por contexto”
+
+Isso vai te dar:
+
+mais clareza
+
+menos erro do usuário
+
+menos conflito de estado
+
+mais facilidade para escalar a funcionalidade

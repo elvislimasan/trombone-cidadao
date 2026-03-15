@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, Upload, Paperclip, MapPin, Image as ImageIcon, Video, Link2, Info, Wrench, Search, SlidersHorizontal, FolderOpen, Briefcase } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, Upload, Paperclip, MapPin, Image as ImageIcon, Video, Link2, Info, Wrench, Search, SlidersHorizontal, FolderOpen, Briefcase, Calculator, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,11 +16,13 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
+import { WorkFinancialTab } from '@/components/admin/WorkFinancialTab';
 import { WorkMediaManager } from '@/components/admin/WorkMediaManager';
+import { Combobox } from '@/components/ui/combobox';
+import { toast } from 'sonner';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
-import { Combobox } from '@/components/ui/combobox';
 
 // Componente de Filtros com tratamento de erros
 const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap }) => {
@@ -208,7 +210,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     { id: 'info', label: 'Informações', icon: Info },
     { id: 'media', label: 'Mídias', icon: ImageIcon },
     { id: 'links', label: 'Links', icon: Link2 },
-    { id: 'measurements', label: 'Histórico/Fases', icon: Briefcase },
+    { id: 'measurements', label: 'Histórico e Financeiro', icon: Briefcase },
   ];
 
   const goToTab = (nextTabId) => {

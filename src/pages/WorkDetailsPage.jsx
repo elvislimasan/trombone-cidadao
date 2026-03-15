@@ -25,7 +25,7 @@ import {
   Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, 
   BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, 
   Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle, Eye, Briefcase, HelpCircle, Newspaper,
-  FolderOpen
+  FolderOpen, Calculator
 } from 'lucide-react';
 import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
@@ -123,7 +123,16 @@ const WorkDetailsPage = () => {
   const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [measurements, setMeasurements] = useState([]);
+  const [biddings, setBiddings] = useState([]);
   const [relatedNews, setRelatedNews] = useState([]);
+
+  const totalSpentFromPayments = useMemo(() => {
+    return biddings.reduce((acc, bidding) => {
+      const biddingPaid = (bidding.payments || []).reduce((pAcc, p) => pAcc + (Number(p.value) || 0), 0);
+      return acc + biddingPaid;
+    }, 0);
+  }, [biddings]);
+
   useEffect(() => {
     console.log('relatedNews_state', relatedNews);
   }, [relatedNews]);
@@ -155,9 +164,13 @@ const WorkDetailsPage = () => {
 
     const { data: measurementsData, error: measurementsError } = await supabase
       .from('public_work_measurements')
-      .select('*, contractor:contractor_id(name, cnpj)')
+      .select('*, contractor:contractor_id(name, cnpj), payments:public_work_payments(*)')
       .eq('work_id', workId)
       .order('created_at', { ascending: false });
+
+    if (measurementsError) {
+      console.error('Error fetching measurements:', measurementsError);
+    }
 
     let related = [];
     const { data: relRaw, error: relErr } = await supabase
@@ -181,6 +194,7 @@ const WorkDetailsPage = () => {
     setWork(workData);
     setMedia(mediaData || []);
     setMeasurements(measurementsData || []);
+    setBiddings(measurementsData || []); // Use measurements as biddings for compatibility with the UI
     setLoading(false);
   }, [workId, toast]);
 
@@ -822,16 +836,16 @@ const WorkDetailsPage = () => {
                      </div>
                      )}
 
-                     {work.amount_spent != null && Number(work.amount_spent) > 0 && (
+                     { (totalSpentFromPayments > 0 || (work.amount_spent != null && Number(work.amount_spent) > 0)) && (
                      <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
-                        <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                        <div className="bg-emerald-50 text-emerald-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
                         </div>
                         <div className="w-full min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Pago</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(work.amount_spent)}</p>
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Gasto (Pagamentos)</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(totalSpentFromPayments || work.amount_spent)}</p>
                            <Progress 
-                             value={work.total_value ? Math.min(((work.amount_spent || 0) / work.total_value) * 100, 100) : 0} 
+                             value={work.total_value ? Math.min(((totalSpentFromPayments || work.amount_spent || 0) / work.total_value) * 100, 100) : 0} 
                              className="h-1.5 bg-slate-100 w-full" 
                              indicatorClassName="bg-emerald-500" 
                            />
@@ -1146,6 +1160,91 @@ const WorkDetailsPage = () => {
             </div>
 
             <Separator className="my-0" />
+
+            {/* Financial Section */}
+            {biddings && biddings.length > 0 && (
+              <div className="p-6 md:p-8 bg-white border-t border-slate-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 mr-3 shadow-sm border border-emerald-100/50">
+                    <Calculator className="w-4 h-4" />
+                  </div>
+                  Licitações e Pagamentos
+                </h3>
+
+                <div className="space-y-6">
+                  {biddings.map((bidding) => {
+                    const totalPaid = (bidding.payments || []).reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+                    return (
+                      <div key={bidding.id} className="bg-slate-50/50 border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="p-5 bg-white border-b border-slate-100">
+                          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none font-bold text-[10px] uppercase">Fase / Licitação</Badge>
+                                <h4 className="font-bold text-lg text-slate-800">{bidding.title}</h4>
+                              </div>
+                              <p className="text-sm text-slate-500 leading-relaxed">{bidding.description}</p>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 min-w-[160px]">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total do Contrato</span>
+                              <span className="text-lg font-bold text-emerald-700">{formatCurrency(bidding.value)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-5">
+                          <div className="flex items-center justify-between mb-4">
+                            <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                              <DollarSign className="w-3 h-3" /> Listagem de Pagamentos
+                            </h5>
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold">
+                              Pago: {formatCurrency(totalPaid)}
+                            </Badge>
+                          </div>
+
+                          {bidding.payments && bidding.payments.length > 0 ? (
+                            <div className="space-y-3">
+                              {bidding.payments.sort((a,b) => new Date(b.payment_date) - new Date(a.payment_date)).map((payment) => (
+                                <div key={payment.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:border-emerald-200 transition-all gap-4">
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex flex-col items-center justify-center shrink-0">
+                                      <Calendar className="w-4 h-4 text-blue-500 mb-0.5" />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-bold text-slate-700">{formatDate(payment.payment_date)}</p>
+                                      <p className="text-xs text-slate-400 font-medium">OB/Empenho: {payment.banking_order || '-'}</p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between sm:justify-end gap-6">
+                                    <div className="text-right">
+                                      <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Valor Pago</p>
+                                      <p className="text-base font-bold text-blue-700">{formatCurrency(payment.value)}</p>
+                                    </div>
+                                    
+                                    {payment.portal_link && (
+                                      <Button asChild size="icon" variant="ghost" className="h-10 w-10 rounded-full text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
+                                        <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência">
+                                          <Link2 className="w-5 h-5" />
+                                        </a>
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 bg-white rounded-xl border border-dashed border-slate-200">
+                              <p className="text-sm text-slate-400">Nenhum pagamento registrado para esta licitação.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <Separator className="my-0" />
 
