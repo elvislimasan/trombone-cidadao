@@ -638,7 +638,7 @@ const ReportPage = () => {
                 <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl border-gray-200 bg-[#F4F6F9]" onClick={() => navigate(-1)}>
                   <ArrowLeft className="w-4 h-4 text-gray-700" />
                 </Button>
-                <span className="text-sm font-extrabold tracking-tight text-gray-900">Trombone Cidadão</span>
+                <span className="text-sm font-extrabold tracking-tight text-gray-900">Voltar para página inicial</span>
               </div>
               <div className="flex items-center gap-2">
                 <Button size="icon" variant="outline"
@@ -669,9 +669,17 @@ const ReportPage = () => {
                 {managementPanel && <div className="mb-4 lg:hidden">{managementPanel}</div>}
                 <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
 
+                  {/* Título primeiro (mobile) */}
+                  <div className="px-6 pt-5 pb-4 border-b border-gray-100 lg:hidden">
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-gray-900">{report.title}</h1>
+                       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /><span>Cadastrado em {formatDateTime(report.created_at)}</span></div>
+                    </div>
+                  </div>
+
                   {/* media hero */}
-                  <div className="relative overflow-hidden">
-                    <div className="w-full max-w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden">
+                  <div className="relative overflow-hidden px-6">
+                    <div className="w-full max-w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden ">
                       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
                       {hasMedia ? (
                         <button type="button" className="absolute inset-0 w-full h-full" onClick={() => setMediaViewerState({ isOpen: true, startIndex: 0 })}>
@@ -725,10 +733,13 @@ const ReportPage = () => {
                             <span className="sm:hidden">Ver todas ({viewerMedia.length})</span>
                           </button>
                         )}
+                     
                       </div>
+                      
                     </div>
 
-                    <div className="px-6 pt-5 pb-4 border-b border-gray-100">
+                    {/* Título para desktop (mantido no lugar original) */}
+                    <div className="hidden lg:block px-6 pt-5 pb-4 border-b border-gray-100">
                       <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-gray-900">{report.title}</h1>
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
                         <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /><span>Cadastrado em {formatDateTime(report.created_at)}</span></div>
@@ -738,29 +749,6 @@ const ReportPage = () => {
                   </div>
 
                   <div className="px-6 py-6 space-y-8">
-
-                    {/* mobile upvote */}
-                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-4 shadow-sm lg:hidden">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-1 text-center">Apoios</div>
-                      <div className="text-3xl font-extrabold text-gray-900 text-center">{report.upvotes || 0}</div>
-                      <div className="text-xs text-gray-500 mt-1 mb-4 text-center">pessoas apoiaram essa bronca</div>
-                      <Button className="w-full justify-center gap-2 text-sm font-semibold bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700" onClick={handleUpvoteClick}>
-                        <ThumbsUp className={`w-4 h-4 ${report.user_has_upvoted ? 'fill-white text-white' : ''}`} />
-                        {report.user_has_upvoted ? 'Apoiada' : 'Apoiar essa bronca'}
-                      </Button>
-                      <Button className="mt-2 w-full justify-center gap-2 text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700" onClick={handleShare}>
-                        <Share2 className="w-4 h-4" />Compartilhar bronca
-                      </Button>
-                      <Button variant="outline" className="w-full mt-2 justify-center gap-2 text-sm text-gray-600 hover:text-gray-900 border-gray-200" onClick={() => handleFavoriteToggle(report.id, report.is_favorited)}>
-                        <Star className={`w-4 h-4 ${report.is_favorited ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                        {report.is_favorited ? 'Favoritada' : 'Favoritar'}
-                      </Button>
-                      {report.petitionId && (
-                        <Button asChild className="w-full mt-2 justify-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white">
-                          <Link to={`/abaixo-assinado/${report.petitionId}`}><FileSignature className="w-4 h-4" />Ver abaixo-assinado ligado</Link>
-                        </Button>
-                      )}
-                    </div>
 
                     {/* description */}
                     {report.description && (
@@ -772,9 +760,9 @@ const ReportPage = () => {
                       </div>
                     )}
 
-                    {/* Map Section (Mobile Only) */}
+                    {/* Map Section (Mobile Only) - Mapa com endereço integrado */}
                     <div className="lg:hidden space-y-4">
-                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                         <div className="p-4 border-b border-gray-100">
                           <h3 className="font-bold text-gray-900 flex items-center">
                             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
@@ -782,19 +770,19 @@ const ReportPage = () => {
                             </div>
                             Localização
                           </h3>
+                          
                         </div>
                         <div className="h-48">
                           <ReportMap location={report.location} address={report.address} />
                         </div>
-                        <div className="px-4 py-4 bg-slate-50 space-y-3">
-                          <div className="flex items-start gap-3">
-                            <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                            <div>
-                              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
-                              <p className="text-sm font-medium text-slate-700 leading-tight">{report.address || 'Não informado'}</p>
+                        {report.address && (
+                            <div className="mt-2 flex items-start gap-2 p-2">
+                              <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                              <div>
+                                <p className="text-sm font-medium text-slate-700 leading-tight">{report.address}</p>
+                              </div>
                             </div>
-                          </div>
-                        </div>
+                          )}
                       </div>
                     </div>
 
@@ -808,7 +796,7 @@ const ReportPage = () => {
                           { icon: <MapPin className="w-4 h-4 text-red-600" />, label: 'Categoria', value: getCategoryName(report.category) },
                           report.protocol && { icon: <Hash className="w-4 h-4 text-red-600" />, label: 'Protocolo', value: <span className="text-[11px] font-mono text-gray-900 break-all">{report.protocol}</span> },
                           { icon: <Calendar className="w-4 h-4 text-red-600" />, label: 'Cadastrado em', value: formatDateTime(report.created_at) },
-                          report.address && { icon: <MapPin className="w-4 h-4 text-red-600" />, label: 'Localização', value: report.address },
+                          // Removido endereço daqui para evitar redundância (já aparece no título e no mapa)
                           report.category === 'buracos' && { icon: <Droplet className="w-4 h-4 text-red-600" />, label: 'Aberto pela COMPESA?', value: isFromWaterUtility ? 'Sim' : 'Não' },
                           { icon: <Flag className="w-4 h-4 text-red-600" />, label: 'Status', value: getStatusInfo(report.status).text },
                         ].filter(Boolean).map((item, i) => (
@@ -860,6 +848,29 @@ const ReportPage = () => {
                         </button>
                       </div>
                     )}
+
+                    {/* mobile upvote - Movido para baixo (menos prioritário) */}
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-4 shadow-sm lg:hidden">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-1 text-center">Apoios</div>
+                      <div className="text-3xl font-extrabold text-gray-900 text-center">{report.upvotes || 0}</div>
+                      <div className="text-xs text-gray-500 mt-1 mb-4 text-center">pessoas apoiaram essa bronca</div>
+                      <Button className="w-full justify-center gap-2 text-sm font-semibold bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700" onClick={handleUpvoteClick}>
+                        <ThumbsUp className={`w-4 h-4 ${report.user_has_upvoted ? 'fill-white text-white' : ''}`} />
+                        {report.user_has_upvoted ? 'Apoiada' : 'Apoiar essa bronca'}
+                      </Button>
+                      <Button className="mt-2 w-full justify-center gap-2 text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700" onClick={handleShare}>
+                        <Share2 className="w-4 h-4" />Compartilhar bronca
+                      </Button>
+                      <Button variant="outline" className="w-full mt-2 justify-center gap-2 text-sm text-gray-600 hover:text-gray-900 border-gray-200" onClick={() => handleFavoriteToggle(report.id, report.is_favorited)}>
+                        <Star className={`w-4 h-4 ${report.is_favorited ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                        {report.is_favorited ? 'Favoritada' : 'Favoritar'}
+                      </Button>
+                      {report.petitionId && (
+                        <Button asChild className="w-full mt-2 justify-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white">
+                          <Link to={`/abaixo-assinado/${report.petitionId}`}><FileSignature className="w-4 h-4" />Ver abaixo-assinado ligado</Link>
+                        </Button>
+                      )}
+                    </div>
 
                     {/* ── SHARE SECTION ── */}
                     <section className="mt-6">
