@@ -76,6 +76,9 @@ export const NotificationProvider = ({ children }) => {
   };
 
   const getNotificationUrl = (notification) => {
+    if (notification.link) {
+      return notification.link;
+    }
     if (notification.report_id) {
       return `/bronca/${notification.report_id}`;
     }
