@@ -38,6 +38,8 @@ const ModerationPage = () => {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [itemToReject, setItemToReject] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionTitle, setRejectionTitle] = useState('');
+  const [rejectionDescription, setRejectionDescription] = useState('');
 
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [itemToApprove, setItemToApprove] = useState(null);
@@ -107,6 +109,9 @@ const ModerationPage = () => {
   const handleAction = async (item, newStatus) => {
     if (newStatus === 'rejected') {
       setItemToReject(item);
+      setRejectionReason('');
+      setRejectionTitle('');
+      setRejectionDescription('');
       setIsRejectModalOpen(true);
     } else if (newStatus === 'approved') {
       setItemToApprove(item);
@@ -194,9 +199,32 @@ const ModerationPage = () => {
         const tableToUpdate = isReportModeration ? 'reports' : 'comments';
         let updateData = { moderation_status: newStatus };
         if (isReportModeration && newStatus === 'approved') updateData.status = 'pending';
+        if (isReportModeration && newStatus === 'rejected') {
+          updateData.rejection_title = rejectionTitle.trim();
+          updateData.rejection_description = rejectionDescription.trim();
+          updateData.rejected_at = new Date().toISOString();
+        }
 
         const { error } = await supabase.from(tableToUpdate).update(updateData).eq('id', item.id);
         if (error) throw error;
+
+        if (isReportModeration && newStatus === 'rejected') {
+          try {
+            await supabase.functions.invoke('send-report-status-email', {
+              body: {
+                reportId: item.id,
+                authorId: item.author_id,
+                status: 'rejected',
+                rejectionTitle: rejectionTitle.trim(),
+                rejectionDescription: rejectionDescription.trim(),
+                reportTitle: item.title,
+                reportUrl: `${window.location.origin}/painel-usuario?tab=reports&report=${item.id}`
+              }
+            });
+          } catch (emailError) {
+            console.error('Erro ao enviar e-mail de notificação:', emailError);
+          }
+        }
       }
 
       toast({ title: `Item ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso!` });
@@ -212,6 +240,8 @@ const ModerationPage = () => {
     setIsRejectModalOpen(false);
     setItemToReject(null);
     setRejectionReason('');
+    setRejectionTitle('');
+    setRejectionDescription('');
   };
 
   const confirmApproval = async () => {
@@ -569,23 +599,53 @@ const ModerationPage = () => {
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-              <AlertCircle className="w-6 h-6 text-red-500" /> Motivo da Rejeição
+              <AlertCircle className="w-6 h-6 text-red-500" /> {isReportModeration ? 'Mensagem de Recusa' : 'Motivo da Rejeição'}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Explique por que este conteúdo não foi aprovado. O autor receberá esta justificativa.
+              {isReportModeration ? 'Envie uma mensagem clara ao autor explicando por que a bronca foi recusada.' : 'Explique por que este conteúdo não foi aprovado. O autor receberá esta justificativa.'}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Textarea 
-              value={rejectionReason} 
-              onChange={(e) => setRejectionReason(e.target.value)} 
-              placeholder="Ex: Conteúdo duplicado, informações incompletas..."
-              className="min-h-[120px] rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
-            />
+            {isReportModeration ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Título</Label>
+                  <Input
+                    value={rejectionTitle}
+                    onChange={(e) => setRejectionTitle(e.target.value)}
+                    placeholder="Ex: Falta de informações essenciais"
+                    className="rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Textarea 
+                    value={rejectionDescription} 
+                    onChange={(e) => setRejectionDescription(e.target.value)} 
+                    placeholder="Explique o que precisa ser ajustado para reenviar a bronca."
+                    className="min-h-[120px] rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
+                  />
+                </div>
+              </div>
+            ) : (
+              <Textarea 
+                value={rejectionReason} 
+                onChange={(e) => setRejectionReason(e.target.value)} 
+                placeholder="Ex: Conteúdo duplicado, informações incompletas..."
+                className="min-h-[120px] rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
+              />
+            )}
           </div>
           <DialogFooter className="gap-3">
             <Button variant="ghost" onClick={() => setIsRejectModalOpen(false)} className="rounded-xl h-12 flex-1">Cancelar</Button>
-            <Button variant="destructive" onClick={confirmRejection} disabled={!rejectionReason.trim()} className="rounded-xl h-12 flex-1 shadow-lg shadow-red-200">Confirmar Rejeição</Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRejection}
+              disabled={isReportModeration ? (!rejectionTitle.trim() || !rejectionDescription.trim()) : !rejectionReason.trim()}
+              className="rounded-xl h-12 flex-1 shadow-lg shadow-red-200"
+            >
+              Confirmar Rejeição
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

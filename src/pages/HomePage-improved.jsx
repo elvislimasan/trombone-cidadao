@@ -36,6 +36,7 @@ import {
   DialogClose,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Capacitor } from '@capacitor/core';
 
 function MiniMapPreview() {
   const center = FLORESTA_COORDS;
@@ -462,18 +463,23 @@ function HomePageImproved() {
       e.preventDefault();
     }
     const url = getReportShareUrl(report.id);
+    const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${url}`;
+    if (!Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+      window.open(whatsappUrl, '_blank');
+      return;
+    }
     if (navigator.share) {
       navigator
         .share({
-          title: report.title,
-          text: report.description,
-          url,
+          title: 'Trombone Cidadão',
+          text: shareText,
         })
         .catch(() => {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).catch(() => {});
+      navigator.clipboard.writeText(shareText).catch(() => {});
     }
   };
 
