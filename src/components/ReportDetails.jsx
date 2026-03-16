@@ -19,6 +19,7 @@ import { getReportShareUrl, getBaseAppUrl } from '@/lib/shareUtils';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { validateVideoFile } from '@/utils/videoProcessor';
+import { ShareModal } from './PetitionComponents';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -151,7 +152,7 @@ const getThumbnailUrl = (url) => {
   return url;
 };
 
-import { ShareModal } from './PetitionComponents';
+
 
 const ReportDetails = ({ 
   report, 
@@ -189,6 +190,12 @@ const ReportDetails = ({
   const [showMarkResolvedModal, setShowMarkResolvedModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showResolutionImage, setShowResolutionImage] = useState(false);
+  const [isRejectingReport, setIsRejectingReport] = useState(false);
+  const [rejectionTitle, setRejectionTitle] = useState('');
+  const [rejectionDescription, setRejectionDescription] = useState('');
+  const [isModerationSaving, setIsModerationSaving] = useState(false);
+  const [statusOverride, setStatusOverride] = useState(null);
+  const [categoryOverride, setCategoryOverride] = useState(null);
 
  
   const categories = {
@@ -395,6 +402,7 @@ const ReportDetails = ({
     }
     
     const shareUrl = getReportShareUrl(report.id);
+    const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${shareUrl}`;
     
 //     console.log('Generating Share URL:', shareUrl);
 
@@ -483,9 +491,8 @@ const ReportDetails = ({
         
         // No app nativo, compartilhar o link (a imagem aparecerá como thumbnail via meta tags geradas pela Edge Function)
         const shareData = {
-          title: `Trombone Cidadão: ${report.title}`,
-          // text: shareText, // Removido para garantir que o card apareça limpo no WhatsApp
-          url: shareUrl, 
+          title: 'Trombone Cidadão',
+          text: shareText,
         };
 
         await Share.share(shareData);
@@ -498,9 +505,8 @@ const ReportDetails = ({
         // IMPORTANTE: Priorizar o link. A imagem aparecerá como thumbnail via meta tags Open Graph
         // Não incluir files, pois isso pode fazer o navegador ignorar o URL
         const webShareData = {
-          title: `Trombone Cidadão: ${report.title}`,
-          // text: shareText, // Removido para garantir que o card apareça limpo no WhatsApp
-          url: shareUrl, // URL sempre incluída - a imagem aparecerá como thumbnail via Open Graph
+          title: 'Trombone Cidadão',
+          text: shareText,
         };
         
         // Verificar se pode compartilhar com URL (sempre deve poder)
@@ -515,9 +521,9 @@ const ReportDetails = ({
 
       // Fallback: copiar link
       try {
-        await navigator.clipboard.writeText(shareUrl);
+        await navigator.clipboard.writeText(shareText);
         toast({ 
-          title: "Link copiado!", 
+          title: "Texto copiado!", 
           description: "Cole nas suas redes sociais." 
         });
       } catch (clipboardError) {
@@ -536,9 +542,9 @@ const ReportDetails = ({
     
       // Fallback: apenas copiar link
       try {
-        await navigator.clipboard.writeText(shareUrl);
+        await navigator.clipboard.writeText(shareText);
         toast({ 
-          title: "Link copiado!", 
+          title: "Texto copiado!", 
           description: "Cole nas suas redes sociais." 
         });
       } catch (fallbackError) {
@@ -550,6 +556,13 @@ const ReportDetails = ({
     }
   }
 };
+
+  const handleWhatsAppShare = () => {
+    const shareUrl = getReportShareUrl(report.id);
+    const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${shareUrl}`;
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+    window.open(whatsappUrl, '_blank');
+  };
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!user) {
@@ -678,16 +691,38 @@ const ReportDetails = ({
     }
   };
 
-  const handleAdminStatusChange = (newStatus) => {
-    const updatedReport = { status: newStatus };
-    onUpdate({ id: report.id, ...updatedReport });
-    toast({ title: "Status atualizado!", description: `A bronca agora está "${getStatusInfo(newStatus).text}".` });
+  useEffect(() => {
+    setStatusOverride(null);
+    setCategoryOverride(null);
+    setIsRejectingReport(false);
+    setRejectionTitle('');
+    setRejectionDescription('');
+  }, [report?.id]);
+
+  const handleAdminStatusChange = async (newStatus) => {
+    if (!report?.id) return;
+    const previous = statusOverride ?? report.status;
+    setStatusOverride(newStatus);
+    try {
+      await onUpdate({ id: report.id, status: newStatus });
+      toast({ title: "Status atualizado!", description: `A bronca agora está "${getStatusInfo(newStatus).text}".` });
+    } catch (error) {
+      setStatusOverride(previous);
+      toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
+    }
   };
 
-  const handleAdminCategoryChange = (newCategory) => {
-    const updatedReport = { category_id: newCategory };
-    onUpdate({ id: report.id, ...updatedReport });
-    toast({ title: "Categoria atualizada!", description: `A bronca foi movida para "${getCategoryName(newCategory)}".` });
+  const handleAdminCategoryChange = async (newCategory) => {
+    if (!report?.id) return;
+    const previous = categoryOverride ?? report.category;
+    setCategoryOverride(newCategory);
+    try {
+      await onUpdate({ id: report.id, category_id: newCategory, category: newCategory });
+      toast({ title: "Categoria atualizada!", description: `A bronca foi movida para "${getCategoryName(newCategory)}".` });
+    } catch (error) {
+      setCategoryOverride(previous);
+      toast({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
+    }
   };
 
   const handleRecurrentClick = () => {
@@ -746,15 +781,27 @@ const ReportDetails = ({
   const handleApproveReport = async () => {
     const updatedReport = { 
       moderation_status: 'approved',
-      status: 'pending' // Muda para pending após aprovação
+      status: 'pending',
+      rejection_title: null,
+      rejection_description: null,
+      rejected_at: null
     };
     
     try {
-      await onUpdate({ id: report.id, ...updatedReport });
+      setIsModerationSaving(true);
+      if (typeof onUpdate === 'function') {
+        await onUpdate({ id: report.id, ...updatedReport });
+      } else {
+        const { error } = await supabase.from('reports').update(updatedReport).eq('id', report.id);
+        if (error) throw error;
+      }
       toast({ 
         title: "Bronca aprovada com sucesso! ✅", 
         description: "A bronca foi aprovada e agora está visível para todos." 
       });
+      setIsRejectingReport(false);
+      setRejectionTitle('');
+      setRejectionDescription('');
       onClose(); // Fecha o modal após aprovar
     } catch (error) {
       toast({ 
@@ -762,31 +809,91 @@ const ReportDetails = ({
         description: error.message, 
         variant: "destructive" 
       });
+    } finally {
+      setIsModerationSaving(false);
     }
   };
 
   const handleRejectReport = async () => {
-    const updatedReport = { 
-      moderation_status: 'rejected'
+    setRejectionTitle('');
+    setRejectionDescription('');
+    setIsRejectingReport(true);
+  };
+
+  const confirmRejectReport = async () => {
+    if (!rejectionTitle.trim() || !rejectionDescription.trim()) return;
+    if (!user?.is_admin) {
+      toast({
+        title: "Acesso restrito",
+        description: "Apenas administradores podem rejeitar broncas.",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!report?.author_id) {
+      toast({
+        title: "Erro ao rejeitar",
+        description: "Autor da bronca não encontrado.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsModerationSaving(true);
+
+    const updatedReport = {
+      moderation_status: 'rejected',
+      rejection_title: rejectionTitle.trim(),
+      rejection_description: rejectionDescription.trim(),
+      rejected_at: new Date().toISOString()
     };
-    
+
     try {
-      await onUpdate({ id: report.id, ...updatedReport });
-      toast({ 
-        title: "Bronca rejeitada", 
-        description: "A bronca foi rejeitada e não será publicada." 
+      if (typeof onUpdate === 'function') {
+        await onUpdate({ id: report.id, ...updatedReport });
+      } else {
+        const { error } = await supabase.from('reports').update(updatedReport).eq('id', report.id);
+        if (error) throw error;
+      }
+
+      try {
+        await supabase.functions.invoke('send-report-status-email', {
+          body: {
+            reportId: report.id,
+            authorId: report.author_id,
+            status: 'rejected',
+            rejectionTitle: rejectionTitle.trim(),
+            rejectionDescription: rejectionDescription.trim(),
+            reportTitle: report.title,
+            reportUrl: `${window.location.origin}/painel-usuario?tab=reports&report=${report.id}`
+          }
+        });
+      } catch (emailError) {
+        console.error('Erro ao enviar e-mail de notificação:', emailError);
+      }
+
+      toast({
+        title: "Bronca rejeitada",
+        description: "O autor foi notificado com o motivo da recusa."
       });
-      onClose(); // Fecha o modal após rejeitar
+      setIsRejectingReport(false);
+      setRejectionTitle('');
+      setRejectionDescription('');
+      onClose();
     } catch (error) {
-      toast({ 
-        title: "Erro ao rejeitar bronca", 
-        description: error.message, 
-        variant: "destructive" 
+      toast({
+        title: "Erro ao rejeitar bronca",
+        description: error.message,
+        variant: "destructive"
       });
+    } finally {
+      setIsModerationSaving(false);
     }
   };
 
-  const statusInfo = getStatusInfo(report.status);
+  const effectiveStatus = statusOverride ?? report.status;
+  const effectiveCategory = categoryOverride ?? report.category;
+  const statusInfo = getStatusInfo(effectiveStatus);
   const StatusIcon = statusInfo.icon;
   const canEdit = user && (user.is_admin || (user.id === report.author_id && report.moderation_status === 'pending_approval'));
   const canChangeStatus = user && (user.is_admin || user.user_type === 'public_official');
@@ -1058,23 +1165,87 @@ const ReportDetails = ({
                     ? 'Esta bronca está aguardando aprovação. Revise o conteúdo e decida se deve ser publicada.'
                     : 'Esta bronca foi rejeitada. Você pode reavaliar e aprová-la se necessário.'}
                 </p>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleApproveReport}
-                    className="bg-green-600 hover:bg-green-700 flex-1 gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    {report.moderation_status === 'rejected' ? 'Reaprovar Bronca' : 'Aprovar Bronca'}
-                  </Button>
-                  {report.moderation_status === 'pending_approval' && (
+                {isRejectingReport ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-muted-foreground">Título</div>
+                      <input
+                        value={rejectionTitle}
+                        onChange={(e) => setRejectionTitle(e.target.value)}
+                        placeholder="Ex: Falta de informações essenciais"
+                        className="w-full bg-background border border-input rounded-lg p-2"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-muted-foreground">Descrição</div>
+                      <textarea
+                        value={rejectionDescription}
+                        onChange={(e) => setRejectionDescription(e.target.value)}
+                        placeholder="Explique o que precisa ser ajustado para reenviar a bronca."
+                        rows={4}
+                        className="w-full bg-background border border-input rounded-lg p-2"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => { setIsRejectingReport(false); setRejectionTitle(''); setRejectionDescription(''); }}
+                        className="flex-1"
+                        disabled={isModerationSaving}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={confirmRejectReport}
+                        className="flex-1 gap-2"
+                        disabled={isModerationSaving || !rejectionTitle.trim() || !rejectionDescription.trim()}
+                      >
+                        <X className="w-4 h-4" />
+                        Confirmar Rejeição
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
                     <Button
-                      onClick={handleRejectReport}
-                      variant="outline"
-                      className="text-red-600 border-red-600 hover:bg-red-50 flex-1 gap-2"
+                      onClick={handleApproveReport}
+                      className="bg-green-600 hover:bg-green-700 flex-1 gap-2"
+                      disabled={isModerationSaving}
                     >
-                      <X className="w-4 h-4" />
-                      Rejeitar Bronca
+                      <Check className="w-4 h-4" />
+                      {report.moderation_status === 'rejected' ? 'Reaprovar Bronca' : 'Aprovar Bronca'}
                     </Button>
+                    {report.moderation_status === 'pending_approval' && (
+                      <Button
+                        onClick={handleRejectReport}
+                        variant="outline"
+                        className="text-red-600 border-red-600 hover:bg-red-50 flex-1 gap-2"
+                        disabled={isModerationSaving}
+                      >
+                        <X className="w-4 h-4" />
+                        Rejeitar Bronca
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!isEditing && report.moderation_status === 'rejected' && (report.rejection_title || report.rejection_description) && (
+              <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/40 dark:bg-red-900/10 overflow-hidden shadow-sm">
+                <div className="bg-red-100/60 dark:bg-red-900/30 px-4 py-3 flex items-center gap-2 border-b border-red-200 dark:border-red-900/50">
+                  <AlertTriangle className="w-5 h-5 text-red-700 dark:text-red-300" />
+                  <h3 className="font-semibold text-red-900 dark:text-red-100">Motivo da Recusa</h3>
+                </div>
+                <div className="p-4 space-y-2">
+                  {report.rejection_title && (
+                    <p className="font-semibold text-foreground">{report.rejection_title}</p>
+                  )}
+                  {report.rejection_description && (
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">{report.rejection_description}</p>
                   )}
                 </div>
               </div>
@@ -1186,8 +1357,8 @@ const ReportDetails = ({
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Alterar Status</label>
                     <Combobox
-                      value={report.status}
-                      onSelect={handleAdminStatusChange}
+                      value={effectiveStatus}
+                      onChange={handleAdminStatusChange}
                       options={[
                         { value: "pending", label: "Pendente" },
                         { value: "in-progress", label: "Em Andamento" },
@@ -1202,8 +1373,8 @@ const ReportDetails = ({
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Alterar Categoria</label>
                       <Combobox
-                        value={report.category}
-                        onSelect={handleAdminCategoryChange}
+                        value={effectiveCategory}
+                        onChange={handleAdminCategoryChange}
                         options={Object.entries(categories).map(([key, value]) => ({ value: key, label: value }))}
                         placeholder="Selecione a categoria"
                         searchPlaceholder="Buscar categoria..."
@@ -1536,6 +1707,14 @@ const ReportDetails = ({
                         <Share2 className="w-4 h-4" />
                         <span className="hidden sm:inline">Compartilhar</span>
                         <span className="sm:hidden">Compart.</span>
+                      </Button>
+
+                      <Button onClick={handleWhatsAppShare} variant="outline" className="hidden sm:flex gap-2 text-xs sm:text-sm border-emerald-500 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
+                        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.347-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                        </svg>
+                        <span className="hidden sm:inline">WhatsApp</span>
+                        <span className="sm:hidden">Whats</span>
                       </Button>
                       
                       {canEdit && (
