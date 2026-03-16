@@ -907,8 +907,9 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
   const currentBgStyle = useMemo(() => {
     if (bgType === 'color') return { backgroundColor: customBgColor };
     let bgUrl = '/card-instagram/bg-stories.png';
-    if (bgType === 'second') bgUrl = '/card-instagram/bg-second.png';
-    if (bgType === 'third') bgUrl = '/card-instagram/bg-third.png';
+    if(bgType === 'primary') bgUrl = '/card-instagram/bg-pending-1.png';
+    if (bgType === 'second') bgUrl = '/card-instagram/bg-in-progress.png';
+    if (bgType === 'third') bgUrl = '/card-instagram/bg-resolved.png';
     
     return { 
       backgroundImage: `url(${bgUrl})`,
@@ -1016,6 +1017,15 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                       </button>
 
                       <button
+                        onClick={() => setBgType('primary')}
+                        className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
+                          bgType === 'primary' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        Mapa Vermelho
+                      </button>
+
+                      <button
                         onClick={() => setBgType('second')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'second' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
@@ -1030,7 +1040,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                           bgType === 'third' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
                         }`}
                       >
-                        Perigo
+                        Mapa Verde
                       </button>
                       
                       <button

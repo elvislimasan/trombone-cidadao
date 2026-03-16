@@ -32,13 +32,22 @@ const clampText = (text = '', max = 90) => {
   return clean.slice(0, max).trimEnd() + '…';
 };
 
+const getDynamicFontSize = (text, baseSize = 68) => {
+  if (!text) return baseSize;
+  const length = text.length;
+  if (length > 60) return Math.max(42, baseSize * 0.75);
+  if (length > 40) return Math.max(54, baseSize * 0.8);
+  if (length > 25) return Math.max(62, baseSize * 0.85);
+  return baseSize;
+};
+
 const getSafeFilename = (title = '') =>
   clampText(title || 'bronca', 60)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s-]/gu, '')
     .replace(/\s+/g, '-');
 
-const splitHeadline = (title = '', maxLineLength = 18, maxLines = 4) => {
+const splitHeadline = (title = '', maxLineLength = 18, maxLines = 6) => {
   const clean = normalizeText(title);
 
   if (!clean) return ['A cidade precisa', 'olhar para isso'];
@@ -62,6 +71,9 @@ const splitHeadline = (title = '', maxLineLength = 18, maxLines = 4) => {
   if (current && lines.length < maxLines) lines.push(current);
   return lines;
 };
+
+const baseTextShadow =
+  '0 4px 14px rgba(0,0,0,0.38), 0 14px 34px rgba(0,0,0,0.24)';
 
 const getCityFromAddress = (address = '', report = {}) => {
   if (report.city) {
@@ -98,9 +110,7 @@ const getCityFromAddress = (address = '', report = {}) => {
 const getNormalizedStatus = (status) => {
   const value = normalizeText(status).toLowerCase();
 
-  if (
-    ['pendente', 'pending', 'aberta', 'open', 'aguardando'].includes(value)
-  ) {
+  if (['pendente', 'pending', 'aberta', 'open', 'aguardando'].includes(value)) {
     return 'pending';
   }
 
@@ -236,6 +246,7 @@ function StatusTag({ statusConfig }) {
             textTransform: 'uppercase',
             position: 'relative',
             zIndex: 1,
+            textShadow: baseTextShadow,
           }}
         >
           {statusConfig.label}
@@ -276,15 +287,139 @@ function getStatusBackgroundStyle(bgType, customBgColor, reportStatus) {
   };
 }
 
+function ReportImage({
+  coverPhotoUrl,
+  enableImageEffect = true,
+  enableHoleEffect = false,
+}) {
+  if (!coverPhotoUrl) return null;
+
+  if (enableHoleEffect) {
+    return (
+   
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: '48%',
+            filter: 'drop-shadow(0 14px 24px rgba(0,0,0,0.35))',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: '-18px',
+              background:
+                'radial-gradient(circle at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0) 100%)',
+              filter: 'blur(10px)',
+              clipPath:
+                'polygon(5% 12%, 16% 5%, 34% 9%, 48% 3%, 68% 8%, 82% 4%, 95% 12%, 91% 31%, 98% 47%, 92% 64%, 96% 81%, 84% 94%, 66% 89%, 49% 97%, 29% 91%, 12% 95%, 4% 81%, 8% 62%, 2% 46%, 9% 27%)',
+              zIndex: 1,
+            }}
+          />
+
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: '100%',
+              overflow: 'hidden',
+              clipPath:
+                'polygon(5% 12%, 16% 5%, 34% 9%, 48% 3%, 68% 8%, 82% 4%, 95% 12%, 91% 31%, 98% 47%, 92% 64%, 96% 81%, 84% 94%, 66% 89%, 49% 97%, 29% 91%, 12% 95%, 4% 81%, 8% 62%, 2% 46%, 9% 27%)',
+              background: '#111',
+              zIndex: 2,
+            }}
+          >
+            <img
+              src={coverPhotoUrl}
+              alt="Report"
+              crossOrigin="anonymous"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transform: 'scale(1.12)',
+                filter: 'brightness(1.02) contrast(1.08) saturate(1.04)',
+              }}
+            />
+
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                boxShadow:
+                  'inset 0 0 18px rgba(0,0,0,0.55), inset 0 0 48px rgba(0,0,0,0.4)',
+              }}
+            />
+
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                background:
+                  'radial-gradient(ellipse at center, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.28) 100%)',
+              }}
+            />
+          </div>
+        </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        aspectRatio: '16/9',
+        borderRadius: enableImageEffect ? 20 : 8,
+        overflow: 'hidden',
+        position: 'relative',
+        marginBottom: 42,
+        boxShadow: enableImageEffect
+          ? '0 24px 48px rgba(0,0,0,0.38)'
+          : '0 18px 32px rgba(0,0,0,0.28)',
+      }}
+    >
+      <img
+        src={coverPhotoUrl}
+        alt="Report"
+        crossOrigin="anonymous"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          transform: enableImageEffect ? 'scale(1.02)' : 'scale(1)',
+          filter: enableImageEffect
+            ? 'brightness(0.96) contrast(1.04)'
+            : 'none',
+        }}
+      />
+
+      {enableImageEffect && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            boxShadow: 'inset 0 0 40px rgba(0,0,0,0.22)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+    </div>
+  );
+}
 function StoryTemplateInstagram({
   report,
   coverPhotoUrl,
   bgStyle,
   enableImageEffect = true,
+  enableHoleEffect = false,
 }) {
   const title = report?.title || '';
   const address = report?.address || '';
-  const titleLines = splitHeadline(title, 19, 4);
+  const fontSize = getDynamicFontSize(title, 68);
+  const titleLines = splitHeadline(title, title.length > 40 ? 25 : 19, 6);
   const statusConfig = getStatusConfig(report?.status);
 
   const playStoreUrl =
@@ -312,12 +447,11 @@ function StoryTemplateInstagram({
           position: 'absolute',
           inset: 0,
           background:
-            'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.14) 28%, rgba(0,0,0,0.24) 100%)',
+            'linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.14) 28%, rgba(0,0,0,0.32) 100%)',
           pointerEvents: 'none',
         }}
       />
 
-      {/* Header */}
       <div
         style={{
           position: 'absolute',
@@ -346,7 +480,7 @@ function StoryTemplateInstagram({
               color: '#d52407',
               lineHeight: 1,
               letterSpacing: '-0.02em',
-              textShadow: '0 4px 10px rgba(0,0,0,0.28)',
+              textShadow: baseTextShadow,
             }}
           >
             TROMBONE
@@ -358,7 +492,7 @@ function StoryTemplateInstagram({
               color: '#ffd20c',
               lineHeight: 1,
               letterSpacing: '-0.02em',
-              textShadow: '0 4px 10px rgba(0,0,0,0.28)',
+              textShadow: baseTextShadow,
             }}
           >
             CIDADÃO
@@ -366,7 +500,6 @@ function StoryTemplateInstagram({
         </div>
       </div>
 
-      {/* Content */}
       <div
         style={{
           position: 'absolute',
@@ -382,108 +515,31 @@ function StoryTemplateInstagram({
       >
         <StatusTag statusConfig={statusConfig} />
 
-        {/* Title */}
         <div
           style={{
-            fontSize: 68,
-            lineHeight: 1.05,
+            fontSize: fontSize,
+            lineHeight: 0.92,
             fontWeight: 900,
             textAlign: 'center',
             textTransform: 'uppercase',
             color: '#eceade',
-            textShadow:
-              '0 4px 12px rgba(0,0,0,0.5), 0 14px 28px rgba(0,0,0,0.18)',
+            textShadow: baseTextShadow,
             marginBottom: 90,
             width: '100%',
-            maxWidth: 960,
+            maxWidth: 950,
             whiteSpace: 'pre-line',
+            wordBreak: 'break-word',
           }}
         >
           {titleLines.join('\n')}
         </div>
 
-        {/* Image */}
-        {coverPhotoUrl && (
-          <div
-            style={{
-              width: '100%',
-              aspectRatio: '16/9',
-              borderRadius: 8,
-              overflow: 'hidden',
-              position: 'relative',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.30)',
-              border: '1px solid rgba(255,255,255,0.04)',
-              marginBottom: 42,
-              background: '#121212',
-            }}
-          >
-            <img
-              src={coverPhotoUrl}
-              alt="Report"
-              crossOrigin="anonymous"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                transform: enableImageEffect ? 'scale(1.045)' : 'scale(1)',
-                filter: enableImageEffect
-                  ? 'brightness(0.84) contrast(0.92) saturate(0.80) blur(0.6px)'
-                  : 'none',
-              }}
-            />
+        <ReportImage
+          coverPhotoUrl={coverPhotoUrl}
+          enableImageEffect={enableImageEffect}
+          enableHoleEffect={enableHoleEffect}
+        />
 
-            {enableImageEffect && (
-              <>
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background:
-                      'radial-gradient(ellipse at center, rgba(255,255,255,0.01) 0%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0.46) 100%)',
-                    pointerEvents: 'none',
-                  }}
-                />
-
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: `
-                      linear-gradient(to right, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0.08) 12%, rgba(0,0,0,0.00) 24%, rgba(0,0,0,0.00) 76%, rgba(0,0,0,0.08) 88%, rgba(0,0,0,0.32) 100%),
-                      linear-gradient(to bottom, rgba(0,0,0,0.24) 0%, rgba(0,0,0,0.04) 12%, rgba(0,0,0,0.00) 24%, rgba(0,0,0,0.00) 74%, rgba(0,0,0,0.08) 88%, rgba(0,0,0,0.28) 100%)
-                    `,
-                    pointerEvents: 'none',
-                  }}
-                />
-
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    boxShadow:
-                      'inset 0 0 90px rgba(0,0,0,0.40), inset 0 0 24px rgba(0,0,0,0.14)',
-                    pointerEvents: 'none',
-                  }}
-                />
-
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0.08,
-                    backgroundImage:
-                      'radial-gradient(rgba(255,255,255,0.72) 0.75px, transparent 0.75px)',
-                    backgroundSize: '12px 12px',
-                    mixBlendMode: 'soft-light',
-                    pointerEvents: 'none',
-                  }}
-                />
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Location */}
         {address && (
           <div
             style={{
@@ -500,7 +556,7 @@ function StoryTemplateInstagram({
               color="#FF3B30"
               fill="#FF3B30"
               style={{
-                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
+                filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.38))',
                 flexShrink: 0,
               }}
             />
@@ -510,8 +566,7 @@ function StoryTemplateInstagram({
                 fontWeight: 900,
                 color: '#eceade',
                 textTransform: 'uppercase',
-                textShadow:
-                  '0 4px 12px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.6)',
+                textShadow: baseTextShadow,
                 letterSpacing: '0.02em',
                 textAlign: 'center',
               }}
@@ -523,7 +578,6 @@ function StoryTemplateInstagram({
 
         <div style={{ flex: 1 }} />
 
-        {/* Footer */}
         <div
           style={{
             width: '100%',
@@ -538,6 +592,7 @@ function StoryTemplateInstagram({
             gap: 30,
             position: 'relative',
             overflow: 'hidden',
+            boxShadow: '0 22px 42px rgba(0,0,0,0.28)',
           }}
         >
           <div
@@ -586,7 +641,12 @@ function StoryTemplateInstagram({
             >
               <div
                 style={{
-                  backgroundColor: statusConfig.bgKey === 'resolved' ? '#31894a' : statusConfig.bgKey === 'pending' ? '#d52407' : '#346397',
+                  backgroundColor:
+                    statusConfig.bgKey === 'resolved'
+                      ? '#31894a'
+                      : statusConfig.bgKey === 'pending'
+                      ? '#d52407'
+                      : '#346397',
                   width: 110,
                   height: 110,
                   borderRadius: '50%',
@@ -594,7 +654,7 @@ function StoryTemplateInstagram({
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                  boxShadow: '0 14px 26px rgba(0,0,0,0.18)',
                 }}
               >
                 <img
@@ -618,6 +678,7 @@ function StoryTemplateInstagram({
                       fontWeight: 900,
                       color: '#ffd20c',
                       letterSpacing: '0.02em',
+                      textShadow: baseTextShadow,
                     }}
                   >
                     BAIXE O APP
@@ -628,6 +689,7 @@ function StoryTemplateInstagram({
                       fontWeight: 600,
                       color: '#eceade',
                       marginLeft: 10,
+                      textShadow: baseTextShadow,
                     }}
                   >
                     E CADASTRE
@@ -639,6 +701,7 @@ function StoryTemplateInstagram({
                     fontSize: 32,
                     fontWeight: 600,
                     color: '#eceade',
+                    textShadow: baseTextShadow,
                   }}
                 >
                   SUA BRONCA TAMBÉM
@@ -656,7 +719,7 @@ function StoryTemplateInstagram({
                 fontWeight: 900,
                 textAlign: 'center',
                 textTransform: 'uppercase',
-                boxShadow: '0 6px 15px rgba(0,0,0,0.3)',
+                boxShadow: '0 18px 36px rgba(0,0,0,0.22)',
                 width: 'fit-content',
                 marginTop: 5,
                 backgroundImage:
@@ -680,7 +743,7 @@ function StoryTemplateInstagram({
               flexShrink: 0,
               position: 'relative',
               zIndex: 1,
-              boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+              boxShadow: '0 18px 36px rgba(0,0,0,0.22)',
             }}
           >
             <img
@@ -697,7 +760,13 @@ function StoryTemplateInstagram({
 }
 
 const StoryRenderer = React.forwardRef(function StoryRenderer(
-  { report, coverPhotoUrl, bgStyle, enableImageEffect = true },
+  {
+    report,
+    coverPhotoUrl,
+    bgStyle,
+    enableImageEffect = true,
+    enableHoleEffect = false,
+  },
   ref
 ) {
   return (
@@ -707,6 +776,7 @@ const StoryRenderer = React.forwardRef(function StoryRenderer(
         coverPhotoUrl={coverPhotoUrl}
         bgStyle={bgStyle}
         enableImageEffect={enableImageEffect}
+        enableHoleEffect={enableHoleEffect}
       />
     </div>
   );
@@ -731,8 +801,8 @@ const ReportStoryModal = ({
   const [layout, setLayout] = useState('instagram');
   const [downloading, setDownloading] = useState(false);
   const [enableImageEffect, setEnableImageEffect] = useState(true);
+  const [enableHoleEffect, setEnableHoleEffect] = useState(false);
 
-  // auto = escolhe pelo status
   const [bgType, setBgType] = useState('auto');
   const [customBgColor, setCustomBgColor] = useState('#111111');
 
@@ -798,7 +868,6 @@ const ReportStoryModal = ({
 
         <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-4 bg-gray-50/30 no-scrollbar">
           <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 sm:gap-8 lg:gap-4 h-full">
-            {/* Sidebar */}
             <div className="space-y-4 sm:space-y-6 lg:space-y-4">
               <div>
                 <h3 className="text-[10px] sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-4 lg:mb-2">
@@ -960,12 +1029,36 @@ const ReportStoryModal = ({
                         />
                       </div>
                     </button>
+
+                    <button
+                      onClick={() => setEnableHoleEffect(!enableHoleEffect)}
+                      className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all mt-2 ${
+                        enableHoleEffect
+                          ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold'
+                          : 'border-gray-200 bg-white text-gray-600'
+                      }`}
+                    >
+                      <span className="text-[10px]">
+                        Efeito buraco na imagem
+                      </span>
+
+                      <div
+                        className={`w-8 h-4 rounded-full relative transition-colors ${
+                          enableHoleEffect ? 'bg-tc-red' : 'bg-gray-200'
+                        }`}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${
+                            enableHoleEffect ? 'right-0.5' : 'left-0.5'
+                          }`}
+                        />
+                      </div>
+                    </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Preview */}
             <div className="flex flex-col gap-3 sm:gap-4 lg:gap-2 h-full min-w-0">
               <div className="bg-muted/30 rounded-2xl p-2 sm:p-4 lg:p-2 flex items-center justify-center border border-dashed border-muted-foreground/20 overflow-hidden h-[360px] xs:h-[400px] sm:h-[480px] lg:h-[350px] xl:h-[480px] flex-shrink-0 relative group">
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/80 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
@@ -984,6 +1077,7 @@ const ReportStoryModal = ({
                         coverPhotoUrl={coverPhotoUrl}
                         bgStyle={currentBgStyle}
                         enableImageEffect={enableImageEffect}
+                        enableHoleEffect={enableHoleEffect}
                       />
                     </div>
                   </div>
@@ -1023,7 +1117,6 @@ const ReportStoryModal = ({
           </Button>
         </DialogFooter>
 
-        {/* Hidden export */}
         <div
           style={{
             position: 'fixed',
@@ -1041,6 +1134,7 @@ const ReportStoryModal = ({
             coverPhotoUrl={coverPhotoUrl}
             bgStyle={currentBgStyle}
             enableImageEffect={enableImageEffect}
+            enableHoleEffect={enableHoleEffect}
           />
         </div>
       </DialogContent>
