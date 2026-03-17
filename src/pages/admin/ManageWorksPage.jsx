@@ -154,7 +154,7 @@ const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap
 });
 FiltersSection.displayName = 'FiltersSection';
 
-export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
+export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', visibleTabs = null }) => {
   const [formData, setFormData] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState(null);
@@ -164,6 +164,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [isMeasurementEditing, setIsMeasurementEditing] = useState(false);
   const [hasUnsavedMeasurementChanges, setHasUnsavedMeasurementChanges] = useState(false);
+  const [isPaymentEditing, setIsPaymentEditing] = useState(false);
   const [errors, setErrors] = useState({});
   const [newWorkMedia, setNewWorkMedia] = useState([]); // Array of { file, galleryName }
 
@@ -210,13 +211,27 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     { id: 'info', label: 'Informações', icon: Info },
     { id: 'media', label: 'Mídias', icon: ImageIcon },
     { id: 'links', label: 'Links', icon: Link2 },
-    { id: 'measurements', label: 'Histórico e Financeiro', icon: Briefcase },
+    { id: 'history', label: 'Histórico / Fases', icon: Briefcase },
+    { id: 'payments', label: 'Pagamentos', icon: DollarSign },
   ];
+  const displayedTabs = Array.isArray(visibleTabs) && visibleTabs.length > 0
+    ? EDIT_TABS.filter(t => visibleTabs.includes(t.id))
+    : EDIT_TABS;
+  const isSingleSection = displayedTabs.length === 1;
 
   const goToTab = (nextTabId) => {
-    if (activeTab === 'measurements') {
+    if (isSingleSection) return;
+    if (!displayedTabs.some(t => t.id === nextTabId)) return;
+    if (activeTab === 'history') {
       if (hasUnsavedMeasurementChanges) {
         if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+          return;
+        }
+      }
+    }
+    if (activeTab === 'payments') {
+      if (isPaymentEditing) {
+        if (!window.confirm("Você possui um pagamento em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
           return;
         }
       }
@@ -227,8 +242,12 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   useEffect(() => {
     if (work) {
       // Reset navigation state when opening modal or switching modes
-      setActiveTab('info');
+      const next = displayedTabs.some(t => t.id === initialTab) ? initialTab : (displayedTabs[0]?.id || 'info');
+      setActiveTab(next);
       setNewWorkMedia([]);
+      setIsMeasurementEditing(false);
+      setHasUnsavedMeasurementChanges(false);
+      setIsPaymentEditing(false);
 
       setThumbnailFile(null);
       setThumbnailPreview(work.thumbnail_url || null);
@@ -460,7 +479,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-                {formData.id ? 'Editar Obra' : 'Nova Obra'}
+                {isSingleSection ? `Editar ${displayedTabs[0]?.label || 'Obra'}` : (formData.id ? 'Editar Obra' : 'Nova Obra')}
               </DialogTitle>
               <CardDescription className="hidden sm:block">{formData.id ? 'Altere os detalhes da obra e gerencie mídias e links.' : 'Preencha as informações básicas para criar a obra.'}</CardDescription>
             </div>
@@ -474,9 +493,10 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         </DialogHeader>
         
         <div className="flex-grow overflow-hidden grid grid-cols-1 md:grid-cols-4 gap-6 p-4 sm:p-0">
+          {!isSingleSection && (
           <div className="hidden md:block md:col-span-1 overflow-y-auto pr-2">
             <nav className="flex flex-col gap-2">
-              {EDIT_TABS.map(tab => (
+              {displayedTabs.map(tab => (
                 <Button 
                   key={tab.id}
                   type="button"
@@ -489,18 +509,21 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
               ))}
             </nav>
           </div>
+          )}
 
-          <div className="md:col-span-3 flex-grow overflow-y-auto pr-4 space-y-6">
+          <div className={`${isSingleSection ? 'md:col-span-4' : 'md:col-span-3'} flex-grow overflow-y-auto pr-4 space-y-6`}>
             {/* Mobile Tab Indicator */}
+            {!isSingleSection && (
             <div className="md:hidden mb-4 border-b pb-2">
               <div className="flex justify-between items-center text-sm text-muted-foreground mb-1">
-                <span>Passo {EDIT_TABS.findIndex(t => t.id === activeTab) + 1} de {EDIT_TABS.length}</span>
+                <span>Passo {displayedTabs.findIndex(t => t.id === activeTab) + 1} de {displayedTabs.length}</span>
                 <span className="font-medium text-foreground">
-                  {EDIT_TABS.find(t => t.id === activeTab)?.label}
+                  {displayedTabs.find(t => t.id === activeTab)?.label}
                 </span>
               </div>
-              <Progress value={((EDIT_TABS.findIndex(t => t.id === activeTab) + 1) / EDIT_TABS.length) * 100} className="h-1.5" />
+              <Progress value={((displayedTabs.findIndex(t => t.id === activeTab) + 1) / displayedTabs.length) * 100} className="h-1.5" />
             </div>
+            )}
 
             <div className={`space-y-6 ${activeTab === 'info' ? 'block' : 'hidden'}`}>
                 <Card>
@@ -855,13 +878,14 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                 </Card>
               </div>
             </div>
-            {activeTab === 'measurements' && (
+            {activeTab === 'history' && (
               formData.id ? (
                 <WorkMeasurementsTab 
                   workId={formData.id} 
                   contractors={workOptions?.contractors || []} 
                   onEditingChange={setIsMeasurementEditing}
                   onDirtyChange={(dirty) => setHasUnsavedMeasurementChanges(dirty)}
+                  onOpenPayments={() => setActiveTab('payments')}
                 />
               ) : (
                 <Card>
@@ -875,24 +899,48 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                 </Card>
               )
             )}
+            {activeTab === 'payments' && (
+              formData.id ? (
+                <WorkFinancialTab
+                  workId={formData.id}
+                  onEditingChange={setIsPaymentEditing}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                    <DollarSign className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">Salve a obra primeiro</h3>
+                    <p className="text-muted-foreground max-w-sm mt-2">
+                      Para registrar pagamentos, é necessário salvar as informações básicas da obra primeiro.
+                    </p>
+                  </CardContent>
+                </Card>
+              )
+            )}
           </div>
         </div>
 
-        {!(activeTab === 'measurements' && isMeasurementEditing) && (
+        {!(activeTab === 'history' && isMeasurementEditing) && !(activeTab === 'payments' && isPaymentEditing) && (
         <DialogFooter className="flex-shrink-0 p-4 sm:p-0 sm:pt-4 border-t sm:border-t-0 mt-auto sm:mt-4 bg-background sm:bg-transparent z-20 flex flex-col sm:flex-row gap-2">
+          {!isSingleSection && (
           <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
             <Button 
               type="button" 
               variant="outline" 
-              disabled={EDIT_TABS.findIndex(t => t.id === activeTab) === 0}
+              disabled={displayedTabs.findIndex(t => t.id === activeTab) === 0}
               onClick={() => {
-                if (activeTab === 'measurements' && hasUnsavedMeasurementChanges) {
+                if (activeTab === 'history' && hasUnsavedMeasurementChanges) {
                   if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
                     return;
                   }
                 }
-                const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
-                if (idx > 0) setActiveTab(EDIT_TABS[idx - 1].id);
+                if (activeTab === 'payments' && isPaymentEditing) {
+                  if (!window.confirm("Você possui um pagamento em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+                    return;
+                  }
+                }
+                const idx = displayedTabs.findIndex(t => t.id === activeTab);
+                if (idx > 0) setActiveTab(displayedTabs[idx - 1].id);
               }}
             >
               Anterior
@@ -900,24 +948,39 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
             <Button 
               type="button" 
               onClick={() => {
-                const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
-                if (idx < EDIT_TABS.length - 1) {
-                  if (activeTab === 'measurements' && hasUnsavedMeasurementChanges) {
+                const idx = displayedTabs.findIndex(t => t.id === activeTab);
+                if (idx < displayedTabs.length - 1) {
+                  if (activeTab === 'history' && hasUnsavedMeasurementChanges) {
                     if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
                       return;
                     }
                   }
-                  setActiveTab(EDIT_TABS[idx + 1].id);
+                  if (activeTab === 'payments' && isPaymentEditing) {
+                    if (!window.confirm("Você possui um pagamento em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+                      return;
+                    }
+                  }
+                  setActiveTab(displayedTabs[idx + 1].id);
                 }
                 else handleSubmit();
               }}
             >
-              {EDIT_TABS.findIndex(t => t.id === activeTab) === EDIT_TABS.length - 1 ? (formData.id ? 'Salvar' : 'Criar Obra') : 'Próximo'}
+              {displayedTabs.findIndex(t => t.id === activeTab) === displayedTabs.length - 1 ? (formData.id ? 'Salvar' : 'Criar Obra') : 'Próximo'}
             </Button>
           </div>
+          )}
           <div className="hidden sm:flex justify-end gap-2 w-full sm:border-t sm:pt-4">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="button" onClick={handleSubmit} disabled={!canProceed()} className="gap-2">
+              <Save className="w-4 h-4" /> {formData.id ? 'Salvar Alterações' : 'Criar Obra'}
+            </Button>
+          </div>
+
+          <div className="flex sm:hidden gap-2 w-full">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSubmit} disabled={!canProceed()} className="gap-2 flex-1">
               <Save className="w-4 h-4" /> {formData.id ? 'Salvar Alterações' : 'Criar Obra'}
             </Button>
           </div>

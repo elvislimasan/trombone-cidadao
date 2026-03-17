@@ -8,17 +8,14 @@ import { Combobox } from '@/components/ui/combobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, DollarSign, Percent, ArrowLeft, Save, Calculator, Link2 } from 'lucide-react';
-import { formatCurrency, parseCurrency, formatDate } from '@/lib/utils';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, ArrowLeft, Save, ArrowUpRight } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
-export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange }) {
+export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange, onOpenPayments }) {
   const [measurements, setMeasurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
-  const [currentPayment, setCurrentPayment] = useState(null);
   const [errors, setErrors] = useState({});
   const { toast } = useToast();
   const { user } = useAuth();
@@ -42,13 +39,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     amount_spent: '',
     execution_period_days: '',
     funding_source: []
-  });
-
-  const [paymentForm, setPaymentForm] = useState({
-    payment_date: '',
-    banking_order: '',
-    value: '',
-    portal_link: ''
   });
 
   // Auto-save Logic (sem restauração automática na abertura do modal)
@@ -122,6 +112,72 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     }
 
     return newErrors;
+  };
+
+  const getPhaseSortKey = (m) => {
+    return (
+      m?.start_date ||
+      m?.predicted_start_date ||
+      m?.created_at ||
+      ''
+    );
+  };
+
+  const validateProgressContinuity = (proposedPct) => {
+    if (!Number.isFinite(proposedPct)) return 'Execução inválida.';
+    if (proposedPct < 0 || proposedPct > 100) return 'A execução deve estar entre 0% e 100%.';
+
+    const working = measurements.map((m) => {
+      if (currentMeasurement && m.id === currentMeasurement.id) {
+        return {
+          ...m,
+          start_date: formData.start_date || m.start_date,
+          predicted_start_date: formData.predicted_start_date || m.predicted_start_date,
+          execution_percentage: proposedPct,
+        };
+      }
+      return m;
+    });
+
+    const targetId = currentMeasurement ? currentMeasurement.id : '__new__';
+    if (!currentMeasurement) {
+      working.push({
+        id: targetId,
+        start_date: formData.start_date || null,
+        predicted_start_date: formData.predicted_start_date || null,
+        created_at: new Date().toISOString(),
+        execution_percentage: proposedPct,
+      });
+    }
+
+    const sorted = [...working].sort((a, b) => getPhaseSortKey(a).localeCompare(getPhaseSortKey(b)));
+    const idx = sorted.findIndex((m) => m.id === targetId);
+    if (idx === -1) return null;
+
+    const before = sorted
+      .slice(0, idx)
+      .map((m) => Number(m.execution_percentage))
+      .filter((n) => Number.isFinite(n));
+    const after = sorted
+      .slice(idx + 1)
+      .map((m) => Number(m.execution_percentage))
+      .filter((n) => Number.isFinite(n));
+
+    const prevEnd = before.length > 0 ? Math.max(...before) : 0;
+    const nextEnd = after.length > 0 ? Math.min(...after) : null;
+
+    if (proposedPct < prevEnd) {
+      return `A execução desta fase não pode ser menor que ${prevEnd}%, pois precisa continuar a partir da etapa anterior.`;
+    }
+    if (nextEnd !== null && proposedPct > nextEnd) {
+      return `A execução desta fase não pode ultrapassar ${nextEnd}%, pois existe uma etapa posterior com execução menor.`;
+    }
+
+    if (formData.status === 'completed' && proposedPct !== 100) {
+      return 'Se o status for Concluída, a execução deve ser 100%.';
+    }
+
+    return null;
   };
 
   const fetchMeasurementMedia = async (measurementId) => {
@@ -284,74 +340,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     }
   };
 
-  // Payment Handlers
-  const handleEditPayment = (measurementId, payment = null) => {
-    setCurrentMeasurement({ id: measurementId }); // Store which measurement we're adding to
-    if (payment) {
-      setCurrentPayment(payment);
-      setPaymentForm({
-        payment_date: payment.payment_date,
-        banking_order: payment.banking_order || '',
-        value: payment.value || '',
-        portal_link: payment.portal_link || ''
-      });
-    } else {
-      setCurrentPayment(null);
-      setPaymentForm({
-        payment_date: new Date().toISOString().split('T')[0],
-        banking_order: '',
-        value: '',
-        portal_link: ''
-      });
-    }
-    setIsEditingPayment(true);
-    if (onEditingChange) onEditingChange(true);
-  };
-
-  const handleSavePayment = async () => {
-    try {
-      if (!paymentForm.payment_date || !paymentForm.value) {
-        toast({ title: "Erro", description: "Data e valor são obrigatórios.", variant: "destructive" });
-        return;
-      }
-
-      const payload = {
-        measurement_id: currentMeasurement.id,
-        payment_date: paymentForm.payment_date,
-        banking_order: paymentForm.banking_order || null,
-        value: Number(paymentForm.value),
-        portal_link: paymentForm.portal_link || null
-      };
-
-      let error;
-      if (currentPayment) {
-        ({ error } = await supabase.from('public_work_payments').update(payload).eq('id', currentPayment.id));
-      } else {
-        ({ error } = await supabase.from('public_work_payments').insert([payload]));
-      }
-
-      if (error) throw error;
-      toast({ title: "Sucesso", description: "Pagamento registrado!" });
-      setIsEditingPayment(false);
-      if (onEditingChange) onEditingChange(false);
-      fetchMeasurements();
-    } catch (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
-    }
-  };
-
-  const handleDeletePayment = async (id) => {
-    if (!window.confirm('Excluir este pagamento?')) return;
-    try {
-      const { error } = await supabase.from('public_work_payments').delete().eq('id', id);
-      if (error) throw error;
-      toast({ title: "Sucesso", description: "Pagamento excluído." });
-      fetchMeasurements();
-    } catch (error) {
-      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
-    }
-  };
-
   const handleEdit = (measurement = null) => {
     if (measurement) {
       setCurrentMeasurement(measurement);
@@ -477,6 +465,20 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         return;
       }
 
+      const proposedPct = formData.execution_percentage === '' ? null : Number(formData.execution_percentage);
+      if (proposedPct !== null) {
+        const msg = validateProgressContinuity(proposedPct);
+        if (msg) {
+          setErrors(prev => ({ ...prev, execution_percentage: msg }));
+          toast({
+            title: "Erro de validação",
+            description: msg,
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       const payload = {
         work_id: workId,
         title: formData.title,
@@ -485,7 +487,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         value: formData.value ? Number(formData.value) : null,
-        execution_percentage: formData.execution_percentage ? Number(formData.execution_percentage) : null,
+        execution_percentage: proposedPct,
         status: formData.status,
         predicted_start_date: formData.predicted_start_date || null,
         service_order_date: formData.service_order_date || null,
@@ -614,68 +616,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       });
       return out;
     };
-    if (isEditingPayment) {
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>{currentPayment ? 'Editar Pagamento' : 'Novo Pagamento'}</CardTitle>
-              <CardDescription>
-                Registrando pagamento para: <strong>{measurements.find(m => m.id === currentMeasurement.id)?.title}</strong>
-              </CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => { setIsEditingPayment(false); if(onEditingChange) onEditingChange(false); }}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Data do Pagamento</Label>
-              <Input 
-                type="date" 
-                value={paymentForm.payment_date} 
-                onChange={(e) => setPaymentForm({...paymentForm, payment_date: e.target.value})} 
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Valor (R$)</Label>
-              <Input 
-                type="number"
-                step="0.01"
-                value={paymentForm.value} 
-                onChange={(e) => setPaymentForm({...paymentForm, value: e.target.value})} 
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label>Ordem Bancária / Empenho</Label>
-            <Input 
-              value={paymentForm.banking_order} 
-              onChange={(e) => setPaymentForm({...paymentForm, banking_order: e.target.value})} 
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Link do Portal da Transparência</Label>
-            <Input 
-              placeholder="https://..."
-              value={paymentForm.portal_link} 
-              onChange={(e) => setPaymentForm({...paymentForm, portal_link: e.target.value})} 
-            />
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => { setIsEditingPayment(false); if(onEditingChange) onEditingChange(false); }}>Cancelar</Button>
-          <Button onClick={handleSavePayment} className="gap-2"><Save className="w-4 h-4" /> Salvar Pagamento</Button>
-        </CardFooter>
-      </Card>
-    );
-  }
-
-  if (isEditing) {
+    if (isEditing) {
       const base = normalize(baselineRef.current || {});
       const curr = normalize(formData || {});
       const hasFiles = selectedFiles.length > 0;
@@ -874,7 +815,9 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                   value={formData.execution_percentage} 
                   onChange={handleChange} 
                   placeholder="0-100"
+                  className={errors.execution_percentage ? "border-red-500" : ""}
                 />
+                {errors.execution_percentage && <p className="text-xs text-red-500">{errors.execution_percentage}</p>}
               </div>
             </div>
 
@@ -1207,118 +1150,77 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 </div>
               </div>
               <CardContent className="p-0">
-                <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
-                  <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor do Contrato</span>
-                    <p className="font-bold text-slate-700 text-sm">
-                      {measurement.value ? formatCurrency(measurement.value) : 'R$ 0,00'}
-                    </p>
-                  </div>
-                  <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor Pago</span>
-                    <p className="font-bold text-blue-600 text-sm">
-                      {measurement.amount_spent ? formatCurrency(measurement.amount_spent) : 'R$ 0,00'}
-                    </p>
-                  </div>
-                  <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Execução</span>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-grow bg-slate-100 h-1.5 rounded-full overflow-hidden max-w-[60px]">
-                        <div 
-                          className="bg-emerald-500 h-full rounded-full" 
-                          style={{ width: `${measurement.execution_percentage || 0}%` }}
-                        ></div>
-                      </div>
-                      <span className="font-bold text-emerald-600 text-sm">
-                        {measurement.execution_percentage !== null ? `${measurement.execution_percentage}%` : '0%'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Status Atual</span>
-                    <p className="font-semibold text-slate-600 text-xs truncate">
-                      {measurement.status === 'completed' ? 'Concluída ✅' : 
-                       measurement.status === 'in-progress' ? 'Em execução...' :
-                       measurement.status === 'stalled' ? 'Paralisada ⚠️' : 
-                       getStatusLabel(measurement.status)}
-                    </p>
-                  </div>
-                </div>
-                {measurement.description && (
-                  <div className="px-4 pb-4">
-                    <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-100">
-                      <p className="text-xs text-slate-500 leading-relaxed italic line-clamp-2">
-                        "{measurement.description}"
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Unified Payments Section */}
-                <div className="border-t bg-slate-50/30">
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="payments" className="border-none">
-                      <AccordionTrigger className="px-4 py-2.5 hover:no-underline hover:bg-slate-100/50 transition-colors">
-                        <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500 tracking-wider">
-                          <Calculator className="w-3.5 h-3.5" />
-                          Pagamentos Realizados ({measurement.payments?.length || 0})
+                {(() => {
+                  const paidFromPayments = (measurement.payments || []).reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+                  const paidValue = paidFromPayments > 0 ? paidFromPayments : (Number(measurement.amount_spent) || 0);
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
+                        <div className="p-4 space-y-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor do Contrato</span>
+                          <p className="font-bold text-slate-700 text-sm">
+                            {measurement.value ? formatCurrency(measurement.value) : 'R$ 0,00'}
+                          </p>
                         </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="p-4 pt-0">
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Listagem de Pagamentos</h5>
-                            <Button size="sm" variant="outline" className="h-7 text-[10px] uppercase font-bold bg-white border-slate-200" onClick={() => handleEditPayment(measurement.id)}>
-                              <PlusCircle className="w-3 h-3 mr-1" /> Add Pagamento
-                            </Button>
+                        <div className="p-4 space-y-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor Pago</span>
+                          <p className="font-bold text-blue-600 text-sm">
+                            {paidValue > 0 ? formatCurrency(paidValue) : 'R$ 0,00'}
+                          </p>
+                        </div>
+                        <div className="p-4 space-y-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Execução</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-grow bg-slate-100 h-1.5 rounded-full overflow-hidden max-w-[60px]">
+                              <div
+                                className="bg-emerald-500 h-full rounded-full"
+                                style={{ width: `${measurement.execution_percentage || 0}%` }}
+                              ></div>
+                            </div>
+                            <span className="font-bold text-emerald-600 text-sm">
+                              {measurement.execution_percentage !== null ? `${measurement.execution_percentage}%` : '0%'}
+                            </span>
                           </div>
-                          
-                          {measurement.payments && measurement.payments.length > 0 ? (
-                            <div className="overflow-x-auto border rounded-lg bg-white">
-                              <table className="w-full text-sm">
-                                <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
-                                  <tr>
-                                    <th className="px-3 py-2 font-bold">Data</th>
-                                    <th className="px-3 py-2 font-bold">OB/Empenho</th>
-                                    <th className="px-3 py-2 font-bold">Valor</th>
-                                    <th className="px-3 py-2 font-bold">Portal</th>
-                                    <th className="px-3 py-2 font-bold text-right">Ações</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y text-xs">
-                                  {measurement.payments.sort((a,b) => new Date(b.payment_date) - new Date(a.payment_date)).map(payment => (
-                                    <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
-                                      <td className="px-3 py-2 whitespace-nowrap">{formatDate(payment.payment_date)}</td>
-                                      <td className="px-3 py-2 font-medium text-slate-600">{payment.banking_order || '-'}</td>
-                                      <td className="px-3 py-2 font-bold text-blue-600">{formatCurrency(payment.value)}</td>
-                                      <td className="px-3 py-2">
-                                        {payment.portal_link && (
-                                          <a href={payment.portal_link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-700">
-                                            <Link2 className="w-4 h-4" />
-                                          </a>
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-2 text-right">
-                                        <div className="flex justify-end gap-1">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditPayment(measurement.id, payment)}><Edit className="w-3 h-3" /></Button>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/5" onClick={() => handleDeletePayment(payment.id)}><Trash2 className="w-3 h-3" /></Button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="text-center py-6 bg-white rounded-lg border border-dashed border-slate-200">
-                              <p className="text-xs italic text-muted-foreground">Nenhum pagamento registrado para esta fase.</p>
-                            </div>
-                          )}
                         </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </div>
+                        <div className="p-4 space-y-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Status Atual</span>
+                          <p className="font-semibold text-slate-600 text-xs truncate">
+                            {measurement.status === 'completed' ? 'Concluída ✅' :
+                              measurement.status === 'in-progress' ? 'Em execução...' :
+                                measurement.status === 'stalled' ? 'Paralisada ⚠️' :
+                                  getStatusLabel(measurement.status)}
+                          </p>
+                        </div>
+                      </div>
+                      {measurement.description && (
+                        <div className="px-4 pb-4">
+                          <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-100">
+                            <p className="text-xs text-slate-500 leading-relaxed italic line-clamp-2">
+                              "{measurement.description}"
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <div className="border-t bg-slate-50/30 px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pagamentos</p>
+                          <p className="text-xs text-slate-600">
+                            {(measurement.payments || []).length} lançamento(s) • Total: <span className="font-semibold text-blue-700">{paidValue > 0 ? formatCurrency(paidValue) : 'R$ 0,00'}</span>
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-9 border-slate-200 bg-white"
+                          onClick={() => onOpenPayments && onOpenPayments()}
+                        >
+                          Pagamentos <ArrowUpRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </div>
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
           ))}
