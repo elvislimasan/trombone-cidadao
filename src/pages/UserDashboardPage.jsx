@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Edit, Trash2, Eye, MessageSquare, FileText, Clock, CheckCircle, XCircle, PlusCircle, Send, Upload, Building, ShoppingCart, MapPin, Share2, Heart } from 'lucide-react';
@@ -14,10 +14,13 @@ import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import ReportModal from '@/components/ReportModal';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useUpvote } from '../hooks/useUpvotes';
 
 const UserDashboardPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
   const [reports, setReports] = useState([]);
   const [comments, setComments] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -25,7 +28,27 @@ const UserDashboardPage = () => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [newEntry, setNewEntry] = useState({ name: '', address: '', phone: '', type: 'commerce', photo: null, photoPreview: null });
   const photoInputRef = useRef(null);
+  const suppressReportAutoOpenRef = useRef(false);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('reports');
+  const navigate = useNavigate();
+
+  const reportParam = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search).get('report');
+    } catch {
+      return null;
+    }
+  }, [location.search]);
+
+  const tabParam = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search).get('tab');
+    } catch {
+      return null;
+    }
+  }, [location.search]);
+  const { handleUpvote: handleUpvoteHook } = useUpvote();
 
   const fetchUserContributions = useCallback(async () => {
     if (!user) return;
@@ -71,13 +94,75 @@ const UserDashboardPage = () => {
     fetchUserContributions();
   }, [fetchUserContributions]);
 
-  const handleUpdateReport = async (editData) => {
-    const { id, title, description, address, location, category_id, newPhotos, newVideos, removedMedia, status, is_recurrent, evaluation, resolution_submission } = editData;
-
-    const reportUpdates = { title, description, address, category_id, status, is_recurrent, evaluation, resolution_submission };
-    if (location) {
-      reportUpdates.location = `POINT(${location.lng} ${location.lat})`;
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    } else if (reportParam) {
+      setActiveTab('reports');
     }
+  }, [tabParam, reportParam]);
+
+  useEffect(() => {
+    if (!reportParam) {
+      suppressReportAutoOpenRef.current = false;
+    }
+  }, [reportParam]);
+
+  useEffect(() => {
+    if (suppressReportAutoOpenRef.current) return;
+    if (!reportParam || reports.length === 0) return;
+    const found = reports.find(r => String(r.id) === String(reportParam));
+    if (!found) return;
+    if (selectedReport?.id === found.id) return;
+    
+    // 🔥 Fechar menu de notificações quando ReportDetails for aberto
+    window.dispatchEvent(new CustomEvent('close-notifications-popover'));
+    
+    setSelectedReport(found);
+  }, [reportParam, reports, selectedReport?.id]);
+
+  const handleCloseReportDetails = useCallback(() => {
+    suppressReportAutoOpenRef.current = true;
+    setSelectedReport(null);
+
+    const params = new URLSearchParams(location.search);
+    params.delete('report');
+    const nextSearch = params.toString();
+    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ''}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
+  const handleUpdateReport = async (editData) => {
+    const {
+      id,
+      title,
+      description,
+      address,
+      location,
+      category_id,
+      status,
+      is_recurrent,
+      evaluation,
+      resolution_submission,
+      moderation_status,
+      rejection_title,
+      rejection_description,
+      rejected_at
+    } = editData;
+
+    const reportUpdates = {};
+    if (typeof title !== 'undefined') reportUpdates.title = title;
+    if (typeof description !== 'undefined') reportUpdates.description = description;
+    if (typeof address !== 'undefined') reportUpdates.address = address;
+    if (typeof category_id !== 'undefined') reportUpdates.category_id = category_id;
+    if (typeof status !== 'undefined') reportUpdates.status = status;
+    if (typeof is_recurrent !== 'undefined') reportUpdates.is_recurrent = is_recurrent;
+    if (typeof evaluation !== 'undefined') reportUpdates.evaluation = evaluation;
+    if (typeof resolution_submission !== 'undefined') reportUpdates.resolution_submission = resolution_submission;
+    if (typeof moderation_status !== 'undefined') reportUpdates.moderation_status = moderation_status;
+    if (typeof rejection_title !== 'undefined') reportUpdates.rejection_title = rejection_title;
+    if (typeof rejection_description !== 'undefined') reportUpdates.rejection_description = rejection_description;
+    if (typeof rejected_at !== 'undefined') reportUpdates.rejected_at = rejected_at;
+    if (location) reportUpdates.location = `POINT(${location.lng} ${location.lat})`;
 
     const { error: updateError } = await supabase.from('reports').update(reportUpdates).eq('id', id);
     if (updateError) {
@@ -256,7 +341,7 @@ const UserDashboardPage = () => {
           </div>
         </motion.div>
 
-        <Tabs defaultValue="reports" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-lg p-1 gap-1 h-auto">
             <TabsTrigger 
               value="reports" 
@@ -487,7 +572,7 @@ const UserDashboardPage = () => {
           </TabsContent>
         </Tabs>
       </div>
-      {selectedReport && <ReportDetails report={selectedReport} onClose={() => setSelectedReport(null)} onUpdate={handleUpdateReport} onUpvote={handleUpvote} onLink={() => {}} />}
+      {selectedReport && <ReportDetails report={selectedReport} onClose={handleCloseReportDetails} onUpdate={handleUpdateReport} onUpvote={handleUpvote} onLink={() => {}} />}
       
       <Dialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
         <DialogContent>

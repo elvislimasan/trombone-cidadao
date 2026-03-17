@@ -177,7 +177,7 @@ const ReportPage = () => {
     const currentReportId = report?.id || reportId || '';
     return {
       title: reportTitle ? `Bronca: ${reportTitle} - Trombone Cidadão` : 'Trombone Cidadão',
-      description: reportDescription || `Confira esta solicitação em Floresta-PE: "${reportTitle}". Protocolo: ${reportProtocol}`,
+      description: reportDescription || `*Trombone Cidadão*\n\n*${reportTitle || 'Bronca'}*\n\nVeja em: ${baseUrl}/bronca/${currentReportId}`,
       image: reportImage,
       url: `${baseUrl}/bronca/${currentReportId}`,
     };
@@ -266,21 +266,30 @@ const ReportPage = () => {
 
   const handleReportError = () => toast({ title: 'Reportar erro', description: 'Obrigado por avisar. Vamos analisar esta bronca.' });
 
+  const handleWhatsAppShare = () => {
+    if (!report) return;
+    const shareUrl = getReportShareUrl(report.id);
+    const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${shareUrl}`;
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   const handleShare = async () => {
     if (!report) return;
-    const shareUrl = seoUrl || `${baseUrl}/bronca/${report.id}`;
-    const title = report.title ? `Trombone Cidadão: ${report.title}` : 'Trombone Cidadão';
+    const shareUrl = getReportShareUrl(report.id);
+    const title = 'Trombone Cidadão';
+    const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${shareUrl}`;
     try {
       if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
-        await Share.share({ title, url: shareUrl });
+        await Share.share({ title, text: shareText });
         toast({ title: 'Compartilhado com sucesso! 📣' }); return;
       }
-      if (navigator.share) { await navigator.share({ title, url: shareUrl }); toast({ title: 'Compartilhado com sucesso! 📣' }); return; }
-      await navigator.clipboard.writeText(shareUrl);
-      toast({ title: 'Link copiado!', description: 'Cole nas suas redes sociais.' });
+      if (navigator.share) { await navigator.share({ title, text: shareText }); toast({ title: 'Compartilhado com sucesso! 📣' }); return; }
+      await navigator.clipboard.writeText(shareText);
+      toast({ title: 'Texto copiado!', description: 'Cole nas suas redes sociais.' });
     } catch (error) {
       if (error?.name === 'AbortError') return;
-      try { await navigator.clipboard.writeText(shareUrl); toast({ title: 'Link copiado!' }); }
+      try { await navigator.clipboard.writeText(shareText); toast({ title: 'Texto copiado!' }); }
       catch { toast({ title: 'Erro ao compartilhar', variant: 'destructive' }); }
     }
   };
@@ -638,7 +647,7 @@ const ReportPage = () => {
                 <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl border-gray-200 bg-[#F4F6F9]" onClick={() => navigate(-1)}>
                   <ArrowLeft className="w-4 h-4 text-gray-700" />
                 </Button>
-                <span className="text-sm font-extrabold tracking-tight text-gray-900">Trombone Cidadão</span>
+                <span className="text-sm font-extrabold tracking-tight text-gray-900">Voltar para página inicial</span>
               </div>
               <div className="flex items-center gap-2">
                 <Button size="icon" variant="outline"
@@ -669,12 +678,29 @@ const ReportPage = () => {
                 {managementPanel && <div className="mb-4 lg:hidden">{managementPanel}</div>}
                 <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
 
+                  {/* Título primeiro (mobile) */}
+                  <div className="px-6 pt-5 pb-4 border-b border-gray-100 lg:hidden">
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-gray-900">{report.title}</h1>
+                       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /><span>Cadastrado em {formatDateTime(report.created_at)}</span></div>
+                    </div>
+                  </div>
+
                   {/* media hero */}
-                  <div className="relative overflow-hidden">
-                    <div className="w-full max-w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden">
+                  <div className="relative overflow-hidden px-6">
+                       {/* Título para desktop (mantido no lugar original) */}
+                    <div className="hidden lg:block  pt-5 pb-4 border-b border-gray-100">
+                      <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-gray-900">{report.title}</h1>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                        <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /><span>Cadastrado em {formatDateTime(report.created_at)}</span></div>
+                        
+                        
+                      </div>
+                    </div>
+                    <div className="w-full max-w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden ">
                       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
                       {hasMedia ? (
-                        <button type="button" className="absolute inset-0 w-full h-full" onClick={() => setMediaViewerState({ isOpen: true, startIndex: 0 })}>
+                        <button type="button" className="absolute inset-0 w-full h-full " onClick={() => setMediaViewerState({ isOpen: true, startIndex: 0 })}>
                           {firstIsVideo ? (
                             firstVideoThumb ? (
                               <div className="w-full h-full relative">
@@ -725,42 +751,15 @@ const ReportPage = () => {
                             <span className="sm:hidden">Ver todas ({viewerMedia.length})</span>
                           </button>
                         )}
+                     
                       </div>
+                      
                     </div>
 
-                    <div className="px-6 pt-5 pb-4 border-b border-gray-100">
-                      <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-gray-900">{report.title}</h1>
-                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                        <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /><span>Cadastrado em {formatDateTime(report.created_at)}</span></div>
-                        {report.address && <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /><span className="truncate max-w-[220px] sm:max-w-xs">{report.address}</span></div>}
-                      </div>
-                    </div>
+                 
                   </div>
 
                   <div className="px-6 py-6 space-y-8">
-
-                    {/* mobile upvote */}
-                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-4 shadow-sm lg:hidden">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-1 text-center">Apoios</div>
-                      <div className="text-3xl font-extrabold text-gray-900 text-center">{report.upvotes || 0}</div>
-                      <div className="text-xs text-gray-500 mt-1 mb-4 text-center">pessoas apoiaram essa bronca</div>
-                      <Button className="w-full justify-center gap-2 text-sm font-semibold bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700" onClick={handleUpvoteClick}>
-                        <ThumbsUp className={`w-4 h-4 ${report.user_has_upvoted ? 'fill-white text-white' : ''}`} />
-                        {report.user_has_upvoted ? 'Apoiada' : 'Apoiar essa bronca'}
-                      </Button>
-                      <Button className="mt-2 w-full justify-center gap-2 text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700" onClick={handleShare}>
-                        <Share2 className="w-4 h-4" />Compartilhar bronca
-                      </Button>
-                      <Button variant="outline" className="w-full mt-2 justify-center gap-2 text-sm text-gray-600 hover:text-gray-900 border-gray-200" onClick={() => handleFavoriteToggle(report.id, report.is_favorited)}>
-                        <Star className={`w-4 h-4 ${report.is_favorited ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                        {report.is_favorited ? 'Favoritada' : 'Favoritar'}
-                      </Button>
-                      {report.petitionId && (
-                        <Button asChild className="w-full mt-2 justify-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white">
-                          <Link to={`/abaixo-assinado/${report.petitionId}`}><FileSignature className="w-4 h-4" />Ver abaixo-assinado ligado</Link>
-                        </Button>
-                      )}
-                    </div>
 
                     {/* description */}
                     {report.description && (
@@ -772,9 +771,9 @@ const ReportPage = () => {
                       </div>
                     )}
 
-                    {/* Map Section (Mobile Only) */}
+                    {/* Map Section (Mobile Only) - Mapa com endereço integrado */}
                     <div className="lg:hidden space-y-4">
-                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                         <div className="p-4 border-b border-gray-100">
                           <h3 className="font-bold text-gray-900 flex items-center">
                             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
@@ -782,19 +781,19 @@ const ReportPage = () => {
                             </div>
                             Localização
                           </h3>
+                          
                         </div>
                         <div className="h-48">
                           <ReportMap location={report.location} address={report.address} />
                         </div>
-                        <div className="px-4 py-4 bg-slate-50 space-y-3">
-                          <div className="flex items-start gap-3">
-                            <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                            <div>
-                              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
-                              <p className="text-sm font-medium text-slate-700 leading-tight">{report.address || 'Não informado'}</p>
+                        {report.address && (
+                            <div className="mt-2 flex items-start gap-2 p-2">
+                              <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                              <div>
+                                <p className="text-sm font-medium text-slate-700 leading-tight">{report.address}</p>
+                              </div>
                             </div>
-                          </div>
-                        </div>
+                          )}
                       </div>
                     </div>
 
@@ -808,7 +807,7 @@ const ReportPage = () => {
                           { icon: <MapPin className="w-4 h-4 text-red-600" />, label: 'Categoria', value: getCategoryName(report.category) },
                           report.protocol && { icon: <Hash className="w-4 h-4 text-red-600" />, label: 'Protocolo', value: <span className="text-[11px] font-mono text-gray-900 break-all">{report.protocol}</span> },
                           { icon: <Calendar className="w-4 h-4 text-red-600" />, label: 'Cadastrado em', value: formatDateTime(report.created_at) },
-                          report.address && { icon: <MapPin className="w-4 h-4 text-red-600" />, label: 'Localização', value: report.address },
+                          // Removido endereço daqui para evitar redundância (já aparece no título e no mapa)
                           report.category === 'buracos' && { icon: <Droplet className="w-4 h-4 text-red-600" />, label: 'Aberto pela COMPESA?', value: isFromWaterUtility ? 'Sim' : 'Não' },
                           { icon: <Flag className="w-4 h-4 text-red-600" />, label: 'Status', value: getStatusInfo(report.status).text },
                         ].filter(Boolean).map((item, i) => (
@@ -850,6 +849,16 @@ const ReportPage = () => {
                     {(user?.is_admin || user?.user_type === 'public_official') && (
                       <div className="space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            className="hidden sm:flex justify-center gap-2 text-sm border-emerald-500 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                            onClick={handleWhatsAppShare}
+                          >
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.347-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                            </svg>
+                            WhatsApp Web
+                          </Button>
                           <Button variant="outline" className="justify-center gap-2 text-sm" onClick={handleShare}><Share2 className="w-4 h-4" />Compartilhar</Button>
                           <Button variant="outline" className="justify-center gap-2 text-sm" onClick={handleEditClick}><Edit className="w-4 h-4" />Editar</Button>
                           <Button className="justify-center gap-2 text-sm bg-emerald-500 hover:bg-emerald-600 text-white" onClick={handleMarkResolvedClick}><CheckCircle className="w-4 h-4" />Marcar Resolvido</Button>
@@ -860,6 +869,29 @@ const ReportPage = () => {
                         </button>
                       </div>
                     )}
+
+                    {/* mobile upvote - Movido para baixo (menos prioritário) */}
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-4 shadow-sm lg:hidden">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-1 text-center">Apoios</div>
+                      <div className="text-3xl font-extrabold text-gray-900 text-center">{report.upvotes || 0}</div>
+                      <div className="text-xs text-gray-500 mt-1 mb-4 text-center">pessoas apoiaram essa bronca</div>
+                      <Button className="w-full justify-center gap-2 text-sm font-semibold bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700" onClick={handleUpvoteClick}>
+                        <ThumbsUp className={`w-4 h-4 ${report.user_has_upvoted ? 'fill-white text-white' : ''}`} />
+                        {report.user_has_upvoted ? 'Apoiada' : 'Apoiar essa bronca'}
+                      </Button>
+                      <Button className="mt-2 w-full justify-center gap-2 text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700" onClick={handleShare}>
+                        <Share2 className="w-4 h-4" />Compartilhar bronca
+                      </Button>
+                      <Button variant="outline" className="w-full mt-2 justify-center gap-2 text-sm text-gray-600 hover:text-gray-900 border-gray-200" onClick={() => handleFavoriteToggle(report.id, report.is_favorited)}>
+                        <Star className={`w-4 h-4 ${report.is_favorited ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                        {report.is_favorited ? 'Favoritada' : 'Favoritar'}
+                      </Button>
+                      {report.petitionId && (
+                        <Button asChild className="w-full mt-2 justify-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white">
+                          <Link to={`/abaixo-assinado/${report.petitionId}`}><FileSignature className="w-4 h-4" />Ver abaixo-assinado ligado</Link>
+                        </Button>
+                      )}
+                    </div>
 
                     {/* ── SHARE SECTION ── */}
                     <section className="mt-6">
