@@ -431,14 +431,27 @@ const TabPhases = ({
     const intervalText = phaseEnd !== null ? `${phaseStart}% → ${phaseEnd}%` : `${phaseStart}% → —`;
 
     return (
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+      <div className="space-y-4 pb-24 sm:pb-0">
+        <div className="hidden sm:flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
           <Button type="button" variant="outline" className="border-slate-200 bg-white w-full sm:w-auto" onClick={onBack}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao panorama
           </Button>
           <Button type="button" size="sm" className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto" onClick={() => onOpenPaymentsForPhase && onOpenPaymentsForPhase(phase.id)}>
             <CreditCard className="w-4 h-4 mr-2" /> Ver pagamentos desta etapa
           </Button>
+        </div>
+
+        <div className="sm:hidden fixed inset-x-0 bottom-[calc(4rem+var(--safe-area-bottom,0px))] z-30 px-4 pointer-events-none">
+          <div className="max-w-7xl mx-auto pointer-events-auto">
+            <div className="bg-white/95 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-2 flex gap-2">
+              <Button type="button" variant="outline" className="border-slate-200 bg-white flex-1" onClick={onBack}>
+                <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+              </Button>
+              <Button type="button" className="bg-red-600 hover:bg-red-700 text-white flex-1" onClick={() => onOpenPaymentsForPhase && onOpenPaymentsForPhase(phase.id)}>
+                <CreditCard className="w-4 h-4 mr-2" /> Pagamentos
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
@@ -737,11 +750,21 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
     const paidPct = selected.value ? Math.min((totalPaid / selected.value) * 100, 100) : 0;
 
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
+      <div className="space-y-4 pb-24 sm:pb-0">
+        <div className="hidden sm:flex items-center justify-between gap-3">
           <Button type="button" variant="outline" className="border-slate-200 bg-white w-full sm:w-auto" onClick={onBack}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao panorama
           </Button>
+        </div>
+
+        <div className="sm:hidden fixed inset-x-0 bottom-[calc(4rem+var(--safe-area-bottom,0px))] z-30 px-4 pointer-events-none">
+          <div className="max-w-7xl mx-auto pointer-events-auto">
+            <div className="bg-white/95 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-2">
+              <Button type="button" variant="outline" className="border-slate-200 bg-white w-full" onClick={onBack}>
+                <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao panorama
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -752,17 +775,23 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
           </div>
 
           {(selected.value > 0 || totalPaid > 0) && (
-            <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-100 bg-slate-50/40">
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contrato</p>
+            <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
+              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-slate-400" /> Contrato
+                </p>
                 <p className="text-lg font-black text-slate-800 mt-1 break-words whitespace-normal">{selected.value ? formatCurrency(selected.value) : '—'}</p>
               </div>
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
-                <p className="text-[10px] font-bold text-emerald-700/70 uppercase tracking-widest">Total pago</p>
+              <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4">
+                <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-widest flex items-center gap-1.5">
+                  <Banknote className="w-3.5 h-3.5 text-emerald-600" /> Total pago
+                </p>
                 <p className="text-lg font-black text-emerald-800 mt-1 break-words whitespace-normal">{totalPaid > 0 ? formatCurrency(totalPaid) : 'R$ 0,00'}</p>
               </div>
-              <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-                <p className="text-[10px] font-bold text-blue-700/70 uppercase tracking-widest">Execução</p>
+              <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4">
+                <p className="text-[10px] font-bold text-blue-700/80 uppercase tracking-widest flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-blue-600" /> Execução
+                </p>
                 <p className="text-lg font-black text-blue-800 mt-1">{selected.value ? `${paidPct.toFixed(1)}%` : '—'}</p>
                 {selected.value > 0 && (
                   <div className="h-2 bg-blue-100 rounded-full overflow-hidden mt-2">
@@ -865,7 +894,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
     <div className="space-y-4">
       {(totalContrato > 0 || totalGeral > 0) && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/60">
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Panorama</p>
               <p className="text-sm font-semibold text-slate-700 mt-0.5 break-words whitespace-normal">Selecione uma etapa para ver os pagamentos</p>
@@ -880,17 +909,23 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
             </div>
           </div>
 
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-4">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contrato total</p>
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gradient-to-br from-white to-slate-50/40">
+            <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/70 p-4">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-slate-400" /> Contrato total
+              </p>
               <p className="text-lg font-black text-slate-800 mt-1 break-words whitespace-normal">{totalContrato > 0 ? formatCurrency(totalContrato) : '—'}</p>
             </div>
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-              <p className="text-[10px] font-bold text-emerald-700/70 uppercase tracking-widest">Total pago</p>
+            <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4">
+              <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-widest flex items-center gap-1.5">
+                <Banknote className="w-3.5 h-3.5 text-emerald-600" /> Total pago
+              </p>
               <p className="text-lg font-black text-emerald-800 mt-1 break-words whitespace-normal">{totalGeral > 0 ? formatCurrency(totalGeral) : 'R$ 0,00'}</p>
             </div>
-            <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-              <p className="text-[10px] font-bold text-blue-700/70 uppercase tracking-widest">Execução</p>
+            <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4">
+              <p className="text-[10px] font-bold text-blue-700/80 uppercase tracking-widest flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-blue-600" /> Execução
+              </p>
               <p className="text-lg font-black text-blue-800 mt-1">{pctGeral.toFixed(1)}%</p>
               <div className="h-2 bg-blue-100 rounded-full overflow-hidden mt-2">
                 <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pctGeral}%` }} />
@@ -901,8 +936,10 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
       )}
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Etapas</p>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/60">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-slate-400" /> Etapas
+          </p>
           <p className="text-xs text-slate-500">Clique em uma etapa para ver detalhes</p>
         </div>
         <div className="p-3 space-y-2">
