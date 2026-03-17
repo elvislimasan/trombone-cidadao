@@ -1322,14 +1322,14 @@ const WorkDetailsPage = () => {
                           <table className="w-full text-sm table-fixed">
                             <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
                               <tr>
-                                <th className="px-3 py-2 font-bold">Pagamento</th>
-                                <th className="hidden sm:table-cell px-3 py-2 font-bold">Nº Empenho</th>
-                                <th className="hidden md:table-cell px-3 py-2 font-bold w-[22%]">Descrição</th>
-                                <th className="hidden md:table-cell px-3 py-2 font-bold w-[72px]">Parcela</th>
-                                <th className="hidden xl:table-cell px-3 py-2 font-bold">Credor</th>
-                                <th className="hidden xl:table-cell px-3 py-2 font-bold">Fase</th>
-                                <th className="px-3 py-2 font-bold text-right">Valor</th>
-                                <th className="px-3 py-2 font-bold">Fonte</th>
+                                <th className="px-3 py-2 font-bold w-[64px]">Pagamento</th>
+                                <th className="hidden sm:table-cell px-3 py-2 font-bold w-[64px]">Nº Empenho</th>
+                                <th className="hidden md:table-cell px-3 py-2 font-bold w-[128px]">Descrição</th>
+                                <th className="hidden md:table-cell px-3 py-2 font-bold w-[48px]">Parcela</th>
+                                <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Credor</th>
+                                <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Fase</th>
+                                <th className="px-3 py-2 font-bold text-right w-[64px]">Valor</th>
+                                <th className="px-3 py-2 font-bold w-[64px]">Fonte</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y text-xs">
@@ -1337,7 +1337,7 @@ const WorkDetailsPage = () => {
                                 .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
                                 .map((payment) => (
                                   <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-3 py-2 align-top">
+                                    <td className="px-3 py-2 align-center">
                                       <div className="whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</div>
                                     </td>
                                     <td className="hidden sm:table-cell px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
@@ -1357,7 +1357,7 @@ const WorkDetailsPage = () => {
                                         <Button asChild size="icon" variant="ghost" className="h-16 w-8 2xl:w-24 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
                                           <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência">
                                             <Link2 className="w-4 h-4" />
-                                            <span className="inline 2xl:inline ml-2">Ver no Portal</span>
+                                            <span className="hidden 2xl:inline ml-1 underline">Ir para</span>
                                           </a>
                                         </Button>
                                       ) : (
@@ -1375,7 +1375,7 @@ const WorkDetailsPage = () => {
                               </tr>
                               <tr className="hidden xl:table-row">
                                 <td className="px-3 py-2 font-bold text-slate-600" colSpan={6}>Somatório</td>
-                                <td className="px-3 py-2"></td>
+                                
                                 <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(totalSpentFromPayments)}</td>
                               </tr>
                             </tfoot>
