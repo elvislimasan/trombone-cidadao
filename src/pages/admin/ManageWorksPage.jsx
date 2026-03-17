@@ -980,7 +980,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
             </Button>
-            <Button type="button" onClick={handleSubmit} disabled={!canProceed()} className="gap-2 flex-1">
+            <Button type="button" onClick={handleSubmit} disabled={!formData.id? !canProceed() : false} className="gap-2 flex-1">
               <Save className="w-4 h-4" /> {formData.id ? 'Salvar Alterações' : 'Criar Obra'}
             </Button>
           </div>

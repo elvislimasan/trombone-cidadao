@@ -1,622 +1,1244 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-    <head>
-        <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=5"/>
-        <title>Trombone Cidadão - Blog do Elvis</title>
-        <meta content="pt-br" name="language"/>
-        <meta content="Blog do Elvis" name="author"/>
-        <meta content="index, follow" name="robots"/>
-        <meta content="General" name="rating"/>
-        <meta content="1 day" name="revisit-after"/>
-        <meta content="Últimas notícias da categoria Trombone Cidadão" name="description"/>
-        <link href="https://blogdoelvis.com.br/trombone-cidadao" rel="canonical"/>
-        <link href="https://blogdoelvis.com.br/img/be739593960561461adea118c97a1c779a043ba3.png" id="element_favicon" rel="icon" type="image/png"/>
-        <meta property="og:url" content="https://blogdoelvis.com.br/trombone-cidadao"/>
-        <meta property="og:type" content="website"/>
-        <meta content="pt_BR" property="og:locale"/>
-        <meta content="Trombone Cidadão - Blog do Elvis" property="og:title"/>
-        <meta content="Blog do Elvis" property="og:site_name"/>
-        <meta content="Últimas notícias da categoria Trombone Cidadão" property="og:description"/>
-        <meta content="https://blogdoelvis.com.br/img/f82865098b835b6b185e3207196dd50fde7cd41e.jpg" property="og:image"/>
-        <meta content="image/jpeg" property="og:image:type"/>
-        <meta content="600" property="og:image:width"/>
-        <meta content="400" property="og:image:height"/>
-        <meta name="twitter:title" content="Trombone Cidadão - Blog do Elvis">
-        <meta name="twitter:description" content="Últimas notícias da categoria Trombone Cidadão">
-        <meta name="twitter:card" content="summary_large_image">
-        <meta name="twitter:image" content="https://blogdoelvis.com.br/img/f82865098b835b6b185e3207196dd50fde7cd41e.jpg">
-        <link href="/tema/v11/fonts/fonts.css?v=8070e964" rel="stylesheet" type="text/css"/>
-        <link href="/fonts/icons.css?v=272e0dd5" rel="stylesheet" type="text/css"/>
-        <link href="https://blogdoelvis.com.br/tema/v11/estilo/estilo.min.css?v=a99ec6de" rel="stylesheet" type="text/css"/>
-        <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
-        <link rel="stylesheet" type="text/css" href="https://blogdoelvis.com.br/plugins/politica_privacidade/css/politica-privacidade.min.css"/>
-        <script src="https://blogdoelvis.com.br/plugins/politica_privacidade/js/politica-privacidade.min.js"></script>
-        <script>
-            window.addEventListener("load", function() {
-                window.cookieconsent.initialise({
-                    "palette": {
-                        "popup": {
-                            "background": "#884d25",
-                            "text": "#fff"
-                        },
-                        "button": {
-                            "background": "#fff"
-                        }
-                    },
-                    "content": {
-                        "link": 'ler mais',
-                        "message": "Ao navegar por nosso site você concorda com nossa Política de Privacidade.",
-                        "dismiss": "Estou de acordo",
-                        "href": "https://blogdoelvis.com.br/pagina/3/politica-de-privacidade"
-                    }
-                })
-            });
-        </script>
-        <link rel="manifest" href="/manifest.json"/>
-        <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async=""></script>
-        <script>
-            var OneSignal = window.OneSignal || [];
-            OneSignal.push(function() {
-                OneSignal.init({
-                    appId: "8782576b-55ad-48c9-b961-db2848777af3",
-                });
-            });
-        </script>
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-TS398QD2Y8"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag() {
-                dataLayer.push(arguments);
-            }
-            gtag('js', new Date());
-            gtag('config', 'G-TS398QD2Y8');
-        </script>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5081301677873180" crossorigin="anonymous"></script>
-        <style>
-            html {
-                --cor-pr: #b30000;
-                --cor-pr-rgb: 179,0,0;
-                --font-pdr: 'Lato';
-                --weight-1: 300;
-                --weight-2: 400;
-                --weight-3: 900;
-                --cor-secao1: #34bf0d;
-                --cor-secao1-rgb: 52,191,13;
-                --cor-secao2: #c10b0b;
-                --cor-secao2-rgb: 193,11,11;
-                --cor-secao3: #11a291;
-                --cor-secao3-rgb: 17,162,145;
-                --cor-secao4: #fd8f12;
-                --cor-secao4-rgb: 253,143,18;
-            }
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Trombone Cidadão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --brand:#3D1C2E;
+  --brand2:#521E3E;
+  --accent:#C9395F;
+  --accent2:#e8506f;
+  --accentbg:#fdf2f5;
+  --accentlight:#f5d6de;
+  --ok:#0d7a5f;
+  --okbg:#e0f5ef;
+  --warn:#b45309;
+  --warnbg:#fff3e0;
+  --info:#1d5fa8;
+  --infobg:#e8f1fc;
+  --t1:#111;
+  --t2:#555;
+  --t3:#999;
+  --border:#e8e8e8;
+  --border2:#d0d0d0;
+  --bg:#f5f5f5;
+  --card:#fff;
+  --r8:8px;
+  --r12:12px;
+  --r16:16px;
+  --r20:20px;
+  --sh1:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 16px rgba(0,0,0,.09),0 1px 4px rgba(0,0,0,.05);
+}
+html,body{height:100%;background:#e0e0e0;font-family:'Sora',sans-serif;}
 
-            .item-slide.img-dest-s:before {
-                background-image: url(https://blogdoelvis.com.br/tema/v11/fonts/back-dest.svg);
-            }
+/* ───── OUTER FRAME ───── */
+.frame{
+  width:390px;max-width:100%;
+  margin:0 auto;
+  height:100dvh;min-height:600px;max-height:900px;
+  background:var(--bg);
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+@media(max-width:420px){.frame{width:100%;max-height:100dvh;}}
 
-            .form-select {
-                background: #fff url(https://blogdoelvis.com.br/tema/v11/img/icon-bottom.png) no-repeat right;
-                background-size: 10px 5px;
-                background-position: right 10px center;
-            }
+/* ───── SCREENS ───── */
+.screen{
+  display:none;flex-direction:column;
+  position:absolute;inset:0;
+  background:var(--bg);
+  overflow:hidden;
+}
+.screen.active{display:flex;}
+.screen.slide-in{animation:slideIn .25s ease forwards;}
+.screen.slide-out{animation:slideOut .2s ease forwards;}
+.screen.slide-back-in{animation:slideBackIn .25s ease forwards;}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(-20px);opacity:0}}
+@keyframes slideBackIn{from{transform:translateX(-20px);opacity:0}to{transform:translateX(0);opacity:1}}
 
-            .pos-24h.img-dest-s:before {
-                background-image: url(https://blogdoelvis.com.br/tema/v11/fonts/back-dest.svg);
-            }
-        </style>
-        <script type="application/ld+json">
-            {
-                "@context": "https://schema.org",
-                "@type": "WebSite",
-                "name": "Blog do Elvis",
-                "url": "https://blogdoelvis.com.br"
-            }</script>
-    </head>
-    <body>
-        <div class="topo-site topo-padrao tmn-logo-1 alm-logo-centro data-topo-N">
-            <div class="conteudo">
-                <input type="checkbox" class="menu-tp-inp2" id="menu-tp">
-                <div class="menu-tp-inp">
-                    <label for="menu-tp">
-                        <div class="ico-menu">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                        <div class="opacity-menu"></div>
-                    </label>
-                    <div class="o-menu">
-                        <div class="conteudo-menu">
-                            <div class="social-menu total-social-menu-4">
-                                <a href="https://www.facebook.com/blogdoelvis" target="_blank">
-                                    <span class="icons-v11 icon-facebook"></span>
-                                </a>
-                                <a href="https://www.instagram.com/blogdoelvis/" target="_blank">
-                                    <span class="icons-v11 icon-instagram"></span>
-                                </a>
-                                <a href="https://www.youtube.com/channel/UCRJ58dK0t0jY_HAvgU7CZWg" target="_blank">
-                                    <span class="icons-v11 icon-youtube"></span>
-                                </a>
-                                <a href="https://api.whatsapp.com/send?phone=5587999488360" target="_blank">
-                                    <span class="icons-v11 icon-whatsapp"></span>
-                                </a>
-                            </div>
-                            <ul class="menu-lateral">
-                                <li>
-                                    <a href="https://blogdoelvis.com.br/ultimas-noticias" class="menu-ultimas-noticias">Últimas notícias</a>
-                                </li>
-                                <li>
-                                    <a href="https://blogdoelvis.com.br/editorias" class="menu-editorias">Editorias</a>
-                                </li>
-                                <li>
-                                    <a href="https://blogdoelvis.com.br/municipios" class="menu-municipios">Municípios</a>
-                                </li>
-                                <li>
-                                    <a href="https://blogdoelvis.com.br/videos" class="menu-videos">Vídeos</a>
-                                </li>
-                                <li>
-                                    <a href="https://blogdoelvis.com.br/galerias" class="menu-galerias">Galerias</a>
-                                </li>
-                                <li>
-                                    <a href="https://blogdoelvis.com.br/paginas" class="menu-paginas">Páginas</a>
-                                </li>
-                                <li>
-                                    <a href="https://blogdoelvis.com.br/classificados" class="menu-classificados">Classificados</a>
-                                </li>
-                                <li>
-                                    <a href="https://blogdoelvis.com.br/contato" class="menu-contato">Fale conosco</a>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <div class="logo">
-                    <a href="https://blogdoelvis.com.br/">
-                        <img src="https://blogdoelvis.com.br/img/6d234077bb3dc0731a40f5e2d2b020dbd2015229.png" alt="Blog do Elvis"/>
-                    </a>
-                </div>
-                <div class="social-topo">
-                    <a href="https://www.facebook.com/blogdoelvis" target="_blank">
-                        <span class="icons-v11 icon-facebook"></span>
-                    </a>
-                    <a href="https://www.instagram.com/blogdoelvis/" target="_blank">
-                        <span class="icons-v11 icon-instagram"></span>
-                    </a>
-                    <a href="https://www.youtube.com/channel/UCRJ58dK0t0jY_HAvgU7CZWg" target="_blank">
-                        <span class="icons-v11 icon-youtube"></span>
-                    </a>
-                    <a href="https://api.whatsapp.com/send?phone=5587999488360" target="_blank">
-                        <span class="icons-v11 icon-whatsapp"></span>
-                    </a>
-                </div>
-                <input type="checkbox" class="busca-tp-inp2" id="busca-tp">
-                <div class="busca-tp-inp">
-                    <label for="busca-tp">
-                        <div class="ico-busca">
-                            <span class="icons-v11 icon-busca"></span>
-                        </div>
-                    </label>
-                    <form method="get" action="https://blogdoelvis.com.br/busca/noticias/" accept-charset="utf-8">
-                        <input name="palavra" type="search" class="box-busca" value="" placeholder=" Busque no site">
-                    </form>
-                </div>
-            </div>
+.scroll-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.scroll-body::-webkit-scrollbar{display:none;}
+
+/* ───── TOPBAR ───── */
+.topbar{
+  background:var(--brand);
+  flex-shrink:0;
+  padding:48px 16px 12px;
+}
+.topbar-row{display:flex;align-items:center;justify-content:space-between;}
+.topbar-logo{display:flex;align-items:center;gap:8px;}
+.topbar-logoico{font-size:20px;}
+.topbar-logotxt{font-size:15px;font-weight:700;color:#fff;letter-spacing:-.01em;}
+.topbar-actions{display:flex;align-items:center;gap:10px;}
+.topbar-ico{
+  width:34px;height:34px;border-radius:10px;
+  background:rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.topbar-ico svg{width:17px;height:17px;stroke:rgba(255,255,255,.85);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+/* ───── SUBHEADER (back nav) ───── */
+.subbar{
+  background:var(--brand);
+  flex-shrink:0;
+  padding:44px 16px 14px;
+}
+.subbar-back{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;color:rgba(255,255,255,.65);
+  cursor:pointer;margin-bottom:8px;
+}
+.subbar-back svg{width:13px;height:13px;stroke:rgba(255,255,255,.65);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.subbar-title{font-size:14px;font-weight:700;color:#fff;line-height:1.3;}
+.subbar-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;}
+.subbar-right{position:absolute;right:16px;top:52px;display:flex;gap:10px;}
+.subbar-right svg{width:18px;height:18px;stroke:rgba(255,255,255,.7);fill:none;stroke-width:1.8;}
+
+/* ───── HERO IMAGE ───── */
+.hero{width:100%;height:160px;position:relative;overflow:hidden;flex-shrink:0;}
+.hero-img{width:100%;height:100%;object-fit:cover;}
+.hero-placeholder{
+  width:100%;height:100%;
+  background:linear-gradient(160deg,#5a8fa0 0%,#2d6070 50%,#1a3f4e 100%);
+  display:flex;align-items:flex-end;padding:14px;
+}
+.hero-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 55%);
+}
+.hero-label{
+  position:absolute;bottom:12px;left:14px;right:14px;
+  font-size:12px;font-weight:600;color:#fff;line-height:1.35;
+  text-shadow:0 1px 4px rgba(0,0,0,.4);
+}
+.hero-chip{
+  position:absolute;top:10px;right:10px;
+  background:rgba(0,0,0,.35);backdrop-filter:blur(6px);
+  padding:4px 9px;border-radius:20px;
+  font-size:10px;font-weight:600;color:#fff;letter-spacing:.02em;
+}
+
+/* ───── PILL TABS ───── */
+.pill-tabs{
+  display:flex;gap:6px;
+  padding:10px 14px;
+  background:var(--card);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;overflow-x:auto;scrollbar-width:none;
+}
+.pill-tabs::-webkit-scrollbar{display:none;}
+.ptab{
+  white-space:nowrap;
+  padding:6px 14px;border-radius:20px;
+  font-size:11px;font-weight:600;
+  color:var(--t2);background:transparent;
+  border:none;cursor:pointer;transition:all .15s;
+  font-family:'Sora',sans-serif;
+}
+.ptab.active{background:var(--brand);color:#fff;}
+
+/* ───── SECTION LABEL ───── */
+.sec-lbl{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;}
+
+/* ───── STAT STRIP ───── */
+.stat-strip{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+  padding:10px 14px;background:var(--card);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.stat-cell{background:var(--bg);border-radius:var(--r8);padding:8px 10px;}
+.stat-cell-lbl{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+.stat-cell-val{font-size:15px;font-weight:700;color:var(--t1);}
+.stat-cell-val.acc{color:var(--accent);}
+.stat-cell-val.ok{color:var(--ok);}
+
+/* ───── CARDS ───── */
+.card{
+  background:var(--card);border-radius:var(--r16);
+  border:1px solid var(--border);
+  box-shadow:var(--sh1);
+  overflow:hidden;margin-bottom:8px;
+}
+.card-pad{padding:12px 14px;}
+
+/* ───── ETAPA ITEM ───── */
+.etapa-item{
+  background:var(--card);border-radius:var(--r16);
+  border:1px solid var(--border);
+  box-shadow:var(--sh1);
+  margin-bottom:8px;overflow:hidden;
+  position:relative;cursor:pointer;
+  transition:box-shadow .15s;
+}
+.etapa-item:active{box-shadow:none;}
+.etapa-accent-bar{position:absolute;left:0;top:0;bottom:0;width:3px;}
+.etapa-inner{padding:12px 14px 12px 17px;}
+.etapa-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px;}
+.etapa-name{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:8px;}
+.etapa-prog{height:4px;background:#eee;border-radius:20px;margin-bottom:5px;overflow:hidden;}
+.etapa-prog-fill{height:100%;border-radius:20px;}
+.etapa-foot{display:flex;justify-content:space-between;align-items:center;}
+.etapa-foot-meta{font-size:10px;color:var(--t3);}
+.etapa-foot-amount{font-size:11px;font-weight:700;}
+.etapa-chevron{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  color:var(--t3);font-size:15px;
+}
+
+/* ───── BADGES ───── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+.b-purple{background:#eeedf9;color:#5344b7;}
+.b-orange{background:var(--warnbg);color:var(--warn);}
+.b-gray{background:#eee;color:#666;}
+.b-green{background:var(--okbg);color:var(--ok);}
+.b-red{background:var(--accentbg);color:var(--accent);}
+
+/* ───── PROGRESS BAR ───── */
+.prog-track{height:5px;background:#eee;border-radius:20px;overflow:hidden;margin:6px 0;}
+.prog-fill{height:100%;border-radius:20px;background:var(--accent);}
+
+/* ───── INFO BLOCK ───── */
+.info-block{background:var(--card);border-radius:var(--r16);border:1px solid var(--border);overflow:hidden;margin-bottom:8px;}
+.info-block-hd{display:flex;align-items:center;gap:8px;padding:10px 14px 9px;background:#fafafa;border-bottom:1px solid var(--border);}
+.info-block-hd svg{width:14px;height:14px;stroke:var(--t2);fill:none;stroke-width:1.8;flex-shrink:0;}
+.info-block-hd-lbl{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;}
+.info-row{display:flex;align-items:flex-start;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);}
+.info-row:last-child{border-bottom:none;}
+.info-row-ico{font-size:14px;flex-shrink:0;padding-top:1px;}
+.info-row-lbl{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
+.info-row-val{font-size:12px;font-weight:600;color:var(--t1);}
+.info-row-val.acc{color:var(--accent);}
+.info-row-val.ok{color:var(--ok);}
+.info-row-val.link{color:var(--info);text-decoration:none;}
+
+/* ───── EXEC HERO ───── */
+.exec-hero{padding:14px 14px 12px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;}
+.exec-num{font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-.04em;line-height:1;}
+.exec-sub{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+.exec-interval{font-size:11px;color:var(--t2);margin-top:6px;}
+.exec-interval strong{color:var(--t1);}
+
+/* ───── PAYMENT CARD ───── */
+.pay-card{background:var(--card);border-radius:var(--r16);border:1px solid var(--border);box-shadow:var(--sh1);margin-bottom:8px;overflow:hidden;}
+.pay-card-top{display:flex;justify-content:space-between;align-items:flex-end;padding:12px 14px 10px;border-bottom:1px solid var(--border);}
+.pay-date{font-size:13px;font-weight:700;color:var(--t1);}
+.pay-amount{font-size:17px;font-weight:700;color:var(--accent);}
+.pay-body{padding:10px 14px;display:flex;flex-direction:column;gap:8px;}
+.pay-field{}
+.pay-field-lbl{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
+.pay-field-val{font-size:12px;font-weight:600;color:var(--t1);}
+.pay-field-val.link{color:var(--info);}
+
+/* ───── SUMMARY PAIR ───── */
+.summary-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.summ-card{background:var(--card);border-radius:var(--r12);border:1px solid var(--border);padding:10px 12px;}
+.summ-card.feat{border-color:rgba(201,57,95,.2);background:var(--accentbg);}
+.summ-lbl{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+.summ-val{font-size:17px;font-weight:700;color:var(--t1);}
+.summ-val.acc{color:var(--accent);}
+
+/* ───── ALERT ───── */
+.alert{display:flex;gap:8px;padding:10px 12px;border-radius:var(--r12);margin-bottom:10px;font-size:11px;line-height:1.5;}
+.alert svg{width:14px;height:14px;flex-shrink:0;margin-top:1px;}
+.alert-warn{background:var(--warnbg);color:var(--warn);}
+.alert-warn svg{stroke:var(--warn);fill:none;stroke-width:2;}
+.alert-info{background:var(--infobg);color:var(--info);}
+.alert-info svg{stroke:var(--info);fill:none;stroke-width:2;}
+
+/* ───── CONTRIBUTE SECTION ───── */
+.contribute-sec{
+  margin:0 0 8px;
+  background:var(--card);border-radius:var(--r16);
+  border:1px solid var(--border);
+  padding:16px 14px;
+  text-align:center;
+}
+.contribute-ico{font-size:26px;margin-bottom:8px;}
+.contribute-title{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;}
+.contribute-sub{font-size:11px;color:var(--t2);line-height:1.5;margin-bottom:12px;}
+.contribute-btns{display:flex;gap:8px;}
+.btn-accent{
+  flex:1;padding:10px;border-radius:var(--r8);border:none;
+  background:var(--accent);color:#fff;font-size:12px;font-weight:700;
+  font-family:'Sora',sans-serif;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  box-shadow:0 3px 10px rgba(201,57,95,.3);
+}
+.btn-ghost{
+  flex:1;padding:10px;border-radius:var(--r8);
+  border:1px solid var(--border2);background:transparent;
+  color:var(--t2);font-size:12px;font-weight:600;
+  font-family:'Sora',sans-serif;cursor:pointer;
+}
+
+/* ───── CTA ROW ───── */
+.cta-row{
+  display:flex;gap:8px;
+  padding:10px 14px 12px;
+  background:var(--card);
+  border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+.cta-back{
+  flex:1;padding:11px;border-radius:var(--r12);
+  border:1px solid var(--border2);background:transparent;
+  color:var(--t2);font-size:12px;font-weight:600;
+  font-family:'Sora',sans-serif;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.cta-primary{
+  flex:2;padding:11px;border-radius:var(--r12);
+  border:none;background:var(--accent);color:#fff;
+  font-size:12px;font-weight:700;
+  font-family:'Sora',sans-serif;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  box-shadow:0 4px 12px rgba(201,57,95,.3);
+}
+
+/* ───── BOTTOM NAV ───── */
+.bottom-nav{
+  background:var(--card);border-top:1px solid var(--border);
+  display:flex;align-items:center;
+  padding:0;flex-shrink:0;
+  height:60px;
+}
+.bn-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;padding:0;
+  font-size:9px;font-weight:600;color:var(--t3);
+  cursor:pointer;height:100%;transition:color .12s;
+  font-family:'Sora',sans-serif;
+}
+.bn-item.active{color:var(--accent);}
+.bn-item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.bn-fab-wrap{flex:0 0 60px;display:flex;align-items:flex-start;justify-content:center;padding-top:0;}
+.bn-fab{
+  width:46px;height:46px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 14px rgba(201,57,95,.4);
+  margin-top:-10px;cursor:pointer;
+}
+.bn-fab svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;}
+
+/* ───── VISÃO GERAL ───── */
+.overview-hero{
+  background:var(--brand);
+  padding:16px 14px;flex-shrink:0;
+}
+.overview-hero-title{font-size:11px;font-weight:600;color:rgba(255,255,255,.5);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;}
+.overview-metric{font-size:30px;font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1;}
+.overview-sub{font-size:11px;color:rgba(255,255,255,.55);margin-top:4px;}
+
+/* ─── CRONOGRAMA STEPS ─── */
+.crono-list{display:flex;flex-direction:column;gap:0;}
+.crono-item{display:flex;gap:12px;padding:8px 0;}
+.crono-item:last-child{padding-bottom:0;}
+.crono-dot-col{display:flex;flex-direction:column;align-items:center;padding-top:3px;}
+.crono-dot{width:10px;height:10px;border-radius:50%;background:#ddd;flex-shrink:0;}
+.crono-dot.done{background:var(--ok);}
+.crono-dot.active{background:var(--accent);}
+.crono-line{width:1px;flex:1;background:#e0e0e0;margin:3px 0;}
+.crono-content{flex:1;padding-bottom:12px;}
+.crono-lbl{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
+.crono-val{font-size:12px;font-weight:600;color:var(--t1);}
+.crono-val.muted{color:var(--t3);}
+
+/* ─── ANDAMENTO VISUAL ─── */
+.andamento-bar{
+  display:flex;height:8px;border-radius:20px;overflow:hidden;
+  margin:8px 0 4px;gap:1px;
+}
+.and-seg{height:100%;border-radius:3px;}
+.and-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;}
+.and-leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t2);}
+.and-dot{width:8px;height:8px;border-radius:50%;}
+
+/* ─── MAP PLACEHOLDER ─── */
+.map-placeholder{
+  height:100px;border-radius:var(--r12);
+  background:linear-gradient(135deg,#cfe8f0,#a8d4e0);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;margin-bottom:0;
+}
+.map-pin{font-size:28px;position:relative;z-index:2;}
+.map-placeholder::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M0 20h40M20 0v40' stroke='rgba(0,0,0,.06)' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+/* ─── PANORAMA HEADER ─── */
+.panorama-hd{padding:10px 14px 6px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;}
+.panorama-hd-row{display:flex;align-items:center;justify-content:space-between;}
+.panorama-hd-chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.panorama-chip{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;background:#eee;color:var(--t2);border:none;font-family:'Sora',sans-serif;cursor:pointer;}
+.panorama-chip.active{background:var(--brand);color:#fff;}
+
+/* ─── DIVIDER ─── */
+.divider{height:8px;background:var(--bg);flex-shrink:0;}
+
+/* ─── PAD SECTION ─── */
+.psec{padding:12px 14px;}
+
+/* ─── TAG STRIP ─── */
+.tag-strip{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:5px;}
+</style>
+</head>
+<body>
+<div class="frame">
+
+<!-- ══════════════════════════════════════
+     SCREEN 1 — VISÃO GERAL
+══════════════════════════════════════ -->
+<div class="screen active" id="s-overview">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="topbar-logo">
+        <span class="topbar-logoico">📣</span>
+        <span class="topbar-logotxt">Trombone Cidadão</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="topbar-ico">
+          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
         </div>
-        <div class="pos-menu-topo back-menu-branca">
-            <div class="conteudo">
-                <div class="env-menu-topo dragscroll">
-                    <ul class="menu-topo">
-                        <li>
-                            <a href="https://blogdoelvis.com.br/trombone-cidadao">Trombone Cidadão</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/concursos">Concursos</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/economia">Economia</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/educacao">Educação</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/entretenimento">Entretenimento</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/esportes">Esportes</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/voz-do-leitor">Voz do leitor</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/politica">Política</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/ronda-policial">Ronda Policial</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/brasil">Brasil</a>
-                        </li>
-                        <li>
-                            <a href="https://blogdoelvis.com.br/emprego">Emprego</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
+        <div class="topbar-ico" style="border-radius:50%;overflow:hidden;background:rgba(255,255,255,.2);">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/></svg>
         </div>
-        <div class="ads-1 ads-lenium ads-lenium-topo-home">
-            <div class="tt-publicidade">Publicidade</div>
-            <div class="itens-ads ads-mega-3">
-                <div class="item-ads">
-                    <a href="https://www.instagram.com/imperio.auto.pecas/" target="_blank">
-                        <img src="https://blogdoelvis.com.br/images/anuncios/5c09016bdfa14771152dbf6efded1104c86bc333.webp" alt="Império" data-ads-mobile="https://blogdoelvis.com.br/images/anuncios/5bb8d6c5b675bcab78c12ee1646b7d8fc85e7a24.webp" data-ads-desktop="https://blogdoelvis.com.br/images/anuncios/5c09016bdfa14771152dbf6efded1104c86bc333.webp" class="ads-img ads-img-mobile"/>
-                    </a>
-                </div>
-                <div class="item-ads">
-                    <a href="https://ateltelecom.com.br/" target="_blank">
-                        <img src="https://blogdoelvis.com.br/images/anuncios/4b92cb774913d07b2d91f4e0c58ffe4bf60633a1.jpeg" alt="Atel" data-ads-mobile="https://blogdoelvis.com.br/images/anuncios/e7537b959909186423395df3fa92d257c083ec03.jpeg" data-ads-desktop="https://blogdoelvis.com.br/images/anuncios/4b92cb774913d07b2d91f4e0c58ffe4bf60633a1.jpeg" class="ads-img ads-img-mobile"/>
-                    </a>
-                </div>
-                <div class="item-ads">
-                    <a href="https://play.google.com/store/apps/details?id=br.com.blogdoelvis&pcampaignid=web_share" target="_blank">
-                        <img src="https://blogdoelvis.com.br/images/anuncios/666435f46287403127322c0787c127ef6e376fb6.webp" alt="Aplicativo Blog do Elvis Super Banner Topo" data-ads-mobile="https://blogdoelvis.com.br/images/anuncios/b3b05ca8bb9edabfdd96537e4dcde74a976b6222.webp" data-ads-desktop="https://blogdoelvis.com.br/images/anuncios/666435f46287403127322c0787c127ef6e376fb6.webp" class="ads-img ads-img-mobile"/>
-                    </a>
-                </div>
-            </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- back nav row -->
+  <div style="padding:8px 14px 0;background:var(--card);display:flex;align-items:center;gap:5px;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <svg style="width:13px;height:13px;stroke:var(--t3);fill:none;stroke-width:2;" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    <span style="font-size:11px;color:var(--t2);cursor:pointer;">Voltar para o mapa de obras</span>
+    <div style="margin-left:auto;display:flex;gap:12px;">
+      <svg style="width:16px;height:16px;stroke:var(--t2);fill:none;stroke-width:1.8;" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+      <svg style="width:16px;height:16px;stroke:var(--t2);fill:none;stroke-width:1.8;" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+    </div>
+  </div>
+
+  <div class="hero" style="height:150px;">
+    <div class="hero-placeholder"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-chip">Obra Pública</div>
+    <div class="hero-label">Calçamento de diversas ruas com blocos de concreto intertravado</div>
+  </div>
+
+  <div class="pill-tabs" id="main-tabs">
+    <button class="ptab active" onclick="switchMainTab(0)">Visão Geral</button>
+    <button class="ptab" onclick="switchMainTab(1)">Etapas</button>
+    <button class="ptab" onclick="switchMainTab(2)">Pagamentos</button>
+    <button class="ptab" onclick="switchMainTab(3)">Documentos</button>
+  </div>
+
+  <div class="scroll-body">
+    <!-- Informações da Obra -->
+    <div class="psec">
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span class="info-block-hd-lbl">Detalhes da Obra</span>
         </div>
-        <div class="env-cont-total-int">
-            <div class="pos-titulo-subtitulo-post">
-                <div class="conteudo">
-                    <h1 class="titulo-post">Trombone Cidadão</h1>
-                </div>
-            </div>
-            <div class="conteudo">
-                <div class="env-conteudo-interno">
-                    <div class="conteudo-interno lista-interna">
-                        <a href="https://blogdoelvis.com.br/noticia/56237/tragedia-reacende-cobranca-por-passagem-elevada-no-rio-pajeu-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/56237/a2ca55593e0daa9c0613cfe97ade90b8.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>ABAIXO-ASSINADO</span>
-                                <i>Há 20 horas </i>
-                                <h1>Tragédia reacende cobrança por passagem elevada no Rio Pajeú em Floresta, PE</h1>
-                                <h2>Moradores iniciaram a organização de um abaixo-assinado pedindo a construção da passagem elevada no local</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/55913/ubs-do-bairro-dner-esta-com-97-de-execucao-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/55913/8b5a7fe6b957070560e3d36f701be20a.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>CADÊ A INAUGURAÇÃO?</span>
-                                <i>Há 6 dias </i>
-                                <h1>UBS do bairro DNER está com 97% de execução em Floresta, PE</h1>
-                                <h2>Apesar das diversas cobranças da população ao longo dos anos e de promessas não cumpridas, atualmente a prefeitura sequer divulga um prazo oficial para a entrega da unidade à população.</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/55867/apos-8-anos-prefeitura-inicia-reposicao-de-calcamento-na-rua-eloi-torres-de-barros-em-floresta" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/55867/243e2f7bb5889150305bf40c1f286ff8.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>TROMBONE CIDADÃO</span>
-                                <i>Há 6 dias </i>
-                                <h1>Após 8 anos, Prefeitura inicia reposição de calçamento na Rua Elói Torres de Barros em Floresta</h1>
-                                <h2>Problema chegou a ser citado pelo jornalista Elvis Lima durante a 6ª Conferência Nacional das Cidades, realizada em Brasília</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/55838/prefeitura-finalmente-abre-licitacao-para-construcao-de-muro-e-fossa-de-escola-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/55838/b6eb2c75b5154b4d484fc63d61d6978a.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>TROMBONE FISCALIZA</span>
-                                <i>Há 1 semana </i>
-                                <h1>Prefeitura finalmente abre licitação para construção de muro e fossa de escola em Floresta, PE</h1>
-                                <h2>A obra foi cobrança do Trombone Cidadão por diversas vezes</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/55285/diagnostico-urbano-identifica-quase-200-ruas-sem-pavimentacao-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/55285/b0cbce277964b03296126029573f5255.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>TROMBONE CIDADÃO</span>
-                                <i>Há 3 semanas </i>
-                                <h1>Diagnóstico urbano identifica quase 200 ruas sem pavimentação em Floresta, PE</h1>
-                                <h2>Na prática, centenas de moradores continuam enfrentando lama durante o período chuvoso, poeira intensa no verão, dificuldade de acesso para veículos e serviços públicos</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/55202/creche-nao-fica-pronta-a-tempo-da-volta-as-aulas-e-alunos-sao-remanejados-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/55202/8cdc83b162f1c52226d53d658660048c.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>FISCALIZAÇÃO</span>
-                                <i>Há 3 semanas </i>
-                                <h1>Creche não fica pronta a tempo da volta às aulas e alunos são remanejados em Floresta, PE</h1>
-                                <h2>Enquanto isso, famílias seguem sem saber quando a creche finalmente será inaugurada — mais de uma década depois do início da obra.</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/54897/trombone-cidadao-identifica-mais-de-r-21-milhoes-em-obras-paradas-e-inacabadas-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/54897/55dfe993b1e030cd0263b1eacbc0069f.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>FISCALIZAÇÃO</span>
-                                <i>Há 4 semanas </i>
-                                <h1>Trombone Cidadão identifica mais de R$ 21 milhões em obras paradas e inacabadas em Floresta, PE</h1>
-                                <h2>Segundo o levantamento, algumas estruturas foram vandalizadas, enquanto outras sofreram danos pelo tempo de abandono, agravando a situação e elevando os custos para uma eventual conclusão.</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/54115/prefeitura-de-floresta-nega-transporte-para-paciente-realizar-tratamento-em-garanhuns" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/54115/a889842437573201ad469bf32ad87246.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>DENÚNCIA</span>
-                                <i>Há 2 meses </i>
-                                <h1>Prefeitura de Floresta nega transporte para paciente realizar tratamento em Garanhuns</h1>
-                                <h2>Genilson reforça que não escolheu onde seria tratado, já que o atendimento em Garanhuns foi definido pelos profissionais de saúde</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/53952/ubs-abandonada-no-bairro-caetano-2-e-simbolo-de-desperdicio-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/53952/302232cb98a680d34a20becb6c27392e.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>FISCALIZAÇÃO</span>
-                                <i>Há 2 meses </i>
-                                <h1>UBS abandonada no bairro Caetano 2 é símbolo de desperdício em Floresta, PE</h1>
-                                <h2>Iniciada há 12 anos, a obra nunca foi concluída e hoje se encontra em estado crítico, sem nunca ter atendido um único paciente.</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/53790/apos-cobranca-do-blog-do-elvis-prefeitura-reforma-banheiro-de-escola-em-floresta" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/53790/f76a243e30d35a78253230557256b8e9.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>BOCA NO TROMBONE</span>
-                                <i>Há 2 meses </i>
-                                <h1>Após cobrança do Blog do Elvis, prefeitura reforma banheiro de escola em Floresta</h1>
-                                <h2>Fontes do Blog do Elvis informaram que a falta de manutenção era antiga e se arrastava há vários meses.</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/52348/demora-na-construcao-de-muro-e-fossa-vai-atrasar-inauguracao-de-escola-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/52348/612e3486993b6702c8788bee776f35ae.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>DESCASO</span>
-                                <i>Há 3 meses </i>
-                                <h1>Demora na construção de muro e fossa vai atrasar inauguração de escola em Floresta, PE</h1>
-                                <h2>Mesmo com a obra retomada e recursos liberados, moradores temem que a falta do muro e da fossa cause novo período de abandono.</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/52316/quando-o-mercado-municipal-finalmente-sera-inaugurado-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/52316/def2a3c5d32402f5a8ed311f068acb35.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>INAUGURAÇÃO</span>
-                                <i>Há 3 meses </i>
-                                <h1>Quando o Mercado Municipal finalmente será inaugurado em Floresta, PE?</h1>
-                                <h2>Com a reforma finalizada, a definição da data de entrega depende agora de um alinhamento entre o Governo do Estado e a Prefeitura de Floresta.</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/51846/afinal-de-contas-quem-vai-tapar-o-nosso-buraco-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/51846/cf8acf130ed76c0e6eaeb0e6a85542c0.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>E agora Compesa?</span>
-                                <i>Há 3 meses </i>
-                                <h1>Quem vai tapar os buracos abertos pela Compesa em Floresta, PE?</h1>
-                                <h2>Convênio entre Compesa e Prefeitura não é renovado desde 2022; privatização da companhia pode adiar ainda mais a solução enquanto população segue prejudicada</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/51628/jornalista-entrega-solicitacoes-do-trombone-cidadao-na-secretaria-de-obras-de-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/51628/a4111ac546d74915b5ea4e76842c988f.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>TROMBONE CIDADÃO</span>
-                                <i>Há 3 meses </i>
-                                <h1>Jornalista entrega solicitações do Trombone Cidadão na Secretaria de Obras de Floresta, PE</h1>
-                                <h2>As demandas, cadastradas por moradores de diferentes bairros, incluem reclamações de buracos em ruas, esgoto estourado, iluminação pública apagada, ruas sem pavimentação e outros serviços essenciais que aguardam solução por parte do poder público municipal</h2>
-                            </div>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/noticia/51542/cansados-de-esperar-pela-prefeitura-moradores-tampam-buraco-em-floresta-pe" class="listagem-interna img-dest-s">
-                            <img class="img-dest lazyload" src="https://blogdoelvis.com.br/tema/v11/img/pre-img.jpg" data-src="https://blogdoelvis.com.br/images/noticias/51542/df11994b18503ebc8d443cd1f83105ec.webp" alt=""/>
-                            <div class="desc-lista-interna">
-                                <span>TROMBONE CIDADÃO</span>
-                                <i>Há 3 meses </i>
-                                <h1>Cansados de esperar pela prefeitura, moradores tampam buraco em Floresta, PE</h1>
-                                <h2>Buraco aberto no calçamento vinha causando transtornos diários e colocando em risco quem circula pela via.</h2>
-                            </div>
-                        </a>
-                        <div class="env">
-                            <div class="paginacao">
-                                <span class="tx-pg fim-pg" style="cursor: not-allowed;">&laquo;Anterior</span>
-                                <span class="pg-at" style="background: #b30000;">1</span>
-                                <a href="https://blogdoelvis.com.br/trombone-cidadao/pagina/2">
-                                    <span class="pg-px">2</span>
-                                </a>
-                                <a href="https://blogdoelvis.com.br/trombone-cidadao/pagina/3">
-                                    <span class="pg-px">3</span>
-                                </a>
-                                <a href="https://blogdoelvis.com.br/trombone-cidadao/pagina/4">
-                                    <span class="pg-px">4</span>
-                                </a>
-                                <a href="https://blogdoelvis.com.br/trombone-cidadao/pagina/2">
-                                    <span class="tx-pg">Próxima &raquo;</span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="fix-lateral-interna">
-                        <div class="lateral-interna">
-                            <div class="item-lateral-interna">
-                                <div class="tt-item-lateral-interna">Últimas notícias</div>
-                                <a href="https://blogdoelvis.com.br/noticia/56244/assedio-no-trabalho-saiba-como-reunir-provas-para-denunciar-crime" class="item-ultimas">
-                                    <div class="desc-ultimas">
-                                        <span>Direitos Humanos</span>
-                                        <b>Há 29 minutos </b>
-                                        <h1>Assédio no trabalho: saiba como reunir provas para denunciar crime</h1>
-                                    </div>
-                                </a>
-                                <a href="https://blogdoelvis.com.br/noticia/56243/polilaminina-entenda-a-esperanca-e-os-testes-ainda-necessarios" class="item-ultimas">
-                                    <div class="desc-ultimas">
-                                        <span>Saúde</span>
-                                        <b>Há 2 horas </b>
-                                        <h1>Polilaminina: entenda a esperança e os testes ainda necessários</h1>
-                                    </div>
-                                </a>
-                                <a href="https://blogdoelvis.com.br/noticia/56242/lnao-podemos-nos-conformar-com-homens-matando-mulheresr-diz-lula" class="item-ultimas">
-                                    <div class="desc-ultimas">
-                                        <span>Política</span>
-                                        <b>Há 11 horas </b>
-                                        <h1>“Não podemos nos conformar com homens matando mulheres”, diz Lula</h1>
-                                    </div>
-                                </a>
-                                <a href="https://blogdoelvis.com.br/noticia/56241/menino-de-floresta-marca-primeiro-gol-pelo-fortaleza-na-ceara-cup" class="item-ultimas">
-                                    <div class="desc-ultimas">
-                                        <span>ESPORTE</span>
-                                        <b>Há 13 horas </b>
-                                        <h1>Atleta de Floresta marca primeiro gol pelo Fortaleza na Ceará Cup</h1>
-                                    </div>
-                                </a>
-                                <a href="https://blogdoelvis.com.br/noticia/56240/da-agrovila-6-ao-palmeiras-a-historia-inspiradora-da-jogadora-maria-clara" class="item-ultimas">
-                                    <div class="desc-ultimas">
-                                        <span>ESPORTE</span>
-                                        <b>Há 13 horas </b>
-                                        <h1>Da Agrovila 6 ao Palmeiras: a história inspiradora da jogadora Maria Clara</h1>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="item-lateral-interna">
-                                <div class="ads-7 ads-lenium">
-                                    <div class="tt-publicidade">Publicidade</div>
-                                    <div class="itens-ads ads-arranha-ceu">
-                                        <div class="item-ads">
-                                            <a href="https://play.google.com/store/apps/details?id=br.com.blogdoelvis&pcampaignid=web_share" target="_blank">
-                                                <img src="https://blogdoelvis.com.br/images/anuncios/75d30e4725e44f2bda57701ae5153fe46ac38674.webp" alt="App Blog 300x600" class="ads-img"/>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="info-row">
+          <span class="info-row-ico">🏗️</span>
+          <div><div class="info-row-lbl">Categoria</div><div class="info-row-val">Construção</div></div>
         </div>
-        <div class="rodape">
-            <div class="conteudo">
-                <div class="pos-links-rodape width-links-rodape-3">
-                    <div class="tt-rodape">
-                        <a href="https://blogdoelvis.com.br/editorias">
-                            <span class="icons-v11 icon-noticias"></span>
-                            <span>Editorias</span>
-                        </a>
-                    </div>
-                    <ul class="itens-rodape">
-                        <a href="https://blogdoelvis.com.br/achados-e-perdidos">
-                            <li>Achados e Perdidos</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/brasil">
-                            <li>Brasil</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/camara-dos-deputados">
-                            <li>Câmara dos Deputados</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/cidades">
-                            <li>Cidades</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/concursos">
-                            <li>Concursos</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/cultura">
-                            <li>Cultura</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/direitos-humanos">
-                            <li>Direitos Humanos</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/economia">
-                            <li>Economia</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/educacao">
-                            <li>Educação</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/eleicoe">
-                            <li>Eleições</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/editorias">
-                            <li>
-                                <em>Ver todas</em>
-                            </li>
-                        </a>
-                    </ul>
-                </div>
-                <div class="pos-links-rodape width-links-rodape-3">
-                    <div class="tt-rodape">
-                        <a href="https://blogdoelvis.com.br/municipios">
-                            <span class="icons-v11 icon-local"></span>
-                            <span>Municípios</span>
-                        </a>
-                    </div>
-                    <ul class="itens-rodape">
-                        <a href="https://blogdoelvis.com.br/belem-do-sao-francisco-pe">
-                            <li>Belém do São Francisco - PE</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/carnaubeira-da-penha-pe">
-                            <li>Carnaubeira da Penha - PE</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/floresta-pe">
-                            <li>Floresta - PE</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/itacuruba-pe">
-                            <li>Itacuruba - PE</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/petrolandia-pe">
-                            <li>Petrolândia - PE</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/serra-talhada-pe">
-                            <li>Serra Talhada - PE</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/municipios">
-                            <li>
-                                <em>Ver todos</em>
-                            </li>
-                        </a>
-                    </ul>
-                </div>
-                <div class="pos-links-rodape width-links-rodape-3">
-                    <div class="tt-rodape">
-                        <span class="icons-v11 icon-link"></span>
-                        <span>Links</span>
-                    </div>
-                    <ul class="itens-rodape">
-                        <a href="https://blogdoelvis.com.br/classificados">
-                            <li>Classificados</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/contato">
-                            <li>Fale conosco</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/galerias">
-                            <li>Galerias</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/ultimas-noticias">
-                            <li>Últimas notícias</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/videos">
-                            <li>Vídeos</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/pagina/2/contato">
-                            <li>Contato</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/pagina/3/politica-de-privacidade">
-                            <li>Política de privacidade</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/pagina/5/sobre-mim">
-                            <li>Sobre mim</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/pagina/6/mapa-da-cidade-de-floresta-pe-atualizado-em-marco-de-2025">
-                            <li>Mapa da cidade de Floresta-PE atualizado em Março de 2025</li>
-                        </a>
-                        <a href="https://blogdoelvis.com.br/paginas">
-                            <li>
-                                <em>Ver todos</em>
-                            </li>
-                        </a>
-                    </ul>
-                </div>
-            </div>
+        <div class="info-row">
+          <span class="info-row-ico">🔖</span>
+          <div><div class="info-row-lbl">Status</div><div class="info-row-val"><span class="badge b-orange">Em Licitação</span></div></div>
         </div>
-        <div class="rodape-2">
-            <div class="conteudo">
-                <div class="copyright">© Copyright 2026 - Blog do Elvis - Todos os direitos reservados</div>
-            </div>
+        <div class="info-row">
+          <span class="info-row-ico">🏘️</span>
+          <div><div class="info-row-lbl">Localização</div><div class="info-row-val">Câmara 1 — Rua Esmeralda Soares de Oliveira</div></div>
         </div>
-</div><script>
-    var config_tema = jQuery.parseJSON('{"tmn_logo":"1","menu_topo":"S","url_site":"https:\/\/blogdoelvis.com.br","logado":"N","not_pr":"1","itens_slide":"3","home":"N","tempo_ads":"5000","pg_classificados":"N","conteudo_classificado":"N","pg_tipo":"editoria","wid_loterias":"N","comentarios":"N","lateral_interna":"S"}');
+        <div class="info-row">
+          <span class="info-row-ico">🏢</span>
+          <div><div class="info-row-lbl">Empresa</div><div class="info-row-val">BWS Construções Ltda</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">🪪</span>
+          <div><div class="info-row-lbl">CNPJ</div><div class="info-row-val">00.178.526/0001-08</div></div>
+        </div>
+      </div>
+
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          <span class="info-block-hd-lbl">Financeiro</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">📅</span>
+          <div><div class="info-row-lbl">Início</div><div class="info-row-val">06/01/2026</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">🏁</span>
+          <div><div class="info-row-lbl">Previsão de Término</div><div class="info-row-val">10/11/2027</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">💵</span>
+          <div><div class="info-row-lbl">Valor Total</div><div class="info-row-val acc">R$ 100.000,00</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">✅</span>
+          <div><div class="info-row-lbl">Total Pago</div><div class="info-row-val ok">R$ 1.205,00</div></div>
+        </div>
+      </div>
+
+      <!-- Andamento -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span class="info-block-hd-lbl">Andamento da Obra</span>
+        </div>
+        <div style="padding:12px 14px;">
+          <div style="font-size:11px;color:var(--t2);margin-bottom:8px;">78% Concluída</div>
+          <div class="andamento-bar">
+            <div class="and-seg" style="width:61%;background:var(--accent);"></div>
+            <div class="and-seg" style="width:17%;background:#f5a623;"></div>
+            <div class="and-seg" style="width:22%;background:#eee;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t3);margin-bottom:8px;">
+            <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+          </div>
+          <div class="and-legend">
+            <div class="and-leg-item"><div class="and-dot" style="background:var(--accent);"></div>1ª Licitação 0%–61%</div>
+            <div class="and-leg-item"><div class="and-dot" style="background:#f5a623;"></div>2ª Licitação 62%–78%</div>
+            <div class="and-leg-item"><div class="and-dot" style="background:#ddd;"></div>Restante</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cronograma -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="info-block-hd-lbl">Cronograma</span>
+        </div>
+        <div style="padding:12px 14px;">
+          <div class="crono-list">
+            <div class="crono-item">
+              <div class="crono-dot-col"><div class="crono-dot done"></div><div class="crono-line"></div></div>
+              <div class="crono-content"><div class="crono-lbl">Assinatura do Contrato</div><div class="crono-val">06/01/2026</div></div>
+            </div>
+            <div class="crono-item">
+              <div class="crono-dot-col"><div class="crono-dot done"></div><div class="crono-line"></div></div>
+              <div class="crono-content"><div class="crono-lbl">Ordem de Serviço</div><div class="crono-val muted">—</div></div>
+            </div>
+            <div class="crono-item">
+              <div class="crono-dot-col"><div class="crono-dot active"></div><div class="crono-line"></div></div>
+              <div class="crono-content"><div class="crono-lbl">Início Real</div><div class="crono-val muted">—</div></div>
+            </div>
+            <div class="crono-item">
+              <div class="crono-dot-col"><div class="crono-dot"></div><div class="crono-line"></div></div>
+              <div class="crono-content"><div class="crono-lbl">Previsão de Término</div><div class="crono-val">10/11/2027</div></div>
+            </div>
+            <div class="crono-item" style="padding-bottom:0;">
+              <div class="crono-dot-col"><div class="crono-dot"></div></div>
+              <div class="crono-content" style="padding-bottom:0;"><div class="crono-lbl">Término Real</div><div class="crono-val muted">—</div></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+            <div style="background:var(--warnbg);border-radius:var(--r8);padding:8px 10px;">
+              <div class="crono-lbl" style="color:var(--warn);">Tempo Decorrido</div>
+              <div style="font-size:14px;font-weight:700;color:var(--warn);">11 dias</div>
+            </div>
+            <div style="background:var(--infobg);border-radius:var(--r8);padding:8px 10px;">
+              <div class="crono-lbl" style="color:var(--info);">Tempo Restante</div>
+              <div style="font-size:14px;font-weight:700;color:var(--info);">328 dias</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Descrição -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="3" y2="18"/></svg>
+          <span class="info-block-hd-lbl">Descrição</span>
+        </div>
+        <div class="info-row">
+          <div style="font-size:12px;color:var(--t2);line-height:1.6;">Muitos calçamentos sofrem nas ruas. Teste teste teste teste teste teste teste teste teste. Teste sementestezar teste teste teste teste teste. Número 1234.</div>
+        </div>
+      </div>
+
+      <!-- Localização -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span class="info-block-hd-lbl">Localização</span>
+        </div>
+        <div style="padding:10px 14px;">
+          <div class="map-placeholder">
+            <span class="map-pin">📍</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="contribute-sec">
+        <div class="contribute-ico">📤</div>
+        <div class="contribute-title">Tem informações sobre esta obra?</div>
+        <div class="contribute-sub">Envie fotos, vídeos ou relatórios para manter os dados atualizados.</div>
+        <div class="contribute-btns">
+          <button class="btn-accent">📣 Contribuir</button>
+          <button class="btn-ghost">Reportar erro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bn-item active">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Início
+    </div>
+    <div class="bn-item">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Estatísticas
+    </div>
+    <div class="bn-fab-wrap">
+      <div class="bn-fab">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+    </div>
+    <div class="bn-item">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Favoritos
+    </div>
+    <div class="bn-item">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Perfil
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 2 — ETAPAS
+══════════════════════════════════════ -->
+<div class="screen" id="s-etapas">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="topbar-logo">
+        <span class="topbar-logoico">📣</span>
+        <span class="topbar-logotxt">Trombone Cidadão</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="topbar-ico">
+          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:8px 14px 0;background:var(--card);display:flex;align-items:center;gap:5px;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <svg style="width:13px;height:13px;stroke:var(--t3);fill:none;stroke-width:2;" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    <span style="font-size:11px;color:var(--t2);cursor:pointer;">Voltar para o mapa de obras</span>
+    <div style="margin-left:auto;display:flex;gap:12px;">
+      <svg style="width:16px;height:16px;stroke:var(--t2);fill:none;stroke-width:1.8;" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+      <svg style="width:16px;height:16px;stroke:var(--t2);fill:none;stroke-width:1.8;" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+    </div>
+  </div>
+
+  <div class="hero" style="height:130px;">
+    <div class="hero-placeholder"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-label">Calçamento de diversas ruas com blocos de concreto intertravado</div>
+  </div>
+
+  <div class="pill-tabs">
+    <button class="ptab" onclick="switchMainTab(0)">Visão Geral</button>
+    <button class="ptab active">Etapas</button>
+    <button class="ptab" onclick="switchMainTab(2)">Pagamentos</button>
+    <button class="ptab" onclick="switchMainTab(3)">Documentos</button>
+  </div>
+
+  <div class="stat-strip">
+    <div class="stat-cell"><div class="stat-cell-lbl">Etapas</div><div class="stat-cell-val">3</div></div>
+    <div class="stat-cell"><div class="stat-cell-lbl">Total Pago</div><div class="stat-cell-val acc">R$1,2k</div></div>
+    <div class="stat-cell"><div class="stat-cell-lbl">Execução</div><div class="stat-cell-val ok">70%</div></div>
+  </div>
+
+  <div class="panorama-hd">
+    <div class="panorama-hd-row">
+      <span class="sec-lbl" style="margin:0;">Panorama</span>
+      <span style="font-size:10px;color:var(--t3);">3 etapas</span>
+    </div>
+    <div class="panorama-hd-chips">
+      <button class="panorama-chip active">Todas</button>
+      <button class="panorama-chip">Planejamento</button>
+      <button class="panorama-chip">Em Licitação</button>
+    </div>
+  </div>
+
+  <div class="scroll-body">
+    <div class="psec">
+
+      <div class="etapa-item" onclick="goTo('s-detalhe-etapa')">
+        <div class="etapa-accent-bar" style="background:#7f77dd;"></div>
+        <div class="etapa-inner">
+          <div class="etapa-tags">
+            <span class="badge b-purple">Planejamento</span>
+            <span class="badge b-gray">Fase 01</span>
+          </div>
+          <div class="etapa-name">3ª Licitação</div>
+          <div class="etapa-prog"><div class="etapa-prog-fill" style="width:78%;background:var(--accent);"></div></div>
+          <div class="etapa-foot">
+            <span class="etapa-foot-meta">78% executado · 0 pagamentos</span>
+            <span class="etapa-foot-amount" style="color:var(--t3);">R$ 0,00</span>
+          </div>
+        </div>
+        <span class="etapa-chevron">›</span>
+      </div>
+
+      <div class="etapa-item" onclick="goTo('s-detalhe-etapa')">
+        <div class="etapa-accent-bar" style="background:#7f77dd;"></div>
+        <div class="etapa-inner">
+          <div class="etapa-tags">
+            <span class="badge b-purple">Planejamento</span>
+            <span class="badge b-gray">Fase 02</span>
+          </div>
+          <div class="etapa-name">2ª Licitação</div>
+          <div class="etapa-prog"><div class="etapa-prog-fill" style="width:70%;background:#7f77dd;"></div></div>
+          <div class="etapa-foot">
+            <span class="etapa-foot-meta">70% executado · 1 pagamento</span>
+            <span class="etapa-foot-amount" style="color:var(--accent);">R$ 1.200,00</span>
+          </div>
+        </div>
+        <span class="etapa-chevron">›</span>
+      </div>
+
+      <div class="etapa-item" onclick="goTo('s-detalhe-etapa')">
+        <div class="etapa-accent-bar" style="background:var(--warn);"></div>
+        <div class="etapa-inner">
+          <div class="etapa-tags">
+            <span class="badge b-orange">Em Licitação</span>
+            <span class="badge b-gray">Fase 03</span>
+          </div>
+          <div class="etapa-name">1ª Licitação</div>
+          <div class="etapa-prog"><div class="etapa-prog-fill" style="width:61%;background:var(--warn);"></div></div>
+          <div class="etapa-foot">
+            <span class="etapa-foot-meta">61% executado · 0 pagamentos</span>
+            <span class="etapa-foot-amount" style="color:var(--t3);">R$ 0,00</span>
+          </div>
+        </div>
+        <span class="etapa-chevron">›</span>
+      </div>
+
+      <div class="contribute-sec">
+        <div class="contribute-ico">📤</div>
+        <div class="contribute-title">Tem informações sobre esta obra?</div>
+        <div class="contribute-sub">Envie fotos, vídeos ou relatórios.</div>
+        <div class="contribute-btns">
+          <button class="btn-accent">📣 Contribuir</button>
+          <button class="btn-ghost">Reportar erro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bn-item active"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Estatísticas</div>
+    <div class="bn-fab-wrap"><div class="bn-fab"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Favoritos</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Perfil</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 3 — DETALHE DA ETAPA
+══════════════════════════════════════ -->
+<div class="screen" id="s-detalhe-etapa">
+  <div class="subbar" style="position:relative;">
+    <div class="subbar-back" onclick="goBack('s-etapas')">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      Etapas do Projeto
+    </div>
+    <div class="subbar-title">3ª Licitação</div>
+    <div class="subbar-sub">Fase 01 · Planejamento</div>
+    <div class="subbar-right">
+      <svg viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+    </div>
+  </div>
+
+  <div class="exec-hero">
+    <div class="tag-strip">
+      <span class="badge b-purple">Planejamento</span>
+      <span class="badge b-gray">Fase 01</span>
+    </div>
+    <div class="exec-num">78%</div>
+    <div class="exec-sub">Executado</div>
+    <div class="prog-track"><div class="prog-fill" style="width:78%;"></div></div>
+    <div class="exec-interval">Intervalo: <strong>70% — 78%</strong></div>
+  </div>
+
+  <div class="scroll-body">
+    <div class="psec">
+      <!-- Descrição da fase -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/></svg>
+          <span class="info-block-hd-lbl">Descrição da Fase</span>
+        </div>
+        <div class="info-row"><span style="font-size:12px;color:var(--t2);">teste</span></div>
+      </div>
+
+      <!-- Dados do contrato -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span class="info-block-hd-lbl">Dados do Contrato</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">🏢</span>
+          <div><div class="info-row-lbl">Empresa Responsável</div><div class="info-row-val">OPA Locações de Transporte e Construção de Edifíci</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">🪪</span>
+          <div><div class="info-row-lbl">CNPJ</div><div class="info-row-val">24.526.759/0001-70</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">🏛️</span>
+          <div><div class="info-row-lbl">Fonte de Recursos</div><div class="info-row-val">Estadual</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">💵</span>
+          <div><div class="info-row-lbl">Valor do Contrato</div><div class="info-row-val acc">R$ 100.000,00</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">📋</span>
+          <div><div class="info-row-lbl">Valor Previsto</div><div class="info-row-val">R$ 13.143,00</div></div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-ico">✅</span>
+          <div><div class="info-row-lbl">Valor Pago</div><div class="info-row-val ok">R$ 1.200,00</div></div>
+        </div>
+      </div>
+
+      <!-- Execução financeira -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span class="info-block-hd-lbl">Execução Financeira</span>
+        </div>
+        <div style="padding:12px 14px;">
+          <div class="summary-pair">
+            <div class="summ-card">
+              <div class="summ-lbl">Contrato</div>
+              <div class="summ-val">R$100k</div>
+            </div>
+            <div class="summ-card feat">
+              <div class="summ-lbl">Pago</div>
+              <div class="summ-val acc">R$1,2k</div>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">1,2% executado financeiramente</div>
+          <div class="prog-track"><div class="prog-fill" style="width:1.2%;background:var(--ok);"></div></div>
+        </div>
+      </div>
+
+      <!-- Cronograma -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="info-block-hd-lbl">Cronograma e Prazos</span>
+        </div>
+        <div style="padding:12px 14px;">
+          <div class="crono-list">
+            <div class="crono-item">
+              <div class="crono-dot-col"><div class="crono-dot done"></div><div class="crono-line"></div></div>
+              <div class="crono-content"><div class="crono-lbl">Assinatura do Contrato</div><div class="crono-val">16/03/2026</div></div>
+            </div>
+            <div class="crono-item">
+              <div class="crono-dot-col"><div class="crono-dot active"></div><div class="crono-line"></div></div>
+              <div class="crono-content"><div class="crono-lbl">Ordem de Serviço</div><div class="crono-val muted">—</div></div>
+            </div>
+            <div class="crono-item">
+              <div class="crono-dot-col"><div class="crono-dot"></div><div class="crono-line"></div></div>
+              <div class="crono-content"><div class="crono-lbl">Previsão de Início</div><div class="crono-val muted">—</div></div>
+            </div>
+            <div class="crono-item" style="padding-bottom:0;">
+              <div class="crono-dot-col"><div class="crono-dot"></div></div>
+              <div class="crono-content" style="padding-bottom:0;"><div class="crono-lbl">Prazo (dias)</div><div class="crono-val">13432</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Galeria / Documentos vazios -->
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span class="info-block-hd-lbl">Galeria de Fotos e Vídeos</span>
+        </div>
+        <div class="info-row"><span style="font-size:11px;color:var(--t3);font-style:italic;">Nenhuma mídia registrada para esta fase.</span></div>
+      </div>
+
+      <div class="contribute-sec">
+        <div class="contribute-ico">📤</div>
+        <div class="contribute-title">Tem informações sobre esta obra?</div>
+        <div class="contribute-sub">Envie fotos, vídeos ou relatórios.</div>
+        <div class="contribute-btns">
+          <button class="btn-accent">📣 Contribuir</button>
+          <button class="btn-ghost">Reportar erro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-row">
+    <button class="cta-back" onclick="goBack('s-etapas')">← Voltar</button>
+    <button class="cta-primary" onclick="goTo('s-pagamentos-etapa')">💳 Pagamentos</button>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Estatísticas</div>
+    <div class="bn-fab-wrap"><div class="bn-fab"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Favoritos</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Perfil</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 4 — PAGAMENTOS (panorama)
+══════════════════════════════════════ -->
+<div class="screen" id="s-pagamentos">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="topbar-logo">
+        <span class="topbar-logoico">📣</span>
+        <span class="topbar-logotxt">Trombone Cidadão</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="topbar-ico">
+          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:8px 14px 0;background:var(--card);display:flex;align-items:center;gap:5px;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <svg style="width:13px;height:13px;stroke:var(--t3);fill:none;stroke-width:2;" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    <span style="font-size:11px;color:var(--t2);">Voltar para o mapa de obras</span>
+  </div>
+
+  <div class="hero" style="height:130px;">
+    <div class="hero-placeholder"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-label">Calçamento de diversas ruas com blocos de concreto intertravado</div>
+  </div>
+
+  <div class="pill-tabs">
+    <button class="ptab" onclick="switchMainTab(0)">Visão Geral</button>
+    <button class="ptab" onclick="switchMainTab(1)">Etapas</button>
+    <button class="ptab active">Pagamentos</button>
+    <button class="ptab" onclick="switchMainTab(3)">Documentos</button>
+  </div>
+
+  <div class="scroll-body">
+    <div class="psec">
+      <div class="panorama-hd" style="background:transparent;border:none;padding:0 0 10px;">
+        <div class="sec-lbl">Panorama geral</div>
+      </div>
+
+      <div class="summary-pair">
+        <div class="summ-card">
+          <div class="summ-lbl">Contrato Total</div>
+          <div class="summ-val" style="font-size:14px;">R$ 143.454,43</div>
+        </div>
+        <div class="summ-card feat">
+          <div class="summ-lbl">Total Pago</div>
+          <div class="summ-val acc" style="font-size:14px;">R$ 1.200,00</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:10px;color:var(--t3);">Execução global</span>
+          <span style="font-size:10px;font-weight:700;color:var(--accent);">0,8%</span>
+        </div>
+        <div class="prog-track" style="height:6px;"><div class="prog-fill" style="width:0.8%;"></div></div>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <div style="background:var(--okbg);border-radius:var(--r8);padding:8px 10px;flex:1;text-align:center;">
+          <div class="summ-lbl" style="color:var(--ok);">3 etapas</div>
+        </div>
+        <div style="background:var(--infobg);border-radius:var(--r8);padding:8px 10px;flex:1;text-align:center;">
+          <div class="summ-lbl" style="color:var(--info);">1 pagamento</div>
+        </div>
+      </div>
+
+      <div class="sec-lbl">Etapas</div>
+
+      <!-- Etapa 01 -->
+      <div class="card" style="margin-bottom:8px;">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div class="tag-strip" style="margin-bottom:4px;">
+              <span class="badge b-purple">Planejamento</span>
+              <span class="badge b-gray">Fase 01</span>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:var(--t1);">3ª Licitação</div>
+            <div style="font-size:11px;color:var(--t3);">teste</div>
+          </div>
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-align:right;">
+            <div>Exec. <strong style="color:var(--accent);">0%</strong></div>
+          </div>
+        </div>
+        <div style="padding:8px 14px;background:#fafafa;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><div class="summ-lbl">Pago</div><div style="font-size:12px;font-weight:600;color:var(--t3);">R$ 0,00</div></div>
+          <div><div class="summ-lbl">Contrato</div><div style="font-size:12px;font-weight:600;color:var(--t1);">R$ 100.000,00</div></div>
+        </div>
+      </div>
+
+      <!-- Etapa 02 -->
+      <div class="card" style="margin-bottom:8px;border-color:rgba(201,57,95,.2);">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div class="tag-strip" style="margin-bottom:4px;">
+              <span class="badge b-purple">Planejamento</span>
+              <span class="badge b-gray">Fase 02</span>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:var(--t1);">2ª Licitação</div>
+            <div style="font-size:11px;color:var(--t3);">teste</div>
+          </div>
+          <div style="font-size:10px;font-weight:600;text-align:right;">
+            <div>Exec. <strong style="color:var(--ok);">100%</strong></div>
+          </div>
+        </div>
+        <div style="padding:8px 14px;background:var(--accentbg);display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><div class="summ-lbl">Pago</div><div style="font-size:12px;font-weight:700;color:var(--accent);">R$ 1.200,00</div></div>
+          <div><div class="summ-lbl">Contrato</div><div style="font-size:12px;font-weight:600;color:var(--t1);">R$ 1.000,00</div></div>
+        </div>
+        <div style="padding:6px 14px 8px;">
+          <div class="alert alert-warn" style="margin:0;">
+            <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Pago excede o contrato em R$ 200,00
+          </div>
+        </div>
+      </div>
+
+      <!-- Etapa 03 -->
+      <div class="card" style="margin-bottom:12px;">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
+          <div class="tag-strip" style="margin-bottom:4px;">
+            <span class="badge b-orange">Em Licitação</span>
+            <span class="badge b-gray">Fase 03</span>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:var(--t1);">1ª Licitação</div>
+          <div style="font-size:11px;color:var(--t3);">teste</div>
+        </div>
+        <div style="padding:8px 14px;background:#fafafa;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><div class="summ-lbl">Pago</div><div style="font-size:12px;font-weight:600;color:var(--t3);">R$ 0,00</div></div>
+          <div><div class="summ-lbl">Contrato</div><div style="font-size:12px;font-weight:600;color:var(--t1);">R$ 42.454,43</div></div>
+        </div>
+      </div>
+
+      <div class="contribute-sec">
+        <div class="contribute-ico">📤</div>
+        <div class="contribute-title">Tem informações sobre esta obra?</div>
+        <div class="contribute-sub">Envie fotos, vídeos ou relatórios.</div>
+        <div class="contribute-btns">
+          <button class="btn-accent">📣 Contribuir</button>
+          <button class="btn-ghost">Reportar erro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:8px 14px 12px;background:var(--card);border-top:1px solid var(--border);flex-shrink:0;">
+    <button class="btn-ghost" style="width:100%;padding:11px;border-radius:var(--r12);" onclick="goBack('s-overview')">← Voltar ao panorama</button>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início</div>
+    <div class="bn-item active"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Estatísticas</div>
+    <div class="bn-fab-wrap"><div class="bn-fab"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Favoritos</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Perfil</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 5 — PAGAMENTOS POR ETAPA
+══════════════════════════════════════ -->
+<div class="screen" id="s-pagamentos-etapa">
+  <div class="subbar" style="position:relative;">
+    <div class="subbar-back" onclick="goBack('s-detalhe-etapa')">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      Detalhe da Etapa
+    </div>
+    <div class="subbar-title">Pagamentos por Etapa</div>
+    <div class="subbar-sub">2ª Licitação · teste</div>
+  </div>
+
+  <div class="scroll-body">
+    <div class="psec">
+      <div class="summary-pair">
+        <div class="summ-card">
+          <div class="summ-lbl">Contrato</div>
+          <div class="summ-val" style="font-size:15px;">R$ 1.000</div>
+        </div>
+        <div class="summ-card feat">
+          <div class="summ-lbl">Total Pago</div>
+          <div class="summ-val acc" style="font-size:15px;">R$ 1.200</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:10px;color:var(--t3);">Execução</span>
+          <span style="font-size:10px;font-weight:700;color:var(--accent);">100%</span>
+        </div>
+        <div class="prog-track" style="height:6px;"><div class="prog-fill" style="width:100%;background:var(--ok);"></div></div>
+      </div>
+
+      <div class="alert alert-warn">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Total pago excede o contrato em <strong>R$ 200,00</strong>. Verifique com o responsável.
+      </div>
+
+      <div class="sec-lbl" style="margin-top:4px;">1 pagamento</div>
+
+      <div class="pay-card">
+        <div class="pay-card-top">
+          <div>
+            <div style="font-size:9px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">Data</div>
+            <div class="pay-date">15/03/2026</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:9px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">Valor</div>
+            <div class="pay-amount">R$ 1.200,00</div>
+          </div>
+        </div>
+        <div class="pay-body">
+          <div class="pay-field">
+            <div class="pay-field-lbl">Ordem Bancária / Empenho</div>
+            <div class="pay-field-val">34132231</div>
+          </div>
+          <div class="pay-field">
+            <div class="pay-field-lbl">Portal</div>
+            <div class="pay-field-val link">🔗 https://google.com</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:10px 14px 14px;background:var(--card);border-top:1px solid var(--border);flex-shrink:0;">
+    <button class="btn-ghost" style="width:100%;padding:11px;border-radius:var(--r12);" onclick="goBack('s-etapas')">← Voltar ao panorama</button>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Estatísticas</div>
+    <div class="bn-fab-wrap"><div class="bn-fab"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Favoritos</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Perfil</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 6 — DOCUMENTOS
+══════════════════════════════════════ -->
+<div class="screen" id="s-documentos">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="topbar-logo">
+        <span class="topbar-logoico">📣</span>
+        <span class="topbar-logotxt">Trombone Cidadão</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero" style="height:130px;">
+    <div class="hero-placeholder"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-label">Calçamento de diversas ruas com blocos de concreto intertravado</div>
+  </div>
+
+  <div class="pill-tabs">
+    <button class="ptab" onclick="switchMainTab(0)">Visão Geral</button>
+    <button class="ptab" onclick="switchMainTab(1)">Etapas</button>
+    <button class="ptab" onclick="switchMainTab(2)">Pagamentos</button>
+    <button class="ptab active">Documentos</button>
+  </div>
+
+  <div class="scroll-body">
+    <div class="psec">
+      <div class="info-block">
+        <div class="info-block-hd">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span class="info-block-hd-lbl">Documentos Anexados</span>
+        </div>
+        <div class="info-row">
+          <span style="font-size:11px;color:var(--t3);font-style:italic;">Nenhum documento anexado.</span>
+        </div>
+      </div>
+
+      <div class="contribute-sec">
+        <div class="contribute-ico">📎</div>
+        <div class="contribute-title">Envie documentos desta obra</div>
+        <div class="contribute-sub">Contratos, atas, relatórios e mais para manter o registro atualizado.</div>
+        <div class="contribute-btns">
+          <button class="btn-accent">📤 Enviar</button>
+          <button class="btn-ghost">Saiba mais</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Estatísticas</div>
+    <div class="bn-fab-wrap"><div class="bn-fab"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Favoritos</div>
+    <div class="bn-item"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Perfil</div>
+  </div>
+</div>
+
+<script>
+const screens = {
+  0: 's-overview',
+  1: 's-etapas',
+  2: 's-pagamentos',
+  3: 's-documentos'
+};
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('active'); el.scrollTop = 0; }
+}
+
+function goTo(id) {
+  const cur = document.querySelector('.screen.active');
+  if (cur) cur.style.animation = 'none';
+  showScreen(id);
+  const next = document.getElementById(id);
+  if (next) { next.style.animation = 'none'; void next.offsetWidth; next.style.animation = 'slideIn .22s ease forwards'; }
+}
+
+function goBack(id) {
+  showScreen(id);
+  const el = document.getElementById(id);
+  if (el) { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = 'slideBackIn .22s ease forwards'; }
+}
+
+function switchMainTab(idx) {
+  goTo(screens[idx]);
+}
 </script>
-<script src="https://blogdoelvis.com.br/tema/v11/js/js.js?v=840a0237"></script>
-<script src="https://blogdoelvis.com.br/tema/v11/js/load-img.min.js?v=840a0237"></script>
-<link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,900|Montserrat:100,300,400,600|Lato:300,400,900&display=swap" rel="stylesheet">
-<script src="https://blogdoelvis.com.br/tema/v11/js/owl.carousel-min.js?v=cfee5bd2" charset="utf-8"></script>
-<script src="https://www.google.com/recaptcha/api.js?hl=pt-BR" type="text/javascript"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"13bc3557ddb84b668943bd80f568d304","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
-</body></html>
+</body>
+</html>

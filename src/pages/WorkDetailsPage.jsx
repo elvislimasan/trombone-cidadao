@@ -166,11 +166,362 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
   };
 
   return (
-    <div className="space-y-8">
+    <div className="mt-0 lg:space-y-8">
+      <div className="lg:hidden space-y-3">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-slate-500" />
+            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Detalhes da obra</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <Award className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Categoria</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.work_category?.name || '—'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <Activity className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</p>
+                <div className="mt-1">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black ${getStatusInfo(work.status).bg} ${getStatusInfo(work.status).color}`}>
+                    {getStatusInfo(work.status).text}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-4 h-4 text-rose-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Endereço</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">
+                  {work.address ? work.address: "-"}
+                </p>
+              </div>
+                
+            </div>
+
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-4 h-4 text-rose-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bairro</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">
+                  {work.bairro?.name ? work.bairro?.name: "-"}
+                </p>
+              </div>
+               
+            </div>
+            {showMore && (
+              <>
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Layers className="w-4 h-4 text-fuchsia-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Área</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.work_area?.name || '—'}</p>
+                  </div>
+                </div>
+              </>
+            )}
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <Building className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Empresa</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.contractor?.name || '—'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-4 h-4 text-sky-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CNPJ</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.contractor?.cnpj ? formatCnpj(work.contractor.cnpj) : '—'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-emerald-600" />
+            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Financeiro</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Início</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.start_date ? formatDate(work.start_date) : '—'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Previsão de término</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : '—'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-4 h-4 text-rose-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor total</p>
+                <p className="text-sm font-black text-rose-700 mt-0.5">{work.total_value ? formatCurrency(work.total_value) : '—'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <CreditCard className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total pago</p>
+                <p className="text-sm font-black text-emerald-700 mt-0.5">{spentValue > 0 ? formatCurrency(spentValue) : 'R$ 0,00'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Execução</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.total_value ? `${spentPct.toFixed(1)}%` : '—'}</p>
+              </div>
+            </div>
+            {showMore && (
+              <>
+                {Array.isArray(work.funding_source) && work.funding_source.length > 0 && (
+                  <div className="flex items-start gap-3 px-4 py-3">
+                    <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fonte de recursos</p>
+                      <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.funding_source.map(fundingLabel).join(', ')}</p>
+                    </div>
+                  </div>
+                )}
+                {work.parliamentary_amendment?.has && (
+                  <div className="flex items-start gap-3 px-4 py-3">
+                    <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                      <User className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Emenda parlamentar</p>
+                      <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.parliamentary_amendment.author || '—'}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prazo contratual (dias)</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.execution_period_days ? String(work.execution_period_days) : '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assinatura do contrato</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.contract_signature_date ? formatDate(work.contract_signature_date) : '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ordem de serviço</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.service_order_date ? formatDate(work.service_order_date) : '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-4 h-4 text-amber-700" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data de paralisação</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.stalled_date ? formatDate(work.stalled_date) : '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data de inauguração</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.inauguration_date ? formatDate(work.inauguration_date) : '—'}</p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex">
+          <Button type="button" variant="outline" className="w-full border-slate-200 bg-white h-10" onClick={() => setShowMore(v => !v)}>
+            {showMore ? 'Mostrar menos detalhes' : 'Mostrar mais detalhes'}
+          </Button>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-orange-600" />
+            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Descrição</span>
+          </div>
+          <div className="p-4">
+            {work.long_description || work.description ? (
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                {work.long_description || work.description}
+              </p>
+            ) : (
+              <p className="text-sm text-slate-400 italic">Nenhuma descrição disponível.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-blue-600" />
+            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Andamento da obra</span>
+          </div>
+          <div className="p-4 space-y-4">
+            <div>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm font-bold text-slate-800">{computedExecutionPct || 0}% Concluído</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Execução</p>
+              </div>
+              <div className="h-3 bg-slate-100 rounded-full overflow-hidden mt-3 flex">
+                {segments.map(s => (
+                  <div key={s.id} className={`${s.color} h-full`} style={{ width: `${s.width}%` }} />
+                ))}
+                {computedExecutionPct < 100 && (
+                  <div className="bg-slate-200 h-full" style={{ width: `${100 - Math.max(0, Math.min(100, computedExecutionPct))}%` }} />
+                )}
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-400 mt-2 font-bold">
+                <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+              </div>
+            </div>
+
+            {segments.length > 0 ? (
+              <div className="space-y-2">
+                {segments.slice(0, 4).map((s) => {
+                  const si = getStatusInfo(s.status);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onOpenPhase && onOpenPhase(s.id)}
+                      className="w-full text-left rounded-xl border border-slate-200 bg-white hover:bg-slate-50/50 transition-colors p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className={`inline-flex items-center gap-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${si.bg} ${si.color}`}>
+                              <span className={`w-2 h-2 rounded-full ${s.color}`} /> {si.text}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                              {s.start}% → {s.end}%
+                            </span>
+                          </div>
+                          <p className="text-sm font-semibold text-slate-800 break-words whitespace-normal">{s.title}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0 mt-1" />
+                      </div>
+                    </button>
+                  );
+                })}
+                {segments.length > 4 && (
+                  <p className="text-xs text-slate-400">Mostrando 4 de {segments.length} etapas.</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 italic">Nenhuma etapa registrada.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-amber-600" />
+            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Cronograma</span>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-sm gap-4">
+                <span className="text-slate-500">Início:</span>
+                <span className="font-bold text-slate-800">{work.start_date ? formatDate(work.start_date) : '—'}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm gap-4">
+                <span className="text-slate-500">Previsão:</span>
+                <span className="font-bold text-slate-800">{work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : '—'}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {schedule.daysElapsed !== null && (
+                <div className="bg-amber-100/50 text-amber-800 px-4 py-2 rounded-lg flex items-center justify-between text-sm font-medium border border-amber-100">
+                  <span>Decorrido</span>
+                  <span className="font-bold">{schedule.daysElapsed} dias</span>
+                </div>
+              )}
+              {schedule.daysRemaining !== null && (
+                <div className="bg-blue-100/50 text-blue-800 px-4 py-2 rounded-lg flex items-center justify-between text-sm font-medium border border-blue-100">
+                  <span>Restante</span>
+                  <span className="font-bold">{schedule.daysRemaining} dias</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100">
+              <div className="relative h-8 flex items-center">
+                <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-200 -translate-y-1/2 rounded-full" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-400 rounded-full border-2 border-white shadow-sm" />
+                <span className="absolute left-0 top-6 text-[10px] text-slate-400 -translate-x-1/2">Início</span>
+
+                {schedule.timePct > 0 && schedule.timePct < 100 && (
+                  <>
+                    <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md z-10" style={{ left: `${schedule.timePct}%` }} />
+                    <span className="absolute top-[-20px] text-[10px] font-bold text-blue-600 -translate-x-1/2 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100" style={{ left: `${schedule.timePct}%` }}>Hoje</span>
+                  </>
+                )}
+
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-400 rounded-full border-2 border-white shadow-sm" />
+                <span className="absolute right-0 top-6 text-[10px] text-slate-400 translate-x-1/2">Fim</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden lg:block space-y-8">
       {/* Seção 1: Informações da Obra */}
       <div>
         <h3 className="text-lg font-bold text-slate-800 mb-4">Informações da Obra</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
           {/* Coluna Esquerda: Detalhes */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <PanelHeader icon={FileText}>Detalhes da obra</PanelHeader>
@@ -374,6 +725,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
         </div>
       </div>
 
+      </div>
     </div>
   );
 };
@@ -387,8 +739,36 @@ const TabPhases = ({
   selectedPhaseId,
   onSelectPhase,
   onBack,
-  onOpenPaymentsForPhase,
+  onOpenPaymentsForPhase
 }) => {
+  const [statusFilter, setStatusFilter] = useState('Todas');
+
+  const phasesSorted = useMemo(() => {
+    const key = (m) => (m?.start_date || m?.predicted_start_date || m?.created_at || '');
+    return [...(measurements || [])].sort((a, b) => key(a).localeCompare(key(b)));
+  }, [measurements]);
+
+  const statusOptions = useMemo(() => {
+    const set = new Set();
+    for (const m of measurements || []) {
+      if (!m) continue;
+      set.add(getStatusInfo(m.status).text);
+    }
+    return ['Todas', ...Array.from(set)];
+  }, [measurements]);
+
+  const filteredPhases = useMemo(() => {
+    if (!Array.isArray(phasesSorted) || phasesSorted.length === 0) return [];
+    if (!statusFilter || statusFilter === 'Todas') return phasesSorted;
+    return phasesSorted.filter((m) => getStatusInfo(m.status).text === statusFilter);
+  }, [phasesSorted, statusFilter]);
+
+  const phaseIndexMap = useMemo(() => {
+    const map = new Map();
+    phasesSorted.forEach((m, idx) => map.set(m.id, idx));
+    return map;
+  }, [phasesSorted]);
+
   if (measurements.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-dashed border-slate-200 py-20 text-center">
@@ -401,6 +781,23 @@ const TabPhases = ({
   const completed = measurements.filter(m => m.status === 'completed').length;
   const inProgress = measurements.filter(m => m.status === 'in-progress').length;
   const stalled = measurements.filter(m => m.status === 'stalled').length;
+  const totalPaidAll = measurements.reduce((acc, m) => acc + (m.payments || []).reduce((pa, p) => pa + (Number(p.value) || 0), 0), 0);
+  const overallExecution = measurements.reduce((max, m) => {
+    const n = Number(m.execution_percentage);
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 0);
+  const avgExecution = (() => {
+    let sum = 0;
+    let count = 0;
+    for (const m of measurements) {
+      const n = Number(m.execution_percentage);
+      if (Number.isFinite(n)) {
+        sum += n;
+        count += 1;
+      }
+    }
+    return count > 0 ? (sum / count) : 0;
+  })();
 
   const phase = selectedPhaseId ? measurements.find(m => m.id === selectedPhaseId) : null;
 
@@ -674,52 +1071,213 @@ const TabPhases = ({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Panorama</p>
-            <p className="text-sm font-semibold text-slate-700 mt-0.5 break-words whitespace-normal">Clique em uma etapa para ver detalhes</p>
+      <div className="lg:hidden space-y-3 ">
+        {/* <div className="grid grid-cols-3 rounded-2xl border border-slate-200 px-2 bg-white">
+          <div className=" bg-white p-3">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Etapas</p>
+            <p className="text-[16px] font-black text-slate-900 mt-1">{total}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">{total} etapa{total === 1 ? '' : 's'}</span>
-            {completed > 0 && <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">{completed} concluída{completed === 1 ? '' : 's'}</span>}
-            {inProgress > 0 && <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{inProgress} em andamento</span>}
-            {stalled > 0 && <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">{stalled} paralisada{stalled === 1 ? '' : 's'}</span>}
+          <div className=" bg-white p-3">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total pago</p>
+            <p className="text-[16px] font-black text-emerald-700 mt-1 break-words whitespace-normal">{totalPaidAll > 0 ? formatCurrency(totalPaidAll) : 'R$ 0,00'}</p>
+          </div>
+          <div className=" bg-white p-3">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Execução</p>
+            <p className="text-[16px] font-black text-blue-700 mt-1">{overallExecution.toFixed(0)}%</p>
+          </div>
+        </div> */}
+
+        {/* <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Panorama</p>
+            <p className="text-xs text-slate-500">{filteredPhases.length} etapa{filteredPhases.length === 1 ? '' : 's'}</p>
+          </div>
+          <div className="p-3">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              {statusOptions.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setStatusFilter(opt)}
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                    statusFilter === opt
+                      ? 'bg-red-500 text-white border-red-500'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div> */}
+
+        <div className="space-y-3">
+          {filteredPhases.map((item, idx) => {
+            const si = getStatusInfo(item.status);
+            const payments = item.payments || [];
+            const totalPaid = payments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+            const exec = Number.isFinite(Number(item.execution_percentage)) ? Math.max(0, Math.min(100, Number(item.execution_percentage))) : 0;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSelectPhase && onSelectPhase(item.id)}
+                className="w-full text-left relative rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+              >
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${si.dot}`} />
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${si.bg} ${si.color}`}>{si.text}</span>
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          Fase {String(idx + 1).padStart(2, '0')}
+                        </span>
+                      </div>
+                      <p className="text-base font-black text-slate-900 mt-2 break-words whitespace-normal">{item.title}</p>
+                      {item.description && (
+                        <p className="text-xs text-slate-500 mt-0.5 break-words whitespace-normal line-clamp-1">{item.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 pt-1">
+                      <span className="text-xs font-bold text-slate-500">Exec. {exec.toFixed(0)}%</span>
+                      <ChevronRight className="w-5 h-5 text-slate-400" />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+                  <span className="text-slate-500">{payments.length} pagamento{payments.length === 1 ? '' : 's'} · {exec.toFixed(0)}% executado</span>
+                    <span className={`${totalPaid > 0 ? 'font-black text-emerald-700' : 'font-semibold text-slate-500'}`}>
+                      {totalPaid > 0 ? formatCurrency(totalPaid) : 'R$ 0,00'}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full ${si.dot}`} style={{ width: `${exec}%` }} />
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="hidden lg:block">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de etapas</p>
+            <p className="text-xl font-black text-slate-900 mt-1">{total}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total pago</p>
+            <p className="text-xl font-black text-red-600 mt-1 break-words whitespace-normal">{totalPaidAll > 0 ? formatCurrency(totalPaidAll) : 'R$ 0,00'}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Execução média</p>
+            <p className="text-xl font-black text-emerald-700 mt-1">{avgExecution.toFixed(0)}%</p>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-3">
+              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${Math.max(0, Math.min(100, avgExecution))}%` }} />
+            </div>
           </div>
         </div>
 
-        <div className="p-3 sm:p-5">
-          <div className="relative pl-6 space-y-3 before:absolute before:left-[11px] before:top-1 before:bottom-1 before:w-px before:bg-slate-200">
-            {measurements.map((item, idx) => {
-              const si = getStatusInfo(item.status);
-              const payments = item.payments || [];
-              const totalPaid = payments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
-              return (
-                <button key={item.id} type="button" onClick={() => onSelectPhase && onSelectPhase(item.id)} className="w-full text-left relative pl-6">
-                  <div className={`absolute left-0 top-5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${si.dot}`} style={{ transform: 'translateX(-50%)' }} />
-                  <div className="rounded-2xl border border-slate-200 bg-white hover:bg-slate-50/50 transition-colors shadow-sm">
-                    <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${si.bg} ${si.color}`}>{si.text}</span>
-                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Fase {String(idx + 1).padStart(2, '0')}</span>
-                        </div>
-                        <p className="font-semibold text-slate-900 break-words whitespace-normal">{item.title}</p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 mt-1">
-                          {item.execution_percentage != null && <span>Execução: <span className="font-semibold text-slate-700">{item.execution_percentage}%</span></span>}
-                          <span>Pago: <span className="font-semibold text-emerald-700">{totalPaid > 0 ? formatCurrency(totalPaid) : 'R$ 0,00'}</span></span>
-                          <span>{payments.length} pagamento{payments.length === 1 ? '' : 's'}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs font-bold text-red-600">Ver detalhes</span>
-                        <ChevronRight className="w-4 h-4 text-red-500" />
-                      </div>
-                    </div>
-                  </div>
+        <div className="mt-6 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-slate-500" />
+              <p className="text-sm font-black text-slate-800">Panorama · {filteredPhases.length} etapa{filteredPhases.length === 1 ? '' : 's'}</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {statusOptions.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setStatusFilter(opt)}
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                    statusFilter === opt
+                      ? 'bg-red-500 text-white border-red-500'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <table className="w-full table-fixed text-sm">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                  <th className="text-left px-4 py-3 w-10">#</th>
+                  <th className="text-left px-4 py-3 w-[22%]">Etapa</th>
+                  
+                  <th className="text-left px-4 py-3 w-40">Execução</th>
+                  <th className="text-left px-4 py-3 w-28">Pago</th>
+                  <th className="text-left px-4 py-3 w-36">Contrato</th>
+                  <th className="text-left px-4 py-3 w-20">Pagamentos</th>
+                  <th className="text-right px-4 py-3 w-28" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredPhases.map((item, idx) => {
+                  const si = getStatusInfo(item.status);
+                  const payments = item.payments || [];
+                  const totalPaid = payments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+                  const contract = Number(item.value) || 0;
+                  const exceeded = contract > 0 && totalPaid > contract;
+                  const exec = Number.isFinite(Number(item.execution_percentage)) ? Math.max(0, Math.min(100, Number(item.execution_percentage))) : 0;
+
+                  return (
+                    <tr key={item.id} className={exceeded ? 'bg-red-50/30' : ''}>
+                      <td className="px-4 py-4">
+                        <div className={`w-2.5 h-2.5 rounded-full ${si.dot}`} />
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <p className="font-black text-slate-900 break-words whitespace-normal">{item.title}</p>
+                        {item.description && <p className="text-xs text-slate-500 mt-1 break-words whitespace-normal">{item.description}</p>}
+                        <div className="mt-2">
+                          <span className={`inline-flex text-[10px] font-bold px-2.5 py-0.5 rounded-full ${si.bg} ${si.color}`}>{si.text}</span>
+                        </div>
+                      </td>
+                      
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex items-center gap-3">
+                          <div className="w-28 h-2 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
+                            <div className={`h-full ${si.dot}`} style={{ width: `${exec}%` }} />
+                          </div>
+                          <span className="text-xs font-bold text-slate-700">{exec.toFixed(0)}%</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <span className={`font-black ${totalPaid > 0 ? 'text-red-600' : 'text-slate-500'}`}>{totalPaid > 0 ? formatCurrency(totalPaid) : 'R$ 0,00'}</span>
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <div className="space-y-2">
+                          <span className="font-black text-slate-900">{contract > 0 ? formatCurrency(contract) : '—'}</span>
+                          {exceeded && (
+                            <div className="inline-flex items-center gap-2 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">
+                              
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <span className="font-semibold text-slate-600">{payments.length}</span>
+                        {payments.length > 0 && <span className="ml-1 text-red-600 font-black">✓</span>}
+                      </td>
+                      <td className="px-4 py-4 text-right align-top">
+                        <Button type="button" variant="outline" className="h-9 px-3 border-slate-200 bg-white text-xs font-bold" onClick={() => onSelectPhase && onSelectPhase(item.id)}>
+                          Detalhes <ChevronRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -729,9 +1287,59 @@ const TabPhases = ({
 
 // ─── TAB: Pagamentos ──────────────────────────────────────────────────────────
 const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) => {
+  const [paymentFilter, setPaymentFilter] = useState('TODAS');
+
   const totalGeral = biddings.reduce((acc, b) => acc + (b.payments || []).reduce((pa, p) => pa + (Number(p.value) || 0), 0), 0);
   const totalContrato = biddings.reduce((acc, b) => acc + (Number(b.value) || 0), 0);
   const pctGeral = totalContrato > 0 ? Math.min((totalGeral / totalContrato) * 100, 100) : 0;
+
+  const paymentFilterOptions = useMemo(() => {
+    return [
+      { id: 'TODAS', label: 'TODAS' },
+      ...biddings.map((b, idx) => ({ id: b.id, label: `FASE ${String(idx + 1).padStart(2, '0')} — ${b.title}` })),
+    ];
+  }, [biddings]);
+
+  const paymentsAll = useMemo(() => {
+    const rows = [];
+    biddings.forEach((b, idx) => {
+      (b.payments || []).forEach((p) => {
+        rows.push({
+          ...p,
+          biddingId: b.id,
+          biddingTitle: b.title,
+          biddingIndex: idx,
+          biddingStatus: b.status,
+        });
+      });
+    });
+    rows.sort((a, b) => new Date(b.payment_date || 0) - new Date(a.payment_date || 0));
+    return rows;
+  }, [biddings]);
+
+  const filteredPayments = useMemo(() => {
+    if (paymentFilter === 'TODAS') return paymentsAll;
+    return paymentsAll.filter((p) => p.biddingId === paymentFilter);
+  }, [paymentsAll, paymentFilter]);
+
+  const exceededBiddings = useMemo(() => {
+    const list = [];
+    biddings.forEach((b, idx) => {
+      const paid = (b.payments || []).reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+      const contract = Number(b.value) || 0;
+      if (contract > 0 && paid > contract) {
+        list.push({
+          biddingId: b.id,
+          biddingTitle: b.title,
+          biddingIndex: idx,
+          paid,
+          contract,
+          exceeded: paid - contract,
+        });
+      }
+    });
+    return list;
+  }, [biddings]);
 
   if (biddings.length === 0) {
     return (
@@ -750,7 +1358,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
     const paidPct = selected.value ? Math.min((totalPaid / selected.value) * 100, 100) : 0;
 
     return (
-      <div className="space-y-4 pb-24 sm:pb-0">
+      <div className="space-y-4  sm:pb-0">
         <div className="hidden sm:flex items-center justify-between gap-3">
           <Button type="button" variant="outline" className="border-slate-200 bg-white w-full sm:w-auto" onClick={onBack}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao panorama
@@ -771,33 +1379,45 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
           <div className="px-4 sm:px-5 py-4 border-b border-slate-100">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pagamentos por etapa</p>
             <p className="text-base font-bold text-slate-900 mt-1 break-words whitespace-normal">{selected.title}</p>
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                FASE {String((biddings.findIndex(b => b.id === selected.id) + 1) || 0).padStart(2, '0')}
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100">
+                Licitação vinculada
+              </span>
+            </div>
             {selected.description && <p className="text-sm text-slate-500 mt-1 break-words whitespace-normal">{selected.description}</p>}
           </div>
 
           {(selected.value > 0 || totalPaid > 0) && (
-            <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
-              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/70 p-4">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-slate-400" /> Contrato
-                </p>
-                <p className="text-lg font-black text-slate-800 mt-1 break-words whitespace-normal">{selected.value ? formatCurrency(selected.value) : '—'}</p>
-              </div>
-              <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4">
-                <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-widest flex items-center gap-1.5">
-                  <Banknote className="w-3.5 h-3.5 text-emerald-600" /> Total pago
-                </p>
-                <p className="text-lg font-black text-emerald-800 mt-1 break-words whitespace-normal">{totalPaid > 0 ? formatCurrency(totalPaid) : 'R$ 0,00'}</p>
-              </div>
-              <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4">
-                <p className="text-[10px] font-bold text-blue-700/80 uppercase tracking-widest flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-blue-600" /> Execução
-                </p>
-                <p className="text-lg font-black text-blue-800 mt-1">{selected.value ? `${paidPct.toFixed(1)}%` : '—'}</p>
-                {selected.value > 0 && (
-                  <div className="h-2 bg-blue-100 rounded-full overflow-hidden mt-2">
-                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${paidPct}%` }} />
+            <div className="p-3 sm:p-5 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
+                <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/70 p-3 sm:p-4">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-slate-400" /> Contrato
+                  </p>
+                  <p className="text-sm sm:text-lg font-black text-slate-800 mt-1 break-words whitespace-normal">{selected.value ? formatCurrency(selected.value) : '—'}</p>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3 sm:p-4">
+                  <p className="text-[9px] font-bold text-emerald-700/80 uppercase tracking-widest flex items-center gap-1.5">
+                    <Banknote className="w-3.5 h-3.5 text-emerald-600" /> Total pago
+                  </p>
+                  <p className="text-sm sm:text-lg font-black text-emerald-800 mt-1 break-words whitespace-normal">{totalPaid > 0 ? formatCurrency(totalPaid) : 'R$ 0,00'}</p>
+                </div>
+                <div className="col-span-2 sm:col-span-1 rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[9px] font-bold text-red-700/80 uppercase tracking-widest flex items-center gap-1.5">
+                      <TrendingUp className="w-3.5 h-3.5 text-red-600" /> Execução
+                    </p>
+                    <p className="text-sm sm:text-lg font-black text-red-700">{selected.value ? `${paidPct.toFixed(1)}%` : '—'}</p>
                   </div>
-                )}
+                  {selected.value > 0 && (
+                    <div className="h-2 bg-red-100 rounded-full overflow-hidden mt-2">
+                      <div className="h-full bg-red-500 rounded-full" style={{ width: `${paidPct}%` }} />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -810,40 +1430,40 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
               </div>
             ) : (
               <>
-                <div className="space-y-2 md:hidden">
+                <div className="grid grid-cols-1 gap-2 md:hidden">
                   {payments.map((p) => (
-                    <div key={p.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div key={p.id} className="rounded-2xl border border-slate-200 bg-white p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data</p>
-                          <p className="text-sm font-semibold text-slate-700 mt-0.5 break-words whitespace-normal">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Data</p>
+                          <p className="text-[13px] font-semibold text-slate-700 mt-0.5 break-words whitespace-normal">
                             {p.payment_date ? formatDate(p.payment_date) : '—'}
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor</p>
-                          <p className="text-sm font-black text-blue-700 mt-0.5">{formatCurrency(p.value)}</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor</p>
+                          <p className="text-[13px] font-black text-red-600 mt-0.5">{formatCurrency(p.value)}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-3 mt-3">
+                      <div className="mt-3 space-y-2">
                         <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ordem bancária / Empenho</p>
-                          <p className="text-sm text-slate-700 mt-0.5 break-words whitespace-normal">{p.banking_order || '—'}</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">OB / Empenho</p>
+                          <p className="text-[13px] text-slate-700 mt-0.5 break-words whitespace-normal">{p.banking_order || '—'}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Portal</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Portal</p>
                           {p.portal_link ? (
                             <a
                               href={p.portal_link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-sm text-emerald-700 hover:text-emerald-800 underline break-words whitespace-normal inline-flex items-center gap-2 mt-0.5"
+                              className="text-[13px] text-emerald-700 hover:text-emerald-800 underline break-words whitespace-normal inline-flex items-center gap-2 mt-0.5"
                             >
                               <Link2 className="w-4 h-4 flex-shrink-0" />
                               <span>{p.portal_link}</span>
                             </a>
                           ) : (
-                            <p className="text-sm text-slate-400 mt-0.5">—</p>
+                            <p className="text-[13px] text-slate-400 mt-0.5">—</p>
                           )}
                         </div>
                       </div>
@@ -866,7 +1486,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.payment_date ? formatDate(p.payment_date) : '—'}</td>
                           <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.banking_order || '—'}</td>
-                          <td className="px-4 py-3 font-bold text-blue-700 break-words whitespace-normal">{formatCurrency(p.value)}</td>
+                          <td className="px-4 py-3 font-bold text-red-600 break-words whitespace-normal">{formatCurrency(p.value)}</td>
                           <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">
                             {p.portal_link ? (
                               <a href={p.portal_link} target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:text-emerald-800 underline break-words whitespace-normal inline-flex items-center gap-2">
@@ -892,119 +1512,247 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
 
   return (
     <div className="space-y-4">
-      {(totalContrato > 0 || totalGeral > 0) && (
+      <div className="lg:hidden space-y-3">
+        <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Panorama geral</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contrato total</p>
+            <p className="text-base font-black text-slate-900 mt-1 break-words whitespace-normal">{totalContrato > 0 ? formatCurrency(totalContrato) : '—'}</p>
+          </div>
+          <div className="rounded-2xl border border-red-200 bg-red-50/40 p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total pago</p>
+            <p className="text-base font-black text-red-600 mt-1 break-words whitespace-normal">{totalGeral > 0 ? formatCurrency(totalGeral) : 'R$ 0,00'}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="text-slate-500">Execução global</span>
+            <span className="font-bold text-slate-700">{pctGeral.toFixed(1)}%</span>
+          </div>
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
+            <div className="h-full bg-red-500 rounded-full" style={{ width: `${pctGeral}%` }} />
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs font-black py-2 text-center">
+              {biddings.length} etapa{biddings.length === 1 ? '' : 's'}
+            </div>
+            <div className="rounded-xl bg-blue-50 border border-blue-100 text-blue-800 text-xs font-black py-2 text-center">
+              {biddings.reduce((a, b) => a + (b.payments || []).length, 0)} pagamento{biddings.reduce((a, b) => a + (b.payments || []).length, 0) === 1 ? '' : 's'}
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/60">
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Panorama</p>
-              <p className="text-sm font-semibold text-slate-700 mt-0.5 break-words whitespace-normal">Selecione uma etapa para ver os pagamentos</p>
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-slate-500" />
+              <p className="text-xs font-black text-slate-700">{filteredPayments.length} pagamento{filteredPayments.length === 1 ? '' : 's'}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                {biddings.length} etapa{biddings.length === 1 ? '' : 's'}
-              </span>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                {biddings.reduce((a, b) => a + (b.payments || []).length, 0)} pagamento{biddings.reduce((a, b) => a + (b.payments || []).length, 0) === 1 ? '' : 's'}
-              </span>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" className="h-8 px-3 border-slate-200 bg-white text-xs font-bold text-slate-700">
+                  {paymentFilter === 'TODAS'
+                    ? 'TODAS'
+                    : `FASE ${String((biddings.findIndex(b => b.id === paymentFilter) + 1) || 0).padStart(2, '0')}`}
+                  <ChevronRight className="w-4 h-4 ml-2 rotate-90 text-slate-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                {paymentFilterOptions.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.id}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setPaymentFilter(opt.id);
+                    }}
+                    className="text-sm"
+                  >
+                    {opt.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gradient-to-br from-white to-slate-50/40">
-            <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/70 p-4">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-slate-400" /> Contrato total
-              </p>
-              <p className="text-lg font-black text-slate-800 mt-1 break-words whitespace-normal">{totalContrato > 0 ? formatCurrency(totalContrato) : '—'}</p>
-            </div>
-            <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4">
-              <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-widest flex items-center gap-1.5">
-                <Banknote className="w-3.5 h-3.5 text-emerald-600" /> Total pago
-              </p>
-              <p className="text-lg font-black text-emerald-800 mt-1 break-words whitespace-normal">{totalGeral > 0 ? formatCurrency(totalGeral) : 'R$ 0,00'}</p>
-            </div>
-            <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4">
-              <p className="text-[10px] font-bold text-blue-700/80 uppercase tracking-widest flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-blue-600" /> Execução
-              </p>
-              <p className="text-lg font-black text-blue-800 mt-1">{pctGeral.toFixed(1)}%</p>
-              <div className="h-2 bg-blue-100 rounded-full overflow-hidden mt-2">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pctGeral}%` }} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/60">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-slate-400" /> Etapas
-          </p>
-          <p className="text-xs text-slate-500">Clique em uma etapa para ver detalhes</p>
-        </div>
-        <div className="p-3 space-y-2">
-          {biddings.map((b, idx) => {
-            const si = getStatusInfo(b.status);
-            const payments = b.payments || [];
-            const totalPaid = payments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
-            const paidPct = b.value ? Math.min((totalPaid / b.value) * 100, 100) : 0;
-            return (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => onSelectBidding && onSelectBidding(b.id)}
-                className="group w-full text-left rounded-2xl bg-white border border-slate-200 hover:border-red-200 hover:bg-red-50/20 transition-all shadow-sm"
-              >
-                <div className="p-4 flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0 text-xs font-black text-slate-700">
-                    {String(idx + 1).padStart(2, '0')}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${si.bg} ${si.color}`}>{si.text}</span>
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                        Fase {String(idx + 1).padStart(2, '0')}
-                      </span>
-                      {b.value > 0 && (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                          Execução: {paidPct.toFixed(0)}%
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-sm font-bold text-slate-900 mt-2 break-words whitespace-normal">{b.title}</p>
-                    {b.description && <p className="text-xs text-slate-500 mt-0.5 break-words whitespace-normal">{b.description}</p>}
-
-                    <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-slate-500">
-                      <span>
-                        Pago:{' '}
-                        <span className="font-semibold text-emerald-700">{totalPaid > 0 ? formatCurrency(totalPaid) : 'R$ 0,00'}</span>
-                      </span>
-                      <span>{payments.length} pagamento{payments.length === 1 ? '' : 's'}</span>
-                      {b.value > 0 && (
-                        <span>
-                          Contrato:{' '}
-                          <span className="font-semibold text-slate-700">{formatCurrency(b.value)}</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {b.value > 0 && (
-                      <div className="mt-3">
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${paidPct}%` }} />
-                        </div>
+          <div className="p-3">
+            {filteredPayments.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">Nenhum pagamento para este filtro.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2">
+                {filteredPayments.map((p) => (
+                  <div key={p.id} className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Data</p>
+                        <p className="text-[13px] font-semibold text-slate-700 mt-0.5 break-words whitespace-normal">
+                          {p.payment_date ? formatDate(p.payment_date) : '—'}
+                        </p>
                       </div>
-                    )}
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor</p>
+                        <p className="text-[13px] font-black text-red-600 mt-0.5">{formatCurrency(p.value)}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-2 grid grid-cols-2">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Licitação</p>
+                        <p className="text-[13px] font-semibold text-slate-800 mt-0.5 break-words whitespace-normal">{p.biddingTitle}</p>
+                        <span className="inline-flex mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          FASE {String(p.biddingIndex + 1).padStart(2, '0')}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">OB / Empenho</p>
+                        <p className="text-[13px] text-slate-700 mt-0.5 break-words whitespace-normal">{p.banking_order || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Portal</p>
+                        {p.portal_link ? (
+                          <a
+                            href={p.portal_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[13px] text-emerald-700 hover:text-emerald-800 underline break-words whitespace-normal inline-flex items-center gap-2 mt-0.5"
+                          >
+                            <Link2 className="w-4 h-4 flex-shrink-0" />
+                            <span>{p.portal_link}</span>
+                          </a>
+                        ) : (
+                          <p className="text-[13px] text-slate-400 mt-0.5">—</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 pt-1">
-                    <span className="hidden sm:inline text-xs font-bold text-red-600 group-hover:text-red-700 transition-colors">Ver detalhes</span>
-                    <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-red-500 transition-colors" />
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden lg:block">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contrato total</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 break-words whitespace-normal">{totalContrato > 0 ? formatCurrency(totalContrato) : '—'}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total pago</p>
+            <p className="text-2xl font-black text-red-600 mt-1 break-words whitespace-normal">{totalGeral > 0 ? formatCurrency(totalGeral) : 'R$ 0,00'}</p>
+            {exceededBiddings.length > 0 && (
+              <p className="text-xs text-amber-700 mt-1 font-semibold">⚠ Fase {String(exceededBiddings[0].biddingIndex + 1).padStart(2, '0')} excedeu contrato</p>
+            )}
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Execução financeira</p>
+            <p className="text-2xl font-black text-emerald-700 mt-1">{pctGeral.toFixed(1)}%</p>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-3">
+              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${pctGeral}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {exceededBiddings.length > 0 && (
+          <div className="mt-4 bg-amber-50 border border-amber-100 rounded-2xl p-4 text-sm text-amber-900 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              Na etapa <span className="font-bold">{exceededBiddings[0].biddingTitle}</span> (Fase {String(exceededBiddings[0].biddingIndex + 1).padStart(2, '0')}), o total pago ({formatCurrency(exceededBiddings[0].paid)}) excede o valor do contrato ({formatCurrency(exceededBiddings[0].contract)}) em <span className="font-black">{formatCurrency(exceededBiddings[0].exceeded)}</span>.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-6 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-slate-500" />
+              <p className="text-sm font-black text-slate-800">{filteredPayments.length} pagamento{filteredPayments.length === 1 ? '' : 's'} registrado{filteredPayments.length === 1 ? '' : 's'}</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Filtrar por etapa:</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" className="h-8 px-3 border-slate-200 bg-white text-xs font-bold text-slate-700">
+                    {paymentFilter === 'TODAS' ? 'TODAS' : `FASE ${String((biddings.findIndex(b => b.id === paymentFilter) + 1) || 0).padStart(2, '0')}`} <ChevronRight className="w-4 h-4 ml-2 rotate-90 text-slate-400" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  {paymentFilterOptions.map((opt) => (
+                    <DropdownMenuItem
+                      key={opt.id}
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setPaymentFilter(opt.id);
+                      }}
+                      className="text-sm"
+                    >
+                      {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <div>
+            <table className="w-full table-fixed text-sm">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                  <th className="text-left px-4 py-3 w-32">Data</th>
+                  <th className="text-left px-4 py-3 w-[28%]">Etapa</th>
+                  <th className="text-left px-4 py-3 w-[28%]">Empenho</th>
+                  <th className="text-left px-4 py-3 w-40">Portal</th>
+                  <th className="text-right px-4 py-3 w-32">Valor</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredPayments.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-4 align-top">
+                      <p className="font-semibold text-slate-900">{p.payment_date ? formatDate(p.payment_date) : '—'}</p>
+                      <p className="text-xs text-slate-400">{p.payment_date ? new Date(p.payment_date).toLocaleDateString('pt-BR', { weekday: 'short' }) : ''}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="font-bold text-slate-900 break-words whitespace-normal">{p.biddingTitle}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">FASE {String(p.biddingIndex + 1).padStart(2, '0')}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Ordem bancária / Empenho</p>
+                      <p className="font-semibold text-slate-800 mt-0.5 break-words whitespace-normal">{p.banking_order || '—'}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      {p.portal_link ? (
+                        <a href={p.portal_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sky-700 hover:text-sky-800 font-semibold">
+                          <Link2 className="w-4 h-4" />
+                          <span className="break-words whitespace-normal">
+                            {(() => { try { return new URL(p.portal_link).hostname; } catch { return p.portal_link; } })()}
+                          </span>
+                        </a>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-right align-top">
+                      <span className="text-base font-black text-red-600">{formatCurrency(p.value)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-slate-100">
+                  <td colSpan={4} className="px-4 py-4 text-right text-sm text-slate-500 font-semibold">Total:</td>
+                  <td className="px-4 py-4 text-right text-sm font-black text-red-600">{filteredPayments.length > 0 ? formatCurrency(filteredPayments.reduce((acc, p) => acc + (Number(p.value) || 0), 0)) : 'R$ 0,00'}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -1302,8 +2050,124 @@ const WorkDetailsPage = () => {
     <div className="min-h-screen bg-[#F2F3F5] pb-6 md:pb-10">
       <DynamicSEO {...seoData} />
 
-      {/* ── Top bar ── */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <div className="lg:hidden sticky top-0 z-30">
+        <div className=" pt-[calc(var(--safe-area-top,0px)+12px)] pb-3">
+          <div className="px-4 flex items-center justify-between gap-3">
+            <div className="px-4  flex items-center gap-2 text-[11px] ">
+            <Link to="/obras-publicas" className="inline-flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-semibold">Voltar para o mapa de obras</span>
+            </Link>
+          </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {user?.is_admin && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-white/10  hover:bg-white/15">
+                      <Edit className="w-[18px] h-[18px]" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setAdminInitialTab('info');
+                        setShowAdminEdit(true);
+                      }}
+                      className="gap-2"
+                    >
+                      <Info className="w-4 h-4 text-slate-500" /> Informações
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setAdminInitialTab('media');
+                        setShowAdminEdit(true);
+                      }}
+                      className="gap-2"
+                    >
+                      <ImageIcon className="w-4 h-4 text-slate-500" /> Mídias
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setAdminInitialTab('links');
+                        setShowAdminEdit(true);
+                      }}
+                      className="gap-2"
+                    >
+                      <Link2 className="w-4 h-4 text-slate-500" /> Links
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setAdminInitialTab('history');
+                        setShowAdminEdit(true);
+                      }}
+                      className="gap-2"
+                    >
+                      <Layers className="w-4 h-4 text-slate-500" /> Histórico / Fases
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setAdminInitialTab('payments');
+                        setShowAdminEdit(true);
+                      }}
+                      className="gap-2"
+                    >
+                      <CreditCard className="w-4 h-4 text-slate-500" /> Pagamentos
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              <Button onClick={shareWork} size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/15">
+                <Share2 className="w-[18px] h-[18px]" />
+              </Button>
+
+              <Button onClick={toggleFav} size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-white/10  hover:bg-white/15">
+                <Heart className={`w-[18px] h-[18px] ${isFavorited ? 'fill-current' : ''}`} />
+              </Button>
+            </div>
+          </div>
+
+         
+        </div>
+
+        <div className="relative h-40 bg-slate-800 overflow-hidden">
+          {heroMedia ? (
+            <img src={heroMedia.url} alt="Capa da obra" className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#5a8fa0] via-[#2d6070] to-[#1a3f4e]" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          <div className="absolute top-3 right-3 bg-black/30 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold text-white tracking-wide">
+            Obra Pública
+          </div>
+          <div className="absolute bottom-3 left-3 right-3">
+            <p className="text-white font-black leading-tight text-base drop-shadow-sm line-clamp-2">{work.title}</p>
+          </div>
+        </div>
+
+        <div className="bg-white border-b border-slate-200 px-3 py-2">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => changeTab(tab.id)}
+                className={`whitespace-nowrap px-3 py-2 rounded-full text-xs font-bold transition-colors ${
+                  activeTab === tab.id ? 'bg-red-500 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden lg:block bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Button asChild size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-slate-100 flex-shrink-0">
@@ -1402,14 +2266,14 @@ const WorkDetailsPage = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-6">
+      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto sm:px-6 lg:px-8 lg:pt-4 pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-8">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 sm:p-6 space-y-6">
+          <div className="lg:col-span-9">
+            <div className="bg-transparent lg:bg-white lg:rounded-3xl lg:border border-slate-200 shadow-none lg:shadow-sm overflow-visible lg:overflow-hidden">
+              <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
 
                 {/* ── Header: Title & Actions ── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="hidden lg:flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">{work.title}</h1>
                   
                   <div className="hidden md:flex items-center gap-2 flex-shrink-0">
@@ -1482,15 +2346,14 @@ const WorkDetailsPage = () => {
 
                 {/* ── Hero image ── */}
                 {heroMedia && (
-                  <div className="relative w-full rounded-2xl overflow-hidden bg-slate-900 shadow-md h-56 sm:h-72 md:h-[350px]">
+                  <div className="hidden lg:block relative w-full rounded-2xl overflow-hidden bg-slate-900 shadow-md h-56 sm:h-72 md:h-[350px]">
                     {['video','video_url'].includes(heroMedia.type)
                       ? <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900"><Video className="w-14 h-14 text-white/30" /></div>
                       : <img src={heroMedia.url} alt="Capa da obra" className="w-full h-full object-cover" />}
                   </div>
                 )}
 
-        {/* ── Tabs ── */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="grid grid-cols-2 sm:grid-cols-4">
             {TABS.map(tab => (
               <button key={tab.id} onClick={() => changeTab(tab.id)}
@@ -1505,7 +2368,7 @@ const WorkDetailsPage = () => {
         </div>
 
         {/* ── Tab content ── */}
-        <div>
+   
           {activeTab === 'overview'  && (
             <TabOverview
               work={work}
@@ -1544,7 +2407,7 @@ const WorkDetailsPage = () => {
             />
           )}
           {activeTab === 'documents' && <TabDocuments galleryGroups={groups} openViewer={openViewer} documents={docs} relatedNews={relatedNews} />}
-        </div>
+  
 
         {activeTab === 'overview' && (
           <div className="lg:hidden space-y-6">
@@ -1604,7 +2467,7 @@ const WorkDetailsPage = () => {
             </div>
           </div>
 
-          <div className="hidden lg:block lg:col-span-4 space-y-6">
+          <div className="hidden lg:block lg:col-span-3 space-y-6">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <PanelHeader icon={MapPin}>Localização</PanelHeader>
               <div className="h-60 2xl:h-72">
