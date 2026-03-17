@@ -210,15 +210,14 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     { id: 'info', label: 'Informações', icon: Info },
     { id: 'media', label: 'Mídias', icon: ImageIcon },
     { id: 'links', label: 'Links', icon: Link2 },
-    { id: 'measurements', label: 'Histórico e Financeiro', icon: Briefcase },
+    { id: 'history', label: 'Histórico/Fases', icon: Briefcase },
+    { id: 'financial', label: 'Financeiro', icon: Calculator },
   ];
 
   const goToTab = (nextTabId) => {
-    if (activeTab === 'measurements') {
-      if (hasUnsavedMeasurementChanges) {
-        if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
-          return;
-        }
+    if ((activeTab === 'history' || activeTab === 'financial') && isMeasurementEditing) {
+      if (!window.confirm("Você possui um cadastro em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+        return;
       }
     }
     setTimeout(() => setActiveTab(nextTabId), 0);
@@ -855,7 +854,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                 </Card>
               </div>
             </div>
-            {activeTab === 'measurements' && (
+            {activeTab === 'history' && (
               formData.id ? (
                 <WorkMeasurementsTab 
                   workId={formData.id} 
@@ -875,10 +874,29 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                 </Card>
               )
             )}
+
+            {activeTab === 'financial' && (
+              formData.id ? (
+                <WorkFinancialTab
+                  workId={formData.id}
+                  onEditingChange={setIsMeasurementEditing}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                    <Calculator className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">Salve a obra primeiro</h3>
+                    <p className="text-muted-foreground max-w-sm mt-2">
+                      Para lançar pagamentos e acompanhar os valores, é necessário salvar as informações básicas da obra primeiro.
+                    </p>
+                  </CardContent>
+                </Card>
+              )
+            )}
           </div>
         </div>
 
-        {!(activeTab === 'measurements' && isMeasurementEditing) && (
+        {!((activeTab === 'history' || activeTab === 'financial') && isMeasurementEditing) && (
         <DialogFooter className="flex-shrink-0 p-4 sm:p-0 sm:pt-4 border-t sm:border-t-0 mt-auto sm:mt-4 bg-background sm:bg-transparent z-20 flex flex-col sm:flex-row gap-2">
           <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
             <Button 
@@ -886,7 +904,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
               variant="outline" 
               disabled={EDIT_TABS.findIndex(t => t.id === activeTab) === 0}
               onClick={() => {
-                if (activeTab === 'measurements' && hasUnsavedMeasurementChanges) {
+                if (activeTab === 'history' && hasUnsavedMeasurementChanges) {
                   if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
                     return;
                   }
@@ -902,7 +920,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
               onClick={() => {
                 const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
                 if (idx < EDIT_TABS.length - 1) {
-                  if (activeTab === 'measurements' && hasUnsavedMeasurementChanges) {
+                  if (activeTab === 'history' && hasUnsavedMeasurementChanges) {
                     if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
                       return;
                     }

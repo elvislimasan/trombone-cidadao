@@ -8,17 +8,14 @@ import { Combobox } from '@/components/ui/combobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, DollarSign, Percent, ArrowLeft, Save, Calculator, Link2 } from 'lucide-react';
-import { formatCurrency, parseCurrency, formatDate } from '@/lib/utils';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, ArrowLeft, Save } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange }) {
   const [measurements, setMeasurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
-  const [currentPayment, setCurrentPayment] = useState(null);
   const [errors, setErrors] = useState({});
   const { toast } = useToast();
   const { user } = useAuth();
@@ -42,13 +39,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     amount_spent: '',
     execution_period_days: '',
     funding_source: []
-  });
-
-  const [paymentForm, setPaymentForm] = useState({
-    payment_date: '',
-    banking_order: '',
-    value: '',
-    portal_link: ''
   });
 
   // Auto-save Logic (sem restauração automática na abertura do modal)
@@ -264,8 +254,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         .from('public_work_measurements')
         .select(`
           *,
-          contractor:contractors(id, name),
-          payments:public_work_payments(*)
+          contractor:contractors(id, name)
         `)
         .eq('work_id', workId)
         .order('created_at', { ascending: true });
@@ -281,74 +270,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Payment Handlers
-  const handleEditPayment = (measurementId, payment = null) => {
-    setCurrentMeasurement({ id: measurementId }); // Store which measurement we're adding to
-    if (payment) {
-      setCurrentPayment(payment);
-      setPaymentForm({
-        payment_date: payment.payment_date,
-        banking_order: payment.banking_order || '',
-        value: payment.value || '',
-        portal_link: payment.portal_link || ''
-      });
-    } else {
-      setCurrentPayment(null);
-      setPaymentForm({
-        payment_date: new Date().toISOString().split('T')[0],
-        banking_order: '',
-        value: '',
-        portal_link: ''
-      });
-    }
-    setIsEditingPayment(true);
-    if (onEditingChange) onEditingChange(true);
-  };
-
-  const handleSavePayment = async () => {
-    try {
-      if (!paymentForm.payment_date || !paymentForm.value) {
-        toast({ title: "Erro", description: "Data e valor são obrigatórios.", variant: "destructive" });
-        return;
-      }
-
-      const payload = {
-        measurement_id: currentMeasurement.id,
-        payment_date: paymentForm.payment_date,
-        banking_order: paymentForm.banking_order || null,
-        value: Number(paymentForm.value),
-        portal_link: paymentForm.portal_link || null
-      };
-
-      let error;
-      if (currentPayment) {
-        ({ error } = await supabase.from('public_work_payments').update(payload).eq('id', currentPayment.id));
-      } else {
-        ({ error } = await supabase.from('public_work_payments').insert([payload]));
-      }
-
-      if (error) throw error;
-      toast({ title: "Sucesso", description: "Pagamento registrado!" });
-      setIsEditingPayment(false);
-      if (onEditingChange) onEditingChange(false);
-      fetchMeasurements();
-    } catch (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
-    }
-  };
-
-  const handleDeletePayment = async (id) => {
-    if (!window.confirm('Excluir este pagamento?')) return;
-    try {
-      const { error } = await supabase.from('public_work_payments').delete().eq('id', id);
-      if (error) throw error;
-      toast({ title: "Sucesso", description: "Pagamento excluído." });
-      fetchMeasurements();
-    } catch (error) {
-      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     }
   };
 
@@ -614,68 +535,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       });
       return out;
     };
-    if (isEditingPayment) {
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>{currentPayment ? 'Editar Pagamento' : 'Novo Pagamento'}</CardTitle>
-              <CardDescription>
-                Registrando pagamento para: <strong>{measurements.find(m => m.id === currentMeasurement.id)?.title}</strong>
-              </CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => { setIsEditingPayment(false); if(onEditingChange) onEditingChange(false); }}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Data do Pagamento</Label>
-              <Input 
-                type="date" 
-                value={paymentForm.payment_date} 
-                onChange={(e) => setPaymentForm({...paymentForm, payment_date: e.target.value})} 
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Valor (R$)</Label>
-              <Input 
-                type="number"
-                step="0.01"
-                value={paymentForm.value} 
-                onChange={(e) => setPaymentForm({...paymentForm, value: e.target.value})} 
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label>Ordem Bancária / Empenho</Label>
-            <Input 
-              value={paymentForm.banking_order} 
-              onChange={(e) => setPaymentForm({...paymentForm, banking_order: e.target.value})} 
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Link do Portal da Transparência</Label>
-            <Input 
-              placeholder="https://..."
-              value={paymentForm.portal_link} 
-              onChange={(e) => setPaymentForm({...paymentForm, portal_link: e.target.value})} 
-            />
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => { setIsEditingPayment(false); if(onEditingChange) onEditingChange(false); }}>Cancelar</Button>
-          <Button onClick={handleSavePayment} className="gap-2"><Save className="w-4 h-4" /> Salvar Pagamento</Button>
-        </CardFooter>
-      </Card>
-    );
-  }
-
-  if (isEditing) {
+    if (isEditing) {
       const base = normalize(baselineRef.current || {});
       const curr = normalize(formData || {});
       const hasFiles = selectedFiles.length > 0;
@@ -684,15 +544,11 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         setIsDirty(dirty);
         if (onDirtyChange) onDirtyChange(dirty);
       }
-    } else {
-      if (isDirty) {
-        setIsDirty(false);
-        if (onDirtyChange) onDirtyChange(false);
-      }
+    } else if (isDirty) {
+      setIsDirty(false);
+      if (onDirtyChange) onDirtyChange(false);
     }
-  }, [isEditing, formData, selectedFiles]);
-
-  
+  }, [isEditing, formData, selectedFiles, isDirty, onDirtyChange]);
 
   const getStatusLabel = (status) => {
     const map = {
@@ -1254,71 +1110,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                   </div>
                 )}
                 
-                {/* Unified Payments Section */}
-                <div className="border-t bg-slate-50/30">
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="payments" className="border-none">
-                      <AccordionTrigger className="px-4 py-2.5 hover:no-underline hover:bg-slate-100/50 transition-colors">
-                        <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500 tracking-wider">
-                          <Calculator className="w-3.5 h-3.5" />
-                          Pagamentos Realizados ({measurement.payments?.length || 0})
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="p-4 pt-0">
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Listagem de Pagamentos</h5>
-                            <Button size="sm" variant="outline" className="h-7 text-[10px] uppercase font-bold bg-white border-slate-200" onClick={() => handleEditPayment(measurement.id)}>
-                              <PlusCircle className="w-3 h-3 mr-1" /> Add Pagamento
-                            </Button>
-                          </div>
-                          
-                          {measurement.payments && measurement.payments.length > 0 ? (
-                            <div className="overflow-x-auto border rounded-lg bg-white">
-                              <table className="w-full text-sm">
-                                <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
-                                  <tr>
-                                    <th className="px-3 py-2 font-bold">Data</th>
-                                    <th className="px-3 py-2 font-bold">OB/Empenho</th>
-                                    <th className="px-3 py-2 font-bold">Valor</th>
-                                    <th className="px-3 py-2 font-bold">Portal</th>
-                                    <th className="px-3 py-2 font-bold text-right">Ações</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y text-xs">
-                                  {measurement.payments.sort((a,b) => new Date(b.payment_date) - new Date(a.payment_date)).map(payment => (
-                                    <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
-                                      <td className="px-3 py-2 whitespace-nowrap">{formatDate(payment.payment_date)}</td>
-                                      <td className="px-3 py-2 font-medium text-slate-600">{payment.banking_order || '-'}</td>
-                                      <td className="px-3 py-2 font-bold text-blue-600">{formatCurrency(payment.value)}</td>
-                                      <td className="px-3 py-2">
-                                        {payment.portal_link && (
-                                          <a href={payment.portal_link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-700">
-                                            <Link2 className="w-4 h-4" />
-                                          </a>
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-2 text-right">
-                                        <div className="flex justify-end gap-1">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditPayment(measurement.id, payment)}><Edit className="w-3 h-3" /></Button>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/5" onClick={() => handleDeletePayment(payment.id)}><Trash2 className="w-3 h-3" /></Button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="text-center py-6 bg-white rounded-lg border border-dashed border-slate-200">
-                              <p className="text-xs italic text-muted-foreground">Nenhum pagamento registrado para esta fase.</p>
-                            </div>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </div>
+
               </CardContent>
             </Card>
           ))}

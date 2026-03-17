@@ -126,12 +126,33 @@ const WorkDetailsPage = () => {
   const [biddings, setBiddings] = useState([]);
   const [relatedNews, setRelatedNews] = useState([]);
 
-  const totalSpentFromPayments = useMemo(() => {
-    return biddings.reduce((acc, bidding) => {
-      const biddingPaid = (bidding.payments || []).reduce((pAcc, p) => pAcc + (Number(p.value) || 0), 0);
-      return acc + biddingPaid;
-    }, 0);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    measurement_id: '',
+    payment_date: new Date().toISOString().split('T')[0],
+    commitment_number: '',
+    payment_description: '',
+    installment: '',
+    creditor_name: '',
+    value: '',
+    portal_link: ''
+  });
+
+  const allPayments = useMemo(() => {
+    return (biddings || []).flatMap((measurement) => {
+      const payments = Array.isArray(measurement.payments) ? measurement.payments : [];
+      return payments.map((payment) => ({
+        ...payment,
+        measurement_id: measurement.id,
+        measurement_title: measurement.title
+      }));
+    });
   }, [biddings]);
+
+  const totalSpentFromPayments = useMemo(() => {
+    return allPayments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+  }, [allPayments]);
 
   useEffect(() => {
     console.log('relatedNews_state', relatedNews);
@@ -197,6 +218,61 @@ const WorkDetailsPage = () => {
     setBiddings(measurementsData || []); // Use measurements as biddings for compatibility with the UI
     setLoading(false);
   }, [workId, toast]);
+
+  const openNewPaymentDialog = useCallback(() => {
+    const defaultMeasurement = measurements?.[0] || null;
+    const defaultMeasurementId = defaultMeasurement?.id || '';
+    const defaultCreditorName = defaultMeasurement?.contractor?.name || '';
+    setPaymentForm({
+      measurement_id: defaultMeasurementId,
+      payment_date: new Date().toISOString().split('T')[0],
+      commitment_number: '',
+      payment_description: '',
+      installment: '',
+      creditor_name: defaultCreditorName,
+      value: '',
+      portal_link: ''
+    });
+    setShowPaymentDialog(true);
+  }, [measurements]);
+
+  const handleSavePayment = useCallback(async () => {
+    try {
+      if (!user?.is_admin) {
+        toast({ title: 'Acesso restrito', description: 'Apenas administradores podem cadastrar pagamentos.', variant: 'destructive' });
+        return;
+      }
+
+      if (!paymentForm.measurement_id || !paymentForm.payment_date || !paymentForm.value) {
+        toast({ title: 'Campos obrigatórios', description: 'Fase, data e valor são obrigatórios.', variant: 'destructive' });
+        return;
+      }
+
+      setIsSavingPayment(true);
+
+      const payload = {
+        measurement_id: paymentForm.measurement_id,
+        payment_date: paymentForm.payment_date,
+        commitment_number: paymentForm.commitment_number || null,
+        payment_description: paymentForm.payment_description || null,
+        installment: paymentForm.installment || null,
+        creditor_name: paymentForm.creditor_name || null,
+        value: Number(paymentForm.value),
+        portal_link: paymentForm.portal_link || null
+      };
+
+      const { error } = await supabase.from('public_work_payments').insert([payload]);
+      if (error) throw error;
+
+      toast({ title: 'Pagamento registrado', description: 'O pagamento foi adicionado com sucesso.' });
+      setShowPaymentDialog(false);
+      fetchWorkDetails();
+    } catch (error) {
+      toast({ title: 'Erro ao salvar pagamento', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSavingPayment(false);
+    }
+  }, [user?.is_admin, paymentForm, toast, fetchWorkDetails]);
 
   useEffect(() => {
     fetchWorkDetails();
@@ -1161,88 +1237,270 @@ const WorkDetailsPage = () => {
 
             <Separator className="my-0" />
 
-            {/* Financial Section */}
             {biddings && biddings.length > 0 && (
               <div className="p-6 md:p-8 bg-white border-t border-slate-100">
-                <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 mr-3 shadow-sm border border-emerald-100/50">
-                    <Calculator className="w-4 h-4" />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 mr-3 shadow-sm border border-emerald-100/50">
+                      <Calculator className="w-4 h-4" />
+                    </div>
+                    Pagamentos
+                  </h3>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold w-full sm:w-fit">
+                      Total pago: {formatCurrency(totalSpentFromPayments)}
+                    </Badge>
+                    {user?.is_admin && (
+                      <Button variant="outline" className="bg-white w-full sm:w-auto" onClick={openNewPaymentDialog}>
+                        <DollarSign className="w-4 h-4 mr-2" />
+                        Adicionar pagamento
+                      </Button>
+                    )}
                   </div>
-                  Licitações e Pagamentos
-                </h3>
+                </div>
 
-                <div className="space-y-6">
-                  {biddings.map((bidding) => {
-                    const totalPaid = (bidding.payments || []).reduce((acc, p) => acc + (Number(p.value) || 0), 0);
-                    return (
-                      <div key={bidding.id} className="bg-slate-50/50 border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="p-5 bg-white border-b border-slate-100">
-                          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none font-bold text-[10px] uppercase">Fase / Licitação</Badge>
-                                <h4 className="font-bold text-lg text-slate-800">{bidding.title}</h4>
+                {allPayments.length > 0 ? (
+                  <>
+                    <div className="sm:hidden space-y-3">
+                      {[...allPayments]
+                        .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
+                        .map((payment) => (
+                          <div key={payment.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-blue-700 whitespace-nowrap">{formatDate(payment.payment_date)}</div>
+                                <div className="mt-1 text-sm text-slate-700 whitespace-normal break-words">{payment.payment_description || '-'}</div>
                               </div>
-                              <p className="text-sm text-slate-500 leading-relaxed">{bidding.description}</p>
-                            </div>
-                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 min-w-[160px]">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total do Contrato</span>
-                              <span className="text-lg font-bold text-emerald-700">{formatCurrency(bidding.value)}</span>
-                            </div>
-                          </div>
-                        </div>
 
-                        <div className="p-5">
-                          <div className="flex items-center justify-between mb-4">
-                            <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                              <DollarSign className="w-3 h-3" /> Listagem de Pagamentos
-                            </h5>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold">
-                              Pago: {formatCurrency(totalPaid)}
-                            </Badge>
-                          </div>
+                              {payment.portal_link ? (
+                                <Button asChild size="icon" variant="ghost" className="h-9 text-slate-500 hover:bg-slate-50">
+                                  <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência" className='underline'>
+                                    fonte
+                                   
+                                  </a>
+                                </Button>
+                              ) : null}
+                            </div>
 
-                          {bidding.payments && bidding.payments.length > 0 ? (
-                            <div className="space-y-3">
-                              {bidding.payments.sort((a,b) => new Date(b.payment_date) - new Date(a.payment_date)).map((payment) => (
-                                <div key={payment.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:border-emerald-200 transition-all gap-4">
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex flex-col items-center justify-center shrink-0">
-                                      <Calendar className="w-4 h-4 text-blue-500 mb-0.5" />
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-bold text-slate-700">{formatDate(payment.payment_date)}</p>
-                                      <p className="text-xs text-slate-400 font-medium">OB/Empenho: {payment.banking_order || '-'}</p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="flex items-center justify-between sm:justify-end gap-6">
-                                    <div className="text-right">
-                                      <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Valor Pago</p>
-                                      <p className="text-base font-bold text-blue-700">{formatCurrency(payment.value)}</p>
-                                    </div>
-                                    
-                                    {payment.portal_link && (
-                                      <Button asChild size="icon" variant="ghost" className="h-10 w-10 rounded-full text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
-                                        <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência">
-                                          <Link2 className="w-5 h-5" />
-                                        </a>
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px]">
+                                Empenho {payment.commitment_number || payment.banking_order || '-'}
+                              </span>
+                              {payment.installment ? (
+                                <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px]">
+                                  Parcela {payment.installment}
+                                </span>
+                              ) : null}
                             </div>
-                          ) : (
-                            <div className="text-center py-6 bg-white rounded-xl border border-dashed border-slate-200">
-                              <p className="text-sm text-slate-400">Nenhum pagamento registrado para esta licitação.</p>
+
+                            <div className="mt-3 grid grid-cols-2 gap-3">
+                              <div className="min-w-0">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Credor</div>
+                                <div className="mt-0.5 font-semibold text-slate-800 whitespace-normal break-words">{payment.creditor_name.toLowerCase() || '-'}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Valor</div>
+                                <div className="mt-0.5 font-extrabold text-emerald-700 whitespace-nowrap">{formatCurrency(payment.value)}</div>
+                              </div>
                             </div>
-                          )}
+
+                            {payment.measurement_title ? (
+                              <div className="mt-3 flex justify-end">
+                                <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
+                                  {payment.measurement_title}
+                                </span>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                    </div>
+
+                    <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
+                      <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                        <div className="border rounded-xl bg-white">
+                          <table className="w-full text-sm table-fixed">
+                            <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
+                              <tr>
+                                <th className="px-3 py-2 font-bold">Pagamento</th>
+                                <th className="hidden sm:table-cell px-3 py-2 font-bold">Nº Empenho</th>
+                                <th className="hidden md:table-cell px-3 py-2 font-bold w-[22%]">Descrição</th>
+                                <th className="hidden md:table-cell px-3 py-2 font-bold w-[72px]">Parcela</th>
+                                <th className="hidden xl:table-cell px-3 py-2 font-bold">Credor</th>
+                                <th className="hidden xl:table-cell px-3 py-2 font-bold">Fase</th>
+                                <th className="px-3 py-2 font-bold text-right">Valor</th>
+                                <th className="px-3 py-2 font-bold">Fonte</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y text-xs">
+                              {[...allPayments]
+                                .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
+                                .map((payment) => (
+                                  <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-3 py-2 align-top">
+                                      <div className="whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</div>
+                                    </td>
+                                    <td className="hidden sm:table-cell px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
+                                    <td className="hidden md:table-cell px-3 py-2 text-slate-600 w-[40%]">
+                                      <span className="line-clamp-4">{payment.payment_description || '-'}</span>
+                                      <div className="mt-1 text-[11px] text-slate-400 xl:hidden line-clamp-1">
+                                        {payment.creditor_name ? payment.creditor_name : '-'}
+                                        {payment.measurement_title ? ` • ${payment.measurement_title}` : ''}
+                                      </div>
+                                    </td>
+                                    <td className="hidden md:table-cell px-3 py-2 text-slate-600 w-[72px]">{payment.installment || '-'}</td>
+                                    <td className="hidden xl:table-cell px-3 py-2 text-slate-600">{payment.creditor_name.toLowerCase() || '-'}</td>
+                                    <td className="hidden xl:table-cell px-3 py-2 text-slate-500">{payment.measurement_title || '-'}</td>
+                                    <td className="px-3 py-2 align-center font-bold text-blue-700 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
+                                    <td className="px-3 py-2 align-top">
+                                      {payment.portal_link ? (
+                                        <Button asChild size="icon" variant="ghost" className="h-16 w-8 2xl:w-24 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
+                                          <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência">
+                                            <Link2 className="w-4 h-4" />
+                                            <span className="inline 2xl:inline ml-2">Ver no Portal</span>
+                                          </a>
+                                        </Button>
+                                      ) : (
+                                        <span className="text-slate-300">-</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="border-t bg-slate-50/50">
+                              <tr className="xl:hidden">
+                                <td className="px-3 py-2 font-bold text-slate-600" colSpan={4}>Somatório</td>
+                                <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(totalSpentFromPayments)}</td>
+                                <td className="px-3 py-2"></td>
+                              </tr>
+                              <tr className="hidden xl:table-row">
+                                <td className="px-3 py-2 font-bold text-slate-600" colSpan={6}>Somatório</td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(totalSpentFromPayments)}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
+                    <p className="text-sm text-slate-400">Nenhum pagamento registrado para esta obra.</p>
+                    {user?.is_admin && (
+                      <div className="mt-4">
+                        <Button variant="outline" className="bg-white" onClick={openNewPaymentDialog}>
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          Adicionar primeiro pagamento
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+                  <DialogContent className="sm:max-w-[650px]">
+                    <DialogHeader>
+                      <DialogTitle>Novo pagamento</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label>Fase</Label>
+                        <select
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                          value={paymentForm.measurement_id}
+                          onChange={(e) => {
+                            const nextMeasurementId = e.target.value;
+                            const nextMeasurement = measurements.find((m) => m.id === nextMeasurementId) || null;
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              measurement_id: nextMeasurementId,
+                              creditor_name: prev.creditor_name ? prev.creditor_name : (nextMeasurement?.contractor?.name || '')
+                            }));
+                          }}
+                        >
+                          {measurements.map((m) => (
+                            <option key={m.id} value={m.id}>{m.title}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>Data</Label>
+                        <Input
+                          type="date"
+                          value={paymentForm.payment_date}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, payment_date: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                      <div className="grid gap-2">
+                        <Label>Número de empenho</Label>
+                        <Input
+                          value={paymentForm.commitment_number}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_number: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Parcela</Label>
+                        <Input
+                          placeholder="Ex.: 1/3"
+                          value={paymentForm.installment}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, installment: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                      <div className="grid gap-2">
+                        <Label>Credor</Label>
+                        <Input
+                          value={paymentForm.creditor_name}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, creditor_name: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Valor (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0,00"
+                          value={paymentForm.value}
+                          onChange={(e) => setPaymentForm((prev) => ({ ...prev, value: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 mt-4">
+                      <Label>Descrição do pagamento</Label>
+                      <Textarea
+                        value={paymentForm.payment_description}
+                        onChange={(e) => setPaymentForm((prev) => ({ ...prev, payment_description: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="grid gap-2 mt-4">
+                      <Label>Link do portal (opcional)</Label>
+                      <Input
+                        placeholder="https://..."
+                        value={paymentForm.portal_link}
+                        onChange={(e) => setPaymentForm((prev) => ({ ...prev, portal_link: e.target.value }))}
+                      />
+                    </div>
+
+                    <DialogFooter className="mt-4">
+                      <DialogClose asChild>
+                        <Button variant="outline" disabled={isSavingPayment}>Cancelar</Button>
+                      </DialogClose>
+                      <Button onClick={handleSavePayment} disabled={isSavingPayment}>
+                        Salvar pagamento
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
 
