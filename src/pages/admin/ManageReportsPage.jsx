@@ -208,19 +208,46 @@ const ManageReportsPage = () => {
   };
 
   const handleUpdateReport = async (editData) => {
-    const { id, title, description, address, location, category_id, newPhotos, newVideos, removedMedia, status, is_recurrent, evaluation, resolution_submission, is_from_water_utility } = editData;
+    const { 
+      id,
+      title,
+      description,
+      address,
+      location,
+      category_id,
+      newPhotos,
+      newVideos,
+      removedMedia,
+      status,
+      is_recurrent,
+      evaluation,
+      resolution_submission,
+      is_from_water_utility,
+      moderation_status,
+      rejection_title,
+      rejection_description,
+      rejected_at
+    } = editData;
 
-    const reportUpdates = { title, description, address, category_id, status, is_recurrent, evaluation, resolution_submission };
-    if (typeof is_from_water_utility !== 'undefined') {
-      if (category_id === 'buracos') {
-        reportUpdates.is_from_water_utility = !!is_from_water_utility;
-      } else {
-        reportUpdates.is_from_water_utility = null;
-      }
+    const reportUpdates = {};
+    if (typeof title !== 'undefined') reportUpdates.title = title;
+    if (typeof description !== 'undefined') reportUpdates.description = description;
+    if (typeof address !== 'undefined') reportUpdates.address = address;
+    if (typeof category_id !== 'undefined') reportUpdates.category_id = category_id;
+    if (typeof status !== 'undefined') reportUpdates.status = status;
+    if (typeof is_recurrent !== 'undefined') reportUpdates.is_recurrent = is_recurrent;
+    if (typeof evaluation !== 'undefined') reportUpdates.evaluation = evaluation;
+    if (typeof resolution_submission !== 'undefined') reportUpdates.resolution_submission = resolution_submission;
+    if (typeof moderation_status !== 'undefined') reportUpdates.moderation_status = moderation_status;
+    if (typeof rejection_title !== 'undefined') reportUpdates.rejection_title = rejection_title;
+    if (typeof rejection_description !== 'undefined') reportUpdates.rejection_description = rejection_description;
+    if (typeof rejected_at !== 'undefined') reportUpdates.rejected_at = rejected_at;
+
+    if (typeof is_from_water_utility !== 'undefined' && typeof category_id !== 'undefined') {
+      reportUpdates.is_from_water_utility = category_id === 'buracos' ? !!is_from_water_utility : null;
     }
-    if (location) {
-      reportUpdates.location = `POINT(${location.lng} ${location.lat})`;
-    }
+
+    if (location) reportUpdates.location = `POINT(${location.lng} ${location.lat})`;
 
     const { error: updateError } = await supabase.from('reports').update(reportUpdates).eq('id', id);
     if (updateError) {

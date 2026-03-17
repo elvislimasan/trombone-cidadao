@@ -22,6 +22,23 @@ const Notifications = () => {
   
   const [showSettings, setShowSettings] = useState(false);
   const realtimeChannelRef = useRef(null); // 🔥 Usar ref para evitar loop infinito
+  const popoverTriggerRef = useRef(null); // 🔥 Ref para o botão do popover
+
+  // 🔥 Fechar popover quando ReportDetails for aberto
+  useEffect(() => {
+    const handleCloseNotifications = () => {
+      // Fechar o popover programaticamente clicando no botão do popover
+      if (popoverTriggerRef.current) {
+        popoverTriggerRef.current.click();
+      }
+    };
+
+    window.addEventListener('close-notifications-popover', handleCloseNotifications);
+    
+    return () => {
+      window.removeEventListener('close-notifications-popover', handleCloseNotifications);
+    };
+  }, []);
 
   const fetchNotifications = useCallback(async () => {
     if (!user || !notificationsEnabled) {
@@ -231,6 +248,9 @@ const Notifications = () => {
   };
 
   const getNotificationLink = (notification) => {
+    if (notification.link) {
+      return notification.link;
+    }
     if (notification.report_id) {
       return `/bronca/${notification.report_id}`;
     }
@@ -254,6 +274,7 @@ const Notifications = () => {
     }}>
       <PopoverTrigger asChild>
         <Button 
+          ref={popoverTriggerRef}
           variant="ghost" 
           size="icon" 
           className="relative"
