@@ -7,13 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { 
-  PlusCircle, Edit, Trash2, Calendar, FileText, DollarSign, 
-  ArrowLeft, Save, Link2, Calculator, ChevronDown, ChevronUp 
+  PlusCircle, Edit, Trash2, FileText,
+  ArrowLeft, Save, Link2, Calculator
 } from 'lucide-react';
 import { formatCurrency, parseCurrency, formatDate } from '@/lib/utils';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-export function WorkFinancialTab({ workId, onEditingChange, onDirtyChange }) {
+export function WorkFinancialTab({ workId, onEditingChange }) {
   const [measurements, setMeasurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
@@ -23,7 +22,10 @@ export function WorkFinancialTab({ workId, onEditingChange, onDirtyChange }) {
 
   const [paymentForm, setPaymentForm] = useState({
     payment_date: '',
-    banking_order: '',
+    commitment_number: '',
+    payment_description: '',
+    installment: '',
+    creditor_name: '',
     value: '',
     portal_link: ''
   });
@@ -35,6 +37,7 @@ export function WorkFinancialTab({ workId, onEditingChange, onDirtyChange }) {
         .from('public_work_measurements')
         .select(`
           *,
+          contractor:contractors(id, name),
           payments:public_work_payments(*)
         `)
         .eq('work_id', workId)
@@ -65,15 +68,22 @@ export function WorkFinancialTab({ workId, onEditingChange, onDirtyChange }) {
       setCurrentPayment(payment);
       setPaymentForm({
         payment_date: payment.payment_date,
-        banking_order: payment.banking_order || '',
+        commitment_number: payment.commitment_number || payment.banking_order || '',
+        payment_description: payment.payment_description || '',
+        installment: payment.installment || '',
+        creditor_name: payment.creditor_name || '',
         value: payment.value || '',
         portal_link: payment.portal_link || ''
       });
     } else {
+      const measurement = measurements.find(m => m.id === measurementId) || null;
       setCurrentPayment(null);
       setPaymentForm({
         payment_date: new Date().toISOString().split('T')[0],
-        banking_order: '',
+        commitment_number: '',
+        payment_description: '',
+        installment: '',
+        creditor_name: measurement?.contractor?.name || '',
         value: '',
         portal_link: ''
       });
@@ -92,7 +102,11 @@ export function WorkFinancialTab({ workId, onEditingChange, onDirtyChange }) {
       const payload = {
         measurement_id: currentMeasurement.id,
         payment_date: paymentForm.payment_date,
-        banking_order: paymentForm.banking_order || null,
+        commitment_number: paymentForm.commitment_number || null,
+        payment_description: paymentForm.payment_description || null,
+        installment: paymentForm.installment || null,
+        creditor_name: paymentForm.creditor_name || null,
+        banking_order: paymentForm.commitment_number || null,
         value: parseCurrency(String(paymentForm.value)),
         portal_link: paymentForm.portal_link || null
       };
@@ -153,11 +167,38 @@ export function WorkFinancialTab({ workId, onEditingChange, onDirtyChange }) {
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Número de empenho</Label>
+              <Input
+                value={paymentForm.commitment_number}
+                onChange={(e) => setPaymentForm({ ...paymentForm, commitment_number: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Parcela</Label>
+              <Input
+                placeholder="Ex.: 1/3"
+                value={paymentForm.installment}
+                onChange={(e) => setPaymentForm({ ...paymentForm, installment: e.target.value })}
+              />
+            </div>
+          </div>
+
           <div className="grid gap-2">
-            <Label>Ordem Bancária / Empenho</Label>
-            <Input 
-              value={paymentForm.banking_order} 
-              onChange={(e) => setPaymentForm({...paymentForm, banking_order: e.target.value})} 
+            <Label>Credor</Label>
+            <Input
+              value={paymentForm.creditor_name}
+              onChange={(e) => setPaymentForm({ ...paymentForm, creditor_name: e.target.value })}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Descrição do pagamento</Label>
+            <Textarea
+              value={paymentForm.payment_description}
+              onChange={(e) => setPaymentForm({ ...paymentForm, payment_description: e.target.value })}
             />
           </div>
           <div className="grid gap-2">
@@ -235,64 +276,68 @@ export function WorkFinancialTab({ workId, onEditingChange, onDirtyChange }) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="payments" className="border-none">
-                      <AccordionTrigger className="px-4 py-2 hover:no-underline hover:bg-slate-50 text-xs font-bold uppercase text-slate-500">
-                        Visualizar Pagamentos ({measurement.payments?.length || 0})
-                      </AccordionTrigger>
-                      <AccordionContent className="p-4 bg-slate-50/30">
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center mb-2">
-                            <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400">Listagem de Pagamentos</h5>
-                            <Button size="sm" variant="outline" className="h-7 text-[10px] uppercase font-bold" onClick={() => handleEditPayment(measurement.id)}>
-                              <PlusCircle className="w-3 h-3 mr-1" /> Add Pagamento
-                            </Button>
-                          </div>
-                          
-                          {measurement.payments && measurement.payments.length > 0 ? (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
-                                <thead className="text-left border-b text-slate-400 text-[10px] uppercase">
-                                  <tr>
-                                    <th className="pb-2 font-bold">Data</th>
-                                    <th className="pb-2 font-bold">OB/Empenho</th>
-                                    <th className="pb-2 font-bold">Valor</th>
-                                    <th className="pb-2 font-bold">Portal</th>
-                                    <th className="pb-2 font-bold text-right">Ações</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                  {measurement.payments.sort((a,b) => new Date(b.payment_date) - new Date(a.payment_date)).map(payment => (
-                                    <tr key={payment.id} className="hover:bg-slate-100/50">
-                                      <td className="py-2">{formatDate(payment.payment_date)}</td>
-                                      <td className="py-2 font-medium">{payment.banking_order || '-'}</td>
-                                      <td className="py-2 font-bold text-blue-600">{formatCurrency(payment.value)}</td>
-                                      <td className="py-2">
-                                        {payment.portal_link && (
-                                          <a href={payment.portal_link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-700">
-                                            <Link2 className="w-4 h-4" />
-                                          </a>
-                                        )}
-                                      </td>
-                                      <td className="py-2 text-right">
-                                        <div className="flex justify-end gap-1">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditPayment(measurement.id, payment)}><Edit className="w-3 h-3" /></Button>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeletePayment(payment.id)}><Trash2 className="w-3 h-3" /></Button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <p className="text-xs italic text-center text-muted-foreground py-4">Nenhum pagamento registrado.</p>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
+                <CardContent className="p-4 bg-slate-50/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500 tracking-wider">
+                      <Calculator className="w-3.5 h-3.5" />
+                      Pagamentos ({measurement.payments?.length || 0})
+                    </div>
+                    <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold bg-white" onClick={() => handleEditPayment(measurement.id)}>
+                      <PlusCircle className="w-3 h-3 mr-1" /> Adicionar pagamento
+                    </Button>
+                  </div>
+
+                  {measurement.payments && measurement.payments.length > 0 ? (
+                    <div className="overflow-x-auto border rounded-lg bg-white">
+                      <table className="w-full text-sm">
+                        <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
+                          <tr>
+                            <th className="px-3 py-2 font-bold">Data</th>
+                            <th className="px-3 py-2 font-bold">Nº Empenho</th>
+                            <th className="px-3 py-2 font-bold">Descrição</th>
+                            <th className="px-3 py-2 font-bold">Parcela</th>
+                            <th className="px-3 py-2 font-bold">Credor</th>
+                            <th className="px-3 py-2 font-bold text-right">Valor</th>
+                            <th className="px-3 py-2 font-bold">Portal</th>
+                            <th className="px-3 py-2 font-bold text-right">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y text-xs">
+                          {measurement.payments
+                            .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
+                            .map((payment) => (
+                              <tr key={payment.id} className="hover:bg-slate-50/50">
+                                <td className="px-3 py-2 whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</td>
+                                <td className="px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
+                                <td className="px-3 py-2 text-slate-600 max-w-[280px]"><span className="line-clamp-2">{payment.payment_description || '-'}</span></td>
+                                <td className="px-3 py-2 text-slate-600">{payment.installment || '-'}</td>
+                                <td className="px-3 py-2 text-slate-600">{payment.creditor_name || '-'}</td>
+                                <td className="px-3 py-2 font-bold text-blue-600 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
+                                <td className="px-3 py-2">
+                                  {payment.portal_link ? (
+                                    <a href={payment.portal_link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-700">
+                                      <Link2 className="w-4 h-4" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-slate-300">-</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditPayment(measurement.id, payment)}><Edit className="w-3 h-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeletePayment(payment.id)}><Trash2 className="w-3 h-3" /></Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 bg-white rounded-lg border border-dashed border-slate-200">
+                      <p className="text-xs italic text-muted-foreground">Nenhum pagamento registrado.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
