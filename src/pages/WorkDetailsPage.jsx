@@ -1546,6 +1546,41 @@ const WorkDetailsPage = () => {
           {activeTab === 'documents' && <TabDocuments galleryGroups={groups} openViewer={openViewer} documents={docs} relatedNews={relatedNews} />}
         </div>
 
+        {activeTab === 'overview' && (
+          <div className="lg:hidden space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <PanelHeader icon={MapPin}>Localização</PanelHeader>
+              <div className="h-52">
+                <WorkMap location={work.location} bairro={work.bairro?.name} />
+              </div>
+              {(work.address || work.bairro) && (
+                <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
+                  {work.address && <p className="text-xs font-semibold text-slate-700">{work.address}</p>}
+                  {work.bairro && <p className="text-xs text-slate-400 mt-0.5">{work.bairro.name}</p>}
+                </div>
+              )}
+            </div>
+
+            {Array.isArray(work.related_links) && work.related_links.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <PanelHeader icon={Link2}>Links Relacionados</PanelHeader>
+                <div className="p-3 space-y-1">
+                  {work.related_links.map((link, idx) => (
+                    <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-start justify-between gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-slate-700 break-words whitespace-normal">{link.title}</span>
+                        <span className="block text-xs text-slate-400 break-words whitespace-normal mt-0.5">{link.url}</span>
+                      </span>
+                      <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-red-500 ml-2 flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
                 {/* ── CTA bar ── */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col sm:flex-row items-center gap-4 shadow-sm">
                   <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
@@ -1569,7 +1604,7 @@ const WorkDetailsPage = () => {
             </div>
           </div>
 
-          <div className={`${activeTab === 'overview' ? 'block' : 'hidden'} lg:block lg:col-span-4 space-y-6`}>
+          <div className="hidden lg:block lg:col-span-4 space-y-6">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <PanelHeader icon={MapPin}>Localização</PanelHeader>
               <div className="h-60 2xl:h-72">
