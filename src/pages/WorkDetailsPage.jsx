@@ -89,17 +89,28 @@ const getIconTone = (Icon) => {
 };
 
 // ─── Atoms ───────────────────────────────────────────────────────────────────
-const InfoRow = ({ icon: Icon, label, value, accent }) => (
+const hasInfoValue = (v) => {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  if (Array.isArray(v)) return v.length > 0;
+  return true;
+};
+
+const InfoRow = ({ icon: Icon, label, value, accent, hideIfEmpty = false, emptyText = 'Sem informações' }) => {
+  const present = hasInfoValue(value);
+  if (hideIfEmpty && !present) return null;
+  return (
   <div className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
     <div className="w-7 h-7 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
       <Icon className={`w-3.5 h-3.5 ${getIconTone(Icon)}`} />
     </div>
     <div className="flex-1 min-w-0">
       <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide">{label}</p>
-      <p className={`text-sm font-semibold leading-snug mt-0.5 break-words ${accent ? 'text-red-600' : 'text-slate-800'}`}>{value || '—'}</p>
+      <p className={`text-sm font-semibold leading-snug mt-0.5 break-words ${accent ? 'text-red-600' : 'text-slate-800'}`}>{present ? value : emptyText}</p>
     </div>
   </div>
-);
+  );
+};
 
 const PanelHeader = ({ icon: Icon, children }) => (
   <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
@@ -165,6 +176,56 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
     return map[src] || src;
   };
 
+  const identificationRows = [
+    { icon: FileText, label: 'Categoria', value: work.work_category?.name },
+    { icon: Activity, label: 'Status', value: getStatusInfo(work.status).text },
+    ...(showMore ? [{ icon: Award, label: 'Área', value: work.work_area?.name }] : []),
+  ];
+
+  const locationRows = [
+    { icon: MapPin, label: 'Bairro', value: work.bairro?.name },
+    { icon: MapPin, label: 'Endereço', value: work.address },
+  ];
+
+  const contractorRows = [
+    { icon: Building, label: 'Nome', value: work.contractor?.name },
+    { icon: Building, label: 'CNPJ', value: work.contractor?.cnpj ? formatCnpj(work.contractor.cnpj) : null },
+  ];
+
+  const scheduleRows = [
+    { icon: Calendar, label: 'Início do início', value: work.start_date ? formatDate(work.start_date) : null },
+    { icon: Calendar, label: 'Data de entrega', value: work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : null },
+    ...(showMore ? [
+      { icon: Calendar, label: 'Prazo contratual (dias)', value: work.execution_period_days ? String(work.execution_period_days) : null },
+      { icon: Calendar, label: 'Assinatura do contrato', value: work.contract_signature_date ? formatDate(work.contract_signature_date) : null },
+      { icon: Calendar, label: 'Ordem de serviço', value: work.service_order_date ? formatDate(work.service_order_date) : null },
+      { icon: AlertTriangle, label: 'Data de paralisação', value: work.stalled_date ? formatDate(work.stalled_date) : null },
+      { icon: CheckCircle, label: 'Data de inauguração', value: work.inauguration_date ? formatDate(work.inauguration_date) : null },
+    ] : []),
+  ];
+
+  const financeRows = [
+    { icon: DollarSign, label: 'Projeto Total', value: work.total_value ? formatCurrency(work.total_value) : null },
+    { icon: CreditCard, label: 'Total pago', value: formatCurrency(spentValue || 0), accent: true },
+    { icon: TrendingUp, label: 'Execução financeira', value: work.total_value ? `${spentPct.toFixed(1)}%` : null },
+    ...(showMore ? [
+      ...(Array.isArray(work.funding_source) && work.funding_source.length > 0 ? [{ icon: FileText, label: 'Fonte de recursos', value: work.funding_source.map(fundingLabel).join(', ') }] : []),
+      ...(work.parliamentary_amendment?.has ? [{ icon: User, label: 'Emenda Parlamentar', value: work.parliamentary_amendment.author || null }] : []),
+    ] : []),
+  ];
+
+  const renderInfoGrid = (rows) => {
+    const visible = rows.filter(r => hasInfoValue(r.value));
+    if (visible.length === 0) return <p className="text-sm text-slate-400 italic">Sem informações.</p>;
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {visible.map((r) => (
+          <InfoRow key={r.label} icon={r.icon} label={r.label} value={r.value} accent={r.accent} hideIfEmpty />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="mt-0 lg:space-y-8">
       <div className="lg:hidden space-y-3">
@@ -180,7 +241,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Categoria</p>
-                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.work_category?.name || '—'}</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.work_category?.name || 'Sem informações'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3 px-4 py-3">
@@ -229,7 +290,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Área</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.work_area?.name || '—'}</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.work_area?.name || 'Sem informações'}</p>
                   </div>
                 </div>
               </>
@@ -240,7 +301,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Empresa</p>
-                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.contractor?.name || '—'}</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.contractor?.name || 'Sem informações'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3 px-4 py-3">
@@ -249,7 +310,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CNPJ</p>
-                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.contractor?.cnpj ? formatCnpj(work.contractor.cnpj) : '—'}</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.contractor?.cnpj ? formatCnpj(work.contractor.cnpj) : 'Sem informações'}</p>
               </div>
             </div>
           </div>
@@ -267,7 +328,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Início</p>
-                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.start_date ? formatDate(work.start_date) : '—'}</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.start_date ? formatDate(work.start_date) : 'Sem informações'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3 px-4 py-3">
@@ -276,7 +337,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Previsão de término</p>
-                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : '—'}</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : 'Sem informações'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3 px-4 py-3">
@@ -285,7 +346,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor total</p>
-                <p className="text-sm font-black text-rose-700 mt-0.5">{work.total_value ? formatCurrency(work.total_value) : '—'}</p>
+                <p className="text-sm font-black text-rose-700 mt-0.5">{work.total_value ? formatCurrency(work.total_value) : 'Sem informações'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3 px-4 py-3">
@@ -303,7 +364,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Execução</p>
-                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.total_value ? `${spentPct.toFixed(1)}%` : '—'}</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.total_value ? `${spentPct.toFixed(1)}%` : 'Sem informações'}</p>
               </div>
             </div>
             {showMore && (
@@ -326,7 +387,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
                     </div>
                     <div className="min-w-0">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Emenda parlamentar</p>
-                      <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.parliamentary_amendment.author || '—'}</p>
+                      <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words whitespace-normal">{work.parliamentary_amendment.author || 'Sem informações'}</p>
                     </div>
                   </div>
                 )}
@@ -336,7 +397,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prazo contratual (dias)</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.execution_period_days ? String(work.execution_period_days) : '—'}</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.execution_period_days ? String(work.execution_period_days) : 'Sem informações'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 px-4 py-3">
@@ -345,7 +406,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assinatura do contrato</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.contract_signature_date ? formatDate(work.contract_signature_date) : '—'}</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.contract_signature_date ? formatDate(work.contract_signature_date) : 'Sem informações'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 px-4 py-3">
@@ -354,7 +415,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ordem de serviço</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.service_order_date ? formatDate(work.service_order_date) : '—'}</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.service_order_date ? formatDate(work.service_order_date) : 'Sem informações'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 px-4 py-3">
@@ -363,7 +424,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data de paralisação</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.stalled_date ? formatDate(work.stalled_date) : '—'}</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.stalled_date ? formatDate(work.stalled_date) : 'Sem informações'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 px-4 py-3">
@@ -372,7 +433,7 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data de inauguração</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.inauguration_date ? formatDate(work.inauguration_date) : '—'}</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{work.inauguration_date ? formatDate(work.inauguration_date) : 'Sem informações'}</p>
                   </div>
                 </div>
               </>
@@ -473,11 +534,11 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
             <div className="space-y-2">
               <div className="flex justify-between items-center text-sm gap-4">
                 <span className="text-slate-500">Início:</span>
-                <span className="font-bold text-slate-800">{work.start_date ? formatDate(work.start_date) : '—'}</span>
+                <span className="font-bold text-slate-800">{work.start_date ? formatDate(work.start_date) : 'Sem informações'}</span>
               </div>
               <div className="flex justify-between items-center text-sm gap-4">
                 <span className="text-slate-500">Previsão:</span>
-                <span className="font-bold text-slate-800">{work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : '—'}</span>
+                <span className="font-bold text-slate-800">{work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : 'Sem informações'}</span>
               </div>
             </div>
 
@@ -529,67 +590,27 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               <div className="px-5 py-4 space-y-4">
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Identificação</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <InfoRow icon={FileText} label="Categoria" value={work.work_category?.name} />
-                    <InfoRow icon={Activity} label="Status" value={getStatusInfo(work.status).text} />
-                    {showMore && (
-                      <>
-                        <InfoRow icon={Award} label="Área" value={work.work_area?.name || '—'} />
-                      </>
-                    )}
-                  </div>
+                  {renderInfoGrid(identificationRows)}
                 </div>
 
                 <div className="border-t border-slate-100 pt-4 space-y-2">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Localização</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <InfoRow icon={MapPin} label="Bairro" value={work.bairro?.name} />
-                    <InfoRow icon={MapPin} label="Endereço" value={work.address || '—'} />
-                  </div>
+                  {renderInfoGrid(locationRows)}
                 </div>
 
                 <div className="border-t border-slate-100 pt-4 space-y-2">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Construtora</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <InfoRow icon={Building} label="Nome" value={work.contractor?.name || '—'} />
-                    <InfoRow icon={Building} label="CNPJ" value={work.contractor?.cnpj ? formatCnpj(work.contractor.cnpj) : '—'} />
-                  </div>
+                  {renderInfoGrid(contractorRows)}
                 </div>
 
                 <div className="border-t border-slate-100 pt-4 space-y-2">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prazos</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <InfoRow icon={Calendar} label="Início do início" value={work.start_date ? formatDate(work.start_date) : '—'} />
-                    <InfoRow icon={Calendar} label="Data de entrega" value={work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : '—'} />
-                    {showMore && (
-                      <>
-                        <InfoRow icon={Calendar} label="Prazo contratual (dias)" value={work.execution_period_days ? String(work.execution_period_days) : '—'} />
-                        <InfoRow icon={Calendar} label="Assinatura do contrato" value={work.contract_signature_date ? formatDate(work.contract_signature_date) : '—'} />
-                        <InfoRow icon={Calendar} label="Ordem de serviço" value={work.service_order_date ? formatDate(work.service_order_date) : '—'} />
-                        <InfoRow icon={AlertTriangle} label="Data de paralisação" value={work.stalled_date ? formatDate(work.stalled_date) : '—'} />
-                        <InfoRow icon={CheckCircle} label="Data de inauguração" value={work.inauguration_date ? formatDate(work.inauguration_date) : '—'} />
-                      </>
-                    )}
-                  </div>
+                  {renderInfoGrid(scheduleRows)}
                 </div>
 
                 <div className="border-t border-slate-100 pt-4 space-y-2">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Financeiro</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <InfoRow icon={DollarSign} label="Projeto Total" value={work.total_value ? formatCurrency(work.total_value) : '—'} />
-                    <InfoRow icon={CreditCard} label="Total pago" value={spentValue > 0 ? formatCurrency(spentValue) : 'R$ 0,00'} accent />
-                    <InfoRow icon={TrendingUp} label="Execução financeira" value={work.total_value ? `${spentPct.toFixed(1)}%` : '—'} />
-                    {showMore && (
-                      <>
-                        {Array.isArray(work.funding_source) && work.funding_source.length > 0 && (
-                          <InfoRow icon={FileText} label="Fonte de recursos" value={work.funding_source.map(fundingLabel).join(', ')} />
-                        )}
-                        {work.parliamentary_amendment?.has && (
-                          <InfoRow icon={User} label="Emenda Parlamentar" value={work.parliamentary_amendment.author || '—'} />
-                        )}
-                      </>
-                    )}
-                  </div>
+                  {renderInfoGrid(financeRows)}
                 </div>
               </div>
               <div className="px-5 pb-4">
@@ -679,11 +700,11 @@ const TabOverview = ({ work, spentValue, spentPct, measurements = [], onOpenPhas
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-sm gap-4">
                   <span className="text-slate-500">Início Inicial:</span>
-                  <span className="font-bold text-slate-800">{work.start_date ? formatDate(work.start_date) : '—'}</span>
+                  <span className="font-bold text-slate-800">{work.start_date ? formatDate(work.start_date) : 'Sem informações'}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm gap-4">
                   <span className="text-slate-500">Previsão Estimada:</span>
-                  <span className="font-bold text-slate-800">{work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : '—'}</span>
+                  <span className="font-bold text-slate-800">{work.end_date_forecast ? formatDate(work.end_date_forecast) : work.expected_end_date ? formatDate(work.expected_end_date) : 'Sem informações'}</span>
                 </div>
               </div>
 
@@ -826,6 +847,17 @@ const TabPhases = ({
     const phaseEnd = Number.isFinite(Number(phase.execution_percentage)) ? Math.max(0, Math.min(100, Number(phase.execution_percentage))) : null;
     const phaseStart = Number.isFinite(prevEnd) ? Math.max(0, Math.min(100, prevEnd)) : 0;
     const intervalText = phaseEnd !== null ? `${phaseStart}% → ${phaseEnd}%` : `${phaseStart}% → —`;
+    const contractInfoPresent =
+      phase.value != null ||
+      phase.expected_value != null ||
+      phase.amount_spent != null ||
+      payments.length > 0 ||
+      hasInfoValue(phase.contractor?.name) ||
+      hasInfoValue(phase.contractor?.cnpj) ||
+      (Array.isArray(phase.funding_source) && phase.funding_source.length > 0);
+    const scheduleInfoPresent =
+      Boolean(phase.contract_signature_date || phase.service_order_date || phase.predicted_start_date || phase.expected_end_date || phase.start_date || phase.end_date || phase.stalled_date || phase.inauguration_date) ||
+      Boolean(phase.execution_period_days);
 
     return (
       <div className="space-y-4 pb-24 sm:pb-0">
@@ -883,21 +915,27 @@ const TabPhases = ({
 
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <PanelHeader icon={FileText}>Dados do Contrato</PanelHeader>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <InfoRow icon={Building} label="Empresa responsável" value={phase.contractor?.name || '—'} />
-                  <InfoRow icon={Building} label="CNPJ" value={phase.contractor?.cnpj ? formatCnpj(phase.contractor.cnpj) : '—'} />
-                  {Array.isArray(phase.funding_source) && phase.funding_source.length > 0 && (
-                    <InfoRow icon={FileText} label="Fonte de recursos" value={phase.funding_source.map(fundingLabel).join(', ')} />
-                  )}
+              {contractInfoPresent ? (
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <InfoRow icon={Building} label="Empresa responsável" value={phase.contractor?.name} hideIfEmpty />
+                    <InfoRow icon={Building} label="CNPJ" value={phase.contractor?.cnpj ? formatCnpj(phase.contractor.cnpj) : null} hideIfEmpty />
+                    {Array.isArray(phase.funding_source) && phase.funding_source.length > 0 && (
+                      <InfoRow icon={FileText} label="Fonte de recursos" value={phase.funding_source.map(fundingLabel).join(', ')} hideIfEmpty />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <InfoRow icon={DollarSign} label="Valor do contrato" value={phase.value != null ? formatCurrency(phase.value) : null} accent hideIfEmpty />
+                    <InfoRow icon={DollarSign} label="Valor previsto" value={phase.expected_value != null ? formatCurrency(phase.expected_value) : null} hideIfEmpty />
+                    <InfoRow icon={CreditCard} label="Valor pago (lançamentos)" value={payments.length > 0 ? formatCurrency(totalPaid) : null} hideIfEmpty />
+                    <InfoRow icon={CreditCard} label="Valor pago (informado)" value={phase.amount_spent != null ? formatCurrency(phase.amount_spent) : null} hideIfEmpty />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <InfoRow icon={DollarSign} label="Valor do contrato" value={phase.value != null ? formatCurrency(phase.value) : '—'} accent />
-                  <InfoRow icon={DollarSign} label="Valor previsto" value={phase.expected_value != null ? formatCurrency(phase.expected_value) : '—'} />
-                  <InfoRow icon={CreditCard} label="Valor pago (lançamentos)" value={formatCurrency(totalPaid) || 'R$ 0,00'} />
-                  <InfoRow icon={CreditCard} label="Valor pago (informado)" value={phase.amount_spent != null ? formatCurrency(phase.amount_spent) : '—'} />
+              ) : (
+                <div className="p-4">
+                  <p className="text-sm text-slate-400 italic">Sem informações.</p>
                 </div>
-              </div>
+              )}
               {phase.value ? (
                 <div className="px-4 pb-4">
                   <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
@@ -952,21 +990,27 @@ const TabPhases = ({
 
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <PanelHeader icon={Calendar}>Cronograma e Prazos</PanelHeader>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <InfoRow icon={Calendar} label="Assinatura do contrato" value={phase.contract_signature_date ? formatDate(phase.contract_signature_date) : '—'} />
-                  <InfoRow icon={Calendar} label="Ordem de serviço" value={phase.service_order_date ? formatDate(phase.service_order_date) : '—'} />
-                  <InfoRow icon={Calendar} label="Previsão início" value={phase.predicted_start_date ? formatDate(phase.predicted_start_date) : '—'} />
-                  <InfoRow icon={Calendar} label="Previsão conclusão" value={phase.expected_end_date ? formatDate(phase.expected_end_date) : '—'} />
+              {scheduleInfoPresent ? (
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <InfoRow icon={Calendar} label="Assinatura do contrato" value={phase.contract_signature_date ? formatDate(phase.contract_signature_date) : null} hideIfEmpty />
+                    <InfoRow icon={Calendar} label="Ordem de serviço" value={phase.service_order_date ? formatDate(phase.service_order_date) : null} hideIfEmpty />
+                    <InfoRow icon={Calendar} label="Previsão início" value={phase.predicted_start_date ? formatDate(phase.predicted_start_date) : null} hideIfEmpty />
+                    <InfoRow icon={Calendar} label="Previsão conclusão" value={phase.expected_end_date ? formatDate(phase.expected_end_date) : null} hideIfEmpty />
+                  </div>
+                  <div className="space-y-2">
+                    <InfoRow icon={Calendar} label="Início real" value={phase.start_date ? formatDate(phase.start_date) : null} hideIfEmpty />
+                    <InfoRow icon={Calendar} label="Término/Encerramento" value={phase.end_date ? formatDate(phase.end_date) : null} hideIfEmpty />
+                    <InfoRow icon={AlertTriangle} label="Data de paralisação" value={phase.stalled_date ? formatDate(phase.stalled_date) : null} hideIfEmpty />
+                    <InfoRow icon={CheckCircle} label="Inauguração" value={phase.inauguration_date ? formatDate(phase.inauguration_date) : null} hideIfEmpty />
+                    <InfoRow icon={Calendar} label="Prazo (dias)" value={phase.execution_period_days ? String(phase.execution_period_days) : null} hideIfEmpty />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <InfoRow icon={Calendar} label="Início real" value={phase.start_date ? formatDate(phase.start_date) : '—'} />
-                  <InfoRow icon={Calendar} label="Término/Encerramento" value={phase.end_date ? formatDate(phase.end_date) : '—'} />
-                  <InfoRow icon={AlertTriangle} label="Data de paralisação" value={phase.stalled_date ? formatDate(phase.stalled_date) : '—'} />
-                  <InfoRow icon={CheckCircle} label="Inauguração" value={phase.inauguration_date ? formatDate(phase.inauguration_date) : '—'} />
-                  <InfoRow icon={Calendar} label="Prazo (dias)" value={phase.execution_period_days ? String(phase.execution_period_days) : '—'} />
+              ) : (
+                <div className="p-4">
+                  <p className="text-sm text-slate-400 italic">Sem informações.</p>
                 </div>
-              </div>
+              )}
             </div>
 {/* 
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -988,8 +1032,8 @@ const TabPhases = ({
                       <tbody className="divide-y divide-slate-100">
                         {payments.slice(0, 10).map((p) => (
                           <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.payment_date ? formatDate(p.payment_date) : '—'}</td>
-                            <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.banking_order || '—'}</td>
+                            <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.payment_date ? formatDate(p.payment_date) : 'Sem informações'}</td>
+                            <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.banking_order || 'Sem informações'}</td>
                             <td className="px-4 py-3 font-bold text-blue-700 break-words whitespace-normal">{formatCurrency(p.value)}</td>
                             <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">
                               {p.portal_link ? (
@@ -1256,7 +1300,7 @@ const TabPhases = ({
                       </td>
                       <td className="px-4 py-4 align-top">
                         <div className="space-y-2">
-                          <span className="font-black text-slate-900">{contract > 0 ? formatCurrency(contract) : '—'}</span>
+                          <span className="font-black text-slate-900">{contract > 0 ? formatCurrency(contract) : 'Sem informações'}</span>
                           {exceeded && (
                             <div className="inline-flex items-center gap-2 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">
                               
@@ -1397,7 +1441,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5 text-slate-400" /> Contrato
                   </p>
-                  <p className="text-sm sm:text-lg font-black text-slate-800 mt-1 break-words whitespace-normal">{selected.value ? formatCurrency(selected.value) : '—'}</p>
+                  <p className="text-sm sm:text-lg font-black text-slate-800 mt-1 break-words whitespace-normal">{selected.value ? formatCurrency(selected.value) : 'Sem informações'}</p>
                 </div>
                 <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3 sm:p-4">
                   <p className="text-[9px] font-bold text-emerald-700/80 uppercase tracking-widest flex items-center gap-1.5">
@@ -1410,7 +1454,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                     <p className="text-[9px] font-bold text-red-700/80 uppercase tracking-widest flex items-center gap-1.5">
                       <TrendingUp className="w-3.5 h-3.5 text-red-600" /> Execução
                     </p>
-                    <p className="text-sm sm:text-lg font-black text-red-700">{selected.value ? `${paidPct.toFixed(1)}%` : '—'}</p>
+                    <p className="text-sm sm:text-lg font-black text-red-700">{selected.value ? `${paidPct.toFixed(1)}%` : 'Sem informações'}</p>
                   </div>
                   {selected.value > 0 && (
                     <div className="h-2 bg-red-100 rounded-full overflow-hidden mt-2">
@@ -1437,7 +1481,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                         <div className="min-w-0">
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Data</p>
                           <p className="text-[13px] font-semibold text-slate-700 mt-0.5 break-words whitespace-normal">
-                            {p.payment_date ? formatDate(p.payment_date) : '—'}
+                            {p.payment_date ? formatDate(p.payment_date) : 'Sem informações'}
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0">
@@ -1448,7 +1492,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                       <div className="mt-3 space-y-2">
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">OB / Empenho</p>
-                          <p className="text-[13px] text-slate-700 mt-0.5 break-words whitespace-normal">{p.banking_order || '—'}</p>
+                          <p className="text-[13px] text-slate-700 mt-0.5 break-words whitespace-normal">{p.banking_order || 'Sem informações'}</p>
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Portal</p>
@@ -1484,8 +1528,8 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                     <tbody className="divide-y divide-slate-100">
                       {payments.map((p) => (
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.payment_date ? formatDate(p.payment_date) : '—'}</td>
-                          <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.banking_order || '—'}</td>
+                          <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.payment_date ? formatDate(p.payment_date) : 'Sem informações'}</td>
+                          <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">{p.banking_order || 'Sem informações'}</td>
                           <td className="px-4 py-3 font-bold text-red-600 break-words whitespace-normal">{formatCurrency(p.value)}</td>
                           <td className="px-4 py-3 text-slate-600 break-words whitespace-normal">
                             {p.portal_link ? (
@@ -1520,7 +1564,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contrato total</p>
-            <p className="text-base font-black text-slate-900 mt-1 break-words whitespace-normal">{totalContrato > 0 ? formatCurrency(totalContrato) : '—'}</p>
+            <p className="text-base font-black text-slate-900 mt-1 break-words whitespace-normal">{totalContrato > 0 ? formatCurrency(totalContrato) : 'Sem informações'}</p>
           </div>
           <div className="rounded-2xl border border-red-200 bg-red-50/40 p-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total pago</p>
@@ -1589,7 +1633,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                       <div className="min-w-0">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Data</p>
                         <p className="text-[13px] font-semibold text-slate-700 mt-0.5 break-words whitespace-normal">
-                          {p.payment_date ? formatDate(p.payment_date) : '—'}
+                          {p.payment_date ? formatDate(p.payment_date) : 'Sem informações'}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -1608,7 +1652,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                       </div>
                       <div className="flex flex-col items-end">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">OB / Empenho</p>
-                        <p className="text-[13px] text-slate-700 mt-0.5 break-words whitespace-normal">{p.banking_order || '—'}</p>
+                        <p className="text-[13px] text-slate-700 mt-0.5 break-words whitespace-normal">{p.banking_order || 'Sem informações'}</p>
                       </div>
                       <div>
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Portal</p>
@@ -1639,7 +1683,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contrato total</p>
-            <p className="text-2xl font-black text-slate-900 mt-1 break-words whitespace-normal">{totalContrato > 0 ? formatCurrency(totalContrato) : '—'}</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 break-words whitespace-normal">{totalContrato > 0 ? formatCurrency(totalContrato) : 'Sem informações'}</p>
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total pago</p>
@@ -1714,7 +1758,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                 {filteredPayments.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/50">
                     <td className="px-4 py-4 align-top">
-                      <p className="font-semibold text-slate-900">{p.payment_date ? formatDate(p.payment_date) : '—'}</p>
+                      <p className="font-semibold text-slate-900">{p.payment_date ? formatDate(p.payment_date) : 'Sem informações'}</p>
                       <p className="text-xs text-slate-400">{p.payment_date ? new Date(p.payment_date).toLocaleDateString('pt-BR', { weekday: 'short' }) : ''}</p>
                     </td>
                     <td className="px-4 py-4 align-top">
@@ -1725,7 +1769,7 @@ const TabPayments = ({ biddings, selectedBiddingId, onSelectBidding, onBack }) =
                     </td>
                     <td className="px-4 py-4 align-top">
                       <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Ordem bancária / Empenho</p>
-                      <p className="font-semibold text-slate-800 mt-0.5 break-words whitespace-normal">{p.banking_order || '—'}</p>
+                      <p className="font-semibold text-slate-800 mt-0.5 break-words whitespace-normal">{p.banking_order || 'Sem informações'}</p>
                     </td>
                     <td className="px-4 py-4 align-top">
                       {p.portal_link ? (
