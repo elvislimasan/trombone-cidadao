@@ -19,7 +19,7 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails }) {
     <section className="bg-card rounded-lg border p-6">
       <div className="flex items-center gap-2 mb-4">
         <History className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-semibold">Histórico de Licitações</h2>
+        <h2 className="text-lg font-semibold max-w-[150px]">Histórico de Licitações</h2>
         <Badge variant="secondary" className="ml-2">
           {historicalPhases.length} {historicalPhases.length === 1 ? "anterior" : "anteriores"}
         </Badge>
