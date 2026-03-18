@@ -1297,7 +1297,7 @@ const WorkDetailsPage = () => {
                             <div className="mt-3 grid grid-cols-2 gap-3">
                               <div className="min-w-0">
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Credor</div>
-                                <div className="mt-0.5 font-semibold text-slate-800 whitespace-normal break-words">{payment.creditor_name.toLowerCase() || '-'}</div>
+                                <div className="mt-0.5 font-semibold text-slate-800 whitespace-normal break-words">{payment.creditor_name? payment.creditor_name.toLowerCase() :  '-'}</div>
                               </div>
                               <div className="text-right">
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Valor</div>
@@ -1320,15 +1320,15 @@ const WorkDetailsPage = () => {
                       <div className="inline-block min-w-full align-middle px-4 sm:px-0">
                         <div className="border rounded-xl bg-white">
                           <table className="w-full text-sm table-fixed">
-                            <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
+                            <thead className="text-center border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
                               <tr>
                                 <th className="px-3 py-2 font-bold w-[64px]">Pagamento</th>
                                 <th className="hidden sm:table-cell px-3 py-2 font-bold w-[64px]">Nº Empenho</th>
-                                <th className="hidden md:table-cell px-3 py-2 font-bold w-[128px]">Descrição</th>
-                                <th className="hidden md:table-cell px-3 py-2 font-bold w-[48px]">Parcela</th>
+                                <th className="hidden md:table-cell text-left px-3 py-2 font-bold w-[128px]">Descrição</th>
+                                <th className="hidden md:table-cell text-left px-3 py-2 font-bold w-[48px]">Parcela</th>
                                 <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Credor</th>
                                 <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Fase</th>
-                                <th className="px-3 py-2 font-bold text-right w-[64px]">Valor</th>
+                                <th className="px-3 py-2 font-bold text-center w-[64px]">Valor</th>
                                 <th className="px-3 py-2 font-bold w-[64px]">Fonte</th>
                               </tr>
                             </thead>
@@ -1340,16 +1340,16 @@ const WorkDetailsPage = () => {
                                     <td className="px-3 py-2 align-center">
                                       <div className="whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</div>
                                     </td>
-                                    <td className="hidden sm:table-cell px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
+                                    <td className="hidden sm:table-cell px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || 'Não informado'}</td>
                                     <td className="hidden md:table-cell px-3 py-2 text-slate-600 w-[40%]">
-                                      <span className="line-clamp-4">{payment.payment_description || '-'}</span>
+                                      <span className="line-clamp-4 ">{payment.payment_description || 'Não informado'}</span>
                                       <div className="mt-1 text-[11px] text-slate-400 xl:hidden line-clamp-1">
                                         {payment.creditor_name ? payment.creditor_name : '-'}
                                         {payment.measurement_title ? ` • ${payment.measurement_title}` : ''}
                                       </div>
                                     </td>
                                     <td className="hidden md:table-cell px-3 py-2 text-slate-600 w-[72px]">{payment.installment || '-'}</td>
-                                    <td className="hidden xl:table-cell px-3 py-2 text-slate-600">{payment.creditor_name.toLowerCase() || '-'}</td>
+                                    <td className="hidden xl:table-cell px-3 py-2 text-slate-600">{payment.creditor_name ? payment.creditor_name.toLowerCase() : 'Não informado'}</td>
                                     <td className="hidden xl:table-cell px-3 py-2 text-slate-500">{payment.measurement_title || '-'}</td>
                                     <td className="px-3 py-2 align-center font-bold text-blue-700 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
                                     <td className="px-3 py-2 align-top">
