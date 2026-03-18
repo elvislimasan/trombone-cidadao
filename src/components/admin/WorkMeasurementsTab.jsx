@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, ArrowLeft, Save } from 'lucide-react';
@@ -19,11 +20,79 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
   const [errors, setErrors] = useState({});
   const { toast } = useToast();
   const { user } = useAuth();
+  const [localContractors, setLocalContractors] = useState(contractors);
+  const [showNewContractorDialog, setShowNewContractorDialog] = useState(false);
+  const [isSavingContractor, setIsSavingContractor] = useState(false);
+  const [newContractorForm, setNewContractorForm] = useState({ name: '', cnpj: '' });
+
+  useEffect(() => {
+    setLocalContractors(contractors);
+  }, [contractors]);
+
+  const parsePtBrNumber = (value) => {
+    if (value == null) return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    const cleaned = raw
+      .replace(/\s/g, '')
+      .replace(/^R\$\s?/, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const formatPtBrMoney = (value) => {
+    const n = typeof value === 'number' ? value : parsePtBrNumber(value);
+    if (n == null) return '';
+    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  };
+
+  const sanitizeMoneyInput = (value) => String(value || '').replace(/[^\d.,]/g, '');
+
+  const maskMoneyWhileTyping = (value) => {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '';
+    const n = Number(digits) / 100;
+    return formatPtBrMoney(n);
+  };
+
+  const formatCnpjMask = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 14);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+    if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+    if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  };
+
+  const isValidCnpj = (value) => {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (digits.length !== 14) return false;
+    if (/^(\d)\1+$/.test(digits)) return false;
+
+    const calc = (base, weights) => {
+      let sum = 0;
+      for (let i = 0; i < weights.length; i++) sum += Number(base[i]) * weights[i];
+      const mod = sum % 11;
+      return mod < 2 ? 0 : 11 - mod;
+    };
+
+    const w1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const w2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const d1 = calc(digits, w1);
+    const d2 = calc(`${digits.slice(0, 12)}${d1}`, w2);
+    return digits.endsWith(`${d1}${d2}`);
+  };
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     contractor_id: '',
+    contract_number: '',
+    bidding_process_number: '',
+    portal_link: '',
+    contract_date: '',
     start_date: '',
     end_date: '',
     value: '',
@@ -273,6 +342,43 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     }
   };
 
+  const syncWorkFromLatestMeasurement = async () => {
+    try {
+      const { data: latest, error: latestError } = await supabase
+        .from('public_work_measurements')
+        .select('status, execution_percentage, contractor_id, funding_source, execution_period_days, expected_value, predicted_start_date, start_date, end_date, expected_end_date, service_order_date, contract_signature_date, inauguration_date, stalled_date')
+        .eq('work_id', workId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestError) throw latestError;
+      if (!latest) return;
+
+      const workPayload = {
+        status: latest.status,
+        execution_percentage: latest.execution_percentage,
+        contractor_id: latest.contractor_id,
+        funding_source: Array.isArray(latest.funding_source) ? latest.funding_source : [],
+        execution_period_days: latest.execution_period_days,
+        total_value: latest.expected_value,
+        predicted_start_date: latest.predicted_start_date,
+        start_date: latest.start_date,
+        end_date: latest.end_date,
+        expected_end_date: latest.expected_end_date,
+        service_order_date: latest.service_order_date,
+        contract_signature_date: latest.contract_signature_date,
+        inauguration_date: latest.inauguration_date,
+        stalled_date: latest.stalled_date
+      };
+
+      const { error: workUpdateError } = await supabase.from('public_works').update(workPayload).eq('id', workId);
+      if (workUpdateError) throw workUpdateError;
+    } catch (error) {
+      console.error('Error syncing work from latest measurement:', error);
+    }
+  };
+
   const handleEdit = (measurement = null) => {
     if (measurement) {
       setCurrentMeasurement(measurement);
@@ -280,10 +386,13 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         title: measurement.title,
         description: measurement.description || '',
         contractor_id: measurement.contractor_id || '',
+        contract_number: measurement.contract_number || '',
+        bidding_process_number: measurement.bidding_process_number || '',
+        portal_link: measurement.portal_link || '',
         contract_date: measurement.contract_date || '',
         start_date: measurement.start_date || '',
         end_date: measurement.end_date || '',
-        value: measurement.value || '',
+        value: measurement.value != null ? formatPtBrMoney(measurement.value) : '',
         execution_percentage: measurement.execution_percentage || '',
         status: measurement.status || 'planned',
         predicted_start_date: measurement.predicted_start_date || '',
@@ -292,8 +401,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_end_date: measurement.expected_end_date || '',
         inauguration_date: measurement.inauguration_date || '',
         stalled_date: measurement.stalled_date || '',
-        expected_value: measurement.expected_value || '',
-        amount_spent: measurement.amount_spent || '',
+        expected_value: measurement.expected_value != null ? formatPtBrMoney(measurement.expected_value) : '',
+        amount_spent: measurement.amount_spent != null ? formatPtBrMoney(measurement.amount_spent) : '',
         execution_period_days: measurement.execution_period_days || '',
         funding_source: Array.isArray(measurement.funding_source) ? [...measurement.funding_source] : []
       });
@@ -301,9 +410,13 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         title: measurement.title,
         description: measurement.description || '',
         contractor_id: measurement.contractor_id || '',
+        contract_number: measurement.contract_number || '',
+        bidding_process_number: measurement.bidding_process_number || '',
+        portal_link: measurement.portal_link || '',
+        contract_date: measurement.contract_date || '',
         start_date: measurement.start_date || '',
         end_date: measurement.end_date || '',
-        value: measurement.value || '',
+        value: measurement.value != null ? formatPtBrMoney(measurement.value) : '',
         execution_percentage: measurement.execution_percentage || '',
         status: measurement.status || 'planned',
         predicted_start_date: measurement.predicted_start_date || '',
@@ -312,8 +425,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_end_date: measurement.expected_end_date || '',
         inauguration_date: measurement.inauguration_date || '',
         stalled_date: measurement.stalled_date || '',
-        expected_value: measurement.expected_value || '',
-        amount_spent: measurement.amount_spent || '',
+        expected_value: measurement.expected_value != null ? formatPtBrMoney(measurement.expected_value) : '',
+        amount_spent: measurement.amount_spent != null ? formatPtBrMoney(measurement.amount_spent) : '',
         execution_period_days: measurement.execution_period_days || '',
         funding_source: Array.isArray(measurement.funding_source) ? [...measurement.funding_source] : []
       };
@@ -323,6 +436,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         title: '',
         description: '',
         contractor_id: '',
+        contract_number: '',
+        bidding_process_number: '',
+        portal_link: '',
+        contract_date: '',
         start_date: '',
         end_date: '',
         value: '',
@@ -343,6 +460,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         title: '',
         description: '',
         contractor_id: '',
+        contract_number: '',
+        bidding_process_number: '',
+        portal_link: '',
+        contract_date: '',
         start_date: '',
         end_date: '',
         value: '',
@@ -403,9 +524,13 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         title: formData.title,
         description: formData.description || null,
         contractor_id: formData.contractor_id || null,
+        contract_number: formData.contract_number || null,
+        bidding_process_number: formData.bidding_process_number || null,
+        portal_link: formData.portal_link || null,
+        contract_date: formData.contract_date || null,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
-        value: formData.value ? Number(formData.value) : null,
+        value: formData.value ? parsePtBrNumber(formData.value) : null,
         execution_percentage: formData.execution_percentage ? Number(formData.execution_percentage) : null,
         status: formData.status,
         predicted_start_date: formData.predicted_start_date || null,
@@ -414,8 +539,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_end_date: formData.expected_end_date || null,
         inauguration_date: formData.inauguration_date || null,
         stalled_date: formData.stalled_date || null,
-        expected_value: formData.expected_value ? Number(formData.expected_value) : null,
-        amount_spent: formData.amount_spent ? Number(formData.amount_spent) : null,
+        expected_value: formData.expected_value ? parsePtBrNumber(formData.expected_value) : null,
+        amount_spent: formData.amount_spent ? parsePtBrNumber(formData.amount_spent) : null,
         execution_period_days: formData.execution_period_days ? Number(formData.execution_period_days) : null,
         funding_source: Array.isArray(formData.funding_source) ? formData.funding_source : []
       };
@@ -459,6 +584,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       });
       
       await fetchMeasurements();
+      await syncWorkFromLatestMeasurement();
 
       // Close modal and reset
       clearDraft();
@@ -495,7 +621,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         title: "Sucesso",
         description: "Medição excluída com sucesso."
       });
-      fetchMeasurements();
+      await fetchMeasurements();
+      await syncWorkFromLatestMeasurement();
     } catch (error) {
       console.error('Error deleting measurement:', error);
       toast({
@@ -519,6 +646,46 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
   const handleSelectChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateContractor = async () => {
+    if (!user?.is_admin) return;
+    const name = String(newContractorForm.name || '').trim();
+    if (!name) {
+      toast({ title: "Nome obrigatório", description: "Informe o nome da construtora.", variant: "destructive" });
+      return;
+    }
+    const cnpjDigits = String(newContractorForm.cnpj || '').replace(/\D/g, '');
+    if (cnpjDigits && !isValidCnpj(cnpjDigits)) {
+      toast({ title: "CNPJ inválido", description: "Informe um CNPJ válido (14 dígitos).", variant: "destructive" });
+      return;
+    }
+    if (isSavingContractor) return;
+
+    setIsSavingContractor(true);
+    try {
+      const payload = {
+        name,
+        cnpj: cnpjDigits || null
+      };
+      const { data, error } = await supabase.from('contractors').insert(payload).select('*').single();
+      if (error) throw error;
+
+      setLocalContractors(prev => {
+        const list = Array.isArray(prev) ? [...prev] : [];
+        list.push(data);
+        list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'));
+        return list;
+      });
+      setFormData(prev => ({ ...prev, contractor_id: data.id }));
+      setShowNewContractorDialog(false);
+      setNewContractorForm({ name: '', cnpj: '' });
+      toast({ title: "Construtora criada", description: "A construtora foi adicionada e selecionada nesta fase." });
+    } catch (error) {
+      toast({ title: "Erro ao criar construtora", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSavingContractor(false);
+    }
   };
 
   // Track dirty state precisely (only when editing)
@@ -621,11 +788,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 <Input 
                   id="expected_value" 
                   name="expected_value" 
-                  type="number"
-                  step="0.01"
                   value={formData.expected_value} 
-                  onChange={handleChange} 
-                  placeholder="0.00"
+                  inputMode="decimal"
+                  onChange={(e) => setFormData(prev => ({ ...prev, expected_value: maskMoneyWhileTyping(e.target.value) }))}
+                  placeholder="0,00"
                 />
               </div>
               <div className="grid gap-2">
@@ -633,11 +799,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 <Input 
                   id="amount_spent" 
                   name="amount_spent" 
-                  type="number"
-                  step="0.01"
                   value={formData.amount_spent} 
-                  onChange={handleChange} 
-                  placeholder="0.00"
+                  inputMode="decimal"
+                  onChange={(e) => setFormData(prev => ({ ...prev, amount_spent: maskMoneyWhileTyping(e.target.value) }))}
+                  placeholder="0,00"
                 />
               </div>
               <div className="grid gap-2">
@@ -674,11 +839,18 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="contractor_id">Construtora Responsável</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="contractor_id">Construtora Responsável</Label>
+                  {user?.is_admin ? (
+                    <Button type="button" size="sm" onClick={() => setShowNewContractorDialog(true)}>
+                      Nova
+                    </Button>
+                  ) : null}
+                </div>
                 <Combobox 
                   value={formData.contractor_id} 
                   onChange={(v) => handleSelectChange('contractor_id', v)}
-                  options={[{ value: '', label: 'Selecionar' }, ...contractors.map(c => ({ value: c.id, label: c.name }))]}
+                  options={[{ value: '', label: 'Selecionar' }, ...(localContractors || []).map(c => ({ value: c.id, label: c.name }))]}
                   placeholder="Selecione..."
                   searchPlaceholder="Buscar construtora..."
                   modal
@@ -707,15 +879,47 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
+                <Label htmlFor="contract_number">Número do contrato</Label>
+                <Input
+                  id="contract_number"
+                  name="contract_number"
+                  value={formData.contract_number}
+                  onChange={handleChange}
+                  placeholder="Ex: 005/2022"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bidding_process_number">Processo licitatório</Label>
+                <Input
+                  id="bidding_process_number"
+                  name="bidding_process_number"
+                  value={formData.bidding_process_number}
+                  onChange={handleChange}
+                  placeholder="Ex: 002/2026"
+                />
+              </div>
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="portal_link">Link do Portal da Transparência</Label>
+                <Input
+                  id="portal_link"
+                  name="portal_link"
+                  value={formData.portal_link}
+                  onChange={handleChange}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
                 <Label htmlFor="value">Valor (R$)</Label>
                 <Input 
                   id="value" 
                   name="value" 
-                  type="number"
-                  step="0.01"
                   value={formData.value} 
-                  onChange={handleChange} 
-                  placeholder="0.00"
+                  inputMode="decimal"
+                  onChange={(e) => setFormData(prev => ({ ...prev, value: maskMoneyWhileTyping(e.target.value) }))}
+                  placeholder="0,00"
                 />
               </div>
               
@@ -744,6 +948,16 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 <div>
                   <h5 className="text-sm font-medium text-slate-500 mb-2 border-b pb-1">Marcos Contratuais</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="contract_date">Data do contrato</Label>
+                      <Input
+                        id="contract_date"
+                        name="contract_date"
+                        type="date"
+                        value={formData.contract_date}
+                        onChange={handleChange}
+                      />
+                    </div>
                     <div className="grid gap-2">
                       <Label htmlFor="contract_signature_date">Assinatura Contrato</Label>
                       <Input 
@@ -983,6 +1197,40 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
             </div>
           </div>
         </CardContent>
+
+        <Dialog open={showNewContractorDialog} onOpenChange={setShowNewContractorDialog}>
+          <DialogContent className="sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle>Nova construtora</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label>Nome</Label>
+                <Input value={newContractorForm.name} onChange={(e) => setNewContractorForm((p) => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div className="grid gap-2">
+                <Label>CNPJ (opcional)</Label>
+                <Input
+                  inputMode="numeric"
+                  placeholder="00.000.000/0000-00"
+                  value={newContractorForm.cnpj}
+                  onChange={(e) => setNewContractorForm((p) => ({ ...p, cnpj: formatCnpjMask(e.target.value) }))}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <DialogClose asChild>
+                <Button type="button" variant="outline" disabled={isSavingContractor}>
+                  Cancelar
+                </Button>
+              </DialogClose>
+              <Button type="button" onClick={handleCreateContractor} disabled={isSavingContractor}>
+                {isSavingContractor ? 'Salvando...' : 'Criar'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <CardFooter className="flex justify-end gap-2 border-t pt-4 sticky bottom-0 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/75 z-10">
           <Button variant="outline" type="button" onClick={handleCancel}>Cancelar</Button>
           <Button type="button" onClick={handleSave} className="gap-2">

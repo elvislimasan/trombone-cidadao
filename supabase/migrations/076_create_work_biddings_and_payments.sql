@@ -32,28 +32,84 @@ ALTER TABLE public.public_work_payments ENABLE ROW LEVEL SECURITY;
 
 -- 4. Create Policies (assuming same pattern as public_works)
 -- Public view
-CREATE POLICY "Allow public read access for biddings" ON public.public_work_biddings
-    FOR SELECT USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'public_work_biddings'
+      AND policyname = 'Allow public read access for biddings'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Allow public read access for biddings" ON public.public_work_biddings
+        FOR SELECT USING (true)
+    $policy$;
+  END IF;
+END
+$$;
 
-CREATE POLICY "Allow public read access for payments" ON public.public_work_payments
-    FOR SELECT USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'public_work_payments'
+      AND policyname = 'Allow public read access for payments'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Allow public read access for payments" ON public.public_work_payments
+        FOR SELECT USING (true)
+    $policy$;
+  END IF;
+END
+$$;
 
 -- Admin manage (using is_admin from profiles)
-CREATE POLICY "Allow admins to manage biddings" ON public.public_work_biddings
-    FOR ALL USING (
-        EXISTS (
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'public_work_biddings'
+      AND policyname = 'Allow admins to manage biddings'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Allow admins to manage biddings" ON public.public_work_biddings
+        FOR ALL USING (
+          EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND is_admin = true
+          )
         )
-    );
+    $policy$;
+  END IF;
+END
+$$;
 
-CREATE POLICY "Allow admins to manage payments" ON public.public_work_payments
-    FOR ALL USING (
-        EXISTS (
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'public_work_payments'
+      AND policyname = 'Allow admins to manage payments'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Allow admins to manage payments" ON public.public_work_payments
+        FOR ALL USING (
+          EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND is_admin = true
+          )
         )
-    );
+    $policy$;
+  END IF;
+END
+$$;
 
 -- Add comments for documentation
 COMMENT ON TABLE public.public_work_biddings IS 'Licitações vinculadas a uma obra pública';

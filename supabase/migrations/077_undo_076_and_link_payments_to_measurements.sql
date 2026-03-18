@@ -21,16 +21,44 @@ CREATE TABLE IF NOT EXISTS public.public_work_payments (
 ALTER TABLE public.public_work_payments ENABLE ROW LEVEL SECURITY;
 
 -- Create Policies
-CREATE POLICY "Allow public read access for payments" ON public.public_work_payments
-    FOR SELECT USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'public_work_payments'
+      AND policyname = 'Allow public read access for payments'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Allow public read access for payments" ON public.public_work_payments
+        FOR SELECT USING (true)
+    $policy$;
+  END IF;
+END
+$$;
 
-CREATE POLICY "Allow admins to manage payments" ON public.public_work_payments
-    FOR ALL USING (
-        EXISTS (
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'public_work_payments'
+      AND policyname = 'Allow admins to manage payments'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Allow admins to manage payments" ON public.public_work_payments
+        FOR ALL USING (
+          EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND is_admin = true
+          )
         )
-    );
+    $policy$;
+  END IF;
+END
+$$;
 
 -- Add comment
 COMMENT ON TABLE public.public_work_payments IS 'Pagamentos vinculados a uma fase/medição (measurement) de obra pública';
@@ -62,6 +90,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger for payments
+DROP TRIGGER IF EXISTS trigger_update_measurement_amount_spent ON public.public_work_payments;
 CREATE TRIGGER trigger_update_measurement_amount_spent
 AFTER INSERT OR UPDATE OR DELETE ON public.public_work_payments
 FOR EACH ROW EXECUTE FUNCTION public.update_measurement_amount_spent();
@@ -93,6 +122,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger for measurements
+DROP TRIGGER IF EXISTS trigger_update_work_amount_spent ON public.public_work_measurements;
 CREATE TRIGGER trigger_update_work_amount_spent
 AFTER INSERT OR UPDATE OF amount_spent OR DELETE ON public.public_work_measurements
 FOR EACH ROW EXECUTE FUNCTION public.update_work_amount_spent();
