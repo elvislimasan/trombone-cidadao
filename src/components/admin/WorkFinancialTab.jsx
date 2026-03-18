@@ -10,7 +10,7 @@ import {
   PlusCircle, Edit, Trash2, FileText,
   ArrowLeft, Save, Link2, Calculator
 } from 'lucide-react';
-import { formatCurrency, parseCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 export function WorkFinancialTab({ workId, onEditingChange }) {
   const [measurements, setMeasurements] = useState([]);
@@ -72,7 +72,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         payment_description: payment.payment_description || '',
         installment: payment.installment || '',
         creditor_name: payment.creditor_name || '',
-        value: payment.value || '',
+        value: payment.value != null ? String(payment.value) : '',
         portal_link: payment.portal_link || ''
       });
     } else {
@@ -99,6 +99,11 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         return;
       }
 
+      if (Number.isNaN(Number(paymentForm.value))) {
+        toast({ title: "Erro", description: "Valor inválido.", variant: "destructive" });
+        return;
+      }
+
       const payload = {
         measurement_id: currentMeasurement.id,
         payment_date: paymentForm.payment_date,
@@ -107,7 +112,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         installment: paymentForm.installment || null,
         creditor_name: paymentForm.creditor_name || null,
         banking_order: paymentForm.commitment_number || null,
-        value: parseCurrency(String(paymentForm.value)),
+        value: Number(paymentForm.value),
         portal_link: paymentForm.portal_link || null
       };
 
@@ -161,9 +166,12 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
             </div>
             <div className="grid gap-2">
               <Label>Valor (R$)</Label>
-              <Input 
-                value={formatCurrency(paymentForm.value, false)} 
-                onChange={(e) => setPaymentForm({...paymentForm, value: parseCurrency(e.target.value)})} 
+              <Input
+                type="number"
+                step="0.01"
+                value={paymentForm.value}
+                onChange={(e) => setPaymentForm({ ...paymentForm, value: e.target.value })}
+                placeholder="0.00"
               />
             </div>
           </div>
