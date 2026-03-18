@@ -8,9 +8,6 @@ import { toast } from "sonner";
 import { getWorkShareUrl } from "@/lib/shareUtils";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ObraHeader } from "@/components/project/obra/ObraHeader";
-import { ObraHero } from "@/components/project/obra/ObraHero";
-import { ObraProgress } from "@/components/project/obra/ObraProgress";
-import { ObraAbout } from "@/components/project/obra/ObraAbout";
 import { ObraCurrentPhase } from "@/components/project/obra/ObraCurrentPhase";
 import { ObraTimeline } from "@/components/project/obra/ObraTimeline";
 import { ObraFinancial } from "@/components/project/obra/ObraFinancial";
@@ -20,6 +17,7 @@ import { ObraPhases } from "@/components/project/obra/ObraPhases";
 import { ObraContribution } from "@/components/project/obra/ObraContribution";
 import { ObraLocation } from "@/components/project/obra/ObraLocation";
 import { ObraRelatedLinks } from "@/components/project/obra/ObraRelatedLinks";
+import { ObraHero } from "@/components/project/obra/ObraHero";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -916,13 +914,33 @@ export default function WorkDetailsPageProject() {
       <main className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            {heroImageUrl ? <ObraHero imageUrl={heroImageUrl} title={work.title} /> : null}
+            <section className="bg-card rounded-lg border border-border overflow-hidden">
+              {heroImageUrl ? <ObraHero imageUrl={heroImageUrl} title={work.title} /> : null}
 
-            <ObraAbout description={work.long_description || work.description} />
-            <ObraProgress percentage={overallProgress} />
+              <div className="p-6">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <Badge
+                    variant="outline"
+                    className={`${getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).bg} ${getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).color} border-none`}
+                  >
+                    {getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).text}
+                  </Badge>
+                  {work.work_category?.name ? (
+                    <Badge variant="outline" className="text-muted-foreground border-border bg-muted/40">
+                      {work.work_category.name}
+                    </Badge>
+                  ) : null}
+                </div>
 
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">{work.title}</h1>
 
-            <section className="bg-card rounded-lg border border-primary/20 overflow-hidden">
+                {work.long_description || work.description ? (
+                  <div className="mt-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {work.long_description || work.description}
+                  </div>
+                ) : null}
+              </div>
+
               <ObraCurrentPhase
                 phase={phase}
                 category={work.work_category?.name || ""}
@@ -971,10 +989,10 @@ export default function WorkDetailsPageProject() {
                 />
               </div>
             </section>
-
-            <ObraPhases phases={phases} currentPhaseId={currentPhaseId} onOpenDetails={openMeasurementDetails} />
-
-            <ObraContribution onContribute={handleOpenContrib} />
+            
+                        <ObraPhases phases={phases} currentPhaseId={currentPhaseId} onOpenDetails={openMeasurementDetails} />
+                        <ObraContribution onContribute={handleOpenContrib} />
+            
 
             <div className="text-center max-w-2xl mx-auto pb-6">
               <p className="text-xs text-muted-foreground leading-relaxed">
