@@ -20,6 +20,32 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const [currentPayment, setCurrentPayment] = useState(null);
   const { toast } = useToast();
 
+  const parsePtBrNumber = (value) => {
+    if (value == null) return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    const cleaned = raw
+      .replace(/\s/g, '')
+      .replace(/^R\$\s?/, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const formatPtBrMoney = (value) => {
+    const n = typeof value === 'number' ? value : parsePtBrNumber(value);
+    if (n == null) return '';
+    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  };
+
+  const maskMoneyWhileTyping = (value) => {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '';
+    const n = Number(digits) / 100;
+    return formatPtBrMoney(n);
+  };
+
   const [paymentForm, setPaymentForm] = useState({
     payment_date: '',
     commitment_number: '',
@@ -72,7 +98,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         payment_description: payment.payment_description || '',
         installment: payment.installment || '',
         creditor_name: payment.creditor_name || '',
-        value: payment.value != null ? String(payment.value) : '',
+        value: payment.value != null ? formatPtBrMoney(payment.value) : '',
         portal_link: payment.portal_link || ''
       });
     } else {
@@ -99,7 +125,8 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         return;
       }
 
-      if (Number.isNaN(Number(paymentForm.value))) {
+      const numericValue = parsePtBrNumber(paymentForm.value);
+      if (numericValue == null || numericValue <= 0) {
         toast({ title: "Erro", description: "Valor inválido.", variant: "destructive" });
         return;
       }
@@ -112,7 +139,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         installment: paymentForm.installment || null,
         creditor_name: paymentForm.creditor_name || null,
         banking_order: paymentForm.commitment_number || null,
-        value: Number(paymentForm.value),
+        value: numericValue,
         portal_link: paymentForm.portal_link || null
       };
 
@@ -167,11 +194,10 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
             <div className="grid gap-2">
               <Label>Valor (R$)</Label>
               <Input
-                type="number"
-                step="0.01"
+                inputMode="decimal"
                 value={paymentForm.value}
-                onChange={(e) => setPaymentForm({ ...paymentForm, value: e.target.value })}
-                placeholder="0.00"
+                onChange={(e) => setPaymentForm({ ...paymentForm, value: maskMoneyWhileTyping(e.target.value) })}
+                placeholder="0,00"
               />
             </div>
           </div>

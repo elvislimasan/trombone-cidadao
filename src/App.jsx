@@ -42,7 +42,7 @@ import ReportPage from '@/pages/ReportPage';
 import PetitionPage from '@/pages/PetitionPage';
 import PetitionPageModern from '@/pages/PetitionPageModern';
 import PetitionsOverviewPage from '@/pages/PetitionsOverviewPage';
-import WorkDetailsPage from '@/pages/WorkDetailsPage';
+import WorkDetailsPageProject from '@/pages/WorkDetailsPageProject';
 import ModerationPage from '@/pages/admin/ModerationPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
 import TermsOfUsePage from '@/pages/TermsOfUsePage';
@@ -474,7 +474,7 @@ function App() {
             <Route path="/sobre" element={<AboutPage />} />
             <Route path="/estatisticas" element={<StatsPage />} />
             <Route path="/obras-publicas" element={<PublicWorksPage />} />
-            <Route path="/obras-publicas/:workId" element={<WorkDetailsPage />} />
+            <Route path="/obras-publicas/:workId" element={<WorkDetailsPageProject />} />
             <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
             <Route path="/servicos" element={<ServicesPage />} />
             <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />

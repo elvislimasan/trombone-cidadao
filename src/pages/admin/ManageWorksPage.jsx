@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, Upload, Paperclip, MapPin, Image as ImageIcon, Video, Link2, Info, Wrench, Search, SlidersHorizontal, FolderOpen, Briefcase, Calculator, DollarSign } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, MapPin, Image as ImageIcon, Link2, Info, Search, SlidersHorizontal, Briefcase, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -12,12 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
 import { WorkFinancialTab } from '@/components/admin/WorkFinancialTab';
-import { WorkMediaManager } from '@/components/admin/WorkMediaManager';
 import { Combobox } from '@/components/ui/combobox';
 import { toast } from 'sonner';
 
@@ -158,14 +155,11 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   const [formData, setFormData] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState(null);
-  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const fileInputRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState('info');
   const [isMeasurementEditing, setIsMeasurementEditing] = useState(false);
   const [hasUnsavedMeasurementChanges, setHasUnsavedMeasurementChanges] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [newWorkMedia, setNewWorkMedia] = useState([]); // Array of { file, galleryName }
 
   // Auto-save logic
   useEffect(() => {
@@ -182,33 +176,8 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     }
   };
 
-  const validateDates = (data) => {
-    const newErrors = {};
-    
-    if (!data) return newErrors;
-
-    const start = data.start_date;
-    const end = data.end_date;
-    const predictedStart = data.predicted_start_date;
-    const expectedEnd = data.expected_end_date;
-
-    if (start && end && start > end) {
-      newErrors.start_date = "Início posterior ao término.";
-      newErrors.end_date = "Término anterior ao início.";
-    }
-
-    if (predictedStart && expectedEnd && predictedStart > expectedEnd) {
-      newErrors.predicted_start_date = "Início posterior à conclusão.";
-      newErrors.expected_end_date = "Conclusão anterior ao início.";
-    }
-
-    return newErrors;
-  };
-  const CREATE_STEPS = [];
-
   const EDIT_TABS = [
     { id: 'info', label: 'Informações', icon: Info },
-    { id: 'media', label: 'Mídias', icon: ImageIcon },
     { id: 'links', label: 'Links', icon: Link2 },
     { id: 'history', label: 'Histórico/Fases', icon: Briefcase },
     { id: 'financial', label: 'Financeiro', icon: Calculator },
@@ -227,7 +196,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     if (work) {
       // Reset navigation state when opening modal or switching modes
       setActiveTab('info');
-      setNewWorkMedia([]);
 
       setThumbnailFile(null);
       setThumbnailPreview(work.thumbnail_url || null);
@@ -253,7 +221,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         work_category_id: work.work_category?.id || work.work_category_id || '',
         work_area_id: work.work_area?.id || work.work_area_id || '',
         contractor_id: work.contractor?.id || work.contractor_id || '',
-        end_date: work.end_date || null,
       } : { 
         id: null,
         title: '',
@@ -261,24 +228,14 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
         thumbnail_url: null,
         location: null, 
         status: 'planned',
-        funding_source: [],
         related_links: [],
         bairro_id: '', 
         work_category_id: '', 
         work_area_id: '', 
-        contractor_id: '',
-        total_value: null,
-        amount_spent: null,
         execution_percentage: null,
-        execution_period_days: null,
-        predicted_start_date: null,
-        start_date: null,
-        end_date: null,
-        service_order_date: null,
-        expected_end_date: null,
-        inauguration_date: null,
-        contract_signature_date: null,
-        stalled_date: null,
+        contractor_id: null,
+        total_value: null,
+        funding_source: [],
         other_details: '',
         long_description: '',
         address: '',
@@ -313,35 +270,8 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     setFormData(prev => ({ ...prev, [name]: type === 'number' ? (value === '' ? null : Number(value)) : value }));
   };
 
-  const handleCurrencyChange = (e) => {
-    const { name, value } = e.target;
-    const numericValue = parseCurrency(value);
-    setFormData(prev => ({ ...prev, [name]: numericValue }));
-  };
-  
-  const handleDateChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => {
-        const newData = { ...prev, [name]: value === '' ? null : value };
-        if (errors[name]) {
-            setErrors(prevErrors => ({ ...prevErrors, [name]: null }));
-        }
-        return newData;
-    });
-  };
-
   const handleSelectChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFundingSourceChange = (source) => {
-    setFormData(prev => {
-        const currentSources = prev.funding_source || [];
-        const newSources = currentSources.includes(source)
-            ? currentSources.filter(s => s !== source)
-            : [...currentSources, source];
-        return { ...prev, funding_source: newSources };
-    });
   };
 
   const handleLocationChange = (newLocation) => {
@@ -393,17 +323,9 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
       }
     }
 
-    const dateErrors = validateDates(formData);
-    if (Object.keys(dateErrors).length > 0) {
-        setErrors(dateErrors);
-        toast({ title: "Erro de validação", description: "Verifique as datas inseridas.", variant: "destructive" });
-        return;
-    }
-
     let currentThumbnailUrl = formData.thumbnail_url;
 
     if (thumbnailFile) {
-      setIsUploadingThumbnail(true);
       try {
         const fileExt = thumbnailFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -423,13 +345,11 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
       } catch (error) {
         console.error('Error uploading thumbnail:', error);
         // Continue saving without updating thumbnail if upload fails
-      } finally {
-        setIsUploadingThumbnail(false);
       }
     }
     
     clearDraft();
-    await onSave({ ...formData, thumbnail_url: currentThumbnailUrl }, newWorkMedia);
+    await onSave({ ...formData, thumbnail_url: currentThumbnailUrl });
   };
 
   const canProceed = () => {
@@ -553,30 +473,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="status">Status</Label>
-                        <Combobox
-                          value={formData.status}
-                          onChange={(v) => handleSelectChange('status', v)}
-                          options={[
-                            { value: 'planned', label: 'Prevista' },
-                            { value: 'tendered', label: 'Licitada' },
-                            { value: 'in-progress', label: 'Em Andamento' },
-                            { value: 'stalled', label: 'Paralisada' },
-                            { value: 'unfinished', label: 'Inacabada' },
-                            { value: 'completed', label: 'Concluída' }
-                          ]}
-                          placeholder="Selecione o status..."
-                          searchPlaceholder="Buscar status..."
-                          modal
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="execution_percentage">Percentual de Execução (%)</Label>
-                        <Input id="execution_percentage" name="execution_percentage" type="number" min="0" max="100" value={formData.execution_percentage || ''} onChange={handleChange} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="grid gap-2">
                         <Label htmlFor="work_category_id">Categoria</Label>
                         <Combobox
                           value={formData.work_category_id}
@@ -610,101 +506,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                           searchPlaceholder="Buscar área..."
                           modal
                         />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="contractor_id">Construtora</Label>
-                        <Combobox
-                          value={formData.contractor_id}
-                          onChange={(v) => handleSelectChange('contractor_id', v)}
-                          options={[{ value: '', label: 'Selecionar' }, ...workOptions.contractors.map(c => ({ value: c.id, label: c.name }))]}
-                          placeholder="Selecione a construtora..."
-                          searchPlaceholder="Buscar construtora..."
-                          modal
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader><CardTitle>Valores e Prazos</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="total_value">Valor Previsto (R$)</Label>
-                            <Input id="total_value" name="total_value" value={formatCurrency(formData.total_value, false)} onChange={handleCurrencyChange} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="amount_spent">Valor Gasto (R$)</Label>
-                            <Input id="amount_spent" name="amount_spent" value={formatCurrency(formData.amount_spent, false)} onChange={handleCurrencyChange} />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="execution_period_days">Prazo de Execução (dias)</Label>
-                            <Input id="execution_period_days" name="execution_period_days" type="number" value={formData.execution_period_days || ''} onChange={handleChange} />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label>Fonte do Recurso</Label>
-                          <div className="flex items-center space-x-4 pt-2">
-                            {['Federal', 'Estadual', 'Municipal'].map(source => (
-                              <div key={source} className="flex items-center space-x-2">
-                                <Checkbox id={`funding_${source}`} checked={(formData.funding_source || []).includes(source.toLowerCase())} onCheckedChange={() => handleFundingSourceChange(source.toLowerCase())} />
-                                <Label htmlFor={`funding_${source}`}>{source}</Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                    </div>
-
-                    <div className="border-t pt-4">
-                      <Label className="mb-4 block text-base font-semibold text-slate-700">
-                        Datas e Prazos
-                      </Label>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_signature_date">Assinatura do Contrato</Label>
-                            <Input id="contract_signature_date" name="contract_signature_date" type="date" value={formData.contract_signature_date || ''} onChange={handleDateChange} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="service_order_date">Data da Ordem de Serviço</Label>
-                            <Input id="service_order_date" name="service_order_date" type="date" value={formData.service_order_date || ''} onChange={handleDateChange} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="predicted_start_date">Data prevista para início</Label>
-                            <Input id="predicted_start_date" name="predicted_start_date" type="date" value={formData.predicted_start_date || ''} onChange={handleDateChange} className={errors.predicted_start_date ? "border-red-500" : ""} />
-                            {errors.predicted_start_date && <p className="text-xs text-red-500">{errors.predicted_start_date}</p>}
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="start_date">Data de Início (Real)</Label>
-                            <Input id="start_date" name="start_date" type="date" value={formData.start_date || ''} onChange={handleDateChange} className={errors.start_date ? "border-red-500" : ""} />
-                            {errors.start_date && <p className="text-xs text-red-500">{errors.start_date}</p>}
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="expected_end_date">Previsão de Conclusão</Label>
-                            <Input id="expected_end_date" name="expected_end_date" type="date" value={formData.expected_end_date || ''} onChange={handleDateChange} className={errors.expected_end_date ? "border-red-500" : ""} />
-                            {errors.expected_end_date && <p className="text-xs text-red-500">{errors.expected_end_date}</p>}
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="end_date">Data de Término (Real)</Label>
-                            <Input id="end_date" name="end_date" type="date" value={formData.end_date || ''} onChange={handleDateChange} className={errors.end_date ? "border-red-500" : ""} />
-                            {errors.end_date && <p className="text-xs text-red-500">{errors.end_date}</p>}
-                        </div>
-                        
-                        <div className="grid gap-2">
-                            <Label htmlFor="inauguration_date">Data de Inauguração</Label>
-                            <Input id="inauguration_date" name="inauguration_date" type="date" value={formData.inauguration_date || ''} onChange={handleDateChange} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="stalled_date">Data de Paralisação</Label>
-                            <Input id="stalled_date" name="stalled_date" type="date" value={formData.stalled_date || ''} onChange={handleDateChange} />
-                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -759,78 +560,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                 </Card>
               </div>
         
-            {activeTab === 'media' && (
-              <div className="space-y-4">
-                {formData.id ? (
-                  <WorkMediaManager key={formData.id} workId={formData.id} />
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label>Mídias para Upload ({newWorkMedia.length})</Label>
-                      <div className="flex gap-2">
-                         <Input 
-                           type="file" 
-                           multiple 
-                           className="hidden" 
-                           id="media-upload"
-                           accept="image/*,video/*,application/pdf"
-                           onChange={(e) => {
-                             const files = Array.from(e.target.files || []);
-                             if (files.length > 0) {
-                               setNewWorkMedia(prev => [...prev, ...files.map(f => ({ file: f, galleryName: '' }))]);
-                             }
-                             e.target.value = '';
-                           }}
-                         />
-                         <Button variant="outline" size="sm" onClick={() => document.getElementById('media-upload').click()}>
-                           <Upload className="w-4 h-4 mr-2" /> Adicionar Arquivos
-                         </Button>
-                      </div>
-                    </div>
-                    
-                    {newWorkMedia.length === 0 ? (
-                      <div className="text-center py-8 border-2 border-dashed rounded-lg">
-                        <p className="text-muted-foreground">Nenhuma mídia selecionada.</p>
-                        <p className="text-xs text-muted-foreground mt-2">Você poderá adicionar mais mídias após criar a obra.</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto p-2">
-                        {newWorkMedia.map((item, idx) => (
-                          <div key={idx} className="relative group border rounded-lg p-2 bg-muted/20">
-                            <div className="aspect-square bg-muted rounded-md mb-2 flex items-center justify-center overflow-hidden">
-                              {item.file.type.startsWith('image') ? (
-                                <img src={URL.createObjectURL(item.file)} alt="preview" className="w-full h-full object-cover" />
-                              ) : (
-                                <Paperclip className="w-8 h-8 text-muted-foreground" />
-                              )}
-                            </div>
-                            <p className="text-xs truncate mb-2" title={item.file.name}>{item.file.name}</p>
-                            <Input 
-                              placeholder="Galeria (opcional)" 
-                              className="h-6 text-xs" 
-                              value={item.galleryName}
-                              onChange={(e) => {
-                                const updated = [...newWorkMedia];
-                                updated[idx] = { ...updated[idx], galleryName: e.target.value };
-                                setNewWorkMedia(updated);
-                              }}
-                            />
-                            <Button 
-                              variant="destructive" 
-                              size="icon" 
-                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => setNewWorkMedia(prev => prev.filter((_, i) => i !== idx))}
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
             <div className={activeTab === 'links' ? 'block' : 'hidden'}>
               <div className="space-y-4">
                 <Card>
@@ -946,10 +675,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   );
 };
 
-// WorkMediaManager is now imported from '@/components/admin/WorkMediaManager'
-
 const ManageWorksPage = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1014,7 +740,7 @@ const ManageWorksPage = () => {
     }
   }, [location.state, works, editingWork]);
 
-  const handleSaveWork = async (workToSave, mediaFiles = []) => {
+  const handleSaveWork = async (workToSave) => {
     const { id, location, ...data } = workToSave;
     
     delete data.bairro;
@@ -1048,56 +774,30 @@ const ManageWorksPage = () => {
       const savedWorkId = result.data.id;
       console.log('Obra salva com ID:', savedWorkId);
 
-      // Handle media uploads if any
-      if (mediaFiles && mediaFiles.length > 0) {
-        toast({ title: "Salvando mídias...", description: `Enviando ${mediaFiles.length} arquivos.` });
-        console.log('Iniciando upload de', mediaFiles.length, 'arquivos de mídia.');
-        
-        const uploadPromises = mediaFiles.map(async ({ file, galleryName }) => {
-          let uploadFile = file;
-          // Image optimization removed to avoid mime type issues with supabase storage
-          
-          const filePath = `works/${savedWorkId}/${Date.now()}-${uploadFile.name}`;
-          const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
-          
-          if (uploadError) {
-            console.error(`Error uploading ${file.name}:`, uploadError);
-            toast({ title: `Erro ao enviar ${file.name}`, description: uploadError.message, variant: "destructive" });
-            return null;
-          }
-          
-          const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(filePath);
-          
-          let fileType = 'file';
-          if (file.type.startsWith('image')) fileType = 'image';
-          else if (file.type.startsWith('video')) fileType = 'video';
-          else if (file.type === 'application/pdf') fileType = 'pdf';
-
-          return {
-            work_id: savedWorkId,
-            url: publicUrl,
-            type: fileType,
-            name: file.name,
-            status: 'approved',
-            contributor_id: user?.id || null,
-            gallery_name: galleryName || null
-          };
-        });
-
-        const uploadedMedia = (await Promise.all(uploadPromises)).filter(Boolean);
-        console.log('Arquivos enviados com sucesso:', uploadedMedia.length, uploadedMedia);
-        
-        if (uploadedMedia.length > 0) {
-          const { error: dbError } = await supabase.from('public_work_media').insert(uploadedMedia);
-          if (dbError) {
-             console.error("Error saving media records:", dbError);
-             toast({ title: "Erro ao salvar registros de mídia", description: dbError.message, variant: "destructive" });
-          } else {
-             console.log('Registros de mídia salvos no banco com sucesso.');
-             toast({ title: "Mídias vinculadas", description: `${uploadedMedia.length} arquivos foram anexados à obra.` });
-          }
-        } else {
-            console.warn('Nenhuma mídia foi enviada com sucesso.');
+      if (!id) {
+        const measurementPayload = {
+          work_id: savedWorkId,
+          title: 'Fase Atual',
+          description: null,
+          contractor_id: payload.contractor_id || null,
+          status: payload.status || 'planned',
+          execution_percentage: payload.execution_percentage,
+          expected_value: payload.total_value,
+          funding_source: Array.isArray(payload.funding_source) ? payload.funding_source : [],
+          execution_period_days: payload.execution_period_days,
+          predicted_start_date: payload.predicted_start_date,
+          start_date: payload.start_date,
+          end_date: payload.end_date,
+          service_order_date: payload.service_order_date,
+          expected_end_date: payload.expected_end_date,
+          inauguration_date: payload.inauguration_date,
+          contract_signature_date: payload.contract_signature_date,
+          stalled_date: payload.stalled_date,
+          amount_spent: payload.amount_spent
+        };
+        const { error: measurementError } = await supabase.from('public_work_measurements').insert([measurementPayload]);
+        if (measurementError) {
+          toast({ title: "Obra criada, mas fase falhou", description: measurementError.message, variant: "destructive" });
         }
       }
 

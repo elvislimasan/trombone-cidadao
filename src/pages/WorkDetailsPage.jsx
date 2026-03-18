@@ -126,6 +126,11 @@ const WorkDetailsPage = () => {
   const [biddings, setBiddings] = useState([]);
   const [relatedNews, setRelatedNews] = useState([]);
 
+  const currentMeasurement = useMemo(() => {
+    if (!Array.isArray(measurements) || measurements.length === 0) return null;
+    return [...measurements].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  }, [measurements]);
+
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [isSavingPayment, setIsSavingPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
@@ -153,6 +158,15 @@ const WorkDetailsPage = () => {
   const totalSpentFromPayments = useMemo(() => {
     return allPayments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
   }, [allPayments]);
+
+  const currentPhasePayments = useMemo(() => {
+    if (!currentMeasurement?.id) return [];
+    return allPayments.filter((p) => p.measurement_id === currentMeasurement.id);
+  }, [allPayments, currentMeasurement?.id]);
+
+  const currentPhaseSpentFromPayments = useMemo(() => {
+    return currentPhasePayments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
+  }, [currentPhasePayments]);
 
   useEffect(() => {
     console.log('relatedNews_state', relatedNews);
@@ -220,7 +234,7 @@ const WorkDetailsPage = () => {
   }, [workId, toast]);
 
   const openNewPaymentDialog = useCallback(() => {
-    const defaultMeasurement = measurements?.[0] || null;
+    const defaultMeasurement = currentMeasurement || measurements?.[0] || null;
     const defaultMeasurementId = defaultMeasurement?.id || '';
     const defaultCreditorName = defaultMeasurement?.contractor?.name || '';
     setPaymentForm({
@@ -234,7 +248,7 @@ const WorkDetailsPage = () => {
       portal_link: ''
     });
     setShowPaymentDialog(true);
-  }, [measurements]);
+  }, [measurements, currentMeasurement]);
 
   const handleSavePayment = useCallback(async () => {
     try {
@@ -438,48 +452,19 @@ const WorkDetailsPage = () => {
     return items;
   }, [media, work]);
 
-  // Filter media specifically for the main gallery (exclude measurement-bound media)
-  const mainGalleryMedia = useMemo(() => viewableMedia.filter(m => !m.measurement_id), [viewableMedia]);
+  const currentPhaseMedia = useMemo(() => {
+    if (!currentMeasurement?.id) return [];
+    return viewableMedia.filter((m) => m.measurement_id === currentMeasurement.id);
+  }, [viewableMedia, currentMeasurement?.id]);
 
-  // Group media by gallery_name for the main gallery
-  const galleryGroups = useMemo(() => {
-    const groups = {};
-    
-    mainGalleryMedia.forEach(item => {
-      const name = item.gallery_name || 'Geral';
-      if (!groups[name]) {
-        groups[name] = [];
-      }
-      groups[name].push(item);
-    });
-    
-    // Sort: 'Geral' first, then alphabetical
-    return Object.entries(groups).map(([name, items]) => ({
-      name,
-      items
-    })).sort((a, b) => {
-        if (a.name === 'Geral') return -1;
-        if (b.name === 'Geral') return 1;
-        return a.name.localeCompare(b.name);
-    });
-  }, [mainGalleryMedia]);
-
-  // Flatten groups to get the display order for the lightbox (main gallery only)
-  const sortedViewableMedia = useMemo(() => {
-    return galleryGroups.flatMap(group => group.items);
-  }, [galleryGroups]);
-
-  const heroMedia = useMemo(() => {
-    if (work?.thumbnail_url) {
-      return { id: 'hero', type: 'photo', url: work.thumbnail_url };
-    }
-    return sortedViewableMedia[0] || null;
-  }, [work?.thumbnail_url, sortedViewableMedia]);
-
-  // General documents (exclude measurement-bound documents)
-  const documents = media.filter(m => 
-    (m.type === 'pdf' || m.type === 'document' || m.type === 'file') && !m.measurement_id
-  );
+  const currentPhaseDocuments = useMemo(() => {
+    if (!currentMeasurement?.id) return [];
+    return media.filter(
+      (m) =>
+        (m.type === 'pdf' || m.type === 'document' || m.type === 'file') &&
+        m.measurement_id === currentMeasurement.id
+    );
+  }, [media, currentMeasurement?.id]);
 
   const handleShareWork = async () => {
     if (typeof window === 'undefined' || !work) return;
@@ -541,11 +526,15 @@ const WorkDetailsPage = () => {
 
   const handleSubmitContribution = async () => {
     if (!user || !work || isSubmittingContribution) return;
+    if (!currentMeasurement?.id) {
+      toast({ title: "Fase não encontrada", description: "Cadastre uma fase para enviar contribuições.", variant: "destructive" });
+      return;
+    }
     setIsSubmittingContribution(true);
     try {
       if (contribFiles.length > 0) {
         for (const file of contribFiles) {
-          const path = `works/${work.id}/${Date.now()}-${file.name}`;
+          const path = `measurements/${currentMeasurement.id}/${Date.now()}-${file.name}`;
           const { error: uploadError } = await supabase.storage.from('work-media').upload(path, file);
           if (uploadError) throw uploadError;
           const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(path);
@@ -555,11 +544,13 @@ const WorkDetailsPage = () => {
           else if (file.type === 'application/pdf') type = 'pdf';
           const { error: dbError } = await supabase.from('public_work_media').insert({
             work_id: work.id,
+            measurement_id: currentMeasurement.id,
             url: publicUrl,
             type,
             name: file.name,
             description: contribDescription || null,
             status: 'pending',
+            gallery_name: currentMeasurement.title || 'Contribuições',
             contributor_id: user.id
           });
           if (dbError) throw dbError;
@@ -568,11 +559,13 @@ const WorkDetailsPage = () => {
       if (contribVideoUrl && contribVideoUrl.trim().length > 0) {
         const { error: linkErr } = await supabase.from('public_work_media').insert({
           work_id: work.id,
+          measurement_id: currentMeasurement.id,
           url: contribVideoUrl.trim(),
           type: 'video_url',
           name: 'Vídeo do cidadão',
           description: contribDescription || null,
           status: 'pending',
+          gallery_name: currentMeasurement.title || 'Contribuições',
           contributor_id: user.id
         });
         if (linkErr) throw linkErr;
@@ -647,27 +640,42 @@ const WorkDetailsPage = () => {
     );
   }
 
-  const statusInfo = getStatusInfo(work.status);
+  const statusInfo = getStatusInfo(currentMeasurement?.status || work.status);
+  const executionPct = currentMeasurement?.execution_percentage ?? work.execution_percentage ?? 0;
+  const displayContractor = currentMeasurement?.contractor || work.contractor || null;
+  const displayFundingSource = currentMeasurement?.funding_source || work.funding_source || [];
+  const displayExecutionPeriodDays = currentMeasurement?.execution_period_days ?? work.execution_period_days;
+  const displayContractSignatureDate = currentMeasurement?.contract_signature_date || work.contract_signature_date;
+  const displayServiceOrderDate = currentMeasurement?.service_order_date || work.service_order_date;
+  const displayPredictedStartDate = currentMeasurement?.predicted_start_date || work.start_date_forecast || work.predicted_start_date;
+  const displayStartDate = currentMeasurement?.start_date || work.start_date;
+  const displayExpectedEndDate = currentMeasurement?.expected_end_date || work.end_date_forecast || work.expected_end_date;
+  const displayEndDate = currentMeasurement?.end_date || work.end_date;
+  const displayInaugurationDate = currentMeasurement?.inauguration_date || work.inauguration_date;
+  const displayStalledDate = currentMeasurement?.stalled_date || work.stalled_date;
+  const currentPhaseExpectedValue = currentMeasurement?.expected_value ?? currentMeasurement?.value ?? work.total_value;
+  const paymentsToShow = currentMeasurement?.id ? currentPhasePayments : allPayments;
+  const paymentsTotalToShow = currentMeasurement?.id ? currentPhaseSpentFromPayments : totalSpentFromPayments;
   
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans pb-20 md:pb-12">
+    <div className="min-h-screen bg-background pb-20 md:pb-12">
       <DynamicSEO {...seoData} />
       
       {/* Sticky Header with Back Button */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="bg-primary text-primary-foreground sticky top-0 z-30 shadow-sm">
+        <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
               asChild
               size="icon"
-              variant="outline"
-              className="h-10 w-10 rounded-xl border-gray-200 bg-gray-50 hover:bg-gray-100"
+              variant="ghost"
+              className="h-10 w-10 rounded-xl hover:bg-primary-foreground/10"
             >
               <Link to="/obras-publicas">
-                <ArrowLeft className="w-5 h-5 text-gray-700" />
+                <ArrowLeft className="w-5 h-5" />
               </Link>
             </Button>
-          <span className="text-xs sm:text-sm font-bold text-gray-500 tracking-wider max-w-[100px] sm:max-w-none block">
+          <span className="text-xs sm:text-sm font-bold tracking-wider max-w-[140px] sm:max-w-none block text-primary-foreground/80">
   Voltar para mapa de obras
 </span>
           </div>
@@ -677,9 +685,9 @@ const WorkDetailsPage = () => {
              {user?.is_admin && (
               <Button 
                 onClick={() => setShowAdminEditModal(true)}
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                className="ml-2 text-slate-600 border-slate-200 hover:bg-slate-50 flex"
+                className="ml-2 flex"
               >
                 <Edit className="w-4 h-4 mr-2" />
                 <span  className="hidden sm:inline" >Gerenciar</span> 
@@ -688,74 +696,77 @@ const WorkDetailsPage = () => {
             <Button 
               onClick={handleShareWork}
               variant="ghost" 
-              className="text-gray-600 hover:text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 transition-all duration-300"
+              className="rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4"
               title="Compartilhar"
             >
-              <div className="p-1.5 rounded-full bg-blue-50 group-hover:bg-blue-100 sm:bg-transparent sm:p-0">
-                <Share2 className="w-5 h-5 sm:w-5 sm:h-5 sm:mr-2 text-blue-600 sm:text-current" />
-              </div>
-              <span className="hidden sm:inline font-medium">Compartilhar</span>
+              <Share2 className="w-5 h-5 sm:mr-2" />
+              <span className="hidden sm:inline font-medium">Compartilhar</span> 
             </Button>
             
             <Button
               onClick={handleFavoriteToggle}
               variant="ghost"
-              className={`rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 transition-all duration-300 ${isFavorited ? 'text-red-600 bg-gradient-to-r from-red-50 to-pink-50 hover:from-red-100 hover:to-pink-100' : 'text-gray-600 hover:text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50'}`}
+              className={`rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 ${isFavorited ? 'text-primary-foreground bg-primary-foreground/10' : 'text-primary-foreground'}`}
               title={isFavorited ? 'Remover dos favoritos' : 'Favoritar'}
             >
-              <div className={`p-1.5 rounded-full ${isFavorited ? 'bg-red-100' : 'bg-gray-100 group-hover:bg-red-100'} sm:bg-transparent sm:p-0`}>
-                 <Heart className={`w-5 h-5 sm:w-5 sm:h-5 ${isFavorited ? 'fill-current' : ''} sm:mr-2`} />
-              </div>
+              <Heart className={`w-5 h-5 sm:mr-2 ${isFavorited ? 'fill-current' : ''}`} />
               <span className="hidden sm:inline font-medium">Favoritar</span>
             </Button>
 
            
           </div>
         </div>
-        <div className="hidden lg:block border-t border-gray-100">
-          <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-gray-500 flex items-center gap-1">
-            <Link to="/" className="hover:text-red-500 transition-colors">
+        <div className="hidden lg:block bg-card text-foreground border-b border-border">
+          <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-muted-foreground flex items-center gap-1">
+            <Link to="/" className="hover:text-primary transition-colors">
               Início
             </Link>
             <span className="opacity-50">›</span>
-            <Link to="/obras-publicas" className="hover:text-red-500 transition-colors">
+            <Link to="/obras-publicas" className="hover:text-primary transition-colors">
               Obras Públicas
             </Link>
             <span className="opacity-50">›</span>
-            <span className="text-gray-700 truncate max-w-[300px]">{work.title}</span>
+            <span className="text-foreground truncate max-w-[300px]">{work.title}</span>
           </div>
         </div>
       </div>
 
       <div className="max-w-5xl lg:max-w-7xl 2xl:max-w-[100rem] mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           
           {/* Main Content Column */}
-          <div className="lg:col-span-8">
+          <div className="lg:col-span-2">
+            <div className="mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
+                  <statusInfo.icon className="w-4 h-4 mr-1.5" />
+                  {statusInfo.text}
+                </Badge>
+                {work.bairro && (
+                  <Badge variant="outline" className="text-muted-foreground border-border bg-muted/40">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {work.bairro.name}
+                  </Badge>
+                )}
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">{work.title}</h1>
+              {work.description && (
+                <p className="mt-2 text-sm md:text-base text-muted-foreground font-medium leading-relaxed">
+                  {work.description}
+                </p>
+              )}
+            </div>
             
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden relative">
+            <div className="space-y-6">
               
-            {/* Top Thumbnail Preview */}
-            {heroMedia && (
-              <div className="relative overflow-hidden">
-                <button
-                  type="button"
-                  className="absolute inset-0 w-full h-full z-10"
-                  onClick={() => openViewer(sortedViewableMedia, 0)}
-                  title="Ver mídias"
-                />
+            {work.thumbnail_url && (
+              <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                 <div className="w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden">
-                  {['video', 'video_url'].includes(heroMedia.type) ? (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                      <Video className="w-10 h-10 text-white/80" />
-                    </div>
-                  ) : (
-                    <img
-                      src={heroMedia.url}
-                      alt="Capa da obra"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
+                  <img
+                    src={work.thumbnail_url}
+                    alt="Capa da obra"
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 via-black/30 to-transparent" />
                 </div>
               </div>
@@ -765,54 +776,31 @@ const WorkDetailsPage = () => {
             <div className="p-5 md:p-8 lg:p-10">
               <div className="flex flex-col lg:flex-row lg:items-start gap-8">
                 <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
-                      <statusInfo.icon className="w-4 h-4 mr-1.5" />
-                      {statusInfo.text}
-                    </Badge>
-                    {work.bairro && (
-                      <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50">
-                        <MapPin className="w-3 h-3 mr-1" />
-                        {work.bairro.name}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <h1 className="text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold text-gray-900 leading-tight mb-2 max-w-4xl">
-                    {work.title}
-                  </h1>
-                  {work.description && (
-                    <p className="text-lg text-gray-600 mb-6 font-medium leading-relaxed">
-                      {work.description}
-                    </p>
-                  )}
-                  {!work.description && <div className="mb-6"></div>}
-
                   {/* Integrated Progress Section */}
-                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 mb-8">
+                  <div className="bg-muted/40 rounded-xl p-5 border border-border mb-8">
                     <div className="flex justify-between items-end mb-2">
                       <div className="flex items-center gap-2">
                         <Activity className="w-5 h-5 text-slate-400" />
                         <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Progresso da Obra</span>
                       </div>
-                      <span className="text-2xl font-bold text-slate-900">{work.execution_percentage || 0}%</span>
+                      <span className="text-2xl font-bold text-slate-900">{executionPct}%</span>
                     </div>
                     
                     <Progress 
-                      value={work.execution_percentage || 0} 
+                      value={executionPct} 
                       className="h-4 bg-slate-200 rounded-full" 
                       indicatorClassName="bg-red-600 rounded-full" 
                     />
                   </div>
 
                  {work.long_description  && <div className="py-6 md:py-8">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                    <h3 className="text-lg font-bold text-foreground mb-4 flex items-center">
                       <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-violet-50 text-indigo-600 mr-3 shadow-sm border border-indigo-100/50">
                         <BookOpen className="w-4 h-4" />
                       </div>
                       Sobre a Obra
                     </h3>
-                    <div className="prose prose-slate max-w-none text-gray-600 leading-relaxed pl-1">
+                    <div className="prose prose-slate max-w-none text-muted-foreground leading-relaxed pl-1">
                       <p className="whitespace-pre-wrap">{work.long_description || work.description}</p>
                     </div>
                   </div>}
@@ -830,32 +818,32 @@ const WorkDetailsPage = () => {
                      <Building className="w-4 h-4" /> Execução e Responsáveis
                    </h3>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-                     {work.contractor?.name && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                     {displayContractor?.name && (
+                      <div className="flex items-start gap-4 p-4 rounded-xl bg-card border border-border shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Building className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Construtora</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.contractor.name}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{displayContractor.name}</p>
                           </div>
                        </div>
                      )}
 
-                     {work.contractor?.cnpj && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                     {displayContractor?.cnpj && (
+                      <div className="flex items-start gap-4 p-4 rounded-xl bg-card border border-border shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <FileText className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">CNPJ</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatCnpj(work.contractor.cnpj)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatCnpj(displayContractor.cnpj)}</p>
                           </div>
                        </div>
                      )}
 
                      {work.work_category?.name && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-4 p-4 rounded-xl bg-card border border-border shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Briefcase className="w-5 h-5" />
                           </div>
@@ -874,7 +862,7 @@ const WorkDetailsPage = () => {
                      <DollarSign className="w-4 h-4" /> Financeiro
                    </h3>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-                     {work.funding_source && work.funding_source.length > 0 && (
+                     {Array.isArray(displayFundingSource) && displayFundingSource.length > 0 && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Landmark className="w-5 h-5" />
@@ -882,7 +870,7 @@ const WorkDetailsPage = () => {
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Fonte de Recurso</p>
                              <p className="text-sm font-bold text-slate-900 leading-tight break-words">
-                                {work.funding_source.map(source => source).join(', ')}
+                               {displayFundingSource.map(source => source).join(', ')}
                              </p>
                           </div>
                        </div>
@@ -900,31 +888,43 @@ const WorkDetailsPage = () => {
                        </div>
                      )}
 
-                     {work.total_value != null && (
+                     {currentPhaseExpectedValue != null && (
                      <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                         <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Previsto</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.total_value ? formatCurrency(work.total_value) : 'Não informado'}</p>
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Previsto (Fase Atual)</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatCurrency(currentPhaseExpectedValue)}</p>
                         </div>
                      </div>
                      )}
 
-                     { (totalSpentFromPayments > 0 || (work.amount_spent != null && Number(work.amount_spent) > 0)) && (
+                     {(currentPhaseSpentFromPayments > 0 || totalSpentFromPayments > 0) && (
                      <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
                         <div className="bg-emerald-50 text-emerald-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
                         </div>
                         <div className="w-full min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Gasto (Pagamentos)</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(totalSpentFromPayments || work.amount_spent)}</p>
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pago na Fase Atual</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(currentPhaseSpentFromPayments)}</p>
                            <Progress 
-                             value={work.total_value ? Math.min(((totalSpentFromPayments || work.amount_spent || 0) / work.total_value) * 100, 100) : 0} 
+                             value={currentPhaseExpectedValue ? Math.min(((currentPhaseSpentFromPayments || 0) / (Number(currentPhaseExpectedValue) || 0)) * 100, 100) : 0} 
                              className="h-1.5 bg-slate-100 w-full" 
                              indicatorClassName="bg-emerald-500" 
                            />
+                        </div>
+                     </div>
+                     )}
+
+                     {totalSpentFromPayments > 0 && (
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
+                        <div className="bg-blue-50 text-blue-600 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                           <DollarSign className="w-5 h-5" />
+                        </div>
+                        <div className="w-full min-w-0">
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Pago (Todas as Fases)</p>
+                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(totalSpentFromPayments)}</p>
                         </div>
                      </div>
                      )}
@@ -937,110 +937,110 @@ const WorkDetailsPage = () => {
                      <Calendar className="w-4 h-4" /> Prazos e Cronograma
                    </h3>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-                     {work.execution_period_days && (
+                     {displayExecutionPeriodDays && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Clock className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Prazo de Execução</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.execution_period_days} dias</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{displayExecutionPeriodDays} dias</p>
                           </div>
                        </div>
                      )}
 
-                     {work.contract_signature_date && (
+                     {displayContractSignatureDate && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Calendar className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Assinatura</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.contract_signature_date)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayContractSignatureDate)}</p>
                           </div>
                        </div>
                      )}
 
-                     {work.service_order_date && (
+                     {displayServiceOrderDate && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <FileText className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Ordem de Serviço</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.service_order_date)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayServiceOrderDate)}</p>
                           </div>
                        </div>
                      )}
                      
-                     {(work.start_date_forecast || work.predicted_start_date) && (
+                     {displayPredictedStartDate && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Calendar className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Previsão Início</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.start_date_forecast || work.predicted_start_date)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayPredictedStartDate)}</p>
                           </div>
                        </div>
                      )}
 
-                     {work.start_date && (
+                     {displayStartDate && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <CheckCircle className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Início Real</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.start_date)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayStartDate)}</p>
                           </div>
                        </div>
                      )}
 
-                     {(work.end_date_forecast || work.expected_end_date) && (
+                     {displayExpectedEndDate && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Calendar className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Previsão de Conclusão</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.end_date_forecast || work.expected_end_date)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayExpectedEndDate)}</p>
                           </div>
                        </div>
                      )}
 
-                     {work.end_date && (
+                     {displayEndDate && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <CheckCircle className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Término Real</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.end_date)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayEndDate)}</p>
                           </div>
                        </div>
                      )}
 
-                     {work.inauguration_date && (
+                     {displayInaugurationDate && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Award className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Data de Inauguração</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.inauguration_date)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayInaugurationDate)}</p>
                           </div>
                        </div>
                      )}
 
-                     {work.stalled_date && (
+                     {displayStalledDate && (
                        <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <AlertTriangle className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Data de Paralisação</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(work.stalled_date)}</p>
+                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayStalledDate)}</p>
                           </div>
                        </div>
                      )}
@@ -1056,203 +1056,22 @@ const WorkDetailsPage = () => {
 
             <Separator className="my-0" />
 
-         
-
-            {/* Timeline Section */}
-            <div className="p-6 md:p-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-600 mr-3 shadow-sm border border-blue-100/50">
-                  <Activity className="w-4 h-4" />
-                </div>
-                Histórico e Fases
-              </h3>
-
-              <div className="relative pl-4 sm:pl-6 space-y-8 before:absolute before:left-4 sm:before:left-6 before:h-full before:w-[2px] before:bg-slate-100">
-                {measurements.length > 0 ? (
-                  measurements.map((item, index) => {
-                    const phaseMedia = viewableMedia.filter(m => m.measurement_id === item.id);
-                    const phaseDocs = media.filter(m => m.measurement_id === item.id && (m.type === 'pdf' || m.type === 'document' || m.type === 'file'));
-                    return (
-                      <div key={item.id} className="relative pl-8">
-                        <div className={`absolute -left-[7px] top-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm ${getStatusInfo(item.status).bg.replace('bg-', 'bg-')}`} />
-                        <div className="bg-slate-50 p-5 rounded-xl border transition-colors border-slate-100 hover:border-slate-300">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-base text-slate-800">
-                                    {item.title}
-                                </h4>
-                            </div>
-                          </div>
-                          
-                          {item.description && (
-                            <p className="text-slate-600 mb-4 text-sm leading-relaxed">{item.description}</p>
-                          )}
-                          
-                          {item.contractor && (
-                            <div className="flex items-center gap-2 mb-4 text-sm text-slate-700 bg-white/60 p-2.5 rounded-lg border border-slate-200/60">
-                              <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                              <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 whitespace-nowrap">Construtora:</span>
-                              <span className="font-medium truncate">{item.contractor.name}</span>
-                            </div>
-                          )}
-                          
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            {/* Status Badge - Always Visible */}
-                            <div className="col-span-2 sm:col-span-1">
-                              <span className="text-xs text-slate-400 block mb-1">Status</span>
-                              <Badge variant="outline" className={`${getStatusInfo(item.status).color} ${getStatusInfo(item.status).bg} border-none`}>
-                                {getStatusInfo(item.status).text}
-                              </Badge>
-                            </div>
-
-                            {/* Execution Percentage - Only for In Progress, Stalled, Completed */}
-                            {['in-progress', 'stalled', 'completed'].includes(item.status) && (
-                              <div className="col-span-2 sm:col-span-1">
-                                <span className="text-xs text-slate-400 block mb-1">Execução</span>
-                                <span className="text-sm font-semibold text-slate-700">
-                                  {item.execution_percentage != null ? `${item.execution_percentage}%` : '-'}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Dynamic Date Display based on Status */}
-                          <div className="mb-4 pt-3 border-t border-slate-200/60 text-xs space-y-3">
-                            
-                            {/* Unfinished / Inacabada */}
-                            {item.status === 'unfinished' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
-                                  </div>
-                                )}
-                                {item.end_date && (
-                                  <div>
-                                    <span className="text-orange-600 font-medium mb-1 block">Encerramento/Rescisão</span>
-                                    <span className="text-orange-700 font-bold text-sm">{formatDate(item.end_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Stalled / Paralisada */}
-                            {item.status === 'stalled' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
-                                  </div>
-                                )}
-                                {item.stalled_date && (
-                                  <div>
-                                    <span className="text-red-600 font-medium mb-1 block">Data de Paralisação</span>
-                                    <span className="text-red-700 font-bold text-sm">{formatDate(item.stalled_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* In Progress / Em Andamento */}
-                            {item.status === 'in-progress' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
-                                  </div>
-                                )}
-                                {item.expected_end_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Término</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.expected_end_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Completed / Concluída */}
-                            {item.status === 'completed' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Início Real</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
-                                  </div>
-                                )}
-                                {item.end_date && (
-                                  <div>
-                                    <span className="text-emerald-600 font-medium mb-1 block">Conclusão Real</span>
-                                    <span className="text-emerald-700 font-bold text-sm">{formatDate(item.end_date)}</span>
-                                  </div>
-                                )}
-                                {item.inauguration_date && (
-                                  <div className="col-span-2 pt-2 mt-1 border-t border-slate-100">
-                                     <span className="text-emerald-600 font-medium mb-1 block">Inauguração</span>
-                                     <span className="text-emerald-700 font-bold text-sm">{formatDate(item.inauguration_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Planned / Tendered */}
-                            {['planned', 'tendered'].includes(item.status) && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {item.predicted_start_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Início</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.predicted_start_date)}</span>
-                                  </div>
-                                )}
-                                {item.expected_end_date && (
-                                  <div>
-                                    <span className="text-slate-400 font-medium mb-1 block">Previsão de Conclusão</span>
-                                    <span className="text-slate-700 font-medium text-sm">{formatDate(item.expected_end_date)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="w-full bg-white hover:bg-slate-50 hover:text-red-800 text-red-600 border-slate-200 h-auto py-2 whitespace-normal text-left justify-center sm:justify-start"
-                            onClick={() => setSelectedMeasurement({...item, media: phaseMedia, docs: phaseDocs})}
-                          >
-                            <Eye className="w-4 h-4 mr-2 flex-shrink-0" />
-                            Ver Detalhes e Arquivos
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-slate-500 text-center py-8">Nenhuma atividade registrada.</p>
-                )}
-              </div>
-            </div>
-
-            <Separator className="my-0" />
-
             {biddings && biddings.length > 0 && (
-              <div className="p-6 md:p-8 bg-white border-t border-slate-100">
+              <div className="p-6 md:p-8 bg-card border-t border-border">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                  <h3 className="text-lg font-bold text-foreground flex items-center">
                     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 mr-3 shadow-sm border border-emerald-100/50">
                       <Calculator className="w-4 h-4" />
                     </div>
-                    Pagamentos
+                    Pagamentos{currentMeasurement?.title ? ` - ${currentMeasurement.title}` : ''}
                   </h3>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold w-full sm:w-fit">
-                      Total pago: {formatCurrency(totalSpentFromPayments)}
+                      Total pago: {formatCurrency(paymentsTotalToShow)}
                     </Badge>
                     {user?.is_admin && (
-                      <Button variant="outline" className="bg-white w-full sm:w-auto" onClick={openNewPaymentDialog}>
+                      <Button variant="outline" className="bg-card w-full sm:w-auto" onClick={openNewPaymentDialog}>
                         <DollarSign className="w-4 h-4 mr-2" />
                         Adicionar pagamento
                       </Button>
@@ -1260,13 +1079,13 @@ const WorkDetailsPage = () => {
                   </div>
                 </div>
 
-                {allPayments.length > 0 ? (
+                {paymentsToShow.length > 0 ? (
                   <>
                     <div className="sm:hidden space-y-3">
-                      {[...allPayments]
+                      {[...paymentsToShow]
                         .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
                         .map((payment) => (
-                          <div key={payment.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                          <div key={payment.id} className="bg-card border border-border rounded-xl p-4 shadow-sm">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <div className="text-sm font-semibold text-blue-700 whitespace-nowrap">{formatDate(payment.payment_date)}</div>
@@ -1274,7 +1093,7 @@ const WorkDetailsPage = () => {
                               </div>
 
                               {payment.portal_link ? (
-                                <Button asChild size="icon" variant="ghost" className="h-9 text-slate-500 hover:bg-slate-50">
+                                <Button asChild size="icon" variant="ghost" className="h-9 text-slate-500 hover:bg-muted/40">
                                   <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência" className='underline'>
                                     fonte
                                    
@@ -1305,7 +1124,7 @@ const WorkDetailsPage = () => {
                               </div>
                             </div>
 
-                            {payment.measurement_title ? (
+                            {!currentMeasurement?.id && payment.measurement_title ? (
                               <div className="mt-3 flex justify-end">
                                 <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
                                   {payment.measurement_title}
@@ -1327,13 +1146,13 @@ const WorkDetailsPage = () => {
                                 <th className="hidden md:table-cell text-left px-3 py-2 font-bold w-[128px]">Descrição</th>
                                 <th className="hidden md:table-cell text-left px-3 py-2 font-bold w-[48px]">Parcela</th>
                                 <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Credor</th>
-                                <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Fase</th>
+                                {!currentMeasurement?.id && <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Fase</th>}
                                 <th className="px-3 py-2 font-bold text-center w-[64px]">Valor</th>
                                 <th className="px-3 py-2 font-bold w-[64px]">Fonte</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y text-xs">
-                              {[...allPayments]
+                              {[...paymentsToShow]
                                 .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
                                 .map((payment) => (
                                   <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
@@ -1350,7 +1169,7 @@ const WorkDetailsPage = () => {
                                     </td>
                                     <td className="hidden md:table-cell px-3 py-2 text-slate-600 w-[72px]">{payment.installment || '-'}</td>
                                     <td className="hidden xl:table-cell px-3 py-2 text-slate-600">{payment.creditor_name ? payment.creditor_name.toLowerCase() : 'Não informado'}</td>
-                                    <td className="hidden xl:table-cell px-3 py-2 text-slate-500">{payment.measurement_title || '-'}</td>
+                                    {!currentMeasurement?.id && <td className="hidden xl:table-cell px-3 py-2 text-slate-500">{payment.measurement_title || '-'}</td>}
                                     <td className="px-3 py-2 align-center font-bold text-blue-700 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
                                     <td className="px-3 py-2 align-top">
                                       {payment.portal_link ? (
@@ -1370,13 +1189,13 @@ const WorkDetailsPage = () => {
                             <tfoot className="border-t bg-slate-50/50">
                               <tr className="xl:hidden">
                                 <td className="px-3 py-2 font-bold text-slate-600" colSpan={4}>Somatório</td>
-                                <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(totalSpentFromPayments)}</td>
+                                <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(paymentsTotalToShow)}</td>
                                 <td className="px-3 py-2"></td>
                               </tr>
                               <tr className="hidden xl:table-row">
-                                <td className="px-3 py-2 font-bold text-slate-600" colSpan={6}>Somatório</td>
+                                <td className="px-3 py-2 font-bold text-slate-600" colSpan={currentMeasurement?.id ? 5 : 6}>Somatório</td>
                                 
-                                <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(totalSpentFromPayments)}</td>
+                                <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(paymentsTotalToShow)}</td>
                               </tr>
                             </tfoot>
                           </table>
@@ -1386,7 +1205,7 @@ const WorkDetailsPage = () => {
                   </>
                 ) : (
                   <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
-                    <p className="text-sm text-slate-400">Nenhum pagamento registrado para esta obra.</p>
+                    <p className="text-sm text-slate-400">Nenhum pagamento registrado para esta fase.</p>
                     {user?.is_admin && (
                       <div className="mt-4">
                         <Button variant="outline" className="bg-white" onClick={openNewPaymentDialog}>
@@ -1508,7 +1327,7 @@ const WorkDetailsPage = () => {
 
             {/* Galeria e Documentos */}
             <div className="p-6 md:p-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                  <ImageIcon className="w-5 h-5 text-red-500" />
                  Galeria e Documentos
               </h3>
@@ -1517,23 +1336,19 @@ const WorkDetailsPage = () => {
               {(() => {
                 const groups = {};
                 // Group media by gallery_name
-                mainGalleryMedia.forEach(item => {
+                currentPhaseMedia.forEach(item => {
                   if (!['image', 'photo', 'video', 'video_url'].includes(item.type)) return;
-                  const name = item.gallery_name || 'Geral';
+                  const name = item.gallery_name || currentMeasurement?.title || 'Galeria';
                   if (!groups[name]) groups[name] = [];
                   groups[name].push(item);
                 });
 
-                const sortedNames = Object.keys(groups).sort((a, b) => {
-                  if (a === 'Geral') return -1;
-                  if (b === 'Geral') return 1;
-                  return a.localeCompare(b);
-                });
+                const sortedNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
 
-                if (sortedNames.length === 0 && (!documents || documents.length === 0)) {
+                if (sortedNames.length === 0 && (!currentPhaseDocuments || currentPhaseDocuments.length === 0)) {
                   return (
-                    <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/50">
-                       <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <div className="py-12 text-center border-2 border-dashed border-border rounded-xl bg-muted/30">
+                       <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                           <ImageIcon className="w-6 h-6 text-slate-300" />
                        </div>
                        <p className="text-sm text-slate-500 font-medium">Nenhuma mídia disponível</p>
@@ -1550,12 +1365,8 @@ const WorkDetailsPage = () => {
                   return (
                     <div key={name} className="mb-10">
                       <h4 className="text-sm font-bold text-blue-950 mb-4 flex items-center gap-2 uppercase tracking-wide">
-                        {name === 'Geral' ? (
-                          <ImageIcon className="w-4 h-4 text-blue-900" /> 
-                        ) : (
-                          <FolderOpen className="w-4 h-4 text-blue-900" /> 
-                        )}
-                        {name === 'Geral' ? 'Galeria Geral' : name}
+                        <FolderOpen className="w-4 h-4 text-blue-900" />
+                        {name}
                       </h4>
                       
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -1565,7 +1376,7 @@ const WorkDetailsPage = () => {
                             className="group cursor-pointer"
                             onClick={() => openViewer(items, idx)}
                           >
-                            <div className="aspect-[4/3] rounded-xl overflow-hidden mb-2 relative bg-gray-100 shadow-sm border border-gray-100">
+                            <div className="aspect-[4/3] rounded-xl overflow-hidden mb-2 relative bg-muted shadow-sm border border-border">
                               {['video', 'video_url'].includes(item.type) ? (
                                  <div className="w-full h-full flex items-center justify-center bg-slate-900">
                                     <Video className="w-10 h-10 text-white/80 group-hover:scale-110 transition-transform" />
@@ -1606,32 +1417,32 @@ const WorkDetailsPage = () => {
               })()}
 
                {/* Documentos */}
-               {documents && documents.length > 0 && (
+               {currentPhaseDocuments && currentPhaseDocuments.length > 0 && (
                 <div>
-                  <h4 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2 uppercase tracking-wide text-xs">
-                    <FileText className="w-4 h-4 text-gray-400" /> Documentos
+                  <h4 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2 uppercase tracking-wide text-xs">
+                    <FileText className="w-4 h-4 text-muted-foreground" /> Documentos
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {documents.map((doc) => (
+                    {currentPhaseDocuments.map((doc) => (
                       <a 
                         key={doc.id}
                         href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center p-3 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50/30 transition-all group"
+                        className="flex items-center p-3 rounded-xl border border-border hover:border-red-200 hover:bg-red-50/30 transition-all group"
                       >
                         <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-red-500 mr-3 shrink-0 group-hover:bg-red-100 transition-colors">
                           <FileText className="w-5 h-5" />
                         </div>
                         <div className="overflow-hidden">
-                          <p className="text-sm font-medium text-gray-700 truncate group-hover:text-red-700 transition-colors">
+                          <p className="text-sm font-medium text-foreground truncate group-hover:text-red-700 transition-colors">
                             {doc.title || doc.name || 'Documento sem título'}
                           </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {doc.created_at ? formatDate(doc.created_at) : 'Data não informada'}
                           </p>
                         </div>
-                        <ArrowUpRight className="w-4 h-4 text-gray-300 ml-auto group-hover:text-red-400 transition-colors" />
+                        <ArrowUpRight className="w-4 h-4 text-muted-foreground/60 ml-auto group-hover:text-red-400 transition-colors" />
                       </a>
                     ))}
                   </div>
@@ -1641,14 +1452,119 @@ const WorkDetailsPage = () => {
 
             <Separator className="my-0" />
 
+            <div className="p-6 md:p-8">
+              <h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-600 mr-3 shadow-sm border border-blue-100/50">
+                  <Activity className="w-4 h-4" />
+                </div>
+                Histórico de Licitações
+              </h3>
+
+              <div className="relative pl-4 sm:pl-6 space-y-8 before:absolute before:left-4 sm:before:left-6 before:h-full before:w-[2px] before:bg-slate-100">
+                {measurements.length > 0 ? (
+                  measurements.map((item) => {
+                    const phaseMedia = viewableMedia.filter(m => m.measurement_id === item.id);
+                    const phaseDocs = media.filter(m => m.measurement_id === item.id && (m.type === 'pdf' || m.type === 'document' || m.type === 'file'));
+                    return (
+                      <div key={item.id} className="relative pl-8">
+                        <div className={`absolute -left-[7px] top-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm ${getStatusInfo(item.status).bg.replace('bg-', 'bg-')}`} />
+                        <div className="bg-muted/30 p-5 rounded-xl border transition-colors border-border hover:border-slate-300">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-base text-slate-800">
+                                {item.title}
+                              </h4>
+                            </div>
+                          </div>
+                          
+                          {item.description && (
+                            <p className="text-slate-600 mb-4 text-sm leading-relaxed">{item.description}</p>
+                          )}
+                          
+                          {item.contractor && (
+                            <div className="flex items-center gap-2 mb-4 text-sm text-slate-700 bg-white/60 p-2.5 rounded-lg border border-slate-200/60">
+                              <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                              <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 whitespace-nowrap">Construtora:</span>
+                              <span className="font-medium truncate">{item.contractor.name}</span>
+                            </div>
+                          )}
+                          
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div className="col-span-2 sm:col-span-1">
+                              <span className="text-xs text-slate-400 block mb-1">Status</span>
+                              <Badge variant="outline" className={`${getStatusInfo(item.status).color} ${getStatusInfo(item.status).bg} border-none`}>
+                                {getStatusInfo(item.status).text}
+                              </Badge>
+                            </div>
+
+                            {item.execution_percentage != null && (
+                              <div className="col-span-2 sm:col-span-1">
+                                <span className="text-xs text-slate-400 block mb-1">Execução</span>
+                                <span className="text-sm font-semibold text-slate-700">
+                                  {`${item.execution_percentage}%`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mb-4 pt-3 border-t border-slate-200/60 text-xs space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {item.start_date && (
+                                <div>
+                                  <span className="text-slate-400 font-medium mb-1 block">Início</span>
+                                  <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
+                                </div>
+                              )}
+                              {item.end_date && (
+                                <div>
+                                  <span className="text-slate-400 font-medium mb-1 block">Término</span>
+                                  <span className="text-slate-700 font-medium text-sm">{formatDate(item.end_date)}</span>
+                                </div>
+                              )}
+                              {item.predicted_start_date && (
+                                <div>
+                                  <span className="text-slate-400 font-medium mb-1 block">Previsão Início</span>
+                                  <span className="text-slate-700 font-medium text-sm">{formatDate(item.predicted_start_date)}</span>
+                                </div>
+                              )}
+                              {item.expected_end_date && (
+                                <div>
+                                  <span className="text-slate-400 font-medium mb-1 block">Previsão Conclusão</span>
+                                  <span className="text-slate-700 font-medium text-sm">{formatDate(item.expected_end_date)}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full bg-white hover:bg-slate-50 hover:text-red-800 text-red-600 border-slate-200 h-auto py-2 whitespace-normal text-left justify-center sm:justify-start"
+                            onClick={() => setSelectedMeasurement({...item, media: phaseMedia, docs: phaseDocs})}
+                          >
+                            <Eye className="w-4 h-4 mr-2 flex-shrink-0" />
+                            Ver Detalhes e Arquivos
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-slate-500 text-center py-8">Nenhuma atividade registrada.</p>
+                )}
+              </div>
+            </div>
+
+            <Separator className="my-0" />
+
             {/* Contribution CTA */}
-            <div className="hidden lg:block p-6 md:p-8 bg-slate-50 border-t border-slate-100">
+            <div className="hidden lg:block p-6 md:p-8 bg-muted/30 border-t border-border">
               <div className="text-center max-w-2xl mx-auto">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
+                <div className="w-12 h-12 bg-card rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-border">
                   <UploadCloud className="w-6 h-6 text-red-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Tem informações sobre esta obra?</h2>
-                <p className="text-gray-600 mb-6 text-sm">
+                <h2 className="text-xl font-bold text-foreground mb-2">Tem informações sobre esta obra?</h2>
+                <p className="text-muted-foreground mb-6 text-sm">
                   Ajude-nos a manter os dados atualizados enviando fotos, vídeos ou relatórios.
                 </p>
                 <Button onClick={handleOpenContrib} className="bg-red-600 hover:bg-red-700 text-white px-8 font-medium shadow-md shadow-red-100">
@@ -1658,10 +1574,10 @@ const WorkDetailsPage = () => {
       
             </div>
               <div className="hidden lg:block text-center max-w-2xl mx-auto mb-12 mt-6">
-           <p className="text-xs text-gray-400 leading-relaxed">
+           <p className="text-xs text-muted-foreground leading-relaxed">
              Os dados são provenientes de portais de transparência e verificados pela equipe. 
              Podem haver divergências temporais.
-             <button onClick={() => setShowReportDialog(true)} className="ml-1 text-gray-500 underline hover:text-gray-700">
+             <button onClick={() => setShowReportDialog(true)} className="ml-1 text-muted-foreground underline hover:text-foreground">
                Reportar erro
              </button>
            </p>
@@ -1674,10 +1590,10 @@ const WorkDetailsPage = () => {
           </div>
 
           {/* Sidebar Column (LG+) */}
-          <div className="hidden lg:block lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="font-bold text-gray-900 flex items-center">
+          <div className="hidden lg:block lg:col-span-1 space-y-6">
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h3 className="font-bold text-foreground flex items-center">
                   <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
                     <MapPin className="w-4 h-4" />
                   </div>
@@ -1688,21 +1604,21 @@ const WorkDetailsPage = () => {
                 <WorkMap location={work.location} bairro={work.bairro?.name} />
               </div>
               
-              <div className="px-4 py-4 bg-slate-50 space-y-3">
+              <div className="px-4 py-4 bg-muted/30 space-y-3">
                  <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                     <div>
                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
-                       <p className="text-sm font-medium text-slate-700 leading-tight">{work.address || 'Não informado'}</p>
+                       <p className="text-sm font-medium text-foreground leading-tight">{work.address || 'Não informado'}</p>
                     </div>
                  </div>
                  
                  {work.bairro && (
-                   <div className="flex items-start gap-3 pt-3 border-t border-slate-200/60">
+                   <div className="flex items-start gap-3 pt-3 border-t border-border">
                       <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                       <div>
                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
-                         <p className="text-sm font-medium text-slate-700 leading-tight">{work.bairro.name}</p>
+                         <p className="text-sm font-medium text-foreground leading-tight">{work.bairro.name}</p>
                       </div>
                    </div>
                  )}
@@ -1710,8 +1626,8 @@ const WorkDetailsPage = () => {
             </div>
 
             {Array.isArray(work.related_links) && work.related_links.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+              <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+                <h3 className="font-bold text-foreground mb-4 flex items-center">
                   <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
                     <Link2 className="w-4 h-4" />
                   </div>
@@ -1724,48 +1640,17 @@ const WorkDetailsPage = () => {
                       href={link.url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="flex items-start justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+                      className="flex items-start justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group"
                     >
-                      <span className="text-sm font-medium text-gray-700 break-words leading-snug">{link.title}</span>
-                      <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
+                      <span className="text-sm font-medium text-foreground break-words leading-snug">{link.title}</span>
+                      <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                     </a>
                   ))}
                 </div>
               </div>
             )}
 
-            {relatedNews.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
-                    <Newspaper className="w-4 h-4" />
-                  </div>
-                  Notícias relacionadas
-                </h3>
-                <div className="space-y-3">
-                  {relatedNews.map((n) => {
-                    const d = n.date ? new Date(n.date) : null;
-                    const valid = d && !isNaN(d.getTime());
-                    return (
-                      <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                        <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                          {n.image_url ? (
-                            <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm leading-tight">{n.title}</p>
-                          {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
-                        </div>
-                        <ArrowUpRight className="w-4 h-4 text-gray-400" />
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            
 
             </div>
           {/* Sidebar Column (Mobile/Tablet Only) */}
@@ -1773,9 +1658,9 @@ const WorkDetailsPage = () => {
             
             
             {/* Map Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="font-bold text-gray-900 flex items-center">
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h3 className="font-bold text-foreground flex items-center">
                   <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
                     <MapPin className="w-4 h-4" />
                   </div>
@@ -1786,21 +1671,21 @@ const WorkDetailsPage = () => {
                 <WorkMap location={work.location} bairro={work.bairro?.name} />
               </div>
               
-              <div className="px-4 py-4 bg-slate-50 space-y-3">
+              <div className="px-4 py-4 bg-muted/30 space-y-3">
                  <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                     <div>
                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
-                       <p className="text-sm font-medium text-slate-700 leading-tight">{work.address || 'Não informado'}</p>
+                       <p className="text-sm font-medium text-foreground leading-tight">{work.address || 'Não informado'}</p>
                     </div>
                  </div>
                  
                  {work.bairro && (
-                   <div className="flex items-start gap-3 pt-3 border-t border-slate-200/60">
+                   <div className="flex items-start gap-3 pt-3 border-t border-border">
                       <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                       <div>
                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
-                         <p className="text-sm font-medium text-slate-700 leading-tight">{work.bairro.name}</p>
+                         <p className="text-sm font-medium text-foreground leading-tight">{work.bairro.name}</p>
                       </div>
                    </div>
                  )}
@@ -1812,8 +1697,8 @@ const WorkDetailsPage = () => {
             
             {/* Links */}
             {Array.isArray(work.related_links) && work.related_links.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+              <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+                <h3 className="font-bold text-foreground mb-4 flex items-center">
                   <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
                     <Link2 className="w-4 h-4" />
                   </div>
@@ -1826,57 +1711,26 @@ const WorkDetailsPage = () => {
                       href={link.url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="flex items-start justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+                      className="flex items-start justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group"
                     >
-                      <span className="text-sm font-medium text-gray-700 break-words leading-snug">{link.title}</span>
-                      <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
+                      <span className="text-sm font-medium text-foreground break-words leading-snug">{link.title}</span>
+                      <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                     </a>
                   ))}
                 </div>
               </div>
             )}
 
-            {relatedNews.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
-                    <Newspaper className="w-4 h-4" />
-                  </div>
-                  Notícias relacionadas
-                </h3>
-                <div className="space-y-3">
-                  {relatedNews.map((n) => {
-                    const d = n.date ? new Date(n.date) : null;
-                    const valid = d && !isNaN(d.getTime());
-                    return (
-                      <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                        <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                          {n.image_url ? (
-                            <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm leading-tight">{n.title}</p>
-                          {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
-                        </div>
-                        <ArrowUpRight className="w-4 h-4 text-gray-400" />
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            
 
             {/* Mobile Contribution CTA & Disclaimer */}
             <div className="lg:hidden space-y-6 pt-4">
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center">
-                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+              <div className="bg-card rounded-2xl border border-border shadow-sm p-6 text-center">
+                <div className="w-12 h-12 bg-muted/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-border">
                   <UploadCloud className="w-6 h-6 text-red-600" />
                 </div>
-                <h2 className="text-lg font-bold text-gray-900 mb-2">Tem informações?</h2>
-                <p className="text-gray-600 mb-6 text-sm">
+                <h2 className="text-lg font-bold text-foreground mb-2">Tem informações?</h2>
+                <p className="text-muted-foreground mb-6 text-sm">
                   Ajude a manter os dados atualizados enviando fotos ou relatórios.
                 </p>
                 <Button onClick={handleOpenContrib} className="w-full bg-red-600 hover:bg-red-700 text-white font-medium shadow-md shadow-red-100">
@@ -1885,43 +1739,10 @@ const WorkDetailsPage = () => {
                 </Button>
               </div>
 
-              {relatedNews.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                  <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 text-sky-600 mr-3 shadow-sm border border-sky-100/50">
-                      <Newspaper className="w-4 h-4" />
-                    </div>
-                    Notícias relacionadas
-                  </h3>
-                  <div className="space-y-3">
-                    {relatedNews.map((n) => {
-                      const d = n.date ? new Date(n.date) : null;
-                      const valid = d && !isNaN(d.getTime());
-                      return (
-                        <Link key={n.id} to={`/noticias/${n.id}`} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                          <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                            {n.image_url ? (
-                              <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem imagem</div>
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-sm leading-tight">{n.title}</p>
-                            {valid && <p className="text-xs text-muted-foreground">{d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>}
-                          </div>
-                          <ArrowUpRight className="w-4 h-4 text-gray-400" />
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               <div className="text-center px-4 pb-8">
-                 <p className="text-xs text-gray-400 leading-relaxed">
+                 <p className="text-xs text-muted-foreground leading-relaxed">
                    Os dados são verificados pela equipe. Podem haver divergências.
-                   <button onClick={() => setShowReportDialog(true)} className="ml-1 text-gray-500 underline hover:text-gray-700">
+                   <button onClick={() => setShowReportDialog(true)} className="ml-1 text-muted-foreground underline hover:text-foreground">
                      Reportar erro
                    </button>
                  </p>
