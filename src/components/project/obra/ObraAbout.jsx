@@ -5,6 +5,7 @@ export function ObraAbout({ description }) {
 
   return (
     <section className="bg-card rounded-lg border p-6">
+      
       <div className="flex items-center gap-2 mb-4">
         <FileText className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-semibold">Sobre a Obra</h2>

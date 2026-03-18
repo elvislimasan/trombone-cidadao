@@ -900,7 +900,7 @@ export default function WorkDetailsPageProject() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#f9fafb]">
       <ObraHeader
         title={work.title}
         subtitle={work.work_category?.name || ""}
@@ -918,9 +918,9 @@ export default function WorkDetailsPageProject() {
           <div className="lg:col-span-2 space-y-6">
             {heroImageUrl ? <ObraHero imageUrl={heroImageUrl} title={work.title} /> : null}
 
+            <ObraAbout description={work.long_description || work.description} />
             <ObraProgress percentage={overallProgress} />
 
-            <ObraAbout description={work.long_description || work.description} />
 
             <section className="bg-card rounded-lg border border-primary/20 overflow-hidden">
               <ObraCurrentPhase
