@@ -6,6 +6,7 @@ function formatCurrency(value) {
 
 export function ObraFinancial({
   fundingSource,
+  fundingAmounts,
   parliamentaryAmendment,
   contractValue,
   expectedValue,
@@ -26,7 +27,32 @@ export function ObraFinancial({
     return !t || t === "-" || t === "n/a" || t === "nao informado" || t === "nao informada";
   };
 
-  const hasFundingSource = !isEmptyValue(fundingSource);
+  const fundingSourceParts = String(fundingSource || "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) =>
+      p === "state" || p === "estadual"
+        ? "Estadual"
+        : p === "federal"
+        ? "Federal"
+        : p === "municipal"
+        ? "Municipal"
+        : p === "estaduais"
+        ? "Estadual"
+        : p
+    );
+
+  const normalizedFundingSource = fundingSourceParts.join(", ");
+
+  const amounts = fundingAmounts && typeof fundingAmounts === "object" ? fundingAmounts : null;
+  const fundingFederal = amounts ? Number(amounts.federal) || 0 : 0;
+  const fundingState = amounts ? (Number(amounts.estadual) || Number(amounts.state) || 0) : 0;
+  const fundingMunicipal = amounts ? Number(amounts.municipal) || 0 : 0;
+
+  const hasFundingAmounts = fundingFederal > 0 &&  fundingSourceParts.includes('Federal') || fundingState > 0 && fundingSourceParts.includes('Estadual') || fundingMunicipal > 0 && fundingSourceParts.includes('Municipal');
+
+  const hasFundingSource = !isEmptyValue(normalizedFundingSource) || hasFundingAmounts;
   const hasParliamentaryAmendment = !isEmptyValue(parliamentaryAmendment);
   const hasContractValue = Number(contractValue) > 0;
   const hasExpectedValue = Number(expectedValue) > 0;
@@ -40,14 +66,45 @@ export function ObraFinancial({
         <h2 className="text-[11px] uppercase tracking-wider text-muted-foreground">Financeiro</h2>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className={`grid grid-cols-1 ${hasFundingAmounts ?'sm:grid-cols-3 md:grid-cols-3' : "sm:grid-cols-4 md:grid-cols-4"} gap-3 sm:gap-2`}>
         {hasFundingSource ? (
-          <div className="rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm">
+          <div className={`rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm ${hasFundingAmounts ? "col-span-3" : "col-span-1"}`}>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Landmark className="h-4 w-4 text-red-500" />
               <span className="text-[10px] uppercase tracking-wide">Fonte de Recurso</span>
             </div>
-            <div className="mt-3 sm:mt-2 lg:mt-2 font-semibold text-sm lg:text-[13px] leading-snug break-words text-foreground">{fundingSource}</div>
+            <div className="mt-3 sm:mt-2 lg:mt-2 font-semibold text-sm lg:text-[13px] leading-snug whitespace-normal break-normal text-foreground">
+              {fundingSourceParts.length > 0
+                ? fundingSourceParts.map((label, idx) => (
+                    <span key={`${label}-${idx}`}>
+                      {label}
+                      {idx < fundingSourceParts.length - 1 ? ", " : ""}
+                    </span>
+                  ))
+                : "-"}
+            </div>
+            {hasFundingAmounts ? (
+              <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                {fundingFederal > 0 && fundingSourceParts.includes("Federal") ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Federal</span>
+                    <span className="font-semibold text-foreground whitespace-nowrap tabular-nums">{formatCurrency(fundingFederal)}</span>
+                  </div>
+                ) : null}
+                {fundingState > 0 && fundingSourceParts.includes("Estadual") ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Estadual</span>
+                    <span className="font-semibold text-foreground whitespace-nowrap tabular-nums">{formatCurrency(fundingState)}</span>
+                  </div>
+                ) : null}
+                {fundingMunicipal > 0 && fundingSourceParts.includes("Municipal") ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Municipal</span>
+                    <span className="font-semibold text-foreground whitespace-nowrap tabular-nums">{formatCurrency(fundingMunicipal)}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 

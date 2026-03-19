@@ -21,7 +21,7 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
   const Container = embedded ? "div" : "section";
   const containerClassName = embedded ? "px-6 pb-6" : "bg-card rounded-xl border border-border overflow-hidden ";
   const hasAnyCard = hasContractorName || hasCnpj || hasCategory;
-  const hasMeta = Boolean(phase.contractNumber || phase.biddingProcessNumber || phase.portalLink);
+  const hasMeta = Boolean(phase.contractNumber || phase.biddingProcessNumber || phase.contractPortalLink || phase.biddingProcessPortalLink);
   const bodyClassName = embedded ? "pt-6 lg:pt-5 2xl:pt-6" : "p-4 sm:p-5 lg:p-4 2xl:p-6";
 
   return (
@@ -68,23 +68,37 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
               <div className="flex flex-col sm:justify-between sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4">
                 {phase.contractNumber ? (
                   <div>
-                    Contrato: <span className="font-semibold text-white">{phase.contractNumber}</span>
+                    N° do Contrato:{" "}
+                    {phase.contractPortalLink ? (
+                      <a
+                        href={phase.contractPortalLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-white underline underline-offset-2"
+                      >
+                        {phase.contractNumber}
+                      </a>
+                    ) : (
+                      <span className="font-semibold text-white">{phase.contractNumber}</span>
+                    )}
                   </div>
                 ) : null}
                 {phase.biddingProcessNumber ? (
                   <div>
-                    Processo: <span className="font-semibold text-white">{phase.biddingProcessNumber}</span>
+                    Processo licitatório:{" "}
+                    {phase.biddingProcessPortalLink ? (
+                      <a
+                        href={phase.biddingProcessPortalLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-white underline underline-offset-2"
+                      >
+                        {phase.biddingProcessNumber}
+                      </a>
+                    ) : (
+                      <span className="font-semibold text-white">{phase.biddingProcessNumber}</span>
+                    )}
                   </div>
-                ) : null}
-                {phase.portalLink ? (
-                  <a
-                    href={phase.portalLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white underline underline-offset-2"
-                  >
-                    Portal da Transparência
-                  </a>
                 ) : null}
               </div>
             </div>
