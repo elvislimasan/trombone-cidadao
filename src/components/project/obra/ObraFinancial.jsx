@@ -12,7 +12,7 @@ export function ObraFinancial({
   embedded = false,
 }) {
   const Container = embedded ? "div" : "section";
-  const containerClassName = embedded ? "p-6" : "bg-card rounded-lg border p-6";
+  const containerClassName = embedded ? "p-4 sm:p-6" : "bg-card rounded-lg border p-4 sm:p-6";
 
   const simplifyText = (value) =>
     String(value || "")
@@ -36,47 +36,48 @@ export function ObraFinancial({
   return (
     <Container className={containerClassName}>
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-lg font-semibold">Financeiro</h2>
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+        <h2 className="text-[11px] uppercase tracking-wider text-muted-foreground">Financeiro</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {hasFundingSource ? (
-          <div className="rounded-lg border bg-muted/20 p-4">
+          <div className="rounded-xl border bg-card p-5 sm:p-4 shadow-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Landmark className="h-4 w-4 text-red-500" />
-              <span className="text-xs">Fonte de Recurso</span>
+              <span className="text-[10px] uppercase tracking-wide">Fonte de Recurso</span>
             </div>
-            <div className="mt-2 font-semibold text-sm text-foreground">{fundingSource}</div>
+            <div className="mt-3 sm:mt-2 font-semibold text-sm leading-snug break-words text-foreground">{fundingSource}</div>
           </div>
         ) : null}
 
         {hasParliamentaryAmendment ? (
-          <div className="rounded-lg border bg-muted/20 p-4">
+          <div className="rounded-xl border bg-card p-5 sm:p-4 shadow-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <User className="h-4 w-4 text-red-500" />
-              <span className="text-xs">Emenda Parlamentar</span>
+              <span className="text-[10px] uppercase tracking-wide">Emenda Parlamentar</span>
             </div>
-            <div className="mt-2 font-semibold text-sm text-foreground">{parliamentaryAmendment}</div>
+            <div className="mt-3 sm:mt-2 font-semibold text-sm leading-snug break-words text-foreground">{parliamentaryAmendment}</div>
           </div>
         ) : null}
 
         {hasContractValue ? (
-          <div className="rounded-lg border bg-muted/20 p-4">
+          <div className="rounded-xl border bg-card p-5 sm:p-4 shadow-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <DollarSign className="h-4 w-4 text-red-500" />
-              <span className="text-xs">Valor Contratado (Fase Atual)</span>
+              <span className="text-[10px] uppercase tracking-wide">Valor Contratado (Fase Atual)</span>
             </div>
-            <div className="mt-2 font-semibold text-sm text-foreground">{formatCurrency(contractValue)}</div>
+            <div className="mt-3 sm:mt-2 font-semibold text-sm leading-snug break-words text-foreground">{formatCurrency(contractValue)}</div>
           </div>
         ) : null}
 
         {hasExpectedValue ? (
-          <div className="rounded-lg border bg-muted/20 p-4">
+          <div className="rounded-xl border bg-card p-5 sm:p-4 shadow-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <DollarSign className="h-4 w-4 text-red-500" />
-              <span className="text-xs">Valor Previsto (Fase Atual)</span>
+              <span className="text-[10px] uppercase tracking-wide">Valor Previsto (Fase Atual)</span>
             </div>
-            <div className="mt-2 font-semibold text-sm text-foreground">{formatCurrency(expectedValue)}</div>
+            <div className="mt-3 sm:mt-2 font-semibold text-sm leading-snug break-words text-foreground">{formatCurrency(expectedValue)}</div>
           </div>
         ) : null}
       </div>

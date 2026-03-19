@@ -968,19 +968,19 @@ export default function WorkDetailsPageProject() {
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-foreground leading-tight tracking-tight">
                   {work.title}
                 </h1>
+              </div>
 
-                {work.long_description || work.description ? (
-                  <div className="mt-4 text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+              <div className="px-6 pb-6">
+                <ObraProgress percentage={overallProgress} />
+
+                 {work.long_description || work.description ? (
+                  <div className="mt-6 text-base text-muted-foreground leading-relaxed whitespace-pre-line">
                     {work.long_description || work.description}
                   </div>
                 ) : null}
               </div>
 
-              <div className="px-6 pb-6">
-                <ObraProgress percentage={overallProgress} />
-              </div>
-
-              <div className="border-t pt-6 px-6">
+              <div className="border-t pt-6 px-6 mb-6">
                 <h2 className="text-2xl font-bold text-foreground mb-3">
                   Acompanhe tudo sobre a fase atual
                 </h2>
@@ -988,6 +988,7 @@ export default function WorkDetailsPageProject() {
                   Confira responsáveis, prazos e cronograma, pagamentos e todas as informações importantes sobre a execução desta fase da obra.
                 </p>
               </div>
+              <div className="mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-8">
 
               <ObraCurrentPhase
                 phase={phase}
@@ -996,37 +997,35 @@ export default function WorkDetailsPageProject() {
                 isAdmin={Boolean(user?.is_admin)}
                 embedded
               />
-
-              <div className="border-t">
-                <ObraTimeline executionDays={phase?.executionDays || 0} items={timelineItems} embedded />
-              </div>
-
-              {showFinancialSection ? (
                 <div className="border-t">
-                  <ObraFinancial
-                    fundingSource={fundingSourceText}
-                    parliamentaryAmendment={parliamentaryText}
-                    contractValue={currentMeasurement?.value || 0}
+                  <ObraTimeline executionDays={phase?.executionDays || 0} items={timelineItems} embedded />
+                </div>
+
+                {showFinancialSection ? (
+                  <div className="border-t">
+                    <ObraFinancial
+                      fundingSource={fundingSourceText}
+                      parliamentaryAmendment={parliamentaryText}
+                      contractValue={currentMeasurement?.value || 0}
+                      expectedValue={currentMeasurement?.expected_value || 0}
+                      embedded
+                    />
+                  </div>
+                ) : null}
+
+                <div className="border-t">
+                  <ObraPayments
+                    payments={paymentsForComponent}
+                    totalPaid={currentPhaseTotalPaid}
+                    phaseName={currentMeasurement?.title || ""}
                     expectedValue={currentMeasurement?.expected_value || 0}
+                    totalPaidAllPhases={totalPaidAllPhases}
+                    totalExpectedAllPhases={totalExpectedAllPhases}
                     embedded
+                    canAdd={Boolean(user?.is_admin)}
+                    onAddPayment={openNewPaymentDialog}
                   />
                 </div>
-              ) : null}
-
-              <div className="border-t">
-                <ObraPayments
-                  payments={paymentsForComponent}
-                  totalPaid={currentPhaseTotalPaid}
-                  phaseName={currentMeasurement?.title || ""}
-                  expectedValue={currentMeasurement?.expected_value || 0}
-                  totalPaidAllPhases={totalPaidAllPhases}
-                  totalExpectedAllPhases={totalExpectedAllPhases}
-                  embedded
-                  canAdd={Boolean(user?.is_admin)}
-                  onAddPayment={openNewPaymentDialog}
-                />
-              </div>
-
               <div className="border-t">
                 <ObraGallery
                   galleries={currentGalleries}
@@ -1038,6 +1037,9 @@ export default function WorkDetailsPageProject() {
                   onAdd={openPhaseMediaDialog}
                 />
               </div>
+              </div>
+
+
             </section>
             
               <ObraPhases phases={phases} currentPhaseId={currentPhaseId} onOpenDetails={openMeasurementDetails} />
