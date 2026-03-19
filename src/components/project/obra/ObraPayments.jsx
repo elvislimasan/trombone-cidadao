@@ -85,21 +85,25 @@ export function ObraPayments({
             </a>
             .
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-amber-50/70 dark:bg-slate-900/30">
-                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30">Pagamento</TableHead>
-                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30">Nº Empenho</TableHead>
-                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30">Descrição</TableHead>
-                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30 text-center">Parcela</TableHead>
-                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30">Credor</TableHead>
-                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30 text-right">Valor</TableHead>
-                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30 text-center">Portal</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list.map((payment) => (
-                <TableRow key={payment.id}>
+          <div className="rounded-lg border border-border overflow-hidden bg-background">
+            <Table>
+              <TableHeader className="bg-amber-100/80 dark:bg-slate-900/60">
+                <TableRow className="border-b border-amber-200/70 dark:border-slate-700 hover:bg-transparent">
+                  <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Pagamento</TableHead>
+                  <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nº Empenho</TableHead>
+                  <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Descrição</TableHead>
+                  <TableHead className="font-semibold text-slate-900 dark:text-slate-100 text-center">Parcela</TableHead>
+                  <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Credor</TableHead>
+                  <TableHead className="font-semibold text-slate-900 dark:text-slate-100 text-right">Valor</TableHead>
+                  <TableHead className="font-semibold text-slate-900 dark:text-slate-100 text-center">Portal</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {list.map((payment) => (
+                  <TableRow
+                    key={payment.id}
+                    className="odd:bg-background even:bg-slate-50/80 dark:even:bg-slate-900/20 hover:bg-slate-100/70 dark:hover:bg-slate-900/40"
+                  >
                   <TableCell className="font-medium">{payment.date}</TableCell>
                   <TableCell>{payment.orderNumber || "-"}</TableCell>
                   <TableCell className="max-w-48 truncate" title={payment.description}>
@@ -122,10 +126,11 @@ export function ObraPayments({
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       ) : (
         <div className="text-center py-8 text-muted-foreground">

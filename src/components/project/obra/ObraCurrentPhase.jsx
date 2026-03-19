@@ -69,7 +69,7 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
 
           {hasMeta ? (
             <div className="mt-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
-              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4">
+              <div className="flex flex-col sm:justify-between sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4">
                 {phase.contractNumber ? (
                   <div>
                     Contrato: <span className="font-semibold text-white">{phase.contractNumber}</span>
