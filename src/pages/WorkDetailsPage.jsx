@@ -300,7 +300,7 @@ const WorkDetailsPage = () => {
       }
       const { data: favoriteData, error: favoriteError } = await supabase
         .from('favorite_works')
-        .select('id')
+        .select('work_id')
         .eq('user_id', user.id)
         .eq('work_id', workId);
       if (!favoriteError) {

@@ -5,9 +5,9 @@ export function ObraRelatedLinks({ links }) {
   if (list.length === 0) return null;
 
   return (
-    <section className="bg-card rounded-lg border p-6">
+    <section className="bg-card rounded-xl border border-slate-200 shadow-sm p-6">
       <div className="flex items-center gap-2 mb-4">
-        <Link2 className="h-5 w-5 text-primary" />
+        <Link2 className="h-5 w-5 text-red-500" />
         <h2 className="text-lg font-semibold">Links Relacionados</h2>
       </div>
       <div className="space-y-2">
@@ -27,4 +27,3 @@ export function ObraRelatedLinks({ links }) {
     </section>
   );
 }
-

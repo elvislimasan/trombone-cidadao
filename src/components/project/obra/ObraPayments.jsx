@@ -19,64 +19,82 @@ export function ObraPayments({
   onAddPayment,
 }) {
   const Container = embedded ? "div" : "section";
-  const containerClassName = embedded ? "p-6" : "bg-card rounded-lg border p-6";
+  const containerClassName = embedded ? "p-4 sm:p-6" : "bg-card rounded-lg border p-4 sm:p-6";
   const list = Array.isArray(payments) ? payments : [];
   const phasePct = expectedValue ? Math.min((Number(totalPaid) / Number(expectedValue)) * 100, 100) : 0;
   const totalPct = totalExpectedAllPhases ? Math.min((Number(totalPaidAllPhases) / Number(totalExpectedAllPhases)) * 100, 100) : 0;
 
   return (
     <Container className={containerClassName}>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <Receipt className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">
-            Pagamentos {phaseName ? <span className="text-muted-foreground font-normal text-sm">- {phaseName}</span> : null}
+      <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 shrink-0" />
+          <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
+            <span className="truncate">Pagamentos</span>
+            {canAdd ? (
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={onAddPayment}
+                className="h-7 w-7 rounded-md sm:hidden"
+                aria-label="Adicionar pagamento"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
+            {phaseName ? <span className="hidden sm:inline text-muted-foreground font-normal text-sm">- {phaseName}</span> : null}
           </h2>
         </div>
-        <div className="flex items-center gap-3">
-          {canAdd && (
-            <Button size="sm" variant="outline" onClick={onAddPayment} className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-1" />
-              Adicionar pagamento
-            </Button>
-          )}
-        </div>
+
+        {canAdd ? (
+          <Button size="sm" variant="outline" onClick={onAddPayment} className="hidden sm:inline-flex">
+            <Plus className="h-4 w-4 mr-1" />
+            Adicionar pagamento
+          </Button>
+        ) : null}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
-          <div className="flex items-center gap-2 text-blue-700 font-semibold mb-2">
-            <Receipt className="h-4 w-4" />
-            Pago na Fase Atual
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-4 mb-4 sm:mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-5">
+          <div className="flex items-center gap-2 text-blue-700 font-semibold text-xs sm:text-sm mb-1.5 sm:mb-2">
+            <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span>Pago na Fase Atual</span>
           </div>
-          <div className="text-2xl font-bold text-blue-900 mb-3">{formatCurrency(totalPaid)}</div>
-          <Progress value={phasePct} className="h-2 bg-blue-100" indicatorClassName="bg-blue-600" />
-          <div className="text-xs text-blue-700 mt-2">{Math.round(phasePct)}%</div>
+          <div className="text-lg sm:text-2xl font-bold text-blue-900 mb-2 sm:mb-3">{formatCurrency(totalPaid)}</div>
+          <Progress value={phasePct} className="h-1.5 sm:h-2 bg-blue-100" indicatorClassName="bg-blue-600" />
+          <div className="text-[10px] sm:text-xs text-blue-700 mt-1.5 sm:mt-2">{Math.round(phasePct)}%</div>
         </div>
 
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-5">
-          <div className="flex items-center gap-2 text-emerald-700 font-semibold mb-2">
-            <Receipt className="h-4 w-4" />
-            Total Pago (Todas as Fases)
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 sm:p-5">
+          <div className="flex items-center gap-2 text-emerald-700 font-semibold text-xs sm:text-sm mb-1.5 sm:mb-2">
+            <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span>Total Pago (Todas as Fases)</span>
           </div>
-          <div className="text-2xl font-bold text-emerald-900 mb-3">{formatCurrency(totalPaidAllPhases)}</div>
-          <Progress value={totalPct} className="h-2 bg-emerald-100" indicatorClassName="bg-emerald-600" />
-          <div className="text-xs text-emerald-700 mt-2">{Math.round(totalPct)}%</div>
+          <div className="text-lg sm:text-2xl font-bold text-emerald-900 mb-2 sm:mb-3">{formatCurrency(totalPaidAllPhases)}</div>
+          <Progress value={totalPct} className="h-1.5 sm:h-2 bg-emerald-100" indicatorClassName="bg-emerald-600" />
+          <div className="text-[10px] sm:text-xs text-emerald-700 mt-1.5 sm:mt-2">{Math.round(totalPct)}%</div>
         </div>
       </div>
 
       {list.length > 0 ? (
         <div className="overflow-x-auto">
+          <div className="mb-4 text-xs sm:text-sm text-muted-foreground">
+            Para consultar valores das fases anteriores, vá até a seção de{" "}
+            <a href="#historico-licitacoes" className="text-primary underline underline-offset-2">
+              Histórico de Licitações
+            </a>
+            .
+          </div>
           <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead>Pagamento</TableHead>
-                <TableHead>Nº Empenho</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead className="text-center">Parcela</TableHead>
-                <TableHead>Origem</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-center">Vínculo</TableHead>
+            <TableHeader>
+              <TableRow className="bg-amber-50/70 dark:bg-slate-900/30">
+                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30">Pagamento</TableHead>
+                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30">Nº Empenho</TableHead>
+                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30">Descrição</TableHead>
+                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30 text-center">Parcela</TableHead>
+                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30">Credor</TableHead>
+                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30 text-right">Valor</TableHead>
+                <TableHead className="bg-amber-50/70 dark:bg-slate-900/30 text-center">Portal</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
