@@ -245,6 +245,12 @@ export default function WorkDetailsPageProject() {
       contractNumber: m.contract_number || "",
       biddingProcessNumber: m.bidding_process_number || "",
       portalLink: m.portal_link || "",
+      executionPercentage: m.execution_percentage ?? 0,
+      predictedStartDate: m.predicted_start_date || null,
+      startDate: m.start_date || null,
+      expectedEndDate: m.expected_end_date || null,
+      endDate: m.end_date || null,
+      createdAt: m.created_at || null,
     }));
   }, [measurements]);
 
@@ -972,6 +978,15 @@ export default function WorkDetailsPageProject() {
 
               <div className="px-6 pb-6">
                 <ObraProgress percentage={overallProgress} />
+              </div>
+
+              <div className="border-t pt-6 px-6">
+                <h2 className="text-2xl font-bold text-foreground mb-3">
+                  Acompanhe tudo sobre a fase atual
+                </h2>
+                <p className="text-muted-foreground text-base leading-relaxed">
+                  Confira responsáveis, prazos e cronograma, pagamentos e todas as informações importantes sobre a execução desta fase da obra.
+                </p>
               </div>
 
               <ObraCurrentPhase
