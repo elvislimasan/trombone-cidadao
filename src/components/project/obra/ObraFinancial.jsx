@@ -68,7 +68,7 @@ export function ObraFinancial({
 
       <div className={`grid grid-cols-1 ${hasFundingAmounts ?'sm:grid-cols-3 md:grid-cols-3' : "sm:grid-cols-4 md:grid-cols-4"} gap-3 sm:gap-2`}>
         {hasFundingSource ? (
-          <div className={`rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm ${hasFundingAmounts ? "col-span-3" : "col-span-1"}`}>
+          <div className={`rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm ${hasFundingAmounts ? "col-span sm:col-span-3" : "col-span-1"}`}>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Landmark className="h-4 w-4 text-red-500" />
               <span className="text-[10px] uppercase tracking-wide">Fonte de Recurso</span>
