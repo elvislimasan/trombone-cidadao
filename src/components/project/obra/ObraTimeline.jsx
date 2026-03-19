@@ -17,7 +17,7 @@ export function ObraTimeline({ executionDays, items, embedded = false }) {
         <h2 className="text-[11px] uppercase tracking-wider text-muted-foreground">Prazos e Cronograma</h2>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-3 2xl:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 min-[1700px]:grid-cols-5 gap-3 sm:gap-4 lg:gap-3 2xl:gap-4">
         {hasExecutionDays ? (
           <div className="bg-amber-50 border border-amber-200/70 dark:bg-slate-900/30 dark:border-slate-700 rounded-xl p-4 sm:p-4 lg:p-3 2xl:p-4">
             <div className="flex items-center justify-center mb-2 text-muted-foreground">

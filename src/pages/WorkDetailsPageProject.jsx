@@ -124,6 +124,7 @@ export default function WorkDetailsPageProject() {
   const [showAdminEditModal, setShowAdminEditModal] = useState(false);
   const [workOptions, setWorkOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
   const [showCurrentPhaseEditDialog, setShowCurrentPhaseEditDialog] = useState(false);
+  const [editingMeasurementId, setEditingMeasurementId] = useState(null);
   const [isSavingCurrentPhase, setIsSavingCurrentPhase] = useState(false);
   const [currentPhaseContractors, setCurrentPhaseContractors] = useState([]);
   const [showContribDialog, setShowContribDialog] = useState(false);
@@ -143,13 +144,17 @@ export default function WorkDetailsPageProject() {
     contractor_id: "",
     contract_number: "",
     bidding_process_number: "",
-    portal_link: "",
+    contract_portal_link: "",
+    bidding_process_portal_link: "",
     execution_percentage: "",
     value: "",
     expected_value: "",
     // amount_spent: "",
     execution_period_days: "",
     funding_source: [],
+    funding_amount_federal: "",
+    funding_amount_state: "",
+    funding_amount_municipal: "",
     contract_date: "",
     contract_signature_date: "",
     service_order_date: "",
@@ -220,7 +225,8 @@ export default function WorkDetailsPageProject() {
       },
       contractNumber: currentMeasurement.contract_number || "",
       biddingProcessNumber: currentMeasurement.bidding_process_number || "",
-      portalLink: currentMeasurement.portal_link || "",
+      contractPortalLink: currentMeasurement.contract_portal_link || currentMeasurement.portal_link || "",
+      biddingProcessPortalLink: currentMeasurement.bidding_process_portal_link || currentMeasurement.portal_link || "",
       status: normalizeStatus(currentMeasurement.status),
       executionPercentage: currentMeasurement.execution_percentage ?? 0,
       expectedValue: currentMeasurement.expected_value ?? 0,
@@ -244,7 +250,8 @@ export default function WorkDetailsPageProject() {
       contractor: { name: m.contractor?.name || "", cnpj: m.contractor?.cnpj ? formatCnpj(m.contractor.cnpj) : "" },
       contractNumber: m.contract_number || "",
       biddingProcessNumber: m.bidding_process_number || "",
-      portalLink: m.portal_link || "",
+      contractPortalLink: m.contract_portal_link || m.portal_link || "",
+      biddingProcessPortalLink: m.bidding_process_portal_link || m.portal_link || "",
       executionPercentage: m.execution_percentage ?? 0,
       predictedStartDate: m.predicted_start_date || null,
       startDate: m.start_date || null,
@@ -648,44 +655,63 @@ export default function WorkDetailsPageProject() {
     });
   }, []);
 
-  const openCurrentPhaseEditDialog = useCallback(async () => {
+  const openPhaseEditDialog = useCallback(
+    async (measurementId) => {
+      if (!user?.is_admin) return;
+      const m = measurements.find((x) => x.id === measurementId) || null;
+      if (!m) {
+        toast("Fase não encontrada", { variant: "destructive" });
+        return;
+      }
+
+      try {
+        await ensureContractorsLoaded();
+        setEditingMeasurementId(measurementId);
+        setCurrentPhaseForm({
+          title: m.title || "",
+          description: m.description || "",
+          status: normalizeStatus(m.status),
+          contractor_id: m.contractor_id || "",
+          contract_number: m.contract_number || "",
+          bidding_process_number: m.bidding_process_number || "",
+          contract_portal_link: m.contract_portal_link || m.portal_link || "",
+          bidding_process_portal_link: m.bidding_process_portal_link || m.portal_link || "",
+          execution_percentage: m.execution_percentage ?? "",
+          value: m.value != null ? formatPtBrMoney(m.value) : "",
+          expected_value: m.expected_value != null ? formatPtBrMoney(m.expected_value) : "",
+          execution_period_days: m.execution_period_days ?? "",
+          funding_source: Array.isArray(m.funding_source) ? m.funding_source.map((src) => (src === "state" ? "estadual" : src)) : [],
+          funding_amount_federal: m.funding_amount_federal != null ? formatPtBrMoney(m.funding_amount_federal) : "",
+          funding_amount_state: m.funding_amount_state != null ? formatPtBrMoney(m.funding_amount_state) : "",
+          funding_amount_municipal: m.funding_amount_municipal != null ? formatPtBrMoney(m.funding_amount_municipal) : "",
+          contract_date: m.contract_date || "",
+          contract_signature_date: m.contract_signature_date || "",
+          service_order_date: m.service_order_date || "",
+          predicted_start_date: m.predicted_start_date || "",
+          expected_end_date: m.expected_end_date || "",
+          start_date: m.start_date || "",
+          end_date: m.end_date || "",
+          stalled_date: m.stalled_date || "",
+          inauguration_date: m.inauguration_date || "",
+        });
+        setShowCurrentPhaseEditDialog(true);
+      } catch (e) {
+        toast("Erro ao abrir edição", { description: e?.message || "Tente novamente.", variant: "destructive" });
+      }
+    },
+    [ensureContractorsLoaded, measurements, toast, user?.is_admin]
+  );
+
+  const openCurrentPhaseEditDialog = useCallback(() => {
     if (!user?.is_admin) return;
-    if (!currentMeasurement) return;
-    try {
-      await ensureContractorsLoaded();
-      setCurrentPhaseForm({
-        title: currentMeasurement.title || "",
-        description: currentMeasurement.description || "",
-        status: normalizeStatus(currentMeasurement.status),
-        contractor_id: currentMeasurement.contractor_id || "",
-        contract_number: currentMeasurement.contract_number || "",
-        bidding_process_number: currentMeasurement.bidding_process_number || "",
-        portal_link: currentMeasurement.portal_link || "",
-        execution_percentage: currentMeasurement.execution_percentage ?? "",
-        value: currentMeasurement.value != null ? formatPtBrMoney(currentMeasurement.value) : "",
-        expected_value: currentMeasurement.expected_value != null ? formatPtBrMoney(currentMeasurement.expected_value) : "",
-        // amount_spent: currentMeasurement.amount_spent != null ? formatPtBrMoney(currentMeasurement.amount_spent) : "",
-        execution_period_days: currentMeasurement.execution_period_days ?? "",
-        funding_source: Array.isArray(currentMeasurement.funding_source) ? [...currentMeasurement.funding_source] : [],
-        contract_date: currentMeasurement.contract_date || "",
-        contract_signature_date: currentMeasurement.contract_signature_date || "",
-        service_order_date: currentMeasurement.service_order_date || "",
-        predicted_start_date: currentMeasurement.predicted_start_date || "",
-        expected_end_date: currentMeasurement.expected_end_date || "",
-        start_date: currentMeasurement.start_date || "",
-        end_date: currentMeasurement.end_date || "",
-        stalled_date: currentMeasurement.stalled_date || "",
-        inauguration_date: currentMeasurement.inauguration_date || "",
-      });
-      setShowCurrentPhaseEditDialog(true);
-    } catch (e) {
-      toast("Erro ao abrir edição", { description: e?.message || "Tente novamente.", variant: "destructive" });
-    }
-  }, [currentMeasurement, ensureContractorsLoaded, user?.is_admin]);
+    if (!currentMeasurement?.id) return;
+    openPhaseEditDialog(currentMeasurement.id);
+  }, [currentMeasurement?.id, openPhaseEditDialog, user?.is_admin]);
 
   const handleSaveCurrentPhase = useCallback(async () => {
     if (!user?.is_admin) return;
-    if (!currentMeasurement?.id) return;
+    const targetMeasurementId = editingMeasurementId || currentMeasurement?.id;
+    if (!targetMeasurementId) return;
 
     const title = String(currentPhaseForm.title || "").trim();
     if (!title) {
@@ -720,13 +746,20 @@ export default function WorkDetailsPageProject() {
         contractor_id: currentPhaseForm.contractor_id || null,
         contract_number: currentPhaseForm.contract_number || null,
         bidding_process_number: currentPhaseForm.bidding_process_number || null,
-        portal_link: currentPhaseForm.portal_link || null,
+        contract_portal_link: currentPhaseForm.contract_portal_link || null,
+        bidding_process_portal_link: currentPhaseForm.bidding_process_portal_link || null,
+        portal_link: currentPhaseForm.contract_portal_link || currentPhaseForm.bidding_process_portal_link || null,
         execution_percentage: pctClamped,
         value: toNumberOrNull(currentPhaseForm.value),
         expected_value: toNumberOrNull(currentPhaseForm.expected_value),
         // amount_spent: toNumberOrNull(currentPhaseForm.amount_spent),
         execution_period_days: toIntOrNull(currentPhaseForm.execution_period_days),
-        funding_source: Array.isArray(currentPhaseForm.funding_source) ? currentPhaseForm.funding_source : [],
+        funding_source: Array.isArray(currentPhaseForm.funding_source)
+          ? currentPhaseForm.funding_source.map((src) => (src === "state" ? "estadual" : src))
+          : [],
+        funding_amount_federal: toNumberOrNull(currentPhaseForm.funding_amount_federal),
+        funding_amount_state: toNumberOrNull(currentPhaseForm.funding_amount_state),
+        funding_amount_municipal: toNumberOrNull(currentPhaseForm.funding_amount_municipal),
         contract_date: currentPhaseForm.contract_date || null,
         contract_signature_date: currentPhaseForm.contract_signature_date || null,
         service_order_date: currentPhaseForm.service_order_date || null,
@@ -738,19 +771,28 @@ export default function WorkDetailsPageProject() {
         inauguration_date: currentPhaseForm.inauguration_date || null,
       };
 
-      const { error } = await supabase.from("public_work_measurements").update(payload).eq("id", currentMeasurement.id);
+      const { error } = await supabase.from("public_work_measurements").update(payload).eq("id", targetMeasurementId);
       if (error) throw error;
 
       await syncWorkFromLatestMeasurement();
       toast("Fase atualizada", { description: "As informações foram salvas com sucesso." });
       setShowCurrentPhaseEditDialog(false);
+      setEditingMeasurementId(null);
       await loadData();
     } catch (e) {
       toast("Erro ao salvar fase", { description: e?.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setIsSavingCurrentPhase(false);
     }
-  }, [currentMeasurement?.id, currentPhaseForm, loadData, syncWorkFromLatestMeasurement, user?.is_admin, validateCurrentPhaseDates]);
+  }, [
+    currentMeasurement?.id,
+    currentPhaseForm,
+    editingMeasurementId,
+    loadData,
+    syncWorkFromLatestMeasurement,
+    user?.is_admin,
+    validateCurrentPhaseDates,
+  ]);
 
   const handleAdminSaveWork = useCallback(
     async (workToSave) => {
@@ -900,7 +942,17 @@ export default function WorkDetailsPageProject() {
     );
   }
 
-  const fundingSourceText = Array.isArray(currentMeasurement?.funding_source) ? currentMeasurement.funding_source.join(", ") : "";
+  const fundingSourceText = Array.isArray(currentMeasurement?.funding_source)
+    ? currentMeasurement.funding_source
+        .map((src) => (src === "state" ? "estadual" : src))
+        .map((src) => (src === "federal" ? "Federal" : src === "estadual" ? "Estadual" : src === "municipal" ? "Municipal" : src))
+        .join(", ")
+    : "";
+  const fundingAmounts = {
+    federal: Number(currentMeasurement?.funding_amount_federal) || 0,
+    estadual: Number(currentMeasurement?.funding_amount_state) || 0,
+    municipal: Number(currentMeasurement?.funding_amount_municipal) || 0,
+  };
   const parliamentaryText = work.parliamentary_amendment?.has ? work.parliamentary_amendment?.author : "";
   const simplifyText = (value) =>
     String(value || "")
@@ -914,6 +966,7 @@ export default function WorkDetailsPageProject() {
   };
   const showFinancialSection =
     !isEmptyDisplayText(fundingSourceText) ||
+    Object.values(fundingAmounts).some((v) => Number(v) > 0) ||
     !isEmptyDisplayText(parliamentaryText) ||
     Number(currentMeasurement?.value || 0) > 0 ||
     Number(currentMeasurement?.expected_value || 0) > 0;
@@ -1005,6 +1058,7 @@ export default function WorkDetailsPageProject() {
                   <div className="border-t">
                     <ObraFinancial
                       fundingSource={fundingSourceText}
+                      fundingAmounts={fundingAmounts}
                       parliamentaryAmendment={parliamentaryText}
                       contractValue={currentMeasurement?.value || 0}
                       expectedValue={currentMeasurement?.expected_value || 0}
@@ -1042,7 +1096,13 @@ export default function WorkDetailsPageProject() {
 
             </section>
             
-              <ObraPhases phases={phases} currentPhaseId={currentPhaseId} onOpenDetails={openMeasurementDetails} />
+              <ObraPhases
+                phases={phases}
+                currentPhaseId={currentPhaseId}
+                onOpenDetails={openMeasurementDetails}
+                isAdmin={Boolean(user?.is_admin)}
+                onEdit={(measurementId) => openPhaseEditDialog(measurementId)}
+              />
             
 
          
@@ -1242,30 +1302,95 @@ export default function WorkDetailsPageProject() {
                         {selectedMeasurement?.contract_number ? (
                           <div className="space-y-1">
                             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Número do contrato</span>
-                            <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">{selectedMeasurement.contract_number}</p>
+                            {selectedMeasurement?.contract_portal_link || selectedMeasurement?.portal_link ? (
+                              <a
+                                href={selectedMeasurement.contract_portal_link || selectedMeasurement.portal_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-primary underline underline-offset-2 text-sm md:text-base leading-tight"
+                              >
+                                {selectedMeasurement.contract_number}
+                              </a>
+                            ) : (
+                              <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">{selectedMeasurement.contract_number}</p>
+                            )}
                           </div>
                         ) : null}
 
                         {selectedMeasurement?.bidding_process_number ? (
                           <div className="space-y-1">
                             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Processo licitatório</span>
-                            <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">{selectedMeasurement.bidding_process_number}</p>
+                            {selectedMeasurement?.bidding_process_portal_link || selectedMeasurement?.portal_link ? (
+                              <a
+                                href={selectedMeasurement.bidding_process_portal_link || selectedMeasurement.portal_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-primary underline underline-offset-2 text-sm md:text-base leading-tight"
+                              >
+                                {selectedMeasurement.bidding_process_number}
+                              </a>
+                            ) : (
+                              <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">{selectedMeasurement.bidding_process_number}</p>
+                            )}
                           </div>
                         ) : null}
 
-                        {selectedMeasurement?.portal_link ? (
-                          <div className="space-y-1 md:col-span-2">
-                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Portal da Transparência</span>
-                            <a
-                              href={selectedMeasurement.portal_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm font-semibold text-primary underline underline-offset-2"
-                            >
-                              Abrir link
-                            </a>
-                          </div>
-                        ) : null}
+                        {(() => {
+                          const contractLink = selectedMeasurement?.contract_portal_link || selectedMeasurement?.portal_link || "";
+                          const processLink = selectedMeasurement?.bidding_process_portal_link || selectedMeasurement?.portal_link || "";
+                          const showContract = Boolean(contractLink) && !selectedMeasurement?.contract_number;
+                          const showProcess = Boolean(processLink) && !selectedMeasurement?.bidding_process_number;
+                          const same = Boolean(contractLink) && Boolean(processLink) && contractLink === processLink;
+
+                          if (!showContract && !showProcess) return null;
+
+                          if (same) {
+                            return (
+                              <div className="space-y-1 md:col-span-2">
+                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Portal da Transparência</span>
+                                <a
+                                  href={contractLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-semibold text-primary underline underline-offset-2"
+                                >
+                                  Abrir link
+                                </a>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-3 md:col-span-2">
+                              {showContract ? (
+                                <div className="space-y-1">
+                                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Portal do contrato</span>
+                                  <a
+                                    href={contractLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-semibold text-primary underline underline-offset-2"
+                                  >
+                                    Abrir link
+                                  </a>
+                                </div>
+                              ) : null}
+                              {showProcess ? (
+                                <div className="space-y-1">
+                                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Portal do processo</span>
+                                  <a
+                                    href={processLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-semibold text-primary underline underline-offset-2"
+                                  >
+                                    Abrir link
+                                  </a>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
 
                         {selectedMeasurement?.execution_percentage != null ? (
                           <div className="grid grid-cols-2 gap-4">
@@ -1300,7 +1425,8 @@ export default function WorkDetailsPageProject() {
                           <div className="md:col-span-2 space-y-2">
                             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Fontes do Recurso</span>
                             <div className="flex flex-wrap gap-2">
-                              {selectedMeasurement.funding_source.map((src) => {
+                              {selectedMeasurement.funding_source.map((rawSrc, idx) => {
+                                const src = rawSrc === "state" ? "estadual" : rawSrc;
                                 const label =
                                   src === "federal" ? "Federal" : src === "estadual" ? "Estadual" : src === "municipal" ? "Municipal" : src;
                                 const styles =
@@ -1311,9 +1437,18 @@ export default function WorkDetailsPageProject() {
                                     : src === "municipal"
                                     ? "bg-emerald-50 text-emerald-700"
                                     : "bg-slate-100 text-slate-700";
+                                const amount =
+                                  src === "federal"
+                                    ? Number(selectedMeasurement.funding_amount_federal) || 0
+                                    : src === "estadual"
+                                    ? Number(selectedMeasurement.funding_amount_state) || 0
+                                    : src === "municipal"
+                                    ? Number(selectedMeasurement.funding_amount_municipal) || 0
+                                    : 0;
                                 return (
-                                  <span key={src} className={`text-xs font-semibold px-2 py-1 rounded-full border ${styles}`}>
+                                  <span key={`${rawSrc}-${idx}`} className={`text-xs font-semibold px-2 py-1 rounded-full border ${styles}`}>
                                     {label}
+                                    {amount > 0 ? ` • ${formatCurrency(amount)}` : ""}
                                   </span>
                                 );
                               })}
@@ -1604,7 +1739,13 @@ export default function WorkDetailsPageProject() {
         <WorkEditModal work={work} onSave={handleAdminSaveWork} onClose={() => setShowAdminEditModal(false)} workOptions={workOptions} />
       ) : null}
 
-      <Dialog open={showCurrentPhaseEditDialog} onOpenChange={setShowCurrentPhaseEditDialog}>
+      <Dialog
+        open={showCurrentPhaseEditDialog}
+        onOpenChange={(open) => {
+          setShowCurrentPhaseEditDialog(open);
+          if (!open) setEditingMeasurementId(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar fase atual</DialogTitle>
@@ -1674,12 +1815,21 @@ export default function WorkDetailsPageProject() {
               />
             </div>
 
-            <div className="grid gap-2 sm:col-span-2">
-              <Label>Link do Portal da Transparência</Label>
+            <div className="grid gap-2 sm:col-span-1">
+              <Label>Portal do contrato (link)</Label>
               <Input
                 placeholder="https://..."
-                value={currentPhaseForm.portal_link}
-                onChange={(e) => setCurrentPhaseForm((p) => ({ ...p, portal_link: e.target.value }))}
+                value={currentPhaseForm.contract_portal_link}
+                onChange={(e) => setCurrentPhaseForm((p) => ({ ...p, contract_portal_link: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid gap-2 sm:col-span-1">
+              <Label>Portal do processo (link)</Label>
+              <Input
+                placeholder="https://..."
+                value={currentPhaseForm.bidding_process_portal_link}
+                onChange={(e) => setCurrentPhaseForm((p) => ({ ...p, bidding_process_portal_link: e.target.value }))}
               />
             </div>
 
@@ -1786,6 +1936,64 @@ export default function WorkDetailsPageProject() {
                   );
                 })}
               </div>
+              {Array.isArray(currentPhaseForm.funding_source) && currentPhaseForm.funding_source.length > 0 ? (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {(currentPhaseForm.funding_source || []).includes("federal") ? (
+                    <div className="grid gap-2">
+                      <Label>Federal (R$)</Label>
+                      <Input
+                        inputMode="decimal"
+                        value={currentPhaseForm.funding_amount_federal}
+                        onChange={(e) => {
+                          const next = String(e.target.value || "").replace(/[^\d.,]/g, "");
+                          setCurrentPhaseForm((p) => ({ ...p, funding_amount_federal: next }));
+                        }}
+                        onBlur={() => {
+                          const n = parsePtBrNumber(currentPhaseForm.funding_amount_federal);
+                          if (n == null) return;
+                          setCurrentPhaseForm((p) => ({ ...p, funding_amount_federal: formatPtBrMoney(n) }));
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  {(currentPhaseForm.funding_source || []).includes("estadual") ? (
+                    <div className="grid gap-2">
+                      <Label>Estadual (R$)</Label>
+                      <Input
+                        inputMode="decimal"
+                        value={currentPhaseForm.funding_amount_state}
+                        onChange={(e) => {
+                          const next = String(e.target.value || "").replace(/[^\d.,]/g, "");
+                          setCurrentPhaseForm((p) => ({ ...p, funding_amount_state: next }));
+                        }}
+                        onBlur={() => {
+                          const n = parsePtBrNumber(currentPhaseForm.funding_amount_state);
+                          if (n == null) return;
+                          setCurrentPhaseForm((p) => ({ ...p, funding_amount_state: formatPtBrMoney(n) }));
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  {(currentPhaseForm.funding_source || []).includes("municipal") ? (
+                    <div className="grid gap-2">
+                      <Label>Municipal (R$)</Label>
+                      <Input
+                        inputMode="decimal"
+                        value={currentPhaseForm.funding_amount_municipal}
+                        onChange={(e) => {
+                          const next = String(e.target.value || "").replace(/[^\d.,]/g, "");
+                          setCurrentPhaseForm((p) => ({ ...p, funding_amount_municipal: next }));
+                        }}
+                        onBlur={() => {
+                          const n = parsePtBrNumber(currentPhaseForm.funding_amount_municipal);
+                          if (n == null) return;
+                          setCurrentPhaseForm((p) => ({ ...p, funding_amount_municipal: formatPtBrMoney(n) }));
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
 

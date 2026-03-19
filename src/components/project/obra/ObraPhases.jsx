@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Building2, Calendar, FileText, History } from "lucide-react";
+import { Building2, Calendar, FileText, History, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -13,7 +13,7 @@ const statusConfig = {
   unfinished: { label: "Inacabada", className: "bg-muted text-muted-foreground" },
 };
 
-export function ObraPhases({ phases, currentPhaseId, onOpenDetails }) {
+export function ObraPhases({ phases, currentPhaseId, onOpenDetails, isAdmin = false, onEdit }) {
   const list = Array.isArray(phases) ? phases : [];
   const historicalPhases = useMemo(() => {
     const filtered = list.filter((p) => p.id !== currentPhaseId);
@@ -55,7 +55,7 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails }) {
                   <div className="absolute left-2 top-6 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-primary border-4 border-background" />
 
                   <div className="ml-4 bg-card rounded-xl border border-border overflow-hidden">
-                    <div className="w-full text-left px-4 py-4 sm:py-3 bg-muted/20">
+                    <div className="w-full text-left px-4 py-4 sm:py-3 bg-slate-800 text-white">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -64,12 +64,30 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails }) {
                               {statusInfo.label}
                             </Badge>
                           </div>
-                          {phase.description ? (
-                            <div className="text-sm text-muted-foreground mt-2 sm:mt-1 leading-relaxed line-clamp-2">
-                              {phase.description}
-                            </div>
-                          ) : null}
+                        
                         </div>
+                        {isAdmin ? (
+                          <>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="h-8 w-8 sm:hidden"
+                              aria-label="Editar fase"
+                              onClick={() => (onEdit ? onEdit(phase.id) : onOpenDetails?.(phase.id))}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="hidden sm:inline-flex gap-2"
+                              onClick={() => (onEdit ? onEdit(phase.id) : onOpenDetails?.(phase.id))}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Editar
+                            </Button>
+                          </>
+                        ) : null}
                       </div>
                     </div>
 
@@ -121,16 +139,38 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails }) {
                           Ver Detalhes e Arquivos
                         </Button>
 
-                        {phase.portalLink ? (
-                          <a
-                            href={phase.portalLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                          >
-                            Portal
-                          </a>
-                        ) : null}
+                        {(() => {
+                          const contractLink = phase.contractPortalLink || "";
+                          const processLink = phase.biddingProcessPortalLink || "";
+                          const contractNumber = phase.contractNumber;
+                          const processNumber = phase.biddingProcessNumber;
+                        
+
+                          return (
+                            <div className="flex flex-wrap gap-x-4 gap-y-1">
+                              {contractLink ? (
+                                <a
+                                  href={contractLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                >
+                                  {contractNumber}
+                                </a>
+                              ) : null}
+                              {processLink ? (
+                                <a
+                                  href={processLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                >
+                                  {processNumber}
+                                </a>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

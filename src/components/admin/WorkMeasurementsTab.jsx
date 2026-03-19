@@ -91,7 +91,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     contractor_id: '',
     contract_number: '',
     bidding_process_number: '',
-    portal_link: '',
+    contract_portal_link: '',
+    bidding_process_portal_link: '',
     contract_date: '',
     start_date: '',
     end_date: '',
@@ -106,7 +107,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     stalled_date: '',
     expected_value: '',
     execution_period_days: '',
-    funding_source: []
+    funding_source: [],
+    funding_amount_federal: '',
+    funding_amount_state: '',
+    funding_amount_municipal: ''
   });
 
   // Auto-save Logic (sem restauração automática na abertura do modal)
@@ -380,6 +384,9 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
   const handleEdit = (measurement = null) => {
     if (measurement) {
+      const normalizedFundingSource = Array.isArray(measurement.funding_source)
+        ? measurement.funding_source.map((src) => (src === 'state' ? 'estadual' : src))
+        : [];
       setCurrentMeasurement(measurement);
       setFormData({
         title: measurement.title,
@@ -387,7 +394,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contractor_id: measurement.contractor_id || '',
         contract_number: measurement.contract_number || '',
         bidding_process_number: measurement.bidding_process_number || '',
-        portal_link: measurement.portal_link || '',
+        contract_portal_link: measurement.contract_portal_link || measurement.portal_link || '',
+        bidding_process_portal_link: measurement.bidding_process_portal_link || measurement.portal_link || '',
         contract_date: measurement.contract_date || '',
         start_date: measurement.start_date || '',
         end_date: measurement.end_date || '',
@@ -403,7 +411,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_value: measurement.expected_value != null ? formatPtBrMoney(measurement.expected_value) : '',
         // amount_spent: measurement.amount_spent != null ? formatPtBrMoney(measurement.amount_spent) : '',
         execution_period_days: measurement.execution_period_days || '',
-        funding_source: Array.isArray(measurement.funding_source) ? [...measurement.funding_source] : []
+        funding_source: normalizedFundingSource,
+        funding_amount_federal: measurement.funding_amount_federal != null ? formatPtBrMoney(measurement.funding_amount_federal) : '',
+        funding_amount_state: measurement.funding_amount_state != null ? formatPtBrMoney(measurement.funding_amount_state) : '',
+        funding_amount_municipal: measurement.funding_amount_municipal != null ? formatPtBrMoney(measurement.funding_amount_municipal) : ''
       });
       baselineRef.current = {
         title: measurement.title,
@@ -411,7 +422,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contractor_id: measurement.contractor_id || '',
         contract_number: measurement.contract_number || '',
         bidding_process_number: measurement.bidding_process_number || '',
-        portal_link: measurement.portal_link || '',
+        contract_portal_link: measurement.contract_portal_link || measurement.portal_link || '',
+        bidding_process_portal_link: measurement.bidding_process_portal_link || measurement.portal_link || '',
         contract_date: measurement.contract_date || '',
         start_date: measurement.start_date || '',
         end_date: measurement.end_date || '',
@@ -427,7 +439,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_value: measurement.expected_value != null ? formatPtBrMoney(measurement.expected_value) : '',
         // amount_spent: measurement.amount_spent != null ? formatPtBrMoney(measurement.amount_spent) : '',
         execution_period_days: measurement.execution_period_days || '',
-        funding_source: Array.isArray(measurement.funding_source) ? [...measurement.funding_source] : []
+        funding_source: normalizedFundingSource,
+        funding_amount_federal: measurement.funding_amount_federal != null ? formatPtBrMoney(measurement.funding_amount_federal) : '',
+        funding_amount_state: measurement.funding_amount_state != null ? formatPtBrMoney(measurement.funding_amount_state) : '',
+        funding_amount_municipal: measurement.funding_amount_municipal != null ? formatPtBrMoney(measurement.funding_amount_municipal) : ''
       };
     } else {
       setCurrentMeasurement(null);
@@ -437,7 +452,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contractor_id: '',
         contract_number: '',
         bidding_process_number: '',
-        portal_link: '',
+        contract_portal_link: '',
+        bidding_process_portal_link: '',
         contract_date: '',
         start_date: '',
         end_date: '',
@@ -453,7 +469,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_value: '',
         // amount_spent: '',
         execution_period_days: '',
-        funding_source: []
+        funding_source: [],
+        funding_amount_federal: '',
+        funding_amount_state: '',
+        funding_amount_municipal: ''
       });
       baselineRef.current = {
         title: '',
@@ -461,7 +480,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contractor_id: '',
         contract_number: '',
         bidding_process_number: '',
-        portal_link: '',
+        contract_portal_link: '',
+        bidding_process_portal_link: '',
         contract_date: '',
         start_date: '',
         end_date: '',
@@ -477,7 +497,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_value: '',
         // amount_spent: '',
         execution_period_days: '',
-        funding_source: []
+        funding_source: [],
+        funding_amount_federal: '',
+        funding_amount_state: '',
+        funding_amount_municipal: ''
       };
     }
     setIsEditing(true);
@@ -525,7 +548,9 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contractor_id: formData.contractor_id || null,
         contract_number: formData.contract_number || null,
         bidding_process_number: formData.bidding_process_number || null,
-        portal_link: formData.portal_link || null,
+        contract_portal_link: formData.contract_portal_link || null,
+        bidding_process_portal_link: formData.bidding_process_portal_link || null,
+        portal_link: formData.contract_portal_link || formData.bidding_process_portal_link || null,
         contract_date: formData.contract_date || null,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
@@ -541,7 +566,12 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         expected_value: formData.expected_value ? parsePtBrNumber(formData.expected_value) : null,
         // amount_spent: formData.amount_spent ? parsePtBrNumber(formData.amount_spent) : null,
         execution_period_days: formData.execution_period_days ? Number(formData.execution_period_days) : null,
-        funding_source: Array.isArray(formData.funding_source) ? formData.funding_source : []
+        funding_source: Array.isArray(formData.funding_source)
+          ? formData.funding_source.map((src) => (src === 'state' ? 'estadual' : src))
+          : [],
+        funding_amount_federal: formData.funding_amount_federal ? parsePtBrNumber(formData.funding_amount_federal) : null,
+        funding_amount_state: formData.funding_amount_state ? parsePtBrNumber(formData.funding_amount_state) : null,
+        funding_amount_municipal: formData.funding_amount_municipal ? parsePtBrNumber(formData.funding_amount_municipal) : null
       };
 
       let error;
@@ -852,6 +882,49 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                     </label>
                   ))}
                 </div>
+                {Array.isArray(formData.funding_source) && formData.funding_source.length > 0 ? (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {(formData.funding_source || []).includes('federal') ? (
+                      <div className="grid gap-2">
+                        <Label htmlFor="funding_amount_federal">Federal (R$)</Label>
+                        <Input
+                          id="funding_amount_federal"
+                          name="funding_amount_federal"
+                          value={formData.funding_amount_federal}
+                          inputMode="decimal"
+                          onChange={(e) => setFormData((prev) => ({ ...prev, funding_amount_federal: maskMoneyWhileTyping(e.target.value) }))}
+                          placeholder="0,00"
+                        />
+                      </div>
+                    ) : null}
+                    {(formData.funding_source || []).includes('estadual') ? (
+                      <div className="grid gap-2">
+                        <Label htmlFor="funding_amount_state">Estadual (R$)</Label>
+                        <Input
+                          id="funding_amount_state"
+                          name="funding_amount_state"
+                          value={formData.funding_amount_state}
+                          inputMode="decimal"
+                          onChange={(e) => setFormData((prev) => ({ ...prev, funding_amount_state: maskMoneyWhileTyping(e.target.value) }))}
+                          placeholder="0,00"
+                        />
+                      </div>
+                    ) : null}
+                    {(formData.funding_source || []).includes('municipal') ? (
+                      <div className="grid gap-2">
+                        <Label htmlFor="funding_amount_municipal">Municipal (R$)</Label>
+                        <Input
+                          id="funding_amount_municipal"
+                          name="funding_amount_municipal"
+                          value={formData.funding_amount_municipal}
+                          inputMode="decimal"
+                          onChange={(e) => setFormData((prev) => ({ ...prev, funding_amount_municipal: maskMoneyWhileTyping(e.target.value) }))}
+                          placeholder="0,00"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -916,12 +989,22 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                   placeholder="Ex: 002/2026"
                 />
               </div>
-              <div className="grid gap-2 sm:col-span-2">
-                <Label htmlFor="portal_link">Link do Portal da Transparência</Label>
+              <div className="grid gap-2 sm:col-span-1">
+                <Label htmlFor="contract_portal_link">Portal do contrato (link)</Label>
                 <Input
-                  id="portal_link"
-                  name="portal_link"
-                  value={formData.portal_link}
+                  id="contract_portal_link"
+                  name="contract_portal_link"
+                  value={formData.contract_portal_link}
+                  onChange={handleChange}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="grid gap-2 sm:col-span-1">
+                <Label htmlFor="bidding_process_portal_link">Portal do processo (link)</Label>
+                <Input
+                  id="bidding_process_portal_link"
+                  name="bidding_process_portal_link"
+                  value={formData.bidding_process_portal_link}
                   onChange={handleChange}
                   placeholder="https://..."
                 />
