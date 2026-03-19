@@ -122,12 +122,14 @@ const PublicWorksPage = () => {
       const { data, error } = await supabase
         .from('public_works')
         .select(`
-          id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update, thumbnail_url,
+          id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update, thumbnail_url, is_complete,
           work_category:work_category_id(id, name),
           work_area:work_area_id(id, name),
           bairro:bairro_id(id, name),
           contractor:contractor_id(id, name, cnpj)
-        `).order('created_at', { ascending: false });
+        `)
+        .eq('is_complete', true)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       const formattedData = data.map(w => ({
@@ -153,12 +155,13 @@ const PublicWorksPage = () => {
       let query = supabase
         .from('public_works')
         .select(`
-          id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update, thumbnail_url,
+          id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update, thumbnail_url, is_complete,
           work_category:work_category_id(id, name),
           work_area:work_area_id(id, name),
           bairro:bairro_id(id, name),
           contractor:contractor_id(id, name, cnpj)
         `, { count: 'exact' })
+        .eq('is_complete', true)
         .order('created_at', { ascending: false });
 
       if (searchTerm && searchTerm.trim()) {

@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, ArrowLeft, Save } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
-export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange }) {
+export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange, onWorkCompletionChange }) {
   const [measurements, setMeasurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -105,7 +105,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     inauguration_date: '',
     stalled_date: '',
     expected_value: '',
-    amount_spent: '',
     execution_period_days: '',
     funding_source: []
   });
@@ -326,7 +325,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
           contractor:contractors(id, name)
         `)
         .eq('work_id', workId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setMeasurements(data || []);
@@ -402,7 +401,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         inauguration_date: measurement.inauguration_date || '',
         stalled_date: measurement.stalled_date || '',
         expected_value: measurement.expected_value != null ? formatPtBrMoney(measurement.expected_value) : '',
-        amount_spent: measurement.amount_spent != null ? formatPtBrMoney(measurement.amount_spent) : '',
+        // amount_spent: measurement.amount_spent != null ? formatPtBrMoney(measurement.amount_spent) : '',
         execution_period_days: measurement.execution_period_days || '',
         funding_source: Array.isArray(measurement.funding_source) ? [...measurement.funding_source] : []
       });
@@ -426,7 +425,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         inauguration_date: measurement.inauguration_date || '',
         stalled_date: measurement.stalled_date || '',
         expected_value: measurement.expected_value != null ? formatPtBrMoney(measurement.expected_value) : '',
-        amount_spent: measurement.amount_spent != null ? formatPtBrMoney(measurement.amount_spent) : '',
+        // amount_spent: measurement.amount_spent != null ? formatPtBrMoney(measurement.amount_spent) : '',
         execution_period_days: measurement.execution_period_days || '',
         funding_source: Array.isArray(measurement.funding_source) ? [...measurement.funding_source] : []
       };
@@ -452,7 +451,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         inauguration_date: '',
         stalled_date: '',
         expected_value: '',
-        amount_spent: '',
+        // amount_spent: '',
         execution_period_days: '',
         funding_source: []
       });
@@ -476,7 +475,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         inauguration_date: '',
         stalled_date: '',
         expected_value: '',
-        amount_spent: '',
+        // amount_spent: '',
         execution_period_days: '',
         funding_source: []
       };
@@ -540,7 +539,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         inauguration_date: formData.inauguration_date || null,
         stalled_date: formData.stalled_date || null,
         expected_value: formData.expected_value ? parsePtBrNumber(formData.expected_value) : null,
-        amount_spent: formData.amount_spent ? parsePtBrNumber(formData.amount_spent) : null,
+        // amount_spent: formData.amount_spent ? parsePtBrNumber(formData.amount_spent) : null,
         execution_period_days: formData.execution_period_days ? Number(formData.execution_period_days) : null,
         funding_source: Array.isArray(formData.funding_source) ? formData.funding_source : []
       };
@@ -585,6 +584,16 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       
       await fetchMeasurements();
       await syncWorkFromLatestMeasurement();
+      const { error: completionError } = await supabase.from('public_works').update({ is_complete: true }).eq('id', workId);
+      if (completionError) {
+        toast({
+          title: "Fase salva, mas cadastro não foi completado",
+          description: completionError.message,
+          variant: "destructive"
+        });
+      } else if (onWorkCompletionChange) {
+        onWorkCompletionChange(true);
+      }
 
       // Close modal and reset
       clearDraft();
@@ -623,6 +632,15 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       });
       await fetchMeasurements();
       await syncWorkFromLatestMeasurement();
+      const { count, error: countError } = await supabase
+        .from('public_work_measurements')
+        .select('id', { count: 'exact', head: true })
+        .eq('work_id', workId);
+      if (countError) throw countError;
+      const nextIsComplete = (count || 0) > 0;
+      const { error: completionError } = await supabase.from('public_works').update({ is_complete: nextIsComplete }).eq('id', workId);
+      if (completionError) throw completionError;
+      if (onWorkCompletionChange) onWorkCompletionChange(nextIsComplete);
     } catch (error) {
       console.error('Error deleting measurement:', error);
       toast({
@@ -794,7 +812,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                   placeholder="0,00"
                 />
               </div>
-              <div className="grid gap-2">
+              {/* <div className="grid gap-2">
                 <Label htmlFor="amount_spent">Valor Pago (R$)</Label>
                 <Input 
                   id="amount_spent" 
@@ -804,7 +822,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                   onChange={(e) => setFormData(prev => ({ ...prev, amount_spent: maskMoneyWhileTyping(e.target.value) }))}
                   placeholder="0,00"
                 />
-              </div>
+              </div> */}
               <div className="grid gap-2">
                 <Label htmlFor="execution_period_days">Prazo de Execução (dias)</Label>
                 <Input 
@@ -912,7 +930,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="value">Valor (R$)</Label>
+                <Label htmlFor="value">Valor Contratado(R$)</Label>
                 <Input 
                   id="value" 
                   name="value" 
@@ -1318,12 +1336,12 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                       {measurement.value ? formatCurrency(measurement.value) : 'R$ 0,00'}
                     </p>
                   </div>
-                  <div className="p-4 space-y-1">
+                  {/* <div className="p-4 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor Pago</span>
                     <p className="font-bold text-blue-600 text-sm">
                       {measurement.amount_spent ? formatCurrency(measurement.amount_spent) : 'R$ 0,00'}
                     </p>
-                  </div>
+                  </div> */}
                   <div className="p-4 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Execução</span>
                     <div className="flex items-center gap-2">

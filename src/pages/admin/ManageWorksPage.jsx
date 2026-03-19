@@ -11,12 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Progress } from '@/components/ui/progress';
 import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
 import { WorkFinancialTab } from '@/components/admin/WorkFinancialTab';
 import { Combobox } from '@/components/ui/combobox';
-import { toast } from 'sonner';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -151,7 +151,8 @@ const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap
 });
 FiltersSection.displayName = 'FiltersSection';
 
-export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
+export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', onWorkUpdated }) => {
+  const { toast } = useToast();
   const [formData, setFormData] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState(null);
@@ -176,12 +177,21 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     }
   };
 
-  const EDIT_TABS = [
-    { id: 'info', label: 'Informações', icon: Info },
-    { id: 'links', label: 'Links', icon: Link2 },
-    { id: 'history', label: 'Histórico/Fases', icon: Briefcase },
-    { id: 'financial', label: 'Financeiro', icon: Calculator },
-  ];
+  const EDIT_TABS = React.useMemo(() => {
+    const tabs = [
+      { id: 'info', label: 'Informações', icon: Info },
+      { id: 'links', label: 'Links', icon: Link2 },
+    ];
+
+    if (formData?.id) {
+      tabs.push({ id: 'history', label: 'Histórico/Fases', icon: Briefcase });
+      if (formData?.is_complete) {
+        tabs.push({ id: 'financial', label: 'Financeiro', icon: Calculator });
+      }
+    }
+
+    return tabs;
+  }, [formData?.id, formData?.is_complete]);
 
   const goToTab = (nextTabId) => {
     if ((activeTab === 'history' || activeTab === 'financial') && isMeasurementEditing) {
@@ -195,7 +205,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
   useEffect(() => {
     if (work) {
       // Reset navigation state when opening modal or switching modes
-      setActiveTab('info');
+      setActiveTab(initialTab);
 
       setThumbnailFile(null);
       setThumbnailPreview(work.thumbnail_url || null);
@@ -263,7 +273,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
       setThumbnailFile(null);
       setThumbnailPreview(null);
     }
-  }, [work]);
+  }, [work, initialTab]);
   
   const handleChange = (e) => {
     const { name, value, type } = e.target;
@@ -316,6 +326,15 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     if (e) e.preventDefault();
     
     if (!formData) return;
+    if (!canProceed()) {
+      const missing = getMissingRequiredFields();
+      toast({
+        title: "Preencha os campos obrigatórios",
+        description: missing.length ? `Faltando: ${missing.join(', ')}` : "Verifique os dados obrigatórios.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     if (isMeasurementEditing) {
       if (!window.confirm("Você possui uma medição em edição. Ao salvar a obra, as alterações não salvas na medição serão perdidas. Deseja continuar mesmo assim?")) {
@@ -358,6 +377,14 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
     if (!formData.work_category_id) return false;
     if (!formData.bairro_id) return false;
     return true;
+  };
+
+  const getMissingRequiredFields = () => {
+    const missing = [];
+    if (!formData?.title || !String(formData.title).trim()) missing.push('Título da Obra');
+    if (!formData?.work_category_id) missing.push('Categoria');
+    if (!formData?.bairro_id) missing.push('Bairro');
+    return missing;
   };
 
   if (!formData) return null;
@@ -590,6 +617,10 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
                   contractors={workOptions?.contractors || []} 
                   onEditingChange={setIsMeasurementEditing}
                   onDirtyChange={(dirty) => setHasUnsavedMeasurementChanges(dirty)}
+                  onWorkCompletionChange={(isComplete) => {
+                    setFormData((prev) => (prev ? { ...prev, is_complete: isComplete } : prev));
+                    if (onWorkUpdated) onWorkUpdated();
+                  }}
                 />
               ) : (
                 <Card>
@@ -646,8 +677,21 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions }) => {
             </Button>
             <Button 
               type="button" 
+              disabled={
+                (!formData?.id && !canProceed() && (activeTab === 'info' || EDIT_TABS.findIndex(t => t.id === activeTab) === EDIT_TABS.length - 1)) ||
+                (activeTab === 'info' && !canProceed())
+              }
               onClick={() => {
                 const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
+                if ((activeTab === 'info' || (!formData?.id && idx === EDIT_TABS.length - 1)) && !canProceed()) {
+                  const missing = getMissingRequiredFields();
+                  toast({
+                    title: "Preencha os campos obrigatórios",
+                    description: missing.length ? `Faltando: ${missing.join(', ')}` : "Verifique os dados obrigatórios.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
                 if (idx < EDIT_TABS.length - 1) {
                   if (activeTab === 'history' && hasUnsavedMeasurementChanges) {
                     if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
@@ -682,6 +726,7 @@ const ManageWorksPage = () => {
   const [works, setWorks] = useState([]);
   const [workOptions, setWorkOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
   const [editingWork, setEditingWork] = useState(null);
+  const [editingWorkInitialTab, setEditingWorkInitialTab] = useState('info');
   const [deletingWork, setDeletingWork] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -735,6 +780,7 @@ const ManageWorksPage = () => {
     if (editId && works.length > 0 && !editingWork) {
       const found = works.find(w => w.id === editId);
       if (found) {
+        setEditingWorkInitialTab('info');
         setEditingWork(found);
       }
     }
@@ -764,6 +810,7 @@ const ManageWorksPage = () => {
     if (id) {
       result = await supabase.from('public_works').update(payload).eq('id', id).select().single();
     } else {
+      payload.is_complete = false;
       result = await supabase.from('public_works').insert(payload).select().single();
     }
 
@@ -774,33 +821,6 @@ const ManageWorksPage = () => {
       const savedWorkId = result.data.id;
       console.log('Obra salva com ID:', savedWorkId);
 
-      if (!id) {
-        const measurementPayload = {
-          work_id: savedWorkId,
-          title: 'Fase Atual',
-          description: null,
-          contractor_id: payload.contractor_id || null,
-          status: payload.status || 'planned',
-          execution_percentage: payload.execution_percentage,
-          expected_value: payload.total_value,
-          funding_source: Array.isArray(payload.funding_source) ? payload.funding_source : [],
-          execution_period_days: payload.execution_period_days,
-          predicted_start_date: payload.predicted_start_date,
-          start_date: payload.start_date,
-          end_date: payload.end_date,
-          service_order_date: payload.service_order_date,
-          expected_end_date: payload.expected_end_date,
-          inauguration_date: payload.inauguration_date,
-          contract_signature_date: payload.contract_signature_date,
-          stalled_date: payload.stalled_date,
-          amount_spent: payload.amount_spent
-        };
-        const { error: measurementError } = await supabase.from('public_work_measurements').insert([measurementPayload]);
-        if (measurementError) {
-          toast({ title: "Obra criada, mas fase falhou", description: measurementError.message, variant: "destructive" });
-        }
-      }
-
       toast({ title: `Obra ${id ? 'atualizada' : 'criada'} com sucesso!` });
       await fetchData();
       
@@ -809,6 +829,7 @@ const ManageWorksPage = () => {
   };
   
   const handleAddNewWork = () => {
+    setEditingWorkInitialTab('info');
     setEditingWork({});
   };
   
@@ -1008,10 +1029,44 @@ const ManageWorksPage = () => {
                 <div key={work.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 sm:p-4 bg-background rounded-lg border gap-3 sm:gap-4 overflow-hidden">
                   <div className="min-w-0 flex-1 overflow-hidden w-full sm:w-auto">
                     <p className="font-semibold text-sm sm:text-base break-words line-clamp-2">{work.title}</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">Status: {statusMap[work.status] || work.status}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Status: {statusMap[work.status] || work.status}</p>
+                      {work.is_complete ? (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                          Cadastro completo
+                        </Badge>
+                      ) : (
+                        <Badge >
+                          Cadastro incompleto
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="flex-shrink-0 flex gap-2 w-full sm:w-auto justify-end sm:justify-start">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0" onClick={() => setEditingWork(work)}><Edit className="w-3 h-3 sm:w-4 sm:h-4" /></Button>
+                    {!work.is_complete ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 sm:h-10 text-xs sm:text-sm"
+                        onClick={() => {
+                          setEditingWorkInitialTab('history');
+                          setEditingWork(work);
+                        }}
+                      >
+                        Completar cadastro
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0"
+                      onClick={() => {
+                        setEditingWorkInitialTab('info');
+                        setEditingWork(work);
+                      }}
+                    >
+                      <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10 text-red-500 hover:text-red-600 flex-shrink-0" onClick={() => setDeletingWork(work)}><Trash2 className="w-3 h-3 sm:w-4 sm:h-4" /></Button>
                   </div>
                 </div>
@@ -1024,6 +1079,7 @@ const ManageWorksPage = () => {
 
       <WorkEditModal
         work={editingWork}
+        initialTab={editingWorkInitialTab}
         onSave={handleSaveWork}
         onClose={() => {
           setEditingWork(null);
@@ -1032,6 +1088,7 @@ const ManageWorksPage = () => {
           }
         }}
         workOptions={workOptions}
+        onWorkUpdated={fetchData}
       />
 
       <Dialog open={!!deletingWork} onOpenChange={(open) => !open && setDeletingWork(null)}>

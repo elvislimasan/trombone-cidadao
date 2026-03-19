@@ -147,7 +147,7 @@ export default function WorkDetailsPageProject() {
     execution_percentage: "",
     value: "",
     expected_value: "",
-    amount_spent: "",
+    // amount_spent: "",
     execution_period_days: "",
     funding_source: [],
     contract_date: "",
@@ -664,7 +664,7 @@ export default function WorkDetailsPageProject() {
         execution_percentage: currentMeasurement.execution_percentage ?? "",
         value: currentMeasurement.value != null ? formatPtBrMoney(currentMeasurement.value) : "",
         expected_value: currentMeasurement.expected_value != null ? formatPtBrMoney(currentMeasurement.expected_value) : "",
-        amount_spent: currentMeasurement.amount_spent != null ? formatPtBrMoney(currentMeasurement.amount_spent) : "",
+        // amount_spent: currentMeasurement.amount_spent != null ? formatPtBrMoney(currentMeasurement.amount_spent) : "",
         execution_period_days: currentMeasurement.execution_period_days ?? "",
         funding_source: Array.isArray(currentMeasurement.funding_source) ? [...currentMeasurement.funding_source] : [],
         contract_date: currentMeasurement.contract_date || "",
@@ -724,7 +724,7 @@ export default function WorkDetailsPageProject() {
         execution_percentage: pctClamped,
         value: toNumberOrNull(currentPhaseForm.value),
         expected_value: toNumberOrNull(currentPhaseForm.expected_value),
-        amount_spent: toNumberOrNull(currentPhaseForm.amount_spent),
+        // amount_spent: toNumberOrNull(currentPhaseForm.amount_spent),
         execution_period_days: toIntOrNull(currentPhaseForm.execution_period_days),
         funding_source: Array.isArray(currentPhaseForm.funding_source) ? currentPhaseForm.funding_source : [],
         contract_date: currentPhaseForm.contract_date || null,
@@ -1279,7 +1279,7 @@ export default function WorkDetailsPageProject() {
                           </div>
                         ) : null}
 
-                        {selectedMeasurement?.expected_value != null || selectedMeasurement?.amount_spent != null ? (
+                        {selectedMeasurement?.expected_value != null  ? (
                           <div className="grid grid-cols-2 gap-4 md:col-span-2">
                             {selectedMeasurement?.expected_value != null ? (
                               <div className="space-y-1">
@@ -1287,12 +1287,12 @@ export default function WorkDetailsPageProject() {
                                 <p className="font-semibold text-slate-800 text-sm md:text-base">{formatCurrency(selectedMeasurement.expected_value)}</p>
                               </div>
                             ) : null}
-                            {selectedMeasurement?.amount_spent != null && Number(selectedMeasurement.amount_spent) > 0 ? (
+                            {/* {selectedMeasurement?.amount_spent != null && Number(selectedMeasurement.amount_spent) > 0 ? (
                               <div className="space-y-1">
                                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Pago</span>
                                 <p className="font-semibold text-slate-800 text-sm md:text-base">{formatCurrency(selectedMeasurement.amount_spent)}</p>
                               </div>
-                            ) : null}
+                            ) : null} */}
                           </div>
                         ) : null}
 
@@ -1739,7 +1739,7 @@ export default function WorkDetailsPageProject() {
               />
             </div>
 
-            <div className="grid gap-2 sm:col-span-2">
+            {/* <div className="grid gap-2 sm:col-span-2">
               <Label>Valor gasto (R$)</Label>
               <Input
                 inputMode="decimal"
@@ -1754,7 +1754,7 @@ export default function WorkDetailsPageProject() {
                   setCurrentPhaseForm((p) => ({ ...p, amount_spent: formatPtBrMoney(n) }));
                 }}
               />
-            </div>
+            </div> */}
 
             <div className="grid gap-2 sm:col-span-2">
               <Label>Fonte de recurso</Label>
