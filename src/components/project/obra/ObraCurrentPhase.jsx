@@ -22,17 +22,17 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
   const containerClassName = embedded ? "px-6 pb-6" : "bg-card rounded-xl border border-border overflow-hidden ";
   const hasAnyCard = hasContractorName || hasCnpj || hasCategory;
   const hasMeta = Boolean(phase.contractNumber || phase.biddingProcessNumber || phase.portalLink);
-  const bodyClassName = embedded ? "pt-6" : "p-5 sm:p-6";
+  const bodyClassName = embedded ? "pt-6 lg:pt-5 2xl:pt-6" : "p-4 sm:p-5 lg:p-4 2xl:p-6";
 
   return (
     <Container className={containerClassName}>
       <div className={embedded ? "-mx-6" : ""}>
-        <div className="rounded-t-xl bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-6 py-4 sm:py-5">
+        <div className="rounded-t-xl bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-6 lg:px-5 2xl:px-6 py-4 sm:py-5 lg:py-4 2xl:py-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[11px] uppercase tracking-wider text-white/70">Fase Atual</div>
               <div className="mt-1 flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-bold text-white leading-tight break-words">{phase.name}</h2>
+                <h2 className="text-base sm:text-lg lg:text-base 2xl:text-xl font-bold text-white leading-tight break-words">{phase.name}</h2>
                 <Badge className={`${statusInfo.headerClassName || statusInfo.className} border-none`} variant="secondary">
                   {statusInfo.label}
                 </Badge>
@@ -64,7 +64,7 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
           </div>
 
           {hasMeta ? (
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+            <div className="mt-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 lg:px-3 lg:py-2.5 text-sm lg:text-xs 2xl:text-sm text-white/80">
               <div className="flex flex-col sm:justify-between sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4">
                 {phase.contractNumber ? (
                   <div>
@@ -94,7 +94,7 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
 
       <div className={bodyClassName}>
         {phase.description ? (
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line mb-5 sm:mb-6">
+          <p className="text-sm lg:text-[13px] text-muted-foreground leading-relaxed whitespace-pre-line mb-4 sm:mb-6 lg:mb-4 2xl:mb-6">
             {phase.description}
           </p>
         ) : null}
@@ -105,34 +105,34 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
         </div>
 
         {hasAnyCard ? (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-3 2xl:gap-4">
             {hasContractorName ? (
-              <div className="rounded-xl border bg-card p-5 sm:p-4 shadow-sm">
+              <div className="rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Building2 className="h-4 w-4 text-red-500" />
                   <span className="text-xs uppercase tracking-wide">Contratada</span>
                 </div>
-                <div className="font-semibold text-sm leading-snug break-words mt-3 sm:mt-2">{phase.contractor?.name}</div>
+                <div className="font-semibold text-sm lg:text-[13px] leading-snug break-words mt-3 sm:mt-2 lg:mt-2">{phase.contractor?.name}</div>
               </div>
             ) : null}
 
             {hasCnpj ? (
-              <div className="rounded-xl border bg-card p-5 sm:p-4 shadow-sm">
+              <div className="rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Hash className="h-4 w-4 text-red-500" />
                   <span className="text-xs uppercase tracking-wide">CNPJ</span>
                 </div>
-                <div className="font-semibold text-sm leading-snug break-words mt-3 sm:mt-2">{phase.contractor?.cnpj}</div>
+                <div className="font-semibold text-sm lg:text-[13px] leading-snug break-words mt-3 sm:mt-2 lg:mt-2">{phase.contractor?.cnpj}</div>
               </div>
             ) : null}
 
             {hasCategory ? (
-              <div className="rounded-xl border bg-card p-5 sm:p-4 shadow-sm">
+              <div className="rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <FolderOpen className="h-4 w-4 text-red-500" />
                   <span className="text-xs uppercase tracking-wide">Categoria</span>
                 </div>
-                <div className="font-semibold text-sm leading-snug break-words mt-3 sm:mt-2">{category}</div>
+                <div className="font-semibold text-sm lg:text-[13px] leading-snug break-words mt-3 sm:mt-2 lg:mt-2">{category}</div>
               </div>
             ) : null}
           </div>
