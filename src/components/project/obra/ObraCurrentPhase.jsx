@@ -63,10 +63,6 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
             ) : null}
           </div>
 
-          {phase.description ? (
-            <p className="mt-3 text-sm text-white/80 leading-relaxed whitespace-pre-line">{phase.description}</p>
-          ) : null}
-
           {hasMeta ? (
             <div className="mt-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
               <div className="flex flex-col sm:justify-between sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4">
@@ -97,6 +93,12 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
       </div>
 
       <div className={bodyClassName}>
+        {phase.description ? (
+          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line mb-5 sm:mb-6">
+            {phase.description}
+          </p>
+        ) : null}
+
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
           Execução e Responsáveis

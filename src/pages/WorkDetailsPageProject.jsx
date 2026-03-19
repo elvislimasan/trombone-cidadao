@@ -944,7 +944,7 @@ export default function WorkDetailsPageProject() {
         onFavoriteToggle={handleFavoriteToggle}
       />
 
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-2 sm:px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <section className="bg-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -988,7 +988,7 @@ export default function WorkDetailsPageProject() {
                   Confira responsáveis, prazos e cronograma, pagamentos e todas as informações importantes sobre a execução desta fase da obra.
                 </p>
               </div>
-              <div className="mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-8">
+              <div className="mx-0 lg:mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-0 lg:mb-8">
 
               <ObraCurrentPhase
                 phase={phase}
