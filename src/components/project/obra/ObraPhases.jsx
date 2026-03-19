@@ -1,4 +1,4 @@
-import { History, FileText } from "lucide-react";
+import { History, FileText, HistoryIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -16,13 +16,11 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails }) {
   const historicalPhases = list.filter((p) => p.id !== currentPhaseId);
 
   return (
-    <section className="bg-card rounded-lg border p-6">
+    <section id="historico-licitacoes" className="bg-card rounded-xl border border-slate-200 shadow-sm p-6 scroll-mt-24">
       <div className="flex items-center gap-2 mb-4">
         <History className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-semibold max-w-[150px]">Histórico de Licitações</h2>
-        <Badge variant="secondary" className="ml-2">
-          {historicalPhases.length} {historicalPhases.length === 1 ? "anterior" : "anteriores"}
-        </Badge>
+        <h2 className="text-lg font-semibold ">Histórico de Licitações</h2>
+      
       </div>
 
       {historicalPhases.length === 0 ? (
@@ -39,7 +37,7 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails }) {
               <div key={phase.id} className="p-4 bg-background hover:bg-muted/20 transition-colors border-l-4 border-primary/30">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex justify-between items-center  gap-2 flex-wrap w-full">
                       <span className="font-semibold truncate">{phase.name}</span>
                       <Badge className={statusInfo.className} variant="secondary">
                         {statusInfo.label}

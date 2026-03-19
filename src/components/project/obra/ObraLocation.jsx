@@ -3,10 +3,10 @@ import { WorkMap } from "@/components/project/obra/WorkMap";
 
 export function ObraLocation({ address, neighborhood, city, state, coordinates, location }) {
   return (
-    <section className="bg-card rounded-lg border overflow-hidden">
+    <section className="bg-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <MapPin className="h-5 w-5 text-primary" />
+          <MapPin className="h-5 w-5 text-red-500" />
           <h2 className="text-lg font-semibold">Localização</h2>
         </div>
 

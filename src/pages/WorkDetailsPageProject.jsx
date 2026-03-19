@@ -9,6 +9,7 @@ import { getWorkShareUrl } from "@/lib/shareUtils";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ObraHeader } from "@/components/project/obra/ObraHeader";
 import { ObraCurrentPhase } from "@/components/project/obra/ObraCurrentPhase";
+import { ObraProgress } from "@/components/project/obra/ObraProgress";
 import { ObraTimeline } from "@/components/project/obra/ObraTimeline";
 import { ObraFinancial } from "@/components/project/obra/ObraFinancial";
 import { ObraPayments } from "@/components/project/obra/ObraPayments";
@@ -60,6 +61,13 @@ function formatPtBrMoney(value) {
   const n = typeof value === "number" ? value : parsePtBrNumber(value);
   if (n == null) return "";
   return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
+
+function maskMoneyWhileTyping(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  const n = Number(digits) / 100;
+  return formatPtBrMoney(n);
 }
 
 function getStatusInfo(status) {
@@ -327,8 +335,13 @@ export default function WorkDetailsPageProject() {
 
   const fetchFavoriteStatus = useCallback(async () => {
     if (!user?.id || !workId) return;
-    const { data } = await supabase.from("favorite_works").select("id").eq("user_id", user.id).eq("work_id", workId).maybeSingle();
-    setIsFavorited(Boolean(data?.id));
+    const { data } = await supabase
+      .from("favorite_works")
+      .select("work_id")
+      .eq("user_id", user.id)
+      .eq("work_id", workId)
+      .maybeSingle();
+    setIsFavorited(Boolean(data?.work_id));
   }, [user?.id, workId]);
 
   const loadData = useCallback(async () => {
@@ -811,7 +824,6 @@ export default function WorkDetailsPageProject() {
     setIsSavingPayment(true);
     try {
       const payload = {
-        work_id: workId,
         measurement_id: paymentForm.measurement_id,
         payment_date: paymentForm.payment_date,
         value: numericValue,
@@ -884,6 +896,21 @@ export default function WorkDetailsPageProject() {
 
   const fundingSourceText = Array.isArray(currentMeasurement?.funding_source) ? currentMeasurement.funding_source.join(", ") : "";
   const parliamentaryText = work.parliamentary_amendment?.has ? work.parliamentary_amendment?.author : "";
+  const simplifyText = (value) =>
+    String(value || "")
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  const isEmptyDisplayText = (value) => {
+    const t = simplifyText(value);
+    return !t || t === "-" || t === "n/a" || t === "nao informado" || t === "nao informada";
+  };
+  const showFinancialSection =
+    !isEmptyDisplayText(fundingSourceText) ||
+    !isEmptyDisplayText(parliamentaryText) ||
+    Number(currentMeasurement?.value || 0) > 0 ||
+    Number(currentMeasurement?.expected_value || 0) > 0;
 
   const timelineItems = [
     { label: "Data do Contrato", value: formatDateDisplay(currentMeasurement?.contract_date) },
@@ -914,7 +941,7 @@ export default function WorkDetailsPageProject() {
       <main className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <section className="bg-card rounded-lg border border-border overflow-hidden">
+            <section className="bg-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               {heroImageUrl ? <ObraHero imageUrl={heroImageUrl} title={work.title} /> : null}
 
               <div className="p-6">
@@ -932,13 +959,19 @@ export default function WorkDetailsPageProject() {
                   ) : null}
                 </div>
 
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">{work.title}</h1>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-foreground leading-tight tracking-tight">
+                  {work.title}
+                </h1>
 
                 {work.long_description || work.description ? (
-                  <div className="mt-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  <div className="mt-4 text-base text-muted-foreground leading-relaxed whitespace-pre-line">
                     {work.long_description || work.description}
                   </div>
                 ) : null}
+              </div>
+
+              <div className="px-6 pb-6">
+                <ObraProgress percentage={overallProgress} />
               </div>
 
               <ObraCurrentPhase
@@ -953,15 +986,17 @@ export default function WorkDetailsPageProject() {
                 <ObraTimeline executionDays={phase?.executionDays || 0} items={timelineItems} embedded />
               </div>
 
-              <div className="border-t">
-                <ObraFinancial
-                  fundingSource={fundingSourceText}
-                  parliamentaryAmendment={parliamentaryText}
-                  contractValue={currentMeasurement?.value || 0}
-                  expectedValue={currentMeasurement?.expected_value || 0}
-                  embedded
-                />
-              </div>
+              {showFinancialSection ? (
+                <div className="border-t">
+                  <ObraFinancial
+                    fundingSource={fundingSourceText}
+                    parliamentaryAmendment={parliamentaryText}
+                    contractValue={currentMeasurement?.value || 0}
+                    expectedValue={currentMeasurement?.expected_value || 0}
+                    embedded
+                  />
+                </div>
+              ) : null}
 
               <div className="border-t">
                 <ObraPayments
@@ -990,22 +1025,10 @@ export default function WorkDetailsPageProject() {
               </div>
             </section>
             
-                        <ObraPhases phases={phases} currentPhaseId={currentPhaseId} onOpenDetails={openMeasurementDetails} />
-                        <ObraContribution onContribute={handleOpenContrib} />
+              <ObraPhases phases={phases} currentPhaseId={currentPhaseId} onOpenDetails={openMeasurementDetails} />
             
 
-            <div className="text-center max-w-2xl mx-auto pb-6">
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Os dados são provenientes de portais de transparência e verificados pela equipe. Podem haver divergências temporais.
-                <button
-                  type="button"
-                  onClick={() => setShowReportDialog(true)}
-                  className="ml-1 text-muted-foreground underline hover:text-foreground"
-                >
-                  Reportar erro
-                </button>
-              </p>
-            </div>
+         
           </div>
 
           <aside className="space-y-6">
@@ -1019,6 +1042,25 @@ export default function WorkDetailsPageProject() {
             />
             <ObraRelatedLinks links={work.related_links || []} />
           </aside>
+          
+          <div className="order-last lg:order-none lg:col-span-2">
+            <ObraContribution onContribute={handleOpenContrib} />
+             <div className="lg:col-span-3 text-center max-w-2xl mx-auto pb-6">
+            <p className="text-xs text-muted-foreground leading-relaxed mt-4">
+              Os dados são provenientes de portais de transparência e verificados pela equipe. Podem haver divergências temporais.
+              <button
+                type="button"
+                onClick={() => setShowReportDialog(true)}
+                className="ml-1 text-muted-foreground underline hover:text-foreground"
+              >
+                Reportar erro
+              </button>
+            </p>
+          </div>
+          </div>
+
+         
+           
         </div>
       </main>
 
@@ -1097,8 +1139,7 @@ export default function WorkDetailsPageProject() {
                 placeholder="0,00"
                 value={paymentForm.value}
                 onChange={(e) => {
-                  const next = String(e.target.value || "").replace(/[^\d.,]/g, "");
-                  setPaymentForm((prev) => ({ ...prev, value: next }));
+                  setPaymentForm((prev) => ({ ...prev, value: maskMoneyWhileTyping(e.target.value) }));
                 }}
                 onBlur={() => {
                   const n = parsePtBrNumber(paymentForm.value);

@@ -39,38 +39,70 @@ export function ObraHeader({
   return (
     <header className="sticky top-0 z-30">
       <div className="bg-card text-foreground border-b border-border">
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button asChild size="icon" variant="outline" className="h-10 w-10 rounded-xl">
+        <div className="container mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Button asChild size="icon" variant="outline" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0">
               <Link to={backTo} aria-label="Voltar">
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </Link>
             </Button>
-            <span className="text-xs sm:text-sm font-bold tracking-wider text-muted-foreground">
+            <span className="hidden sm:inline text-sm font-bold tracking-wider text-muted-foreground truncate">
               Voltar para mapa de obras
+            </span>
+            <span className="sm:hidden text-[11px] font-bold tracking-wider text-muted-foreground truncate max-w-[160px]">
+              Voltar para obras
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <Button onClick={onManage} variant="outline" size="sm" className="ml-2 flex">
-                <Settings className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Gerenciar</span>
-              </Button>
-            )}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {isAdmin ? (
+              <>
+                <Button
+                  onClick={onManage}
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-xl sm:hidden"
+                  aria-label="Gerenciar"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+                <Button onClick={onManage} variant="outline" size="sm" className="hidden sm:inline-flex">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Gerenciar
+                </Button>
+              </>
+            ) : null}
 
-            <Button onClick={onShare} variant="outline" className="rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4">
-              <Share2 className="w-5 h-5 sm:mr-2" />
-              <span className="hidden sm:inline font-medium">Compartilhar</span>
+            <Button
+              onClick={onShare}
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-xl sm:hidden"
+              aria-label="Compartilhar"
+            >
+              <Share2 className="w-4 h-4" />
+            </Button>
+            <Button onClick={onShare} variant="outline" className="hidden sm:inline-flex rounded-full h-10 px-4">
+              <Share2 className="w-4 h-4 mr-2" />
+              <span className="font-medium">Compartilhar</span>
             </Button>
 
             <Button
               onClick={onFavoriteToggle}
               variant="outline"
-              className={`rounded-full h-12 w-12 sm:h-10 sm:w-auto sm:px-4 ${isFavorited ? "bg-muted" : ""}`}
+              size="icon"
+              className={`h-9 w-9 rounded-xl sm:hidden ${isFavorited ? "bg-muted" : ""}`}
+              aria-label={isFavorited ? "Remover dos favoritos" : "Favoritar"}
             >
-              <Heart className={`w-5 h-5 sm:mr-2 ${isFavorited ? "fill-current" : ""}`} />
-              <span className="hidden sm:inline font-medium">Favoritar</span>
+              <Heart className={`w-4 h-4 ${isFavorited ? "fill-current" : ""}`} />
+            </Button>
+            <Button
+              onClick={onFavoriteToggle}
+              variant="outline"
+              className={`hidden sm:inline-flex rounded-full h-10 px-4 ${isFavorited ? "bg-muted" : ""}`}
+            >
+              <Heart className={`w-4 h-4 mr-2 ${isFavorited ? "fill-current" : ""}`} />
+              <span className="font-medium">Favoritar</span>
             </Button>
           </div>
         </div>
