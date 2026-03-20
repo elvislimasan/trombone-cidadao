@@ -2023,7 +2023,7 @@ export default function WorkDetailsPageProject() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label>Previsão de término</Label>
+                <Label>Previsão de Conclusão</Label>
                 <Input
                   type="date"
                   value={currentPhaseForm.expected_end_date || ""}
