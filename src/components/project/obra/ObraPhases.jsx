@@ -118,12 +118,12 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails, isAdmin = fa
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-sm">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">Início:</span>
-                            <span className="font-semibold text-foreground">{formatDateDisplay(startDate)}</span>
+                            <span className="text-muted-foreground">Previsão de Início:</span>
+                            <span className="font-semibold text-foreground">{formatDateDisplay(phase.predictedStartDate)}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Término:</span>
-                            <span className="font-semibold text-foreground">{formatDateDisplay(endDate)}</span>
+                            <span className="text-muted-foreground">Previsão de Término:</span>
+                            <span className="font-semibold text-foreground">{formatDateDisplay(phase.predictedEndDate)}</span>
                           </div>
                         </div>
                       </div>
@@ -139,38 +139,7 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails, isAdmin = fa
                           Ver Detalhes e Arquivos
                         </Button>
 
-                        {(() => {
-                          const contractLink = phase.contractPortalLink || "";
-                          const processLink = phase.biddingProcessPortalLink || "";
-                          const contractNumber = phase.contractNumber;
-                          const processNumber = phase.biddingProcessNumber;
-                        
-
-                          return (
-                            <div className="flex flex-wrap gap-x-4 gap-y-1">
-                              {contractLink ? (
-                                <a
-                                  href={contractLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                                >
-                                  {contractNumber}
-                                </a>
-                              ) : null}
-                              {processLink ? (
-                                <a
-                                  href={processLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                                >
-                                  {processNumber}
-                                </a>
-                              ) : null}
-                            </div>
-                          );
-                        })()}
+                     
                       </div>
                     </div>
                   </div>

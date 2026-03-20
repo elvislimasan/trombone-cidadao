@@ -155,7 +155,6 @@ export default function WorkDetailsPageProject() {
     funding_amount_federal: "",
     funding_amount_state: "",
     funding_amount_municipal: "",
-    contract_date: "",
     contract_signature_date: "",
     service_order_date: "",
     predicted_start_date: "",
@@ -684,7 +683,6 @@ export default function WorkDetailsPageProject() {
           funding_amount_federal: m.funding_amount_federal != null ? formatPtBrMoney(m.funding_amount_federal) : "",
           funding_amount_state: m.funding_amount_state != null ? formatPtBrMoney(m.funding_amount_state) : "",
           funding_amount_municipal: m.funding_amount_municipal != null ? formatPtBrMoney(m.funding_amount_municipal) : "",
-          contract_date: m.contract_date || "",
           contract_signature_date: m.contract_signature_date || "",
           service_order_date: m.service_order_date || "",
           predicted_start_date: m.predicted_start_date || "",
@@ -760,7 +758,6 @@ export default function WorkDetailsPageProject() {
         funding_amount_federal: toNumberOrNull(currentPhaseForm.funding_amount_federal),
         funding_amount_state: toNumberOrNull(currentPhaseForm.funding_amount_state),
         funding_amount_municipal: toNumberOrNull(currentPhaseForm.funding_amount_municipal),
-        contract_date: currentPhaseForm.contract_date || null,
         contract_signature_date: currentPhaseForm.contract_signature_date || null,
         service_order_date: currentPhaseForm.service_order_date || null,
         predicted_start_date: currentPhaseForm.predicted_start_date || null,
@@ -972,8 +969,7 @@ export default function WorkDetailsPageProject() {
     Number(currentMeasurement?.expected_value || 0) > 0;
 
   const timelineItems = [
-    { label: "Data do Contrato", value: formatDateDisplay(currentMeasurement?.contract_date) },
-    { label: "Assinatura", value: formatDateDisplay(phase?.contractSignatureDate) },
+    { label: "Assinatura do contrato", value: formatDateDisplay(phase?.contractSignatureDate) },
     { label: "Ordem de Serviço", value: formatDateDisplay(phase?.serviceOrderDate) },
     { label: "Previsão Início", value: formatDateDisplay(phase?.predictedStartDate) },
     { label: "Término Prev.", value: formatDateDisplay(phase?.expectedEndDate) },
@@ -1144,107 +1140,109 @@ export default function WorkDetailsPageProject() {
       {mediaViewer.isOpen ? <MediaViewer media={mediaViewer.items} startIndex={mediaViewer.startIndex} onClose={closeViewer} /> : null}
 
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-[650px]">
+        <DialogContent className="sm:max-w-[650px] max-h-[calc(100vh-2rem)] max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Novo pagamento</DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Fase</Label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                value={paymentForm.measurement_id}
-                onChange={(e) => {
-                  const nextMeasurementId = e.target.value;
-                  const nextMeasurement = measurements.find((m) => m.id === nextMeasurementId) || null;
-                  setPaymentForm((prev) => ({
-                    ...prev,
-                    measurement_id: nextMeasurementId,
-                    creditor_name: prev.creditor_name ? prev.creditor_name : nextMeasurement?.contractor?.name || "",
-                  }));
-                }}
-              >
-                {measurements.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.title}
-                  </option>
-                ))}
-              </select>
+          <div className="flex-1 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Fase</Label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={paymentForm.measurement_id}
+                  onChange={(e) => {
+                    const nextMeasurementId = e.target.value;
+                    const nextMeasurement = measurements.find((m) => m.id === nextMeasurementId) || null;
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      measurement_id: nextMeasurementId,
+                      creditor_name: prev.creditor_name ? prev.creditor_name : nextMeasurement?.contractor?.name || "",
+                    }));
+                  }}
+                >
+                  {measurements.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Data</Label>
+                <Input
+                  type="date"
+                  value={paymentForm.payment_date}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, payment_date: e.target.value }))}
+                />
+              </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label>Data</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div className="grid gap-2">
+                <Label>Número de empenho</Label>
+                <Input
+                  value={paymentForm.commitment_number}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_number: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Parcela</Label>
+                <Input
+                  placeholder="Ex.: 1/3"
+                  value={paymentForm.installment}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, installment: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div className="grid gap-2">
+                <Label>Credor</Label>
+                <Input
+                  value={paymentForm.creditor_name}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, creditor_name: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Valor (R$)</Label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={paymentForm.value}
+                  onChange={(e) => {
+                    setPaymentForm((prev) => ({ ...prev, value: maskMoneyWhileTyping(e.target.value) }));
+                  }}
+                  onBlur={() => {
+                    const n = parsePtBrNumber(paymentForm.value);
+                    if (n == null) return;
+                    setPaymentForm((prev) => ({ ...prev, value: formatPtBrMoney(n) }));
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2 mt-4">
+              <Label>Descrição do pagamento</Label>
+              <Textarea
+                value={paymentForm.payment_description}
+                onChange={(e) => setPaymentForm((prev) => ({ ...prev, payment_description: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid gap-2 mt-4">
+              <Label>Link do portal (opcional)</Label>
               <Input
-                type="date"
-                value={paymentForm.payment_date}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, payment_date: e.target.value }))}
+                placeholder="https://..."
+                value={paymentForm.portal_link}
+                onChange={(e) => setPaymentForm((prev) => ({ ...prev, portal_link: e.target.value }))}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <div className="grid gap-2">
-              <Label>Número de empenho</Label>
-              <Input
-                value={paymentForm.commitment_number}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_number: e.target.value }))}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Parcela</Label>
-              <Input
-                placeholder="Ex.: 1/3"
-                value={paymentForm.installment}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, installment: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <div className="grid gap-2">
-              <Label>Credor</Label>
-              <Input
-                value={paymentForm.creditor_name}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, creditor_name: e.target.value }))}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Valor (R$)</Label>
-              <Input
-                inputMode="decimal"
-                placeholder="0,00"
-                value={paymentForm.value}
-                onChange={(e) => {
-                  setPaymentForm((prev) => ({ ...prev, value: maskMoneyWhileTyping(e.target.value) }));
-                }}
-                onBlur={() => {
-                  const n = parsePtBrNumber(paymentForm.value);
-                  if (n == null) return;
-                  setPaymentForm((prev) => ({ ...prev, value: formatPtBrMoney(n) }));
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-2 mt-4">
-            <Label>Descrição do pagamento</Label>
-            <Textarea
-              value={paymentForm.payment_description}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, payment_description: e.target.value }))}
-            />
-          </div>
-
-          <div className="grid gap-2 mt-4">
-            <Label>Link do portal (opcional)</Label>
-            <Input
-              placeholder="https://..."
-              value={paymentForm.portal_link}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, portal_link: e.target.value }))}
-            />
-          </div>
-
-          <DialogFooter className="mt-4">
+          <DialogFooter className="mt-4 shrink-0 pt-4 border-t bg-background">
             <DialogClose asChild>
               <Button variant="outline" disabled={isSavingPayment}>
                 Cancelar
@@ -2000,14 +1998,6 @@ export default function WorkDetailsPageProject() {
           <div className="mt-6">
             <div className="text-sm font-semibold mb-3">Datas</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Data do contrato</Label>
-                <Input
-                  type="date"
-                  value={currentPhaseForm.contract_date || ""}
-                  onChange={(e) => setCurrentPhaseForm((p) => ({ ...p, contract_date: e.target.value }))}
-                />
-              </div>
               <div className="grid gap-2">
                 <Label>Assinatura do contrato</Label>
                 <Input
