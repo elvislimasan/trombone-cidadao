@@ -93,7 +93,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     bidding_process_number: '',
     contract_portal_link: '',
     bidding_process_portal_link: '',
-    contract_date: '',
     start_date: '',
     end_date: '',
     value: '',
@@ -396,7 +395,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         bidding_process_number: measurement.bidding_process_number || '',
         contract_portal_link: measurement.contract_portal_link || measurement.portal_link || '',
         bidding_process_portal_link: measurement.bidding_process_portal_link || measurement.portal_link || '',
-        contract_date: measurement.contract_date || '',
         start_date: measurement.start_date || '',
         end_date: measurement.end_date || '',
         value: measurement.value != null ? formatPtBrMoney(measurement.value) : '',
@@ -424,7 +422,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         bidding_process_number: measurement.bidding_process_number || '',
         contract_portal_link: measurement.contract_portal_link || measurement.portal_link || '',
         bidding_process_portal_link: measurement.bidding_process_portal_link || measurement.portal_link || '',
-        contract_date: measurement.contract_date || '',
         start_date: measurement.start_date || '',
         end_date: measurement.end_date || '',
         value: measurement.value != null ? formatPtBrMoney(measurement.value) : '',
@@ -454,7 +451,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         bidding_process_number: '',
         contract_portal_link: '',
         bidding_process_portal_link: '',
-        contract_date: '',
         start_date: '',
         end_date: '',
         value: '',
@@ -482,7 +478,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         bidding_process_number: '',
         contract_portal_link: '',
         bidding_process_portal_link: '',
-        contract_date: '',
         start_date: '',
         end_date: '',
         value: '',
@@ -551,7 +546,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         contract_portal_link: formData.contract_portal_link || null,
         bidding_process_portal_link: formData.bidding_process_portal_link || null,
         portal_link: formData.contract_portal_link || formData.bidding_process_portal_link || null,
-        contract_date: formData.contract_date || null,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         value: formData.value ? parsePtBrNumber(formData.value) : null,
@@ -1050,17 +1044,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                   <h5 className="text-sm font-medium text-slate-500 mb-2 border-b pb-1">Marcos Contratuais</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="contract_date">Data do contrato</Label>
-                      <Input
-                        id="contract_date"
-                        name="contract_date"
-                        type="date"
-                        value={formData.contract_date}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="contract_signature_date">Assinatura Contrato</Label>
+                      <Label htmlFor="contract_signature_date">Assinatura do contrato</Label>
                       <Input 
                         id="contract_signature_date" 
                         name="contract_signature_date" 
