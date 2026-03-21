@@ -20,18 +20,25 @@ export function WorkGalleryManager({
   const [measurements, setMeasurements] = useState([]);
   const isFixedMeasurement = Boolean(measurementId);
   const [activeMeasurementId, setActiveMeasurementId] = useState(measurementId);
+  const [hasLegacyMedia, setHasLegacyMedia] = useState(false);
+  const [scope, setScope] = useState("phase"); // phase | legacy
 
   const loadMedia = useCallback(async () => {
     if (!workId) return;
-    if (!isFixedMeasurement && showMeasurementSelector && !allowAll && !activeMeasurementId) {
-      setMedia([]);
-      return;
-    }
     setLoading(true);
     try {
       let q = supabase.from("public_work_media").select("*").eq("work_id", workId).order("created_at", { ascending: false });
-      const mid = isFixedMeasurement ? measurementId : activeMeasurementId;
-      if (mid) q = q.eq("measurement_id", mid);
+      if (!isFixedMeasurement && scope === "legacy") {
+        q = q.is("measurement_id", null);
+      } else {
+        const mid = isFixedMeasurement ? measurementId : activeMeasurementId;
+        if (mid) q = q.eq("measurement_id", mid);
+        else if (!allowAll) {
+          setMedia([]);
+          setLoading(false);
+          return;
+        }
+      }
       const { data, error } = await q;
       if (error) throw error;
       setMedia(data || []);
@@ -40,7 +47,7 @@ export function WorkGalleryManager({
     } finally {
       setLoading(false);
     }
-  }, [activeMeasurementId, allowAll, isFixedMeasurement, measurementId, showMeasurementSelector, toast, workId]);
+  }, [activeMeasurementId, allowAll, isFixedMeasurement, measurementId, scope, toast, workId]);
 
   useEffect(() => {
     loadMedia();
@@ -81,6 +88,50 @@ export function WorkGalleryManager({
     }
   }, [activeMeasurementId, allowAll, isFixedMeasurement, measurements, showMeasurementSelector]);
 
+  useEffect(() => {
+    if (!workId) return;
+    if (isFixedMeasurement) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("public_work_media")
+          .select("id")
+          .eq("work_id", workId)
+          .is("measurement_id", null)
+          .limit(1);
+        if (error) throw error;
+        if (cancelled) return;
+        setHasLegacyMedia(Array.isArray(data) && data.length > 0);
+      } catch (e) {
+        if (cancelled) return;
+        setHasLegacyMedia(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isFixedMeasurement, workId]);
+
+  useEffect(() => {
+    if (isFixedMeasurement) return;
+    if (!showMeasurementSelector) return;
+    if (scope === "legacy") return;
+    if (!allowAll && !activeMeasurementId && measurements.length > 0) {
+      setActiveMeasurementId(measurements[0].id);
+    }
+  }, [activeMeasurementId, allowAll, isFixedMeasurement, measurements, scope, showMeasurementSelector]);
+
+  useEffect(() => {
+    if (isFixedMeasurement) return;
+    if (!showMeasurementSelector) return;
+    if (measurements.length === 0 && hasLegacyMedia) {
+      setScope("legacy");
+    } else {
+      setScope("phase");
+    }
+  }, [hasLegacyMedia, isFixedMeasurement, measurements.length, showMeasurementSelector]);
+
   const galleries = useMemo(() => {
     const items = (media || []).filter((m) => ["image", "photo", "video", "video_url"].includes(m.type));
     const map = new Map();
@@ -119,8 +170,12 @@ export function WorkGalleryManager({
 
       try {
         let q = supabase.from("public_work_media").update({ gallery_name: toName }).eq("work_id", workId);
-        const mid = isFixedMeasurement ? measurementId : activeMeasurementId;
-        if (mid) q = q.eq("measurement_id", mid);
+        if (!isFixedMeasurement && scope === "legacy") {
+          q = q.is("measurement_id", null);
+        } else {
+          const mid = isFixedMeasurement ? measurementId : activeMeasurementId;
+          if (mid) q = q.eq("measurement_id", mid);
+        }
         if (fromName === "Geral") {
           q = q.or("gallery_name.is.null,gallery_name.eq.Geral");
         } else {
@@ -134,7 +189,7 @@ export function WorkGalleryManager({
         toast({ title: "Erro ao renomear galeria", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, toast, user?.is_admin, workId]
+    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, toast, user?.is_admin, workId]
   );
 
   const handleDeleteGallery = useCallback(
@@ -257,7 +312,7 @@ export function WorkGalleryManager({
       if (list.length === 0) return;
 
       const targetGalleryName = String(galleryName || "").trim() || "Geral";
-      const mid = isFixedMeasurement ? measurementId : activeMeasurementId;
+      const mid = isFixedMeasurement ? measurementId : scope === "legacy" ? null : activeMeasurementId;
       const targetFolder = mid ? `measurements/${mid}` : `works/${workId}`;
 
       try {
@@ -297,14 +352,30 @@ export function WorkGalleryManager({
         toast({ title: "Erro ao enviar arquivos", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, toast, user?.id, user?.is_admin, workId]
+    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, toast, user?.id, user?.is_admin, workId]
   );
 
   return (
     <div className={loading ? "opacity-70 pointer-events-none" : ""}>
       {showMeasurementSelector && !isFixedMeasurement ? (
         <div className="mb-4">
-          <div className="text-sm font-semibold text-foreground mb-2">Fases / Licitações</div>
+          {hasLegacyMedia ? (
+            <div className="flex items-center gap-2 mb-3">
+              <Button type="button" size="sm" variant={scope === "phase" ? "secondary" : "outline"} onClick={() => setScope("phase")}>
+                Fases
+              </Button>
+              <Button type="button" size="sm" variant={scope === "legacy" ? "secondary" : "outline"} onClick={() => setScope("legacy")}>
+                Galeria legado
+              </Button>
+            </div>
+          ) : null}
+
+          {scope === "phase" ? (
+            <div className="text-sm font-semibold text-foreground mb-2">Fases / Licitações</div>
+          ) : (
+            <div className="text-sm font-semibold text-foreground mb-2">Galeria legado</div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             {allowAll ? (
               <Button
@@ -316,18 +387,21 @@ export function WorkGalleryManager({
                 Todas
               </Button>
             ) : null}
-            {measurements.map((m) => (
-              <Button
-                key={m.id}
-                type="button"
-                variant={activeMeasurementId === m.id ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setActiveMeasurementId(m.id)}
-                className="max-w-full"
-              >
-                <span className="truncate">{m.title || "Fase"}</span>
-              </Button>
-            ))}
+           
+            {scope === "phase"
+              ? measurements.map((m) => (
+                  <Button
+                    key={m.id}
+                    type="button"
+                    variant={activeMeasurementId === m.id ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setActiveMeasurementId(m.id)}
+                    className="max-w-full"
+                  >
+                    <span className="truncate">{m.title || "Fase"}</span>
+                  </Button>
+                ))
+              : null}
           </div>
         </div>
       ) : null}
@@ -346,6 +420,9 @@ export function WorkGalleryManager({
         onUploadFiles={handleUploadFiles}
         onBulkUpdateMediaItems={handleBulkUpdateMediaItems}
         onBulkDeleteMediaItems={handleBulkDeleteMediaItems}
+        phaseMoveOptions={measurements.map((m) => ({ id: m.id, label: m.title || "Fase" }))}
+        currentMeasurementId={scope === "phase" ? activeMeasurementId : null}
+        allowMoveToLegacy={scope === "phase"}
       />
     </div>
   );

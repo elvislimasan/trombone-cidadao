@@ -163,6 +163,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
   const [isMeasurementEditing, setIsMeasurementEditing] = useState(false);
   const [hasUnsavedMeasurementChanges, setHasUnsavedMeasurementChanges] = useState(false);
   const [hasMeasurements, setHasMeasurements] = useState(false);
+  const [hasLegacyMedia, setHasLegacyMedia] = useState(false);
 
   // Auto-save logic
   useEffect(() => {
@@ -187,7 +188,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
 
     if (formData?.id) {
       tabs.push({ id: 'history', label: 'Histórico/Fases', icon: Briefcase });
-      if (hasMeasurements) {
+      if (hasMeasurements || hasLegacyMedia) {
         tabs.splice(2, 0, { id: 'media', label: 'Mídias', icon: ImageIcon });
       }
       if (formData?.is_complete) {
@@ -196,11 +197,12 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
     }
 
     return tabs;
-  }, [formData?.id, formData?.is_complete, hasMeasurements]);
+  }, [formData?.id, formData?.is_complete, hasLegacyMedia, hasMeasurements]);
 
   useEffect(() => {
     if (!formData?.id) {
       setHasMeasurements(false);
+      setHasLegacyMedia(false);
       return;
     }
     let cancelled = false;
@@ -225,10 +227,37 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
   }, [formData?.id]);
 
   useEffect(() => {
-    if (activeTab === 'media' && !hasMeasurements) {
+    if (!formData?.id) {
+      setHasLegacyMedia(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('public_work_media')
+          .select('id')
+          .eq('work_id', formData.id)
+          .is('measurement_id', null)
+          .limit(1);
+        if (error) throw error;
+        if (cancelled) return;
+        setHasLegacyMedia(Array.isArray(data) && data.length > 0);
+      } catch (e) {
+        if (cancelled) return;
+        setHasLegacyMedia(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData?.id]);
+
+  useEffect(() => {
+    if (activeTab === 'media' && !hasMeasurements && !hasLegacyMedia) {
       setActiveTab('history');
     }
-  }, [activeTab, hasMeasurements]);
+  }, [activeTab, hasLegacyMedia, hasMeasurements]);
 
   const goToTab = (nextTabId) => {
     if ((activeTab === 'history' || activeTab === 'financial') && isMeasurementEditing) {
