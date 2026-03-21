@@ -168,6 +168,9 @@ export function ObraGallery({
   onUploadFiles,
   onBulkUpdateMediaItems,
   onBulkDeleteMediaItems,
+  phaseMoveOptions,
+  currentMeasurementId,
+  allowMoveToLegacy = false,
 }) {
   const Container = embedded ? "div" : "section";
   const containerClassName = embedded
@@ -202,6 +205,8 @@ export function ObraGallery({
   const [isBulkLoading, setIsBulkLoading] = useState(false);
 
   const fileInputRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const ignoreNextClickIdRef = useRef(null);
 
   // ── Reset on close ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -218,6 +223,31 @@ export function ObraGallery({
       setPendingDeleteGallery(null);
     }
   }, [isEditOpen]);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const startLongPress = useCallback(
+    (itemId, pointerType) => {
+      if (pointerType !== "touch") return;
+      if (isSelecting) return;
+      cancelLongPress();
+      longPressTimerRef.current = setTimeout(() => {
+        ignoreNextClickIdRef.current = itemId;
+        setIsSelecting(true);
+        setSelectedItemIds((prev) => {
+          const next = new Set(prev);
+          next.add(itemId);
+          return next;
+        });
+      }, 420);
+    },
+    [cancelLongPress, isSelecting]
+  );
 
   // ── Reset selection when navigating ─────────────────────────────────────────
   useEffect(() => {
@@ -293,6 +323,26 @@ export function ObraGallery({
           await onBulkUpdateMediaItems(ids, { gallery_name: name });
         } else {
           for (const id of ids) await onUpdateMediaItem?.(id, { gallery_name: name });
+        }
+        exitSelectionMode();
+      } finally {
+        setIsBulkLoading(false);
+      }
+    },
+    [selectedItemsForBulk, onBulkUpdateMediaItems, onUpdateMediaItem]
+  );
+
+  const bulkMoveSelectedToPhase = useCallback(
+    async (targetMeasurementId) => {
+      if (!selectedItemsForBulk.length) return;
+      const ids = selectedItemsForBulk.map((i) => i.id);
+      const nextMeasurementId = targetMeasurementId == null ? null : String(targetMeasurementId);
+      setIsBulkLoading(true);
+      try {
+        if (typeof onBulkUpdateMediaItems === "function") {
+          await onBulkUpdateMediaItems(ids, { measurement_id: nextMeasurementId });
+        } else {
+          for (const id of ids) await onUpdateMediaItem?.(id, { measurement_id: nextMeasurementId });
         }
         exitSelectionMode();
       } finally {
@@ -469,6 +519,191 @@ export function ObraGallery({
           ) : null}
         </div>
 
+        {/* Selection action bar (top) */}
+        {view !== "folders" && isSelecting ? (
+          <div className="pt-3 border-t border-border mt-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="flex items-center gap-2 min-w-0 sm:flex-1">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  <span className="text-xs font-semibold text-primary">
+                    {selectedItemsCount > 0
+                      ? `${selectedItemsCount} selecionado${selectedItemsCount > 1 ? "s" : ""}`
+                      : "Nenhum"}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground whitespace-nowrap"
+                  disabled={!selectedItems.length}
+                  onClick={toggleSelectAll}
+                >
+                  {allSelected ? "Limpar seleção" : "Selecionar tudo"}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 shrink-0 w-full sm:w-auto">
+                <Popover open={movePopoverOpen} onOpenChange={setMovePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={selectedItemsCount === 0 || isBulkLoading}
+                      className="h-8"
+                    >
+                      {isBulkLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      Mover
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-72 max-w-[calc(100vw-2rem)] p-2"
+                    align="end"
+                    side="bottom"
+                    sideOffset={8}
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <div className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+                      Mover para…
+                    </div>
+
+                    {Array.isArray(phaseMoveOptions) && phaseMoveOptions.length > 0 ? (
+                      <div className="mt-1">
+                        <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Fases
+                        </div>
+                        <div className="flex flex-col">
+                          {allowMoveToLegacy ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="justify-start px-2 h-9"
+                              onClick={async () => {
+                                setMovePopoverOpen(false);
+                                await bulkMoveSelectedToPhase(null);
+                              }}
+                            >
+                              <FolderOpen className="h-4 w-4 mr-2 text-muted-foreground" />
+                              Sem fase (Legado)
+                            </Button>
+                          ) : null}
+                          {phaseMoveOptions
+                            .filter((p) => String(p?.id || "") && String(p.id) !== String(currentMeasurementId || ""))
+                            .map((p) => (
+                              <Button
+                                key={p.id}
+                                type="button"
+                                variant="ghost"
+                                className="justify-start px-2 h-9"
+                                onClick={async () => {
+                                  setMovePopoverOpen(false);
+                                  await bulkMoveSelectedToPhase(p.id);
+                                }}
+                              >
+                                <FolderOpen className="h-4 w-4 mr-2 text-muted-foreground" />
+                                {p.label || "Fase"}
+                              </Button>
+                            ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-2 border-t border-border pt-2">
+                      <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Galerias
+                      </div>
+                    <div className="flex flex-col">
+                      {allGalleryNames
+                        .filter((name) => name !== selectedGallery)
+                        .map((name) => (
+                          <Button
+                            key={name}
+                            type="button"
+                            variant="ghost"
+                            className="justify-start px-2 h-9"
+                            onClick={async () => {
+                              setMovePopoverOpen(false);
+                              await bulkMoveSelected(name);
+                            }}
+                          >
+                            <FolderOpen className="h-4 w-4 mr-2 text-muted-foreground" />
+                            {name}
+                          </Button>
+                        ))}
+                    </div>
+                    </div>
+
+                    <div className="mt-2 border-t border-border pt-2">
+                      <div className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+                        Nova galeria
+                      </div>
+                      <div className="flex gap-2 px-2 pb-1">
+                        <Input
+                          value={moveToNewGalleryName}
+                          onChange={(e) => setMoveToNewGalleryName(e.target.value)}
+                          placeholder="Nome da galeria"
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter") {
+                              const name = String(moveToNewGalleryName || "").trim();
+                              if (!name) return;
+                              setMovePopoverOpen(false);
+                              setMoveToNewGalleryName("");
+                              await bulkMoveSelected(name);
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!String(moveToNewGalleryName || "").trim()}
+                          onClick={async () => {
+                            const name = String(moveToNewGalleryName || "").trim();
+                            if (!name) return;
+                            setMovePopoverOpen(false);
+                            setMoveToNewGalleryName("");
+                            await bulkMoveSelected(name);
+                          }}
+                        >
+                          Criar
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                <ConfirmPopover
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={selectedItemsCount === 0 || isBulkLoading}
+                      className="h-8"
+                    >
+                      {isBulkLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      Excluir
+                    </Button>
+                  }
+                  title={`Excluir ${selectedItemsCount} item${selectedItemsCount > 1 ? "s" : ""}?`}
+                  description="Essa ação não pode ser desfeita."
+                  confirmLabel="Excluir"
+                  onConfirm={bulkDeleteSelected}
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {/* Create / rename form */}
         {folderAction ? (
           <div className="pt-3">
@@ -641,7 +876,9 @@ export function ObraGallery({
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+              <div
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4"
+              >
                 {selectedItems.map((item, idx) => (
                   <div
                     key={item.id}
@@ -651,8 +888,21 @@ export function ObraGallery({
                         : "border-border hover:border-muted-foreground/30 hover:shadow-md"
                     }`}
                     onClick={() => {
+                      if (ignoreNextClickIdRef.current === item.id) {
+                        ignoreNextClickIdRef.current = null;
+                        return;
+                      }
                       if (isSelecting) { toggleSelectedItem(item.id); return; }
                       onOpenViewer?.(selectedItems, idx);
+                    }}
+                    onPointerDown={(e) => startLongPress(item.id, e.pointerType)}
+                    onPointerUp={cancelLongPress}
+                    onPointerCancel={cancelLongPress}
+                    onPointerMove={(e) => {
+                      if (e.pointerType === "touch") cancelLongPress();
+                    }}
+                    onContextMenu={(e) => {
+                      if (!isSelecting) e.preventDefault();
                     }}
                   >
                     <div className="relative aspect-square bg-muted overflow-hidden">
@@ -722,145 +972,6 @@ export function ObraGallery({
                 ) : null}
               </div>
             )}
-
-            {/* ── Bulk action bar ── */}
-            {isSelecting ? (
-              <div className="mt-6 rounded-2xl border border-border bg-muted/30 px-4 py-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                  {/* Count badge + select all */}
-                  <div className="flex items-center gap-2 min-w-0 sm:flex-1">
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1">
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                      <span className="text-xs font-semibold text-primary">
-                        {selectedItemsCount > 0
-                          ? `${selectedItemsCount} selecionado${selectedItemsCount > 1 ? "s" : ""}`
-                          : "Nenhum"}
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground whitespace-nowrap"
-                      disabled={!selectedItems.length}
-                      onClick={toggleSelectAll}
-                    >
-                      {allSelected ? "Limpar seleção" : "Selecionar tudo"}
-                    </Button>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center justify-end gap-2 shrink-0 w-full sm:w-auto">
-                    <Popover open={movePopoverOpen} onOpenChange={setMovePopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          disabled={selectedItemsCount === 0 || isBulkLoading}
-                          className="h-8"
-                        >
-                          {isBulkLoading ? (
-                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                          ) : (
-                            <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" />
-                          )}
-                          Mover
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-72 max-w-[calc(100vw-2rem)] p-2"
-                        align="end"
-                        side="top"
-                        sideOffset={8}
-                        onOpenAutoFocus={(e) => e.preventDefault()}
-                      >
-                        <div className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
-                          Mover para…
-                        </div>
-                        <div className="flex flex-col">
-                          {allGalleryNames
-                            .filter((name) => name !== selectedGallery)
-                            .map((name) => (
-                              <Button
-                                key={name}
-                                type="button"
-                                variant="ghost"
-                                className="justify-start px-2 h-9"
-                                onClick={async () => {
-                                  setMovePopoverOpen(false);
-                                  await bulkMoveSelected(name);
-                                }}
-                              >
-                                <FolderOpen className="h-4 w-4 mr-2 text-muted-foreground" />
-                                {name}
-                              </Button>
-                            ))}
-                        </div>
-                        <div className="mt-2 border-t border-border pt-2">
-                          <div className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
-                            Nova galeria
-                          </div>
-                          <div className="flex gap-2 px-2 pb-1">
-                            <Input
-                              value={moveToNewGalleryName}
-                              onChange={(e) => setMoveToNewGalleryName(e.target.value)}
-                              placeholder="Nome da galeria"
-                              onKeyDown={async (e) => {
-                                if (e.key === "Enter") {
-                                  const name = String(moveToNewGalleryName || "").trim();
-                                  if (!name) return;
-                                  setMovePopoverOpen(false);
-                                  setMoveToNewGalleryName("");
-                                  await bulkMoveSelected(name);
-                                }
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={!String(moveToNewGalleryName || "").trim()}
-                              onClick={async () => {
-                                const name = String(moveToNewGalleryName || "").trim();
-                                if (!name) return;
-                                setMovePopoverOpen(false);
-                                setMoveToNewGalleryName("");
-                                await bulkMoveSelected(name);
-                              }}
-                            >
-                              Criar
-                            </Button>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-
-                    <ConfirmPopover
-                      trigger={
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          disabled={selectedItemsCount === 0 || isBulkLoading}
-                          className="h-8"
-                        >
-                          {isBulkLoading ? (
-                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                          )}
-                          Excluir
-                        </Button>
-                      }
-                      title={`Excluir ${selectedItemsCount} item${selectedItemsCount > 1 ? "s" : ""}?`}
-                      description="Essa ação não pode ser desfeita."
-                      confirmLabel="Excluir"
-                      onConfirm={bulkDeleteSelected}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </DropZone>
         )}
       </div>
