@@ -16,6 +16,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { Progress } from '@/components/ui/progress';
 import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
 import { WorkFinancialTab } from '@/components/admin/WorkFinancialTab';
+import { WorkGalleryManager } from '@/components/admin/WorkGalleryManager';
 import { Combobox } from '@/components/ui/combobox';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -161,6 +162,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
   const [activeTab, setActiveTab] = useState('info');
   const [isMeasurementEditing, setIsMeasurementEditing] = useState(false);
   const [hasUnsavedMeasurementChanges, setHasUnsavedMeasurementChanges] = useState(false);
+  const [hasMeasurements, setHasMeasurements] = useState(false);
 
   // Auto-save logic
   useEffect(() => {
@@ -185,13 +187,48 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
 
     if (formData?.id) {
       tabs.push({ id: 'history', label: 'Histórico/Fases', icon: Briefcase });
+      if (hasMeasurements) {
+        tabs.splice(2, 0, { id: 'media', label: 'Mídias', icon: ImageIcon });
+      }
       if (formData?.is_complete) {
         tabs.push({ id: 'financial', label: 'Financeiro', icon: Calculator });
       }
     }
 
     return tabs;
-  }, [formData?.id, formData?.is_complete]);
+  }, [formData?.id, formData?.is_complete, hasMeasurements]);
+
+  useEffect(() => {
+    if (!formData?.id) {
+      setHasMeasurements(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('public_work_measurements')
+          .select('id')
+          .eq('work_id', formData.id)
+          .limit(1);
+        if (error) throw error;
+        if (cancelled) return;
+        setHasMeasurements(Array.isArray(data) && data.length > 0);
+      } catch (e) {
+        if (cancelled) return;
+        setHasMeasurements(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData?.id]);
+
+  useEffect(() => {
+    if (activeTab === 'media' && !hasMeasurements) {
+      setActiveTab('history');
+    }
+  }, [activeTab, hasMeasurements]);
 
   const goToTab = (nextTabId) => {
     if ((activeTab === 'history' || activeTab === 'financial') && isMeasurementEditing) {
@@ -610,6 +647,22 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                 </Card>
               </div>
             </div>
+
+            {activeTab === 'media' && (
+              formData.id ? (
+                <WorkGalleryManager workId={formData.id} inline showMeasurementSelector allowAll={false} />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                    <ImageIcon className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">Salve a obra primeiro</h3>
+                    <p className="text-muted-foreground max-w-sm mt-2">
+                      Para gerenciar mídias e documentos, é necessário salvar as informações básicas da obra primeiro.
+                    </p>
+                  </CardContent>
+                </Card>
+              )
+            )}
             {activeTab === 'history' && (
               formData.id ? (
                 <WorkMeasurementsTab 

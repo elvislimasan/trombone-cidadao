@@ -133,10 +133,6 @@ export default function WorkDetailsPageProject() {
   const [contribFiles, setContribFiles] = useState([]);
   const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
   const contribFileInputRef = useRef(null);
-  const [showPhaseMediaDialog, setShowPhaseMediaDialog] = useState(false);
-  const [isUploadingPhaseMedia, setIsUploadingPhaseMedia] = useState(false);
-  const phaseMediaFileInputRef = useRef(null);
-  const [phaseMediaForm, setPhaseMediaForm] = useState({ gallery_name: "", files: [] });
   const [currentPhaseForm, setCurrentPhaseForm] = useState({
     title: "",
     description: "",
@@ -169,20 +165,6 @@ export default function WorkDetailsPageProject() {
     if (!Array.isArray(measurements) || measurements.length === 0) return null;
     return [...measurements].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
   }, [measurements]);
-
-  const phaseMediaPreviewItems = useMemo(() => {
-    const files = Array.isArray(phaseMediaForm.files) ? phaseMediaForm.files : [];
-    return files.map((file) => {
-      const kind = file.type.startsWith("image") ? "image" : file.type.startsWith("video") ? "video" : file.type === "application/pdf" ? "pdf" : "file";
-      return { file, kind, url: URL.createObjectURL(file) };
-    });
-  }, [phaseMediaForm.files]);
-
-  useEffect(() => {
-    return () => {
-      phaseMediaPreviewItems.forEach((it) => URL.revokeObjectURL(it.url));
-    };
-  }, [phaseMediaPreviewItems]);
 
   const currentPhaseId = currentMeasurement?.id || "";
 
@@ -493,76 +475,228 @@ export default function WorkDetailsPageProject() {
     }
   }, [contribDescription, contribFiles, contribVideoUrl, currentMeasurement?.id, currentMeasurement?.title, isSubmittingContribution, loadData, user, work]);
 
-  const openPhaseMediaDialog = useCallback(() => {
-    if (!user?.is_admin) return;
-    if (!currentMeasurement?.id) {
-      toast("Fase não encontrada", { description: "Cadastre uma fase para adicionar mídias.", variant: "destructive" });
-      return;
-    }
-    setPhaseMediaForm({ gallery_name: currentMeasurement?.title || "", files: [] });
-    if (phaseMediaFileInputRef.current) phaseMediaFileInputRef.current.value = "";
-    setShowPhaseMediaDialog(true);
-  }, [currentMeasurement?.id, currentMeasurement?.title, user?.is_admin]);
+  const handleRenameGallery = useCallback(
+    async (oldName, newName) => {
+      if (!user?.is_admin) return;
+      if (!work?.id || !currentMeasurement?.id) return;
+      const fromName = String(oldName || "").trim();
+      const toName = String(newName || "").trim();
+      if (!fromName || !toName || fromName === toName) return;
 
-  const handlePhaseMediaFilesChange = useCallback((e) => {
-    const files = Array.from(e.target.files || []);
-    setPhaseMediaForm((p) => ({ ...p, files }));
-  }, []);
+      const { error } = await supabase
+        .from("public_work_media")
+        .update({ gallery_name: toName })
+        .eq("work_id", work.id)
+        .eq("measurement_id", currentMeasurement.id)
+        .eq("gallery_name", fromName);
 
-  const handleUploadPhaseMedia = useCallback(async () => {
-    if (!user?.is_admin) return;
-    if (!work?.id || !currentMeasurement?.id) return;
-    if (isUploadingPhaseMedia) return;
-    if (!Array.isArray(phaseMediaForm.files) || phaseMediaForm.files.length === 0) {
-      toast("Selecione arquivos", { description: "Adicione pelo menos um arquivo para enviar.", variant: "destructive" });
-      return;
-    }
+      if (error) {
+        toast("Erro ao renomear galeria", { description: error.message, variant: "destructive" });
+        return;
+      }
+      toast("Galeria atualizada");
+      await loadData();
+    },
+    [currentMeasurement?.id, loadData, user?.is_admin, work?.id]
+  );
 
-    setIsUploadingPhaseMedia(true);
-    try {
-      const galleryName = String(phaseMediaForm.gallery_name || "").trim() || currentMeasurement.title || "Geral";
+  const handleUpdateMediaItem = useCallback(
+    async (mediaId, patch) => {
+      if (!user?.is_admin) return;
+      const id = String(mediaId || "").trim();
+      if (!id) return;
 
-      for (const file of phaseMediaForm.files) {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
-        const path = `measurements/${currentMeasurement.id}/${fileName}`;
+      const { error } = await supabase.from("public_work_media").update(patch || {}).eq("id", id);
+      if (error) {
+        toast("Erro ao atualizar mídia", { description: error.message, variant: "destructive" });
+        return;
+      }
+      toast("Mídia atualizada");
+      setMedia((prev) => (Array.isArray(prev) ? prev.map((m) => (m?.id === id ? { ...m, ...(patch || {}) } : m)) : prev));
+    },
+    [toast, user?.is_admin]
+  );
 
-        const { error: uploadError } = await supabase.storage.from("work-media").upload(path, file);
-        if (uploadError) throw uploadError;
+  const handleDeleteMediaItem = useCallback(
+    async (mediaId, mediaUrl) => {
+      if (!user?.is_admin) return;
+      const id = String(mediaId || "").trim();
+      if (!id) return;
 
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("work-media").getPublicUrl(path);
-
-        let type = "file";
-        if (file.type.startsWith("image")) type = "photo";
-        else if (file.type.startsWith("video")) type = "video";
-        else if (file.type === "application/pdf") type = "pdf";
-
-        const { error: dbError } = await supabase.from("public_work_media").insert({
-          work_id: work.id,
-          measurement_id: currentMeasurement.id,
-          url: publicUrl,
-          type,
-          name: file.name,
-          status: "approved",
-          gallery_name: galleryName,
-          contributor_id: user.id,
-        });
-        if (dbError) throw dbError;
+      const { error } = await supabase.from("public_work_media").delete().eq("id", id);
+      if (error) {
+        toast("Erro ao remover mídia", { description: error.message, variant: "destructive" });
+        return;
       }
 
-      toast("Arquivos adicionados", { description: "As mídias/documentos foram vinculados à fase atual." });
-      setShowPhaseMediaDialog(false);
-      setPhaseMediaForm({ gallery_name: currentMeasurement.title || "", files: [] });
-      if (phaseMediaFileInputRef.current) phaseMediaFileInputRef.current.value = "";
-      await loadData();
-    } catch (e) {
-      toast("Erro ao enviar arquivos", { description: e?.message || "Tente novamente.", variant: "destructive" });
-    } finally {
-      setIsUploadingPhaseMedia(false);
-    }
-  }, [currentMeasurement?.id, currentMeasurement?.title, isUploadingPhaseMedia, loadData, phaseMediaForm.files, phaseMediaForm.gallery_name, user?.id, user?.is_admin, work?.id]);
+      try {
+        const filePath = new URL(mediaUrl).pathname.split("/work-media/")[1];
+        if (filePath) {
+          await supabase.storage.from("work-media").remove([decodeURIComponent(filePath)]);
+        }
+      } catch (e) {
+      }
+
+      toast("Mídia removida");
+      setMedia((prev) => (Array.isArray(prev) ? prev.filter((m) => m?.id !== id) : prev));
+    },
+    [toast, user?.is_admin]
+  );
+
+  const handleBulkUpdateMediaItems = useCallback(
+    async (mediaIds, patch) => {
+      if (!user?.is_admin) return;
+      const ids = Array.isArray(mediaIds) ? mediaIds.map((x) => String(x).trim()).filter(Boolean) : [];
+      if (ids.length === 0) return;
+
+      const { error } = await supabase.from("public_work_media").update(patch || {}).in("id", ids);
+      if (error) {
+        toast("Erro ao atualizar mídias", { description: error.message, variant: "destructive" });
+        return;
+      }
+      toast("Mídias atualizadas");
+      const setIds = new Set(ids);
+      setMedia((prev) => (Array.isArray(prev) ? prev.map((m) => (setIds.has(m?.id) ? { ...m, ...(patch || {}) } : m)) : prev));
+    },
+    [toast, user?.is_admin]
+  );
+
+  const handleBulkDeleteMediaItems = useCallback(
+    async (items) => {
+      if (!user?.is_admin) return;
+      const list = Array.isArray(items) ? items : [];
+      const ids = list.map((i) => i?.id).filter(Boolean);
+      if (ids.length === 0) return;
+
+      const { error } = await supabase.from("public_work_media").delete().in("id", ids);
+      if (error) {
+        toast("Erro ao remover mídias", { description: error.message, variant: "destructive" });
+        return;
+      }
+
+      const paths = list
+        .map((i) => i?.url)
+        .filter(Boolean)
+        .map((url) => {
+          try {
+            const filePath = new URL(url).pathname.split("/work-media/")[1];
+            return filePath ? decodeURIComponent(filePath) : null;
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(Boolean);
+
+      if (paths.length > 0) {
+        try {
+          await supabase.storage.from("work-media").remove(paths);
+        } catch (e) {
+        }
+      }
+
+      toast("Mídias removidas");
+      const setIds = new Set(ids);
+      setMedia((prev) => (Array.isArray(prev) ? prev.filter((m) => !setIds.has(m?.id)) : prev));
+    },
+    [toast, user?.is_admin]
+  );
+
+  const handleDeleteGallery = useCallback(
+    async (galleryName, items) => {
+      if (!user?.is_admin) return;
+      const name = String(galleryName || "").trim();
+      if (!name) return;
+      const list = Array.isArray(items) ? items : [];
+      const ids = list.map((i) => i?.id).filter(Boolean);
+
+      if (ids.length === 0) return;
+
+      const { error } = await supabase.from("public_work_media").delete().in("id", ids);
+      if (error) {
+        toast("Erro ao excluir galeria", { description: error.message, variant: "destructive" });
+        return;
+      }
+
+      const paths = list
+        .map((i) => i?.url)
+        .filter(Boolean)
+        .map((url) => {
+          try {
+            const filePath = new URL(url).pathname.split("/work-media/")[1];
+            return filePath ? decodeURIComponent(filePath) : null;
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(Boolean);
+
+      if (paths.length > 0) {
+        try {
+          await supabase.storage.from("work-media").remove(paths);
+        } catch (e) {
+        }
+      }
+
+      toast("Galeria excluída");
+      setMedia((prev) => (Array.isArray(prev) ? prev.filter((m) => !ids.includes(m?.id)) : prev));
+    },
+    [toast, user?.is_admin]
+  );
+
+  const handleUploadGalleryFiles = useCallback(
+    async (galleryName, files) => {
+      if (!user?.is_admin) return;
+      if (!work?.id || !currentMeasurement?.id) return;
+      const list = Array.isArray(files) ? files : [];
+      if (list.length === 0) return;
+
+      const targetGalleryName = String(galleryName || "").trim() || currentMeasurement.title || "Geral";
+
+      try {
+        for (const file of list) {
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+          const path = `measurements/${currentMeasurement.id}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage.from("work-media").upload(path, file);
+          if (uploadError) throw uploadError;
+
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("work-media").getPublicUrl(path);
+
+          let type = "file";
+          if (file.type.startsWith("image")) type = "photo";
+          else if (file.type.startsWith("video")) type = "video";
+          else if (file.type === "application/pdf") type = "pdf";
+
+          const { data: inserted, error: dbError } = await supabase
+            .from("public_work_media")
+            .insert({
+              work_id: work.id,
+              measurement_id: currentMeasurement.id,
+              url: publicUrl,
+              type,
+              name: file.name,
+              status: "approved",
+              gallery_name: targetGalleryName,
+              contributor_id: user.id,
+            })
+            .select("*")
+            .single();
+          if (dbError) throw dbError;
+          if (inserted) {
+            setMedia((prev) => (Array.isArray(prev) ? [inserted, ...prev] : prev));
+          }
+        }
+
+        toast("Imagens adicionadas", { description: "Os arquivos foram enviados para a galeria." });
+      } catch (e) {
+        toast("Erro ao enviar arquivos", { description: e?.message || "Tente novamente.", variant: "destructive" });
+      }
+    },
+    [currentMeasurement?.id, currentMeasurement?.title, toast, user?.id, user?.is_admin, work?.id]
+  );
 
   const validateCurrentPhaseDates = useCallback((data) => {
     const errors = {};
@@ -931,10 +1065,18 @@ export default function WorkDetailsPageProject() {
     return candidates[0]?.url || null;
   }, [media, work]);
 
-  if (loading || !work) {
+  if (loading && !work) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-10 text-muted-foreground">Carregando…</div>
+      </div>
+    );
+  }
+
+  if (!work) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-10 text-muted-foreground">Obra não encontrada.</div>
       </div>
     );
   }
@@ -1083,8 +1225,14 @@ export default function WorkDetailsPageProject() {
                   emptyMessage={`Nenhuma mídia registrada para ${currentMeasurement?.title || "esta fase"}`}
                   embedded
                   onOpenViewer={(items, index) => openViewer(items, index)}
-                  canAdd={Boolean(user?.is_admin)}
-                  onAdd={openPhaseMediaDialog}
+                  canEdit={Boolean(user?.is_admin)}
+                  onRenameGallery={handleRenameGallery}
+                  onDeleteGallery={handleDeleteGallery}
+                  onUpdateMediaItem={handleUpdateMediaItem}
+                  onDeleteMediaItem={handleDeleteMediaItem}
+                  onUploadFiles={handleUploadGalleryFiles}
+                  onBulkUpdateMediaItems={handleBulkUpdateMediaItems}
+                  onBulkDeleteMediaItems={handleBulkDeleteMediaItems}
                 />
               </div>
               </div>
@@ -2135,83 +2283,6 @@ export default function WorkDetailsPageProject() {
             </DialogClose>
             <Button type="button" onClick={handleSubmitContribution} disabled={isSubmittingContribution}>
               {isSubmittingContribution ? "Enviando..." : "Enviar Contribuição"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showPhaseMediaDialog} onOpenChange={setShowPhaseMediaDialog}>
-        <DialogContent className="sm:max-w-[650px]">
-          <DialogHeader>
-            <DialogTitle>Adicionar galeria/mídia/documento</DialogTitle>
-          </DialogHeader>
-
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label>Nome da galeria</Label>
-              <Input
-                placeholder={currentMeasurement?.title || "Geral"}
-                value={phaseMediaForm.gallery_name}
-                onChange={(e) => setPhaseMediaForm((p) => ({ ...p, gallery_name: e.target.value }))}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Arquivos</Label>
-              <div className="flex items-center gap-3">
-                <Button type="button" variant="outline" onClick={() => phaseMediaFileInputRef.current?.click()}>
-                  Selecionar arquivos
-                </Button>
-                <Input
-                  ref={phaseMediaFileInputRef}
-                  type="file"
-                  accept="image/*,video/*,application/pdf"
-                  multiple
-                  className="hidden"
-                  onChange={handlePhaseMediaFilesChange}
-                />
-                {phaseMediaForm.files.length > 0 ? (
-                  <span className="text-xs text-muted-foreground">{phaseMediaForm.files.length} arquivo(s) selecionado(s)</span>
-                ) : null}
-              </div>
-              <div className="text-xs text-muted-foreground">Imagens e vídeos entram na galeria. PDFs entram em documentos.</div>
-            </div>
-
-            {phaseMediaPreviewItems.length > 0 ? (
-              <div className="grid gap-2">
-                <Label>Preview</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {phaseMediaPreviewItems.slice(0, 9).map((it) => (
-                    <div key={`${it.file.name}-${it.url}`} className="rounded-lg border bg-muted/20 overflow-hidden">
-                      <div className="aspect-[4/3] bg-muted flex items-center justify-center">
-                        {it.kind === "image" ? (
-                          <img src={it.url} alt={it.file.name} className="w-full h-full object-cover" />
-                        ) : it.kind === "video" ? (
-                          <video src={it.url} className="w-full h-full object-cover" muted playsInline />
-                        ) : (
-                          <div className="text-xs text-muted-foreground px-3 py-4 text-center">Arquivo</div>
-                        )}
-                      </div>
-                      <div className="p-2">
-                        <div className="text-xs font-medium text-foreground truncate" title={it.file.name}>
-                          {it.file.name}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <DialogFooter className="gap-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isUploadingPhaseMedia}>
-                Cancelar
-              </Button>
-            </DialogClose>
-            <Button type="button" onClick={handleUploadPhaseMedia} disabled={isUploadingPhaseMedia}>
-              {isUploadingPhaseMedia ? "Enviando..." : "Adicionar"}
             </Button>
           </DialogFooter>
         </DialogContent>
