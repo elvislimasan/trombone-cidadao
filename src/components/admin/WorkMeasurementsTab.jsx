@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, ArrowLeft, Save } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { WorkGalleryManager } from '@/components/admin/WorkGalleryManager';
 
 export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange, onWorkCompletionChange }) {
   const [measurements, setMeasurements] = useState([]);
@@ -139,9 +140,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
   const [measurementMedia, setMeasurementMedia] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [customGalleryName, setCustomGalleryName] = useState('');
-
-  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [pendingGalleries, setPendingGalleries] = useState([{ id: `g_${Date.now()}`, name: "", files: [] }]);
   const [isDirty, setIsDirty] = useState(false);
   const baselineRef = React.useRef(null);
   const editContainerRef = React.useRef(null);
@@ -154,13 +153,11 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
   useEffect(() => {
     if (currentMeasurement) {
-      setCustomGalleryName('');
       fetchMeasurementMedia(currentMeasurement.id);
-      setSelectedFiles([]);
+      setPendingGalleries([{ id: `g_${Date.now()}`, name: "", files: [] }]);
     } else {
       setMeasurementMedia([]);
-      setCustomGalleryName('');
-      setSelectedFiles([]);
+      setPendingGalleries([{ id: `g_${Date.now()}`, name: "", files: [] }]);
     }
   }, [currentMeasurement]);
 
@@ -205,7 +202,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     }
   };
 
-  const uploadFilesToSupabase = async (files, measurementId) => {
+  const uploadFilesToSupabase = async (files, measurementId, galleryNameOverride = null) => {
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
@@ -239,7 +236,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
             type: type,
             name: file.name,
             status: 'approved', // Admin upload is auto-approved
-            gallery_name: customGalleryName || (currentMeasurement ? currentMeasurement.title : formData.title) || 'Geral',
+            gallery_name:
+              String(galleryNameOverride || '').trim() ||
+              (currentMeasurement ? currentMeasurement.title : null) ||
+              'Geral',
             contributor_id: user?.id
           });
 
@@ -266,24 +266,34 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     }
   };
 
-  const handleFileSelect = async (e) => {
+  const handleCreateGalleryFilesSelect = (galleryId, e) => {
     const files = Array.from(e.target.files || []);
+    e.target.value = '';
     if (files.length === 0) return;
-
-    if (currentMeasurement) {
-      await uploadFilesToSupabase(files, currentMeasurement.id);
-      // Reset input
-      e.target.value = '';
-    } else {
-      // Local selection for new measurement
-      setSelectedFiles(prev => [...prev, ...files]);
-      // Reset input to allow selecting the same file again if needed (though tricky with state)
-      e.target.value = '';
-    }
+    setPendingGalleries((prev) =>
+      prev.map((g) => (g.id === galleryId ? { ...g, files: [...(g.files || []), ...files] } : g))
+    );
   };
 
-  const removeSelectedFile = (index) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  const removePendingGalleryFile = (galleryId, fileIndex) => {
+    setPendingGalleries((prev) =>
+      prev.map((g) => {
+        if (g.id !== galleryId) return g;
+        const nextFiles = Array.isArray(g.files) ? g.files.filter((_, i) => i !== fileIndex) : [];
+        return { ...g, files: nextFiles };
+      })
+    );
+  };
+
+  const addPendingGallery = () => {
+    setPendingGalleries((prev) => [...(prev || []), { id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name: "", files: [] }]);
+  };
+
+  const removePendingGallery = (galleryId) => {
+    setPendingGalleries((prev) => {
+      const next = (prev || []).filter((g) => g.id !== galleryId);
+      return next.length > 0 ? next : [{ id: `g_${Date.now()}`, name: "", files: [] }];
+    });
   };
 
   const handleDeleteMedia = async (mediaId, path) => {
@@ -508,7 +518,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     setIsEditing(false);
     setCurrentMeasurement(null);
     setMeasurementMedia([]);
-    setSelectedFiles([]);
+    setPendingGalleries([{ id: `g_${Date.now()}`, name: "", files: [] }]);
     setIsDirty(false);
     baselineRef.current = null;
     if (onDirtyChange) onDirtyChange(false);
@@ -592,13 +602,22 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
       if (error) throw error;
 
-      // Upload pending files if any
-      if (selectedFiles.length > 0) {
-        toast({
-          title: "Enviando mídias...",
-          description: "Aguarde enquanto as fotos e documentos são enviados.",
-        });
-        await uploadFilesToSupabase(selectedFiles, savedData.id);
+      // Upload pending galleries if any (create mode)
+      if (!currentMeasurement) {
+        const groups = Array.isArray(pendingGalleries) ? pendingGalleries : [];
+        const hasAny = groups.some((g) => Array.isArray(g.files) && g.files.length > 0);
+        if (hasAny) {
+          toast({
+            title: "Enviando mídias...",
+            description: "Aguarde enquanto as fotos e documentos são enviados.",
+          });
+          for (const g of groups) {
+            const files = Array.isArray(g.files) ? g.files : [];
+            if (files.length === 0) continue;
+            const galleryName = String(g.name || '').trim() || 'Geral';
+            await uploadFilesToSupabase(files, savedData.id, galleryName);
+          }
+        }
       }
 
       toast({
@@ -624,7 +643,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       setIsEditing(false);
       setCurrentMeasurement(null);
       setMeasurementMedia([]);
-      setSelectedFiles([]);
+      setPendingGalleries([{ id: `g_${Date.now()}`, name: "", files: [] }]);
       setIsDirty(false);
       baselineRef.current = null;
       if (onDirtyChange) onDirtyChange(false);
@@ -747,7 +766,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     if (isEditing) {
       const base = normalize(baselineRef.current || {});
       const curr = normalize(formData || {});
-      const hasFiles = selectedFiles.length > 0;
+      const hasFiles = !currentMeasurement && (Array.isArray(pendingGalleries) ? pendingGalleries : []).some((g) => (g.files || []).length > 0);
       const dirty = JSON.stringify(base) !== JSON.stringify(curr) || hasFiles;
       if (dirty !== isDirty) {
         setIsDirty(dirty);
@@ -757,7 +776,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       setIsDirty(false);
       if (onDirtyChange) onDirtyChange(false);
     }
-  }, [isEditing, formData, selectedFiles, isDirty, onDirtyChange]);
+  }, [currentMeasurement, isDirty, isEditing, formData, onDirtyChange, pendingGalleries]);
 
   const getStatusLabel = (status) => {
     const map = {
@@ -1152,132 +1171,119 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
             <div className="pt-6 border-t mt-4">
               <h4 className="font-medium mb-4 flex items-center gap-2">
-                <FileText className="w-4 h-4" /> 
+                <FileText className="w-4 h-4" />
                 Galeria de Fotos e Documentos da Fase
               </h4>
 
-              <div className="mb-4">
-                <Label htmlFor="gallery_name" className="mb-2 block">Nome da Galeria (Opcional)</Label>
-                <Input 
-                  id="gallery_name"
-                  placeholder={`Ex: "Visita Técnica", "Medição 01" (Padrão: ${formData.title || 'Geral'})`}
-                  value={customGalleryName}
-                  onChange={(e) => setCustomGalleryName(e.target.value)}
-                  className="mb-4"
-                />
-
-                <Label htmlFor="media-upload" className="cursor-pointer">
-                  <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:bg-muted/50 transition-colors">
-                    <PlusCircle className="w-8 h-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Clique para adicionar fotos ou documentos</span>
-                  </div>
-                  <Input 
-                    id="media-upload" 
-                    type="file" 
-                    multiple 
-                    className="hidden" 
-                    onChange={handleFileSelect}
-                    disabled={isUploading}
-                  />
-                </Label>
-                {isUploading && <p className="text-xs text-muted-foreground mt-2 animate-pulse">Enviando arquivos...</p>}
-              </div>
-
-              {/* Display Pending Files (Create Mode) */}
-              {!currentMeasurement && selectedFiles.length > 0 && (
-                <div className="space-y-4 mb-6">
-                  <h5 className="font-semibold text-sm text-slate-700 mb-2 border-l-4 border-yellow-500 pl-2">
-                    Arquivos Selecionados (Serão enviados ao salvar)
-                  </h5>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="relative group border rounded-md overflow-hidden aspect-square bg-white shadow-sm">
-                        {file.type.startsWith('image/') ? (
-                          <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center h-full p-2 text-center">
-                            <FileText className="w-8 h-8 mb-2 opacity-50" />
-                            <span className="text-xs truncate w-full">{file.name}</span>
-                          </div>
-                        )}
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          type="button"
-                          className="absolute top-1 right-1 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeSelectedFile(index)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                          {file.name}
-                        </div>
+              {currentMeasurement ? (
+                <WorkGalleryManager workId={workId} measurementId={currentMeasurement.id} inline embedded showMeasurementSelector={false} />
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm text-muted-foreground">
+                        Você pode adicionar mídias em múltiplas galerias antes de salvar a fase.
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      <Button type="button" variant="outline" size="sm" onClick={addPendingGallery}>
+                        <PlusCircle className="w-4 h-4 mr-2" />
+                        Adicionar galeria
+                      </Button>
+                    </div>
 
-              {/* Display Uploaded Media (Edit/View Mode) */}
-              {currentMeasurement && (
-                measurementMedia.length > 0 ? (
-                  <div className="space-y-6">
-                    {(() => {
-                      const groups = {};
-                      measurementMedia.forEach(media => {
-                        const name = media.gallery_name || 'Geral';
-                        if (!groups[name]) groups[name] = [];
-                        groups[name].push(media);
-                      });
-
-                      const sortedGroups = Object.entries(groups).sort((a, b) => {
-                         if (a[0] === currentMeasurement.title) return -1;
-                         if (a[0] === 'Geral') return -1;
-                         return a[0].localeCompare(b[0]);
-                      });
-
-                      return sortedGroups.map(([groupName, items]) => (
-                        <div key={groupName} className="border rounded-lg p-3 bg-slate-50/50">
-                          <h5 className="font-semibold text-sm text-slate-700 mb-3 border-l-4 border-primary pl-2 flex items-center justify-between">
-                            {groupName}
-                            <span className="text-xs font-normal text-muted-foreground bg-white px-2 py-0.5 rounded border">
-                              {items.length} arquivo(s)
-                            </span>
-                          </h5>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            {items.map((media) => (
-                              <div key={media.id} className="relative group border rounded-md overflow-hidden aspect-square bg-white shadow-sm">
-                                {media.type === 'photo' || media.type === 'image' ? (
-                                  <img src={media.url} alt={media.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center h-full p-2 text-center">
-                                    <FileText className="w-8 h-8 mb-2 opacity-50" />
-                                    <span className="text-xs truncate w-full">{media.name}</span>
-                                  </div>
-                                )}
+                    <div className="space-y-4">
+                      {pendingGalleries.map((g, idx) => {
+                        const files = Array.isArray(g.files) ? g.files : [];
+                        return (
+                          <Card key={g.id} className="border">
+                            <CardHeader className="py-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <CardTitle className="text-sm">
+                                  Galeria {idx + 1}
+                                </CardTitle>
                                 <Button
-                                  variant="destructive"
+                                  type="button"
+                                  variant="ghost"
                                   size="icon"
-                                  className="absolute top-1 right-1 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => handleDeleteMedia(media.id)}
+                                  className="h-8 w-8"
+                                  onClick={() => removePendingGallery(g.id)}
+                                  disabled={pendingGalleries.length <= 1}
                                 >
-                                  <Trash2 className="w-3 h-3" />
+                                  <Trash2 className="w-4 h-4 text-destructive" />
                                 </Button>
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {media.name}
-                                </div>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      ));
-                    })()}
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              <div className="grid gap-2">
+                                <Label>Nome da galeria (opcional)</Label>
+                                <Input
+                                  placeholder={`Ex: "Visita Técnica", "Medição 01" (Padrão: Geral)`}
+                                  value={g.name}
+                                  onChange={(e) =>
+                                    setPendingGalleries((prev) =>
+                                      prev.map((x) => (x.id === g.id ? { ...x, name: e.target.value } : x))
+                                    )
+                                  }
+                                />
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label htmlFor={`media-upload-${g.id}`} className="cursor-pointer">
+                                  <div className="border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center gap-2 hover:bg-muted/50 transition-colors">
+                                    <PlusCircle className="w-7 h-7 text-muted-foreground" />
+                                    <span className="text-sm text-muted-foreground">Adicionar fotos ou documentos</span>
+                                    {files.length > 0 ? (
+                                      <span className="text-xs text-muted-foreground">{files.length} arquivo(s) selecionado(s)</span>
+                                    ) : null}
+                                  </div>
+                                </Label>
+                                <Input
+                                  id={`media-upload-${g.id}`}
+                                  type="file"
+                                  multiple
+                                  className="hidden"
+                                  onChange={(e) => handleCreateGalleryFilesSelect(g.id, e)}
+                                  disabled={isUploading}
+                                />
+                                {isUploading && <p className="text-xs text-muted-foreground animate-pulse">Enviando arquivos...</p>}
+                              </div>
+
+                              {files.length > 0 ? (
+                                <div className="space-y-2">
+                                  <div className="text-xs font-semibold text-slate-700">
+                                    Arquivos (serão enviados ao salvar)
+                                  </div>
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {files.map((file, fileIndex) => (
+                                      <div key={`${file.name}-${fileIndex}`} className="relative group border rounded-md overflow-hidden aspect-square bg-white shadow-sm">
+                                        {file.type.startsWith('image/') ? (
+                                          <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                          <div className="flex flex-col items-center justify-center h-full p-2 text-center">
+                                            <FileText className="w-8 h-8 mb-2 opacity-50" />
+                                            <span className="text-xs truncate w-full">{file.name}</span>
+                                          </div>
+                                        )}
+                                        <Button
+                                          variant="destructive"
+                                          size="icon"
+                                          type="button"
+                                          className="absolute top-1 right-1 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          onClick={() => removePendingGalleryFile(g.id, fileIndex)}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic text-center py-4">
-                    Nenhuma mídia adicionada a esta fase.
-                  </p>
-                )
+                </>
               )}
             </div>
           </div>
