@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, ChevronDown, ExternalLink, Lock, Search, Settings2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, ChevronDown, ExternalLink, Lock, Search, Settings2 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -105,14 +105,17 @@ export function ObraPayments({
   const containerClassName = embedded ? "p-4 sm:p-6 lg:p-4 2xl:p-6" : "bg-card rounded-lg border p-4 sm:p-6 lg:p-4 2xl:p-6";
   const list = Array.isArray(payments) ? payments : [];
 
-  const PAGE_SIZE = 8;
+  const PAGE_SIZE = 5;
   const [query, setQuery] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
   const [commitmentFilter, setCommitmentFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("payment_date");
+  const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [openGroupKeys, setOpenGroupKeys] = useState(() => new Set());
+  const [openDescription, setOpenDescription] = useState({ isOpen: false, text: "" });
 
   const parsePtBrDate = useCallback((value) => {
     const str = String(value || "").trim();
@@ -242,7 +245,7 @@ export function ObraPayments({
       const pb = b.p;
       const da = getPaymentDate(pa)?.getTime() ?? 0;
       const db = getPaymentDate(pb)?.getTime() ?? 0;
-      if (da !== db) return da - db;
+      if (da !== db) return db - da;
       const oa = String(pa?.orderNumber || "");
       const ob = String(pb?.orderNumber || "");
       const cmp = oa.localeCompare(ob);
@@ -266,52 +269,78 @@ export function ObraPayments({
 
     const list = [];
     map.forEach((items, key) => {
-      const firstDate = getPaymentDate(items[0]) || null;
-      const lastDate = getPaymentDate(items[items.length - 1]) || null;
-      const firstLabel = firstDate ? firstDate.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—";
-      const lastLabel = lastDate ? lastDate.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—";
-      const dateLabel = firstLabel === lastLabel ? firstLabel : `${firstLabel} — ${lastLabel}`;
+      const itemsSorted = [...items].sort((a, b) => (getPaymentDate(b)?.getTime() ?? 0) - (getPaymentDate(a)?.getTime() ?? 0));
+      const latestDate = getPaymentDate(itemsSorted[0]) || null;
+      const latestDateLabel = latestDate ? latestDate.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—";
 
-      const total = items.reduce((acc, x) => acc + (Number(x?.value) || 0), 0);
-      const contractorSet = new Set(items.map((x) => String(x?.contractor || "").trim()).filter(Boolean));
+      const total = itemsSorted.reduce((acc, x) => acc + (Number(x?.value) || 0), 0);
+      const contractorSet = new Set(itemsSorted.map((x) => String(x?.contractor || "").trim()).filter(Boolean));
       const contractorLabel = contractorSet.size === 1 ? [...contractorSet][0] : contractorSet.size > 1 ? "Vários" : "—";
 
-      const typeSet = new Set(items.map((x) => normalizeTypeKey(x?.commitmentType)));
-      const typeLabel = typeSet.size === 1 ? formatTypeLabel(items[0]?.commitmentType) : "Vários";
+      const typeSet = new Set(itemsSorted.map((x) => normalizeTypeKey(x?.commitmentType)));
+      const typeLabel = typeSet.size === 1 ? formatTypeLabel(itemsSorted[0]?.commitmentType) : "Vários";
 
-      const descriptionPreview = String(items[0]?.description || "").trim() || "—";
-      const installmentPreview = items.length === 1 ? String(items[0]?.installment || "").trim() || "—" : "—";
-      const hasPortal = items.some((x) => Boolean(x?.url));
+      const descriptionPreview = String(itemsSorted[0]?.description || "").trim() || "—";
+      const installmentPreview = itemsSorted.length === 1 ? String(itemsSorted[0]?.installment || "").trim() || "—" : "—";
+      const hasPortal = itemsSorted.some((x) => Boolean(x?.url));
 
       list.push({
         key,
         orderNumber: key === "SEM_EMPENHO" ? "" : key,
-        items,
-        count: items.length,
+        items: itemsSorted,
+        count: itemsSorted.length,
         total,
         contractorLabel,
         typeLabel,
-        dateLabel,
-        firstDate,
+        latestDate,
+        latestDateLabel,
         hasPortal,
         descriptionPreview,
         installmentPreview,
       });
     });
 
-    list.sort((a, b) => {
-      const da = a.firstDate?.getTime() ?? 0;
-      const db = b.firstDate?.getTime() ?? 0;
-      if (da !== db) return da - db;
-      return String(a.orderNumber || "").localeCompare(String(b.orderNumber || ""));
-    });
-
     return list;
   }, [formatTypeLabel, getPaymentDate, normalizeTypeKey, sortedPayments]);
 
+  const sortedGroups = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const getStr = (v) => normalizeText(v);
+    const getNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const arr = groups.map((g, idx) => ({ g, idx }));
+    arr.sort((a, b) => {
+      const ga = a.g;
+      const gb = b.g;
+      let cmp = 0;
+
+      if (sortKey === "payment_date") {
+        cmp = (ga.latestDate?.getTime() ?? 0) - (gb.latestDate?.getTime() ?? 0);
+      } else if (sortKey === "orderNumber") {
+        cmp = getStr(ga.orderNumber).localeCompare(getStr(gb.orderNumber));
+      } else if (sortKey === "type") {
+        cmp = getStr(ga.typeLabel).localeCompare(getStr(gb.typeLabel));
+      } else if (sortKey === "contractor") {
+        cmp = getStr(ga.contractorLabel).localeCompare(getStr(gb.contractorLabel));
+      } else if (sortKey === "value") {
+        cmp = getNum(ga.total) - getNum(gb.total);
+      } else if (sortKey === "portal") {
+        cmp = Number(Boolean(ga.hasPortal)) - Number(Boolean(gb.hasPortal));
+      }
+
+      if (cmp === 0) cmp = a.idx - b.idx;
+      return cmp * dir;
+    });
+
+    return arr.map((x) => x.g);
+  }, [groups, normalizeText, sortDir, sortKey]);
+
   const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
-  }, [groups.length]);
+    return Math.max(1, Math.ceil(sortedGroups.length / PAGE_SIZE));
+  }, [sortedGroups.length]);
 
   const pageSafe = useMemo(() => {
     const p = Number(page) || 1;
@@ -321,12 +350,12 @@ export function ObraPayments({
   useEffect(() => {
     setPage(1);
     setOpenGroupKeys(new Set());
-  }, [commitmentFilter, query, typeFilter, yearFilter]);
+  }, [commitmentFilter, query, sortDir, sortKey, typeFilter, yearFilter]);
 
   const pageGroups = useMemo(() => {
     const start = (pageSafe - 1) * PAGE_SIZE;
-    return groups.slice(start, start + PAGE_SIZE);
-  }, [groups, pageSafe]);
+    return sortedGroups.slice(start, start + PAGE_SIZE);
+  }, [pageSafe, sortedGroups]);
 
   const pageNumbers = useMemo(() => {
     const total = totalPages;
@@ -405,7 +434,7 @@ export function ObraPayments({
                   ))}
                 </select>
               </div>
-              <div className="order-2 md:order-3 md:col-span-3">
+              <div className="order-2 md:order-3 md:col-span-4">
                 <select
                   className="h-10 w-full rounded-xl border border-input bg-muted/20 px-3 py-2 text-sm"
                   value={commitmentFilter}
@@ -419,11 +448,38 @@ export function ObraPayments({
                   ))}
                 </select>
               </div>
-              <div className="order-3 md:order-4 md:col-span-1 flex items-center justify-between md:justify-end gap-3">
-                <div className="text-xs text-muted-foreground whitespace-nowrap">
-                  {groups.length} registro{groups.length === 1 ? "" : "s"}
-                </div>
-                {(query || yearFilter !== "all" || commitmentFilter !== "all" || typeFilter !== "all") ? (
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-muted-foreground whitespace-nowrap">Ordenar por:</div>
+                <select
+                  className="h-9 rounded-xl border border-input bg-muted/20 px-3 py-2 text-sm"
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value)}
+                >
+                  <option value="payment_date">Data</option>
+                  <option value="orderNumber">Nº Empenho</option>
+                  <option value="type">Tipo</option>
+                  <option value="contractor">Credor</option>
+                  <option value="value">Valor</option>
+                  <option value="portal">Portal</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-xl"
+                  onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-label="Alternar direção de ordenação"
+                >
+                  {sortDir === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between sm:justify-end gap-3">
+               
+                {(query || yearFilter !== "all" || commitmentFilter !== "all" || typeFilter !== "all" || sortKey !== "payment_date" || sortDir !== "desc") ? (
                   <Button
                     type="button"
                     variant="ghost"
@@ -433,6 +489,8 @@ export function ObraPayments({
                       setYearFilter("all");
                       setCommitmentFilter("all");
                       setTypeFilter("all");
+                      setSortKey("payment_date");
+                      setSortDir("desc");
                     }}
                   >
                     Limpar
@@ -486,30 +544,38 @@ export function ObraPayments({
                     </TableHeader>
                     <TableBody>
                       {pageGroups.map((g) => {
-                        const isOpen = openGroupKeys.has(g.key);
+                        const isExpandable = g.count > 1;
+                        const isOpen = isExpandable && openGroupKeys.has(g.key);
                         const portalUrl = g.count === 1 ? g.items[0]?.url : "";
                         return (
                           <Fragment key={g.key}>
-                            <TableRow className="hover:bg-muted/10 cursor-pointer" onClick={() => toggleGroupOpen(g.key)}>
+                            <TableRow
+                              className={isExpandable ? "hover:bg-muted/10 cursor-pointer" : "hover:bg-muted/10"}
+                              onClick={isExpandable ? () => toggleGroupOpen(g.key) : undefined}
+                            >
                               <TableCell className="whitespace-nowrap">
                                 <div className="flex items-center gap-2">
-                                  <span
-                                    className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-muted/10 text-muted-foreground transition-transform ${
-                                      isOpen ? "rotate-180" : ""
-                                    }`}
-                                  >
-                                    <ChevronDown className="h-4 w-4" />
-                                  </span>
+                                  {isExpandable ? (
+                                    <span
+                                      className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-muted/10 text-muted-foreground transition-transform ${
+                                        isOpen ? "rotate-180" : ""
+                                      }`}
+                                    >
+                                      <ChevronDown className="h-4 w-4" />
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex h-7 w-7" />
+                                  )}
                                   <span className="text-red-600 font-semibold">{g.orderNumber || "—"}</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="whitespace-nowrap text-foreground">{g.dateLabel}</TableCell>
+                              <TableCell className="whitespace-nowrap text-foreground">{g.latestDateLabel}</TableCell>
                               <TableCell className="whitespace-nowrap">
                                 <span className="inline-flex items-center h-6 px-2.5 rounded-full bg-muted/20 border border-border text-xs text-foreground">
                                   {g.typeLabel}
                                 </span>
                               </TableCell>
-                              <TableCell className="whitespace-normal break-words text-foreground">
+                              <TableCell className="whitespace-normal break-words text-foreground text-[11px]">
                                 {g.descriptionPreview}
                                 {g.count > 1 ? <span className="text-muted-foreground"> (+{g.count - 1})</span> : null}
                               </TableCell>
@@ -557,7 +623,7 @@ export function ObraPayments({
                                                   {formatTypeLabel(p.commitmentType)}
                                                 </span>
                                               </TableCell>
-                                              <TableCell className="whitespace-normal break-words text-foreground">{p.description || "—"}</TableCell>
+                                              <TableCell className="whitespace-normal break-words text-foreground text-[11px]">{p.description || "—"}</TableCell>
                                               <TableCell className="text-center whitespace-nowrap text-muted-foreground">{p.installment || "—"}</TableCell>
                                               <TableCell className="whitespace-normal break-words text-foreground">{p.contractor || "—"}</TableCell>
                                               <TableCell className="text-right font-semibold text-foreground whitespace-nowrap">{formatCurrency(p.value)}</TableCell>
@@ -591,23 +657,38 @@ export function ObraPayments({
 
             <div className="md:hidden space-y-3">
               {pageGroups.map((g) => {
-                const isOpen = openGroupKeys.has(g.key);
+                const isExpandable = g.count > 1;
+                const isOpen = isExpandable && openGroupKeys.has(g.key);
                 return (
                   <div key={g.key} className="rounded-2xl border border-border bg-background overflow-hidden">
-                    <button type="button" className="w-full text-left p-4" onClick={() => toggleGroupOpen(g.key)}>
+                    <div
+                      role={isExpandable ? "button" : undefined}
+                      tabIndex={isExpandable ? 0 : undefined}
+                      className={isExpandable ? "w-full text-left p-4 cursor-pointer" : "w-full text-left p-4"}
+                      onClick={isExpandable ? () => toggleGroupOpen(g.key) : undefined}
+                      onKeyDown={(e) => {
+                        if (!isExpandable) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleGroupOpen(g.key);
+                        }
+                      }}
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Nº Empenho</div>
                           <div className="mt-1 text-red-600 font-semibold">{g.orderNumber || "—"}</div>
                         </div>
-                        <div className={`mt-1 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}>
-                          <ChevronDown className="h-4 w-4" />
-                        </div>
+                        {isExpandable ? (
+                          <div className={`mt-1 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}>
+                            <ChevronDown className="h-4 w-4" />
+                          </div>
+                        ) : null}
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-4">
                         <div>
                           <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</div>
-                          <div className="mt-1 text-foreground">{g.dateLabel}</div>
+                          <div className="mt-1 text-foreground">{g.latestDateLabel}</div>
                         </div>
                         <div>
                           <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</div>
@@ -620,13 +701,28 @@ export function ObraPayments({
                         <div className="text-xs text-muted-foreground">{g.count} pagamento{g.count === 1 ? "" : "s"}</div>
                         <div className="text-sm font-semibold text-foreground">{formatCurrency(g.total)}</div>
                       </div>
-                    </button>
+                      {g.count === 1 && String(g.items?.[0]?.description || "").trim().length > 0 ? (
+                        <button
+                          type="button"
+                          className="mt-3 text-xs font-medium text-red-600 hover:underline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpenDescription({ isOpen: true, text: String(g.items?.[0]?.description || "") });
+                          }}
+                        >
+                          Ver descrição
+                        </button>
+                      ) : null}
+                    </div>
                     {isOpen ? (
                       <div className="border-t border-border/60 bg-muted/5 p-4 space-y-3">
                         {g.items.map((p) => (
                           <div key={p.id} className="rounded-xl border border-border bg-background p-3">
                             <div className="flex items-center justify-between gap-3">
-                              <div className="text-sm font-medium text-foreground truncate">{p.description || "—"}</div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-foreground line-clamp-2">{p.description || "—"}</div>
+                              </div>
                               <div className="text-sm font-semibold text-foreground whitespace-nowrap">{formatCurrency(p.value)}</div>
                             </div>
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -640,6 +736,19 @@ export function ObraPayments({
                                 </>
                               ) : null}
                             </div>
+                            {String(p.description || "").trim().length > 120 ? (
+                              <button
+                                type="button"
+                                className="mt-2 text-xs font-medium text-red-600 hover:underline"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setOpenDescription({ isOpen: true, text: String(p.description || "") });
+                                }}
+                              >
+                                Ler descrição
+                              </button>
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -660,9 +769,7 @@ export function ObraPayments({
 
             {groups.length > 0 ? (
               <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="text-xs text-muted-foreground">
-                  Exibindo {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(groups.length, pageSafe * PAGE_SIZE)} de {groups.length} registros
-                </div>
+               
                 <div className="flex items-center justify-between sm:justify-end gap-2">
                   <Button type="button" variant="outline" size="sm" disabled={pageSafe <= 1} onClick={() => setPage((p) => Math.max(1, (Number(p) || 1) - 1))}>
                     ‹
@@ -695,8 +802,20 @@ export function ObraPayments({
         )}
       </div>
 
+      <Dialog
+        open={openDescription.isOpen}
+        onOpenChange={(open) => setOpenDescription({ isOpen: open, text: open ? openDescription.text : "" })}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Descrição</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-foreground whitespace-pre-line">{openDescription.text || "—"}</div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isManageOpen} onOpenChange={setIsManageOpen}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Gerenciar pagamentos</DialogTitle>
           </DialogHeader>
@@ -713,11 +832,11 @@ export function ObraPayments({
               Adicionar
             </Button>
           </div>
-          <div className="mt-4 rounded-2xl border border-border overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="mt-4 rounded-2xl border border-border overflow-hidden flex-1 min-h-0">
+            <div className="h-full overflow-auto">
               <div className="min-w-[900px]">
                 <Table>
-                  <TableHeader className="bg-muted/20">
+                  <TableHeader className="bg-muted/20 sticky top-0 z-10">
                     <TableRow className="border-b border-border/60 hover:bg-transparent">
                       <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Nº Empenho</TableHead>
                       <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</TableHead>
@@ -733,13 +852,14 @@ export function ObraPayments({
                         <TableCell className="whitespace-nowrap text-red-600 font-semibold">{p.orderNumber || "—"}</TableCell>
                         <TableCell className="whitespace-nowrap">{p.date || "—"}</TableCell>
                         <TableCell className="whitespace-nowrap">{formatTypeLabel(p.commitmentType)}</TableCell>
-                        <TableCell className="whitespace-normal break-words">{p.description || "—"}</TableCell>
+                        <TableCell className="whitespace-normal break-words text-[11px]">{p.description || "—"}</TableCell>
                         <TableCell className="text-right font-semibold whitespace-nowrap">{formatCurrency(p.value)}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right whitespace-nowrap">
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
+                            className="min-w-[88px]"
                             onClick={() => {
                               setIsManageOpen(false);
                               onEditPayment?.(p);
