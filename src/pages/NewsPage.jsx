@@ -53,7 +53,7 @@ const NewsPage = () => {
         <title>Notícias - Trombone Cidadão</title>
         <meta name="description" content="Fique por dentro de todas as novidades sobre a plataforma Trombone Cidadão e o impacto na nossa cidade." />
       </Helmet>
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
+      <div className="container mx-auto px-4 py-12 max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -108,7 +108,7 @@ const TrashPage = () => {
         <title>Lixeira - Admin</title>
         <meta name="description" content="Gerencie broncas rejeitadas." />
       </Helmet>
-      <div className="container mx-auto px-4 py-12">
+      <div className="container max-w-[88rem] mx-auto w-full px-4 py-12">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
             <Link to="/admin"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>

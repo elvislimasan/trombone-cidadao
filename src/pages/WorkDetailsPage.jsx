@@ -1303,7 +1303,7 @@ const WorkDetailsPage = () => {
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="h-3 w-1 rounded-full bg-blue-600" />
-                    <div className="min-w-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">
+                    <div className="min-w-0 text-[14px] font-semibold uppercase tracking-wider text-slate-500 truncate">
                       Pagamentos{currentMeasurement?.title ? ` — ${currentMeasurement.title}` : ''}
                     </div>
                   </div>
@@ -1315,7 +1315,7 @@ const WorkDetailsPage = () => {
                     {user?.is_admin ? (
                       <Button
                         variant="outline"
-                        className="border-blue-200 text-blue-700 hover:bg-blue-50 w-full sm:w-auto"
+                        className="border-red-200 text-red-700 hover:bg-blue-50 w-full sm:w-auto"
                         onClick={openNewPaymentDialog}
                       >
                         <Plus className="w-4 h-4 mr-2" />

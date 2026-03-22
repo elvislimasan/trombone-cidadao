@@ -12,7 +12,7 @@ import { ObraCurrentPhase } from "@/components/project/obra/ObraCurrentPhase";
 import { ObraProgress } from "@/components/project/obra/ObraProgress";
 import { ObraTimeline } from "@/components/project/obra/ObraTimeline";
 import { ObraFinancial } from "@/components/project/obra/ObraFinancial";
-import { ObraPayments } from "@/components/project/obra/ObraPayments";
+import { ObraPayments, ObraPaymentsSummary } from "@/components/project/obra/ObraPayments";
 import { ObraGallery } from "@/components/project/obra/ObraGallery";
 import { ObraPhases } from "@/components/project/obra/ObraPhases";
 import { ObraContribution } from "@/components/project/obra/ObraContribution";
@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+ 
 import { AlertTriangle, Briefcase, Calendar, Check, DollarSign, Download, FileText, Image as ImageIcon, Pencil, Trash2, Upload, Video, X } from "lucide-react";
 import MediaViewer from "@/components/MediaViewer";
 import { WorkEditModal } from "@/pages/admin/ManageWorksPage";
@@ -115,6 +116,9 @@ export default function WorkDetailsPageProject() {
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [currentPhaseView, setCurrentPhaseView] = useState("general");
+  const currentPhaseTopRef = useRef(null);
   const [paymentForm, setPaymentForm] = useState({
     measurement_id: "",
     payment_date: new Date().toISOString().split("T")[0],
@@ -177,6 +181,32 @@ export default function WorkDetailsPageProject() {
     if (!Array.isArray(measurements) || measurements.length === 0) return null;
     return [...measurements].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
   }, [measurements]);
+
+  useEffect(() => {
+    setCurrentPhaseView("general");
+  }, [currentMeasurement?.id]);
+
+  useEffect(() => {
+    if (currentPhaseView !== "payments") return;
+    const el = currentPhaseTopRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [currentPhaseView]);
+
+  const openPaymentsView = useCallback(() => {
+    setCurrentPhaseView("payments");
+  }, []);
+
+  const openGeneralView = useCallback(() => {
+    setCurrentPhaseView("general");
+    const el = currentPhaseTopRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
 
   const touchPageUpdatedAt = useCallback(() => {
     setPageUpdatedAt(new Date().toISOString());
@@ -1084,6 +1114,7 @@ export default function WorkDetailsPageProject() {
     const defaultMeasurement = currentMeasurement || measurements?.[0] || null;
     const defaultMeasurementId = defaultMeasurement?.id || "";
     const defaultCreditorName = defaultMeasurement?.contractor?.name || "";
+    setEditingPaymentId(null);
     setPaymentForm({
       measurement_id: defaultMeasurementId,
       payment_date: new Date().toISOString().split("T")[0],
@@ -1098,6 +1129,32 @@ export default function WorkDetailsPageProject() {
     });
     setShowPaymentDialog(true);
   }, [currentMeasurement, measurements]);
+
+  const openEditPaymentDialog = useCallback(
+    (payment) => {
+      if (!user?.is_admin) return;
+      const id = payment?.id || null;
+      if (!id) return;
+      const raw = currentPhasePayments.find((p) => p.id === id) || null;
+      const measurementId = raw?.measurement_id || currentMeasurement?.id || "";
+      const numericValue = Number(raw?.value ?? payment?.value ?? 0);
+      setEditingPaymentId(id);
+      setPaymentForm({
+        measurement_id: measurementId,
+        payment_date: raw?.payment_date || payment?.payment_date || new Date().toISOString().split("T")[0],
+        value: formatPtBrMoney(numericValue),
+        commitment_number: raw?.commitment_number || payment?.orderNumber || "",
+        commitment_type: raw?.commitment_type || payment?.commitmentType || "",
+        banking_order: raw?.banking_order || "",
+        installment: raw?.installment || payment?.installment || "",
+        creditor_name: raw?.creditor_name || payment?.contractor || phase?.contractor?.name || "",
+        payment_description: raw?.payment_description || payment?.description || "",
+        portal_link: raw?.portal_link || payment?.url || "",
+      });
+      setShowPaymentDialog(true);
+    },
+    [currentMeasurement?.id, currentPhasePayments, phase?.contractor?.name, user?.is_admin]
+  );
 
   const handleSavePayment = useCallback(async () => {
     if (!user?.is_admin) return;
@@ -1127,19 +1184,25 @@ export default function WorkDetailsPageProject() {
         portal_link: paymentForm.portal_link || null,
       };
 
-      const { error } = await supabase.from("public_work_payments").insert(payload);
-      if (error) throw error;
+      if (editingPaymentId) {
+        const { error } = await supabase.from("public_work_payments").update(payload).eq("id", editingPaymentId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("public_work_payments").insert(payload);
+        if (error) throw error;
+      }
 
-      toast("Pagamento salvo", { description: "O pagamento foi cadastrado com sucesso." });
+      toast("Pagamento salvo", { description: "O pagamento foi salvo com sucesso." });
       touchPageUpdatedAt();
       setShowPaymentDialog(false);
+      setEditingPaymentId(null);
       await loadData();
     } catch (e) {
       toast("Erro ao salvar pagamento", { description: e?.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setIsSavingPayment(false);
     }
-  }, [loadData, paymentForm, touchPageUpdatedAt, user?.is_admin, workId]);
+  }, [editingPaymentId, loadData, paymentForm, touchPageUpdatedAt, user?.is_admin, workId]);
 
   const openMeasurementDetails = useCallback(
     (measurementId) => {
@@ -1249,9 +1312,9 @@ export default function WorkDetailsPageProject() {
         onFavoriteToggle={handleFavoriteToggle}
       />
 
-      <main className="container mx-auto px-2 sm:px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+      <main className="container max-w-full wk-4xl:max-w-[1680px] wk-3xl:max-w-[1400px] wk-2xl:max-w-[1200px] xl:max-w-[1120px] mx-auto px-2 sm:px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-9 2xl:col-span-8 space-y-6">
             <section className="bg-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               {heroImageUrl ? <ObraHero imageUrl={heroImageUrl} title={work.title} /> : null}
 
@@ -1293,7 +1356,7 @@ export default function WorkDetailsPageProject() {
                 ) : null}
               </div>
 
-              <div className="border-t pt-6 px-6 mb-6">
+              <div ref={currentPhaseTopRef} className="border-t pt-6 px-6 mb-6 scroll-mt-24">
                 <h2 className="text-xl xl:text-2xl font-bold text-foreground mb-3">
                   Acompanhe tudo sobre a fase atual
                 </h2>
@@ -1301,65 +1364,73 @@ export default function WorkDetailsPageProject() {
                   Confira responsáveis, prazos e cronograma, pagamentos e todas as informações importantes sobre a execução desta fase da obra.
                 </p>
               </div>
-              <div className="mx-0 lg:mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-0 lg:mb-8">
-
-              <ObraCurrentPhase
-                phase={phase}
-                category={work.work_category?.name || ""}
-                onEdit={openCurrentPhaseEditDialog}
-                isAdmin={Boolean(user?.is_admin)}
-                embedded
-              />
-                <div className="border-t">
-                  <ObraTimeline executionDays={phase?.executionDays || 0} items={timelineItems} embedded />
-                </div>
-
-                {showFinancialSection ? (
-                  <div className="border-t">
-                    <ObraFinancial
-                      fundingSource={fundingSourceText}
-                      fundingAmounts={fundingAmounts}
-                      parliamentaryAmendment={parliamentaryText}
-                      contractValue={currentMeasurement?.value || 0}
-                      expectedValue={currentMeasurement?.expected_value || 0}
-                      embedded
-                    />
-                  </div>
-                ) : null}
-
-                {currentPhasePayments.length > 0 ? (
-                  <div className="border-t">
-                    <ObraPayments
-                      payments={paymentsForComponent}
-                      totalPaid={currentPhaseTotalPaid}
-                      phaseName={currentMeasurement?.title || ""}
-                      expectedValue={currentMeasurement?.expected_value || 0}
-                      totalPaidAllPhases={totalPaidAllPhases}
-                      totalExpectedAllPhases={totalExpectedAllPhases}
-                      embedded
-                      canAdd={Boolean(user?.is_admin)}
-                      onAddPayment={openNewPaymentDialog}
-                    />
-                  </div>
-                ) : null}
-              <div className="border-t">
-                <ObraGallery
-                  galleries={currentGalleries}
-                  emptyMessage={`Nenhuma mídia registrada para ${currentMeasurement?.title || "esta fase"}`}
+              <div className="mx-0 lg:mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-0 lg:mb-8 overflow-hidden">
+                <ObraCurrentPhase
+                  phase={phase}
+                  category={work.work_category?.name || ""}
+                  onEdit={openCurrentPhaseEditDialog}
+                  isAdmin={Boolean(user?.is_admin)}
                   embedded
-                  onOpenViewer={(items, index) => openViewer(items, index)}
-                  canEdit={Boolean(user?.is_admin)}
-                  onRenameGallery={handleRenameGallery}
-                  onDeleteGallery={handleDeleteGallery}
-                  onUpdateMediaItem={handleUpdateMediaItem}
-                  onDeleteMediaItem={handleDeleteMediaItem}
-                  onUploadFiles={handleUploadGalleryFiles}
-                  onBulkUpdateMediaItems={handleBulkUpdateMediaItems}
-                  onBulkDeleteMediaItems={handleBulkDeleteMediaItems}
+                  showBody={false}
                 />
-              </div>
 
-              <div className="border-t p-4 sm:p-6">
+				{currentPhaseView === "general" ? (
+				  <>
+					<ObraCurrentPhase
+					  phase={phase}
+					  category={work.work_category?.name || ""}
+					  onEdit={openCurrentPhaseEditDialog}
+					  isAdmin={Boolean(user?.is_admin)}
+					  embedded
+					  showHeader={false}
+					/>
+					<div className="border-t py-3 sm:py-4">
+					  <ObraTimeline executionDays={phase?.executionDays || 0} items={timelineItems} embedded />
+					</div>
+
+					{showFinancialSection ? (
+					  <div className="border-t py-3 sm:py-4">
+						<ObraFinancial
+						  fundingSource={fundingSourceText}
+						  fundingAmounts={fundingAmounts}
+						  parliamentaryAmendment={parliamentaryText}
+						  contractValue={currentMeasurement?.value || 0}
+						  expectedValue={currentMeasurement?.expected_value || 0}
+						  embedded
+						/>
+					  </div>
+					) : null}
+
+					<div className="border-t">
+					  <ObraPaymentsSummary
+						phaseName={currentMeasurement?.title || ""}
+						totalPaid={currentPhaseTotalPaid}
+						expectedValue={currentMeasurement?.expected_value || 0}
+						totalPaidAllPhases={totalPaidAllPhases}
+						totalExpectedAllPhases={totalExpectedAllPhases}
+						onConsult={openPaymentsView}
+					  />
+					</div>
+
+					<div className="border-t py-3 sm:py-4">
+					  <ObraGallery
+						galleries={currentGalleries}
+						emptyMessage={`Nenhuma mídia registrada para ${currentMeasurement?.title || "esta fase"}`}
+						overviewVariant="folders"
+						embedded
+						onOpenViewer={(items, index) => openViewer(items, index)}
+						canEdit={Boolean(user?.is_admin)}
+						onRenameGallery={handleRenameGallery}
+						onDeleteGallery={handleDeleteGallery}
+						onUpdateMediaItem={handleUpdateMediaItem}
+						onDeleteMediaItem={handleDeleteMediaItem}
+						onUploadFiles={handleUploadGalleryFiles}
+						onBulkUpdateMediaItems={handleBulkUpdateMediaItems}
+						onBulkDeleteMediaItems={handleBulkDeleteMediaItems}
+					  />
+					</div>
+
+					<div className="border-t px-4 sm:px-6 py-6 sm:py-8">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-muted/40 border border-border">
@@ -1525,7 +1596,21 @@ export default function WorkDetailsPageProject() {
                   </DialogContent>
                 </Dialog>
               </div>
-              </div>
+				  </>
+				) : (
+				  <div className="border-t py-3 sm:py-4">
+					<ObraPayments
+					  payments={paymentsForComponent}
+					  phaseName={currentMeasurement?.title || ""}
+					  embedded
+					  canAdd={Boolean(user?.is_admin)}
+					  onAddPayment={openNewPaymentDialog}
+					  onEditPayment={openEditPaymentDialog}
+					  onBack={openGeneralView}
+					/>
+				  </div>
+				)}
+            </div>
 
 
             </section>
@@ -1542,7 +1627,7 @@ export default function WorkDetailsPageProject() {
          
           </div>
 
-          <aside className="space-y-6">
+          <aside className="space-y-6 lg:col-span-3 2xl:col-span-4">
             <ObraLocation
               address={work.address}
               neighborhood={work.bairro?.name || ""}
@@ -1554,7 +1639,7 @@ export default function WorkDetailsPageProject() {
             <ObraRelatedLinks links={work.related_links || []} />
           </aside>
           
-          <div className="order-last lg:order-none lg:col-span-2">
+          <div className="order-last lg:order-none lg:col-span-9">
             <ObraContribution onContribute={handleOpenContrib} />
              <div className="lg:col-span-3 text-center max-w-2xl mx-auto pb-6">
             <p className="text-xs text-muted-foreground leading-relaxed mt-4">
@@ -1582,10 +1667,16 @@ export default function WorkDetailsPageProject() {
 
       {mediaViewer.isOpen ? <MediaViewer media={mediaViewer.items} startIndex={mediaViewer.startIndex} onClose={closeViewer} /> : null}
 
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+      <Dialog
+        open={showPaymentDialog}
+        onOpenChange={(open) => {
+          setShowPaymentDialog(open);
+          if (!open) setEditingPaymentId(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[650px] max-h-[calc(100vh-2rem)] max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Novo pagamento</DialogTitle>
+            <DialogTitle>{editingPaymentId ? "Editar pagamento" : "Novo pagamento"}</DialogTitle>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto pr-1">
