@@ -16,9 +16,9 @@ export function ObraTimeline({ executionDays, items, embedded = false }) {
 
   return (
     <Container className={containerClassName}>
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-6">
         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-        <h2 className="text-[11px] uppercase tracking-wider text-muted-foreground">Prazos e Cronograma</h2>
+        <h2 className="text-[14px] uppercase font-semibold text-muted-foreground">Prazos e Cronograma</h2>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 min-[1700px]:grid-cols-5 gap-3 sm:gap-4 lg:gap-3 2xl:gap-4">
@@ -47,7 +47,7 @@ export function ObraTimeline({ executionDays, items, embedded = false }) {
               <div className="text-[10px] lg:text-[9px] 2xl:text-[10px] uppercase tracking-wide text-muted-foreground text-center">
                 {it.label}
               </div>
-              <div className="text-center text-base sm:text-lg lg:text-base 2xl:text-xl font-bold text-foreground mt-2 lg:mt-1.5 leading-snug whitespace-nowrap tabular-nums">
+              <div className="text-center text-base sm:text-sm  font-bold text-foreground mt-2 lg:mt-1.5 leading-snug whitespace-nowrap tabular-nums">
                 {it.value || "-"}
               </div>
               {it.badge ? (

@@ -218,6 +218,7 @@ export function ObraGallery({
   canEdit = false,
   managerInline = false,
   showOverview = true,
+  overviewVariant = "items",
   onRenameGallery,
   onDeleteGallery,
   onUpdateMediaItem,
@@ -239,6 +240,8 @@ export function ObraGallery({
 
   // ── Dialog state ────────────────────────────────────────────────────────────
   const [isEditOpen, setIsEditOpen] = useState(false);
+
+  const [overviewGalleryName, setOverviewGalleryName] = useState(null);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [view, setView] = useState("folders"); // "folders" | "images"
@@ -283,6 +286,12 @@ export function ObraGallery({
       setRenamingMediaValue("");
     }
   }, [isEditOpen]);
+
+  useEffect(() => {
+    if (!overviewGalleryName) return;
+    const exists = groups.some((g) => g?.name === overviewGalleryName);
+    if (!exists) setOverviewGalleryName(null);
+  }, [groups, overviewGalleryName]);
 
   const cancelLongPress = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -1188,6 +1197,116 @@ export function ObraGallery({
             As fotos aparecerão aqui.
           </p>
         </div>
+      ) : showOverview && overviewVariant === "folders" ? (
+        overviewGalleryName ? (
+          <div>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <Button type="button" variant="outline" size="sm" onClick={() => setOverviewGalleryName(null)}>
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                Voltar
+              </Button>
+              <div className="min-w-0 text-sm font-semibold text-foreground truncate">{overviewGalleryName}</div>
+              <div className="w-[84px]" />
+            </div>
+
+            {(() => {
+              const g = groups.find((x) => x.name === overviewGalleryName) || { name: overviewGalleryName, items: [] };
+              const items = Array.isArray(g.items) ? g.items : [];
+              if (items.length === 0) {
+                return <div className="text-sm text-muted-foreground py-8 text-center">Nenhuma mídia nesta galeria.</div>;
+              }
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                  {items.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="group cursor-pointer rounded-2xl border border-border bg-background overflow-hidden shadow-sm hover:shadow-md hover:border-muted-foreground/30 transition"
+                      onClick={() => onOpenViewer?.(items, idx)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpenViewer?.(items, idx);
+                        }
+                      }}
+                    >
+                      <div className="relative aspect-square bg-muted overflow-hidden">
+                        <MediaThumb item={item} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-70 pointer-events-none" />
+                      </div>
+                      <div className="px-3 py-2 border-t border-border/60 bg-background">
+                        <div className="text-xs font-medium text-foreground truncate">{item.name || "Sem nome"}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+            {groups.map((g) => {
+              const items = Array.isArray(g.items) ? g.items : [];
+              const count = items.length;
+              const previewImages = items.filter((i) => !["video", "video_url"].includes(i.type) && Boolean(i.url));
+              const cover = previewImages[0] || null;
+              const thumbs = previewImages.slice(1, 4);
+              const canOpen = items.length > 0;
+
+              return (
+                <div
+                  key={g.name}
+                  className={`group relative rounded-2xl border border-border bg-background overflow-hidden shadow-sm transition ${
+                    canOpen ? "cursor-pointer hover:shadow-md hover:border-muted-foreground/30" : "opacity-75"
+                  }`}
+                  onClick={() => {
+                    if (!canOpen) return;
+                    setOverviewGalleryName(g.name);
+                  }}
+                  role={canOpen ? "button" : undefined}
+                  tabIndex={canOpen ? 0 : undefined}
+                  onKeyDown={(e) => {
+                    if (!canOpen) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setOverviewGalleryName(g.name);
+                    }
+                  }}
+                >
+                  <div className="relative aspect-[4/3] bg-gradient-to-br from-muted/40 via-background to-muted/10">
+                    {cover ? <img src={cover.url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" /> : null}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/25 to-background/10" />
+
+                    <div className="absolute left-3 top-3">
+                      <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
+                        <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                        {count} item{count === 1 ? "" : "s"}
+                      </div>
+                    </div>
+
+                    {thumbs.length > 0 ? (
+                      <div className="absolute inset-x-3 bottom-3 grid grid-cols-3 gap-2">
+                        {thumbs.map((p) => (
+                          <div key={p.id} className="aspect-square rounded-lg border border-border/70 bg-background/50 overflow-hidden">
+                            <img src={p.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          </div>
+                        ))}
+                        {Array.from({ length: Math.max(0, 3 - thumbs.length) }).map((_, idx) => (
+                          <div key={idx} className="aspect-square rounded-lg border border-border/60 bg-muted/20" />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="px-3 py-3 sm:px-4 flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-foreground truncate">{g.name}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       ) : showOverview ? (
         <div className="space-y-8">
           {groups.map((g) => {

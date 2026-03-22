@@ -251,7 +251,7 @@ const SiteSettingsPage = () => {
   };
 
   if (loading) {
-    return <div className="container mx-auto px-4 py-12 text-center">Carregando configurações...</div>;
+    return <div className="container max-w-[88rem] mx-auto w-full px-4 py-12 text-center">Carregando configurações...</div>;
   }
 
   return (
@@ -260,7 +260,7 @@ const SiteSettingsPage = () => {
         <title>Configurações do Site - Admin</title>
         <meta name="description" content="Personalize a aparência do seu site." />
       </Helmet>
-      <div className="container mx-auto px-4 py-12">
+      <div className="container max-w-[88rem] mx-auto w-full px-4 py-12">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

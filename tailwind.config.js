@@ -8,6 +8,16 @@ module.exports = {
     './src/**/*.{js,jsx}',
   ],
   theme: {
+    screens: {
+      xs: "480px",
+      sm: "640px",
+      md: "768px",
+      lg: "980px",
+      xl: "1200px",
+      "2xl": "1380px",
+      "3xl": "1500px",
+      "4xl": "1800px",
+    },
     container: {
       center: true,
       padding: "2rem",
@@ -16,8 +26,10 @@ module.exports = {
         sm: "640px",
         md: "768px",
         lg: "980px",
-        xl: "1200px",
-        "2xl": "1600px",
+        xl: "1280px",
+        "2xl": "1500px",
+        '3xl': '1680px',
+        '4xl': '1800px',
       },
     },
     extend: {

@@ -61,14 +61,14 @@ export function ObraFinancial({
 
   return (
     <Container className={containerClassName}>
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-6">
         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-        <h2 className="text-[11px] uppercase tracking-wider text-muted-foreground">Financeiro</h2>
+        <h2 className="text-[14px] font-semibold uppercase text-muted-foreground">Financeiro</h2>
       </div>
 
       <div className={`grid grid-cols-1 ${hasFundingAmounts ?'sm:grid-cols-3 md:grid-cols-3' : "sm:grid-cols-4 md:grid-cols-4"} gap-3 sm:gap-2`}>
         {hasFundingSource ? (
-          <div className={`rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm ${hasFundingAmounts ? "col-span sm:col-span-3" : "col-span-1"}`}>
+          <div className={`rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm ${hasFundingAmounts ? "col-span sm:col-span-3 mb-3" : "col-span-1"}`}>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Landmark className="h-4 w-4 text-red-500" />
               <span className="text-[10px] uppercase tracking-wide">Fonte de Recurso</span>
