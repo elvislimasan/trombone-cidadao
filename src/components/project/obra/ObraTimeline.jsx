@@ -7,6 +7,10 @@ export function ObraTimeline({ executionDays, items, embedded = false }) {
   const safeItems = Array.isArray(items) ? items : [];
   const visibleItems = safeItems.filter((it) => it?.value && it.value !== "-");
   const hasExecutionDays = Number(executionDays) > 0;
+  const baseCardClassName = "rounded-xl border bg-card p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm";
+  // Mantém destaque apenas no card "Prazo de Execução"
+  const highlightedCardClassName =
+    "bg-blue-50 border border-blue-200/70 dark:bg-slate-900/30 dark:border-slate-700 rounded-xl p-4 sm:p-4 lg:p-3 2xl:p-4 shadow-sm";
 
   if (!hasExecutionDays && visibleItems.length === 0) return null;
 
@@ -19,7 +23,7 @@ export function ObraTimeline({ executionDays, items, embedded = false }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 min-[1700px]:grid-cols-5 gap-3 sm:gap-4 lg:gap-3 2xl:gap-4">
         {hasExecutionDays ? (
-          <div className="bg-amber-50 border border-amber-200/70 dark:bg-slate-900/30 dark:border-slate-700 rounded-xl p-4 sm:p-4 lg:p-3 2xl:p-4">
+          <div className={highlightedCardClassName}>
             <div className="flex items-center justify-center mb-2 text-muted-foreground">
               <Clock className="h-5 w-5 text-red-500" />
             </div>
@@ -35,7 +39,7 @@ export function ObraTimeline({ executionDays, items, embedded = false }) {
         {visibleItems.map((it) => (
             <div
               key={it.label}
-              className="bg-blue-50 border border-blue-200/70 dark:bg-slate-900/30 dark:border-slate-700 rounded-xl p-4 sm:p-4 lg:p-3 2xl:p-4"
+              className={baseCardClassName}
             >
               <div className="flex items-center justify-center mb-2 text-muted-foreground">
                 <CalendarDays className="h-5 w-5 text-red-500" />

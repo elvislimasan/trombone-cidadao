@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, Briefcase, Calendar, DollarSign, Download, FileText, Image as ImageIcon, Video } from "lucide-react";
+import { AlertTriangle, Briefcase, Calendar, Check, DollarSign, Download, FileText, Image as ImageIcon, Pencil, Trash2, Upload, Video, X } from "lucide-react";
 import MediaViewer from "@/components/MediaViewer";
 import { WorkEditModal } from "@/pages/admin/ManageWorksPage";
 
@@ -100,6 +100,11 @@ export default function WorkDetailsPageProject() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const commitmentTypeOptions = useMemo(
+    () => ["Estimativo", "Extra Orçamentário", "Global", "Ordinário"],
+    []
+  );
+
   const [loading, setLoading] = useState(true);
   const [work, setWork] = useState(null);
   const [measurements, setMeasurements] = useState([]);
@@ -115,6 +120,7 @@ export default function WorkDetailsPageProject() {
     payment_date: new Date().toISOString().split("T")[0],
     value: "",
     commitment_number: "",
+    commitment_type: "",
     banking_order: "",
     installment: "",
     creditor_name: "",
@@ -133,6 +139,12 @@ export default function WorkDetailsPageProject() {
   const [contribFiles, setContribFiles] = useState([]);
   const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
   const contribFileInputRef = useRef(null);
+  const documentFileInputRef = useRef(null);
+  const [pendingDeleteDocument, setPendingDeleteDocument] = useState(null);
+  const [isUploadingDocuments, setIsUploadingDocuments] = useState(false);
+  const [renamingDocumentId, setRenamingDocumentId] = useState(null);
+  const [renamingDocumentValue, setRenamingDocumentValue] = useState("");
+  const [pageUpdatedAt, setPageUpdatedAt] = useState(null);
   const [currentPhaseForm, setCurrentPhaseForm] = useState({
     title: "",
     description: "",
@@ -165,6 +177,36 @@ export default function WorkDetailsPageProject() {
     if (!Array.isArray(measurements) || measurements.length === 0) return null;
     return [...measurements].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
   }, [measurements]);
+
+  const touchPageUpdatedAt = useCallback(() => {
+    setPageUpdatedAt(new Date().toISOString());
+  }, []);
+
+  const lastUpdatedAt = useMemo(() => {
+    const candidates = [];
+    if (work?.updated_at) candidates.push(new Date(work.updated_at));
+    if (work?.created_at) candidates.push(new Date(work.created_at));
+
+    (measurements || []).forEach((m) => {
+      if (m?.updated_at) candidates.push(new Date(m.updated_at));
+      if (m?.created_at) candidates.push(new Date(m.created_at));
+      (m?.payments || []).forEach((p) => {
+        if (p?.updated_at) candidates.push(new Date(p.updated_at));
+        if (p?.created_at) candidates.push(new Date(p.created_at));
+      });
+    });
+
+    (media || []).forEach((m) => {
+      if (m?.updated_at) candidates.push(new Date(m.updated_at));
+      if (m?.created_at) candidates.push(new Date(m.created_at));
+    });
+
+    if (pageUpdatedAt) candidates.push(new Date(pageUpdatedAt));
+
+    const valid = candidates.filter((d) => d instanceof Date && !Number.isNaN(d.getTime()));
+    if (valid.length === 0) return null;
+    return new Date(Math.max(...valid.map((d) => d.getTime())));
+  }, [media, measurements, pageUpdatedAt, work?.created_at, work?.updated_at]);
 
   const currentPhaseId = currentMeasurement?.id || "";
 
@@ -269,8 +311,11 @@ export default function WorkDetailsPageProject() {
   const paymentsForComponent = useMemo(() => {
     return currentPhasePayments.map((p) => ({
       id: p.id,
+      payment_date: p.payment_date,
+      created_at: p.created_at,
       date: formatDateDisplay(p.payment_date),
       orderNumber: p.commitment_number || p.banking_order || "",
+      commitmentType: p.commitment_type || "",
       description: p.payment_description || "",
       installment: p.installment || "",
       contractor: p.creditor_name || phase?.contractor?.name || "",
@@ -462,6 +507,7 @@ export default function WorkDetailsPageProject() {
       }
 
       toast("Contribuição enviada!", { description: "Obrigado por colaborar com transparência." });
+      touchPageUpdatedAt();
       setShowContribDialog(false);
       setContribDescription("");
       setContribVideoUrl("");
@@ -473,7 +519,7 @@ export default function WorkDetailsPageProject() {
     } finally {
       setIsSubmittingContribution(false);
     }
-  }, [contribDescription, contribFiles, contribVideoUrl, currentMeasurement?.id, currentMeasurement?.title, isSubmittingContribution, loadData, user, work]);
+  }, [contribDescription, contribFiles, contribVideoUrl, currentMeasurement?.id, currentMeasurement?.title, isSubmittingContribution, loadData, touchPageUpdatedAt, user, work]);
 
   const handleRenameGallery = useCallback(
     async (oldName, newName) => {
@@ -495,9 +541,10 @@ export default function WorkDetailsPageProject() {
         return;
       }
       toast("Galeria atualizada");
+      touchPageUpdatedAt();
       await loadData();
     },
-    [currentMeasurement?.id, loadData, user?.is_admin, work?.id]
+    [currentMeasurement?.id, loadData, touchPageUpdatedAt, user?.is_admin, work?.id]
   );
 
   const handleUpdateMediaItem = useCallback(
@@ -512,9 +559,10 @@ export default function WorkDetailsPageProject() {
         return;
       }
       toast("Mídia atualizada");
+      touchPageUpdatedAt();
       setMedia((prev) => (Array.isArray(prev) ? prev.map((m) => (m?.id === id ? { ...m, ...(patch || {}) } : m)) : prev));
     },
-    [toast, user?.is_admin]
+    [toast, touchPageUpdatedAt, user?.is_admin]
   );
 
   const handleDeleteMediaItem = useCallback(
@@ -538,9 +586,10 @@ export default function WorkDetailsPageProject() {
       }
 
       toast("Mídia removida");
+      touchPageUpdatedAt();
       setMedia((prev) => (Array.isArray(prev) ? prev.filter((m) => m?.id !== id) : prev));
     },
-    [toast, user?.is_admin]
+    [toast, touchPageUpdatedAt, user?.is_admin]
   );
 
   const handleBulkUpdateMediaItems = useCallback(
@@ -555,10 +604,11 @@ export default function WorkDetailsPageProject() {
         return;
       }
       toast("Mídias atualizadas");
+      touchPageUpdatedAt();
       const setIds = new Set(ids);
       setMedia((prev) => (Array.isArray(prev) ? prev.map((m) => (setIds.has(m?.id) ? { ...m, ...(patch || {}) } : m)) : prev));
     },
-    [toast, user?.is_admin]
+    [toast, touchPageUpdatedAt, user?.is_admin]
   );
 
   const handleBulkDeleteMediaItems = useCallback(
@@ -595,10 +645,11 @@ export default function WorkDetailsPageProject() {
       }
 
       toast("Mídias removidas");
+      touchPageUpdatedAt();
       const setIds = new Set(ids);
       setMedia((prev) => (Array.isArray(prev) ? prev.filter((m) => !setIds.has(m?.id)) : prev));
     },
-    [toast, user?.is_admin]
+    [toast, touchPageUpdatedAt, user?.is_admin]
   );
 
   const handleDeleteGallery = useCallback(
@@ -638,9 +689,10 @@ export default function WorkDetailsPageProject() {
       }
 
       toast("Galeria excluída");
+      touchPageUpdatedAt();
       setMedia((prev) => (Array.isArray(prev) ? prev.filter((m) => !ids.includes(m?.id)) : prev));
     },
-    [toast, user?.is_admin]
+    [toast, touchPageUpdatedAt, user?.is_admin]
   );
 
   const handleUploadGalleryFiles = useCallback(
@@ -648,12 +700,16 @@ export default function WorkDetailsPageProject() {
       if (!user?.is_admin) return;
       if (!work?.id || !currentMeasurement?.id) return;
       const list = Array.isArray(files) ? files : [];
-      if (list.length === 0) return;
+      const images = list.filter((f) => f?.type?.startsWith("image/"));
+      if (images.length === 0) {
+        toast("Nenhuma imagem selecionada", { variant: "destructive" });
+        return;
+      }
 
       const targetGalleryName = String(galleryName || "").trim() || currentMeasurement.title || "Geral";
 
       try {
-        for (const file of list) {
+        for (const file of images) {
           const fileExt = file.name.split(".").pop();
           const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
           const path = `measurements/${currentMeasurement.id}/${fileName}`;
@@ -665,10 +721,7 @@ export default function WorkDetailsPageProject() {
             data: { publicUrl },
           } = supabase.storage.from("work-media").getPublicUrl(path);
 
-          let type = "file";
-          if (file.type.startsWith("image")) type = "photo";
-          else if (file.type.startsWith("video")) type = "video";
-          else if (file.type === "application/pdf") type = "pdf";
+          const type = "photo";
 
           const { data: inserted, error: dbError } = await supabase
             .from("public_work_media")
@@ -691,11 +744,66 @@ export default function WorkDetailsPageProject() {
         }
 
         toast("Imagens adicionadas", { description: "Os arquivos foram enviados para a galeria." });
+        touchPageUpdatedAt();
       } catch (e) {
         toast("Erro ao enviar arquivos", { description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [currentMeasurement?.id, currentMeasurement?.title, toast, user?.id, user?.is_admin, work?.id]
+    [currentMeasurement?.id, currentMeasurement?.title, toast, touchPageUpdatedAt, user?.id, user?.is_admin, work?.id]
+  );
+
+  const handleUploadDocuments = useCallback(
+    async (files) => {
+      if (!user?.is_admin) return;
+      if (!work?.id || !currentMeasurement?.id) return;
+      const list = Array.isArray(files) ? files : [];
+      if (list.length === 0) return;
+
+      setIsUploadingDocuments(true);
+      try {
+        for (const file of list) {
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+          const path = `measurements/${currentMeasurement.id}/documents/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage.from("work-media").upload(path, file);
+          if (uploadError) throw uploadError;
+
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("work-media").getPublicUrl(path);
+
+          const type = file.type === "application/pdf" ? "pdf" : "file";
+
+          const { data: inserted, error: dbError } = await supabase
+            .from("public_work_media")
+            .insert({
+              work_id: work.id,
+              measurement_id: currentMeasurement.id,
+              url: publicUrl,
+              type,
+              name: file.name,
+              status: "approved",
+              gallery_name: null,
+              contributor_id: user.id,
+            })
+            .select("*")
+            .single();
+          if (dbError) throw dbError;
+          if (inserted) {
+            setMedia((prev) => (Array.isArray(prev) ? [inserted, ...prev] : prev));
+          }
+        }
+
+        toast("Documento(s) adicionado(s)");
+        touchPageUpdatedAt();
+      } catch (e) {
+        toast("Erro ao enviar documentos", { description: e?.message || "Tente novamente.", variant: "destructive" });
+      } finally {
+        setIsUploadingDocuments(false);
+      }
+    },
+    [currentMeasurement?.id, toast, touchPageUpdatedAt, user?.id, user?.is_admin, work?.id]
   );
 
   const validateCurrentPhaseDates = useCallback((data) => {
@@ -907,6 +1015,7 @@ export default function WorkDetailsPageProject() {
 
       await syncWorkFromLatestMeasurement();
       toast("Fase atualizada", { description: "As informações foram salvas com sucesso." });
+      touchPageUpdatedAt();
       setShowCurrentPhaseEditDialog(false);
       setEditingMeasurementId(null);
       await loadData();
@@ -921,6 +1030,7 @@ export default function WorkDetailsPageProject() {
     editingMeasurementId,
     loadData,
     syncWorkFromLatestMeasurement,
+    touchPageUpdatedAt,
     user?.is_admin,
     validateCurrentPhaseDates,
   ]);
@@ -945,13 +1055,14 @@ export default function WorkDetailsPageProject() {
         if (error) throw error;
 
         toast("Obra atualizada com sucesso!");
+        touchPageUpdatedAt();
         setShowAdminEditModal(false);
         await loadData();
       } catch (e) {
         toast("Erro ao salvar obra", { description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [loadData]
+    [loadData, touchPageUpdatedAt]
   );
 
   useEffect(() => {
@@ -978,6 +1089,7 @@ export default function WorkDetailsPageProject() {
       payment_date: new Date().toISOString().split("T")[0],
       value: "",
       commitment_number: "",
+      commitment_type: "",
       banking_order: "",
       installment: "",
       creditor_name: defaultCreditorName,
@@ -1007,6 +1119,7 @@ export default function WorkDetailsPageProject() {
         payment_date: paymentForm.payment_date,
         value: numericValue,
         commitment_number: paymentForm.commitment_number || null,
+        commitment_type: paymentForm.commitment_type || null,
         banking_order: paymentForm.banking_order || null,
         installment: paymentForm.installment || null,
         creditor_name: paymentForm.creditor_name || null,
@@ -1018,6 +1131,7 @@ export default function WorkDetailsPageProject() {
       if (error) throw error;
 
       toast("Pagamento salvo", { description: "O pagamento foi cadastrado com sucesso." });
+      touchPageUpdatedAt();
       setShowPaymentDialog(false);
       await loadData();
     } catch (e) {
@@ -1025,7 +1139,7 @@ export default function WorkDetailsPageProject() {
     } finally {
       setIsSavingPayment(false);
     }
-  }, [loadData, paymentForm, user?.is_admin, workId]);
+  }, [loadData, paymentForm, touchPageUpdatedAt, user?.is_admin, workId]);
 
   const openMeasurementDetails = useCallback(
     (measurementId) => {
@@ -1142,17 +1256,25 @@ export default function WorkDetailsPageProject() {
               {heroImageUrl ? <ObraHero imageUrl={heroImageUrl} title={work.title} /> : null}
 
               <div className="p-6">
-                <div className="flex flex-wrap items-center gap-2 mb-3">
-                  <Badge
-                    variant="outline"
-                    className={`${getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).bg} ${getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).color} border-none`}
-                  >
-                    {getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).text}
-                  </Badge>
-                  {work.work_category?.name ? (
-                    <Badge variant="outline" className="text-muted-foreground border-border bg-muted/40">
-                      {work.work_category.name}
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`${getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).bg} ${getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).color} border-none`}
+                    >
+                      {getStatusInfo(normalizeStatus(currentMeasurement?.status || work.status)).text}
                     </Badge>
+                    {work.work_category?.name ? (
+                      <Badge variant="outline" className="text-muted-foreground border-border bg-muted/40">
+                        {work.work_category.name}
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  {lastUpdatedAt ? (
+                    <div className="hidden lg:block text-sm font-semibold text-muted-foreground whitespace-nowrap">
+                      Última atualização: {formatDate(lastUpdatedAt)}
+                    </div>
                   ) : null}
                 </div>
 
@@ -1205,23 +1327,24 @@ export default function WorkDetailsPageProject() {
                   </div>
                 ) : null}
 
-                <div className="border-t">
-                  <ObraPayments
-                    payments={paymentsForComponent}
-                    totalPaid={currentPhaseTotalPaid}
-                    phaseName={currentMeasurement?.title || ""}
-                    expectedValue={currentMeasurement?.expected_value || 0}
-                    totalPaidAllPhases={totalPaidAllPhases}
-                    totalExpectedAllPhases={totalExpectedAllPhases}
-                    embedded
-                    canAdd={Boolean(user?.is_admin)}
-                    onAddPayment={openNewPaymentDialog}
-                  />
-                </div>
+                {currentPhasePayments.length > 0 ? (
+                  <div className="border-t">
+                    <ObraPayments
+                      payments={paymentsForComponent}
+                      totalPaid={currentPhaseTotalPaid}
+                      phaseName={currentMeasurement?.title || ""}
+                      expectedValue={currentMeasurement?.expected_value || 0}
+                      totalPaidAllPhases={totalPaidAllPhases}
+                      totalExpectedAllPhases={totalExpectedAllPhases}
+                      embedded
+                      canAdd={Boolean(user?.is_admin)}
+                      onAddPayment={openNewPaymentDialog}
+                    />
+                  </div>
+                ) : null}
               <div className="border-t">
                 <ObraGallery
                   galleries={currentGalleries}
-                  documents={currentDocuments}
                   emptyMessage={`Nenhuma mídia registrada para ${currentMeasurement?.title || "esta fase"}`}
                   embedded
                   onOpenViewer={(items, index) => openViewer(items, index)}
@@ -1234,6 +1357,173 @@ export default function WorkDetailsPageProject() {
                   onBulkUpdateMediaItems={handleBulkUpdateMediaItems}
                   onBulkDeleteMediaItems={handleBulkDeleteMediaItems}
                 />
+              </div>
+
+              <div className="border-t p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-muted/40 border border-border">
+                      <FileText className="w-4 h-4 text-muted-foreground" />
+                    </span>
+                    <div>
+                      <div className="text-sm font-semibold text-foreground">Documentos</div>
+                      <div className="text-xs text-muted-foreground">{currentDocuments.length} arquivo{currentDocuments.length === 1 ? "" : "s"}</div>
+                    </div>
+                  </div>
+
+                  {user?.is_admin ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => documentFileInputRef.current?.click()}
+                      disabled={isUploadingDocuments}
+                      className="w-full sm:w-auto"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Adicionar documento
+                    </Button>
+                  ) : null}
+                </div>
+
+                {currentDocuments.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {currentDocuments.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center gap-2 p-3 rounded-2xl border border-border hover:border-muted-foreground/30 hover:bg-muted/20 transition-all"
+                      >
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-xl bg-muted/30 border border-border flex items-center justify-center text-muted-foreground mr-3 shrink-0">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            {renamingDocumentId === doc.id ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={renamingDocumentValue}
+                                  onChange={(e) => setRenamingDocumentValue(e.target.value)}
+                                  className="h-9"
+                                  onClick={(e) => e.preventDefault()}
+                                />
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="outline"
+                                  className="h-9 w-9"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setRenamingDocumentId(null);
+                                    setRenamingDocumentValue("");
+                                  }}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="default"
+                                  className="h-9 w-9"
+                                  disabled={!String(renamingDocumentValue || "").trim()}
+                                  onClick={async (e) => {
+                                    e.preventDefault();
+                                    const nextName = String(renamingDocumentValue || "").trim();
+                                    if (!nextName) return;
+                                    await handleUpdateMediaItem(doc.id, { name: nextName });
+                                    setRenamingDocumentId(null);
+                                    setRenamingDocumentValue("");
+                                  }}
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                            )}
+                          </div>
+                        </a>
+
+                        {user?.is_admin ? (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              className="h-9 w-9"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setRenamingDocumentId(doc.id);
+                                setRenamingDocumentValue(String(doc.name || "").trim());
+                              }}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="destructive"
+                              className="h-9 w-9"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setPendingDeleteDocument(doc);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-2xl bg-muted/10">
+                    Nenhum documento anexado.
+                  </div>
+                )}
+
+                <input
+                  ref={documentFileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    e.target.value = "";
+                    handleUploadDocuments(files);
+                  }}
+                />
+
+                <Dialog open={!!pendingDeleteDocument} onOpenChange={(open) => !open && setPendingDeleteDocument(null)}>
+                  <DialogContent className="sm:max-w-md bg-card">
+                    <DialogHeader>
+                      <DialogTitle className="text-lg font-bold text-foreground">Excluir documento?</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                      O documento <span className="font-semibold text-foreground">"{pendingDeleteDocument?.name}"</span> será removido permanentemente.
+                    </p>
+                    <DialogFooter className="gap-2">
+                      <DialogClose asChild>
+                        <Button type="button" variant="outline" disabled={isUploadingDocuments}>
+                          Cancelar
+                        </Button>
+                      </DialogClose>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={isUploadingDocuments}
+                        onClick={async () => {
+                          const doc = pendingDeleteDocument;
+                          setPendingDeleteDocument(null);
+                          if (!doc) return;
+                          await handleDeleteMediaItem(doc.id, doc.url);
+                        }}
+                      >
+                        Excluir
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
               </div>
 
@@ -1277,6 +1567,11 @@ export default function WorkDetailsPageProject() {
                 Reportar erro
               </button>
             </p>
+            {lastUpdatedAt ? (
+              <div className="mt-4 text-sm font-semibold text-muted-foreground lg:hidden">
+                Última atualização: {formatDate(lastUpdatedAt)}
+              </div>
+            ) : null}
           </div>
           </div>
 
@@ -1336,6 +1631,24 @@ export default function WorkDetailsPageProject() {
                   onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_number: e.target.value }))}
                 />
               </div>
+              <div className="grid gap-2">
+                <Label>Tipo de empenho</Label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={paymentForm.commitment_type}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_type: e.target.value }))}
+                >
+                  <option value="">Selecione</option>
+                  {commitmentTypeOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div className="grid gap-2">
                 <Label>Parcela</Label>
                 <Input

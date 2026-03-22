@@ -121,10 +121,12 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails, isAdmin = fa
                             <span className="text-muted-foreground">Previsão de Início:</span>
                             <span className="font-semibold text-foreground">{formatDateDisplay(phase.predictedStartDate)}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Previsão de Conclusão:</span>
-                            <span className="font-semibold text-foreground">{formatDateDisplay(phase.predictedEndDate)}</span>
-                          </div>
+                          {phase.expectedEndDate ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground">Previsão de Conclusão:</span>
+                              <span className="font-semibold text-foreground">{formatDateDisplay(phase.expectedEndDate)}</span>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
 
