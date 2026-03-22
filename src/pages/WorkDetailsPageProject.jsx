@@ -1312,7 +1312,7 @@ export default function WorkDetailsPageProject() {
         onFavoriteToggle={handleFavoriteToggle}
       />
 
-      <main className="container max-w-full wk-4xl:max-w-[1680px] wk-3xl:max-w-[1400px] wk-2xl:max-w-[1200px] xl:max-w-[1120px] mx-auto px-2 sm:px-4 py-6">
+      <main className="container max-w-full 4xl:max-w-[1680px] 3xl:max-w-[1400px] 2xl:max-w-[1200px] xl:max-w-[1120px] mx-auto px-2 sm:px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-9 2xl:col-span-8 space-y-6">
             <section className="bg-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
