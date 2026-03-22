@@ -1312,9 +1312,9 @@ export default function WorkDetailsPageProject() {
         onFavoriteToggle={handleFavoriteToggle}
       />
 
-      <main className="container max-w-full 4xl:max-w-[1680px] 3xl:max-w-[1400px] 2xl:max-w-[1200px] xl:max-w-[1120px] mx-auto px-2 sm:px-4 py-6">
+      <main className="container max-w-full 4xl:max-w-[1680px] 3xl:max-w-[1500px] 2xl:max-w-[1380px] xl:max-w-[1120px] mx-auto px-2 sm:px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-9 2xl:col-span-8 space-y-6">
+          <div className="lg:col-span-12 2xl:col-span-9 3xl:col-span-9  space-y-6">
             <section className="bg-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               {heroImageUrl ? <ObraHero imageUrl={heroImageUrl} title={work.title} /> : null}
 
@@ -1376,20 +1376,27 @@ export default function WorkDetailsPageProject() {
 
 				{currentPhaseView === "general" ? (
 				  <>
-					<ObraCurrentPhase
-					  phase={phase}
-					  category={work.work_category?.name || ""}
-					  onEdit={openCurrentPhaseEditDialog}
-					  isAdmin={Boolean(user?.is_admin)}
-					  embedded
-					  showHeader={false}
-					/>
-					<div className="border-t py-3 sm:py-4">
+					<div className="bg-background">
+					  <ObraCurrentPhase
+						phase={phase}
+						category={work.work_category?.name || ""}
+						onEdit={openCurrentPhaseEditDialog}
+						isAdmin={Boolean(user?.is_admin)}
+						embedded
+						showHeader={false}
+					  />
+					</div>
+
+					<div className="h-4 bg-[#f9fafb]" />
+
+					<div className="bg-background">
 					  <ObraTimeline executionDays={phase?.executionDays || 0} items={timelineItems} embedded />
 					</div>
 
 					{showFinancialSection ? (
-					  <div className="border-t py-3 sm:py-4">
+					  <>
+						<div className="h-4 bg-[#f9fafb]" />
+						<div className="bg-background">
 						<ObraFinancial
 						  fundingSource={fundingSourceText}
 						  fundingAmounts={fundingAmounts}
@@ -1398,10 +1405,12 @@ export default function WorkDetailsPageProject() {
 						  expectedValue={currentMeasurement?.expected_value || 0}
 						  embedded
 						/>
-					  </div>
+						</div>
+					  </>
 					) : null}
 
-					<div className="border-t">
+					<div className="h-4 bg-[#f9fafb]" />
+					<div className="bg-background">
 					  <ObraPaymentsSummary
 						phaseName={currentMeasurement?.title || ""}
 						totalPaid={currentPhaseTotalPaid}
@@ -1412,7 +1421,8 @@ export default function WorkDetailsPageProject() {
 					  />
 					</div>
 
-					<div className="border-t py-3 sm:py-4">
+					<div className="h-4 bg-[#f9fafb]" />
+					<div className="bg-background">
 					  <ObraGallery
 						galleries={currentGalleries}
 						emptyMessage={`Nenhuma mídia registrada para ${currentMeasurement?.title || "esta fase"}`}
@@ -1430,7 +1440,8 @@ export default function WorkDetailsPageProject() {
 					  />
 					</div>
 
-					<div className="border-t px-4 sm:px-6 py-6 sm:py-8">
+					<div className="h-4 bg-[#f9fafb]" />
+					<div className="bg-background px-4 sm:px-6 py-6 sm:py-8">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-muted/40 border border-border">
@@ -1627,7 +1638,7 @@ export default function WorkDetailsPageProject() {
          
           </div>
 
-          <aside className="space-y-6 lg:col-span-3 2xl:col-span-4">
+          <aside className="space-y-6 lg:col-span-12 2xl:col-span-3 3xl:col-span-3">
             <ObraLocation
               address={work.address}
               neighborhood={work.bairro?.name || ""}
@@ -1639,9 +1650,9 @@ export default function WorkDetailsPageProject() {
             <ObraRelatedLinks links={work.related_links || []} />
           </aside>
           
-          <div className="order-last lg:order-none lg:col-span-9">
+          <div className="order-last lg:order-none lg:col-span-12 2xl:col-span-9">
             <ObraContribution onContribute={handleOpenContrib} />
-             <div className="lg:col-span-3 text-center max-w-2xl mx-auto pb-6">
+             <div className="lg:col-span-12 2xl:col-span-9  3xl:col-span-9 text-center max-w-2xl mx-auto pb-6">
             <p className="text-xs text-muted-foreground leading-relaxed mt-4">
               Os dados são provenientes de portais de transparência e verificados pela equipe. Podem haver divergências temporais.
               <button
