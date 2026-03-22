@@ -19,6 +19,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
   const [currentPayment, setCurrentPayment] = useState(null);
   const { toast } = useToast();
+  const commitmentTypeOptions = ['Estimativo', 'Extra Orçamentário', 'Global', 'Ordinário'];
 
   const parsePtBrNumber = (value) => {
     if (value == null) return null;
@@ -49,6 +50,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const [paymentForm, setPaymentForm] = useState({
     payment_date: '',
     commitment_number: '',
+    commitment_type: '',
     payment_description: '',
     installment: '',
     creditor_name: '',
@@ -95,6 +97,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       setPaymentForm({
         payment_date: payment.payment_date,
         commitment_number: payment.commitment_number || payment.banking_order || '',
+        commitment_type: payment.commitment_type || '',
         payment_description: payment.payment_description || '',
         installment: payment.installment || '',
         creditor_name: payment.creditor_name || '',
@@ -107,6 +110,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       setPaymentForm({
         payment_date: new Date().toISOString().split('T')[0],
         commitment_number: '',
+        commitment_type: '',
         payment_description: '',
         installment: '',
         creditor_name: measurement?.contractor?.name || '',
@@ -135,6 +139,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         measurement_id: currentMeasurement.id,
         payment_date: paymentForm.payment_date,
         commitment_number: paymentForm.commitment_number || null,
+        commitment_type: paymentForm.commitment_type || null,
         payment_description: paymentForm.payment_description || null,
         installment: paymentForm.installment || null,
         creditor_name: paymentForm.creditor_name || null,
@@ -210,6 +215,24 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                 onChange={(e) => setPaymentForm({ ...paymentForm, commitment_number: e.target.value })}
               />
             </div>
+            <div className="grid gap-2">
+              <Label>Tipo de empenho</Label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                value={paymentForm.commitment_type}
+                onChange={(e) => setPaymentForm({ ...paymentForm, commitment_type: e.target.value })}
+              >
+                <option value="">Selecione</option>
+                {commitmentTypeOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label>Parcela</Label>
               <Input

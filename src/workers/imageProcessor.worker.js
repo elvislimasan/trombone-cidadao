@@ -1,7 +1,9 @@
 // Web Worker para processamento pesado de imagens
 // Evita travar a UI durante processamento
 
-self.onmessage = function(e) {
+const workerScope = Function("return this")();
+
+workerScope.onmessage = function(e) {
   const { imageData, maxWidth, maxHeight, quality, fileName } = e.data;
   
   try {
@@ -33,7 +35,7 @@ self.onmessage = function(e) {
           .then(blob => {
             // Converter blob para ArrayBuffer para enviar de volta
             blob.arrayBuffer().then(buffer => {
-              self.postMessage({
+              workerScope.postMessage({
                 success: true,
                 buffer: buffer,
                 width: width,
@@ -45,13 +47,13 @@ self.onmessage = function(e) {
             });
           })
           .catch(error => {
-            self.postMessage({
+            workerScope.postMessage({
               success: false,
               error: error.message
             });
           });
       } catch (error) {
-        self.postMessage({
+        workerScope.postMessage({
           success: false,
           error: error.message
         });
@@ -59,7 +61,7 @@ self.onmessage = function(e) {
     };
     
     img.onerror = function() {
-      self.postMessage({
+      workerScope.postMessage({
         success: false,
         error: 'Erro ao carregar imagem no worker'
       });
@@ -69,7 +71,7 @@ self.onmessage = function(e) {
     img.src = imageData;
     
   } catch (error) {
-    self.postMessage({
+    workerScope.postMessage({
       success: false,
       error: error.message
     });

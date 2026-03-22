@@ -25,7 +25,7 @@ import {
   Video, Image as ImageIcon, FileText, Clock, Building, Landmark, Award, 
   BookOpen, Heart, Dumbbell, Link2, Download, Star, Home, Wrench, 
   Share2, Edit, UploadCloud, User, Activity, ArrowUpRight, Info, AlertTriangle, Eye, Briefcase, HelpCircle, Newspaper,
-  FolderOpen, Calculator
+  FolderOpen, Calculator, Minus, Plus, Search
 } from 'lucide-react';
 import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
@@ -131,12 +131,35 @@ const WorkDetailsPage = () => {
     return [...measurements].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
   }, [measurements]);
 
+  const lastUpdatedAt = useMemo(() => {
+    const candidates = [];
+    if (work?.updated_at) candidates.push(new Date(work.updated_at));
+    if (work?.created_at) candidates.push(new Date(work.created_at));
+    (measurements || []).forEach((m) => {
+      if (m?.updated_at) candidates.push(new Date(m.updated_at));
+      if (m?.created_at) candidates.push(new Date(m.created_at));
+      (m?.payments || []).forEach((p) => {
+        if (p?.updated_at) candidates.push(new Date(p.updated_at));
+        if (p?.created_at) candidates.push(new Date(p.created_at));
+      });
+    });
+    (media || []).forEach((m) => {
+      if (m?.updated_at) candidates.push(new Date(m.updated_at));
+      if (m?.created_at) candidates.push(new Date(m.created_at));
+    });
+    const valid = candidates.filter((d) => d instanceof Date && !Number.isNaN(d.getTime()));
+    if (valid.length === 0) return null;
+    return new Date(Math.max(...valid.map((d) => d.getTime())));
+  }, [media, measurements, work?.created_at, work?.updated_at]);
+
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const commitmentTypeOptions = useMemo(() => ['Estimativo', 'Extra Orçamentário', 'Global', 'Ordinário'], []);
   const [paymentForm, setPaymentForm] = useState({
     measurement_id: '',
     payment_date: new Date().toISOString().split('T')[0],
     commitment_number: '',
+    commitment_type: '',
     payment_description: '',
     installment: '',
     creditor_name: '',
@@ -167,6 +190,217 @@ const WorkDetailsPage = () => {
   const currentPhaseSpentFromPayments = useMemo(() => {
     return currentPhasePayments.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
   }, [currentPhasePayments]);
+
+  const PAYMENTS_PAGE_SIZE = 8;
+  const [paymentsSortKey, setPaymentsSortKey] = useState('payment_date');
+  const [paymentsSortDir, setPaymentsSortDir] = useState('asc');
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsQuery, setPaymentsQuery] = useState('');
+  const [paymentsYearFilter, setPaymentsYearFilter] = useState('all');
+  const [paymentsCommitmentFilter, setPaymentsCommitmentFilter] = useState('all');
+  const [openPaymentGroupKeys, setOpenPaymentGroupKeys] = useState(() => new Set());
+
+  const paymentsBase = useMemo(() => {
+    return currentMeasurement?.id ? currentPhasePayments : allPayments;
+  }, [allPayments, currentMeasurement?.id, currentPhasePayments]);
+
+  const paymentsYearOptions = useMemo(() => {
+    const years = new Set();
+    (paymentsBase || []).forEach((p) => {
+      const d = new Date(p?.payment_date);
+      if (!Number.isNaN(d.getTime())) years.add(String(d.getUTCFullYear()));
+    });
+    return [...years].sort((a, b) => Number(b) - Number(a));
+  }, [paymentsBase]);
+
+  const paymentsCommitmentOptions = useMemo(() => {
+    const keys = new Set();
+    (paymentsBase || []).forEach((p) => {
+      const key = String(p?.commitment_number || p?.banking_order || '').trim() || 'SEM_EMPENHO';
+      keys.add(key);
+    });
+    return [...keys].sort((a, b) => a.localeCompare(b));
+  }, [paymentsBase]);
+
+  const filteredPayments = useMemo(() => {
+    let list = Array.isArray(paymentsBase) ? paymentsBase : [];
+
+    if (paymentsYearFilter !== 'all') {
+      list = list.filter((p) => {
+        const d = new Date(p?.payment_date);
+        if (Number.isNaN(d.getTime())) return false;
+        return String(d.getUTCFullYear()) === String(paymentsYearFilter);
+      });
+    }
+
+    if (paymentsCommitmentFilter !== 'all') {
+      list = list.filter((p) => {
+        const key = String(p?.commitment_number || p?.banking_order || '').trim() || 'SEM_EMPENHO';
+        return key === paymentsCommitmentFilter;
+      });
+    }
+
+    const q = String(paymentsQuery || '').trim().toLowerCase();
+    if (q) {
+      list = list.filter((p) => {
+        const hay = [
+          p?.payment_description,
+          p?.creditor_name,
+          p?.commitment_number,
+          p?.banking_order,
+          p?.installment,
+          p?.measurement_title,
+          p?.payment_date,
+          p?.value,
+        ]
+          .filter(Boolean)
+          .map((x) => String(x).toLowerCase())
+          .join(' ');
+        return hay.includes(q);
+      });
+    }
+
+    return list;
+  }, [paymentsBase, paymentsCommitmentFilter, paymentsQuery, paymentsYearFilter]);
+
+  const paymentsTotalFiltered = useMemo(() => {
+    return (filteredPayments || []).reduce((sum, p) => sum + (Number(p?.value) || 0), 0);
+  }, [filteredPayments]);
+
+  const paymentGroups = useMemo(() => {
+    const getDate = (value) => {
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    const map = new Map();
+    (filteredPayments || []).forEach((p) => {
+      const key = String(p?.commitment_number || p?.banking_order || '').trim() || 'SEM_EMPENHO';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(p);
+    });
+
+    const groups = [];
+    map.forEach((items, key) => {
+      const sorted = [...items].sort((a, b) => (getDate(a?.payment_date)?.getTime() ?? 0) - (getDate(b?.payment_date)?.getTime() ?? 0));
+      const total = sorted.reduce((acc, p) => acc + (Number(p?.value) || 0), 0);
+      const creditorSet = new Set(sorted.map((p) => String(p?.creditor_name || '').trim()).filter(Boolean));
+      const phaseSet = new Set(sorted.map((p) => String(p?.measurement_title || '').trim()).filter(Boolean));
+      const firstDate = getDate(sorted[0]?.payment_date) || null;
+      const hasPortal = sorted.some((p) => Boolean(p?.portal_link));
+
+      groups.push({
+        key,
+        commitment_number: key === 'SEM_EMPENHO' ? '' : key,
+        items: sorted,
+        total,
+        creditorLabel: creditorSet.size === 1 ? [...creditorSet][0] : creditorSet.size > 1 ? 'Vários' : '-',
+        phaseLabel: phaseSet.size === 1 ? [...phaseSet][0] : phaseSet.size > 1 ? 'Várias' : '-',
+        firstDate,
+        count: sorted.length,
+        hasPortal,
+      });
+    });
+
+    return groups;
+  }, [filteredPayments]);
+
+  const sortedPaymentGroups = useMemo(() => {
+    const dir = paymentsSortDir === 'desc' ? -1 : 1;
+    const getStr = (value) => String(value || '').toLowerCase();
+    const getNum = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const list = (paymentGroups || []).map((g, idx) => ({ g, idx }));
+    const key = paymentsSortKey;
+
+    list.sort((a, b) => {
+      const ga = a.g;
+      const gb = b.g;
+      let cmp = 0;
+
+      if (key === 'payment_date') {
+        cmp = (ga.firstDate?.getTime() ?? 0) - (gb.firstDate?.getTime() ?? 0);
+      } else if (key === 'value') {
+        cmp = getNum(ga.total) - getNum(gb.total);
+      } else if (key === 'creditor_name') {
+        cmp = getStr(ga.creditorLabel).localeCompare(getStr(gb.creditorLabel));
+      } else if (key === 'commitment_number') {
+        cmp = getStr(ga.commitment_number).localeCompare(getStr(gb.commitment_number));
+      } else if (key === 'measurement_title') {
+        cmp = getStr(ga.phaseLabel).localeCompare(getStr(gb.phaseLabel));
+      } else if (key === 'portal_link') {
+        cmp = Number(Boolean(ga.hasPortal)) - Number(Boolean(gb.hasPortal));
+      }
+
+      if (cmp === 0) cmp = a.idx - b.idx;
+      return cmp * dir;
+    });
+
+    return list.map((x) => x.g);
+  }, [paymentGroups, paymentsSortDir, paymentsSortKey]);
+
+  const paymentsTotalPages = useMemo(() => {
+    const total = sortedPaymentGroups.length;
+    return Math.max(1, Math.ceil(total / PAYMENTS_PAGE_SIZE));
+  }, [sortedPaymentGroups.length]);
+
+  const paymentsPageSafe = useMemo(() => {
+    const p = Number(paymentsPage) || 1;
+    return Math.max(1, Math.min(paymentsTotalPages, p));
+  }, [paymentsPage, paymentsTotalPages]);
+
+  useEffect(() => {
+    setPaymentsPage(1);
+  }, [paymentsCommitmentFilter, paymentsQuery, paymentsSortKey, paymentsSortDir, paymentsYearFilter]);
+
+  const pagedPaymentGroups = useMemo(() => {
+    const start = (paymentsPageSafe - 1) * PAYMENTS_PAGE_SIZE;
+    return sortedPaymentGroups.slice(start, start + PAYMENTS_PAGE_SIZE);
+  }, [paymentsPageSafe, sortedPaymentGroups]);
+
+  const paymentsPageNumbers = useMemo(() => {
+    const total = paymentsTotalPages;
+    const current = paymentsPageSafe;
+    const to = Math.min(total, Math.max(1, current - 2) + 4);
+    const from = Math.max(1, to - 4);
+    const pages = [];
+    for (let i = from; i <= to; i += 1) pages.push(i);
+    return pages;
+  }, [paymentsPageSafe, paymentsTotalPages]);
+
+  const togglePaymentGroupOpen = useCallback((key) => {
+    setOpenPaymentGroupKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleSort = useCallback(
+    (nextKey) => {
+      setPaymentsSortKey((prevKey) => {
+        if (prevKey === nextKey) {
+          setPaymentsSortDir((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
+          return prevKey;
+        }
+        setPaymentsSortDir(nextKey === 'payment_date' ? 'asc' : 'asc');
+        return nextKey;
+      });
+    },
+    []
+  );
+
+  const sortIndicator = useCallback(
+    (key) => {
+      if (paymentsSortKey !== key) return '↕';
+      return paymentsSortDir === 'asc' ? '▲' : '▼';
+    },
+    [paymentsSortDir, paymentsSortKey]
+  );
 
   useEffect(() => {
     console.log('relatedNews_state', relatedNews);
@@ -241,6 +475,7 @@ const WorkDetailsPage = () => {
       measurement_id: defaultMeasurementId,
       payment_date: new Date().toISOString().split('T')[0],
       commitment_number: '',
+      commitment_type: '',
       payment_description: '',
       installment: '',
       creditor_name: defaultCreditorName,
@@ -268,6 +503,7 @@ const WorkDetailsPage = () => {
         measurement_id: paymentForm.measurement_id,
         payment_date: paymentForm.payment_date,
         commitment_number: paymentForm.commitment_number || null,
+        commitment_type: paymentForm.commitment_type || null,
         payment_description: paymentForm.payment_description || null,
         installment: paymentForm.installment || null,
         creditor_name: paymentForm.creditor_name || null,
@@ -654,8 +890,7 @@ const WorkDetailsPage = () => {
   const displayInaugurationDate = currentMeasurement?.inauguration_date || work.inauguration_date;
   const displayStalledDate = currentMeasurement?.stalled_date || work.stalled_date;
   const currentPhaseExpectedValue = currentMeasurement?.expected_value ?? currentMeasurement?.value ?? work.total_value;
-  const paymentsToShow = currentMeasurement?.id ? currentPhasePayments : allPayments;
-  const paymentsTotalToShow = currentMeasurement?.id ? currentPhaseSpentFromPayments : totalSpentFromPayments;
+  const paymentsToShow = paymentsBase;
   
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-12">
@@ -737,17 +972,24 @@ const WorkDetailsPage = () => {
           {/* Main Content Column */}
           <div className="lg:col-span-2">
             <div className="mb-4">
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
-                  <statusInfo.icon className="w-4 h-4 mr-1.5" />
-                  {statusInfo.text}
-                </Badge>
-                {work.bairro && (
-                  <Badge variant="outline" className="text-muted-foreground border-border bg-muted/40">
-                    <MapPin className="w-3 h-3 mr-1" />
-                    {work.bairro.name}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className={`${statusInfo.bg} ${statusInfo.color} border-current/20 hover:bg-opacity-80 px-3 py-1 text-sm font-medium shadow-sm`}>
+                    <statusInfo.icon className="w-4 h-4 mr-1.5" />
+                    {statusInfo.text}
                   </Badge>
-                )}
+                  {work.bairro && (
+                    <Badge variant="outline" className="text-muted-foreground border-border bg-muted/40">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      {work.bairro.name}
+                    </Badge>
+                  )}
+                </div>
+                {lastUpdatedAt ? (
+                  <div className="hidden lg:block text-sm font-semibold text-muted-foreground whitespace-nowrap">
+                    Última atualização: {formatDate(lastUpdatedAt)}
+                  </div>
+                ) : null}
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">{work.title}</h1>
               {work.description && (
@@ -1056,156 +1298,358 @@ const WorkDetailsPage = () => {
 
             <Separator className="my-0" />
 
-            {biddings && biddings.length > 0 && (
+            {paymentsToShow.length > 0 && (
               <div className="p-6 md:p-8 bg-card border-t border-border">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
-                  <h3 className="text-lg font-bold text-foreground flex items-center">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 mr-3 shadow-sm border border-emerald-100/50">
-                      <Calculator className="w-4 h-4" />
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="h-3 w-1 rounded-full bg-blue-600" />
+                    <div className="min-w-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">
+                      Pagamentos{currentMeasurement?.title ? ` — ${currentMeasurement.title}` : ''}
                     </div>
-                    Pagamentos{currentMeasurement?.title ? ` - ${currentMeasurement.title}` : ''}
-                  </h3>
+                  </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold w-full sm:w-fit">
-                      Total pago: {formatCurrency(paymentsTotalToShow)}
-                    </Badge>
-                    {user?.is_admin && (
-                      <Button variant="outline" className="bg-card w-full sm:w-auto" onClick={openNewPaymentDialog}>
-                        <DollarSign className="w-4 h-4 mr-2" />
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:block text-sm font-semibold text-slate-700 whitespace-nowrap">
+                      Total: {formatCurrency(paymentsTotalFiltered || 0)}
+                    </div>
+                    {user?.is_admin ? (
+                      <Button
+                        variant="outline"
+                        className="border-blue-200 text-blue-700 hover:bg-blue-50 w-full sm:w-auto"
+                        onClick={openNewPaymentDialog}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
                         Adicionar pagamento
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
-                {paymentsToShow.length > 0 ? (
+                <div className="mb-5 grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
+                  <div className="lg:col-span-6">
+                    <div className="relative">
+                      <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Input
+                        value={paymentsQuery}
+                        onChange={(e) => setPaymentsQuery(e.target.value)}
+                        placeholder="Buscar por descrição, empenho ou credor..."
+                        className="bg-white pl-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="lg:col-span-2">
+                    <select
+                      className="h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background"
+                      value={paymentsYearFilter}
+                      onChange={(e) => setPaymentsYearFilter(e.target.value)}
+                    >
+                      <option value="all">Todos os anos</option>
+                      {paymentsYearOptions.map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="lg:col-span-2">
+                    <select
+                      className="h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background"
+                      value={paymentsCommitmentFilter}
+                      onChange={(e) => setPaymentsCommitmentFilter(e.target.value)}
+                    >
+                      <option value="all">Todos os empenhos</option>
+                      {paymentsCommitmentOptions.map((k) => (
+                        <option key={k} value={k}>
+                          {k === 'SEM_EMPENHO' ? 'Sem empenho' : k}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="lg:col-span-2 flex items-center gap-3 justify-between">
+                    <div className="text-xs text-slate-500 whitespace-nowrap">{sortedPaymentGroups.length} registros</div>
+                    {(paymentsQuery || paymentsYearFilter !== 'all' || paymentsCommitmentFilter !== 'all') ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="text-slate-500"
+                        onClick={() => {
+                          setPaymentsQuery('');
+                          setPaymentsYearFilter('all');
+                          setPaymentsCommitmentFilter('all');
+                        }}
+                      >
+                        Limpar
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {sortedPaymentGroups.length > 0 ? (
                   <>
                     <div className="sm:hidden space-y-3">
-                      {[...paymentsToShow]
-                        .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
-                        .map((payment) => (
-                          <div key={payment.id} className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-blue-700 whitespace-nowrap">{formatDate(payment.payment_date)}</div>
-                                <div className="mt-1 text-sm text-slate-700 whitespace-normal break-words">{payment.payment_description || '-'}</div>
+                      {pagedPaymentGroups.map((group) => {
+                        const isOpen = openPaymentGroupKeys.has(group.key);
+                        const firstDateLabel = group.firstDate ? group.firstDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-';
+                        return (
+                          <div key={group.key} className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                            <button type="button" className="w-full text-left p-4" onClick={() => togglePaymentGroupOpen(group.key)}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="inline-flex h-6 w-6 items-center justify-center text-slate-400 shrink-0">
+                                      {isOpen ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                                    </span>
+                                    <div className="text-sm font-semibold text-slate-800 whitespace-normal break-words">
+                                      {group.commitment_number || '-'}
+                                    </div>
+                                  </div>
+                                  <div className="mt-1 text-xs text-slate-500">Data: {firstDateLabel}</div>
+                                  <div className="mt-1 text-xs text-slate-500">Credor: {group.creditorLabel}</div>
+                                  {!currentMeasurement?.id ? <div className="mt-1 text-xs text-slate-500">Fase: {group.phaseLabel}</div> : null}
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-xs text-slate-500">Total</div>
+                                  <div className="text-sm font-extrabold text-slate-900 whitespace-nowrap">{formatCurrency(group.total)}</div>
+                                  <div className="mt-1 text-xs text-slate-500">{group.count} pagamento{group.count === 1 ? '' : 's'}</div>
+                                </div>
                               </div>
-
-                              {payment.portal_link ? (
-                                <Button asChild size="icon" variant="ghost" className="h-9 text-slate-500 hover:bg-muted/40">
-                                  <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência" className='underline'>
-                                    fonte
-                                   
-                                  </a>
-                                </Button>
-                              ) : null}
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px]">
-                                Empenho {payment.commitment_number || payment.banking_order || '-'}
-                              </span>
-                              {payment.installment ? (
-                                <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px]">
-                                  Parcela {payment.installment}
-                                </span>
-                              ) : null}
-                            </div>
-
-                            <div className="mt-3 grid grid-cols-2 gap-3">
-                              <div className="min-w-0">
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Credor</div>
-                                <div className="mt-0.5 font-semibold text-slate-800 whitespace-normal break-words">{payment.creditor_name? payment.creditor_name.toLowerCase() :  '-'}</div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Valor</div>
-                                <div className="mt-0.5 font-extrabold text-emerald-700 whitespace-nowrap">{formatCurrency(payment.value)}</div>
-                              </div>
-                            </div>
-
-                            {!currentMeasurement?.id && payment.measurement_title ? (
-                              <div className="mt-3 flex justify-end">
-                                <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
-                                  {payment.measurement_title}
-                                </span>
+                            </button>
+                            {isOpen ? (
+                              <div className="border-t bg-slate-50/40 p-4 space-y-3">
+                                {group.items.map((p) => (
+                                  <div key={p.id} className="bg-white border border-slate-100 rounded-lg p-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-semibold text-blue-700 whitespace-normal break-words">
+                                          {group.commitment_number || '-'} • {formatDate(p.payment_date)}
+                                        </div>
+                                        <div className="mt-1 text-sm text-slate-700 whitespace-normal break-words">{p.payment_description || '-'}</div>
+                                        {p.installment ? (
+                                          <div className="mt-2">
+                                            <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px]">Parcela {p.installment}</span>
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <div className="text-sm font-extrabold text-slate-900 whitespace-nowrap">{formatCurrency(p.value)}</div>
+                                        {p.portal_link ? (
+                                          <a href={p.portal_link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-700 underline underline-offset-2">
+                                            Ver
+                                          </a>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             ) : null}
                           </div>
-                        ))}
+                        );
+                      })}
+                    </div>
+
+                    <div className="sm:hidden mt-4 flex flex-col gap-3">
+                      <div className="text-xs text-slate-500">
+                        Exibindo {(paymentsPageSafe - 1) * PAYMENTS_PAGE_SIZE + 1}–{Math.min(sortedPaymentGroups.length, paymentsPageSafe * PAYMENTS_PAGE_SIZE)} de {sortedPaymentGroups.length} registros
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <Button type="button" size="sm" variant="outline" disabled={paymentsPageSafe <= 1} onClick={() => setPaymentsPage((p) => Math.max(1, (Number(p) || 1) - 1))}>
+                          ‹
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          {paymentsPageNumbers.map((n) => (
+                            <Button
+                              key={n}
+                              type="button"
+                              size="sm"
+                              variant={n === paymentsPageSafe ? "default" : "outline"}
+                              className={n === paymentsPageSafe ? "bg-blue-600 hover:bg-blue-600" : ""}
+                              onClick={() => setPaymentsPage(n)}
+                            >
+                              {n}
+                            </Button>
+                          ))}
+                        </div>
+                        <Button type="button" size="sm" variant="outline" disabled={paymentsPageSafe >= paymentsTotalPages} onClick={() => setPaymentsPage((p) => Math.min(paymentsTotalPages, (Number(p) || 1) + 1))}>
+                          ›
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
                       <div className="inline-block min-w-full align-middle px-4 sm:px-0">
                         <div className="border rounded-xl bg-white">
-                          <table className="w-full text-sm table-fixed">
+                          <table className="w-full text-sm table-auto">
                             <thead className="text-center border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
                               <tr>
-                                <th className="px-3 py-2 font-bold w-[64px]">Pagamento</th>
-                                <th className="hidden sm:table-cell px-3 py-2 font-bold w-[64px]">Nº Empenho</th>
-                                <th className="hidden md:table-cell text-left px-3 py-2 font-bold w-[128px]">Descrição</th>
-                                <th className="hidden md:table-cell text-left px-3 py-2 font-bold w-[48px]">Parcela</th>
-                                <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Credor</th>
-                                {!currentMeasurement?.id && <th className="hidden xl:table-cell px-3 py-2 font-bold w-[64px]">Fase</th>}
-                                <th className="px-3 py-2 font-bold text-center w-[64px]">Valor</th>
-                                <th className="px-3 py-2 font-bold w-[64px]">Fonte</th>
+                                <th className="hidden sm:table-cell px-3 py-2 font-bold text-left">
+                                  <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('commitment_number')}>
+                                    Nº Empenho <span>{sortIndicator('commitment_number')}</span>
+                                  </button>
+                                </th>
+                                <th className="px-3 py-2 font-bold text-left">
+                                  <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('payment_date')}>
+                                    Data <span>{sortIndicator('payment_date')}</span>
+                                  </button>
+                                </th>
+                                <th className="hidden md:table-cell text-left px-3 py-2 font-bold">
+                                  Descrição
+                                </th>
+                                <th className="hidden md:table-cell text-left px-3 py-2 font-bold">Parcela</th>
+                                <th className="hidden xl:table-cell px-3 py-2 font-bold text-left">
+                                  <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('creditor_name')}>
+                                    Credor <span>{sortIndicator('creditor_name')}</span>
+                                  </button>
+                                </th>
+                                <th className="px-3 py-2 font-bold text-right">
+                                  <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('value')}>
+                                    Valor <span>{sortIndicator('value')}</span>
+                                  </button>
+                                </th>
+                                <th className="px-3 py-2 font-bold text-center">
+                                  <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('portal_link')}>
+                                    Fonte <span>{sortIndicator('portal_link')}</span>
+                                  </button>
+                                </th>
                               </tr>
                             </thead>
                             <tbody className="divide-y text-xs">
-                              {[...paymentsToShow]
-                                .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
-                                .map((payment) => (
-                                  <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-3 py-2 align-center">
-                                      <div className="whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</div>
-                                    </td>
-                                    <td className="hidden sm:table-cell px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || 'Não informado'}</td>
-                                    <td className="hidden md:table-cell px-3 py-2 text-slate-600 w-[40%]">
-                                      <span className="line-clamp-4 ">{payment.payment_description || 'Não informado'}</span>
-                                      <div className="mt-1 text-[11px] text-slate-400 xl:hidden line-clamp-1">
-                                        {payment.creditor_name ? payment.creditor_name : '-'}
-                                        {payment.measurement_title ? ` • ${payment.measurement_title}` : ''}
-                                      </div>
-                                    </td>
-                                    <td className="hidden md:table-cell px-3 py-2 text-slate-600 w-[72px]">{payment.installment || '-'}</td>
-                                    <td className="hidden xl:table-cell px-3 py-2 text-slate-600">{payment.creditor_name ? payment.creditor_name.toLowerCase() : 'Não informado'}</td>
-                                    {!currentMeasurement?.id && <td className="hidden xl:table-cell px-3 py-2 text-slate-500">{payment.measurement_title || '-'}</td>}
-                                    <td className="px-3 py-2 align-center font-bold text-blue-700 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
-                                    <td className="px-3 py-2 align-top">
-                                      {payment.portal_link ? (
-                                        <Button asChild size="icon" variant="ghost" className="h-16 w-8 2xl:w-24 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
-                                          <a href={payment.portal_link} target="_blank" rel="noopener noreferrer" title="Ver no Portal da Transparência">
-                                            <Link2 className="w-4 h-4" />
-                                            <span className="hidden 2xl:inline ml-1 underline">Ir para</span>
-                                          </a>
-                                        </Button>
-                                      ) : (
-                                        <span className="text-slate-300">-</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
+                              {pagedPaymentGroups.map((group) => {
+                                const isOpen = openPaymentGroupKeys.has(group.key);
+                                return (
+                                  <React.Fragment key={group.key}>
+                                    <tr className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => togglePaymentGroupOpen(group.key)}>
+                                      <td className="hidden sm:table-cell px-3 py-2 text-slate-600">
+                                        <div className="flex items-center gap-2">
+                                          <span className="inline-flex h-6 w-6 items-center justify-center text-slate-400">
+                                            {isOpen ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                                          </span>
+                                          <span className="font-semibold text-slate-800">{group.commitment_number || 'Não informado'}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-2 align-center">
+                                        <div className="whitespace-nowrap font-medium text-slate-700">
+                                          {group.firstDate ? group.firstDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
+                                        </div>
+                                      </td>
+                                      <td className="hidden md:table-cell px-3 py-2 text-slate-600 whitespace-normal break-words">
+                                        <div className="whitespace-normal break-words">
+                                          {group.items?.[0]?.payment_description || '-'}
+                                          {group.count > 1 ? <span className="text-slate-400"> (+{group.count - 1})</span> : null}
+                                        </div>
+                                      </td>
+                                      <td className="hidden md:table-cell px-3 py-2 text-slate-600 whitespace-nowrap">
+                                        {group.count === 1 ? (group.items?.[0]?.installment || '-') : '-'}
+                                      </td>
+                                      <td className="hidden xl:table-cell px-3 py-2 text-slate-600 whitespace-normal break-words">{group.creditorLabel}</td>
+                                      <td className="px-3 py-2 align-center font-bold text-slate-900 text-right whitespace-nowrap">{formatCurrency(group.total)}</td>
+                                      <td className="px-3 py-2 align-top text-center">
+                                        {group.count === 1 && group.items?.[0]?.portal_link ? (
+                                          <Button asChild size="sm" variant="ghost" className="text-blue-700 hover:bg-blue-50">
+                                            <a href={group.items[0].portal_link} target="_blank" rel="noopener noreferrer">
+                                              Ver
+                                            </a>
+                                          </Button>
+                                        ) : (
+                                          <span className="text-slate-300">-</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                    {isOpen ? (
+                                      <tr>
+                                        <td colSpan={7} className="px-3 py-3 bg-slate-50/40">
+                                          <div className="text-xs text-slate-500 mb-2">
+                                            {group.count} pagamento{group.count === 1 ? '' : 's'} neste empenho
+                                          </div>
+                                          <div className="overflow-x-auto border rounded-lg bg-white">
+                                            <table className="w-full text-xs">
+                                              <thead className="bg-slate-50 text-slate-500">
+                                                <tr>
+                                                  <th className="text-left px-3 py-2">Nº Empenho</th>
+                                                  <th className="text-left px-3 py-2">Data</th>
+                                                  <th className="text-left px-3 py-2">Descrição</th>
+                                                  <th className="text-left px-3 py-2">Parcela</th>
+                                                  <th className="text-left px-3 py-2">Credor</th>
+                                                  <th className="text-right px-3 py-2">Valor</th>
+                                                  <th className="text-center px-3 py-2">Portal</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y">
+                                                {group.items.map((p) => (
+                                                  <tr key={p.id} className="hover:bg-slate-50/60">
+                                                    <td className="px-3 py-2 whitespace-nowrap">{p.commitment_number || p.banking_order || '-'}</td>
+                                                    <td className="px-3 py-2 whitespace-nowrap">{formatDate(p.payment_date)}</td>
+                                                    <td className="px-3 py-2 whitespace-normal break-words">{p.payment_description || '-'}</td>
+                                                    <td className="px-3 py-2 whitespace-nowrap">{p.installment || '-'}</td>
+                                                    <td className="px-3 py-2 whitespace-normal break-words">{p.creditor_name || '-'}</td>
+                                                    <td className="px-3 py-2 text-right font-semibold text-slate-900 whitespace-nowrap">{formatCurrency(p.value)}</td>
+                                                    <td className="px-3 py-2 text-center">
+                                                      {p.portal_link ? (
+                                                        <Button asChild size="sm" variant="ghost" className="text-blue-700 hover:bg-blue-50">
+                                                          <a href={p.portal_link} target="_blank" rel="noopener noreferrer">
+                                                            Ver
+                                                          </a>
+                                                        </Button>
+                                                      ) : (
+                                                        <span className="text-slate-300">-</span>
+                                                      )}
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ) : null}
+                                  </React.Fragment>
+                                );
+                              })}
                             </tbody>
                             <tfoot className="border-t bg-slate-50/50">
-                              <tr className="xl:hidden">
-                                <td className="px-3 py-2 font-bold text-slate-600" colSpan={4}>Somatório</td>
-                                <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(paymentsTotalToShow)}</td>
-                                <td className="px-3 py-2"></td>
-                              </tr>
-                              <tr className="hidden xl:table-row">
-                                <td className="px-3 py-2 font-bold text-slate-600" colSpan={currentMeasurement?.id ? 5 : 6}>Somatório</td>
-                                
-                                <td className="px-3 py-2 font-extrabold text-blue-800 text-right whitespace-nowrap">{formatCurrency(paymentsTotalToShow)}</td>
+                              <tr>
+                                <td className="px-3 py-2 font-bold text-slate-600" colSpan={6}>
+                                  Somatório
+                                </td>
+                                <td className="px-3 py-2 font-extrabold text-slate-900 text-right whitespace-nowrap">{formatCurrency(paymentsTotalFiltered || 0)}</td>
                               </tr>
                             </tfoot>
                           </table>
                         </div>
                       </div>
                     </div>
+
+                    <div className="hidden sm:flex items-center justify-between gap-3 mt-4">
+                      <div className="text-xs text-slate-500">
+                        Exibindo {(paymentsPageSafe - 1) * PAYMENTS_PAGE_SIZE + 1}–{Math.min(sortedPaymentGroups.length, paymentsPageSafe * PAYMENTS_PAGE_SIZE)} de {sortedPaymentGroups.length} registros
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button type="button" size="sm" variant="outline" disabled={paymentsPageSafe <= 1} onClick={() => setPaymentsPage((p) => Math.max(1, (Number(p) || 1) - 1))}>
+                          ‹
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          {paymentsPageNumbers.map((n) => (
+                            <Button
+                              key={n}
+                              type="button"
+                              size="sm"
+                              variant={n === paymentsPageSafe ? "default" : "outline"}
+                              className={n === paymentsPageSafe ? "bg-blue-600 hover:bg-blue-600" : ""}
+                              onClick={() => setPaymentsPage(n)}
+                            >
+                              {n}
+                            </Button>
+                          ))}
+                        </div>
+                        <Button type="button" size="sm" variant="outline" disabled={paymentsPageSafe >= paymentsTotalPages} onClick={() => setPaymentsPage((p) => Math.min(paymentsTotalPages, (Number(p) || 1) + 1))}>
+                          ›
+                        </Button>
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
-                    <p className="text-sm text-slate-400">Nenhum pagamento registrado para esta fase.</p>
+                    <p className="text-sm text-slate-400">Nenhum pagamento encontrado.</p>
                     {user?.is_admin && (
                       <div className="mt-4">
                         <Button variant="outline" className="bg-white" onClick={openNewPaymentDialog}>
@@ -1264,6 +1708,24 @@ const WorkDetailsPage = () => {
                             onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_number: e.target.value }))}
                           />
                         </div>
+                        <div className="grid gap-2">
+                          <Label>Tipo de empenho</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                            value={paymentForm.commitment_type}
+                            onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_type: e.target.value }))}
+                          >
+                            <option value="">Selecione</option>
+                            {commitmentTypeOptions.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                         <div className="grid gap-2">
                           <Label>Parcela</Label>
                           <Input
@@ -1748,6 +2210,11 @@ const WorkDetailsPage = () => {
                      Reportar erro
                    </button>
                  </p>
+                 {lastUpdatedAt ? (
+                   <div className="mt-4 text-sm font-semibold text-muted-foreground lg:hidden">
+                     Última atualização: {formatDate(lastUpdatedAt)}
+                   </div>
+                 ) : null}
               </div>
             </div>
 

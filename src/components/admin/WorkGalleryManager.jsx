@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/customSupabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { ObraGallery } from "@/components/project/obra/ObraGallery";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Check, FileText, Pencil, Trash2, Upload, X } from "lucide-react";
 
 export function WorkGalleryManager({
   workId,
@@ -22,6 +25,11 @@ export function WorkGalleryManager({
   const [activeMeasurementId, setActiveMeasurementId] = useState(measurementId);
   const [hasLegacyMedia, setHasLegacyMedia] = useState(false);
   const [scope, setScope] = useState("phase"); // phase | legacy
+  const [pendingDeleteDocument, setPendingDeleteDocument] = useState(null);
+  const [isUploadingDocuments, setIsUploadingDocuments] = useState(false);
+  const documentFileInputRef = useRef(null);
+  const [renamingDocumentId, setRenamingDocumentId] = useState(null);
+  const [renamingDocumentValue, setRenamingDocumentValue] = useState("");
 
   const loadMedia = useCallback(async () => {
     if (!workId) return;
@@ -309,14 +317,18 @@ export function WorkGalleryManager({
       if (!user?.is_admin) return;
       if (!workId) return;
       const list = Array.isArray(files) ? files : [];
-      if (list.length === 0) return;
+      const images = list.filter((f) => f?.type?.startsWith("image/"));
+      if (images.length === 0) {
+        toast({ title: "Nenhuma imagem selecionada", variant: "destructive" });
+        return;
+      }
 
       const targetGalleryName = String(galleryName || "").trim() || "Geral";
       const mid = isFixedMeasurement ? measurementId : scope === "legacy" ? null : activeMeasurementId;
       const targetFolder = mid ? `measurements/${mid}` : `works/${workId}`;
 
       try {
-        for (const file of list) {
+        for (const file of images) {
           const fileExt = file.name.split(".").pop();
           const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
           const path = `${targetFolder}/${fileName}`;
@@ -328,10 +340,7 @@ export function WorkGalleryManager({
             data: { publicUrl },
           } = supabase.storage.from("work-media").getPublicUrl(path);
 
-          let type = "file";
-          if (file.type.startsWith("image")) type = "photo";
-          else if (file.type.startsWith("video")) type = "video";
-          else if (file.type === "application/pdf") type = "pdf";
+          const type = "photo";
 
           const { error: dbError } = await supabase.from("public_work_media").insert({
             work_id: workId,
@@ -350,6 +359,56 @@ export function WorkGalleryManager({
         await loadMedia();
       } catch (e) {
         toast({ title: "Erro ao enviar arquivos", description: e?.message || "Tente novamente.", variant: "destructive" });
+      }
+    },
+    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, toast, user?.id, user?.is_admin, workId]
+  );
+
+  const handleUploadDocuments = useCallback(
+    async (files) => {
+      if (!user?.is_admin) return;
+      if (!workId) return;
+      const list = Array.isArray(files) ? files : [];
+      if (list.length === 0) return;
+
+      const mid = isFixedMeasurement ? measurementId : scope === "legacy" ? null : activeMeasurementId;
+      const targetFolder = mid ? `measurements/${mid}/documents` : `works/${workId}/documents`;
+
+      setIsUploadingDocuments(true);
+      try {
+        for (const file of list) {
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+          const path = `${targetFolder}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage.from("work-media").upload(path, file);
+          if (uploadError) throw uploadError;
+
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("work-media").getPublicUrl(path);
+
+          const type = file.type === "application/pdf" ? "pdf" : "file";
+
+          const { error: dbError } = await supabase.from("public_work_media").insert({
+            work_id: workId,
+            measurement_id: mid || null,
+            url: publicUrl,
+            type,
+            name: file.name,
+            status: "approved",
+            gallery_name: null,
+            contributor_id: user?.id || null,
+          });
+          if (dbError) throw dbError;
+        }
+
+        toast({ title: "Documento(s) adicionado(s)" });
+        await loadMedia();
+      } catch (e) {
+        toast({ title: "Erro ao enviar documentos", description: e?.message || "Tente novamente.", variant: "destructive" });
+      } finally {
+        setIsUploadingDocuments(false);
       }
     },
     [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, toast, user?.id, user?.is_admin, workId]
@@ -408,7 +467,6 @@ export function WorkGalleryManager({
 
       <ObraGallery
         galleries={galleries}
-        documents={documents}
         embedded={embedded}
         canEdit={Boolean(user?.is_admin)}
         managerInline={inline}
@@ -424,6 +482,172 @@ export function WorkGalleryManager({
         currentMeasurementId={scope === "phase" ? activeMeasurementId : null}
         allowMoveToLegacy={scope === "phase"}
       />
+
+      <div className="border-t mt-4 pt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-muted/40 border border-border">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+            </span>
+            <div>
+              <div className="text-sm font-semibold text-foreground">Documentos</div>
+              <div className="text-xs text-muted-foreground">{documents.length} arquivo{documents.length === 1 ? "" : "s"}</div>
+            </div>
+          </div>
+
+          {user?.is_admin ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => documentFileInputRef.current?.click()}
+              disabled={isUploadingDocuments}
+              className="w-full sm:w-auto"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Adicionar documento
+            </Button>
+          ) : null}
+        </div>
+
+        {documents.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {documents.map((doc) => (
+              <div key={doc.id} className="flex items-center gap-2 p-3 rounded-2xl border border-border hover:border-muted-foreground/30 hover:bg-muted/20 transition-all">
+                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-xl bg-muted/30 border border-border flex items-center justify-center text-muted-foreground mr-3 shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    {renamingDocumentId === doc.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={renamingDocumentValue}
+                          onChange={(e) => setRenamingDocumentValue(e.target.value)}
+                          className="h-9"
+                          onClick={(e) => e.preventDefault()}
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="h-9 w-9"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setRenamingDocumentId(null);
+                            setRenamingDocumentValue("");
+                          }}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="default"
+                          className="h-9 w-9"
+                          disabled={!String(renamingDocumentValue || "").trim()}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            const nextName = String(renamingDocumentValue || "").trim();
+                            if (!nextName) return;
+                            await handleUpdateMediaItem(doc.id, { name: nextName });
+                            setRenamingDocumentId(null);
+                            setRenamingDocumentValue("");
+                          }}
+                        >
+                          <Check className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium text-foreground truncate">{doc.title || doc.name || "Documento"}</p>
+                    )}
+                  </div>
+                </a>
+
+                {user?.is_admin ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="h-9 w-9"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setRenamingDocumentId(doc.id);
+                        setRenamingDocumentValue(String(doc.title || doc.name || "").trim());
+                      }}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="destructive"
+                      className="h-9 w-9"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setPendingDeleteDocument({ id: doc.id, name: doc.title || doc.name || "Documento", url: doc.url });
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-2xl bg-muted/10">
+            Nenhum documento anexado.
+          </div>
+        )}
+
+        {user?.is_admin ? (
+          <Input
+            ref={documentFileInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              e.target.value = "";
+              handleUploadDocuments(files);
+            }}
+          />
+        ) : null}
+
+        <Dialog open={!!pendingDeleteDocument} onOpenChange={(open) => !open && setPendingDeleteDocument(null)}>
+          <DialogContent className="sm:max-w-md bg-card">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-foreground">Excluir documento?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              O documento <span className="font-semibold text-foreground">"{pendingDeleteDocument?.name}"</span> será removido permanentemente.
+            </p>
+            <DialogFooter className="gap-2">
+              <DialogClose asChild>
+                <Button type="button" variant="outline" disabled={isUploadingDocuments}>
+                  Cancelar
+                </Button>
+              </DialogClose>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isUploadingDocuments}
+                onClick={async () => {
+                  const doc = pendingDeleteDocument;
+                  setPendingDeleteDocument(null);
+                  if (!doc) return;
+                  await handleDeleteMediaItem(doc.id, doc.url);
+                }}
+              >
+                Excluir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

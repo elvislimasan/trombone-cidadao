@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowLeftRight,
-  ArrowUpRight,
   Check,
   ChevronRight,
-  FileText,
   FolderOpen,
   Image as ImageIcon,
   Loader2,
@@ -39,7 +37,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { formatDate } from "@/lib/utils";
 
 // ─── Inline confirm popover ───────────────────────────────────────────────────
 function ConfirmPopover({ trigger, title, description, confirmLabel = "Confirmar", variant = "destructive", onConfirm }) {
@@ -71,15 +68,78 @@ function ConfirmPopover({ trigger, title, description, confirmLabel = "Confirmar
   );
 }
 
+function getYouTubeVideoId(url) {
+  try {
+    const u = new URL(String(url || ""));
+    if (u.hostname.includes("youtu.be")) {
+      const id = u.pathname.split("/").filter(Boolean)[0] || "";
+      return id || null;
+    }
+    if (u.hostname.includes("youtube.com")) {
+      const id = u.searchParams.get("v");
+      return id || null;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // ─── Image with fallback ──────────────────────────────────────────────────────
 function MediaThumb({ item, className = "" }) {
   const [errored, setErrored] = useState(false);
-  const isVideo = ["video", "video_url"].includes(item.type);
+  const isVideoFile = item?.type === "video";
+  const isVideoUrl = item?.type === "video_url";
 
-  if (isVideo) {
+  if (isVideoUrl) {
+    const ytId = getYouTubeVideoId(item?.url);
+    const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null;
     return (
-      <div className={`w-full h-full flex items-center justify-center bg-slate-900 ${className}`}>
-        <Video className="w-10 h-10 text-white/80" />
+      <div className={`relative w-full h-full overflow-hidden ${className}`}>
+        {thumbUrl && !errored ? (
+          <img
+            src={thumbUrl}
+            alt={item?.description || item?.name || "Vídeo"}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={() => setErrored(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-700">
+            <Video className="w-10 h-10 text-white/90" />
+          </div>
+        )}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="h-10 w-10 rounded-full bg-black/55 backdrop-blur border border-white/10 flex items-center justify-center shadow-sm">
+            <Video className="h-5 w-5 text-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isVideoFile) {
+    return (
+      <div className={`relative w-full h-full overflow-hidden ${className}`}>
+        {!errored && item?.url ? (
+          <video
+            src={item.url}
+            preload="metadata"
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+            onError={() => setErrored(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-700">
+            <Video className="w-10 h-10 text-white/90" />
+          </div>
+        )}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="h-10 w-10 rounded-full bg-black/55 backdrop-blur border border-white/10 flex items-center justify-center shadow-sm">
+            <Video className="h-5 w-5 text-white" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -126,9 +186,7 @@ function DropZone({ onFiles, children, className = "" }) {
     e.preventDefault();
     counter.current = 0;
     setDragging(false);
-    const files = Array.from(e.dataTransfer?.files || []).filter(
-      (f) => f.type.startsWith("image/") || f.type.startsWith("video/") || f.type === "application/pdf"
-    );
+    const files = Array.from(e.dataTransfer?.files || []).filter((f) => f.type.startsWith("image/"));
     if (files.length) onFiles(files);
   };
 
@@ -154,7 +212,6 @@ function DropZone({ onFiles, children, className = "" }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 export function ObraGallery({
   galleries,
-  documents,
   emptyMessage,
   embedded = false,
   onOpenViewer,
@@ -178,7 +235,6 @@ export function ObraGallery({
     : "bg-card rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6";
 
   const groups = Array.isArray(galleries) ? galleries : [];
-  const docs = Array.isArray(documents) ? documents : [];
   const galleryNames = useMemo(() => groups.map((g) => g.name).filter(Boolean), [groups]);
 
   // ── Dialog state ────────────────────────────────────────────────────────────
@@ -197,6 +253,8 @@ export function ObraGallery({
   const [selectedItemIds, setSelectedItemIds] = useState(() => new Set());
   const [movePopoverOpen, setMovePopoverOpen] = useState(false);
   const [moveToNewGalleryName, setMoveToNewGalleryName] = useState("");
+  const [renamingMediaId, setRenamingMediaId] = useState(null);
+  const [renamingMediaValue, setRenamingMediaValue] = useState("");
 
   // ── Pending folder delete ────────────────────────────────────────────────────
   const [pendingDeleteGallery, setPendingDeleteGallery] = useState(null); // { name, items }
@@ -221,6 +279,8 @@ export function ObraGallery({
       setMoveToNewGalleryName("");
       setIsBulkLoading(false);
       setPendingDeleteGallery(null);
+      setRenamingMediaId(null);
+      setRenamingMediaValue("");
     }
   }, [isEditOpen]);
 
@@ -370,10 +430,32 @@ export function ObraGallery({
   const handleFiles = useCallback(
     (files) => {
       if (!selectedGallery || !files.length) return;
-      onUploadFiles?.(selectedGallery, files);
+      const images = (Array.isArray(files) ? files : []).filter((f) => f?.type?.startsWith("image/"));
+      if (images.length === 0) return;
+      onUploadFiles?.(selectedGallery, images);
     },
     [selectedGallery, onUploadFiles]
   );
+
+  const startRenameMedia = useCallback((item) => {
+    if (!item?.id) return;
+    setRenamingMediaId(item.id);
+    setRenamingMediaValue(String(item.name || "").trim());
+  }, []);
+
+  const cancelRenameMedia = useCallback(() => {
+    setRenamingMediaId(null);
+    setRenamingMediaValue("");
+  }, []);
+
+  const saveRenameMedia = useCallback(async () => {
+    const id = renamingMediaId;
+    const nextName = String(renamingMediaValue || "").trim();
+    if (!id || !nextName) return;
+    await onUpdateMediaItem?.(id, { name: nextName });
+    setRenamingMediaId(null);
+    setRenamingMediaValue("");
+  }, [onUpdateMediaItem, renamingMediaId, renamingMediaValue]);
 
   const triggerFileInput = () => {
     if (!selectedGallery) return;
@@ -739,122 +821,120 @@ export function ObraGallery({
 
         {/* FOLDERS VIEW */}
         {view === "folders" ? (
-          allGalleryNames.length === 0 ? (
-            <div className="py-10 text-center border-2 border-dashed border-border rounded-2xl bg-muted/20">
-              <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
-                <FolderOpen className="w-6 h-6 text-muted-foreground" />
+          <div className="space-y-6">
+            {allGalleryNames.length === 0 ? (
+              <div className="py-10 text-center border-2 border-dashed border-border rounded-2xl bg-muted/20">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                  <FolderOpen className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-foreground font-semibold">Nenhuma galeria criada</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Crie uma galeria para adicionar fotos.
+                </p>
+                <div className="mt-4 flex justify-center">
+                  <Button type="button" onClick={() => setFolderAction({ type: "create", value: "" })}>
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Nova galeria
+                  </Button>
+                </div>
               </div>
-              <p className="text-sm text-foreground font-semibold">Nenhuma galeria criada</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Crie uma galeria para adicionar fotos, vídeos e documentos.
-              </p>
-              <div className="mt-4 flex justify-center">
-                <Button type="button" onClick={() => setFolderAction({ type: "create", value: "" })}>
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Nova galeria
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-              {allGalleryNames.map((galleryName) => {
-                const g = groups.find((x) => x.name === galleryName) || { name: galleryName, items: [] };
-                const items = Array.isArray(g.items) ? g.items : [];
-                const count = items.length;
-                const previewImages = items.filter(
-                  (i) => !["video", "video_url"].includes(i.type) && Boolean(i.url)
-                );
-                const cover = previewImages[0] || null;
-                const thumbs = previewImages.slice(1, 4);
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                {allGalleryNames.map((galleryName) => {
+                  const g = groups.find((x) => x.name === galleryName) || { name: galleryName, items: [] };
+                  const items = Array.isArray(g.items) ? g.items : [];
+                  const count = items.length;
+                  const previewImages = items.filter(
+                    (i) => !["video", "video_url"].includes(i.type) && Boolean(i.url)
+                  );
+                  const cover = previewImages[0] || null;
+                  const thumbs = previewImages.slice(1, 4);
 
-                return (
-                  <div
-                    key={g.name}
-                    className="group relative rounded-2xl border border-border bg-background overflow-hidden shadow-sm hover:shadow-md hover:border-muted-foreground/30 transition cursor-pointer"
-                    onClick={() => goToGallery(g.name)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        goToGallery(g.name);
-                      }
-                    }}
-                  >
-                    {/* Cover */}
-                    <div className="relative aspect-[4/3] bg-gradient-to-br from-muted/40 via-background to-muted/10">
-                      {cover ? (
-                        <img src={cover.url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-                      ) : null}
-                      <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/25 to-background/10" />
+                  return (
+                    <div
+                      key={g.name}
+                      className="group relative rounded-2xl border border-border bg-background overflow-hidden shadow-sm hover:shadow-md hover:border-muted-foreground/30 transition cursor-pointer"
+                      onClick={() => goToGallery(g.name)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          goToGallery(g.name);
+                        }
+                      }}
+                    >
+                      <div className="relative aspect-[4/3] bg-gradient-to-br from-muted/40 via-background to-muted/10">
+                        {cover ? (
+                          <img src={cover.url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+                        ) : null}
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/25 to-background/10" />
 
-                      <div className="absolute left-3 top-3">
-                        <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
-                          <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                          {count} item{count === 1 ? "" : "s"}
+                        <div className="absolute left-3 top-3">
+                          <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
+                            <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                            {count} item{count === 1 ? "" : "s"}
+                          </div>
                         </div>
+
+                        {thumbs.length > 0 ? (
+                          <div className="absolute inset-x-3 bottom-3 grid grid-cols-3 gap-2">
+                            {thumbs.map((p) => (
+                              <div key={p.id} className="aspect-square rounded-lg border border-border/70 bg-background/50 overflow-hidden">
+                                <img src={p.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                              </div>
+                            ))}
+                            {Array.from({ length: Math.max(0, 3 - thumbs.length) }).map((_, idx) => (
+                              <div key={idx} className="aspect-square rounded-lg border border-border/60 bg-muted/20" />
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
 
-                      {thumbs.length > 0 ? (
-                        <div className="absolute inset-x-3 bottom-3 grid grid-cols-3 gap-2">
-                          {thumbs.map((p) => (
-                            <div key={p.id} className="aspect-square rounded-lg border border-border/70 bg-background/50 overflow-hidden">
-                              <img src={p.url} alt="" className="w-full h-full object-cover" loading="lazy" />
-                            </div>
-                          ))}
-                          {Array.from({ length: Math.max(0, 3 - thumbs.length) }).map((_, idx) => (
-                            <div key={idx} className="aspect-square rounded-lg border border-border/60 bg-muted/20" />
-                          ))}
-                        </div>
-                      ) : (
-                      <></>
-                      )}
-                    </div>
+                      <div className="px-3 py-3 sm:px-4 flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-foreground truncate">{g.name}</div>
+                      </div>
 
-                    {/* Name */}
-                    <div className="px-3 py-3 sm:px-4 flex items-center justify-between gap-2">
-                      <div className="text-sm font-semibold text-foreground truncate">{g.name}</div>
+                      <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="secondary"
+                              className="h-8 w-8 rounded-full shadow-md bg-background/95 hover:bg-background border border-border"
+                              aria-label="Opções da galeria"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setFolderAction({ type: "rename", from: g.name, value: g.name })
+                              }
+                            >
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Renomear
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                              onClick={() => setPendingDeleteGallery({ name: g.name, items })}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir galeria
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
 
-                    {/* ⋮ menu — always visible, works on mobile */}
-                    <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="secondary"
-                            className="h-8 w-8 rounded-full shadow-md bg-background/95 hover:bg-background border border-border"
-                            aria-label="Opções da galeria"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setFolderAction({ type: "rename", from: g.name, value: g.name })
-                            }
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Renomear
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                            onClick={() => setPendingDeleteGallery({ name: g.name, items })}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir galeria
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )
+          </div>
 
         ) : (
           /* IMAGES VIEW */
@@ -872,7 +952,7 @@ export function ObraGallery({
                   Clique para selecionar ou arraste arquivos aqui
                 </p>
                 <p className="text-xs text-muted-foreground/60 mt-0.5">
-                  Fotos, vídeos e PDFs
+                  Fotos
                 </p>
               </div>
             ) : (
@@ -908,13 +988,64 @@ export function ObraGallery({
                     <div className="relative aspect-square bg-muted overflow-hidden">
                       <MediaThumb item={item} className="group-hover:scale-105 transition-transform duration-300" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-black/0 pointer-events-none" />
-                      {item.created_at ? (
-                        <div className="absolute left-2 bottom-2">
-                          <div className="rounded-full bg-black/60 text-white text-[11px] px-2 py-1 backdrop-blur-sm">
-                            {formatDate(item.created_at)}
-                          </div>
+                    </div>
+
+                    <div className="px-2.5 py-2 border-t border-border/60 bg-background">
+                      {renamingMediaId === item.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={renamingMediaValue}
+                            onChange={(e) => setRenamingMediaValue(e.target.value)}
+                            className="h-9"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-9 w-9"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              cancelRenameMedia();
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="default"
+                            className="h-9 w-9"
+                            disabled={!String(renamingMediaValue || "").trim()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              saveRenameMedia();
+                            }}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
                         </div>
-                      ) : null}
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs font-medium text-foreground truncate">
+                            {item.name || "Sem nome"}
+                          </div>
+                          {canEdit ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              className="h-8 w-8 shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startRenameMedia(item);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
 
                     {/* Selection checkbox */}
@@ -1014,7 +1145,7 @@ export function ObraGallery({
         type="file"
         className="hidden"
         multiple
-        accept="image/*,video/*,application/pdf"
+        accept="image/*"
         onChange={(e) => {
           const files = Array.from(e.target.files || []);
           e.target.value = "";
@@ -1029,7 +1160,7 @@ export function ObraGallery({
     <Container className={containerClassName}>
       {showOverview ? (
         <div className="flex items-center justify-between gap-3 mb-4">
-          <h2 className="text-lg font-semibold tracking-tight">Galeria e Documentos</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Galeria</h2>
           {canEdit && !managerInline ? (
             <>
              
@@ -1047,14 +1178,14 @@ export function ObraGallery({
         </div>
       ) : null}
 
-      {showOverview && groups.length === 0 && docs.length === 0 ? (
+      {showOverview && groups.length === 0 ? (
         <div className="py-12 text-center border-2 border-dashed border-border rounded-2xl bg-muted/20">
           <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
             <ImageIcon className="w-6 h-6 text-muted-foreground" />
           </div>
           <p className="text-sm text-foreground font-semibold">{emptyMessage || "Nenhuma mídia disponível"}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            As fotos, vídeos e documentos aparecerão aqui.
+            As fotos aparecerão aqui.
           </p>
         </div>
       ) : showOverview ? (
@@ -1086,23 +1217,12 @@ export function ObraGallery({
                       onClick={() => onOpenViewer?.(items, idx)}
                     >
                       <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-2 relative bg-muted shadow-sm border border-border">
-                        {["video", "video_url"].includes(item.type) ? (
-                          <div className="w-full h-full flex items-center justify-center bg-slate-900">
-                            <Video className="w-10 h-10 text-white/80 group-hover:scale-110 transition-transform" />
-                          </div>
-                        ) : (
-                          <img
-                            src={item.url}
-                            alt={item.description || item.name || "Mídia"}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            loading="lazy"
-                          />
-                        )}
+                        <MediaThumb item={item} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-70" />
                       </div>
-                      <p className="text-xs text-muted-foreground font-medium pl-1">
-                        {item.created_at ? formatDate(item.created_at) : "Data não informada"}
-                      </p>
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <p className="text-xs font-medium text-foreground truncate">{item.name || "Sem nome"}</p>
+                      </div>
                     </div>
                   ))}
 
@@ -1125,45 +1245,6 @@ export function ObraGallery({
             );
           })}
 
-          {docs.length > 0 ? (
-            <div>
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 tracking-tight">
-                  <span className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-muted/40 border border-border">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                  </span>
-                  Documentos
-                </h4>
-                <div className="text-xs text-muted-foreground">
-                  {docs.length} arquivo{docs.length === 1 ? "" : "s"}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {docs.map((doc) => (
-                  <a
-                    key={doc.id}
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center p-3 rounded-2xl border border-border hover:border-muted-foreground/30 hover:bg-muted/20 transition-all group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-muted/30 border border-border flex items-center justify-center text-muted-foreground mr-3 shrink-0 group-hover:bg-muted/40 transition-colors">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {doc.title || doc.name || "Documento sem título"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {doc.created_at ? formatDate(doc.created_at) : "Data não informada"}
-                      </p>
-                    </div>
-                    <ArrowUpRight className="w-4 h-4 text-muted-foreground/60 ml-auto group-hover:text-foreground transition-colors" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       ) : null}
 
