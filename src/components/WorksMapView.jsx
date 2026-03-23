@@ -7,7 +7,7 @@ import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { formatCurrency, formatCnpj } from '@/lib/utils';
+import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
@@ -29,36 +29,81 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   const [selectedWork, setSelectedWork] = useState(null);
   const [workMedia, setWorkMedia] = useState([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const [loadingLastUpdatedAt, setLoadingLastUpdatedAt] = useState(false);
   const mapRef = useRef();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const { mode } = useMapModeToggle();
 
-  const fetchWorkMedia = useCallback(async (workId) => {
+  const fetchWorkModalData = useCallback(async (workId) => {
     if (!workId) return;
     setLoadingMedia(true);
-    const { data, error } = await supabase
-      .from('public_work_media')
-      .select('*')
-      .eq('work_id', workId)
-      .order('created_at');
-    
-    if (error) {
-      toast({ title: "Erro ao buscar mídias da obra", description: error.message, variant: "destructive" });
-    } else {
-      setWorkMedia(data || []);
+    setLoadingLastUpdatedAt(true);
+
+    try {
+      const [workRes, mediaRes, measurementsRes] = await Promise.all([
+        supabase.from('public_works').select('updated_at, created_at').eq('id', workId).maybeSingle(),
+        supabase.from('public_work_media').select('*').eq('work_id', workId).order('created_at'),
+        supabase
+          .from('public_work_measurements')
+          .select('updated_at, created_at, payments:public_work_payments(updated_at, created_at)')
+          .eq('work_id', workId)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      if (mediaRes.error) {
+        toast({ title: "Erro ao buscar mídias da obra", description: mediaRes.error.message, variant: "destructive" });
+        setWorkMedia([]);
+      } else {
+        setWorkMedia(mediaRes.data || []);
+      }
+
+      if (workRes.error) {
+        toast({ title: "Erro ao buscar dados da obra", description: workRes.error.message, variant: "destructive" });
+      }
+
+      if (measurementsRes.error) {
+        toast({ title: "Erro ao buscar fases da obra", description: measurementsRes.error.message, variant: "destructive" });
+      }
+
+      const candidates = [];
+      const workRow = workRes.data || null;
+      if (workRow?.updated_at) candidates.push(new Date(workRow.updated_at));
+      if (workRow?.created_at) candidates.push(new Date(workRow.created_at));
+
+      (measurementsRes.data || []).forEach((m) => {
+        if (m?.updated_at) candidates.push(new Date(m.updated_at));
+        if (m?.created_at) candidates.push(new Date(m.created_at));
+        (m?.payments || []).forEach((p) => {
+          if (p?.updated_at) candidates.push(new Date(p.updated_at));
+          if (p?.created_at) candidates.push(new Date(p.created_at));
+        });
+      });
+
+      (mediaRes.data || []).forEach((m) => {
+        if (m?.updated_at) candidates.push(new Date(m.updated_at));
+        if (m?.created_at) candidates.push(new Date(m.created_at));
+      });
+
+      const valid = candidates.filter((d) => d instanceof Date && !Number.isNaN(d.getTime()));
+      if (valid.length === 0) setLastUpdatedAt(null);
+      else setLastUpdatedAt(new Date(Math.max(...valid.map((d) => d.getTime()))));
+    } finally {
+      setLoadingMedia(false);
+      setLoadingLastUpdatedAt(false);
     }
-    setLoadingMedia(false);
   }, [toast]);
 
   useEffect(() => {
     if (selectedWork) {
-      fetchWorkMedia(selectedWork.id);
+      fetchWorkModalData(selectedWork.id);
     } else {
       setWorkMedia([]);
+      setLastUpdatedAt(null);
     }
-  }, [selectedWork, fetchWorkMedia]);
+  }, [selectedWork, fetchWorkModalData]);
 
   useImperativeHandle(ref, () => ({
     goToLocation: (location) => {
@@ -120,8 +165,6 @@ const WorksMapView = forwardRef(({ works }, ref) => {
     });
   };
 
-  const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : null;
-  
   const getFundingSourceText = (sources) => {
     if (!sources || sources.length === 0) return null;
     const sourceMap = { 
@@ -301,7 +344,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                     )}
 
                     {/* Seção: Cronograma */}
-                    {(selectedWork.start_date || selectedWork.execution_period_days || selectedWork.expected_end_date || selectedWork.inauguration_date || selectedWork.stalled_date || selectedWork.last_update) && (
+                    {(selectedWork.start_date || selectedWork.execution_period_days || selectedWork.expected_end_date || selectedWork.inauguration_date || selectedWork.stalled_date || lastUpdatedAt) && (
                       <div className="space-y-2.5">
                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Cronograma</h4>
                         <DetailItem icon={Calendar} label="Data de Início" value={selectedWork.start_date ? formatDate(selectedWork.start_date) : null} />
@@ -309,7 +352,11 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                         {selectedWork.status === 'in-progress' && <DetailItem icon={Calendar} label="Previsão de Conclusão" value={selectedWork.expected_end_date ? formatDate(selectedWork.expected_end_date) : null} />}
                         {selectedWork.status === 'completed' && <DetailItem icon={Calendar} label="Data de Inauguração" value={selectedWork.inauguration_date ? formatDate(selectedWork.inauguration_date) : null} />}
                         {(selectedWork.status === 'stalled' || selectedWork.status === 'unfinished') && <DetailItem icon={Calendar} label="Data de Paralisação" value={selectedWork.stalled_date ? formatDate(selectedWork.stalled_date) : null} />}
-                        <DetailItem icon={Calendar} label="Última Atualização" value={selectedWork.last_update ? formatDate(selectedWork.last_update) : null} />
+                        <DetailItem
+                          icon={Calendar}
+                          label="Última Atualização"
+                          value={loadingLastUpdatedAt ? "Carregando…" : lastUpdatedAt ? formatDate(lastUpdatedAt) : null}
+                        />
                       </div>
                     )}
 
