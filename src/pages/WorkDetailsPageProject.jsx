@@ -39,6 +39,104 @@ function formatDateDisplay(dateString) {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
+function getYouTubeVideoId(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    const host = (u.hostname || "").replace(/^www\./, "");
+    if (host === "youtu.be") {
+      const id = u.pathname.replace("/", "").trim();
+      return id || null;
+    }
+    if (host.endsWith("youtube.com")) {
+      if (u.pathname === "/watch") {
+        const id = u.searchParams.get("v");
+        return id || null;
+      }
+      const parts = u.pathname.split("/").filter(Boolean);
+      const idx = parts.findIndex((p) => ["embed", "shorts"].includes(p));
+      if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+    }
+  } catch {
+    const m = raw.match(/(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+    return m?.[1] || null;
+  }
+  return null;
+}
+
+function MeasurementMediaThumb({ item }) {
+  const [errored, setErrored] = useState(false);
+  const isVideoFile = item?.type === "video";
+  const isVideoUrl = item?.type === "video_url";
+
+  if (isVideoUrl) {
+    const ytId = getYouTubeVideoId(item?.url);
+    const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null;
+    return (
+      <div className="relative w-full h-full overflow-hidden">
+        {thumbUrl && !errored ? (
+          <img
+            src={thumbUrl}
+            alt={item?.description || item?.name || "Vídeo"}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            onError={() => setErrored(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-700">
+            <Video className="w-10 h-10 text-white/80" />
+          </div>
+        )}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="h-10 w-10 rounded-full bg-black/55 backdrop-blur border border-white/10 flex items-center justify-center shadow-sm">
+            <Video className="h-5 w-5 text-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isVideoFile) {
+    return (
+      <div className="relative w-full h-full overflow-hidden">
+        {!errored && item?.url ? (
+          <video
+            src={item.url}
+            preload="metadata"
+            muted
+            playsInline
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setErrored(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-700">
+            <Video className="w-10 h-10 text-white/80" />
+          </div>
+        )}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="h-10 w-10 rounded-full bg-black/55 backdrop-blur border border-white/10 flex items-center justify-center shadow-sm">
+            <Video className="h-5 w-5 text-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={item?.url}
+      alt={item?.description || "Mídia"}
+      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+      loading="lazy"
+      onError={(e) => {
+        const el = e.currentTarget;
+        el.style.display = "none";
+      }}
+    />
+  );
+}
+
 function normalizeStatus(status) {
   const s = status || "planned";
   if (["planned", "tendered", "in-progress", "completed", "stalled", "unfinished"].includes(s)) return s;
@@ -1204,6 +1302,26 @@ export default function WorkDetailsPageProject() {
     }
   }, [editingPaymentId, loadData, paymentForm, touchPageUpdatedAt, user?.is_admin, workId]);
 
+  const handleDeletePayment = useCallback(
+    async (payment) => {
+      if (!user?.is_admin) return;
+      const id = payment?.id || null;
+      if (!id) return;
+      if (!window.confirm("Excluir este pagamento?")) return;
+
+      try {
+        const { error } = await supabase.from("public_work_payments").delete().eq("id", id);
+        if (error) throw error;
+        toast("Pagamento excluído", { description: "O pagamento foi removido com sucesso." });
+        touchPageUpdatedAt();
+        await loadData();
+      } catch (e) {
+        toast("Erro ao excluir pagamento", { description: e?.message || "Tente novamente.", variant: "destructive" });
+      }
+    },
+    [loadData, touchPageUpdatedAt, user?.is_admin]
+  );
+
   const openMeasurementDetails = useCallback(
     (measurementId) => {
       const m = measurements.find((x) => x.id === measurementId) || null;
@@ -1617,6 +1735,7 @@ export default function WorkDetailsPageProject() {
 					  canAdd={Boolean(user?.is_admin)}
 					  onAddPayment={openNewPaymentDialog}
 					  onEditPayment={openEditPaymentDialog}
+					  onDeletePayment={handleDeletePayment}
 					  onBack={openGeneralView}
 					/>
 				  </div>
@@ -2202,17 +2321,7 @@ export default function WorkDetailsPageProject() {
                                   className="aspect-square rounded-lg overflow-hidden cursor-pointer bg-slate-200 relative group shadow-sm hover:shadow-md transition-all"
                                   onClick={() => openViewer(selectedMeasurement.media, originalIndex)}
                                 >
-                                  {["video", "video_url"].includes(mediaItem.type) ? (
-                                    <div className="w-full h-full flex items-center justify-center bg-slate-800">
-                                      <Video className="w-10 h-10 text-white/70" />
-                                    </div>
-                                  ) : (
-                                    <img
-                                      src={mediaItem.url}
-                                      alt={mediaItem.description || "Mídia"}
-                                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                                    />
-                                  )}
+                                  <MeasurementMediaThumb item={mediaItem} />
                                 </div>
                               );
                             })}
