@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { useToast } from '@/components/ui/use-toast';
 import { 
   PlusCircle, Edit, Trash2, FileText,
-  ArrowLeft, Save, Link2, Calculator
+  ArrowLeft, Save, Link2, Calculator, Search
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
@@ -18,8 +18,17 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
   const [currentPayment, setCurrentPayment] = useState(null);
+  const [paymentsQuery, setPaymentsQuery] = useState('');
   const { toast } = useToast();
   const commitmentTypeOptions = ['Estimativo', 'Extra Orçamentário', 'Global', 'Ordinário'];
+
+  const normalizeText = useCallback((value) => {
+    return String(value || '')
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }, []);
 
   const parsePtBrNumber = (value) => {
     if (value == null) return null;
@@ -177,6 +186,43 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
     }
   };
 
+    const paymentsIndex = useMemo(() => {
+    return (measurements || []).flatMap((m) =>
+      (m.payments || []).map((p) => ({
+        measurement: m,
+        payment: p,
+      }))
+    );
+  }, [measurements]);
+
+  const paymentsSearchResults = useMemo(() => {
+    const q = normalizeText(paymentsQuery);
+    if (!q) return [];
+
+    return paymentsIndex
+      .filter(({ measurement, payment }) => {
+        const hay = [
+          measurement?.title,
+          payment?.payment_date,
+          payment?.commitment_number,
+          payment?.banking_order,
+          payment?.commitment_type,
+          payment?.payment_description,
+          payment?.installment,
+          payment?.creditor_name,
+          payment?.portal_link,
+          payment?.value,
+        ]
+          .filter(Boolean)
+          .map((x) => normalizeText(x))
+          .join(' ');
+
+        return hay.includes(q);
+      })
+      .sort((a, b) => new Date(b.payment.payment_date) - new Date(a.payment.payment_date));
+  }, [normalizeText, paymentsIndex, paymentsQuery]);
+
+
   if (isEditingPayment) {
     return (
       <Card>
@@ -275,6 +321,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
     );
   }
 
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -308,6 +355,98 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         </Card>
       ) : (
         <div className="space-y-4">
+          <Card className="bg-white border border-slate-200">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-900">Buscar pagamento</div>
+                  <div className="text-xs text-muted-foreground">Encontre rapidamente para editar ou excluir.</div>
+                </div>
+                {paymentsQuery ? (
+                  <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => setPaymentsQuery('')}>
+                    Limpar
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="mt-3 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={paymentsQuery}
+                  onChange={(e) => setPaymentsQuery(e.target.value)}
+                  placeholder="Buscar por descrição, empenho, credor, fase, data ou valor..."
+                  className="pl-9 bg-white"
+                />
+              </div>
+
+              {paymentsQuery ? (
+                <div className="mt-3">
+                  {paymentsSearchResults.length > 0 ? (
+                    <div className="overflow-x-auto border rounded-lg bg-white">
+                      <table className="w-full text-sm">
+                        <thead className="text-left border-b bg-slate-50/60 text-slate-400 text-[10px] uppercase">
+                          <tr>
+                            <th className="px-3 py-2 font-bold">Fase</th>
+                            <th className="px-3 py-2 font-bold">Data</th>
+                            <th className="px-3 py-2 font-bold">Nº Empenho</th>
+                            <th className="px-3 py-2 font-bold">Credor</th>
+                            <th className="px-3 py-2 font-bold text-right">Valor</th>
+                            <th className="px-3 py-2 font-bold">Portal</th>
+                            <th className="px-3 py-2 font-bold text-right">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y text-xs">
+                          {paymentsSearchResults.slice(0, 30).map(({ measurement, payment }) => (
+                            <tr key={payment.id} className="hover:bg-slate-50/50">
+                              <td className="px-3 py-2 text-slate-700 font-semibold max-w-[220px]">
+                                <span className="line-clamp-1">{measurement?.title || '-'}</span>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</td>
+                              <td className="px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
+                              <td className="px-3 py-2 text-slate-600 max-w-[220px]">
+                                <span className="line-clamp-1">{payment.creditor_name || '-'}</span>
+                              </td>
+                              <td className="px-3 py-2 font-bold text-blue-600 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
+                              <td className="px-3 py-2">
+                                {payment.portal_link ? (
+                                  <a href={payment.portal_link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-700">
+                                    <Link2 className="w-4 h-4" />
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-300">-</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <div className="flex justify-end gap-1">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditPayment(measurement.id, payment)}>
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeletePayment(payment.id)}>
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 bg-slate-50/40 rounded-lg border border-dashed border-slate-200">
+                      <p className="text-xs italic text-muted-foreground">Nenhum pagamento encontrado para esta busca.</p>
+                    </div>
+                  )}
+
+                  {paymentsSearchResults.length > 30 ? (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Mostrando 30 de {paymentsSearchResults.length} resultados. Refine a busca para encontrar mais rápido.
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
           {measurements.map(measurement => {
             const totalPaid = (measurement.payments || []).reduce((acc, p) => acc + (Number(p.value) || 0), 0);
             return (

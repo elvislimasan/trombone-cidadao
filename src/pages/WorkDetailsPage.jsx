@@ -1619,7 +1619,7 @@ const WorkDetailsPage = () => {
                       </div>
                     </div>
 
-                    <div className="hidden sm:flex items-center justify-between gap-3 mt-4">
+                    <div className="hidden sm:flex items-center justify-end w-full gap-3 mt-4">
                       <div className="text-xs text-slate-500">
                         Exibindo {(paymentsPageSafe - 1) * PAYMENTS_PAGE_SIZE + 1}–{Math.min(sortedPaymentGroups.length, paymentsPageSafe * PAYMENTS_PAGE_SIZE)} de {sortedPaymentGroups.length} registros
                       </div>
