@@ -990,7 +990,7 @@ export function ObraPayments({
             ) : null}
 
             {groups.length > 0 ? (
-              <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
                
                 <div className="flex items-center justify-between sm:justify-end gap-2">
                   <Button type="button" variant="outline" size="sm" disabled={pageSafe <= 1} onClick={() => setPage((p) => Math.max(1, (Number(p) || 1) - 1))}>
