@@ -44,11 +44,11 @@ const WorksMapView = forwardRef(({ works }, ref) => {
 
     try {
       const [workRes, mediaRes, measurementsRes] = await Promise.all([
-        supabase.from('public_works').select('updated_at, created_at').eq('id', workId).maybeSingle(),
+        supabase.from('public_works').select('last_update, created_at').eq('id', workId).maybeSingle(),
         supabase.from('public_work_media').select('*').eq('work_id', workId).order('created_at'),
         supabase
           .from('public_work_measurements')
-          .select('updated_at, created_at, payments:public_work_payments(updated_at, created_at)')
+          .select('updated_at, created_at, payments:public_work_payments(created_at, payment_date)')
           .eq('work_id', workId)
           .order('created_at', { ascending: false }),
       ]);
@@ -70,14 +70,13 @@ const WorksMapView = forwardRef(({ works }, ref) => {
 
       const candidates = [];
       const workRow = workRes.data || null;
-      if (workRow?.updated_at) candidates.push(new Date(workRow.updated_at));
+      if (workRow?.last_update) candidates.push(new Date(workRow.last_update));
       if (workRow?.created_at) candidates.push(new Date(workRow.created_at));
 
       (measurementsRes.data || []).forEach((m) => {
         if (m?.updated_at) candidates.push(new Date(m.updated_at));
         if (m?.created_at) candidates.push(new Date(m.created_at));
         (m?.payments || []).forEach((p) => {
-          if (p?.updated_at) candidates.push(new Date(p.updated_at));
           if (p?.created_at) candidates.push(new Date(p.created_at));
         });
       });
