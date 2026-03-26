@@ -88,13 +88,13 @@ const RankingSidebar = ({ reports, onReportClick, embedded = false }) => {
           <TabsList className="relative grid w-full grid-cols-2 h-9 md:h-10 bg-transparent p-0 border-b border-border rounded-none">
             <TabsTrigger
               value="upvotes"
-              className="gap-1 text-xs md:text-sm rounded-none data-[state=active]:text-tc-red data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-tc-red data-[state=inactive]:text-muted-foreground"
+              className="gap-1 text-xs md:text-sm rounded-none data-[state=active]:bg-tc-red data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-tc-red data-[state=inactive]:text-muted-foreground"
             >
               <ThumbsUp className="w-3 h-3 md:w-4 md:h-4" /> Mais Apoiadas
             </TabsTrigger>
             <TabsTrigger
               value="views"
-              className="gap-1 text-xs md:text-sm rounded-none data-[state=active]:text-tc-red data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-tc-red data-[state=inactive]:text-muted-foreground"
+              className="gap-1 text-xs md:text-sm rounded-none data-[state=active]:bg-white data-[state=active]:text-tc-red data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-tc-red data-[state=inactive]:text-muted-foreground"
             >
               <Eye className="w-3 h-3 md:w-4 md:h-4" /> Mais Visualizadas
             </TabsTrigger>

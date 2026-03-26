@@ -146,15 +146,35 @@ export function ObraPayments({
 
   const getPaymentDate = useCallback(
     (p) => {
-      const raw = p?.payment_date || p?.created_at;
+      const raw =
+        p?.payment_date ||
+        p?.paymentDate ||
+        p?.paid_at ||
+        p?.paidAt ||
+        p?.created_at;
       if (raw) {
         const d = new Date(raw);
         if (!Number.isNaN(d.getTime())) return d;
       }
-      return parsePtBrDate(p?.date);
+      const br = p?.payment_date_br || p?.paymentDateBr || p?.paymentDateBR;
+      return parsePtBrDate(br);
     },
     [parsePtBrDate]
   );
+
+  const getCommitmentDate = useCallback((p) => {
+    const raw = p?.commitment_date || p?.commitmentDate;
+    if (raw) {
+      const d = new Date(raw);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+    return null;
+  }, []);
+
+  const formatDateLabel = useCallback((d) => {
+    if (!d) return "N/A";
+    return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+  }, []);
 
   const normalizeText = useCallback((value) => {
     return String(value || "")
@@ -288,16 +308,36 @@ export function ObraPayments({
     map.forEach((items, key) => {
       const itemsSorted = [...items].sort((a, b) => (getPaymentDate(b)?.getTime() ?? 0) - (getPaymentDate(a)?.getTime() ?? 0));
       const latestDate = getPaymentDate(itemsSorted[0]) || null;
-      const latestDateLabel = latestDate ? latestDate.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—";
+      const latestDateLabel = formatDateLabel(latestDate);
+
+      // Label para data do pagamento
+      let paymentDateLabel = latestDateLabel;
+      if (itemsSorted.length > 1) {
+        const dates = itemsSorted.map(getPaymentDate).filter(Boolean).sort((a, b) => a.getTime() - b.getTime());
+        if (dates.length > 1) {
+          const first = formatDateLabel(dates[0]);
+          const last = formatDateLabel(dates[dates.length - 1]);
+          paymentDateLabel = `${first}\naté ${last}`;
+        }
+      }
+
+      const commitmentLabels = new Set(itemsSorted.map((x) => formatDateLabel(getCommitmentDate(x))).filter((x) => x && x !== "N/A"));
+      const commitmentDateLabel =
+        commitmentLabels.size === 1 ? [...commitmentLabels][0] : commitmentLabels.size > 1 ? "Vários" : "N/A";
 
       const total = itemsSorted.reduce((acc, x) => acc + (Number(x?.value) || 0), 0);
       const contractorSet = new Set(itemsSorted.map((x) => String(x?.contractor || "").trim()).filter(Boolean));
-      const contractorLabel = contractorSet.size === 1 ? [...contractorSet][0] : contractorSet.size > 1 ? "Vários" : "—";
+      const contractorLabel = contractorSet.size === 1 ? [...contractorSet][0] : contractorSet.size > 1 ? "--" : "—";
 
       const typeSet = new Set(itemsSorted.map((x) => normalizeTypeKey(x?.commitmentType)));
       const typeLabel = typeSet.size === 1 ? formatTypeLabel(itemsSorted[0]?.commitmentType) : "Vários";
 
-      const descriptionPreview = String(itemsSorted[0]?.description || "").trim() || "—";
+      const descriptionPreview =
+        itemsSorted.length > 1
+          ? key === "SEM_EMPENHO"
+            ? "Pagamentos sem nº de empenho. Expanda para conferir os pagamentos.".toLocaleUpperCase()
+            : `Pagamentos referentes ao empenho nº ${key}. Expanda para conferir os pagamentos detalhados.`.toLocaleUpperCase()
+          : String(itemsSorted[0]?.description || "").trim() || "—";
       const installmentPreview = itemsSorted.length === 1 ? String(itemsSorted[0]?.installment || "").trim() || "—" : "—";
       const hasPortal = itemsSorted.some((x) => Boolean(x?.url));
 
@@ -310,7 +350,8 @@ export function ObraPayments({
         contractorLabel,
         typeLabel,
         latestDate,
-        latestDateLabel,
+        paymentDateLabel,
+        commitmentDateLabel,
         hasPortal,
         descriptionPreview,
         installmentPreview,
@@ -318,7 +359,7 @@ export function ObraPayments({
     });
 
     return list;
-  }, [formatTypeLabel, getPaymentDate, normalizeTypeKey, sortedPayments]);
+  }, [formatDateLabel, formatTypeLabel, getCommitmentDate, getPaymentDate, normalizeTypeKey, sortedPayments]);
 
   const sortedGroups = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -540,8 +581,11 @@ export function ObraPayments({
 
             <div className="mt-3 grid grid-cols-2 gap-4">
               <div>
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</div>
-                <div className="mt-1 text-foreground">{g.latestDateLabel}</div>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data do empenho</div>
+                <div className="mt-1 text-foreground">{g.commitmentDateLabel}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Data do pagamento: <span className="text-foreground whitespace-pre-line">{g.paymentDateLabel}</span>
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</div>
@@ -617,7 +661,7 @@ export function ObraPayments({
                     <div className="text-sm font-semibold text-foreground whitespace-nowrap">{formatCurrency(p.value)}</div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>{p.date || "—"}</span>
+                    <span>{formatDateLabel(getPaymentDate(p))}</span>
                     <span>•</span>
                     <span>{formatTypeLabel(p.commitmentType)}</span>
                     {p.installment ? (
@@ -841,7 +885,10 @@ export function ObraPayments({
                             Nº Empenho
                           </TableHead>
                           <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            Data
+                            Data do empenho
+                          </TableHead>
+                          <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            Data do Pagamento
                           </TableHead>
                           <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</TableHead>
                           <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</TableHead>
@@ -881,7 +928,8 @@ export function ObraPayments({
                                     <span className="text-red-600 font-semibold">{g.orderNumber || "—"}</span>
                                   </div>
                                 </TableCell>
-                                <TableCell className="whitespace-nowrap text-foreground">{g.latestDateLabel}</TableCell>
+                                <TableCell className="whitespace-nowrap text-foreground">{g.commitmentDateLabel}</TableCell>
+                                <TableCell className="whitespace-pre-line text-foreground">{g.paymentDateLabel}</TableCell>
                                 <TableCell className="whitespace-nowrap">
                                   <span className="inline-flex items-center h-6 px-2.5 rounded-full bg-muted/20 border border-border text-xs text-foreground">
                                     {g.typeLabel}
@@ -889,35 +937,63 @@ export function ObraPayments({
                                 </TableCell>
                                 <TableCell className="whitespace-normal break-words text-foreground text-[11px]">
                                   {g.descriptionPreview}
-                                  {g.count > 1 ? <span className="text-muted-foreground"> (+{g.count - 1})</span> : null}
                                 </TableCell>
                                 <TableCell className="text-center whitespace-nowrap text-muted-foreground">{g.installmentPreview}</TableCell>
                                 <TableCell className="whitespace-normal break-words text-foreground">{g.contractorLabel}</TableCell>
                                 <TableCell className="text-right font-semibold text-foreground whitespace-nowrap">{formatCurrency(g.total)}</TableCell>
                                 <TableCell className="text-center">
-                                  {portalUrl ? (
-                                    <a href={portalUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-red-600 font-medium hover:underline">
-                                      <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                                      Ver
-                                    </a>
-                                  ) : (
-                                    <span className="text-muted-foreground">—</span>
-                                  )}
+                                  <div className="flex flex-col items-center gap-1.5">
+                                    {portalUrl ? (
+                                      <a href={portalUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-red-600 font-medium hover:underline text-xs">
+                                        <ExternalLink className="h-3 w-3 mr-1" />
+                                        Ver
+                                      </a>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                    {canAdd && !isExpandable && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onEditPayment?.(g.items[0]);
+                                        }}
+                                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 hover:underline uppercase tracking-tight"
+                                      >
+                                        Editar
+                                      </button>
+                                    )}
+                                    {canAdd && isExpandable && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleGroupOpen(g.key);
+                                        }}
+                                        className="text-[10px] font-semibold text-red-600 hover:text-red-700 hover:underline uppercase tracking-tight"
+                                      >
+                                        {isOpen ? "Fechar" : ""}
+                                      </button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
 
                               {isOpen ? (
                                 <TableRow className="bg-muted/5">
-                                  <TableCell colSpan={8} className="p-0">
+                                  <TableCell colSpan={9} className="p-0">
                                     <div className="border-t border-border/60 px-3 py-3">
                                       <div className="text-xs text-muted-foreground mb-2">
-                                        {g.count} pagamento{g.count === 1 ? "" : "s"} neste empenho
+                                        {g.orderNumber
+                                          ? `PAGAMENTOS REFERENTES AO EMPENHO Nº ${g.orderNumber}.`
+                                          : "PAGAMENTOS SEM NUMEROS DE EMPENHO."}{" "}
+                                        EXPANDA PARA CONFERIR OS PAGAMENTOS DETALHADOS.
                                       </div>
                                       <div className="rounded-xl border border-border overflow-hidden bg-background">
                                         <Table>
                                           <TableHeader className="bg-muted/20">
                                             <TableRow className="hover:bg-transparent">
-                                              <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</TableHead>
+                                              <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data do pagamento</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Parcela</TableHead>
@@ -927,9 +1003,11 @@ export function ObraPayments({
                                             </TableRow>
                                           </TableHeader>
                                           <TableBody>
-                                            {g.items.map((p) => (
-                                              <TableRow key={p.id} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
-                                                <TableCell className="whitespace-nowrap text-foreground">{p.date || "—"}</TableCell>
+                                            {g.items.map((p) => {
+                                              const paymentDateLabel = formatDateLabel(getPaymentDate(p));
+                                              return (
+                                                <TableRow key={p.id} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
+                                                  <TableCell className="whitespace-nowrap text-foreground">{paymentDateLabel}</TableCell>
                                                 <TableCell className="whitespace-nowrap">
                                                   <span className="inline-flex items-center h-6 px-2.5 rounded-full bg-muted/20 border border-border text-xs text-foreground">
                                                     {formatTypeLabel(p.commitmentType)}
@@ -940,17 +1018,29 @@ export function ObraPayments({
                                                 <TableCell className="whitespace-normal break-words text-foreground">{p.contractor || "—"}</TableCell>
                                                 <TableCell className="text-right font-semibold text-foreground whitespace-nowrap">{formatCurrency(p.value)}</TableCell>
                                                 <TableCell className="text-center">
-                                                  {p.url ? (
-                                                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-red-600 font-medium hover:underline">
-                                                      <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                                                      Ver
-                                                    </a>
-                                                  ) : (
-                                                    <span className="text-muted-foreground">—</span>
-                                                  )}
-                                                </TableCell>
-                                              </TableRow>
-                                            ))}
+                                                    <div className="flex flex-col items-center gap-1.5">
+                                                      {p.url ? (
+                                                        <a href={p.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-red-600 font-medium hover:underline text-xs">
+                                                          <ExternalLink className="h-3 w-3 mr-1" />
+                                                          Ver
+                                                        </a>
+                                                      ) : (
+                                                        <span className="text-muted-foreground">—</span>
+                                                      )}
+                                                      {canAdd && (
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => onEditPayment?.(p)}
+                                                          className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 hover:underline uppercase tracking-tight"
+                                                        >
+                                                          Editar
+                                                        </button>
+                                                      )}
+                                                    </div>
+                                                  </TableCell>
+                                                </TableRow>
+                                              );
+                                            })}
                                           </TableBody>
                                         </Table>
                                       </div>
@@ -1174,68 +1264,63 @@ export function ObraPayments({
           </div>
           <div className="mt-4 rounded-2xl border border-border overflow-hidden flex-1 min-h-0 flex flex-col">
             <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
-              <div className="hidden md:block min-w-[1100px] h-full">
-                <div className="h-full flex flex-col">
-                  <div className="flex-shrink-0">
-                    <Table>
-                      <TableHeader className="bg-muted/20 sticky top-0 z-10">
-                        <TableRow className="border-b border-border/60 hover:bg-transparent">
-                          <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Nº Empenho</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Valor</TableHead>
-                          <TableHead className="sticky right-0 bg-muted/20 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right min-w-[220px] border-l border-border/60">
-                            Ação
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                    </Table>
-                  </div>
-                  <div className="flex-1 overflow-y-auto min-h-0">
-                    <Table>
-                      <TableBody>
-                        {managePageItems.map((p) => (
-                          <TableRow key={p.id} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
-                            <TableCell className="whitespace-nowrap text-red-600 font-semibold">{p.orderNumber || "—"}</TableCell>
-                            <TableCell className="whitespace-nowrap">{p.date || "—"}</TableCell>
-                            <TableCell className="whitespace-nowrap">{formatTypeLabel(p.commitmentType)}</TableCell>
-                            <TableCell className="whitespace-normal break-words text-[11px]">{p.description || "—"}</TableCell>
-                            <TableCell className="text-right font-semibold whitespace-nowrap">{formatCurrency(p.value)}</TableCell>
-                            <TableCell className="sticky right-0 bg-inherit text-right whitespace-nowrap min-w-[220px] border-l border-border/60">
-                              <div className="flex justify-end gap-2">
+              <div className="hidden md:block min-w-[1100px]">
+                <Table>
+                  <TableHeader className="bg-muted/20 sticky top-0 z-10">
+                    <TableRow className="border-b border-border/60 hover:bg-transparent">
+                      <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Nº Empenho</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data do pagamento</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Valor</TableHead>
+                      <TableHead className="sticky right-0 bg-muted/20 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right min-w-[220px] border-l border-border/60">
+                        Ação
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {managePageItems.map((p) => {
+                      const paymentDateLabel = formatDateLabel(getPaymentDate(p));
+                      return (
+                        <TableRow key={p.id} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
+                          <TableCell className="whitespace-nowrap text-red-600 font-semibold">{p.orderNumber || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{paymentDateLabel}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatTypeLabel(p.commitmentType)}</TableCell>
+                          <TableCell className="whitespace-normal break-words text-[11px]">{p.description || "—"}</TableCell>
+                          <TableCell className="text-right font-semibold whitespace-nowrap">{formatCurrency(p.value)}</TableCell>
+                          <TableCell className="sticky right-0 bg-inherit text-right whitespace-nowrap min-w-[220px] border-l border-border/60">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="min-w-[104px]"
+                                onClick={() => {
+                                  setIsManageOpen(false);
+                                  onEditPayment?.(p);
+                                }}
+                              >
+                                Editar
+                              </Button>
+                              {canAdd && onDeletePayment ? (
                                 <Button
                                   type="button"
                                   size="sm"
-                                  variant="outline"
+                                  variant="destructive"
                                   className="min-w-[104px]"
-                                  onClick={() => {
-                                    setIsManageOpen(false);
-                                    onEditPayment?.(p);
-                                  }}
+                                  onClick={() => onDeletePayment(p)}
                                 >
-                                  Editar
+                                  <Trash2 className="h-4 w-4 mr-1.5" />
+                                  Excluir
                                 </Button>
-                                {canAdd && onDeletePayment ? (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="destructive"
-                                    className="min-w-[104px]"
-                                    onClick={() => onDeletePayment(p)}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1.5" />
-                                    Excluir
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
 
               <div className="md:hidden p-3 space-y-3 overflow-y-auto flex-1">
@@ -1268,8 +1353,8 @@ export function ObraPayments({
 
                     <div className="mt-3 grid grid-cols-2 gap-4">
                       <div>
-                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</div>
-                        <div className="mt-1 text-foreground">{p.date || "—"}</div>
+                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data do pagamento</div>
+                        <div className="mt-1 text-foreground">{formatDateLabel(getPaymentDate(p))}</div>
                       </div>
                       <div>
                         <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</div>

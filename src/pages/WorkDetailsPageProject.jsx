@@ -215,10 +215,14 @@ export default function WorkDetailsPageProject() {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [isSavingPayment, setIsSavingPayment] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [isEditingCommitmentDate, setIsEditingCommitmentDate] = useState(false);
+  const [isEditingCommitmentType, setIsEditingCommitmentType] = useState(false);
   const [currentPhaseView, setCurrentPhaseView] = useState("general");
+  const [paymentTabMeasurementId, setPaymentTabMeasurementId] = useState("");
   const currentPhaseTopRef = useRef(null);
   const [paymentForm, setPaymentForm] = useState({
     measurement_id: "",
+    commitment_date: "",
     payment_date: new Date().toISOString().split("T")[0],
     value: "",
     commitment_number: "",
@@ -294,8 +298,13 @@ export default function WorkDetailsPageProject() {
   }, [currentPhaseView]);
 
   const openPaymentsView = useCallback(() => {
+    if (currentMeasurement?.id) {
+      setPaymentTabMeasurementId(currentMeasurement.id);
+    } else if (measurements.length > 0) {
+      setPaymentTabMeasurementId(measurements[0].id);
+    }
     setCurrentPhaseView("payments");
-  }, []);
+  }, [currentMeasurement?.id, measurements]);
 
   const openGeneralView = useCallback(() => {
     setCurrentPhaseView("general");
@@ -437,8 +446,15 @@ export default function WorkDetailsPageProject() {
   }, [media, currentMeasurement?.id]);
 
   const paymentsForComponent = useMemo(() => {
-    return currentPhasePayments.map((p) => ({
+    const targetMeasurementId = paymentTabMeasurementId || currentMeasurement?.id;
+    if (!targetMeasurementId) return [];
+
+    const filteredPayments = allPayments.filter((p) => p.measurement_id === targetMeasurementId);
+    const targetMeasurement = measurements.find((m) => m.id === targetMeasurementId);
+
+    return filteredPayments.map((p) => ({
       id: p.id,
+      commitment_date: p.commitment_date || "",
       payment_date: p.payment_date,
       created_at: p.created_at,
       date: formatDateDisplay(p.payment_date),
@@ -446,11 +462,11 @@ export default function WorkDetailsPageProject() {
       commitmentType: p.commitment_type || "",
       description: p.payment_description || "",
       installment: p.installment || "",
-      contractor: p.creditor_name || phase?.contractor?.name || "",
+      contractor: p.creditor_name || targetMeasurement?.contractor?.name || "",
       value: Number(p.value) || 0,
       url: p.portal_link || "",
     }));
-  }, [currentPhasePayments, phase?.contractor?.name]);
+  }, [allPayments, currentMeasurement?.id, paymentTabMeasurementId, measurements]);
 
   const handleShareWork = useCallback(async () => {
     if (typeof window === "undefined" || !work) return;
@@ -1213,8 +1229,11 @@ export default function WorkDetailsPageProject() {
     const defaultMeasurementId = defaultMeasurement?.id || "";
     const defaultCreditorName = defaultMeasurement?.contractor?.name || "";
     setEditingPaymentId(null);
+    setIsEditingCommitmentDate(false);
+    setIsEditingCommitmentType(false);
     setPaymentForm({
       measurement_id: defaultMeasurementId,
+      commitment_date: "",
       payment_date: new Date().toISOString().split("T")[0],
       value: "",
       commitment_number: "",
@@ -1237,8 +1256,11 @@ export default function WorkDetailsPageProject() {
       const measurementId = raw?.measurement_id || currentMeasurement?.id || "";
       const numericValue = Number(raw?.value ?? payment?.value ?? 0);
       setEditingPaymentId(id);
+      setIsEditingCommitmentDate(false);
+      setIsEditingCommitmentType(false);
       setPaymentForm({
         measurement_id: measurementId,
+        commitment_date: raw?.commitment_date || payment?.commitment_date || "",
         payment_date: raw?.payment_date || payment?.payment_date || new Date().toISOString().split("T")[0],
         value: formatPtBrMoney(numericValue),
         commitment_number: raw?.commitment_number || payment?.orderNumber || "",
@@ -1253,6 +1275,32 @@ export default function WorkDetailsPageProject() {
     },
     [currentMeasurement?.id, currentPhasePayments, phase?.contractor?.name, user?.is_admin]
   );
+
+  useEffect(() => {
+    const commitmentNumber = String(paymentForm.commitment_number || "").trim();
+    if (!commitmentNumber) {
+      if (!editingPaymentId) {
+        setPaymentForm((prev) => ({ ...prev, commitment_date: "", commitment_type: "" }));
+      }
+      return;
+    }
+
+    // Busca um pagamento existente com o mesmo número de empenho
+    const existingPayment = allPayments.find(
+      (p) => String(p.commitment_number || "").trim() === commitmentNumber && (p.commitment_date || p.commitment_type)
+    );
+
+    if (existingPayment) {
+      setPaymentForm((prev) => ({
+        ...prev,
+        commitment_date: !isEditingCommitmentDate ? existingPayment.commitment_date || prev.commitment_date : prev.commitment_date,
+        commitment_type: !isEditingCommitmentType ? existingPayment.commitment_type || prev.commitment_type : prev.commitment_type,
+      }));
+    } else if (!editingPaymentId) {
+      // Se for um novo número de empenho e estamos criando um novo pagamento, limpa os campos
+      setPaymentForm((prev) => ({ ...prev, commitment_date: "", commitment_type: "" }));
+    }
+  }, [paymentForm.commitment_number, allPayments, editingPaymentId, isEditingCommitmentDate, isEditingCommitmentType]);
 
   const handleSavePayment = useCallback(async () => {
     if (!user?.is_admin) return;
@@ -1271,6 +1319,7 @@ export default function WorkDetailsPageProject() {
     try {
       const payload = {
         measurement_id: paymentForm.measurement_id,
+        commitment_date: paymentForm.commitment_date || null,
         payment_date: paymentForm.payment_date,
         value: numericValue,
         commitment_number: paymentForm.commitment_number || null,
@@ -1285,9 +1334,39 @@ export default function WorkDetailsPageProject() {
       if (editingPaymentId) {
         const { error } = await supabase.from("public_work_payments").update(payload).eq("id", editingPaymentId);
         if (error) throw error;
+
+        // Se a data ou tipo do empenho mudou, atualiza em todos os pagamentos com o mesmo número
+        if (payload.commitment_number) {
+          const updateObj = {};
+          if (payload.commitment_date) updateObj.commitment_date = payload.commitment_date;
+          if (payload.commitment_type) updateObj.commitment_type = payload.commitment_type;
+
+          if (Object.keys(updateObj).length > 0) {
+            const { error: batchError } = await supabase
+              .from("public_work_payments")
+              .update(updateObj)
+              .eq("commitment_number", payload.commitment_number);
+            if (batchError) console.error("Erro ao atualizar empenho em lote:", batchError);
+          }
+        }
       } else {
         const { error } = await supabase.from("public_work_payments").insert(payload);
         if (error) throw error;
+
+        // Se o novo pagamento tem número e dados de empenho, garante sincronia
+        if (payload.commitment_number) {
+          const updateObj = {};
+          if (payload.commitment_date) updateObj.commitment_date = payload.commitment_date;
+          if (payload.commitment_type) updateObj.commitment_type = payload.commitment_type;
+
+          if (Object.keys(updateObj).length > 0) {
+            const { error: batchError } = await supabase
+              .from("public_work_payments")
+              .update(updateObj)
+              .eq("commitment_number", payload.commitment_number);
+            if (batchError) console.error("Erro ao atualizar empenho em lote:", batchError);
+          }
+        }
       }
 
       toast("Pagamento salvo", { description: "O pagamento foi salvo com sucesso." });
@@ -1359,6 +1438,18 @@ export default function WorkDetailsPageProject() {
 
     return candidates[0]?.url || null;
   }, [media, work]);
+
+  const existingCommitmentData = useMemo(() => {
+    const commitmentNumber = String(paymentForm.commitment_number || "").trim();
+    if (!commitmentNumber) return { date: null, type: null };
+    const found = allPayments.find(
+      (p) => String(p.commitment_number || "").trim() === commitmentNumber && (p.commitment_date || p.commitment_type)
+    );
+    return {
+      date: found?.commitment_date || null,
+      type: found?.commitment_type || null,
+    };
+  }, [paymentForm.commitment_number, allPayments]);
 
   if (loading && !work) {
     return (
@@ -1482,18 +1573,17 @@ export default function WorkDetailsPageProject() {
                   Confira responsáveis, prazos e cronograma, pagamentos e todas as informações importantes sobre a execução desta fase da obra.
                 </p>
               </div>
-              <div className="mx-0 lg:mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-0 lg:mb-8 overflow-hidden">
-                <ObraCurrentPhase
-                  phase={phase}
-                  category={work.work_category?.name || ""}
-                  onEdit={openCurrentPhaseEditDialog}
-                  isAdmin={Boolean(user?.is_admin)}
-                  embedded
-                  showBody={false}
-                />
-
+              <div className="mx-0 lg:mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-0 lg:mb-8 overflow-hidden min-h-[400px]">
 				{currentPhaseView === "general" ? (
 				  <>
+            <ObraCurrentPhase
+              phase={phase}
+              category={work.work_category?.name || ""}
+              onEdit={openCurrentPhaseEditDialog}
+              isAdmin={Boolean(user?.is_admin)}
+              embedded
+              showBody={false}
+            />
 					<div className="bg-background">
 					  <ObraCurrentPhase
 						phase={phase}
@@ -1727,17 +1817,46 @@ export default function WorkDetailsPageProject() {
               </div>
 				  </>
 				) : (
-				  <div className="border-t py-3 sm:py-4">
-					<ObraPayments
-					  payments={paymentsForComponent}
-					  phaseName={currentMeasurement?.title || ""}
-					  embedded
-					  canAdd={Boolean(user?.is_admin)}
-					  onAddPayment={openNewPaymentDialog}
-					  onEditPayment={openEditPaymentDialog}
-					  onDeletePayment={handleDeletePayment}
-					  onBack={openGeneralView}
-					/>
+				  <div className="bg-background min-h-[600px] flex flex-col">
+            <div className="p-4 sm:p-6 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border-b border-white/10 shadow-md">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-white">Consulta de Pagamentos</h3>
+                  <Button variant="outline" size="sm" onClick={openGeneralView} className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                    <X className="h-4 w-4 mr-2" />
+                    Fechar consulta
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {measurements.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setPaymentTabMeasurementId(m.id)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${
+                        paymentTabMeasurementId === m.id
+                          ? "bg-red-500 text-white border-red-600 shadow-sm"
+                          : "bg-white/5 text-white/70 border-white/10 hover:border-white/30 hover:bg-white/10"
+                      }`}
+                    >
+                      {m.title || "Fase"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1">
+              <ObraPayments
+                payments={paymentsForComponent}
+                phaseName={measurements.find(m => m.id === paymentTabMeasurementId)?.title || ""}
+                embedded
+                canAdd={Boolean(user?.is_admin)}
+                onAddPayment={openNewPaymentDialog}
+                onEditPayment={openEditPaymentDialog}
+                onDeletePayment={handleDeletePayment}
+                onBack={null} // We already have the close button in the header
+              />
+            </div>
 				  </div>
 				)}
             </div>
@@ -1833,15 +1952,6 @@ export default function WorkDetailsPageProject() {
                   ))}
                 </select>
               </div>
-
-              <div className="grid gap-2">
-                <Label>Data</Label>
-                <Input
-                  type="date"
-                  value={paymentForm.payment_date}
-                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, payment_date: e.target.value }))}
-                />
-              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -1852,11 +1962,44 @@ export default function WorkDetailsPageProject() {
                   onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_number: e.target.value }))}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label>Tipo de empenho</Label>
+              <div className={`grid gap-2 transition-all duration-300 ${paymentForm.commitment_number ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+                <div className="flex items-center justify-between">
+                  <Label>Data do empenho</Label>
+                  {existingCommitmentData.date && !isEditingCommitmentDate && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingCommitmentDate(true)}
+                      className="text-[10px] font-bold text-red-600 hover:text-red-700 uppercase tracking-tighter"
+                    >
+                      Editar data
+                    </button>
+                  )}
+                </div>
+                <Input
+                  type="date"
+                  value={paymentForm.commitment_date}
+                  disabled={Boolean(existingCommitmentData.date) && !isEditingCommitmentDate}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_date: e.target.value }))}
+                  className={existingCommitmentData.date && !isEditingCommitmentDate ? "bg-muted cursor-not-allowed opacity-70" : ""}
+                />
+              </div>
+              <div className={`grid gap-2 transition-all duration-300 ${paymentForm.commitment_number ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+                <div className="flex items-center justify-between">
+                  <Label>Tipo de empenho</Label>
+                  {existingCommitmentData.type && !isEditingCommitmentType && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingCommitmentType(true)}
+                      className="text-[10px] font-bold text-red-600 hover:text-red-700 uppercase tracking-tighter"
+                    >
+                      Editar tipo
+                    </button>
+                  )}
+                </div>
                 <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  className={`h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background ${existingCommitmentData.type && !isEditingCommitmentType ? "bg-muted cursor-not-allowed opacity-70" : ""}`}
                   value={paymentForm.commitment_type}
+                  disabled={Boolean(existingCommitmentData.type) && !isEditingCommitmentType}
                   onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_type: e.target.value }))}
                 >
                   <option value="">Selecione</option>
@@ -1876,6 +2019,14 @@ export default function WorkDetailsPageProject() {
                   placeholder="Ex.: 1/3"
                   value={paymentForm.installment}
                   onChange={(e) => setPaymentForm((prev) => ({ ...prev, installment: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Data do pagamento</Label>
+                <Input
+                  type="date"
+                  value={paymentForm.payment_date}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, payment_date: e.target.value }))}
                 />
               </div>
             </div>
@@ -2241,7 +2392,8 @@ export default function WorkDetailsPageProject() {
                           <table className="w-full text-sm">
                             <thead className="bg-slate-50">
                               <tr className="text-left text-slate-600">
-                                <th className="p-3 font-semibold">Data</th>
+                                <th className="p-3 font-semibold">Data do pagamento</th>
+                                <th className="p-3 font-semibold">Data do empenho</th>
                                 <th className="p-3 font-semibold">Valor</th>
                                 <th className="p-3 font-semibold">Empenho/Ordem</th>
                                 <th className="p-3 font-semibold">Parcela</th>
@@ -2253,6 +2405,7 @@ export default function WorkDetailsPageProject() {
                               {selectedMeasurement.payments.map((p) => (
                                 <tr key={p.id} className="text-slate-700">
                                   <td className="p-3 whitespace-nowrap">{p.payment_date ? formatDateDisplay(p.payment_date) : "-"}</td>
+                                  <td className="p-3 whitespace-nowrap">{p.commitment_date ? formatDateDisplay(p.commitment_date) : "-"}</td>
                                   <td className="p-3 whitespace-nowrap font-semibold">{formatCurrency(p.value || 0)}</td>
                                   <td className="p-3">{p.commitment_number || p.banking_order || "-"}</td>
                                   <td className="p-3 whitespace-nowrap">{p.installment || "-"}</td>

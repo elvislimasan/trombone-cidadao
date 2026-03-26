@@ -16,6 +16,8 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const [measurements, setMeasurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [isEditingCommitmentDate, setIsEditingCommitmentDate] = useState(false);
+  const [isEditingCommitmentType, setIsEditingCommitmentType] = useState(false);
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
   const [currentPayment, setCurrentPayment] = useState(null);
   const [paymentsQuery, setPaymentsQuery] = useState('');
@@ -57,6 +59,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   };
 
   const [paymentForm, setPaymentForm] = useState({
+    commitment_date: '',
     payment_date: '',
     commitment_number: '',
     commitment_type: '',
@@ -94,6 +97,46 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
     }
   }, [workId, toast]);
 
+  const allPayments = useMemo(() => {
+    return (measurements || []).flatMap(m => m.payments || []);
+  }, [measurements]);
+
+  useEffect(() => {
+    const commitmentNumber = String(paymentForm.commitment_number || "").trim();
+    if (!commitmentNumber) {
+      if (!currentPayment) {
+        setPaymentForm((prev) => ({ ...prev, commitment_date: "", commitment_type: "" }));
+      }
+      return;
+    }
+
+    const existingPayment = allPayments.find(
+      (p) => String(p.commitment_number || "").trim() === commitmentNumber && (p.commitment_date || p.commitment_type)
+    );
+
+    if (existingPayment) {
+      setPaymentForm((prev) => ({
+        ...prev,
+        commitment_date: !isEditingCommitmentDate ? existingPayment.commitment_date || prev.commitment_date : prev.commitment_date,
+        commitment_type: !isEditingCommitmentType ? existingPayment.commitment_type || prev.commitment_type : prev.commitment_type,
+      }));
+    } else if (!currentPayment) {
+      setPaymentForm((prev) => ({ ...prev, commitment_date: "", commitment_type: "" }));
+    }
+  }, [paymentForm.commitment_number, allPayments, currentPayment, isEditingCommitmentDate, isEditingCommitmentType]);
+
+  const existingCommitmentData = useMemo(() => {
+    const commitmentNumber = String(paymentForm.commitment_number || "").trim();
+    if (!commitmentNumber) return { date: null, type: null };
+    const found = allPayments.find(
+      (p) => String(p.commitment_number || "").trim() === commitmentNumber && (p.commitment_date || p.commitment_type)
+    );
+    return {
+      date: found?.commitment_date || null,
+      type: found?.commitment_type || null,
+    };
+  }, [paymentForm.commitment_number, allPayments]);
+
   useEffect(() => {
     if (workId) fetchFinancialData();
   }, [workId, fetchFinancialData]);
@@ -101,9 +144,12 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   // Payment Handlers
   const handleEditPayment = (measurementId, payment = null) => {
     setCurrentMeasurement({ id: measurementId }); // Store which measurement we're adding to
+    setIsEditingCommitmentDate(false);
+    setIsEditingCommitmentType(false);
     if (payment) {
       setCurrentPayment(payment);
       setPaymentForm({
+        commitment_date: payment.commitment_date || '',
         payment_date: payment.payment_date,
         commitment_number: payment.commitment_number || payment.banking_order || '',
         commitment_type: payment.commitment_type || '',
@@ -117,6 +163,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       const measurement = measurements.find(m => m.id === measurementId) || null;
       setCurrentPayment(null);
       setPaymentForm({
+        commitment_date: '',
         payment_date: new Date().toISOString().split('T')[0],
         commitment_number: '',
         commitment_type: '',
@@ -146,6 +193,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
 
       const payload = {
         measurement_id: currentMeasurement.id,
+        commitment_date: paymentForm.commitment_date || null,
         payment_date: paymentForm.payment_date,
         commitment_number: paymentForm.commitment_number || null,
         commitment_type: paymentForm.commitment_type || null,
@@ -165,6 +213,22 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       }
 
       if (error) throw error;
+
+      // Sincronização em lote para empenhos
+      if (payload.commitment_number) {
+        const updateObj = {};
+        if (payload.commitment_date) updateObj.commitment_date = payload.commitment_date;
+        if (payload.commitment_type) updateObj.commitment_type = payload.commitment_type;
+
+        if (Object.keys(updateObj).length > 0) {
+          const { error: batchError } = await supabase
+            .from('public_work_payments')
+            .update(updateObj)
+            .eq('commitment_number', payload.commitment_number);
+          if (batchError) console.error("Erro ao atualizar empenho em lote:", batchError);
+        }
+      }
+
       toast({ title: "Sucesso", description: "Pagamento registrado!" });
       setIsEditingPayment(false);
       if (onEditingChange) onEditingChange(false);
@@ -204,6 +268,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         const hay = [
           measurement?.title,
           payment?.payment_date,
+          payment?.commitment_date,
           payment?.commitment_number,
           payment?.banking_order,
           payment?.commitment_type,
@@ -261,11 +326,47 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                 onChange={(e) => setPaymentForm({ ...paymentForm, commitment_number: e.target.value })}
               />
             </div>
+            <div className={`grid gap-2 transition-all duration-300 ${paymentForm.commitment_number ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+              <div className="flex items-center justify-between">
+                <Label>Data do empenho</Label>
+                {existingCommitmentData.date && !isEditingCommitmentDate && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingCommitmentDate(true)}
+                    className="text-[10px] font-bold text-red-600 hover:text-red-700 uppercase tracking-tighter"
+                  >
+                    Editar data
+                  </button>
+                )}
+              </div>
+              <Input
+                type="date"
+                value={paymentForm.commitment_date}
+                disabled={Boolean(existingCommitmentData.date) && !isEditingCommitmentDate}
+                onChange={(e) => setPaymentForm({ ...paymentForm, commitment_date: e.target.value })}
+                className={existingCommitmentData.date && !isEditingCommitmentDate ? "bg-muted cursor-not-allowed opacity-70" : ""}
+              />
+            </div>
+          </div>
+
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 transition-all duration-300 ${paymentForm.commitment_number ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
             <div className="grid gap-2">
-              <Label>Tipo de empenho</Label>
+              <div className="flex items-center justify-between">
+                <Label>Tipo de empenho</Label>
+                {existingCommitmentData.type && !isEditingCommitmentType && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingCommitmentType(true)}
+                    className="text-[10px] font-bold text-red-600 hover:text-red-700 uppercase tracking-tighter"
+                  >
+                    Editar tipo
+                  </button>
+                )}
+              </div>
               <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                className={`h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background ${existingCommitmentData.type && !isEditingCommitmentType ? "bg-muted cursor-not-allowed opacity-70" : ""}`}
                 value={paymentForm.commitment_type}
+                disabled={Boolean(existingCommitmentData.type) && !isEditingCommitmentType}
                 onChange={(e) => setPaymentForm({ ...paymentForm, commitment_type: e.target.value })}
               >
                 <option value="">Selecione</option>
@@ -276,9 +377,6 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                 ))}
               </select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label>Parcela</Label>
               <Input
@@ -387,7 +485,8 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                         <thead className="text-left border-b bg-slate-50/60 text-slate-400 text-[10px] uppercase">
                           <tr>
                             <th className="px-3 py-2 font-bold">Fase</th>
-                            <th className="px-3 py-2 font-bold">Data</th>
+                            <th className="px-3 py-2 font-bold">Data do pagamento</th>
+                            <th className="px-3 py-2 font-bold">Data do empenho</th>
                             <th className="px-3 py-2 font-bold">Nº Empenho</th>
                             <th className="px-3 py-2 font-bold">Credor</th>
                             <th className="px-3 py-2 font-bold text-right">Valor</th>
@@ -402,6 +501,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                                 <span className="line-clamp-1">{measurement?.title || '-'}</span>
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-slate-600">{payment.commitment_date ? formatDate(payment.commitment_date) : '-'}</td>
                               <td className="px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
                               <td className="px-3 py-2 text-slate-600 max-w-[220px]">
                                 <span className="line-clamp-1">{payment.creditor_name || '-'}</span>
@@ -488,7 +588,8 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                       <table className="w-full text-sm">
                         <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
                           <tr>
-                            <th className="px-3 py-2 font-bold">Data</th>
+                            <th className="px-3 py-2 font-bold">Data do pagamento</th>
+                            <th className="px-3 py-2 font-bold">Data do empenho</th>
                             <th className="px-3 py-2 font-bold">Nº Empenho</th>
                             <th className="px-3 py-2 font-bold">Descrição</th>
                             <th className="px-3 py-2 font-bold">Parcela</th>
@@ -504,6 +605,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                             .map((payment) => (
                               <tr key={payment.id} className="hover:bg-slate-50/50">
                                 <td className="px-3 py-2 whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-slate-600">{payment.commitment_date ? formatDate(payment.commitment_date) : '-'}</td>
                                 <td className="px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
                                 <td className="px-3 py-2 text-slate-600 max-w-[280px]"><span className="line-clamp-2">{payment.payment_description || '-'}</span></td>
                                 <td className="px-3 py-2 text-slate-600">{payment.installment || '-'}</td>

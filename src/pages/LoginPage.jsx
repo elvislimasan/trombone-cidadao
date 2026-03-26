@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { signIn, signInWithGoogle, user } = useAuth();
   const bgHero = '/Login-Trombone-Cidadão-02-17-2026_01_24_PM.png';
 
@@ -146,7 +147,7 @@ const LoginPage = () => {
         <meta name="description" content="Acesse sua conta na plataforma Trombone Cidadão." />
       </Helmet>
       <div
-        className="relative md:max-h-[90vh] max-h-[calc(100vh-8rem)] overflow-hidden"
+        className="relative h-full overflow-hidden"
         style={{
           background:
             'radial-gradient(circle at top left, rgba(248,113,113,0.08), transparent 55%), #F9FAFB',
@@ -175,7 +176,7 @@ const LoginPage = () => {
             <Newspaper className="absolute -bottom-12 left-1/3 w-48 h-48 rotate-3 text-[#F97316]" />
           </div>
         </div>
-        <div className="relative mx-auto max-w-[1200px] px-3 sm:px-6 lg:px-8 py-6 sm:py-10 min-h-[calc(100vh-4rem)] flex items-center">
+        <div className="relative mx-auto max-w-[1200px] h-full px-3 sm:px-6 lg:px-8 py-6 sm:py-10 flex items-center">
           <div className="grid grid-cols-1 w-full place-items-center">
             {/* <motion.div
               initial={{ opacity: 0, y: 12 }}

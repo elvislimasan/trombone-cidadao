@@ -23,7 +23,11 @@ const config = {
       resultType: "uri"
     },
     SplashScreen: {
-      launchShowDuration: 0
+      launchAutoHide: true,
+      launchShowDuration: 3000,
+      showSpinner: false,
+      androidScaleType: "CENTER_INSIDE",
+      backgroundColor: "#4a2121"
     },
     PushNotifications: {
       // ✅ APRESENTAR NOTIFICAÇÕES TANTO EM FOREGROUND QUANTO EM BACKGROUND

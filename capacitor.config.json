@@ -4,12 +4,15 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "https",
-    "url": "https://2e08-2804-e94-93b-f200-65a2-6b74-cead-60ad.ngrok-free.app",
     "cleartext": true
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 0
+      "launchAutoHide": true,
+      "launchShowDuration": 3000,
+      "showSpinner": false,
+      "androidScaleType": "CENTER_INSIDE",
+      "backgroundColor": "#4a2121"
     },
     "StatusBar": {
       "overlaysWebView": false

@@ -6,6 +6,7 @@ import {Toaster as SonnerToast} from 'sonner'
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
+import { SplashScreen } from '@capacitor/splash-screen';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
@@ -60,6 +61,7 @@ import UploadStatusBar from '@/components/UploadStatusBar';
 import HomePageImproved from './pages/HomePage-improved';
 import NotFoundPage from '@/pages/NotFoundPage';
 import SearchPage from '@/pages/SearchPage';
+import MobileHeader from '@/components/MobileHeader';
 
 const SEO = () => {
   const location = useLocation();
@@ -187,20 +189,47 @@ const SEO = () => {
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
-  return user ? children : <Navigate to="/login" />;
+  return user
+    ? children
+    : (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location }}
+      />
+    );
 };
 
 const AdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
-  return user && user.is_admin ? children : <Navigate to="/" />;
+  return user && user.is_admin
+    ? children
+    : (
+      <Navigate
+        to={user ? '/' : '/login'}
+        replace
+        state={!user ? { from: location } : undefined}
+      />
+    );
 };
 
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    } catch {}
+  }, [location.pathname]);
 
   // Safe area para browsers in-app (Instagram/Facebook)
   useEffect(() => {
@@ -216,6 +245,28 @@ function App() {
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (authLoading) return;
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        try {
+          if (Capacitor.isPluginAvailable('SplashScreen')) {
+            SplashScreen.hide();
+          }
+        } catch {}
+      });
+    });
+    return () => {
+      try {
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+      } catch {}
+    };
+  }, [authLoading]);
 
   // ✅ Handler para Restauração de Estado (Android Activity Killed)
   useEffect(() => {
@@ -448,14 +499,18 @@ function App() {
     <UploadProvider>
       <SEO />
       <div className="min-h-screen bg-[#F9FAFB] text-foreground flex flex-col">
-        <Header />
-        <AppDownloadBanner />
+        {!Capacitor.isNativePlatform() && <Header />}
+        {Capacitor.isNativePlatform() && <MobileHeader />}
+        {!Capacitor.isNativePlatform() && <AppDownloadBanner />}
         <main
           className="flex-grow pb-20 lg:pb-0"
           style={{
-            paddingTop:
-              'calc(4rem + max(env(safe-area-inset-top), 0px) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
-            paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+            paddingTop: Capacitor.isNativePlatform()
+              ? 'calc(4rem + max(env(safe-area-inset-top), 0px))'
+              : 'calc(4rem + max(env(safe-area-inset-top), 0px) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+            paddingBottom: Capacitor.isNativePlatform()
+              ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
+              : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
           }}
         >
           <Routes>
@@ -512,8 +567,8 @@ function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
-        <Footer />
-        <BottomNav />
+        {!Capacitor.isNativePlatform() && <Footer />}
+        {Capacitor.isNativePlatform() && <BottomNav />}
         <Toaster />
         <SonnerToast position="top-right" richColors />
         <WebUploadIndicator />

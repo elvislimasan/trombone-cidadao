@@ -29,7 +29,7 @@ export function ObraCurrentPhase({ phase, category, onEdit, isAdmin = false, emb
     <Container className={containerClassName}>
       {showHeader ? (
         <div className={embedded && showBody ? "-mx-6" : ""}>
-          <div className="rounded-t-xl bg-gradient-to-r from-slate-900 to-slate-800 px-6 sm:px-8 lg:px-6 2xl:px-8 py-4 sm:py-5 lg:py-4 2xl:py-5">
+          <div className="rounded-t-xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 px-6 sm:px-8 lg:px-6 2xl:px-8 py-4 sm:py-5 lg:py-4 2xl:py-5 border-b border-white/5 shadow-inner">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[11px] uppercase tracking-wider text-white/70">Fase Atual</div>
