@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2, Search, Plus, ArrowUpDown } from 'lucide-react';
-import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -11,10 +10,6 @@ import { useToast } from '@/components/ui/use-toast';
 import ReportModal from '@/components/ReportModal';
 import { supabase } from '@/lib/customSupabaseClient';
 import BottomNav from '@/components/BottomNav';
-import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
-import MapView from '@/components/MapView';
-import ReportList from '@/components/ReportList';
-import RankingSidebar from '@/components/RankingSidebar';
 import { useUpvote } from '../hooks/useUpvotes';
 import { getReportShareUrl, getPetitionShareUrl } from '@/lib/shareUtils';
 import { getNextSignatureGoal } from '@/lib/utils';
@@ -37,43 +32,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Capacitor } from '@capacitor/core';
+const ReportList = React.lazy(() => import('@/components/ReportList'));
+const RankingSidebar = React.lazy(() => import('@/components/RankingSidebar'));
 
-function MiniMapPreview() {
-  const center = FLORESTA_COORDS;
-  const secondary = [center[0] + 0.002, center[1] + 0.003];
-  const tertiary = [center[0] - 0.002, center[1] - 0.002];
+const MapView = React.lazy(() => import('@/components/MapView'));
 
-  return (
-    <MapContainer
-      center={center}
-      zoom={INITIAL_ZOOM}
-      scrollWheelZoom={false}
-      dragging={false}
-      doubleClickZoom={false}
-      zoomControl={false}
-      attributionControl={false}
-      className="w-full h-full"
-      style={{ background: '#111827' }}
-    >
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      <CircleMarker
-        center={center}
-        radius={10}
-        pathOptions={{ color: '#F97316', fillColor: '#F97316', fillOpacity: 0.9 }}
-      />
-      <CircleMarker
-        center={secondary}
-        radius={8}
-        pathOptions={{ color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.9 }}
-      />
-      <CircleMarker
-        center={tertiary}
-        radius={8}
-        pathOptions={{ color: '#22C55E', fillColor: '#22C55E', fillOpacity: 0.9 }}
-      />
-    </MapContainer>
-  );
-}
+const REPORTS_PREVIEW_LIMIT = 250;
+const PETITIONS_DONATIONS_CHUNK = 250;
 
 function HomePageImproved() {
   const navigate = useNavigate();
@@ -98,14 +63,31 @@ function HomePageImproved() {
   const [categories, setCategories] = useState([]);
   const [filter, setFilter] = useState({ status: 'active', category: 'all' });
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState('newest'); // 'newest' | 'oldest'
   const [searchOpen, setSearchOpen] = useState(false);
-  const [filteredReports, setFilteredReports] = useState([]);
   const [viewMode, setViewMode] = useState('map');
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const explorerRef = useRef(null);
+  const cancelledRef = useRef(false);
+  const normalizeReportStatus = useCallback((s) => {
+    const v = String(s || '').trim().toLowerCase();
+    const norm = v.replace(/[\s_]+/g, '-');
+    if (norm === 'pendente') return 'pending';
+    if (norm === 'resolvido' || norm === 'resolvida') return 'resolved';
+    if (norm === 'in-progress' || norm === 'inprogress' || norm === 'em-andamento' || norm === 'andamento') return 'in-progress';
+    if (norm === 'pending' || norm === 'resolved') return norm;
+    return norm || 'pending';
+  }, []);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     const seen = localStorage.getItem('home-petitions-update-modal-v1');
@@ -136,40 +118,43 @@ function HomePageImproved() {
   const fetchStats = useCallback(async (retryCount = 0) => {
     setLoadingStats(true);
     try {
-      const { data, error } = await supabase
-        .from('reports')
-        .select('id, status, author_id, moderation_status')
-        .eq('moderation_status', 'approved');
+      const buildBase = () =>
+        supabase
+          .from('reports')
+          .select('id', { count: 'exact', head: true })
+          .eq('moderation_status', 'approved')
+          .neq('status', 'duplicate');
 
-      if (error) {
-        throw error;
-      }
+      const [pendingRes, inProgressRes, resolvedRes, myResolvedRes] = await Promise.all([
+        buildBase().eq('status', 'pending'),
+        buildBase().eq('status', 'in-progress'),
+        buildBase().eq('status', 'resolved'),
+        user ? buildBase().eq('status', 'resolved').eq('author_id', user.id) : Promise.resolve({ count: 0, error: null }),
+      ]);
 
-      const reports = data || [];
-      const activeReports = reports.filter((r) => r.status !== 'duplicate');
-      const pending = activeReports.filter((r) => r.status === 'pending').length;
-      const inProgress = activeReports.filter((r) => r.status === 'in-progress').length;
-      const totalResolved = activeReports.filter((r) => r.status === 'resolved').length;
+      if (pendingRes.error) throw pendingRes.error;
+      if (inProgressRes.error) throw inProgressRes.error;
+      if (resolvedRes.error) throw resolvedRes.error;
+      if (myResolvedRes.error) throw myResolvedRes.error;
+
+      const pending = pendingRes.count || 0;
+      const inProgress = inProgressRes.count || 0;
+      const totalResolved = resolvedRes.count || 0;
       const total = pending + inProgress;
-      const userResolved = user
-        ? activeReports.filter((r) => r.status === 'resolved' && r.author_id === user.id).length
-        : 0;
+      const userResolved = myResolvedRes.count || 0;
 
-      setStats({
-        total,
-        pending,
-        inProgress,
-        totalResolved,
-        resolved: userResolved,
-      });
+      if (cancelledRef.current) return;
+      setStats({ total, pending, inProgress, totalResolved, resolved: userResolved });
     } catch (err) {
       console.error('Erro ao buscar estatísticas da home:', err);
       // 🔥 Retry mechanism para falhas intermitentes
       if (retryCount < 2) {
-        setTimeout(() => fetchStats(retryCount + 1), 2000);
+        setTimeout(() => {
+          if (!cancelledRef.current) fetchStats(retryCount + 1);
+        }, 2000);
       }
     } finally {
-      setLoadingStats(false);
+      if (!cancelledRef.current) setLoadingStats(false);
     }
   }, [user]);
 
@@ -185,33 +170,26 @@ function HomePageImproved() {
         throw petitionsError;
       }
 
-      const petitionsWithCounts = await Promise.all(
-        (petitionsData || []).map(async (p) => {
-          const { count, error: countError } = await supabase
-            .from("signatures")
-            .select("id", { count: "exact", head: true })
-            .eq("petition_id", p.id)
-            .not("email", "is", null)
-            .ilike("email", "%@%.%");
+      const petitionIds = (petitionsData || []).map((p) => p.id).filter(Boolean);
 
-          const signatureCount =
-            !countError && typeof count === "number"
-              ? count
-              : p.signatures?.[0]?.count || 0;
+      const processed = (petitionsData || []).map((p) => ({
+        ...p,
+        signatureCount: p.signatures?.[0]?.count || 0,
+      }));
 
-          return {
-            ...p,
-            signatureCount,
-          };
-        })
-      );
-
-      let processed = petitionsWithCounts;
-
-      const { data: donations } = await supabase
-        .from('donations')
-        .select('petition_id, amount')
-        .eq('status', 'paid');
+      let donations = [];
+      if (petitionIds.length > 0) {
+        for (let i = 0; i < petitionIds.length; i += PETITIONS_DONATIONS_CHUNK) {
+          const chunkIds = petitionIds.slice(i, i + PETITIONS_DONATIONS_CHUNK);
+          const { data: chunkData, error: chunkError } = await supabase
+            .from('donations')
+            .select('petition_id, amount')
+            .eq('status', 'paid')
+            .in('petition_id', chunkIds);
+          if (chunkError) throw chunkError;
+          donations = donations.concat(chunkData || []);
+        }
+      }
 
       const totals = {};
       (donations || []).forEach((d) => {
@@ -220,7 +198,7 @@ function HomePageImproved() {
         totals[pid] = (totals[pid] || 0) + amount;
       });
 
-      processed = processed.map((p) => {
+      const enriched = processed.map((p) => {
         const donationTotal = totals[p.id] || 0;
         const goal = getNextSignatureGoal(p.signatureCount || 0, p.goal || 100);
         const progress = Math.min(((p.signatureCount || 0) / goal) * 100, 100);
@@ -231,7 +209,7 @@ function HomePageImproved() {
         };
       });
 
-      const withDonations = processed.filter((p) => (p.donationTotal || 0) > 0);
+      const withDonations = enriched.filter((p) => (p.donationTotal || 0) > 0);
 
       let ranked;
       if (withDonations.length > 0) {
@@ -243,28 +221,34 @@ function HomePageImproved() {
           return 0;
         });
       } else {
-        ranked = [...processed].sort((a, b) => {
+        ranked = [...enriched].sort((a, b) => {
           const signatureDiff = (b.signatureCount || 0) - (a.signatureCount || 0);
           if (signatureDiff !== 0) return signatureDiff;
           return 0;
         });
       }
 
+      if (cancelledRef.current) return;
       setPetitions(ranked.slice(0, 10));
     } catch (err) {
       console.error('Erro ao buscar petições para a home:', err);
       if (retryCount < 2) {
-        setTimeout(() => fetchTopPetitions(retryCount + 1), 2000);
+        setTimeout(() => {
+          if (!cancelledRef.current) fetchTopPetitions(retryCount + 1);
+        }, 2000);
       }
     } finally {
-      setLoadingPetitions(false);
+      if (!cancelledRef.current) setLoadingPetitions(false);
     }
   }, []);
 
   const fetchReportsPreview = useCallback(async (retryCount = 0) => {
     setLoadingReports(true);
     try {
-      const { data, error } = await supabase
+      const wanted = normalizeReportStatus(filter.status);
+      const limit = wanted !== 'all' && wanted !== 'active' ? 1000 : REPORTS_PREVIEW_LIMIT;
+
+      let query = supabase
         .from('reports')
         .select(`
           id,
@@ -282,16 +266,38 @@ function HomePageImproved() {
           author_id,
           category:categories(name, icon),
           upvotes:signatures(count),
-          user_upvotes:signatures(user_id),
-          report_media(*),
           comments_count:comments(count),
-          favorite_reports(user_id)
+          report_media(url, type)
         `)
         .eq('moderation_status', 'approved')
         .order('created_at', { ascending: sortOrder === 'oldest' });
 
+      if (wanted !== 'all' && wanted !== 'active' && wanted) {
+        query = query.eq('status', wanted);
+      }
+
+      const { data, error } = await query.limit(limit);
+
       if (error) {
         throw error;
+      }
+
+      const reportIds = (data || []).map((r) => r.id).filter(Boolean);
+
+      let upvotedSet = new Set();
+      let favoritesSet = new Set();
+
+      if (user && reportIds.length > 0) {
+        const [upvotesRes, favRes] = await Promise.all([
+          supabase.from('signatures').select('report_id').eq('user_id', user.id).in('report_id', reportIds),
+          supabase.from('favorite_reports').select('report_id').eq('user_id', user.id).in('report_id', reportIds),
+        ]);
+
+        if (upvotesRes.error) throw upvotesRes.error;
+        if (favRes.error) throw favRes.error;
+
+        upvotedSet = new Set((upvotesRes.data || []).map((row) => row.report_id));
+        favoritesSet = new Set((favRes.data || []).map((row) => row.report_id));
       }
 
       const formatted = (data || []).map((r) => ({
@@ -304,37 +310,43 @@ function HomePageImproved() {
         categoryIcon: r.category?.icon,
         coverImage: (r.report_media || []).find((m) => m.type === 'photo')?.url || null,
         upvotes: r.upvotes?.[0]?.count || 0,
-        user_has_upvoted: user ? (r.user_upvotes || []).some((u) => u.user_id === user.id) : false,
         comments_count: r.comments_count?.[0]?.count || 0,
-        is_favorited: user ? (r.favorite_reports || []).some((fav) => fav.user_id === user.id) : false,
+        user_has_upvoted: user ? upvotedSet.has(r.id) : false,
+        is_favorited: user ? favoritesSet.has(r.id) : false,
       }));
 
+      if (cancelledRef.current) return;
       setReportsPreview(formatted);
     } catch (err) {
       console.error('Erro ao buscar broncas para o mapa da home:', err);
       if (retryCount < 2) {
-        setTimeout(() => fetchReportsPreview(retryCount + 1), 2000);
+        setTimeout(() => {
+          if (!cancelledRef.current) fetchReportsPreview(retryCount + 1);
+        }, 2000);
       }
     } finally {
-      setLoadingReports(false);
+      if (!cancelledRef.current) setLoadingReports(false);
     }
-  }, [user, sortOrder]);
+  }, [user, sortOrder, filter.status, normalizeReportStatus]);
 
   const fetchCategories = useCallback(async (retryCount = 0) => {
     try {
       const { data, error } = await supabase
         .from('categories')
-        .select('*');
+        .select('id, name, icon');
 
       if (error) {
         throw error;
       }
 
+      if (cancelledRef.current) return;
       setCategories(data || []);
     } catch (err) {
       console.error('Erro ao buscar categorias:', err);
       if (retryCount < 2) {
-        setTimeout(() => fetchCategories(retryCount + 1), 2000);
+        setTimeout(() => {
+          if (!cancelledRef.current) fetchCategories(retryCount + 1);
+        }, 2000);
       }
     }
   }, []);
@@ -346,36 +358,51 @@ function HomePageImproved() {
     fetchCategories();
   }, [fetchStats, fetchTopPetitions, fetchReportsPreview, fetchCategories]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
   const statusFilteredReports = useMemo(() => {
     let tempReports = reportsPreview.filter((r) => r.status !== 'duplicate');
+    const wanted = normalizeReportStatus(filter.status);
 
-    if (filter.status === 'active') {
+    if (wanted === 'active') {
       tempReports = tempReports.filter(
-        (r) => r.status === 'pending' || r.status === 'in-progress'
+        (r) => {
+          const st = normalizeReportStatus(r.status);
+          return st === 'pending' || st === 'in-progress';
+        }
       );
-    } else if (filter.status === 'my-resolved') {
+    } else if (wanted === 'my-resolved') {
       tempReports = tempReports.filter(
-        (r) => r.status === 'resolved' && user && r.author_id === user.id
+        (r) => normalizeReportStatus(r.status) === 'resolved' && user && r.author_id === user.id
       );
-    } else if (filter.status === 'resolved') {
-      tempReports = tempReports.filter((r) => r.status === 'resolved');
-    } else if (filter.status !== 'all') {
-      tempReports = tempReports.filter((r) => r.status === filter.status);
+    } else if (wanted === 'resolved') {
+      tempReports = tempReports.filter((r) => normalizeReportStatus(r.status) === 'resolved');
+    } else if (wanted !== 'all') {
+      tempReports = tempReports.filter((r) => normalizeReportStatus(r.status) === wanted);
     }
 
     return tempReports;
-  }, [reportsPreview, filter.status, user]);
+  }, [reportsPreview, filter.status, user, normalizeReportStatus]);
 
   const statusCounts = useMemo(() => {
-    const items = (reportsPreview || []).filter((r) => r.status !== 'duplicate');
-    const pending = items.filter((r) => r.status === 'pending').length;
-    const inProgress = items.filter((r) => r.status === 'in-progress').length;
-    const resolved = items.filter((r) => r.status === 'resolved').length;
+    let items = (reportsPreview || []).filter((r) => r.status !== 'duplicate');
+    if (filter.category !== 'all') {
+      items = items.filter((r) => r.category_id === filter.category);
+    }
+    if (viewMode === 'map') {
+      items = items.filter((r) => r.location && typeof r.location.lat === 'number' && typeof r.location.lng === 'number');
+    }
+    const pending = items.filter((r) => normalizeReportStatus(r.status) === 'pending').length;
+    const inProgress = items.filter((r) => normalizeReportStatus(r.status) === 'in-progress').length;
+    const resolved = items.filter((r) => normalizeReportStatus(r.status) === 'resolved').length;
     const total = items.length;
     const active = pending + inProgress;
-    const myResolved = user ? items.filter((r) => r.status === 'resolved' && r.author_id === user.id).length : 0;
+    const myResolved = user ? items.filter((r) => normalizeReportStatus(r.status) === 'resolved' && r.author_id === user.id).length : 0;
     return { total, pending, inProgress, resolved, active, myResolved };
-  }, [reportsPreview, user]);
+  }, [reportsPreview, user, viewMode, filter.category, normalizeReportStatus]);
 
   const categoryCounts = useMemo(() => {
     const map = {};
@@ -387,14 +414,14 @@ function HomePageImproved() {
     return map;
   }, [statusFilteredReports]);
 
-  useEffect(() => {
+  const filteredReports = useMemo(() => {
     let tempReports = statusFilteredReports;
 
     if (filter.category !== 'all') {
       tempReports = tempReports.filter((r) => r.category_id === filter.category);
     }
 
-    const term = searchTerm.trim().toLowerCase();
+    const term = debouncedSearchTerm.trim().toLowerCase();
     if (term) {
       tempReports = tempReports.filter((r) => {
         const title = r.title ? r.title.toLowerCase() : '';
@@ -403,8 +430,14 @@ function HomePageImproved() {
       });
     }
 
-    setFilteredReports(tempReports);
-  }, [statusFilteredReports, filter.category, searchTerm]);
+    if (viewMode === 'map') {
+      tempReports = tempReports.filter(
+        (r) => r.location && typeof r.location.lat === 'number' && typeof r.location.lng === 'number'
+      );
+    }
+
+    return tempReports;
+  }, [debouncedSearchTerm, filter.category, statusFilteredReports, viewMode]);
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -424,7 +457,9 @@ function HomePageImproved() {
     setFilter((prev) => ({
       ...prev,
       status: statusKey,
+      category: 'all',
     }));
+    setSearchTerm('');
     setViewMode('map');
     if (explorerRef.current) {
       explorerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1041,14 +1076,16 @@ function HomePageImproved() {
                             mapExpanded ? 'h-[26rem]' : 'h-[18rem]'
                           }`}
                         >
-                          <MapView
-                            reports={filteredReports}
-                            onReportClick={handleReportClick}
-                            onUpvote={() => {}}
-                            showLegend
-                            showModeToggle={false}
-                            interactive
-                          />
+                          <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-white">Carregando mapa...</div>}>
+                            <MapView
+                              reports={filteredReports}
+                              onReportClick={handleReportClick}
+                              onUpvote={() => {}}
+                              showLegend
+                              showModeToggle={false}
+                              interactive
+                            />
+                          </Suspense>
                         </div>
                     
                     </motion.div>
@@ -1059,37 +1096,45 @@ function HomePageImproved() {
                           mapExpanded ? 'h-[30rem] xl:h-[32rem]' : 'h-[28rem] xl:h-[28rem]'
                         }`}
                       >
-                        <MapView
-                          reports={filteredReports}
-                          onReportClick={handleReportClick}
-                          onUpvote={() => {}}
-                          showLegend
-                          showModeToggle={false}
-                          interactive
-                        />
+                        <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-white">Carregando mapa...</div>}>
+                          <MapView
+                            reports={filteredReports}
+                            onReportClick={handleReportClick}
+                            onUpvote={() => {}}
+                            showLegend
+                            showModeToggle={false}
+                            interactive
+                          />
+                        </Suspense>
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div className="max-h-[26rem] md:max-h-[30rem] xl:max-h-[32rem] overflow-y-auto -mx-1 px-1 mt-2">
-                    <ReportList reports={filteredReports} onReportClick={handleReportClick} />
+                  <div className="max-h-[26rem] md:max-h-[30rem] xl:max-h-[32rem] overflow-y-auto -mx-1 px-1 mt-2" style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}>
+                    <Suspense fallback={<div className="p-4 text-xs text-muted-foreground">Carregando lista...</div>}>
+                      <ReportList reports={filteredReports} onReportClick={handleReportClick} />
+                    </Suspense>
                   </div>
                 )}
               </div> )}
             </div>
 
             <aside className="hidden lg:block lg:col-span-4">
-              <RankingSidebar reports={reportsPreview} onReportClick={handleReportClick} />
+              <Suspense fallback={<div className="p-4 text-xs text-muted-foreground">Carregando ranking...</div>}>
+                <RankingSidebar reports={reportsPreview} onReportClick={handleReportClick} />
+              </Suspense>
             </aside>
           </div>
         </section>
        { viewMode === 'ranking' && (
                         <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm overflow-hidden mt-2">
-                          <RankingSidebar
-                            embedded
-                            reports={reportsPreview}
-                            onReportClick={handleReportClick}
-                          />
+                          <Suspense fallback={<div className="p-4 text-xs text-muted-foreground">Carregando ranking...</div>}>
+                            <RankingSidebar
+                              embedded
+                              reports={reportsPreview}
+                              onReportClick={handleReportClick}
+                            />
+                          </Suspense>
                         </div>)}
 
         {featuredReports.length > 0 && (
@@ -1121,6 +1166,8 @@ function HomePageImproved() {
                           <img
                             src={r.coverImage}
                             alt={r.title}
+                            width="640"
+                            height="256"
                             className="w-full h-full object-cover transform transition-transform duration-300 group-hover:scale-105"
                           />
                         ) : (

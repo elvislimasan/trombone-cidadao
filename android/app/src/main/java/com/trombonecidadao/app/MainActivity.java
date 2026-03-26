@@ -13,6 +13,8 @@ import android.view.WindowInsetsController;
 import android.webkit.WebView;
 import android.webkit.JavascriptInterface;
 import android.util.Log;
+import android.graphics.Color;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.Bridge;
@@ -27,6 +29,9 @@ public class MainActivity extends BridgeActivity {
     
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Inicializar SplashScreen ANTES de super.onCreate()
+        SplashScreen.installSplashScreen(this);
+
         try {
             registerPlugin(VideoProcessorPlugin.class);
         } catch (Exception e) {
@@ -90,6 +95,9 @@ public class MainActivity extends BridgeActivity {
                         webView.getSettings().setJavaScriptEnabled(true);
                         webView.getSettings().setDomStorageEnabled(true);
                         webView.getSettings().setDatabaseEnabled(true);
+                        // Evitar tela escura quando o conteúdo ainda não carregou:
+                        // manter fundo branco por padrão; a câmera nativa usa toBack e esconde o root quando ativa.
+                        webView.setBackgroundColor(Color.WHITE);
                         
                         // Garantir que o WebView respeita safe areas
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

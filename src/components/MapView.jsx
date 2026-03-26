@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { ThumbsUp, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,13 @@ const getStatusColor = (status) => {
   return colors[status] || '#6b7280';
 };
 
+const markerIconCache = new Map();
+
 const createMarkerIcon = (category, status) => {
+  const key = `${category || ''}|${status || ''}`;
+  const cached = markerIconCache.get(key);
+  if (cached) return cached;
+
   const iconHtml = `
     <div style="
       background-color: ${getStatusColor(status)};
@@ -46,13 +52,15 @@ const createMarkerIcon = (category, status) => {
       ${getCategoryIcon(category)}
     </div>
   `;
-  return L.divIcon({
+  const icon = L.divIcon({
     html: iconHtml,
     className: 'custom-leaflet-icon',
     iconSize: [40, 40],
     iconAnchor: [20, 40],
     popupAnchor: [0, -40]
   });
+  markerIconCache.set(key, icon);
+  return icon;
 };
 
 const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showModeToggle = true, interactive = true }) => {
@@ -68,6 +76,64 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
     useEffect(() => {
     }, [mode]);
     return null;
+  };
+
+  const clusterSize = 0.003; // ~300-350m dependendo da latitude
+  const clustered = useMemo(() => {
+    const list = Array.isArray(reports) ? reports : [];
+    if (list.length <= 200) return null;
+    const buckets = new Map();
+    for (const r of list) {
+      const loc = r.location;
+      if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') continue;
+      const keyLat = Math.floor(loc.lat / clusterSize);
+      const keyLng = Math.floor(loc.lng / clusterSize);
+      const key = `${keyLat}:${keyLng}`;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(r);
+    }
+    const clusters = [];
+    for (const arr of buckets.values()) {
+      if (arr.length === 1) {
+        const r = arr[0];
+        clusters.push({ count: 1, lat: r.location.lat, lng: r.location.lng, items: arr });
+      } else {
+        const sumLat = arr.reduce((acc, r) => acc + r.location.lat, 0);
+        const sumLng = arr.reduce((acc, r) => acc + r.location.lng, 0);
+        const lat = sumLat / arr.length;
+        const lng = sumLng / arr.length;
+        clusters.push({ count: arr.length, lat, lng, items: arr });
+      }
+    }
+    return clusters;
+  }, [reports]);
+
+  const createClusterIcon = (count) => {
+    const size = count >= 50 ? 46 : count >= 10 ? 42 : 38;
+    const intensity = count >= 50 ? '#ef4444' : count >= 10 ? '#f59e0b' : '#3b82f6';
+    const html = `
+      <div style="
+        background: ${intensity};
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 999px;
+        border: 2px solid white;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 14px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.18);
+      ">${count}</div>
+    `;
+    return L.divIcon({
+      html,
+      className: 'cluster-leaflet-icon',
+      iconSize: [size, size],
+      iconAnchor: [size/2, size],
+      popupAnchor: [0, -size]
+    });
   };
 
   return (
@@ -87,25 +153,48 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapScrollLock />
-          {reports.map((report) => {
-            const location = report.location;
+          {(clustered ? clustered : reports).map((item) => {
+            const isCluster = !!item.items;
+            const location = isCluster ? { lat: item.lat, lng: item.lng } : item.location;
+            const report = isCluster ? null : item;
+            // const location = report.location;
             if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
               return null;
             }
             return (
               <Marker
-                key={report.id}
+                key={isCluster ? `cluster-${item.lat}-${item.lng}-${item.count}` : report.id}
                 position={[location.lat, location.lng]}
-                icon={createMarkerIcon(report.category, report.status)}
+                icon={isCluster ? createClusterIcon(item.count) : createMarkerIcon(report.category, report.status)}
                 eventHandlers={{
                   dblclick: (e) => {
                     e.originalEvent.stopPropagation();
-                    onReportClick(report);
+                    if (!isCluster) onReportClick(report);
                   },
                 }}
               >
                 <Popup>
                   <div className="w-64">
+                    {isCluster ? (
+                      <>
+                        <h3 className="font-bold text-base mb-2">Broncas nesta área</h3>
+                        <ul className="space-y-1 mb-3">
+                          {item.items.slice(0, 3).map((r) => (
+                            <li key={r.id} className="text-sm line-clamp-1">{r.title}</li>
+                          ))}
+                          {item.count > 3 && (
+                            <li className="text-xs text-muted-foreground">+{item.count - 3} outras</li>
+                          )}
+                        </ul>
+                        <div className="flex justify-between">
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); }}>
+                            Área com {item.count}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                      
                     <h3 className="font-bold text-base mb-1">{report.title}</h3>
                     <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{report.description}</p>
                     <div className="flex items-center text-xs text-muted-foreground mb-3">
@@ -129,6 +218,8 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
                         Ver Detalhes
                       </Button>
                     </div>
+                      </>
+                    )}
                   </div>
                 </Popup>
               </Marker>

@@ -10,10 +10,19 @@ import { MapModeProvider } from './contexts/MapModeContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
 
 // SOLUÇÃO ROBUSTA PARA SAFE AREAS EM PRODUÇÃO
 // Aplicar safe areas no Capacitor usando múltiplos métodos para garantir compatibilidade
 if (Capacitor.isNativePlatform()) {
+  try {
+    document.documentElement.classList.add('native-app');
+  } catch {}
+  try {
+    if (Capacitor.isPluginAvailable('SplashScreen')) {
+      SplashScreen.show({ autoHide: false });
+    }
+  } catch {}
   const applySafeAreas = async () => {
     try {
       const root = document.documentElement;
@@ -233,3 +242,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </>
 );
+
+// Fallback para garantir que a Splash esconda mesmo em cenários de cache limpo/lento
+if (Capacitor.isNativePlatform()) {
+  try {
+    if (Capacitor.isPluginAvailable('SplashScreen')) {
+      setTimeout(() => {
+        try {
+          SplashScreen.hide();
+        } catch {}
+      }, 1800);
+    }
+  } catch {}
+}

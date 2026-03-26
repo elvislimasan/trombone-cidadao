@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin, ArrowUpRight, Megaphone } from 'lucide-react';
+import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin, ArrowUpRight, Megaphone, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -30,6 +30,7 @@ const NewsDetailsPage = () => {
   const [relatedReports, setRelatedReports] = useState([]);
   const [relatedNews, setRelatedNews] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const bodyRef = useRef(null);
 
   const fetchNewsDetails = useCallback(async () => {
@@ -145,6 +146,30 @@ const NewsDetailsPage = () => {
   useEffect(() => {
     fetchNewsDetails();
   }, [fetchNewsDetails]);
+
+  useEffect(() => {
+    try {
+      const key = user?.id ? `tc_favorite_news_ids_${user.id}` : 'tc_favorite_news_ids';
+      const raw = localStorage.getItem(key);
+      const ids = JSON.parse(raw || '[]');
+      setIsSaved(Array.isArray(ids) && ids.includes(newsId));
+    } catch {
+      setIsSaved(false);
+    }
+  }, [newsId, user?.id]);
+
+  const toggleSaved = () => {
+    try {
+      const key = user?.id ? `tc_favorite_news_ids_${user.id}` : 'tc_favorite_news_ids';
+      const raw = localStorage.getItem(key);
+      const ids = JSON.parse(raw || '[]');
+      const safeIds = Array.isArray(ids) ? ids : [];
+      const nextIds = safeIds.includes(newsId) ? safeIds.filter((id) => id !== newsId) : [newsId, ...safeIds];
+      localStorage.setItem(key, JSON.stringify(nextIds));
+      setIsSaved(nextIds.includes(newsId));
+      toast({ title: nextIds.includes(newsId) ? "Notícia salva" : "Removida das salvas" });
+    } catch {}
+  };
 
   const handleWhatsAppShare = () => {
     const shareUrl = getNewsShareUrl(newsItem.id);
@@ -858,6 +883,14 @@ const NewsDetailsPage = () => {
           )}
 
           <div className="flex flex-wrap justify-end gap-3 mb-12">
+            <Button
+              onClick={toggleSaved}
+              variant="outline"
+              className="gap-2"
+            >
+              <Star className={`w-4 h-4 ${isSaved ? 'text-yellow-500 fill-yellow-500' : ''}`} />
+              {isSaved ? 'Salva' : 'Salvar'}
+            </Button>
             <Button 
               onClick={handleWhatsAppShare} 
               variant="outline" 

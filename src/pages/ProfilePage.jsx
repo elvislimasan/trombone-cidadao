@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { User, Briefcase, Edit, LogOut, LayoutGrid, Award, ThumbsUp, MessageSquare, FileText, KeyRound } from 'lucide-react';
+import { User, Briefcase, Edit, LogOut, Award, ThumbsUp, MessageSquare, FileText, KeyRound, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import EditProfileModal from '@/components/EditProfileModal';
@@ -208,12 +208,22 @@ const ProfilePage = () => {
                 <span>{userTypeDisplay[user.user_type]?.text}</span>
               </div>
               
-              <Link to="/painel-usuario" className="w-full">
-                <Button variant="default" className="mt-6 w-full gap-2 bg-tc-red hover:bg-tc-red/90">
-                  <LayoutGrid className="w-4 h-4" />
-                  Acessar Meu Painel
-                </Button>
-              </Link>
+              <div className="w-full mt-6 space-y-2">
+                <Link to="/minhas-peticoes" className="w-full block">
+                  <Button variant="default" className="w-full gap-2 bg-tc-red hover:bg-tc-red/90">
+                    <FileText className="w-4 h-4" />
+                    Minhas Petições
+                  </Button>
+                </Link>
+                {user?.is_admin && (
+                  <Link to="/admin" className="w-full block">
+                    <Button variant="outline" className="w-full gap-2">
+                      <Shield className="w-4 h-4" />
+                      Admin
+                    </Button>
+                  </Link>
+                )}
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-2 mt-8 w-full">
                 <Link to="/alterar-senha" className="flex-1">

@@ -34,6 +34,12 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
+      setUser((prev) => {
+        if (prev && prev.id === authUser.id) return prev;
+        return authUser;
+      });
+      setLoading(false);
+
       // Adicionar timeout para a busca de perfil para evitar "travar" a inicialização
       const fetchPromise = supabase
         .from('profiles')
@@ -49,16 +55,14 @@ export const AuthProvider = ({ children }) => {
 
       if (error) {
         console.error("Error fetching user profile:", error);
-        setUser(authUser); // Fallback to auth user
+        setUser((prev) => prev || authUser); // Fallback to auth user
       } else {
         const fullUser = { ...authUser, ...profile };
         setUser(fullUser);
       }
     } catch (err) {
       console.error("Profile fetch exception or timeout:", err);
-      setUser(authUser); // Fallback to auth user em caso de timeout/erro
-    } finally {
-      setLoading(false);
+      setUser((prev) => prev || authUser); // Fallback to auth user em caso de timeout/erro
     }
   }, []);
 
@@ -439,7 +443,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
