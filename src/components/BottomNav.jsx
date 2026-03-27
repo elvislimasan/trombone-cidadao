@@ -9,6 +9,7 @@ import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { defaultMenuSettings } from '@/config/menuConfig';
+import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
 const BottomNav = () => {
   const location = useLocation();
@@ -18,6 +19,9 @@ const BottomNav = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
+  const isNative = Capacitor.isNativePlatform();
+  const { isInteractive } = useNativeUIMode();
+  const isInteractiveMode = isNative && isInteractive;
 
   const triggerHaptic = async () => {
     if (Capacitor.isNativePlatform()) {
@@ -59,19 +63,16 @@ const BottomNav = () => {
   }, []);
 
   useEffect(() => {
+    if (!isInteractiveMode) return;
     fetchSiteSettings();
-  }, [fetchSiteSettings]);
+  }, [fetchSiteSettings, isInteractiveMode]);
 
   const handleNewReportClick = () => {
     triggerHaptic();
     if (user) {
       setShowReportModal(true);
     } else {
-      toast({
-        title: "Acesso restrito",
-        description: "Você precisa fazer login para criar uma nova bronca.",
-        variant: "destructive",
-      });
+     
       navigate('/login');
     }
   };
@@ -120,15 +121,24 @@ const BottomNav = () => {
     window.dispatchEvent(new CustomEvent('reports-updated'));
   };
 
-  const navItems = [
-    { path: '/', icon: Home, label: 'Início' },
-    { path: '/estatisticas', icon: BarChart3, label: 'Stats' },
-    { path: 'modal', icon: PlusCircle, label: 'Adicionar' },
-    { path: '/favoritos', icon: Star, label: 'Favoritos' },
-    { path: 'more', icon: MoreHorizontal, label: 'Mais' },
-  ];
+  const navItems = isInteractiveMode
+    ? [
+        { path: '/', icon: Home, label: 'Início' },
+        { path: '/estatisticas', icon: BarChart3, label: 'Stats' },
+        { path: 'modal', icon: PlusCircle, label: 'Adicionar' },
+        { path: '/favoritos', icon: Star, label: 'Favoritos' },
+        { path: 'more', icon: MoreHorizontal, label: 'Mais' },
+      ]
+    : [
+        { path: '/', icon: Home, label: 'Início' },
+        { path: '/estatisticas', icon: BarChart3, label: 'Stats' },
+        { path: 'modal', icon: PlusCircle, label: 'Adicionar' },
+        { path: '/favoritos', icon: Star, label: 'Favoritos' },
+        { path: '/perfil', icon: User, label: 'Perfil' },
+      ];
 
   const extraItems = useMemo(() => {
+    if (!isInteractiveMode) return [];
     const visibleMenuItems = (menuSettings?.items || defaultMenuSettings.items).filter((item) => item.isVisible);
 
     const iconByPath = {
@@ -170,7 +180,7 @@ const BottomNav = () => {
       deduped.push(item);
     }
     return deduped;
-  }, [menuSettings, user]);
+  }, [isInteractiveMode, menuSettings, user]);
 
   const navLinkClass = (path) => {
     const isActive = location.pathname === path;
@@ -189,14 +199,14 @@ const BottomNav = () => {
         }}
       >
         <div className="container mx-auto h-16">
-          <div className="flex justify-around items-center h-full">
+          <div className="grid grid-cols-5 items-center h-full">
             {navItems.map((item) => {
               if (item.path === 'modal') {
                 return (
                   <button 
                     key={item.label} 
                     onClick={handleNewReportClick} 
-                    className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary -mt-8"
+                    className="justify-self-center flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary -mt-8"
                   >
                     <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-xl ring-4 ring-background">
                       <PlusCircle size={32} />
@@ -207,38 +217,40 @@ const BottomNav = () => {
               
               if (item.path === 'more') {
                 return (
-                  <Drawer key={item.label} open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-                    <DrawerTrigger asChild>
-                      <button 
-                        onClick={triggerHaptic}
-                        className="flex flex-col items-center justify-center gap-1 text-muted-foreground"
-                      >
-                        <MoreHorizontal size={24} />
-                        <span className="text-[10px] font-medium">{item.label}</span>
-                      </button>
-                    </DrawerTrigger>
-                    <DrawerContent className="px-4 pb-12">
-                      <DrawerHeader>
-                        <DrawerTitle>Menu Principal</DrawerTitle>
-                      </DrawerHeader>
-                      <div className="grid grid-cols-3 gap-4 mt-4">
-                        {extraItems.map((extra) => (
-                          <button
-                            key={extra.path}
-                            onClick={() => {
-                              triggerHaptic();
-                              setIsDrawerOpen(false);
-                              navigate(extra.path);
-                            }}
-                            className="flex flex-col items-center gap-2 p-3 rounded-xl bg-accent/30 hover:bg-accent/50 transition-colors"
-                          >
-                            <extra.icon size={24} className="text-primary" />
-                            <span className="text-xs font-medium">{extra.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </DrawerContent>
-                  </Drawer>
+                  <div key={item.label} className="justify-self-center">
+                    <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+                      <DrawerTrigger asChild>
+                        <button 
+                          onClick={triggerHaptic}
+                          className="flex flex-col items-center justify-center gap-1 text-muted-foreground"
+                        >
+                          <MoreHorizontal size={24} />
+                          <span className="text-[10px] font-medium">{item.label}</span>
+                        </button>
+                      </DrawerTrigger>
+                      <DrawerContent className="px-4 pb-12">
+                        <DrawerHeader>
+                          <DrawerTitle>Menu Principal</DrawerTitle>
+                        </DrawerHeader>
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                          {extraItems.map((extra) => (
+                            <button
+                              key={extra.path}
+                              onClick={() => {
+                                triggerHaptic();
+                                setIsDrawerOpen(false);
+                                navigate(extra.path);
+                              }}
+                              className="flex flex-col items-center gap-2 p-3 rounded-xl bg-accent/30 hover:bg-accent/50 transition-colors"
+                            >
+                              <extra.icon size={24} className="text-primary" />
+                              <span className="text-xs font-medium">{extra.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </DrawerContent>
+                    </Drawer>
+                  </div>
                 );
               }
 
@@ -247,7 +259,7 @@ const BottomNav = () => {
                   key={item.label} 
                   to={item.path} 
                   onClick={triggerHaptic}
-                  className={navLinkClass(item.path)}
+                  className={`${navLinkClass(item.path)} justify-self-center`}
                 >
                   <item.icon size={24} />
                   <span className="text-[10px] font-medium">{item.label}</span>

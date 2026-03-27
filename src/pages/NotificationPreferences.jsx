@@ -34,6 +34,9 @@ import {
 import { toast } from 'sonner';
 import { Separator } from '../components/ui/separator';
 import { Badge } from '../components/ui/badge';
+import { Capacitor } from '@capacitor/core';
+import { useMobileHeader } from '@/contexts/MobileHeaderContext';
+import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
 // Valores padrão para evitar undefined
 const DEFAULT_PREFERENCES = {
@@ -51,6 +54,8 @@ const DEFAULT_PREFERENCES = {
 const NotificationPreferences = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { setTitle, setActions, setShowBack, setOnBack, reset } = useMobileHeader();
+  const { isInteractive } = useNativeUIMode();
   const {
     notificationsEnabled,
     pushEnabled,
@@ -73,6 +78,18 @@ const NotificationPreferences = () => {
 
   // Usar preferências com fallback
   const safePreferences = notificationPreferences || DEFAULT_PREFERENCES;
+
+  useEffect(() => {
+    if (!isInteractive) return;
+    setTitle('Notificações');
+    setActions([]);
+    setShowBack(true);
+    setOnBack(() => () => {
+      if (window.history.length > 1) navigate(-1);
+      else navigate('/perfil', { replace: true });
+    });
+    return () => reset();
+  }, [isInteractive, navigate, reset, setActions, setOnBack, setShowBack, setTitle]);
 
   useEffect(() => {
     if ('caches' in window) {
@@ -231,6 +248,7 @@ const NotificationPreferences = () => {
   return (
     <div className="container mx-auto py-8 max-w-4xl">
       {/* Header */}
+      {(!Capacitor.isNativePlatform() || !isInteractive) && (
       <div className="flex items-center gap-4 mb-8">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -245,6 +263,7 @@ const NotificationPreferences = () => {
           </p>
         </div>
       </div>
+      )}
 
       <div className="space-y-6">
 

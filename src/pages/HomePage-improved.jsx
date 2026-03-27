@@ -32,6 +32,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 const ReportList = React.lazy(() => import('@/components/ReportList'));
 const RankingSidebar = React.lazy(() => import('@/components/RankingSidebar'));
 
@@ -492,48 +493,54 @@ function HomePageImproved() {
     }
   };
 
-  const handleShareReport = (report, e) => {
+  const handleShareReport = async (report, e) => {
     if (e && e.stopPropagation) {
       e.stopPropagation();
       e.preventDefault();
     }
     const url = getReportShareUrl(report.id);
     const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${url}`;
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
+      try {
+        await Share.share({ title: 'Trombone Cidadão', text: shareText });
+        toast({ title: 'Compartilhado com sucesso! 📣' });
+      } catch {}
+      return;
+    }
     if (!Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
       window.open(whatsappUrl, '_blank');
       return;
     }
     if (navigator.share) {
-      navigator
-        .share({
-          title: 'Trombone Cidadão',
-          text: shareText,
-        })
-        .catch(() => {});
+      try { await navigator.share({ title: 'Trombone Cidadão', text: shareText }); } catch {}
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(shareText).catch(() => {});
+      try { await navigator.clipboard.writeText(shareText); toast({ title: 'Texto copiado!' }); } catch {}
     }
   };
 
-  const handleSharePetition = (petition, e) => {
+  const handleSharePetition = async (petition, e) => {
     if (e && e.stopPropagation) {
       e.stopPropagation();
       e.preventDefault();
     }
     const url = getPetitionShareUrl(petition.id);
+    const shareText = `*Trombone Cidadão*\n\n*${petition.title || 'Abaixo-assinado'}*\n\nVeja em:\n${url}`;
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
+      try {
+        await Share.share({ title: 'Trombone Cidadão', text: shareText });
+        toast({ title: 'Compartilhado com sucesso! 📣' });
+      } catch {}
+      return;
+    }
     if (navigator.share) {
-      navigator
-        .share({
-          url,
-        })
-        .catch(() => {});
+      try { await navigator.share({ title: 'Trombone Cidadão', text: shareText }); } catch {}
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).catch(() => {});
+      try { await navigator.clipboard.writeText(shareText); toast({ title: 'Texto copiado!' }); } catch {}
     }
   };
 
@@ -565,7 +572,7 @@ function HomePageImproved() {
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
     if (!user) return;
 
-    const { title, description, category, address, location, pole_number, is_from_water_utility } = newReportData;
+    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, is_from_water_utility } = newReportData;
 
     const { data, error } = await supabase
       .from('reports')
@@ -578,6 +585,10 @@ function HomePageImproved() {
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
+        pole_id: category === 'iluminacao' ? pole_id : null,
+        reported_post_identifier: category === 'iluminacao' ? (pole_number?.trim() || null) : null,
+        reported_pole_distance_m: category === 'iluminacao' ? reported_pole_distance_m : null,
+        issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
         status: 'pending',
         moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
@@ -610,6 +621,40 @@ function HomePageImproved() {
     <div className=" flex flex-col bg-[#F9FAFB] md:px-6">
       <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-4 space-y-10 max-w-[88rem] mx-auto w-full">
         <section className="space-y-4">
+
+          {!user && (
+            <div className="relative overflow-hidden rounded-3xl border border-[#FCA5A5] bg-gradient-to-r from-[#FEF2F2] via-white to-[#FFF7ED] shadow-md p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#EF4444]/15 rounded-full blur-3xl" />
+              <div className="absolute -bottom-10 -left-10 w-52 h-52 bg-[#F59E0B]/15 rounded-full blur-3xl" />
+              <div className="relative min-w-0">
+                <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-[#B91C1C]">
+                  <span className="inline-block w-1 h-3 rounded-full bg-[#EF4444]" />
+                  Bem-vindo
+                </p>
+                <p className="text-base md:text-lg font-extrabold text-[#111827] mt-2">
+                  Entre para participar da comunidade
+                </p>
+                <p className="text-xs md:text-sm text-[#6B7280] mt-1">
+                  Faça login ou crie sua conta para favoritar, comentar e acompanhar suas broncas.
+                </p>
+              </div>
+              <div className="relative flex items-center gap-2 w-full md:w-auto">
+                <Button
+                  variant="outline"
+                  className="flex-1 md:flex-none rounded-full border-[#FCA5A5] bg-white/80 hover:bg-white"
+                  onClick={() => navigate('/login')}
+                >
+                  Entrar
+                </Button>
+                <Button
+                  className="flex-1 md:flex-none bg-tc-red hover:bg-tc-red/90 rounded-full shadow-sm"
+                  onClick={() => navigate('/cadastro')}
+                >
+                  Criar conta
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="lg:pt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827] mb-2">Broncas da Sua Cidade</h1>
@@ -627,6 +672,8 @@ function HomePageImproved() {
               </Button>
             </div>
           </div>
+
+        
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
@@ -1462,7 +1509,6 @@ function HomePageImproved() {
           </div>
         </DialogContent>
       </Dialog>
-      <BottomNav />
       {showReportModal && (
         <ReportModal
           onClose={() => setShowReportModal(false)}

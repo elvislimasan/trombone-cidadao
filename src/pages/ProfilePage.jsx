@@ -11,6 +11,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Avatar from 'react-nice-avatar';
+import { Capacitor } from '@capacitor/core';
 
 const ProfilePage = () => {
   const { toast } = useToast();
@@ -215,6 +216,14 @@ const ProfilePage = () => {
                     Minhas Petições
                   </Button>
                 </Link>
+                {Capacitor.isNativePlatform() && (
+                  <Link to="/perfil/preferencias" className="w-full block">
+                    <Button variant="outline" className="w-full gap-2">
+                      <Briefcase className="w-4 h-4" />
+                      Preferências
+                    </Button>
+                  </Link>
+                )}
                 {user?.is_admin && (
                   <Link to="/admin" className="w-full block">
                     <Button variant="outline" className="w-full gap-2">

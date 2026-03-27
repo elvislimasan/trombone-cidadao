@@ -35,6 +35,8 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { FLORESTA_COORDS } from '@/config/mapConfig';
+import { useMobileHeader } from '@/contexts/MobileHeaderContext';
+import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
 // Fix for Leaflet default icon
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -106,6 +108,8 @@ const WorkDetailsPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { setTitle, setActions, setShowBack, setOnBack, reset } = useMobileHeader();
+  const { isInteractive } = useNativeUIMode();
   const [work, setWork] = useState(null);
   const [media, setMedia] = useState([]);
   const [isFavorited, setIsFavorited] = useState(false);
@@ -355,6 +359,48 @@ const WorkDetailsPage = () => {
   useEffect(() => {
     setPaymentsPage(1);
   }, [paymentsCommitmentFilter, paymentsQuery, paymentsSortKey, paymentsSortDir, paymentsYearFilter]);
+
+    useEffect(() => {
+    if (!isInteractive) return;
+
+    setShowBack(true);
+    setOnBack(() => () => navigate('/obras-publicas', { replace: true }));
+    setTitle(work?.title ? work.title : 'Detalhes da Obra');
+
+    if (!work) {
+      setActions([]);
+      return () => reset();
+    }
+
+    const baseActions = [
+      {
+        key: 'share',
+        icon: Share2,
+        onPress: handleShareWork,
+        ariaLabel: 'Compartilhar',
+      },
+      {
+        key: 'favorite',
+        icon: Heart,
+        onPress: handleFavoriteToggle,
+        isActive: !!isFavorited,
+        ariaLabel: isFavorited ? 'Remover dos favoritos' : 'Favoritar',
+      },
+    ];
+
+    if (user?.is_admin) {
+      baseActions.unshift({
+        key: 'manage',
+        icon: Edit,
+        onPress: () => setShowAdminEditModal(true),
+        ariaLabel: 'Gerenciar',
+      });
+    }
+
+    setActions(baseActions);
+    return () => reset();
+  }, [handleFavoriteToggle, handleShareWork, isFavorited, isInteractive, navigate, reset, setActions, setOnBack, setShowBack, setTitle, user?.is_admin, work]);
+  
 
   const pagedPaymentGroups = useMemo(() => {
     const start = (paymentsPageSafe - 1) * PAYMENTS_PAGE_SIZE;
@@ -891,12 +937,14 @@ const WorkDetailsPage = () => {
   const displayStalledDate = currentMeasurement?.stalled_date || work.stalled_date;
   const currentPhaseExpectedValue = currentMeasurement?.expected_value ?? currentMeasurement?.value ?? work.total_value;
   const paymentsToShow = paymentsBase;
-  
+
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-12">
       <DynamicSEO {...seoData} />
       
       {/* Sticky Header with Back Button */}
+      {!isInteractive && (
       <div className="bg-primary text-primary-foreground sticky top-0 z-30 shadow-sm">
         <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -965,6 +1013,7 @@ const WorkDetailsPage = () => {
           </div>
         </div>
       </div>
+      )}
 
       <div className="max-w-5xl lg:max-w-7xl 2xl:max-w-[100rem] mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">

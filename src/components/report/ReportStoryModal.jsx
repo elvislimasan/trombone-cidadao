@@ -1,6 +1,12 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { toPng } from 'html-to-image';
 import { Button } from '@/components/ui/button';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Media } from '@capacitor-community/media';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { useToast } from '@/components/ui/use-toast';
+import { getCardInstagramPublicUrl } from '@/lib/cardInstagramAssets';
 import {
   Dialog,
   DialogContent,
@@ -269,14 +275,14 @@ function getStatusBackgroundStyle(bgType, customBgColor, reportStatus) {
     resolvedBgType = getStatusConfig(reportStatus).bgKey;
   }
 
-  let bgUrl = '/card-instagram/bg-pending-1.png';
+  let bgUrl = getCardInstagramPublicUrl('bg-pending-1.png');
 
   if (resolvedBgType === 'in_progress') {
-    bgUrl = '/card-instagram/bg-in-progress.png';
+    bgUrl = getCardInstagramPublicUrl('bg-in-progress.png');
   } else if (resolvedBgType === 'resolved') {
-    bgUrl = '/card-instagram/bg-resolved.png';
+    bgUrl = getCardInstagramPublicUrl('bg-resolved.png');
   } else if (resolvedBgType === 'pending') {
-    bgUrl = '/card-instagram/bg-pending-1.png';
+    bgUrl = getCardInstagramPublicUrl('bg-pending-1.png');
   }
 
   return {
@@ -657,11 +663,11 @@ function StoryTemplateInstagram({
                   boxShadow: '0 14px 26px rgba(0,0,0,0.18)',
                 }}
               >
-                <img
-                  src="/card-instagram/like-svgrepo-com (1).svg"
-                  style={{ width: 75, height: 75 }}
-                  alt="Like"
-                />
+                  <img
+                    src={getCardInstagramPublicUrl('like-svgrepo-com (1).svg')}
+                    style={{ width: 75, height: 75 }}
+                    alt="Like"
+                  />
               </div>
 
               <div
@@ -802,6 +808,7 @@ const ReportStoryModal = ({
   const [downloading, setDownloading] = useState(false);
   const [enableImageEffect, setEnableImageEffect] = useState(true);
   const [enableHoleEffect, setEnableHoleEffect] = useState(false);
+  const { toast } = useToast();
 
   const [bgType, setBgType] = useState('auto');
   const [customBgColor, setCustomBgColor] = useState('#111111');
@@ -835,20 +842,86 @@ const ReportStoryModal = ({
       });
 
       const fileName = `story-${layout}-${safeTitle}.png`;
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const perm = await LocalNotifications.checkPermissions();
+          if (perm.display !== 'granted') {
+            await LocalNotifications.requestPermissions();
+          }
+        } catch {}
 
-      const link = document.createElement('a');
-      link.download = fileName;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        const base64 = dataUrl.split(',')[1] || '';
+        const platform = Capacitor.getPlatform();
+        let directory = Directory.Documents;
+        let downloadPath = fileName;
+        if (platform === 'android') {
+          try { await Filesystem.requestPermissions(); } catch {}
+          directory = Directory.ExternalStorage;
+          downloadPath = `Pictures/TromboneCidadao/Stories/${fileName}`;
+        }
+
+        await Filesystem.writeFile({
+          path: downloadPath,
+          data: base64,
+          directory,
+          recursive: true,
+        });
+
+        const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
+        try {
+          if (Media.requestPermissions) {
+            await Media.requestPermissions();
+          }
+        } catch {}
+        try {
+          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
+        } catch {}
+        try {
+          const notificationId = Math.floor(Date.now() % 2147483647);
+          await LocalNotifications.schedule({
+            notifications: [
+              {
+                title: 'Card baixado!',
+                body: 'O card foi salvo na sua galeria. Toque para abrir.',
+                id: notificationId,
+                schedule: { at: new Date(Date.now() + 100) },
+                extra: {
+                  filePath: uriResult.uri,
+                  contentType: 'image/png',
+                },
+              },
+            ],
+          });
+        } catch (e) {
+          toast({
+            title: 'Card salvo na galeria',
+            description: 'Notificação não disponível no dispositivo.',
+          });
+        }
+      } else {
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      toast({
+        title: 'Card pronto!',
+        description: 'O story foi gerado e baixado.',
+      });
     } catch (error) {
       console.error('Erro ao gerar story:', error);
-      alert('Não foi possível gerar a imagem do story.');
+      toast({
+        title: 'Erro ao gerar story',
+        description: 'Tente novamente em instantes.',
+        variant: 'destructive',
+      });
     } finally {
       setDownloading(false);
     }
-  }, [layout, safeTitle, downloading]);
+  }, [downloading, layout, safeTitle, toast]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

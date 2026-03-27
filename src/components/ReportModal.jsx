@@ -2,6 +2,7 @@ import React, { useState, useRef, lazy, Suspense, useEffect, useMemo } from 'rea
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { X, Camera, Video, Trash2, MapPin, Image as ImageIcon, Film, Play, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Capacitor } from '@capacitor/core';
@@ -25,6 +26,14 @@ const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 // Vídeos serão exibidos apenas como ícone simples sem preview
 
 const ReportModal = ({ onClose, onSubmit }) => {
+  const isNative = Capacitor.isNativePlatform();
+  const navigate = useNavigate();
+  const [isSmallScreen, setIsSmallScreen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 640px)').matches;
+  });
+  const isFullScreenModal = isNative || isSmallScreen;
+  const useWizardLayout = true;
   const [formData, setFormData] = useState({ 
     title: '', 
     description: '', 
@@ -34,6 +43,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
     photos: [], 
     videos: [], 
     pole_number: '',
+    pole_id: null,
+    reported_pole_distance_m: null,
+    issue_type: '',
     is_from_water_utility: false,
   });
   const [errors, setErrors] = useState({});
@@ -49,6 +61,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const videoGalleryInputRef = useRef(null);
   const videoCameraInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [wizardStep, setWizardStep] = useState(0);
+  const [nearbyPoles, setNearbyPoles] = useState([]);
+  const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
+  const [nearbyPolesError, setNearbyPolesError] = useState(null);
+  const [duplicatePoleReports, setDuplicatePoleReports] = useState([]);
+  const [duplicatePoleReportsLoading, setDuplicatePoleReportsLoading] = useState(false);
+  const [duplicatePoleReportsError, setDuplicatePoleReportsError] = useState(null);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState('photo');
@@ -61,6 +80,22 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const [viewingVideoIndex, setViewingVideoIndex] = useState(null);
   const uploadAbortControllerRef = useRef(null);
   const photoWorkerRef = useRef(null);
+  const wizardBodyRef = useRef(null);
+  const wizardStepTitles = ['Info', 'Local', 'Mídia', 'Revisão'];
+  const wizardStepTitle = wizardStepTitles[wizardStep] || 'Nova Bronca';
+  const wizardProgressPct = Math.round(((wizardStep + 1) / wizardStepTitles.length) * 100);
+  const lightingIssueTypes = useMemo(() => ([
+    { value: 'lamp_off', label: 'lâmpada apagada' },
+    { value: 'lamp_blinking', label: 'piscando' },
+    { value: 'lamp_on_daytime', label: 'acesa durante o dia' },
+    { value: 'no_lighting', label: 'poste sem iluminação' },
+    { value: 'arm_damaged', label: 'braço/luminária danificado' },
+    { value: 'exposed_wiring', label: 'fiação exposta' },
+    { value: 'pole_leaning', label: 'poste inclinado' },
+    { value: 'pole_broken', label: 'poste quebrado' },
+    { value: 'no_identifier', label: 'sem identificação' },
+    { value: 'other', label: 'outro' },
+  ]), []);
 
   // Referência para armazenar dados da foto capturada enquanto processa
   const pendingPhotoRef = useRef(null);
@@ -69,12 +104,34 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // Flag para rastrear se componente está montado
   const isMountedRef = useRef(true);
   const isAddingVideoRef = useRef(false);
+  const addressTouchedRef = useRef(false);
+  const lastReverseGeocodeKeyRef = useRef(null);
+  const reverseGeocodeTargetRef = useRef(null);
   
   // Atualizar flag de montagem
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!useWizardLayout) return;
+    try {
+      wizardBodyRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    } catch {}
+  }, [useWizardLayout, wizardStep]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(max-width: 640px)');
+    const handler = (e) => setIsSmallScreen(e.matches);
+    if (media.addEventListener) media.addEventListener('change', handler);
+    else media.addListener(handler);
+    return () => {
+      if (media.removeEventListener) media.removeEventListener('change', handler);
+      else media.removeListener(handler);
     };
   }, []);
 
@@ -113,6 +170,136 @@ const ReportModal = ({ onClose, onSubmit }) => {
       geoOptions
     );
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (formData.category !== 'iluminacao' || !formData.location) {
+      setNearbyPoles([]);
+      setNearbyPolesLoading(false);
+      setNearbyPolesError(null);
+      return;
+    }
+
+    const { lat, lng } = formData.location;
+    const timer = setTimeout(async () => {
+      setNearbyPolesLoading(true);
+      setNearbyPolesError(null);
+
+      const { data, error } = await supabase.rpc('nearest_poles', {
+        lat,
+        lng,
+        radius_m: 80,
+        max_results: 5,
+      });
+
+      if (cancelled) return;
+
+      if (error) {
+        setNearbyPoles([]);
+        setNearbyPolesError(error.message || 'Falha ao buscar postes próximos');
+        setNearbyPolesLoading(false);
+        return;
+      }
+
+      setNearbyPoles(Array.isArray(data) ? data : []);
+      setNearbyPolesLoading(false);
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formData.category, formData.location?.lat, formData.location?.lng]);
+
+  useEffect(() => {
+    if (!formData.pole_id) return;
+    const match = nearbyPoles.find((p) => p.pole_id === formData.pole_id);
+    if (!match) return;
+    setFormData((prev) =>
+      prev.reported_pole_distance_m === match.distance_m ? prev : { ...prev, reported_pole_distance_m: match.distance_m }
+    );
+  }, [nearbyPoles, formData.pole_id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (formData.category !== 'iluminacao' || !formData.pole_id) {
+      setDuplicatePoleReports([]);
+      setDuplicatePoleReportsLoading(false);
+      setDuplicatePoleReportsError(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setDuplicatePoleReportsLoading(true);
+      setDuplicatePoleReportsError(null);
+
+      const { data, error } = await supabase
+        .from('reports')
+        .select('id, title, status, created_at, moderation_status')
+        .eq('category_id', 'iluminacao')
+        .eq('pole_id', formData.pole_id)
+        .neq('status', 'duplicate')
+        .in('status', ['pending', 'in-progress'])
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (cancelled) return;
+
+      if (error) {
+        setDuplicatePoleReports([]);
+        setDuplicatePoleReportsError(error.message || 'Falha ao buscar broncas existentes');
+        setDuplicatePoleReportsLoading(false);
+        return;
+      }
+
+      setDuplicatePoleReports(Array.isArray(data) ? data : []);
+      setDuplicatePoleReportsLoading(false);
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formData.category, formData.pole_id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (formData.address?.trim()) return;
+    if (addressTouchedRef.current) return;
+
+    const target = reverseGeocodeTargetRef.current || formData.location;
+    if (!target) return;
+
+    const lat = target?.lat;
+    const lng = target?.lng;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const key = `${Number(lng).toFixed(5)},${Number(lat).toFixed(5)}`;
+    if (lastReverseGeocodeKeyRef.current === key) return;
+
+    const timer = setTimeout(async () => {
+      const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+        body: { lat, lng, zoom: 18 },
+      });
+
+      if (cancelled) return;
+      if (error) return;
+
+      const address = data?.address;
+      if (typeof address === 'string' && address.trim()) {
+        lastReverseGeocodeKeyRef.current = key;
+        reverseGeocodeTargetRef.current = null;
+        setFormData((prev) => (prev.address?.trim() ? prev : { ...prev, address }));
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formData.location?.lat, formData.location?.lng, formData.pole_id, formData.address]);
 
   // Cleanup de previews de imagens e vídeos quando o componente desmontar
   useEffect(() => {
@@ -1819,6 +2006,71 @@ const ReportModal = ({ onClose, onSubmit }) => {
     return { success: true };
   };
 
+  const fieldToWizardStep = {
+    title: 0,
+    category: 0,
+    issue_type: 0,
+    pole_number: 1,
+    location: 1,
+    address: 1,
+    photos: 2,
+  };
+
+  const validateStep = (stepToValidate = wizardStep) => {
+    const newErrors = {};
+    let hasErrors = false;
+
+    if (stepToValidate === 0) {
+      if (!formData.title) {
+        newErrors.title = "Por favor, preencha o título da bronca.";
+        hasErrors = true;
+      }
+      if (!formData.category) {
+        newErrors.category = "Por favor, selecione uma categoria.";
+        hasErrors = true;
+      }
+      if (formData.category === 'iluminacao' && (!formData.issue_type || formData.issue_type.trim() === '')) {
+        newErrors.issue_type = "Por favor, selecione o tipo do problema.";
+        hasErrors = true;
+      }
+    }
+
+    if (stepToValidate === 1) {
+      if (!formData.location) {
+        newErrors.location = "Por favor, marque o local da bronca no mapa.";
+        hasErrors = true;
+      }
+      if (!formData.address || formData.address.trim() === '') {
+        newErrors.address = "Por favor, preencha o endereço de referência.";
+        hasErrors = true;
+      }
+      if (formData.category === 'iluminacao' && !formData.pole_id && (!formData.pole_number || formData.pole_number.trim() === '')) {
+        newErrors.pole_number = "Por favor, selecione um poste sugerido ou informe o número/plaqueta.";
+        hasErrors = true;
+      }
+    }
+
+    if (stepToValidate === 2) {
+      if ((formData.photos.length + formData.videos.length) === 0) {
+        newErrors.photos = "Por favor, adicione pelo menos uma foto ou vídeo da bronca.";
+        hasErrors = true;
+      }
+    }
+
+    if (hasErrors) {
+      setErrors(prev => ({ ...prev, ...newErrors }));
+      const firstErrorField = Object.keys(newErrors)[0];
+      const errorElement = document.querySelector(`[data-error-field="${firstErrorField}"]`);
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        try { errorElement.focus(); } catch {}
+      }
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -1828,6 +2080,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
     if (!formData.title || !formData.category) {
       if (!formData.title) newErrors.title = "Por favor, preencha o título da bronca.";
       if (!formData.category) newErrors.category = "Por favor, selecione uma categoria.";
+      hasErrors = true;
+    }
+    if (formData.category === 'iluminacao' && (!formData.issue_type || formData.issue_type.trim() === '')) {
+      newErrors.issue_type = "Por favor, selecione o tipo do problema.";
       hasErrors = true;
     }
     if (!formData.location) {
@@ -1842,19 +2098,27 @@ const ReportModal = ({ onClose, onSubmit }) => {
       newErrors.photos = "Por favor, adicione pelo menos uma foto ou vídeo da bronca.";
       hasErrors = true;
     }
-    if (formData.category === 'iluminacao' && (!formData.pole_number || formData.pole_number.trim() === '')) {
-      newErrors.pole_number = "Por favor, informe o número do poste apagado.";
+    if (formData.category === 'iluminacao' && !formData.pole_id && (!formData.pole_number || formData.pole_number.trim() === '')) {
+      newErrors.pole_number = "Por favor, selecione um poste sugerido ou informe o número/plaqueta.";
       hasErrors = true;
     }
     
     if (hasErrors) {
       setErrors(newErrors);
       const firstErrorField = Object.keys(newErrors)[0];
-      const errorElement = document.querySelector(`[data-error-field="${firstErrorField}"]`);
-      if (errorElement) {
-        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        errorElement.focus();
+      if (isNative) {
+        const targetStep = fieldToWizardStep[firstErrorField];
+        if (typeof targetStep === 'number') {
+          setWizardStep(targetStep);
+        }
       }
+      setTimeout(() => {
+        const errorElement = document.querySelector(`[data-error-field="${firstErrorField}"]`);
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { errorElement.focus(); } catch {}
+        }
+      }, 0);
       return;
     }
     
@@ -1932,8 +2196,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
         photos: [], 
         videos: [],
         pole_number: '',
+        pole_id: null,
+        reported_pole_distance_m: null,
+        issue_type: '',
         is_from_water_utility: false,
       });
+      setWizardStep(0);
         
       } catch (resetError) {
         console.error('Erro ao resetar formData:', resetError);
@@ -1996,8 +2264,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
       location: null, 
       photos: [], 
       videos: [],
-      pole_number: ''
+      pole_number: '',
+      pole_id: null,
+      reported_pole_distance_m: null,
+      issue_type: '',
+      is_from_water_utility: false,
     });
+    setWizardStep(0);
     
     setErrors({});
     
@@ -2017,409 +2290,1160 @@ const ReportModal = ({ onClose, onSubmit }) => {
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[1200]" onClick={safeHandleClose}>
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-border" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold gradient-text">Nova Bronca</h2>
-            <button 
-              onClick={handleClose} 
-              className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
-              aria-label="Fechar modal"
-              disabled={isSubmitting}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center ${isFullScreenModal ? 'p-0' : 'p-4'} z-[1200]`}
+      onClick={safeHandleClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className={`bg-card shadow-2xl w-full border border-border ${isFullScreenModal ? 'h-full max-h-full rounded-none overflow-hidden flex flex-col' : 'rounded-2xl max-w-2xl h-[90vh] max-h-[90vh] overflow-hidden flex flex-col'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {useWizardLayout ? (
+          <form onSubmit={handleSubmit} className="h-full flex flex-col">
+            <div
+              className="border-b border-border px-4 pb-3"
+              style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}
             >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <p className="text-muted-foreground mt-1">Cadastre um problema em Floresta-PE</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-foreground">Título da Bronca *</label>
-              <span className="text-xs text-muted-foreground">{formData.title.length}/65</span>
-            </div>
-            <input 
-              type="text" 
-              value={formData.title} 
-              onChange={(e) => {
-                setFormData({ ...formData, title: e.target.value });
-                if (errors.title) setErrors(prev => ({ ...prev, title: undefined }));
-              }}
-              data-error-field="title"
-              maxLength="65" 
-              className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.title ? 'border-destructive' : 'border-input'}`}
-              placeholder="Ex: Buraco na Rua Principal" 
-              required 
-            />
-            {errors.title && (
-              <p className="text-xs text-destructive mt-1">{errors.title}</p>
-            )}
-          </div>
-
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Categoria *</label>
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-              {categories.map((c) => (
-                <button 
-                  key={c.id} 
-                  type="button" 
-                  data-error-field="category"
-                  onClick={() => {
-                    setFormData({ ...formData, category: c.id, pole_number: c.id !== 'iluminacao' ? '' : formData.pole_number });
-                    if (errors.category) setErrors(prev => ({ ...prev, category: undefined }));
-                  }} 
-                  className={`p-3 rounded-lg border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : errors.category ? 'border-destructive' : 'border-border hover:border-accent'}`}
+              <div className="flex items-center justify-between pt-3">
+                <div className="flex flex-col min-w-0">
+                  <h2 className="text-lg font-bold text-foreground truncate">Nova Bronca</h2>
+                  <p className="text-xs text-muted-foreground">Etapa {wizardStep + 1} de {wizardStepTitles.length} • {wizardStepTitle}</p>
+                </div>
+                <button
+                  onClick={handleClose}
+                  className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
+                  aria-label="Fechar modal"
+                  disabled={isSubmitting}
+                  type="button"
                 >
-                  <div className="text-2xl mb-1">{c.icon}</div>
-                  <div className="text-xs font-medium">{c.name}</div>
+                  <X className="w-5 h-5" />
                 </button>
-              ))}
-            </div>
-            {errors.category && (
-              <p className="text-xs text-destructive mt-1">{errors.category}</p>
-            )}
-          </div>
-
-          
-          {formData.category === 'buracos' && (
-            <div className="flex items-start gap-2">
-              <input
-                id="is_from_water_utility"
-                type="checkbox"
-                checked={formData.is_from_water_utility}
-                onChange={(e) => {
-                  setFormData({ ...formData, is_from_water_utility: e.target.checked });
-                }}
-                className="mt-1 h-6 w-6 rounded border-input text-primary focus:ring-primary"
-              />
-              <label htmlFor="is_from_water_utility" className="text-xs text-foreground">
-                Marque se o buraco foi aberto por obras da companhia de abastecimento
-                de água/esgoto (por exemplo, conserto de canos).
-              </label>
-            </div>
-          )}
-
-          {formData.category === 'iluminacao' && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Número do Poste <span className="text-destructive">*</span>
-              </label>
-              <input 
-                type="text" 
-                value={formData.pole_number} 
-                onChange={(e) => {
-                  setFormData({ ...formData, pole_number: e.target.value });
-                  if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
-                }}
-                data-error-field="pole_number"
-                className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.pole_number ? 'border-destructive' : 'border-input'}`}
-                placeholder="Ex: 1234 ou P-5678" 
-                required
-              />
-              {errors.pole_number ? (
-                <p className="text-xs text-destructive mt-1">{errors.pole_number}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground mt-1">Informe o número identificador do poste apagado. Este número é essencial para a resolução do problema.</p>
-              )}
-            </div>
-          )}
-
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-foreground">Descrição</label>
-              <span className="text-xs text-muted-foreground">{formData.description.length}/2000</span>
-            </div>
-            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} maxLength="2000" rows={4} className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Descreva detalhadamente o problema..." />
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><MapPin className="w-4 h-4" /> Localização *</label>
-            <p className="text-xs text-muted-foreground mb-2">Ajuste o marcador para o local exato da bronca.</p>
-            <div id="location-picker-map" data-error-field="location" className={`h-64 w-full rounded-lg overflow-hidden border ${errors.location ? 'border-destructive' : 'border-input'}`}>
-              {!isTakingPhoto ? (
-                <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                  <LocationPickerMap 
-                    onLocationChange={(newLocation) => {
-                      handleLocationChange(newLocation);
-                      if (errors.location) setErrors(prev => ({ ...prev, location: undefined }));
-                    }} 
-                    initialPosition={formData.location} 
-                  />
-                </Suspense>
-              ) : (
-                <div className="w-full h-full bg-muted flex items-center justify-center flex-col gap-2">
-                  <Camera className="w-8 h-8 text-muted-foreground animate-pulse" />
-                  <p className="text-sm text-muted-foreground">Câmera em uso...</p>
-                </div>
-              )}
-            </div>
-            {errors.location && (
-              <p className="text-xs text-destructive mt-1">{errors.location}</p>
-            )}
-            <input 
-              type="text" 
-              value={formData.address} 
-              onChange={(e) => {
-                setFormData({ ...formData, address: e.target.value });
-                if (errors.address) setErrors(prev => ({ ...prev, address: undefined }));
-              }}
-              data-error-field="address"
-              className={`w-full bg-background px-4 py-3 border rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent ${errors.address ? 'border-destructive' : 'border-input'}`}
-              placeholder="Endereço de referência (ex: Rua da Floresta, 123)" 
-              required 
-            />
-            {errors.address && (
-              <p className="text-xs text-destructive mt-1">{errors.address}</p>
-            )}
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-foreground">
-                Mídia <span className="text-destructive">*</span>
-              </label>
-              {(formData.photos.length > 0 || formData.videos.length > 0) && (
-                <span className="text-xs text-muted-foreground">
-                  {formData.photos.length} foto{formData.photos.length !== 1 ? 's' : ''} • {formData.videos.length} vídeo{formData.videos.length !== 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-            {errors.photos && (
-              <p className="text-xs text-destructive mb-2">{errors.photos}</p>
-            )}
-            {(formData.photos.length === 0 && formData.videos.length === 0 && !errors.photos) && (
-              <p className="text-xs text-muted-foreground mb-2">Adicione pelo menos uma foto ou vídeo</p>
-            )}
-            <div className="space-y-3" data-error-field="photos">
-              <input 
-                type="file" 
-                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" 
-                multiple 
-                onChange={(e) => handleFileChange(e, 'photos')} 
-                ref={photoGalleryInputRef} 
-                className="hidden" 
-                disabled={isSubmitting}
-              />
-              <input 
-                type="file" 
-                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" 
-                capture="environment" 
-                onChange={(e) => handleFileChange(e, 'photos')} 
-                ref={photoCameraInputRef} 
-                className="hidden" 
-                disabled={isSubmitting}
-              />
-              <input 
-                type="file" 
-                accept="video/mp4,video/quicktime,video/*" 
-                capture="environment" 
-                onChange={(e) => handleFileChange(e, 'videos')} 
-                ref={videoCameraInputRef} 
-                className="hidden" 
-                disabled={isSubmitting}
-              />
-
-              {Capacitor.isNativePlatform() ? (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => {
-                        setCameraMode('photo');
-                        handleTakePhoto();
-                      }}
-                      className="h-20 flex-col gap-1"
-                      disabled={isSubmitting || isTakingPhoto}
-                    >
-                      <Camera className="w-6 h-6" />
-                      <span className="text-xs">Tirar Foto</span>
-                    </Button>
-                
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={handleOpenGallery} 
-                      className="h-20 flex-col gap-1"
-                      disabled={isSubmitting}
-                    >
-                      <ImageIcon className="w-6 h-6" />
-                      <span className="text-xs">Galeria de Fotos</span>
-                    </Button>
-                  </div>
-                  
-                  <VideoProcessorComponent
-                    maxVideos={5}
-                    videos={formData.videos}
-                    onVideosChange={(newVideosOrUpdater) => {
-                      setFormData(prev => {
-                        const currentVideos = prev.videos || [];
-                        const newVideos = typeof newVideosOrUpdater === 'function' 
-                          ? newVideosOrUpdater(currentVideos) 
-                          : newVideosOrUpdater;
-                        return { ...prev, videos: newVideos };
-                      });
-                    }}
-                    disabled={isSubmitting}
-                    showList={false}
-                    onProcessingChange={(processing) => {
-                      isAddingVideoRef.current = processing;
-                      if (!processing) {
-                        window.lastVideoAddedTime = Date.now();
-                      }
-                    }}
-                  />
-                </>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={handleOpenGallery} 
-                    className="h-20 flex-col gap-1"
-                    disabled={isSubmitting}
-                  >
-                    <ImageIcon className="w-6 h-6" />
-                    <span className="text-xs">Galeria de Fotos</span>
-                  </Button>
-
-                  <VideoProcessorComponent
-                    maxVideos={5}
-                    videos={formData.videos}
-                    onVideosChange={(newVideosOrUpdater) => {
-                      setFormData(prev => {
-                        const currentVideos = prev.videos || [];
-                        const newVideos = typeof newVideosOrUpdater === 'function' 
-                          ? newVideosOrUpdater(currentVideos) 
-                          : newVideosOrUpdater;
-                        return { ...prev, videos: newVideos };
-                      });
-                    }}
-                    disabled={isSubmitting}
-                    showList={false}
-                    onProcessingChange={(processing) => {
-                      isAddingVideoRef.current = processing;
-                      if (!processing) {
-                        window.lastVideoAddedTime = Date.now();
-                      }
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-            
-            {(formData.photos.length > 0 || formData.videos.length > 0) && (
-              <div className="mt-4 space-y-3">
-                <div className="flex justify-between items-center border-b pb-2 mb-2">
-                  <h3 className="text-sm font-medium text-foreground">Arquivos Adicionados </h3>
-                </div>
-
-                {formData.photos.map((media, index) => (
-                  <div 
-                    key={`photo-${index}`} 
-                    className="flex items-center justify-between bg-background p-2 rounded-md border cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => setViewingPhotoIndex(index)}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {media.preview && (
-                   
-                        <img 
-                          src={media.preview} 
-                          alt={media.name}
-                          decoding="async"
-                          loading="lazy"
-                          className="w-12 h-12 object-cover rounded"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground truncate">{media.name}</p>
-                        
-                      </div>
-                    </div>
-                    <button 
-                      type="button" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFile('photos', index);
-                      }} 
-                      className="text-muted-foreground hover:text-destructive p-1 ml-2"
-                      aria-label="Remover foto"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-
-                {formData.videos.map((video, index) => (
-                  <div 
-                    key={`video-${index}`} 
-                    className={`flex items-center justify-between bg-background p-2 rounded-md border transition-colors cursor-pointer hover:bg-accent/50`}
-                    onClick={() => {
-                        setViewingVideoIndex(index);
-                        setGlobalUserViewingMedia(true);
-                    }}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {video.preview ? (
-                        <div className="relative w-12 h-12">
-                          <img src={video.preview} alt="Thumb do vídeo" className="w-12 h-12 object-cover rounded" />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
-                            <Play className="w-3 h-3 text-white fill-white" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 bg-muted flex items-center justify-center rounded relative border">
-                            <Play className="w-5 h-5 text-muted-foreground fill-muted-foreground opacity-50" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground truncate">{video.name}</p>
-                      </div>
-                    </div>
-                    <button 
-                      type="button" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFile('videos', index);
-                      }} 
-                      className="text-muted-foreground hover:text-destructive p-1 ml-2"
-                      aria-label="Remover vídeo"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
               </div>
-            )}
-            {/* Processamento de foto silencioso: sem modal/overlay */}
-          </div>
+              <div className="mt-3 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full" style={{ width: `${wizardProgressPct}%` }} />
+              </div>
+            </div>
 
-          <div className="flex flex-col space-y-3 pt-4">
-            <div className="flex space-x-3">
-              <Button 
-                type="button" 
-                variant={isSubmitting ? "destructive" : "outline"}
-                onClick={handleClose} 
-                className="flex-1" 
-                disabled={false}
-              >
-                {isSubmitting ? 'Cancelar Envio' : 'Cancelar'}
-              </Button>
-              {!isSubmitting && (
-                <Button 
-                  type="submit" 
-                  className="flex-1 bg-primary hover:bg-primary/90" 
+            <div ref={wizardBodyRef} className={`flex-1 overflow-y-auto ${wizardStep === 1 ? 'p-0' : 'p-4'} space-y-6`}>
+              {wizardStep === 0 && (
+                <>
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-foreground">Título da Bronca *</label>
+                      <span className="text-xs text-muted-foreground">{formData.title.length}/65</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => {
+                        setFormData({ ...formData, title: e.target.value });
+                        if (errors.title) setErrors(prev => ({ ...prev, title: undefined }));
+                      }}
+                      data-error-field="title"
+                      maxLength="65"
+                      className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${errors.title ? 'border-destructive' : 'border-input'}`}
+                      placeholder="Ex: Buraco na Rua Principal"
+                      required
+                    />
+                    {errors.title && (
+                      <p className="text-xs text-destructive mt-1">{errors.title}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Categoria *</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {categories.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          data-error-field="category"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              category: c.id,
+                              pole_number: c.id !== 'iluminacao' ? '' : prev.pole_number,
+                              pole_id: c.id !== 'iluminacao' ? null : prev.pole_id,
+                              reported_pole_distance_m: c.id !== 'iluminacao' ? null : prev.reported_pole_distance_m,
+                              issue_type: c.id !== 'iluminacao' ? '' : prev.issue_type,
+                            }));
+                            if (errors.category) setErrors(prev => ({ ...prev, category: undefined }));
+                          }}
+                          className={`p-3 rounded-xl border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : errors.category ? 'border-destructive' : 'border-border hover:border-accent'}`}
+                        >
+                          <div className="text-2xl mb-1">{c.icon}</div>
+                          <div className="text-[11px] font-medium leading-tight">{c.name}</div>
+                        </button>
+                      ))}
+                    </div>
+                    {errors.category && (
+                      <p className="text-xs text-destructive mt-1">{errors.category}</p>
+                    )}
+                  </div>
+
+                  {formData.category === 'buracos' && (
+                    <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-3">
+                      <input
+                        id="is_from_water_utility"
+                        type="checkbox"
+                        checked={!!formData.is_from_water_utility}
+                        onChange={(e) => {
+                          setFormData({ ...formData, is_from_water_utility: e.target.checked });
+                        }}
+                        className="mt-0.5 h-6 w-6 rounded border-input text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="is_from_water_utility" className="text-xs text-foreground">
+                        Marque se o buraco foi aberto por obras da companhia de abastecimento de água/esgoto.
+                      </label>
+                    </div>
+                  )}
+
+                  {formData.category === 'iluminacao' && (
+                    <div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Tipo do problema <span className="text-destructive">*</span>
+                        </label>
+                        <select
+                          value={formData.issue_type}
+                          onChange={(e) => {
+                            setFormData({ ...formData, issue_type: e.target.value });
+                            if (errors.issue_type) setErrors(prev => ({ ...prev, issue_type: undefined }));
+                          }}
+                          data-error-field="issue_type"
+                          className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${errors.issue_type ? 'border-destructive' : 'border-input'}`}
+                        >
+                          <option value="">Selecione…</option>
+                          {lightingIssueTypes.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                        {errors.issue_type && (
+                          <p className="text-xs text-destructive mt-1">{errors.issue_type}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-foreground">Descrição</label>
+                      <span className="text-xs text-muted-foreground">{formData.description.length}/2000</span>
+                    </div>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      maxLength="2000"
+                      rows={5}
+                      className="w-full bg-background px-4 py-3 border border-input rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="Descreva detalhadamente o problema..."
+                    />
+                  </div>
+                </>
+              )}
+
+              {wizardStep === 1 && (
+                <div className="w-full">
+                  <div className="px-4 pt-4">
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-1">
+                      <MapPin className="w-4 h-4" />
+                      Localização *
+                    </label>
+                    <p className="text-xs text-muted-foreground mb-3">Ajuste o marcador para o local exato da bronca.</p>
+                  </div>
+
+                  <div
+                    id="location-picker-map"
+                    data-error-field="location"
+                    className={`w-full overflow-hidden border-y ${errors.location ? 'border-destructive' : 'border-input'} ${isTakingPhoto ? 'h-[44vh]' : 'h-[48vh]'}`}
+                  >
+                    {!isTakingPhoto ? (
+                      <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
+                        <LocationPickerMap
+                          onLocationChange={(newLocation) => {
+                            handleLocationChange(newLocation);
+                            if (errors.location) setErrors(prev => ({ ...prev, location: undefined }));
+                          }}
+                          initialPosition={formData.location}
+                          overlayMarkers={nearbyPoles
+                            .filter((p) => Number.isFinite(p?.latitude) && Number.isFinite(p?.longitude))
+                            .map((p) => ({
+                              id: p.pole_id,
+                              title: p.identifier || p.plate || `Poste ${p.pole_id}`,
+                              distanceLabel: p.distance_m != null ? `${p.distance_m}m` : '',
+                              isBroken: !!p.is_broken,
+                              location: { lat: p.latitude, lng: p.longitude },
+                              data: p,
+                            }))}
+                          selectedOverlayMarkerId={formData.pole_id}
+                          onOverlayMarkerSelect={(m) => {
+                            if (!addressTouchedRef.current) {
+                              const lat = m.data?.latitude;
+                              const lng = m.data?.longitude;
+                              if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                                reverseGeocodeTargetRef.current = { lat, lng };
+                                lastReverseGeocodeKeyRef.current = null;
+                              }
+                            }
+
+                            setFormData((prev) => ({
+                              ...prev,
+                              pole_id: m.id,
+                              reported_pole_distance_m: m.data?.distance_m ?? null,
+                              pole_number: m.data?.plate || m.data?.identifier || String(m.title || m.id),
+                              address: addressTouchedRef.current ? prev.address : (m.data?.address || ''),
+                            }));
+                            if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                          }}
+                        />
+                      </Suspense>
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center flex-col gap-2">
+                        <Camera className="w-8 h-8 text-muted-foreground animate-pulse" />
+                        <p className="text-sm text-muted-foreground">Câmera em uso...</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="px-4 pb-6 pt-4">
+                    {errors.location && (
+                      <p className="text-xs text-destructive mb-2">{errors.location}</p>
+                    )}
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => {
+                        addressTouchedRef.current = true;
+                        setFormData({ ...formData, address: e.target.value });
+                        if (errors.address) setErrors(prev => ({ ...prev, address: undefined }));
+                      }}
+                      data-error-field="address"
+                      className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${errors.address ? 'border-destructive' : 'border-input'}`}
+                      placeholder="Endereço de referência (ex: Rua da Floresta, 123)"
+                      required
+                    />
+                    {errors.address && (
+                      <p className="text-xs text-destructive mt-1">{errors.address}</p>
+                    )}
+
+                    {formData.category === 'iluminacao' && (
+                      <div className="mt-4 space-y-2">
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            Número/plaqueta do poste <span className="text-muted-foreground">(opcional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.pole_number}
+                            onChange={(e) => {
+                              setFormData({ ...formData, pole_number: e.target.value, pole_id: null, reported_pole_distance_m: null });
+                              if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                            }}
+                            data-error-field="pole_number"
+                            className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${errors.pole_number ? 'border-destructive' : 'border-input'}`}
+                            placeholder="Ex: 1234 ou P-5678"
+                          />
+                        </div>
+
+                        {errors.pole_number && (
+                          <p className="text-xs text-destructive" data-error-field="pole_number">{errors.pole_number}</p>
+                        )}
+
+                        {nearbyPolesLoading && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Carregando postes no mapa...
+                          </div>
+                        )}
+
+                        {!nearbyPolesLoading && nearbyPolesError && (
+                          <p className="text-xs text-destructive">{nearbyPolesError}</p>
+                        )}
+
+                        {!nearbyPolesLoading && !nearbyPolesError && nearbyPoles.length > 0 && (
+                          <p className="text-xs text-muted-foreground">Toque no ícone do poste no mapa para selecionar.</p>
+                        )}
+
+                        {!nearbyPolesLoading && !nearbyPolesError && nearbyPoles.length === 0 && (
+                          <p className="text-xs text-muted-foreground">Nenhum poste encontrado perto desta localização.</p>
+                        )}
+
+                        {formData.pole_id && (
+                          <div className="space-y-2">
+                            {duplicatePoleReportsLoading && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Verificando broncas existentes...
+                              </div>
+                            )}
+
+                            {!duplicatePoleReportsLoading && duplicatePoleReportsError && (
+                              <p className="text-xs text-destructive">{duplicatePoleReportsError}</p>
+                            )}
+
+                            {!duplicatePoleReportsLoading && !duplicatePoleReportsError && duplicatePoleReports.length > 0 && (
+                              <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
+                                <p className="text-xs text-foreground">
+                                  Já existe bronca aberta para este poste. Se for o mesmo problema, vale acompanhar em vez de duplicar.
+                                </p>
+                                <div className="space-y-1">
+                                  {duplicatePoleReports.map((r) => (
+                                    <button
+                                      key={r.id}
+                                      type="button"
+                                      onClick={() => {
+                                        onClose();
+                                        navigate(`/bronca/${r.id}`);
+                                      }}
+                                      className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-background border border-border hover:border-accent transition-colors"
+                                    >
+                                      <span className="text-xs text-foreground truncate">{r.title}</span>
+                                      <span className="text-[11px] text-muted-foreground">{r.status}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 2 && (
+                <>
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-foreground">
+                        Mídia <span className="text-destructive">*</span>
+                      </label>
+                      {(formData.photos.length > 0 || formData.videos.length > 0) && (
+                        <span className="text-xs text-muted-foreground">
+                          {formData.photos.length} foto{formData.photos.length !== 1 ? 's' : ''} • {formData.videos.length} vídeo{formData.videos.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    {errors.photos && (
+                      <p className="text-xs text-destructive mb-2">{errors.photos}</p>
+                    )}
+                    {(formData.photos.length === 0 && formData.videos.length === 0 && !errors.photos) && (
+                      <p className="text-xs text-muted-foreground mb-2">Adicione pelo menos uma foto ou vídeo</p>
+                    )}
+                    <div className="space-y-3" data-error-field="photos">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                        multiple
+                        onChange={(e) => handleFileChange(e, 'photos')}
+                        ref={photoGalleryInputRef}
+                        className="hidden"
+                        disabled={isSubmitting}
+                      />
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                        capture="environment"
+                        onChange={(e) => handleFileChange(e, 'photos')}
+                        ref={photoCameraInputRef}
+                        className="hidden"
+                        disabled={isSubmitting}
+                      />
+                      <input
+                        type="file"
+                        accept="video/mp4,video/quicktime,video/*"
+                        capture="environment"
+                        onChange={(e) => handleFileChange(e, 'videos')}
+                        ref={videoCameraInputRef}
+                        className="hidden"
+                        disabled={isSubmitting}
+                      />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setCameraMode('photo');
+                            handleTakePhoto();
+                          }}
+                          className="h-20 flex-col gap-1 rounded-xl"
+                          disabled={isSubmitting || isTakingPhoto}
+                        >
+                          <Camera className="w-6 h-6" />
+                          <span className="text-xs">Tirar Foto</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleOpenGallery}
+                          className="h-20 flex-col gap-1 rounded-xl"
+                          disabled={isSubmitting}
+                        >
+                          <ImageIcon className="w-6 h-6" />
+                          <span className="text-xs">Galeria</span>
+                        </Button>
+                      </div>
+
+                      <VideoProcessorComponent
+                        maxVideos={5}
+                        videos={formData.videos}
+                        onVideosChange={(newVideosOrUpdater) => {
+                          setFormData(prev => {
+                            const currentVideos = prev.videos || [];
+                            const newVideos = typeof newVideosOrUpdater === 'function'
+                              ? newVideosOrUpdater(currentVideos)
+                              : newVideosOrUpdater;
+                            return { ...prev, videos: newVideos };
+                          });
+                        }}
+                        disabled={isSubmitting}
+                        showList={false}
+                        onProcessingChange={(processing) => {
+                          isAddingVideoRef.current = processing;
+                          if (!processing) {
+                            window.lastVideoAddedTime = Date.now();
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {(formData.photos.length > 0 || formData.videos.length > 0) && (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex justify-between items-center border-b pb-2 mb-2">
+                          <h3 className="text-sm font-medium text-foreground">Arquivos Adicionados</h3>
+                        </div>
+
+                        {formData.photos.map((media, index) => (
+                          <div
+                            key={`photo-${index}`}
+                            className="flex items-center justify-between bg-background p-2 rounded-xl border cursor-pointer hover:bg-accent/50 transition-colors"
+                            onClick={() => setViewingPhotoIndex(index)}
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {media.preview && (
+                                <img
+                                  src={media.preview}
+                                  alt={media.name}
+                                  decoding="async"
+                                  loading="lazy"
+                                  className="w-12 h-12 object-cover rounded-lg"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-muted-foreground truncate">{media.name}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFile('photos', index);
+                              }}
+                              className="text-muted-foreground hover:text-destructive p-2 ml-2"
+                              aria-label="Remover foto"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+
+                        {formData.videos.map((video, index) => (
+                          <div
+                            key={`video-${index}`}
+                            className="flex items-center justify-between bg-background p-2 rounded-xl border transition-colors cursor-pointer hover:bg-accent/50"
+                            onClick={() => {
+                              setViewingVideoIndex(index);
+                              setGlobalUserViewingMedia(true);
+                            }}
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {video.preview ? (
+                                <div className="relative w-12 h-12">
+                                  <img src={video.preview} alt="Thumb do vídeo" className="w-12 h-12 object-cover rounded-lg" />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                                    <Play className="w-3 h-3 text-white fill-white" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-12 h-12 bg-muted flex items-center justify-center rounded-lg relative border">
+                                  <Play className="w-5 h-5 text-muted-foreground fill-muted-foreground opacity-50" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-muted-foreground truncate">{video.name}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFile('videos', index);
+                              }}
+                              className="text-muted-foreground hover:text-destructive p-2 ml-2"
+                              aria-label="Remover vídeo"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {wizardStep === 3 && (
+                <>
+                  <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-foreground">Informações</p>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setWizardStep(0)}>Editar</Button>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Título</p>
+                        <p className="font-medium text-foreground break-words">{formData.title || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Categoria</p>
+                        <p className="font-medium text-foreground">{(categories.find(c => c.id === formData.category)?.name) || '-'}</p>
+                      </div>
+                      {formData.category === 'iluminacao' && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Poste</p>
+                          <p className="font-medium text-foreground">{formData.pole_number || '-'}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-foreground">Localização</p>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setWizardStep(1)}>Editar</Button>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Endereço</p>
+                        <p className="font-medium text-foreground break-words">{formData.address || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-foreground">Mídia</p>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setWizardStep(2)}>Editar</Button>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className="flex items-center gap-2 bg-background border border-border rounded-full px-3 py-1">
+                        <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-foreground font-medium">{formData.photos.length}</span>
+                        <span className="text-muted-foreground">fotos</span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-background border border-border rounded-full px-3 py-1">
+                        <Film className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-foreground font-medium">{formData.videos.length}</span>
+                        <span className="text-muted-foreground">vídeos</span>
+                      </div>
+                    </div>
+                    {errors.photos && (
+                      <p className="text-xs text-destructive" data-error-field="photos">{errors.photos}</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div
+              className="border-t border-border p-4"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
+            >
+              <div className="flex gap-3 pb-2">
+                <Button
+                  type="button"
+                  variant={isSubmitting ? "destructive" : "outline"}
+                  onClick={() => {
+                    if (isSubmitting) {
+                      handleClose();
+                      return;
+                    }
+                    if (wizardStep === 0) {
+                      handleClose();
+                      return;
+                    }
+                    setWizardStep((s) => Math.max(0, s - 1));
+                  }}
+                  className="flex-1"
+                  disabled={false}
+                >
+                  {isSubmitting ? 'Cancelar Envio' : (wizardStep === 0 ? 'Cancelar' : 'Voltar')}
+                </Button>
+
+                {!isSubmitting && wizardStep < 3 && (
+                  <Button
+                    type="button"
+                    className="flex-1 bg-primary hover:bg-primary/90"
+                    onClick={() => {
+                      if (!validateStep(wizardStep)) return;
+                      setWizardStep((s) => Math.min(3, s + 1));
+                    }}
+                  >
+                    Continuar
+                  </Button>
+                )}
+
+                {!isSubmitting && wizardStep === 3 && (
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-primary hover:bg-primary/90"
+                    disabled={isSubmitting}
+                  >
+                    Cadastrar Bronca
+                  </Button>
+                )}
+              </div>
+            </div>
+          </form>
+        ) : (
+          <>
+            <div className="p-6 border-b border-border">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold gradient-text">Nova Bronca</h2>
+                <button
+                  onClick={handleClose}
+                  className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
+                  aria-label="Fechar modal"
                   disabled={isSubmitting}
                 >
-                  Cadastrar Bronca
-                </Button>
-              )}
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-muted-foreground mt-1">Cadastre um problema em Floresta-PE</p>
             </div>
-          </div>
-        </form>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-foreground">Título da Bronca *</label>
+                  <span className="text-xs text-muted-foreground">{formData.title.length}/65</span>
+                </div>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => {
+                    setFormData({ ...formData, title: e.target.value });
+                    if (errors.title) setErrors(prev => ({ ...prev, title: undefined }));
+                  }}
+                  data-error-field="title"
+                  maxLength="65"
+                  className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.title ? 'border-destructive' : 'border-input'}`}
+                  placeholder="Ex: Buraco na Rua Principal"
+                  required
+                />
+                {errors.title && (
+                  <p className="text-xs text-destructive mt-1">{errors.title}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Categoria *</label>
+                <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                  {categories.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      data-error-field="category"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          category: c.id,
+                          pole_number: c.id !== 'iluminacao' ? '' : prev.pole_number,
+                          pole_id: c.id !== 'iluminacao' ? null : prev.pole_id,
+                          reported_pole_distance_m: c.id !== 'iluminacao' ? null : prev.reported_pole_distance_m,
+                          issue_type: c.id !== 'iluminacao' ? '' : prev.issue_type,
+                        }));
+                        if (errors.category) setErrors(prev => ({ ...prev, category: undefined }));
+                      }}
+                      className={`p-3 rounded-lg border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : errors.category ? 'border-destructive' : 'border-border hover:border-accent'}`}
+                    >
+                      <div className="text-2xl mb-1">{c.icon}</div>
+                      <div className="text-xs font-medium">{c.name}</div>
+                    </button>
+                  ))}
+                </div>
+                {errors.category && (
+                  <p className="text-xs text-destructive mt-1">{errors.category}</p>
+                )}
+              </div>
+
+              {formData.category === 'buracos' && (
+                <div className="flex items-start gap-2">
+                  <input
+                    id="is_from_water_utility"
+                    type="checkbox"
+                    checked={formData.is_from_water_utility}
+                    onChange={(e) => {
+                      setFormData({ ...formData, is_from_water_utility: e.target.checked });
+                    }}
+                    className="mt-1 h-6 w-6 rounded border-input text-primary focus:ring-primary"
+                  />
+                  <label htmlFor="is_from_water_utility" className="text-xs text-foreground">
+                    Marque se o buraco foi aberto por obras da companhia de abastecimento
+                    de água/esgoto (por exemplo, conserto de canos).
+                  </label>
+                </div>
+              )}
+
+              {formData.category === 'iluminacao' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Tipo do problema <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      value={formData.issue_type}
+                      onChange={(e) => {
+                        setFormData({ ...formData, issue_type: e.target.value });
+                        if (errors.issue_type) setErrors(prev => ({ ...prev, issue_type: undefined }));
+                      }}
+                      data-error-field="issue_type"
+                      className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.issue_type ? 'border-destructive' : 'border-input'}`}
+                    >
+                      <option value="">Selecione…</option>
+                      {lightingIssueTypes.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                    {errors.issue_type && (
+                      <p className="text-xs text-destructive mt-1">{errors.issue_type}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Número/plaqueta do poste <span className="text-muted-foreground">(opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.pole_number}
+                      onChange={(e) => {
+                        setFormData({ ...formData, pole_number: e.target.value, pole_id: null, reported_pole_distance_m: null });
+                        if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                      }}
+                      data-error-field="pole_number"
+                      className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.pole_number ? 'border-destructive' : 'border-input'}`}
+                      placeholder="Ex: 1234 ou P-5678"
+                    />
+                    {errors.pole_number ? (
+                      <p className="text-xs text-destructive mt-1">{errors.pole_number}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-1">Se você não souber, selecione o poste mais próximo mais abaixo.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-foreground">Descrição</label>
+                  <span className="text-xs text-muted-foreground">{formData.description.length}/2000</span>
+                </div>
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} maxLength="2000" rows={4} className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Descreva detalhadamente o problema..." />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><MapPin className="w-4 h-4" /> Localização *</label>
+                <p className="text-xs text-muted-foreground mb-2">Ajuste o marcador para o local exato da bronca.</p>
+                <div id="location-picker-map" data-error-field="location" className={`h-64 w-full rounded-lg overflow-hidden border ${errors.location ? 'border-destructive' : 'border-input'}`}>
+                  {!isTakingPhoto ? (
+                    <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
+                      <LocationPickerMap
+                        onLocationChange={(newLocation) => {
+                          handleLocationChange(newLocation);
+                          if (errors.location) setErrors(prev => ({ ...prev, location: undefined }));
+                        }}
+                        initialPosition={formData.location}
+                        overlayMarkers={nearbyPoles
+                          .filter((p) => Number.isFinite(p?.latitude) && Number.isFinite(p?.longitude))
+                          .map((p) => ({
+                            id: p.pole_id,
+                            title: p.identifier || p.plate || `Poste ${p.pole_id}`,
+                            distanceLabel: p.distance_m != null ? `${p.distance_m}m` : '',
+                            isBroken: !!p.is_broken,
+                            location: { lat: p.latitude, lng: p.longitude },
+                            data: p,
+                          }))}
+                        selectedOverlayMarkerId={formData.pole_id}
+                        onOverlayMarkerSelect={(m) => {
+                          if (!addressTouchedRef.current) {
+                            const lat = m.data?.latitude;
+                            const lng = m.data?.longitude;
+                            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                              reverseGeocodeTargetRef.current = { lat, lng };
+                              lastReverseGeocodeKeyRef.current = null;
+                            }
+                          }
+
+                          setFormData((prev) => ({
+                            ...prev,
+                            pole_id: m.id,
+                            reported_pole_distance_m: m.data?.distance_m ?? null,
+                            pole_number: m.data?.plate || m.data?.identifier || String(m.title || m.id),
+                            address: addressTouchedRef.current ? prev.address : (m.data?.address || ''),
+                          }));
+                          if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                        }}
+                      />
+                    </Suspense>
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center flex-col gap-2">
+                      <Camera className="w-8 h-8 text-muted-foreground animate-pulse" />
+                      <p className="text-sm text-muted-foreground">Câmera em uso...</p>
+                    </div>
+                  )}
+                </div>
+                {errors.location && (
+                  <p className="text-xs text-destructive mt-1">{errors.location}</p>
+                )}
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => {
+                    addressTouchedRef.current = true;
+                    setFormData({ ...formData, address: e.target.value });
+                    if (errors.address) setErrors(prev => ({ ...prev, address: undefined }));
+                  }}
+                  data-error-field="address"
+                  className={`w-full bg-background px-4 py-3 border rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent ${errors.address ? 'border-destructive' : 'border-input'}`}
+                  placeholder="Endereço de referência (ex: Rua da Floresta, 123)"
+                  required
+                />
+                {errors.address && (
+                  <p className="text-xs text-destructive mt-1">{errors.address}</p>
+                )}
+
+                {formData.category === 'iluminacao' && (
+                  <div className="mt-4 space-y-2">
+                    {errors.pole_number && (
+                      <p className="text-xs text-destructive" data-error-field="pole_number">{errors.pole_number}</p>
+                    )}
+
+                    {nearbyPolesLoading && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Carregando postes no mapa...
+                      </div>
+                    )}
+
+                    {!nearbyPolesLoading && nearbyPolesError && (
+                      <p className="text-xs text-destructive">{nearbyPolesError}</p>
+                    )}
+
+                    {!nearbyPolesLoading && !nearbyPolesError && nearbyPoles.length > 0 && (
+                      <p className="text-xs text-muted-foreground">Clique no ícone do poste no mapa para selecionar.</p>
+                    )}
+
+                    {!nearbyPolesLoading && !nearbyPolesError && nearbyPoles.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Nenhum poste encontrado perto desta localização.</p>
+                    )}
+
+                    {formData.pole_id && (
+                      <div className="space-y-2">
+                        {duplicatePoleReportsLoading && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Verificando broncas existentes...
+                          </div>
+                        )}
+
+                        {!duplicatePoleReportsLoading && duplicatePoleReportsError && (
+                          <p className="text-xs text-destructive">{duplicatePoleReportsError}</p>
+                        )}
+
+                        {!duplicatePoleReportsLoading && !duplicatePoleReportsError && duplicatePoleReports.length > 0 && (
+                          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                            <p className="text-xs text-foreground">
+                              Já existe bronca aberta para este poste. Se for o mesmo problema, vale acompanhar em vez de duplicar.
+                            </p>
+                            <div className="space-y-1">
+                              {duplicatePoleReports.map((r) => (
+                                <button
+                                  key={r.id}
+                                  type="button"
+                                  onClick={() => {
+                                    onClose();
+                                    navigate(`/bronca/${r.id}`);
+                                  }}
+                                  className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-background border border-border hover:border-accent transition-colors"
+                                >
+                                  <span className="text-xs text-foreground truncate">{r.title}</span>
+                                  <span className="text-[11px] text-muted-foreground">{r.status}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-foreground">
+                    Mídia <span className="text-destructive">*</span>
+                  </label>
+                  {(formData.photos.length > 0 || formData.videos.length > 0) && (
+                    <span className="text-xs text-muted-foreground">
+                      {formData.photos.length} foto{formData.photos.length !== 1 ? 's' : ''} • {formData.videos.length} vídeo{formData.videos.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                {errors.photos && (
+                  <p className="text-xs text-destructive mb-2">{errors.photos}</p>
+                )}
+                {(formData.photos.length === 0 && formData.videos.length === 0 && !errors.photos) && (
+                  <p className="text-xs text-muted-foreground mb-2">Adicione pelo menos uma foto ou vídeo</p>
+                )}
+                <div className="space-y-3" data-error-field="photos">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                    multiple
+                    onChange={(e) => handleFileChange(e, 'photos')}
+                    ref={photoGalleryInputRef}
+                    className="hidden"
+                    disabled={isSubmitting}
+                  />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                    capture="environment"
+                    onChange={(e) => handleFileChange(e, 'photos')}
+                    ref={photoCameraInputRef}
+                    className="hidden"
+                    disabled={isSubmitting}
+                  />
+                  <input
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/*"
+                    capture="environment"
+                    onChange={(e) => handleFileChange(e, 'videos')}
+                    ref={videoCameraInputRef}
+                    className="hidden"
+                    disabled={isSubmitting}
+                  />
+
+                  {Capacitor.isNativePlatform() ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setCameraMode('photo');
+                            handleTakePhoto();
+                          }}
+                          className="h-20 flex-col gap-1"
+                          disabled={isSubmitting || isTakingPhoto}
+                        >
+                          <Camera className="w-6 h-6" />
+                          <span className="text-xs">Tirar Foto</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleOpenGallery}
+                          className="h-20 flex-col gap-1"
+                          disabled={isSubmitting}
+                        >
+                          <ImageIcon className="w-6 h-6" />
+                          <span className="text-xs">Galeria de Fotos</span>
+                        </Button>
+                      </div>
+
+                      <VideoProcessorComponent
+                        maxVideos={5}
+                        videos={formData.videos}
+                        onVideosChange={(newVideosOrUpdater) => {
+                          setFormData(prev => {
+                            const currentVideos = prev.videos || [];
+                            const newVideos = typeof newVideosOrUpdater === 'function'
+                              ? newVideosOrUpdater(currentVideos)
+                              : newVideosOrUpdater;
+                            return { ...prev, videos: newVideos };
+                          });
+                        }}
+                        disabled={isSubmitting}
+                        showList={false}
+                        onProcessingChange={(processing) => {
+                          isAddingVideoRef.current = processing;
+                          if (!processing) {
+                            window.lastVideoAddedTime = Date.now();
+                          }
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleOpenGallery}
+                        className="h-20 flex-col gap-1"
+                        disabled={isSubmitting}
+                      >
+                        <ImageIcon className="w-6 h-6" />
+                        <span className="text-xs">Galeria de Fotos</span>
+                      </Button>
+
+                      <VideoProcessorComponent
+                        maxVideos={5}
+                        videos={formData.videos}
+                        onVideosChange={(newVideosOrUpdater) => {
+                          setFormData(prev => {
+                            const currentVideos = prev.videos || [];
+                            const newVideos = typeof newVideosOrUpdater === 'function'
+                              ? newVideosOrUpdater(currentVideos)
+                              : newVideosOrUpdater;
+                            return { ...prev, videos: newVideos };
+                          });
+                        }}
+                        disabled={isSubmitting}
+                        showList={false}
+                        onProcessingChange={(processing) => {
+                          isAddingVideoRef.current = processing;
+                          if (!processing) {
+                            window.lastVideoAddedTime = Date.now();
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {(formData.photos.length > 0 || formData.videos.length > 0) && (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex justify-between items-center border-b pb-2 mb-2">
+                      <h3 className="text-sm font-medium text-foreground">Arquivos Adicionados </h3>
+                    </div>
+
+                    {formData.photos.map((media, index) => (
+                      <div
+                        key={`photo-${index}`}
+                        className="flex items-center justify-between bg-background p-2 rounded-md border cursor-pointer hover:bg-accent/50 transition-colors"
+                        onClick={() => setViewingPhotoIndex(index)}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {media.preview && (
+
+                            <img
+                              src={media.preview}
+                              alt={media.name}
+                              decoding="async"
+                              loading="lazy"
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-muted-foreground truncate">{media.name}</p>
+
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile('photos', index);
+                          }}
+                          className="text-muted-foreground hover:text-destructive p-1 ml-2"
+                          aria-label="Remover foto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {formData.videos.map((video, index) => (
+                      <div
+                        key={`video-${index}`}
+                        className={`flex items-center justify-between bg-background p-2 rounded-md border transition-colors cursor-pointer hover:bg-accent/50`}
+                        onClick={() => {
+                          setViewingVideoIndex(index);
+                          setGlobalUserViewingMedia(true);
+                        }}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {video.preview ? (
+                            <div className="relative w-12 h-12">
+                              <img src={video.preview} alt="Thumb do vídeo" className="w-12 h-12 object-cover rounded" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
+                                <Play className="w-3 h-3 text-white fill-white" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 bg-muted flex items-center justify-center rounded relative border">
+                              <Play className="w-5 h-5 text-muted-foreground fill-muted-foreground opacity-50" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-muted-foreground truncate">{video.name}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile('videos', index);
+                          }}
+                          className="text-muted-foreground hover:text-destructive p-1 ml-2"
+                          aria-label="Remover vídeo"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col space-y-3 pt-4">
+                <div className="flex space-x-3">
+                  <Button
+                    type="button"
+                    variant={isSubmitting ? "destructive" : "outline"}
+                    onClick={handleClose}
+                    className="flex-1"
+                    disabled={false}
+                  >
+                    {isSubmitting ? 'Cancelar Envio' : 'Cancelar'}
+                  </Button>
+                  {!isSubmitting && (
+                    <Button
+                      type="submit"
+                      className="flex-1 bg-primary hover:bg-primary/90"
+                      disabled={isSubmitting}
+                    >
+                      Cadastrar Bronca
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </form>
+          </>
+        )}
       </motion.div>
 
       {/* Modal de Câmera (Restaurado) */}

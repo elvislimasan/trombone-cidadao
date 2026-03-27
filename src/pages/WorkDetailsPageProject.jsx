@@ -28,9 +28,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
  
-import { AlertTriangle, Briefcase, Calendar, Check, DollarSign, Download, FileText, Image as ImageIcon, Pencil, Trash2, Upload, Video, X } from "lucide-react";
+import { AlertTriangle, Briefcase, Calendar, Check, DollarSign, Download, FileText, Image as ImageIcon, Pencil, Trash2, Upload, Video, X, Heart, Share2 } from "lucide-react";
 import MediaViewer from "@/components/MediaViewer";
 import { WorkEditModal } from "@/pages/admin/ManageWorksPage";
+import { useMobileHeader } from "@/contexts/MobileHeaderContext";
+import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
 
 function formatDateDisplay(dateString) {
   if (!dateString) return "-";
@@ -198,6 +200,8 @@ export default function WorkDetailsPageProject() {
   const { workId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { setTitle, setActions, setShowBack, setOnBack, reset } = useMobileHeader();
+  const { isInteractive } = useNativeUIMode();
 
   const commitmentTypeOptions = useMemo(
     () => ["Estimativo", "Extra Orçamentário", "Global", "Ordinário"],
@@ -283,6 +287,7 @@ export default function WorkDetailsPageProject() {
     if (!Array.isArray(measurements) || measurements.length === 0) return null;
     return [...measurements].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
   }, [measurements]);
+
 
   useEffect(() => {
     setCurrentPhaseView("general");
@@ -581,6 +586,49 @@ export default function WorkDetailsPageProject() {
     setIsFavorited(true);
     toast("Adicionado aos favoritos");
   }, [user?.id, workId, isFavorited]);
+
+  useEffect(() => {
+    if (!isInteractive) return;
+
+    setShowBack(true);
+    setOnBack(() => () => navigate("/obras-publicas", { replace: true }));
+    setTitle(work?.title ? work.title : "Detalhes da Obra");
+
+    if (!work) {
+      setActions([]);
+      return () => reset();
+    }
+
+    const headerActions = [];
+    if (user?.is_admin) {
+      headerActions.push({
+        key: "manage",
+        icon: Pencil,
+        onPress: () => setShowAdminEditModal(true),
+        ariaLabel: "Gerenciar",
+      });
+    }
+
+    headerActions.push(
+      {
+        key: "share",
+        icon: Share2,
+        onPress: handleShareWork,
+        ariaLabel: "Compartilhar",
+      },
+      {
+        key: "favorite",
+        icon: Heart,
+        onPress: handleFavoriteToggle,
+        isActive: !!isFavorited,
+        ariaLabel: isFavorited ? "Remover dos favoritos" : "Favoritar",
+        iconClassName: isFavorited ? "text-yellow-300 fill-current" : "",
+      }
+    );
+
+    setActions(headerActions);
+    return () => reset();
+  }, [handleFavoriteToggle, handleShareWork, isFavorited, isInteractive, navigate, reset, setActions, setOnBack, setShowBack, setTitle, user?.is_admin, work]);
 
   const handleOpenContrib = useCallback(() => {
     if (!user) {
@@ -1507,19 +1555,22 @@ export default function WorkDetailsPageProject() {
     { label: "Inauguração", value: formatDateDisplay(currentMeasurement?.inauguration_date) },
   ];
 
+ 
   return (
     <div className="min-h-screen bg-[#f9fafb]">
-      <ObraHeader
-        title={work.title}
-        subtitle={work.work_category?.name || ""}
-        status={normalizeStatus(currentMeasurement?.status || work.status)}
-        category={work.work_category?.name || ""}
-        isAdmin={Boolean(user?.is_admin)}
-        onManage={() => setShowAdminEditModal(true)}
-        onShare={handleShareWork}
-        isFavorited={isFavorited}
-        onFavoriteToggle={handleFavoriteToggle}
-      />
+      {(Capacitor.isNativePlatform() && isInteractive) ? null : (
+        <ObraHeader
+          title={work.title}
+          subtitle={work.work_category?.name || ""}
+          status={normalizeStatus(currentMeasurement?.status || work.status)}
+          category={work.work_category?.name || ""}
+          isAdmin={Boolean(user?.is_admin)}
+          onManage={() => setShowAdminEditModal(true)}
+          onShare={handleShareWork}
+          isFavorited={isFavorited}
+          onFavoriteToggle={handleFavoriteToggle}
+        />
+      )}
 
       <main className="container max-w-full 4xl:max-w-[1680px] 3xl:max-w-[1500px] 2xl:max-w-[1380px] xl:max-w-[1120px] mx-auto px-2 sm:px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

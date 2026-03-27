@@ -15,12 +15,18 @@ import { Progress } from '@/components/ui/progress';
 import { getNextSignatureGoal } from '@/lib/utils';
 import { NewsEditModal } from './admin/ManageNewsPage';
 import { Edit } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { useMobileHeader } from '@/contexts/MobileHeaderContext';
+import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { setTitle, setActions, setShowBack, setOnBack, reset } = useMobileHeader();
+  const { isInteractive } = useNativeUIMode();
   const [newsItem, setNewsItem] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [gallery, setGallery] = useState([]);
@@ -147,6 +153,81 @@ const NewsDetailsPage = () => {
     fetchNewsDetails();
   }, [fetchNewsDetails]);
 
+  const toggleSaved = useCallback(() => {
+    try {
+      const key = user?.id ? `tc_favorite_news_ids_${user.id}` : 'tc_favorite_news_ids';
+      const raw = localStorage.getItem(key);
+      const ids = JSON.parse(raw || '[]');
+      const safeIds = Array.isArray(ids) ? ids : [];
+      const nextIds = safeIds.includes(newsId) ? safeIds.filter((id) => id !== newsId) : [newsId, ...safeIds];
+      localStorage.setItem(key, JSON.stringify(nextIds));
+      setIsSaved(nextIds.includes(newsId));
+      toast({ title: nextIds.includes(newsId) ? "Notícia salva" : "Removida das salvas" });
+    } catch {}
+  }, [newsId, toast, user?.id]);
+
+  const shareText = useMemo(() => {
+    if (!newsItem) return '';
+    const shareUrl = getNewsShareUrl(newsItem.id);
+    return `*Trombone Cidadão*\n\n*${newsItem.title}*\n\nVeja em:\n${shareUrl}`;
+  }, [newsItem]);
+
+  const handleShare = useCallback(async () => {
+    if (!shareText) return;
+    const title = 'Trombone Cidadão';
+    try {
+      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
+        await Share.share({ title, text: shareText });
+        toast({ title: 'Compartilhado com sucesso! 📣' });
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({ title, text: shareText });
+        toast({ title: 'Compartilhado com sucesso! 📣' });
+        return;
+      }
+      await navigator.clipboard.writeText(shareText);
+      toast({ title: 'Texto copiado!', description: 'Cole no WhatsApp/Instagram/Gmail.' });
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      try {
+        await navigator.clipboard.writeText(shareText);
+        toast({ title: 'Texto copiado!' });
+      } catch {
+        toast({ title: 'Erro ao compartilhar', variant: 'destructive' });
+      }
+    }
+  }, [shareText, toast]);
+
+  useEffect(() => {
+    if (!isInteractive) return;
+    setShowBack(true);
+    setOnBack(() => () => navigate('/noticias', { replace: true }));
+    setTitle(newsItem?.title ? newsItem.title : 'Notícia');
+    if (!newsItem) {
+      setActions([]);
+      return () => reset();
+    }
+    setActions([
+      {
+        key: 'save',
+        icon: Star,
+        onPress: toggleSaved,
+        isActive: !!isSaved,
+        ariaLabel: isSaved ? 'Remover das salvas' : 'Salvar',
+        iconClassName: isSaved ? 'text-yellow-500 fill-yellow-500' : '',
+        activeClassName: isSaved ? 'bg-black/10' : '',
+      },
+      {
+        key: 'share',
+        icon: Share2,
+        onPress: handleShare,
+        ariaLabel: 'Compartilhar',
+      },
+    ]);
+    return () => reset();
+  }, [handleShare, isInteractive, isSaved, navigate, newsItem, reset, setActions, setOnBack, setShowBack, setTitle, toggleSaved]);
+
   useEffect(() => {
     try {
       const key = user?.id ? `tc_favorite_news_ids_${user.id}` : 'tc_favorite_news_ids';
@@ -158,19 +239,6 @@ const NewsDetailsPage = () => {
     }
   }, [newsId, user?.id]);
 
-  const toggleSaved = () => {
-    try {
-      const key = user?.id ? `tc_favorite_news_ids_${user.id}` : 'tc_favorite_news_ids';
-      const raw = localStorage.getItem(key);
-      const ids = JSON.parse(raw || '[]');
-      const safeIds = Array.isArray(ids) ? ids : [];
-      const nextIds = safeIds.includes(newsId) ? safeIds.filter((id) => id !== newsId) : [newsId, ...safeIds];
-      localStorage.setItem(key, JSON.stringify(nextIds));
-      setIsSaved(nextIds.includes(newsId));
-      toast({ title: nextIds.includes(newsId) ? "Notícia salva" : "Removida das salvas" });
-    } catch {}
-  };
-
   const handleWhatsAppShare = () => {
     const shareUrl = getNewsShareUrl(newsItem.id);
     const shareText = `*Trombone Cidadão*\n\n*${newsItem.title}*\n\nVeja em:\n${shareUrl}`;
@@ -178,29 +246,6 @@ const NewsDetailsPage = () => {
     window.open(whatsappUrl, '_blank');
   };
 
-  const handleShare = async () => {
-    const shareUrl = getNewsShareUrl(newsItem.id);
-    // Formatar texto para incluir "Trombone Cidadão", título completo e link "Veja em"
-    // Usando * para negrito (formato WhatsApp/Telegram)
-    const shareText = `*Trombone Cidadão*\n\n*${newsItem.title}*\n\nVeja em:\n${shareUrl}`;
-    
-    try {
-      if (navigator.share) {
-        await navigator.share({ 
-          title: newsItem.title, 
-          text: shareText
-        });
-        toast({ title: "Compartilhado com sucesso! 📣" });
-      } else {
-        await navigator.clipboard.writeText(shareText);
-        toast({ title: "Texto copiado! 📋", description: "O link e título foram copiados para sua área de transferência." });
-      }
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        toast({ title: "Erro ao compartilhar", variant: "destructive" });
-      }
-    }
-  };
 
   const handleSaveNews = async (newsToSave, galleryFiles = [], removedGalleryIds = [], sendNotification = false, relatedReportIds = [], relatedWorkIds = [], relatedPetitionIds = [], relatedNewsIds = []) => {
     const { id, comments, ...dataToSave } = newsToSave;
@@ -390,7 +435,9 @@ const NewsDetailsPage = () => {
         <motion.article initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <header className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <Link to="/noticias" className="text-sm text-primary hover:underline">&larr; Voltar para todas as notícias</Link>
+              {(!Capacitor.isNativePlatform() || !isInteractive) && (
+                <Link to="/noticias" className="text-sm text-primary hover:underline">&larr; Voltar para todas as notícias</Link>
+              )}
               {user?.is_admin && (
                 <Button 
                   onClick={() => setShowEditModal(true)}
