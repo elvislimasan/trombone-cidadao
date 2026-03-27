@@ -32,7 +32,8 @@
     "build:prod": "npm run clean:dist && npm run clean:android && npm run build && timeout /t 2 /nobreak >nul 2>&1 & npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
     "build:prod:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
     "build:standalone": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
-    "build:standalone:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat bundleRelease"
+    "build:standalone:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
+    "import:poles": "node scripts/import_poles_from_kmz.js"
   },
   "dependencies": {
     "@capacitor-community/camera-preview": "^7.0.2",
@@ -120,7 +121,9 @@
     "baseline-browser-mapping": "^2.10.0",
     "eslint": "^8.57.1",
     "eslint-config-react-app": "^7.0.1",
+    "fast-xml-parser": "^5.3.0",
     "happy-dom": "^20.5.0",
+    "jszip": "^3.10.1",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.3",
     "terser": "^5.39.0",

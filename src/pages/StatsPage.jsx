@@ -166,6 +166,7 @@ const ReportsStats = () => {
   // Listener para abrir o arquivo quando clicar na notificação
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
+    if (window.__tcNotifListenerInstalled) return;
 
     let notificationListener = null;
 
@@ -341,7 +342,8 @@ const ReportsStats = () => {
           let directory = Directory.Documents;
 
           if (platform === 'android') {
-            directory = Directory.Documents;
+            try { await Filesystem.requestPermissions(); } catch {}
+            directory = Directory.ExternalStorage;
             downloadPath = `Download/${fileName}`;
           } else if (platform === 'ios') {
             directory = Directory.Documents;

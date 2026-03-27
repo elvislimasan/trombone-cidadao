@@ -57,6 +57,8 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { FLORESTA_COORDS } from '@/config/mapConfig';
+import { useMobileHeader } from '@/contexts/MobileHeaderContext';
+import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
 // Fix for Leaflet default icon
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -108,6 +110,8 @@ const ReportPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { setTitle, setActions, setShowBack, setOnBack, reset } = useMobileHeader();
+  const { isInteractive } = useNativeUIMode();
   const [report, setReport] = useState(null);
   const [allReports, setAllReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -608,6 +612,43 @@ const ReportPage = () => {
     return () => { cancelled = true; };
   }, [firstIsVideo, firstMedia?.url]);
 
+  useEffect(() => {
+    if (!isInteractive) return;
+
+    setShowBack(true);
+    setOnBack(() => () => {
+      if (window.history.length > 1) {
+        navigate(-1);
+      } else {
+        navigate('/', { replace: true });
+      }
+    });
+    setTitle(report?.title ? report.title : 'Detalhes da Bronca');
+
+    if (!report) {
+      setActions([]);
+      return () => reset();
+    }
+
+    setActions([
+      {
+        key: 'favorite',
+        icon: Star,
+        onPress: () => handleFavoriteToggle(report.id, report.is_favorited),
+        isActive: !!report.is_favorited,
+        ariaLabel: report.is_favorited ? 'Remover dos favoritos' : 'Favoritar',
+      },
+      {
+        key: 'share',
+        icon: Share2,
+        onPress: handleShare,
+        ariaLabel: 'Compartilhar',
+      },
+    ]);
+
+    return () => reset();
+  }, [handleShare, isInteractive, navigate, report, reset, setActions, setOnBack, setShowBack, setTitle]);
+
   // First photo URL for story card cover
   const coverPhotoUrl = useMemo(() => {
     if (!reportPhotos.length) return null;
@@ -641,6 +682,7 @@ const ReportPage = () => {
       {!loading && report && (
         <>
           {/* ── TOP NAV ── */}
+          {!isInteractive && (
           <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
             <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-14 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -670,6 +712,7 @@ const ReportPage = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* ── PAGE ── */}
           <div className="bg-[#F4F6F9] min-h-screen overflow-x-hidden">
@@ -697,14 +740,14 @@ const ReportPage = () => {
                         
                       </div>
                     </div>
-                    <div className="w-full max-w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden ">
+                    <div className="w-full max-w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden rounded-xl">
                       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
                       {hasMedia ? (
                         <button type="button" className="absolute inset-0 w-full h-full " onClick={() => setMediaViewerState({ isOpen: true, startIndex: 0 })}>
                           {firstIsVideo ? (
                             firstVideoThumb ? (
                               <div className="w-full h-full relative">
-                                <img src={firstVideoThumb} alt="Thumbnail do vídeo" className="w-full h-full max-w-full object-cover" />
+                                <img src={firstVideoThumb} alt="Thumbnail do vídeo" className="w-full h-full max-w-full object-cover rounded-2xl" />
                                 <div className="absolute inset-0 bg-black/10" />
                                 <div className="absolute inset-0 flex items-center justify-center">
                                   <div className="w-12 h-12 rounded-full bg-black/30 border border-white/20 flex items-center justify-center">
@@ -718,7 +761,8 @@ const ReportPage = () => {
                               </div>
                             )
                           ) : (
-                            <img src={firstMedia.url} alt="Mídia da bronca" className="w-full h-full max-w-full object-cover" />
+                            <img src={firstMedia.url} alt="Mídia da bronca" className="w-full h-full max-w-full object-cover rounded-xl" />
+                          
                           )}
                         </button>
                       ) : (

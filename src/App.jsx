@@ -7,6 +7,8 @@ import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
 import { SplashScreen } from '@capacitor/splash-screen';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { FileOpener } from '@capacitor-community/file-opener';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
@@ -62,6 +64,9 @@ import HomePageImproved from './pages/HomePage-improved';
 import NotFoundPage from '@/pages/NotFoundPage';
 import SearchPage from '@/pages/SearchPage';
 import MobileHeader from '@/components/MobileHeader';
+import { MobileHeaderProvider } from '@/contexts/MobileHeaderContext';
+import { NativeUIModeProvider, useNativeUIMode } from '@/contexts/NativeUIModeContext';
+import NativePreferencesPage from '@/pages/NativePreferencesPage';
 
 const SEO = () => {
   const location = useLocation();
@@ -217,11 +222,48 @@ const AdminRoute = ({ children }) => {
     );
 };
 
-function App() {
+function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const { loading: authLoading } = useAuth();
+  const { isNative, isInteractive } = useNativeUIMode();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (window.__tcNotifListenerInstalled) return;
+    window.__tcNotifListenerInstalled = true;
+
+    let listener = null;
+    const setup = async () => {
+      try {
+        listener = await LocalNotifications.addListener('localNotificationActionPerformed', async (notification) => {
+          const filePath = notification.notification?.extra?.filePath;
+          const contentType = notification.notification?.extra?.contentType;
+          if (!filePath) return;
+          try {
+            await FileOpener.open({
+              filePath,
+              contentType: contentType || 'application/octet-stream',
+            });
+          } catch {
+            toast({
+              title: 'Não foi possível abrir',
+              description: 'O arquivo pode não estar acessível no dispositivo.',
+              variant: 'destructive',
+            });
+          }
+        });
+      } catch {}
+    };
+    setup();
+
+    return () => {
+      try {
+        listener?.remove();
+      } catch {}
+    };
+  }, [toast]);
 
   useEffect(() => {
     try {
@@ -498,22 +540,23 @@ function App() {
   return (
     <UploadProvider>
       <SEO />
-      <div className="min-h-screen bg-[#F9FAFB] text-foreground flex flex-col">
-        {!Capacitor.isNativePlatform() && <Header />}
-        {Capacitor.isNativePlatform() && <MobileHeader />}
-        {!Capacitor.isNativePlatform() && <AppDownloadBanner />}
-        <main
-          className="flex-grow pb-20 lg:pb-0"
-          style={{
-            paddingTop: Capacitor.isNativePlatform()
-              ? 'calc(4rem + max(env(safe-area-inset-top), 0px))'
-              : 'calc(4rem + max(env(safe-area-inset-top), 0px) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
-            paddingBottom: Capacitor.isNativePlatform()
-              ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
-              : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
-          }}
-        >
-          <Routes>
+      <MobileHeaderProvider>
+        <div className="min-h-screen bg-[#F9FAFB] text-foreground flex flex-col">
+          {(!isNative || !isInteractive) && <Header />}
+          {isNative && isInteractive && <MobileHeader />}
+          {!isNative && <AppDownloadBanner />}
+          <main
+            className="flex-grow pb-20 lg:pb-0"
+            style={{
+              paddingTop: (isNative && isInteractive)
+                ? 'calc(4rem + max(env(safe-area-inset-top), 0px))'
+                : 'calc(4rem + max(env(safe-area-inset-top), 0px) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+              paddingBottom: (isNative && isInteractive)
+                ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
+                : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+            }}
+          >
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/cadastro" element={<RegisterPage />} />
             <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
@@ -539,6 +582,7 @@ function App() {
             <Route path="/contato" element={<ContactPage />} />
 
             <Route path="/perfil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+            <Route path="/perfil/preferencias" element={<PrivateRoute><NativePreferencesPage /></PrivateRoute>} />
             <Route path="/minhas-peticoes" element={<PrivateRoute><MyPetitionsPage /></PrivateRoute>} />
             <Route path="/favoritos" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
             <Route path="/obras-favoritas" element={<PrivateRoute><FavoriteWorksPage /></PrivateRoute>} />
@@ -566,16 +610,23 @@ function App() {
             <Route path="/settings/notifications" element={<NotificationPreferences />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
-        </main>
-        {!Capacitor.isNativePlatform() && <Footer />}
-        {Capacitor.isNativePlatform() && <BottomNav />}
-        <Toaster />
-        <SonnerToast position="top-right" richColors />
-        <WebUploadIndicator />
-        <UploadStatusBar />
-      </div>
+          </main>
+          {(!isNative || !isInteractive) && <Footer />}
+          <BottomNav />
+          <Toaster />
+          <SonnerToast position="top-right" richColors />
+          <WebUploadIndicator />
+          <UploadStatusBar />
+        </div>
+      </MobileHeaderProvider>
     </UploadProvider>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <NativeUIModeProvider>
+      <AppShell />
+    </NativeUIModeProvider>
+  );
+}

@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.webkit.WebView;
@@ -46,6 +47,17 @@ public class MainActivity extends BridgeActivity {
         }
         
         super.onCreate(savedInstanceState);
+
+        try {
+            View nativeSplashOverlay = findViewById(R.id.native_splash_overlay);
+            if (nativeSplashOverlay != null) {
+                nativeSplashOverlay.postDelayed(() -> {
+                    try {
+                        nativeSplashOverlay.setVisibility(View.GONE);
+                    } catch (Exception ignored) {}
+                }, 3000);
+            }
+        } catch (Exception ignored) {}
         
         // Configurar controle de insets para respeitar safe areas
         WindowInsetsControllerCompat windowInsetsController =

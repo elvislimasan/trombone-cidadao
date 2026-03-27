@@ -23,6 +23,12 @@ import {
   Check,
   User2Icon,
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Media } from '@capacitor-community/media';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { useToast } from '@/components/ui/use-toast';
+import { getCardInstagramPublicUrl } from '@/lib/cardInstagramAssets';
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -800,7 +806,7 @@ function StoryTemplateInstagram({ petition, coverPhotoUrl, bgStyle, enableImageE
                    boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
                  }}
                >
-                  <img src="/card-instagram/like-svgrepo-com (1).svg" style={{ width: 75, height: 75 }} alt="Like" />
+                  <img src={getCardInstagramPublicUrl('like-svgrepo-com (1).svg')} style={{ width: 75, height: 75 }} alt="Like" />
                </div>
                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
                   <div>
@@ -899,6 +905,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
   const [imageMode, setImageMode] = useState('background'); // 'background', 'boxed', 'none'
   const [primaryColor, setPrimaryColor] = useState('#e52a2a');
   const [enableImageEffect, setEnableImageEffect] = useState(false); // Default false for petitions
+  const { toast } = useToast();
   
   // New Background states
   const [bgType, setBgType] = useState('default'); // 'default', 'second', 'third', 'color'
@@ -906,10 +913,10 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
 
   const currentBgStyle = useMemo(() => {
     if (bgType === 'color') return { backgroundColor: customBgColor };
-    let bgUrl = '/card-instagram/bg-stories.png';
-    if(bgType === 'primary') bgUrl = '/card-instagram/bg-pending-1.png';
-    if (bgType === 'second') bgUrl = '/card-instagram/bg-in-progress.png';
-    if (bgType === 'third') bgUrl = '/card-instagram/bg-resolved.png';
+    let bgUrl = getCardInstagramPublicUrl('bg-stories.png');
+    if(bgType === 'primary') bgUrl = getCardInstagramPublicUrl('bg-pending-1.png');
+    if (bgType === 'second') bgUrl = getCardInstagramPublicUrl('bg-in-progress.png');
+    if (bgType === 'third') bgUrl = getCardInstagramPublicUrl('bg-resolved.png');
     
     return { 
       backgroundImage: `url(${bgUrl})`,
@@ -939,18 +946,81 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
         skipAutoScale: true,
       });
       const fileName = `story-${layout}-${safeTitle}.png`;
-      const link = document.createElement('a');
-      link.download = fileName;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const perm = await LocalNotifications.checkPermissions();
+          if (perm.display !== 'granted') {
+            await LocalNotifications.requestPermissions();
+          }
+        } catch {}
+
+        const base64 = dataUrl.split(',')[1] || '';
+        const platform = Capacitor.getPlatform();
+        let directory = Directory.Documents;
+        let downloadPath = fileName;
+        if (platform === 'android') {
+          try { await Filesystem.requestPermissions(); } catch {}
+          directory = Directory.ExternalStorage;
+          downloadPath = `Pictures/TromboneCidadao/Stories/${fileName}`;
+        }
+
+        await Filesystem.writeFile({
+          path: downloadPath,
+          data: base64,
+          directory,
+          recursive: true,
+        });
+
+        const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
+        try {
+          if (Media.requestPermissions) {
+            await Media.requestPermissions();
+          }
+        } catch {}
+        try {
+          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
+        } catch {}
+        try {
+          const notificationId = Math.floor(Date.now() % 2147483647);
+          await LocalNotifications.schedule({
+            notifications: [
+              {
+                title: 'Card baixado!',
+                body: 'O card foi salvo na sua galeria. Toque para abrir.',
+                id: notificationId,
+                schedule: { at: new Date(Date.now() + 100) },
+                extra: {
+                  filePath: uriResult.uri,
+                  contentType: 'image/png',
+                },
+              },
+            ],
+          });
+        } catch (e) {
+          toast({
+            title: 'Card salvo na galeria',
+            description: 'Notificação não disponível no dispositivo.',
+          });
+        }
+      } else {
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      toast({
+        title: 'Card pronto!',
+        description: 'O story foi gerado e baixado.',
+      });
     } catch (error) {
       console.error('Erro ao gerar story:', error);
     } finally {
       setDownloading(false);
     }
-  }, [layout, safeTitle, downloading, showQRCode, primaryColor, imageMode]);
+  }, [layout, safeTitle, downloading, imageMode, toast]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
