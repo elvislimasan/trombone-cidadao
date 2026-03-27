@@ -1901,10 +1901,12 @@ export default function WorkDetailsPageProject() {
                 payments={paymentsForComponent}
                 phaseName={measurements.find(m => m.id === paymentTabMeasurementId)?.title || ""}
                 embedded
+                measurementId={paymentTabMeasurementId || currentMeasurement?.id || null}
                 canAdd={Boolean(user?.is_admin)}
                 onAddPayment={openNewPaymentDialog}
                 onEditPayment={openEditPaymentDialog}
                 onDeletePayment={handleDeletePayment}
+                onRefresh={loadData}
                 onBack={null} // We already have the close button in the header
               />
             </div>
