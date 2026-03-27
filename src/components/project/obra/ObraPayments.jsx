@@ -1,10 +1,11 @@
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, ChevronDown, ExternalLink, LayoutGrid, Lock, Search, Settings2, Table2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, ChevronDown, ExternalLink, LayoutGrid, Loader2, Lock, Search, Settings2, Table2, Trash2 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { supabase } from "@/lib/customSupabaseClient";
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value) || 0);
@@ -104,11 +105,13 @@ export function ObraPayments({
   payments,
   phaseName,
   embedded = false,
+  measurementId = null,
   canAdd = false,
   onAddPayment,
   onEditPayment,
   onDeletePayment,
   onBack,
+  onRefresh,
 }) {
   const Container = embedded ? "div" : "section";
   const containerClassName = embedded ? "p-4 sm:p-6 lg:p-4 2xl:p-6" : "bg-card rounded-lg border p-4 sm:p-6 lg:p-4 2xl:p-6";
@@ -133,6 +136,13 @@ export function ObraPayments({
   const [manageSortKey, setManageSortKey] = useState("payment_date");
   const [manageSortDir, setManageSortDir] = useState("desc");
   const [managePage, setManagePage] = useState(1);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importPayload, setImportPayload] = useState(null);
+  const [importSelected, setImportSelected] = useState(() => new Set());
+  const [importEdits, setImportEdits] = useState({});
 
   const parsePtBrDate = useCallback((value) => {
     const str = String(value || "").trim();
@@ -143,6 +153,168 @@ export function ObraPayments({
     const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
     return Number.isNaN(d.getTime()) ? null : d;
   }, []);
+
+  const parseDashDateToIso = useCallback((value) => {
+    const str = String(value || "").trim();
+    if (!str) return null;
+    const parts = str.split("-");
+    if (parts.length !== 3) return null;
+    const [dd, mm, yyyy] = parts;
+    if (!dd || !mm || !yyyy) return null;
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  const canImportPortal = Boolean(canAdd && measurementId);
+
+  const openImport = useCallback(() => {
+    setImportError("");
+    setImportPayload(null);
+    setImportSelected(new Set());
+    setImportEdits({});
+    setImportUrl("");
+    setIsImportOpen(true);
+  }, []);
+
+  const fetchFromPortal = useCallback(async () => {
+    const url = String(importUrl || "").trim();
+    if (!url) {
+      setImportError("Cole o link do portal para buscar os pagamentos.");
+      return;
+    }
+
+    setImportLoading(true);
+    setImportError("");
+    setImportPayload(null);
+    setImportSelected(new Set());
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-floresta-empenho", { body: { url } });
+      if (error) throw error;
+      const paymentsRaw = Array.isArray(data?.payments) ? data.payments : [];
+      const payments = paymentsRaw.map((p, idx) => ({ ...p, _row_key: String(idx) }));
+      const payload = {
+        portal_link: data?.portal_link || url,
+        commitment_number: data?.commitment_number || "",
+        commitment_type: data?.commitment_type || "",
+        payments,
+      };
+      setImportPayload(payload);
+      setImportSelected(new Set(payments.map((p) => String(p?._row_key))));
+      setImportEdits(
+        Object.fromEntries(
+          payments.map((p) => {
+            const key = String(p?._row_key);
+            return [
+              key,
+              {
+                installment: String(p?.installment || "").trim(),
+                payment_date: parseDashDateToIso(p?.opened_at) || "",
+                value: p?.value != null ? String(p.value) : "",
+                history: String(p?.history || "").trim(),
+                kind: String(p?.kind || "").trim(),
+              },
+            ];
+          })
+        )
+      );
+      if (!payments.length) setImportError("Nenhuma linha de pagamento encontrada nesse link.");
+    } catch (e) {
+      setImportError(e?.message || "Não foi possível buscar os dados do portal.");
+    } finally {
+      setImportLoading(false);
+    }
+  }, [importUrl, parseDashDateToIso]);
+
+  const toggleImportRow = useCallback((key) => {
+    setImportSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const updateImportEdit = useCallback((key, patch) => {
+    setImportEdits((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || {}),
+        ...patch,
+      },
+    }));
+  }, []);
+
+  const saveImportedPayments = useCallback(async () => {
+    if (!importPayload) return;
+    if (!measurementId) return;
+
+    const commitmentNumber = String(importPayload.commitment_number || "").trim() || null;
+    const commitmentType = String(importPayload.commitment_type || "").trim() || null;
+    const portalLink = String(importPayload.portal_link || "").trim() || null;
+    const rows = (importPayload.payments || [])
+      .map((p, idx) => ({ p, key: String(p?._row_key ?? idx) }))
+      .filter((x) => importSelected.has(x.key))
+      .map(({ p, key }) => {
+        const edit = importEdits[key] || {};
+        const paymentDate = String(edit.payment_date || "").trim() || null;
+        const value = Number(edit.value);
+        return {
+          measurement_id: measurementId,
+          payment_date: paymentDate,
+          value: Number.isFinite(value) ? value : null,
+          commitment_number: commitmentNumber,
+          commitment_type: commitmentType,
+          installment: String(edit.installment || "").trim() || null,
+          payment_description: String(edit.history || "").trim() || null,
+          portal_link: portalLink,
+        };
+      })
+      .filter((p) => p.payment_date && p.value);
+
+    if (!rows.length) {
+      setImportError("Selecione pelo menos um pagamento válido para salvar.");
+      return;
+    }
+
+    setImportLoading(true);
+    setImportError("");
+    try {
+      const installments = rows.map((r) => r.installment).filter(Boolean);
+      let existingInstallments = new Set();
+      if (commitmentNumber && installments.length) {
+        const { data: existing, error } = await supabase
+          .from("public_work_payments")
+          .select("installment")
+          .eq("measurement_id", measurementId)
+          .eq("commitment_number", commitmentNumber)
+          .in("installment", installments);
+        if (!error && Array.isArray(existing)) {
+          existingInstallments = new Set(existing.map((x) => String(x?.installment || "").trim()).filter(Boolean));
+        }
+      }
+
+      const toInsert = existingInstallments.size
+        ? rows.filter((r) => !existingInstallments.has(String(r.installment || "").trim()))
+        : rows;
+
+      if (!toInsert.length) {
+        setImportError("Esses pagamentos já parecem cadastrados para esta fase.");
+        return;
+      }
+
+      const { error } = await supabase.from("public_work_payments").insert(toInsert);
+      if (error) throw error;
+
+      setIsImportOpen(false);
+      setImportPayload(null);
+      setImportSelected(new Set());
+      setImportUrl("");
+      if (onRefresh) await onRefresh();
+    } catch (e) {
+      setImportError(e?.message || "Erro ao salvar pagamentos importados.");
+    } finally {
+      setImportLoading(false);
+    }
+  }, [importPayload, importSelected, importEdits, measurementId, onRefresh]);
 
   const getPaymentDate = useCallback(
     (p) => {
@@ -720,10 +892,17 @@ export function ObraPayments({
         
         </div>
         {canAdd ? (
-          <Button type="button" size="sm" onClick={() => setIsManageOpen(true)} className="bg-red-500 hover:bg-red-700 text-white">
-            <Settings2 className="h-4 w-4 mr-2" />
-            Gerenciar
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {canImportPortal ? (
+              <Button type="button" size="sm" variant="outline" onClick={openImport} className="rounded-xl">
+                Importar
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" onClick={() => setIsManageOpen(true)} className="bg-red-500 hover:bg-red-700 text-white">
+              <Settings2 className="h-4 w-4 mr-2" />
+              Gerenciar
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -994,7 +1173,6 @@ export function ObraPayments({
                                           <TableHeader className="bg-muted/20">
                                             <TableRow className="hover:bg-transparent">
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data do pagamento</TableHead>
-                                              <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Parcela</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Credor</TableHead>
@@ -1133,16 +1311,18 @@ export function ObraPayments({
           </DialogHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="text-sm text-muted-foreground">Selecione um pagamento para editar ou excluir.</div>
-            <Button
-              type="button"
-              onClick={() => {
-                setIsManageOpen(false);
-                onAddPayment?.();
-              }}
-              className="bg-red-500 hover:bg-red-600 text-white"
-            >
-              Adicionar
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  setIsManageOpen(false);
+                  onAddPayment?.();
+                }}
+                className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
+              >
+                Adicionar
+              </Button>
+            </div>
           </div>
 
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
@@ -1415,6 +1595,139 @@ export function ObraPayments({
           ) : (
             <div className="mt-3 text-center text-sm text-muted-foreground">Nenhum pagamento encontrado.</div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Importar pagamentos do portal</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3">
+            <div className="text-sm text-muted-foreground">
+              Cole o link do portal de transparência (empenho) e confirme quais pagamentos deseja salvar nesta fase.
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="https://floresta.pe.gov.br/transparencia/despesas/detalhes/empenho-n-..."
+                className="bg-muted/20 rounded-xl"
+              />
+              <Button type="button" onClick={fetchFromPortal} disabled={importLoading} className="bg-red-500 hover:bg-red-600 text-white rounded-xl">
+                {importLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Buscar"}
+              </Button>
+            </div>
+
+            {importError ? <div className="text-sm text-red-600">{importError}</div> : null}
+
+            {importPayload ? (
+              <div className="rounded-2xl border border-border overflow-hidden flex flex-col min-h-0">
+                <div className="px-4 py-3 bg-muted/20 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="text-sm font-semibold text-foreground">
+                    Empenho: {importPayload.commitment_number || "—"} {importPayload.commitment_type ? `(${importPayload.commitment_type})` : ""}
+                  </div>
+                  {importPayload.portal_link ? (
+                    <a
+                      href={importPayload.portal_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-red-600 inline-flex items-center gap-1 hover:underline"
+                    >
+                      Abrir no portal <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : null}
+                </div>
+
+                <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[1120px]">
+                      <Table>
+                        <TableHeader className="bg-muted/20 sticky top-0 z-10">
+                          <TableRow className="border-b border-border/60 hover:bg-transparent">
+                            <TableHead className="w-[70px]" />
+                            <TableHead className="w-[90px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Parcela</TableHead>
+                            <TableHead className="w-[160px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</TableHead>
+                            <TableHead className="w-[520px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Histórico</TableHead>
+                            <TableHead className="w-[170px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Valor</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(importPayload.payments || []).map((p, idx) => {
+                            const key = String(p?._row_key ?? idx);
+                            const checked = importSelected.has(key);
+                            const edit = importEdits[key] || {};
+                            const numericValue = Number(edit.value);
+                            return (
+                              <TableRow key={key} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
+                                <TableCell>
+                                  <input type="checkbox" checked={checked} onChange={() => toggleImportRow(key)} />
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap">
+                                  <Input
+                                    value={edit.installment ?? ""}
+                                    onChange={(e) => updateImportEdit(key, { installment: e.target.value })}
+                                    className="h-8 w-[72px] bg-background/70 rounded-lg text-center"
+                                  />
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap">
+                                  <input
+                                    type="date"
+                                    value={edit.payment_date ?? ""}
+                                    onChange={(e) => updateImportEdit(key, { payment_date: e.target.value })}
+                                    className="h-8 w-[150px] rounded-lg border border-input bg-background/70 px-3 text-sm"
+                                  />
+                                </TableCell>
+                               
+                                <TableCell className="min-w-[520px] whitespace-normal break-words text-[11px]">
+                                  <textarea
+                                    value={edit.history ?? ""}
+                                    onChange={(e) => updateImportEdit(key, { history: e.target.value })}
+                                    className="w-full min-h-[84px] bg-background/70 rounded-lg border border-input px-3 py-2 text-[11px]"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right font-semibold whitespace-nowrap">
+                                  <div className="flex flex-col items-end gap-1">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={edit.value ?? ""}
+                                      onChange={(e) => updateImportEdit(key, { value: e.target.value })}
+                                      className="h-8 w-[150px] rounded-lg border border-input bg-background/70 px-3 text-sm text-right"
+                                    />
+                                    {Number.isFinite(numericValue) ? (
+                                      <div className="text-[11px] text-muted-foreground">{formatCurrency(numericValue)}</div>
+                                    ) : null}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="text-xs text-muted-foreground">
+                    Selecionados: {importSelected.size}
+                    {!measurementId ? " (selecione uma fase antes de importar)" : ""}
+                  </div>
+                  <div className="flex items-center gap-2 justify-end">
+                    <Button type="button" variant="outline" onClick={() => setIsImportOpen(false)} className="rounded-xl">
+                      Cancelar
+                    </Button>
+                    <Button type="button" onClick={saveImportedPayments} disabled={importLoading || !measurementId} className="bg-red-500 hover:bg-red-600 text-white rounded-xl">
+                      {importLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar selecionados"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </Container>
