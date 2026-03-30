@@ -219,6 +219,18 @@ const parsePortalDate = (raw: unknown) => {
   return /^\d{2}-\d{2}-\d{4}$/.test(str) ? str : null
 }
 
+const toIsoDate = (raw: unknown) => {
+  const str = String(raw ?? "").trim()
+  if (!str) return null
+  const ymd = str.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`
+  const dmyDash = str.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+  if (dmyDash) return `${dmyDash[3]}-${dmyDash[2]}-${dmyDash[1]}`
+  const dmySlash = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (dmySlash) return `${dmySlash[3]}-${dmySlash[2]}-${dmySlash[1]}`
+  return null
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -309,6 +321,15 @@ serve(async (req) => {
     const typeMatch = text.match(/(?:^|\n)Tipo:\s*([A-Za-zÀ-ÿ]+)/i)
     let commitmentType = commitmentTypeFromHeader || (typeMatch?.[1] ? String(typeMatch[1]).trim() : null)
 
+    const commitmentDateMatch = text.match(/Data do Empenho[^:]*:\s*(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}\/\d{2}\/\d{4})/i)
+    let commitmentDate = commitmentDateMatch?.[1] ? toIsoDate(commitmentDateMatch[1]) : null
+
+    const authMatch = text.match(/C[oó]digo de autenticidade[^:]*:\s*([A-F0-9]{6,})/i)
+    const portalAuthCode = authMatch?.[1] ? String(authMatch[1]).trim().toUpperCase() : null
+
+    const creditorMatch = text.match(/(?:^|\n)Favorecido:\s*([^\n]+)/i)
+    let creditorName = creditorMatch?.[1] ? String(creditorMatch[1]).trim() : null
+
     const slug = parsedUrl.pathname.split("/").filter(Boolean).pop() || null
 
     if (csrfHeaderToken && cookieHeader && slug) {
@@ -331,6 +352,24 @@ serve(async (req) => {
         null
       const apiType = apiTypeRaw != null ? String(apiTypeRaw).trim() : null
       if (apiType) commitmentType = apiType
+
+      const apiCommitmentDateRaw =
+        empenhoData?.empenho?.DATA_EMPENHO ??
+        empenhoData?.empenho?.data_empenho ??
+        empenhoData?.empenho?.DATA_EMPENHO_GLOBAL ??
+        empenhoData?.empenho?.data_empenho_global ??
+        null
+      const apiCommitmentDate = toIsoDate(apiCommitmentDateRaw) || toIsoDate(parsePortalDate(apiCommitmentDateRaw))
+      if (apiCommitmentDate) commitmentDate = apiCommitmentDate
+
+      const apiCreditorRaw =
+        empenhoData?.empenho?.FAVORECIDO ??
+        empenhoData?.empenho?.favorecido ??
+        empenhoData?.empenho?.CREDOR ??
+        empenhoData?.empenho?.credor ??
+        null
+      const apiCreditor = apiCreditorRaw != null ? String(apiCreditorRaw).trim() : null
+      if (apiCreditor) creditorName = apiCreditor
 
       const id = empenhoData?.empenho?.ID_EMPENHO
       const idStr = id != null ? String(id) : null
@@ -407,9 +446,12 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         portal_link: parsedUrl.toString(),
+        portal_auth_code: portalAuthCode,
         commitment_number: commitmentNumber,
         commitment_year: fromUrl.year,
         commitment_type: commitmentType,
+        commitment_date: commitmentDate,
+        creditor_name: creditorName,
         payments,
         raw_text_preview: text.slice(0, 5000),
       }),

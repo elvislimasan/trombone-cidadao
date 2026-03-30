@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { FLORESTA_COORDS } from '@/config/mapConfig';
 import VideoProcessorComponent from '@/components/VideoProcessor';
 import CameraCapture from '@/components/CameraCapture';
+import WebCameraCapture from '@/components/WebCameraCapture';
 import MediaViewer from '@/components/MediaViewer';
 import { useUpload } from '@/contexts/UploadContext';
 import { setGlobalUserViewingMedia, validateVideoFile } from '@/utils/videoProcessor';
@@ -44,6 +45,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
     videos: [], 
     pole_number: '',
     pole_id: null,
+    reported_post_identifier: null,
+    reported_plate: null,
     reported_pole_distance_m: null,
     issue_type: '',
     is_from_water_utility: false,
@@ -81,7 +84,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const uploadAbortControllerRef = useRef(null);
   const photoWorkerRef = useRef(null);
   const wizardBodyRef = useRef(null);
-  const wizardStepTitles = ['Info', 'Local', 'Mídia', 'Revisão'];
+  const wizardStepTitles = ['Info', 'Local', 'Mídia'];
   const wizardStepTitle = wizardStepTitles[wizardStep] || 'Nova Bronca';
   const wizardProgressPct = Math.round(((wizardStep + 1) / wizardStepTitles.length) * 100);
   const lightingIssueTypes = useMemo(() => ([
@@ -96,6 +99,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
     { value: 'no_identifier', label: 'sem identificação' },
     { value: 'other', label: 'outro' },
   ]), []);
+
+  const formatPoleLabel = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    return s.replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
+  };
 
   // Referência para armazenar dados da foto capturada enquanto processa
   const pendingPhotoRef = useRef(null);
@@ -265,8 +274,17 @@ const ReportModal = ({ onClose, onSubmit }) => {
   }, [formData.category, formData.pole_id]);
 
   useEffect(() => {
+    // Quando mudar para categoria não-iluminação, resetar o cache para permitir nova busca de endereço
+    if (formData.category && formData.category !== 'iluminacao') {
+      lastReverseGeocodeKeyRef.current = null;
+    }
+  }, [formData.category]);
+
+  useEffect(() => {
     let cancelled = false;
-    if (formData.address?.trim()) return;
+    // Para categorias não-iluminação: sempre atualiza via reverse geocode (a menos que usuário tenha editado manualmente)
+    // Para iluminação: só atualiza se endereço estiver vazio
+    if (formData.category === 'iluminacao' && formData.address?.trim()) return;
     if (addressTouchedRef.current) return;
 
     const target = reverseGeocodeTargetRef.current || formData.location;
@@ -291,7 +309,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       if (typeof address === 'string' && address.trim()) {
         lastReverseGeocodeKeyRef.current = key;
         reverseGeocodeTargetRef.current = null;
-        setFormData((prev) => (prev.address?.trim() ? prev : { ...prev, address }));
+        setFormData((prev) => (addressTouchedRef.current ? prev : { ...prev, address }));
       }
     }, 450);
 
@@ -299,7 +317,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [formData.location?.lat, formData.location?.lng, formData.pole_id, formData.address]);
+  }, [formData.location?.lat, formData.location?.lng, formData.pole_id, formData.address, formData.category]);
 
   // Cleanup de previews de imagens e vídeos quando o componente desmontar
   useEffect(() => {
@@ -1134,16 +1152,38 @@ const ReportModal = ({ onClose, onSubmit }) => {
         throw new Error('Nenhum dado capturado');
       }
 
-      setIsPhotoProcessing(true);
-      setPhotoProcessingMessage('Processando imagem...');
-      // setPhotoProcessingProgress(10);
-
       const timestamp = Date.now();
       
       // Se for vídeo (objeto com type='video')
       if (typeof capturedData === 'object' && capturedData.type === 'video') {
-         return;
+        const mimeTypeRaw = capturedData?.mimeType || capturedData?.file?.type || 'video/webm';
+        const mimeType = String(mimeTypeRaw).split(';')[0].trim() || 'video/webm';
+        const ext = String(capturedData?.ext || '').trim() || (String(mimeType).includes('mp4') ? 'mp4' : 'webm');
+        const fileName = `video_${timestamp}.${ext}`;
+        const finalFile = capturedData?.file ? new File([capturedData.file], fileName, { type: mimeType }) : null;
+
+        if (!finalFile) throw new Error('Vídeo inválido');
+
+        setFormData(prev => ({
+          ...prev,
+          videos: [...prev.videos, {
+            file: finalFile,
+            name: fileName,
+            preview: null,
+            size: finalFile.size
+          }]
+        }));
+
+        toast({
+          title: "Vídeo capturado!",
+          description: "Vídeo adicionado com sucesso."
+        });
+
+        return;
       }
+
+      setIsPhotoProcessing(true);
+      setPhotoProcessingMessage('Processando imagem...');
 
       // Processamento de FOTO
       const fileName = `photo_${timestamp}.jpg`;
@@ -1217,6 +1257,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       setPhotoProcessingProgress(0);
       setShowCamera(false);
       setIsTakingPhoto(false);
+      setIsRecordingVideo(false);
     }
   };
 
@@ -2102,11 +2143,44 @@ const ReportModal = ({ onClose, onSubmit }) => {
       newErrors.pole_number = "Por favor, selecione um poste sugerido ou informe o número/plaqueta.";
       hasErrors = true;
     }
+
+    if (!hasErrors && formData.category === 'iluminacao') {
+      if (formData.pole_id) {
+        if (duplicatePoleReportsLoading) {
+          toast({
+            title: "Aguarde…",
+            description: "Estamos verificando se já existe bronca para este poste.",
+            variant: "default"
+          });
+          return;
+        }
+
+        if (duplicatePoleReports.length > 0) {
+          newErrors.pole_number = "Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.";
+          hasErrors = true;
+        }
+      } else if (formData.pole_number?.trim()) {
+        const identifier = formatPoleLabel(formData.pole_number);
+        const { data, error } = await supabase
+          .from('reports')
+          .select('id')
+          .eq('category_id', 'iluminacao')
+          .eq('reported_post_identifier', identifier)
+          .neq('status', 'duplicate')
+          .in('status', ['pending', 'in-progress'])
+          .limit(1);
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          newErrors.pole_number = "Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.";
+          hasErrors = true;
+        }
+      }
+    }
     
     if (hasErrors) {
       setErrors(newErrors);
       const firstErrorField = Object.keys(newErrors)[0];
-      if (isNative) {
+      if (useWizardLayout) {
         const targetStep = fieldToWizardStep[firstErrorField];
         if (typeof targetStep === 'number') {
           setWizardStep(targetStep);
@@ -2197,6 +2271,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
         videos: [],
         pole_number: '',
         pole_id: null,
+        reported_post_identifier: null,
+        reported_plate: null,
         reported_pole_distance_m: null,
         issue_type: '',
         is_from_water_utility: false,
@@ -2229,6 +2305,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
   };
 
   const handleLocationChange = (newLocation) => {
+    // Se a categoria não for iluminação, atualiza o target para reverse geocode
+    // assim o endereço será atualizado conforme o marcador se move
+    if (formData.category !== 'iluminacao') {
+      reverseGeocodeTargetRef.current = newLocation;
+      lastReverseGeocodeKeyRef.current = null;
+    }
     setFormData(prev => ({ ...prev, location: newLocation }));
   };
 
@@ -2475,7 +2557,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             .filter((p) => Number.isFinite(p?.latitude) && Number.isFinite(p?.longitude))
                             .map((p) => ({
                               id: p.pole_id,
-                              title: p.identifier || p.plate || `Poste ${p.pole_id}`,
+                              title: formatPoleLabel(p.plate || p.identifier) || `Poste ${p.pole_id}`,
                               distanceLabel: p.distance_m != null ? `${p.distance_m}m` : '',
                               isBroken: !!p.is_broken,
                               location: { lat: p.latitude, lng: p.longitude },
@@ -2496,7 +2578,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
                               ...prev,
                               pole_id: m.id,
                               reported_pole_distance_m: m.data?.distance_m ?? null,
-                              pole_number: m.data?.plate || m.data?.identifier || String(m.title || m.id),
+                              reported_post_identifier: m.data?.identifier ?? null,
+                              reported_plate: m.data?.plate ?? null,
+                              pole_number: formatPoleLabel(m.data?.plate || m.data?.identifier || m.title || m.id),
                               address: addressTouchedRef.current ? prev.address : (m.data?.address || ''),
                             }));
                             if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
@@ -2542,7 +2626,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             type="text"
                             value={formData.pole_number}
                             onChange={(e) => {
-                              setFormData({ ...formData, pole_number: e.target.value, pole_id: null, reported_pole_distance_m: null });
+                              const raw = e.target.value;
+                              const normalized = formatPoleLabel(raw);
+                              setFormData({
+                                ...formData,
+                                pole_number: raw,
+                                pole_id: null,
+                                reported_pole_distance_m: null,
+                                reported_post_identifier: normalized || null,
+                                reported_plate: normalized || null,
+                              });
                               if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
                             }}
                             data-error-field="pole_number"
@@ -2707,6 +2800,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         }}
                         disabled={isSubmitting}
                         showList={false}
+                        onRecordVideo={!isNative ? handleRecordVideoRequest : undefined}
                         onProcessingChange={(processing) => {
                           isAddingVideoRef.current = processing;
                           if (!processing) {
@@ -2801,67 +2895,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 </>
               )}
 
-              {wizardStep === 3 && (
-                <>
-                  <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-foreground">Informações</p>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setWizardStep(0)}>Editar</Button>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Título</p>
-                        <p className="font-medium text-foreground break-words">{formData.title || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Categoria</p>
-                        <p className="font-medium text-foreground">{(categories.find(c => c.id === formData.category)?.name) || '-'}</p>
-                      </div>
-                      {formData.category === 'iluminacao' && (
-                        <div>
-                          <p className="text-xs text-muted-foreground">Poste</p>
-                          <p className="font-medium text-foreground">{formData.pole_number || '-'}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-foreground">Localização</p>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setWizardStep(1)}>Editar</Button>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Endereço</p>
-                        <p className="font-medium text-foreground break-words">{formData.address || '-'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-foreground">Mídia</p>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setWizardStep(2)}>Editar</Button>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="flex items-center gap-2 bg-background border border-border rounded-full px-3 py-1">
-                        <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-foreground font-medium">{formData.photos.length}</span>
-                        <span className="text-muted-foreground">fotos</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-background border border-border rounded-full px-3 py-1">
-                        <Film className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-foreground font-medium">{formData.videos.length}</span>
-                        <span className="text-muted-foreground">vídeos</span>
-                      </div>
-                    </div>
-                    {errors.photos && (
-                      <p className="text-xs text-destructive" data-error-field="photos">{errors.photos}</p>
-                    )}
-                  </div>
-                </>
-              )}
             </div>
 
             <div
@@ -2889,20 +2922,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   {isSubmitting ? 'Cancelar Envio' : (wizardStep === 0 ? 'Cancelar' : 'Voltar')}
                 </Button>
 
-                {!isSubmitting && wizardStep < 3 && (
+                {!isSubmitting && wizardStep < 2 && (
                   <Button
                     type="button"
                     className="flex-1 bg-primary hover:bg-primary/90"
                     onClick={() => {
                       if (!validateStep(wizardStep)) return;
-                      setWizardStep((s) => Math.min(3, s + 1));
+                      setWizardStep((s) => Math.min(2, s + 1));
                     }}
                   >
                     Continuar
                   </Button>
                 )}
 
-                {!isSubmitting && wizardStep === 3 && (
+                {!isSubmitting && wizardStep === 2 && (
                   <Button
                     type="submit"
                     className="flex-1 bg-primary hover:bg-primary/90"
@@ -3077,7 +3110,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           .filter((p) => Number.isFinite(p?.latitude) && Number.isFinite(p?.longitude))
                           .map((p) => ({
                             id: p.pole_id,
-                            title: p.identifier || p.plate || `Poste ${p.pole_id}`,
+                            title: formatPoleLabel(p.plate || p.identifier) || `Poste ${p.pole_id}`,
                             distanceLabel: p.distance_m != null ? `${p.distance_m}m` : '',
                             isBroken: !!p.is_broken,
                             location: { lat: p.latitude, lng: p.longitude },
@@ -3098,7 +3131,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             ...prev,
                             pole_id: m.id,
                             reported_pole_distance_m: m.data?.distance_m ?? null,
-                            pole_number: m.data?.plate || m.data?.identifier || String(m.title || m.id),
+                            reported_post_identifier: m.data?.identifier ?? null,
+                            reported_plate: m.data?.plate ?? null,
+                            pole_number: formatPoleLabel(m.data?.plate || m.data?.identifier || m.title || m.id),
                             address: addressTouchedRef.current ? prev.address : (m.data?.address || ''),
                           }));
                           if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
@@ -3449,14 +3484,27 @@ const ReportModal = ({ onClose, onSubmit }) => {
       {/* Modal de Câmera (Restaurado) */}
       {showCamera && (
         <div className="fixed inset-0 z-[1300] bg-black">
-          <CameraCapture
-            initialMode={cameraMode}
-            onCapture={handleInAppCapture}
-            onClose={() => {
-              setShowCamera(false);
-              setIsTakingPhoto(false);
-            }}
-          />
+          {isNative ? (
+            <CameraCapture
+              initialMode={cameraMode}
+              onCapture={handleInAppCapture}
+              onClose={() => {
+                setShowCamera(false);
+                setIsTakingPhoto(false);
+                setIsRecordingVideo(false);
+              }}
+            />
+          ) : (
+            <WebCameraCapture
+              initialMode={cameraMode}
+              onCapture={handleInAppCapture}
+              onClose={() => {
+                setShowCamera(false);
+                setIsTakingPhoto(false);
+                setIsRecordingVideo(false);
+              }}
+            />
+          )}
         </div>
       )}
 

@@ -1333,10 +1333,25 @@ export default function WorkDetailsPageProject() {
       return;
     }
 
-    // Busca um pagamento existente com o mesmo número de empenho
-    const existingPayment = allPayments.find(
+    const commitmentType = String(paymentForm.commitment_type || "").trim();
+    const candidates = allPayments.filter(
       (p) => String(p.commitment_number || "").trim() === commitmentNumber && (p.commitment_date || p.commitment_type)
     );
+
+    const filteredByType = commitmentType
+      ? candidates.filter((p) => String(p.commitment_type || "").trim() === commitmentType)
+      : candidates;
+
+    const typeSet = new Set(candidates.map((p) => String(p.commitment_type || "").trim()).filter(Boolean));
+    const dateSet = new Set(filteredByType.map((p) => String(p.commitment_date || "").trim()).filter(Boolean));
+    const existingPayment =
+      filteredByType.length > 0
+        ? dateSet.size <= 1
+          ? filteredByType[0]
+          : null
+        : !commitmentType && typeSet.size === 1
+          ? candidates[0]
+          : null;
 
     if (existingPayment) {
       setPaymentForm((prev) => ({
@@ -1345,10 +1360,12 @@ export default function WorkDetailsPageProject() {
         commitment_type: !isEditingCommitmentType ? existingPayment.commitment_type || prev.commitment_type : prev.commitment_type,
       }));
     } else if (!editingPaymentId) {
-      // Se for um novo número de empenho e estamos criando um novo pagamento, limpa os campos
-      setPaymentForm((prev) => ({ ...prev, commitment_date: "", commitment_type: "" }));
+      setPaymentForm((prev) => ({
+        ...prev,
+        commitment_date: !isEditingCommitmentDate ? "" : prev.commitment_date,
+      }));
     }
-  }, [paymentForm.commitment_number, allPayments, editingPaymentId, isEditingCommitmentDate, isEditingCommitmentType]);
+  }, [paymentForm.commitment_number, paymentForm.commitment_type, allPayments, editingPaymentId, isEditingCommitmentDate, isEditingCommitmentType]);
 
   const handleSavePayment = useCallback(async () => {
     if (!user?.is_admin) return;
@@ -1365,6 +1382,7 @@ export default function WorkDetailsPageProject() {
 
     setIsSavingPayment(true);
     try {
+      const previousPayment = editingPaymentId ? allPayments.find((p) => p.id === editingPaymentId) || null : null;
       const payload = {
         measurement_id: paymentForm.measurement_id,
         commitment_date: paymentForm.commitment_date || null,
@@ -1383,37 +1401,38 @@ export default function WorkDetailsPageProject() {
         const { error } = await supabase.from("public_work_payments").update(payload).eq("id", editingPaymentId);
         if (error) throw error;
 
-        // Se a data ou tipo do empenho mudou, atualiza em todos os pagamentos com o mesmo número
-        if (payload.commitment_number) {
-          const updateObj = {};
-          if (payload.commitment_date) updateObj.commitment_date = payload.commitment_date;
-          if (payload.commitment_type) updateObj.commitment_type = payload.commitment_type;
+        const prevNumber = previousPayment?.commitment_number || null;
+        const prevType = previousPayment?.commitment_type || null;
+        const prevDate = previousPayment?.commitment_date || null;
+        const updateObj = {};
+        if (payload.commitment_date) updateObj.commitment_date = payload.commitment_date;
+        if (payload.commitment_type) updateObj.commitment_type = payload.commitment_type;
 
-          if (Object.keys(updateObj).length > 0) {
-            const { error: batchError } = await supabase
-              .from("public_work_payments")
-              .update(updateObj)
-              .eq("commitment_number", payload.commitment_number);
-            if (batchError) console.error("Erro ao atualizar empenho em lote:", batchError);
-          }
+        if (prevNumber && prevType && prevDate && Object.keys(updateObj).length > 0) {
+          const { error: batchError } = await supabase
+            .from("public_work_payments")
+            .update(updateObj)
+            .eq("commitment_number", prevNumber)
+            .eq("commitment_type", prevType)
+            .eq("commitment_date", prevDate);
+          if (batchError) console.error("Erro ao atualizar empenho em lote:", batchError);
         }
       } else {
         const { error } = await supabase.from("public_work_payments").insert(payload);
         if (error) throw error;
 
-        // Se o novo pagamento tem número e dados de empenho, garante sincronia
-        if (payload.commitment_number) {
-          const updateObj = {};
-          if (payload.commitment_date) updateObj.commitment_date = payload.commitment_date;
-          if (payload.commitment_type) updateObj.commitment_type = payload.commitment_type;
+        const updateObj = {};
+        if (payload.commitment_date) updateObj.commitment_date = payload.commitment_date;
+        if (payload.commitment_type) updateObj.commitment_type = payload.commitment_type;
 
-          if (Object.keys(updateObj).length > 0) {
-            const { error: batchError } = await supabase
-              .from("public_work_payments")
-              .update(updateObj)
-              .eq("commitment_number", payload.commitment_number);
-            if (batchError) console.error("Erro ao atualizar empenho em lote:", batchError);
-          }
+        if (payload.commitment_number && payload.commitment_type && payload.commitment_date && Object.keys(updateObj).length > 0) {
+          const { error: batchError } = await supabase
+            .from("public_work_payments")
+            .update(updateObj)
+            .eq("commitment_number", payload.commitment_number)
+            .eq("commitment_type", payload.commitment_type)
+            .is("commitment_date", null);
+          if (batchError) console.error("Erro ao atualizar empenho em lote:", batchError);
         }
       }
 
@@ -1427,7 +1446,7 @@ export default function WorkDetailsPageProject() {
     } finally {
       setIsSavingPayment(false);
     }
-  }, [editingPaymentId, loadData, paymentForm, touchPageUpdatedAt, user?.is_admin, workId]);
+  }, [editingPaymentId, loadData, paymentForm, touchPageUpdatedAt, user?.is_admin, workId, allPayments]);
 
   const handleDeletePayment = useCallback(
     async (payment) => {
@@ -1490,14 +1509,25 @@ export default function WorkDetailsPageProject() {
   const existingCommitmentData = useMemo(() => {
     const commitmentNumber = String(paymentForm.commitment_number || "").trim();
     if (!commitmentNumber) return { date: null, type: null };
-    const found = allPayments.find(
+    const commitmentType = String(paymentForm.commitment_type || "").trim();
+    const candidates = allPayments.filter(
       (p) => String(p.commitment_number || "").trim() === commitmentNumber && (p.commitment_date || p.commitment_type)
     );
+    const filteredByType = commitmentType
+      ? candidates.filter((p) => String(p.commitment_type || "").trim() === commitmentType)
+      : candidates;
+    const typeSet = new Set(candidates.map((p) => String(p.commitment_type || "").trim()).filter(Boolean));
+    const found =
+      filteredByType.length > 0
+        ? filteredByType[0]
+        : !commitmentType && typeSet.size === 1
+          ? candidates[0]
+          : null;
     return {
       date: found?.commitment_date || null,
       type: found?.commitment_type || null,
     };
-  }, [paymentForm.commitment_number, allPayments]);
+  }, [paymentForm.commitment_number, paymentForm.commitment_type, allPayments]);
 
   if (loading && !work) {
     return (
@@ -1902,6 +1932,7 @@ export default function WorkDetailsPageProject() {
                 phaseName={measurements.find(m => m.id === paymentTabMeasurementId)?.title || ""}
                 embedded
                 measurementId={paymentTabMeasurementId || currentMeasurement?.id || null}
+                defaultCreditorName={(measurements.find(m => m.id === (paymentTabMeasurementId || currentMeasurement?.id))?.contractor?.name) || ""}
                 canAdd={Boolean(user?.is_admin)}
                 onAddPayment={openNewPaymentDialog}
                 onEditPayment={openEditPaymentDialog}
@@ -2031,9 +2062,9 @@ export default function WorkDetailsPageProject() {
                 <Input
                   type="date"
                   value={paymentForm.commitment_date}
-                  disabled={Boolean(existingCommitmentData.date) && !isEditingCommitmentDate}
+                  disabled={Boolean(existingCommitmentData.date) && !isEditingCommitmentDate && Boolean(editingPaymentId)}
                   onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_date: e.target.value }))}
-                  className={existingCommitmentData.date && !isEditingCommitmentDate ? "bg-muted cursor-not-allowed opacity-70" : ""}
+                  className={existingCommitmentData.date && !isEditingCommitmentDate && editingPaymentId ? "bg-muted cursor-not-allowed opacity-70" : ""}
                 />
               </div>
               <div className={`grid gap-2 transition-all duration-300 ${paymentForm.commitment_number ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
@@ -2050,9 +2081,9 @@ export default function WorkDetailsPageProject() {
                   )}
                 </div>
                 <select
-                  className={`h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background ${existingCommitmentData.type && !isEditingCommitmentType ? "bg-muted cursor-not-allowed opacity-70" : ""}`}
+                  className={`h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background ${existingCommitmentData.type && !isEditingCommitmentType && editingPaymentId ? "bg-muted cursor-not-allowed opacity-70" : ""}`}
                   value={paymentForm.commitment_type}
-                  disabled={Boolean(existingCommitmentData.type) && !isEditingCommitmentType}
+                  disabled={Boolean(existingCommitmentData.type) && !isEditingCommitmentType && Boolean(editingPaymentId)}
                   onChange={(e) => setPaymentForm((prev) => ({ ...prev, commitment_type: e.target.value }))}
                 >
                   <option value="">Selecione</option>

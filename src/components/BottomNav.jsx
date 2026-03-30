@@ -78,10 +78,13 @@ const BottomNav = () => {
   };
 
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
-    // ... existing logic ...
     if (!user) return;
 
-    const { title, description, category, address, location, pole_number, is_from_water_utility } = newReportData;
+    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility } = newReportData;
+    const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
+    const normalizedPole = normalizePoleLabel(pole_number);
+    const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
+    const savedReportedPlate = reported_plate ? normalizePoleLabel(reported_plate) : (normalizedPole || null);
     
     const { data, error } = await supabase
       .from('reports')
@@ -94,6 +97,11 @@ const BottomNav = () => {
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
+        pole_id: category === 'iluminacao' ? pole_id : null,
+        reported_post_identifier: category === 'iluminacao' ? savedReportedPostIdentifier : null,
+        reported_plate: category === 'iluminacao' ? savedReportedPlate : null,
+        reported_pole_distance_m: category === 'iluminacao' ? reported_pole_distance_m : null,
+        issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
         status: 'pending',
         moderation_status: user?.is_admin ? 'approved' : 'pending_approval'
