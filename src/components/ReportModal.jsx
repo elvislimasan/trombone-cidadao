@@ -1,27 +1,52 @@
-import React, { useState, useRef, lazy, Suspense, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { motion } from 'framer-motion';
-import { X, Camera, Video, Trash2, MapPin, Image as ImageIcon, Film, Play, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import { Capacitor } from '@capacitor/core';
-import { Camera as CapacitorCamera, CameraResultType, CameraSource, CameraDirection } from '@capacitor/camera';
-import { App } from '@capacitor/app';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { VideoProcessor } from '@/plugins/VideoProcessor';
-import { useBackgroundUpload } from '@/hooks/useBackgroundUpload';
-import { supabase } from '@/lib/customSupabaseClient';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { FLORESTA_COORDS } from '@/config/mapConfig';
-import VideoProcessorComponent from '@/components/VideoProcessor';
-import CameraCapture from '@/components/CameraCapture';
-import WebCameraCapture from '@/components/WebCameraCapture';
-import MediaViewer from '@/components/MediaViewer';
-import { useUpload } from '@/contexts/UploadContext';
-import { setGlobalUserViewingMedia, validateVideoFile } from '@/utils/videoProcessor';
+import React, {
+  useState,
+  useRef,
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+} from "react";
+import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
+import {
+  X,
+  Camera,
+  Video,
+  Trash2,
+  MapPin,
+  Image as ImageIcon,
+  Film,
+  Play,
+  Loader2,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { Capacitor } from "@capacitor/core";
+import {
+  Camera as CapacitorCamera,
+  CameraResultType,
+  CameraSource,
+  CameraDirection,
+} from "@capacitor/camera";
+import { App } from "@capacitor/app";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { VideoProcessor } from "@/plugins/VideoProcessor";
+import { useBackgroundUpload } from "@/hooks/useBackgroundUpload";
+import { supabase } from "@/lib/customSupabaseClient";
+import { useAuth } from "@/contexts/SupabaseAuthContext";
+import { FLORESTA_COORDS } from "@/config/mapConfig";
+import VideoProcessorComponent from "@/components/VideoProcessor";
+import CameraCapture from "@/components/CameraCapture";
+import WebCameraCapture from "@/components/WebCameraCapture";
+import MediaViewer from "@/components/MediaViewer";
+import { useUpload } from "@/contexts/UploadContext";
+import {
+  setGlobalUserViewingMedia,
+  validateVideoFile,
+} from "@/utils/videoProcessor";
 
-const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
+const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 
 // Componentes VideoThumbnail e VideoPlayer removidos - não são mais necessários
 // Vídeos serão exibidos apenas como ícone simples sem preview
@@ -30,25 +55,25 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const isNative = Capacitor.isNativePlatform();
   const navigate = useNavigate();
   const [isSmallScreen, setIsSmallScreen] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 640px)').matches;
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 640px)").matches;
   });
   const isFullScreenModal = isNative || isSmallScreen;
   const useWizardLayout = true;
-  const [formData, setFormData] = useState({ 
-    title: '', 
-    description: '', 
-    category: '', 
-    address: '', 
-    location: null, 
-    photos: [], 
-    videos: [], 
-    pole_number: '',
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    category: "",
+    address: "",
+    location: null,
+    photos: [],
+    videos: [],
+    pole_number: "",
     pole_id: null,
     reported_post_identifier: null,
     reported_plate: null,
     reported_pole_distance_m: null,
-    issue_type: '',
+    issue_type: "",
     is_from_water_utility: false,
   });
   const [errors, setErrors] = useState({});
@@ -57,8 +82,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const { user, session } = useAuth();
   const { uploadVideo, uploads } = useBackgroundUpload();
   // Generate a consistent ID for this report session to allow immediate uploads
-  const [reportUUID] = useState(() => Date.now().toString(36) + Math.random().toString(36).substr(2));
-  
+  const [reportUUID] = useState(
+    () => Date.now().toString(36) + Math.random().toString(36).substr(2)
+  );
+
   const photoGalleryInputRef = useRef(null);
   const photoCameraInputRef = useRef(null);
   const videoGalleryInputRef = useRef(null);
@@ -69,41 +96,48 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
   const [nearbyPolesError, setNearbyPolesError] = useState(null);
   const [duplicatePoleReports, setDuplicatePoleReports] = useState([]);
-  const [duplicatePoleReportsLoading, setDuplicatePoleReportsLoading] = useState(false);
-  const [duplicatePoleReportsError, setDuplicatePoleReportsError] = useState(null);
+  const [duplicatePoleReportsLoading, setDuplicatePoleReportsLoading] =
+    useState(false);
+  const [duplicatePoleReportsError, setDuplicatePoleReportsError] =
+    useState(null);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [cameraMode, setCameraMode] = useState('photo');
+  const [cameraMode, setCameraMode] = useState("photo");
   const [isRecordingVideo, setIsRecordingVideo] = useState(false);
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
   const [photoProcessingProgress, setPhotoProcessingProgress] = useState(0);
-  const [photoProcessingMessage, setPhotoProcessingMessage] = useState('');
+  const [photoProcessingMessage, setPhotoProcessingMessage] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [viewingPhotoIndex, setViewingPhotoIndex] = useState(null);
   const [viewingVideoIndex, setViewingVideoIndex] = useState(null);
   const uploadAbortControllerRef = useRef(null);
   const photoWorkerRef = useRef(null);
   const wizardBodyRef = useRef(null);
-  const wizardStepTitles = ['Info', 'Local', 'Mídia'];
-  const wizardStepTitle = wizardStepTitles[wizardStep] || 'Nova Bronca';
-  const wizardProgressPct = Math.round(((wizardStep + 1) / wizardStepTitles.length) * 100);
-  const lightingIssueTypes = useMemo(() => ([
-    { value: 'lamp_off', label: 'lâmpada apagada' },
-    { value: 'lamp_blinking', label: 'piscando' },
-    { value: 'lamp_on_daytime', label: 'acesa durante o dia' },
-    { value: 'no_lighting', label: 'poste sem iluminação' },
-    { value: 'arm_damaged', label: 'braço/luminária danificado' },
-    { value: 'exposed_wiring', label: 'fiação exposta' },
-    { value: 'pole_leaning', label: 'poste inclinado' },
-    { value: 'pole_broken', label: 'poste quebrado' },
-    { value: 'no_identifier', label: 'sem identificação' },
-    { value: 'other', label: 'outro' },
-  ]), []);
+  const wizardStepTitles = ["Info", "Local", "Mídia"];
+  const wizardStepTitle = wizardStepTitles[wizardStep] || "Nova Bronca";
+  const wizardProgressPct = Math.round(
+    ((wizardStep + 1) / wizardStepTitles.length) * 100
+  );
+  const lightingIssueTypes = useMemo(
+    () => [
+      { value: "lamp_off", label: "lâmpada apagada" },
+      { value: "lamp_blinking", label: "piscando" },
+      { value: "lamp_on_daytime", label: "acesa durante o dia" },
+      { value: "no_lighting", label: "poste sem iluminação" },
+      { value: "arm_damaged", label: "braço/luminária danificado" },
+      { value: "exposed_wiring", label: "fiação exposta" },
+      { value: "pole_leaning", label: "poste inclinado" },
+      { value: "pole_broken", label: "poste quebrado" },
+      { value: "no_identifier", label: "sem identificação" },
+      { value: "other", label: "outro" },
+    ],
+    []
+  );
 
   const formatPoleLabel = (raw) => {
-    const s = String(raw || '').trim();
-    if (!s) return '';
-    return s.replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
+    const s = String(raw || "").trim();
+    if (!s) return "";
+    return s.replace(/^\s*\d+\s*[-–—]\s*/u, "").trim();
   };
 
   // Referência para armazenar dados da foto capturada enquanto processa
@@ -116,7 +150,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const addressTouchedRef = useRef(false);
   const lastReverseGeocodeKeyRef = useRef(null);
   const reverseGeocodeTargetRef = useRef(null);
-  
+
   // Atualizar flag de montagem
   useEffect(() => {
     isMountedRef.current = true;
@@ -128,18 +162,19 @@ const ReportModal = ({ onClose, onSubmit }) => {
   useEffect(() => {
     if (!useWizardLayout) return;
     try {
-      wizardBodyRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      wizardBodyRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
     } catch {}
   }, [useWizardLayout, wizardStep]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const media = window.matchMedia('(max-width: 640px)');
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 640px)");
     const handler = (e) => setIsSmallScreen(e.matches);
-    if (media.addEventListener) media.addEventListener('change', handler);
+    if (media.addEventListener) media.addEventListener("change", handler);
     else media.addListener(handler);
     return () => {
-      if (media.removeEventListener) media.removeEventListener('change', handler);
+      if (media.removeEventListener)
+        media.removeEventListener("change", handler);
       else media.removeListener(handler);
     };
   }, []);
@@ -147,10 +182,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
   useEffect(() => {
     // Solicita a geolocalização ao montar o componente
     if (!navigator.geolocation) {
-      const defaultLocation = { lat: FLORESTA_COORDS[0], lng: FLORESTA_COORDS[1] };
-      setFormData(prev => ({ 
-        ...prev, 
-        location: prev.location || defaultLocation
+      const defaultLocation = {
+        lat: FLORESTA_COORDS[0],
+        lng: FLORESTA_COORDS[1],
+      };
+      setFormData((prev) => ({
+        ...prev,
+        location: prev.location || defaultLocation,
       }));
       return;
     }
@@ -158,22 +196,25 @@ const ReportModal = ({ onClose, onSubmit }) => {
     const geoOptions = {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 0
+      maximumAge: 0,
     };
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        setFormData(prev => ({ 
-          ...prev, 
-          location: { lat: latitude, lng: longitude }
+        setFormData((prev) => ({
+          ...prev,
+          location: { lat: latitude, lng: longitude },
         }));
       },
       (error) => {
-        const defaultLocation = { lat: FLORESTA_COORDS[0], lng: FLORESTA_COORDS[1] };
-        setFormData(prev => ({ 
-          ...prev, 
-          location: prev.location || defaultLocation
+        const defaultLocation = {
+          lat: FLORESTA_COORDS[0],
+          lng: FLORESTA_COORDS[1],
+        };
+        setFormData((prev) => ({
+          ...prev,
+          location: prev.location || defaultLocation,
         }));
       },
       geoOptions
@@ -183,7 +224,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   useEffect(() => {
     let cancelled = false;
 
-    if (formData.category !== 'iluminacao' || !formData.location) {
+    if (formData.category !== "iluminacao" || !formData.location) {
       setNearbyPoles([]);
       setNearbyPolesLoading(false);
       setNearbyPolesError(null);
@@ -195,7 +236,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       setNearbyPolesLoading(true);
       setNearbyPolesError(null);
 
-      const { data, error } = await supabase.rpc('nearest_poles', {
+      const { data, error } = await supabase.rpc("nearest_poles", {
         lat,
         lng,
         radius_m: 80,
@@ -206,7 +247,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
       if (error) {
         setNearbyPoles([]);
-        setNearbyPolesError(error.message || 'Falha ao buscar postes próximos');
+        setNearbyPolesError(error.message || "Falha ao buscar postes próximos");
         setNearbyPolesLoading(false);
         return;
       }
@@ -226,14 +267,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
     const match = nearbyPoles.find((p) => p.pole_id === formData.pole_id);
     if (!match) return;
     setFormData((prev) =>
-      prev.reported_pole_distance_m === match.distance_m ? prev : { ...prev, reported_pole_distance_m: match.distance_m }
+      prev.reported_pole_distance_m === match.distance_m
+        ? prev
+        : { ...prev, reported_pole_distance_m: match.distance_m }
     );
   }, [nearbyPoles, formData.pole_id]);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (formData.category !== 'iluminacao' || !formData.pole_id) {
+    if (formData.category !== "iluminacao" || !formData.pole_id) {
       setDuplicatePoleReports([]);
       setDuplicatePoleReportsLoading(false);
       setDuplicatePoleReportsError(null);
@@ -245,20 +288,22 @@ const ReportModal = ({ onClose, onSubmit }) => {
       setDuplicatePoleReportsError(null);
 
       const { data, error } = await supabase
-        .from('reports')
-        .select('id, title, status, created_at, moderation_status')
-        .eq('category_id', 'iluminacao')
-        .eq('pole_id', formData.pole_id)
-        .neq('status', 'duplicate')
-        .in('status', ['pending', 'in-progress'])
-        .order('created_at', { ascending: false })
+        .from("reports")
+        .select("id, title, status, created_at, moderation_status")
+        .eq("category_id", "iluminacao")
+        .eq("pole_id", formData.pole_id)
+        .neq("status", "duplicate")
+        .in("status", ["pending", "in-progress"])
+        .order("created_at", { ascending: false })
         .limit(3);
 
       if (cancelled) return;
 
       if (error) {
         setDuplicatePoleReports([]);
-        setDuplicatePoleReportsError(error.message || 'Falha ao buscar broncas existentes');
+        setDuplicatePoleReportsError(
+          error.message || "Falha ao buscar broncas existentes"
+        );
         setDuplicatePoleReportsLoading(false);
         return;
       }
@@ -275,7 +320,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
   useEffect(() => {
     // Quando mudar para categoria não-iluminação, resetar o cache para permitir nova busca de endereço
-    if (formData.category && formData.category !== 'iluminacao') {
+    if (formData.category && formData.category !== "iluminacao") {
       lastReverseGeocodeKeyRef.current = null;
     }
   }, [formData.category]);
@@ -284,7 +329,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     let cancelled = false;
     // Para categorias não-iluminação: sempre atualiza via reverse geocode (a menos que usuário tenha editado manualmente)
     // Para iluminação: só atualiza se endereço estiver vazio
-    if (formData.category === 'iluminacao' && formData.address?.trim()) return;
+    if (formData.category === "iluminacao" && formData.address?.trim()) return;
     if (addressTouchedRef.current) return;
 
     const target = reverseGeocodeTargetRef.current || formData.location;
@@ -298,18 +343,23 @@ const ReportModal = ({ onClose, onSubmit }) => {
     if (lastReverseGeocodeKeyRef.current === key) return;
 
     const timer = setTimeout(async () => {
-      const { data, error } = await supabase.functions.invoke('reverse-geocode', {
-        body: { lat, lng, zoom: 18 },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "reverse-geocode",
+        {
+          body: { lat, lng, zoom: 18 },
+        }
+      );
 
       if (cancelled) return;
       if (error) return;
 
       const address = data?.address;
-      if (typeof address === 'string' && address.trim()) {
+      if (typeof address === "string" && address.trim()) {
         lastReverseGeocodeKeyRef.current = key;
         reverseGeocodeTargetRef.current = null;
-        setFormData((prev) => (addressTouchedRef.current ? prev : { ...prev, address }));
+        setFormData((prev) =>
+          addressTouchedRef.current ? prev : { ...prev, address }
+        );
       }
     }, 450);
 
@@ -317,22 +367,28 @@ const ReportModal = ({ onClose, onSubmit }) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [formData.location?.lat, formData.location?.lng, formData.pole_id, formData.address, formData.category]);
+  }, [
+    formData.location?.lat,
+    formData.location?.lng,
+    formData.pole_id,
+    formData.address,
+    formData.category,
+  ]);
 
   // Cleanup de previews de imagens e vídeos quando o componente desmontar
   useEffect(() => {
     return () => {
       // Limpar todos os previews
-      formData.photos.forEach(photo => {
+      formData.photos.forEach((photo) => {
         if (photo?.preview) {
           try {
-          URL.revokeObjectURL(photo.preview);
+            URL.revokeObjectURL(photo.preview);
           } catch (e) {
-            console.error('Erro ao limpar preview de foto:', e);
+            console.error("Erro ao limpar preview de foto:", e);
           }
         }
       });
-      
+
       // Resetar flags
       isProcessingRef.current = false;
       pendingPhotoRef.current = null;
@@ -345,12 +401,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
     // 1. Verificar se existe uma foto pendente recuperada pelo App.jsx (Global State)
     const checkGlobalPendingPhoto = async () => {
       if (window.__PENDING_RESTORED_PHOTO__) {
-//         console.log('📦 Foto pendente encontrada no estado global (ReportModal montado)');
+        //         console.log('📦 Foto pendente encontrada no estado global (ReportModal montado)');
         const data = window.__PENDING_RESTORED_PHOTO__;
-        
+
         // Limpar imediatamente para evitar processamento duplo
         window.__PENDING_RESTORED_PHOTO__ = null;
-        
+
         try {
           // Normalizar dados
           let filePath = data.filePath;
@@ -359,270 +415,332 @@ const ReportModal = ({ onClose, onSubmit }) => {
           if (!filePath && data.originalPath) filePath = data.originalPath; // Novo fallback
 
           if (filePath) {
-             // USAR PLACEHOLDER INICIALMENTE
-             let previewUrl = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
+            // USAR PLACEHOLDER INICIALMENTE
+            let previewUrl =
+              "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
 
-             const timestamp = Date.now();
-             
-             // Gerar thumbnail seguro
-             try {
-                VideoProcessor.compressImage({
-                  filePath: filePath,
-                  maxWidth: 300,
-                  maxHeight: 300,
-                  quality: 'medium',
-                  maxSizeMB: 1.0,
-                  format: 'webp'
-                }).then(result => {
+            const timestamp = Date.now();
+
+            // Gerar thumbnail seguro
+            try {
+              VideoProcessor.compressImage({
+                filePath: filePath,
+                maxWidth: 300,
+                maxHeight: 300,
+                quality: "medium",
+                maxSizeMB: 1.0,
+                format: "webp",
+              })
+                .then((result) => {
                   if (result && result.outputPath) {
-                    const thumbUrl = Capacitor.convertFileSrc(result.outputPath);
-                    setFormData(prev => {
-                       const newPhotos = prev.photos.map(p => 
-                         p.nativePath === filePath ? { ...p, preview: thumbUrl } : p
-                       );
-                       return { ...prev, photos: newPhotos };
+                    const thumbUrl = Capacitor.convertFileSrc(
+                      result.outputPath
+                    );
+                    setFormData((prev) => {
+                      const newPhotos = prev.photos.map((p) =>
+                        p.nativePath === filePath
+                          ? { ...p, preview: thumbUrl }
+                          : p
+                      );
+                      return { ...prev, photos: newPhotos };
                     });
                   }
-                }).catch(() => {});
-             } catch (e) {}
-             const fileName = `photo_restored_${timestamp}.jpg`;
-             
-             let fileSize = 0;
-             try {
-                if (Capacitor.isNativePlatform()) {
-                  const stat = await Filesystem.stat({ path: filePath });
-                  fileSize = stat.size;
-                }
-             } catch (e) {
-//                 console.warn('Não foi possível obter tamanho do arquivo recuperado:', e);
-             }
+                })
+                .catch(() => {});
+            } catch (e) {}
+            const fileName = `photo_restored_${timestamp}.jpg`;
 
-             setFormData(prev => ({
-               ...prev,
-               photos: [...prev.photos, {
-                 file: null, // File null indica path nativo
-                 name: fileName,
-                 nativePath: filePath,
-                 preview: previewUrl,
-                 isRestored: true,
-                 size: fileSize
-               }]
-             }));
-             
-             toast({ 
-               title: '✅ Foto recuperada com sucesso!',
-               description: 'A imagem foi restaurada após o reinício do app.',
-               duration: 4000
-             });
+            let fileSize = 0;
+            try {
+              if (Capacitor.isNativePlatform()) {
+                const stat = await Filesystem.stat({ path: filePath });
+                fileSize = stat.size;
+              }
+            } catch (e) {
+              //                 console.warn('Não foi possível obter tamanho do arquivo recuperado:', e);
+            }
+
+            setFormData((prev) => ({
+              ...prev,
+              photos: [
+                ...prev.photos,
+                {
+                  file: null, // File null indica path nativo
+                  name: fileName,
+                  nativePath: filePath,
+                  preview: previewUrl,
+                  isRestored: true,
+                  size: fileSize,
+                },
+              ],
+            }));
+
+            toast({
+              title: "✅ Foto recuperada com sucesso!",
+              description: "A imagem foi restaurada após o reinício do app.",
+              duration: 4000,
+            });
           }
         } catch (e) {
-          console.error('Erro ao processar foto recuperada:', e);
-          toast({ title: '⚠️ Erro ao recuperar foto', variant: 'destructive' });
+          console.error("Erro ao processar foto recuperada:", e);
+          toast({ title: "⚠️ Erro ao recuperar foto", variant: "destructive" });
         }
       }
     };
-    
+
     // Pequeno delay para garantir que a renderização inicial ocorreu
     setTimeout(checkGlobalPendingPhoto, 500);
 
     // Listener para recuperação de estado após morte do app pelo sistema (OOM kill)
     // Mantemos este listener caso o componente já esteja montado (ex: rotação de tela ou pausa breve)
     let appListenerHandle = null;
-    
+
     const setupAppListener = async () => {
       if (Capacitor.isNativePlatform()) {
-        appListenerHandle = await App.addListener('appRestoredResult', async (data) => {
-//           console.log('🔄 App restaurado com resultado:', data);
-          
-          // Verificar se é um resultado do VideoProcessor ou Camera
-          if ((data.pluginId === 'VideoProcessor' && data.methodName === 'capturePhoto') || 
-              (data.pluginId === 'Camera' && (data.methodName === 'getPhoto' || data.methodName === 'pickImages'))) {
-             
-             if (data.success && data.data) {
-               // Normalizar dados dependendo do plugin
-               let filePath = data.data.filePath; // VideoProcessor
-               
-               // Se for da Camera plugin (fallback)
-               if (!filePath && data.data.path) filePath = data.data.path;
-               if (!filePath && data.data.webPath) filePath = data.data.webPath;
-               
-               if (filePath) {
-                 // USAR PLACEHOLDER INICIALMENTE
-                 let previewUrl = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
+        appListenerHandle = await App.addListener(
+          "appRestoredResult",
+          async (data) => {
+            //           console.log('🔄 App restaurado com resultado:', data);
 
-                 const timestamp = Date.now();
-                 
-                 // Tentar gerar thumbnail se o plugin estiver disponível
-                 try {
+            // Verificar se é um resultado do VideoProcessor ou Camera
+            if (
+              (data.pluginId === "VideoProcessor" &&
+                data.methodName === "capturePhoto") ||
+              (data.pluginId === "Camera" &&
+                (data.methodName === "getPhoto" ||
+                  data.methodName === "pickImages"))
+            ) {
+              if (data.success && data.data) {
+                // Normalizar dados dependendo do plugin
+                let filePath = data.data.filePath; // VideoProcessor
+
+                // Se for da Camera plugin (fallback)
+                if (!filePath && data.data.path) filePath = data.data.path;
+                if (!filePath && data.data.webPath)
+                  filePath = data.data.webPath;
+
+                if (filePath) {
+                  // USAR PLACEHOLDER INICIALMENTE
+                  let previewUrl =
+                    "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
+
+                  const timestamp = Date.now();
+
+                  // Tentar gerar thumbnail se o plugin estiver disponível
+                  try {
                     VideoProcessor.compressImage({
                       filePath: filePath,
                       maxWidth: 300,
                       maxHeight: 300,
-                      quality: 'medium',
+                      quality: "medium",
                       maxSizeMB: 1.0,
-                      format: 'jpeg'
-                    }).then(result => {
-                      if (result && result.outputPath) {
-                        const thumbUrl = Capacitor.convertFileSrc(result.outputPath);
-                        setFormData(prev => {
-                           const newPhotos = prev.photos.map(p => 
-                             p.nativePath === filePath ? { ...p, preview: thumbUrl } : p
-                           );
-                           return { ...prev, photos: newPhotos };
-                        });
-                      }
-                    }).catch(() => {});
-                 } catch (e) {}
-                 const fileName = `photo_restored_${timestamp}.jpg`;
-                 
-                 let fileSize = 0;
-                 try {
+                      format: "jpeg",
+                    })
+                      .then((result) => {
+                        if (result && result.outputPath) {
+                          const thumbUrl = Capacitor.convertFileSrc(
+                            result.outputPath
+                          );
+                          setFormData((prev) => {
+                            const newPhotos = prev.photos.map((p) =>
+                              p.nativePath === filePath
+                                ? { ...p, preview: thumbUrl }
+                                : p
+                            );
+                            return { ...prev, photos: newPhotos };
+                          });
+                        }
+                      })
+                      .catch(() => {});
+                  } catch (e) {}
+                  const fileName = `photo_restored_${timestamp}.jpg`;
+
+                  let fileSize = 0;
+                  try {
                     if (Capacitor.isNativePlatform()) {
                       const stat = await Filesystem.stat({ path: filePath });
                       fileSize = stat.size;
                     }
-                 } catch (e) {
-//                     console.warn('Não foi possível obter tamanho do arquivo restaurado:', e);
-                 }
+                  } catch (e) {
+                    //                     console.warn('Não foi possível obter tamanho do arquivo restaurado:', e);
+                  }
 
-                 setFormData(prev => ({
-                   ...prev,
-                   photos: [...prev.photos, {
-                     file: null,
-                     name: fileName,
-                     nativePath: filePath,
-                     preview: previewUrl,
-                     size: fileSize
-                   }]
-                 }));
-                 
-                 toast({ title: '✅ Foto recuperada!' });
-               }
-             }
+                  setFormData((prev) => ({
+                    ...prev,
+                    photos: [
+                      ...prev.photos,
+                      {
+                        file: null,
+                        name: fileName,
+                        nativePath: filePath,
+                        preview: previewUrl,
+                        size: fileSize,
+                      },
+                    ],
+                  }));
+
+                  toast({ title: "✅ Foto recuperada!" });
+                }
+              }
+            }
           }
-        });
+        );
       }
     };
-    
+
     setupAppListener();
 
     const handleError = (event) => {
-      const isProcessing = isTakingPhoto || pendingPhotoRef.current || isProcessingRef.current;
-      const errorMsg = event.error?.message || event.error?.toString() || '';
-      const isFileError = errorMsg.includes('blob') || errorMsg.includes('URL') || errorMsg.includes('File') || errorMsg.includes('FileReader') || errorMsg.includes('Memory');
-      
+      const isProcessing =
+        isTakingPhoto || pendingPhotoRef.current || isProcessingRef.current;
+      const errorMsg = event.error?.message || event.error?.toString() || "";
+      const isFileError =
+        errorMsg.includes("blob") ||
+        errorMsg.includes("URL") ||
+        errorMsg.includes("File") ||
+        errorMsg.includes("FileReader") ||
+        errorMsg.includes("Memory");
+
       // Capturar erros durante processamento de arquivo
       if (isProcessing || isFileError) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation?.();
-        console.error('🚫 Erro capturado (prevenindo reload):', event.error, {
+        console.error("🚫 Erro capturado (prevenindo reload):", event.error, {
           isProcessing,
-          isFileError
+          isFileError,
         });
-        
+
         // Tentar limpar estado problemático
-        if (event.error?.message?.includes('memory') || event.error?.message?.includes('allocation') || isFileError) {
-//           console.warn('Erro de memória/arquivo detectado, limpando recursos...');
+        if (
+          event.error?.message?.includes("memory") ||
+          event.error?.message?.includes("allocation") ||
+          isFileError
+        ) {
+          //           console.warn('Erro de memória/arquivo detectado, limpando recursos...');
           // Forçar garbage collection se possível
           if (window.gc) {
             try {
               window.gc();
             } catch (e) {
-              console.error('Erro ao forçar GC:', e);
+              console.error("Erro ao forçar GC:", e);
             }
           }
         }
-        
+
         // IMPORTANTE: Retornar false para prevenir reload
         return false;
       }
     };
-    
+
     const handleUnhandledRejection = (event) => {
-      const isProcessing = isTakingPhoto || pendingPhotoRef.current || isProcessingRef.current;
-      const errorMsg = event.reason?.message || event.reason?.toString() || '';
-      const isFileError = errorMsg.includes('blob') || errorMsg.includes('URL') || errorMsg.includes('File') || errorMsg.includes('FileReader') || errorMsg.includes('Memory');
-      
+      const isProcessing =
+        isTakingPhoto || pendingPhotoRef.current || isProcessingRef.current;
+      const errorMsg = event.reason?.message || event.reason?.toString() || "";
+      const isFileError =
+        errorMsg.includes("blob") ||
+        errorMsg.includes("URL") ||
+        errorMsg.includes("File") ||
+        errorMsg.includes("FileReader") ||
+        errorMsg.includes("Memory");
+
       // Capturar rejeições durante processamento
       if (isProcessing || isFileError) {
         event.preventDefault();
-        console.error('🚫 Promise rejeitada (prevenindo reload):', event.reason, {
-          isProcessing,
-          isFileError
-        });
-        
+        console.error(
+          "🚫 Promise rejeitada (prevenindo reload):",
+          event.reason,
+          {
+            isProcessing,
+            isFileError,
+          }
+        );
+
         // Resetar flags se necessário
-        if (event.reason?.message?.includes('timeout') || event.reason?.message?.includes('cancel') || isFileError) {
+        if (
+          event.reason?.message?.includes("timeout") ||
+          event.reason?.message?.includes("cancel") ||
+          isFileError
+        ) {
           setTimeout(() => {
             try {
               isProcessingRef.current = false;
               pendingPhotoRef.current = null;
               setIsTakingPhoto(false);
             } catch (e) {
-              console.error('Erro ao resetar flags:', e);
+              console.error("Erro ao resetar flags:", e);
             }
           }, 100);
         }
-        
+
         // IMPORTANTE: Retornar false para prevenir reload
         return false;
       }
     };
-    
+
     // Handler adicional para prevenir reload da página
     const handleBeforeUnload = (event) => {
       try {
         // Verificar se está processando foto
-        const isProcessing = isProcessingRef.current || pendingPhotoRef.current || isTakingPhoto;
-        
+        const isProcessing =
+          isProcessingRef.current || pendingPhotoRef.current || isTakingPhoto;
+
         if (isProcessing) {
           // Prevenir reload de forma mais suave
-          event.returnValue = ''; // Chrome requer returnValue
-//           console.warn('🚫 Tentativa de reload bloqueada durante processamento de foto');
-          return ''; // Alguns navegadores requerem string vazia
+          event.returnValue = ""; // Chrome requer returnValue
+          //           console.warn('🚫 Tentativa de reload bloqueada durante processamento de foto');
+          return ""; // Alguns navegadores requerem string vazia
         }
       } catch (e) {
         // Se houver erro, não bloquear
-        console.error('Erro em handleBeforeUnload:', e);
+        console.error("Erro em handleBeforeUnload:", e);
       }
     };
-    
-    window.addEventListener('error', handleError, true);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
+    window.addEventListener("error", handleError, true);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
       if (appListenerHandle) {
         appListenerHandle.remove();
       }
-      window.removeEventListener('error', handleError, true);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("error", handleError, true);
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection
+      );
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [isTakingPhoto]);
 
   const categories = [
-    { id: 'iluminacao', name: 'Iluminação', icon: '💡' },
-    { id: 'buracos', name: 'Buracos na Via', icon: '🕳️' },
-    { id: 'esgoto', name: 'Esgoto Entupido', icon: '🚰' },
-    { id: 'limpeza', name: 'Limpeza Urbana', icon: '🧹' },
-    { id: 'poda', name: 'Poda de Árvore', icon: '🌳' },
-    { id: 'vazamento-de-agua', name: 'Vazamento de Água', icon: '💧' },
-    { id: 'outros', name: 'Outros', icon: '📍' }
+    { id: "iluminacao", name: "Iluminação", icon: "💡" },
+    { id: "buracos", name: "Buracos na Via", icon: "🕳️" },
+    { id: "esgoto", name: "Esgoto Entupido", icon: "🚰" },
+    { id: "limpeza", name: "Limpeza Urbana", icon: "🧹" },
+    { id: "poda", name: "Poda de Árvore", icon: "🌳" },
+    { id: "vazamento-de-agua", name: "Vazamento de Água", icon: "💧" },
+    { id: "outros", name: "Outros", icon: "📍" },
   ];
 
   // FUNÇÃO CRÍTICA: Processamento otimizado para câmeras de alta resolução com limite de 10MB
-  const processHighResolutionImage = async (base64String, fileName, overrideWidth, overrideHeight, overrideQuality) => {
+  const processHighResolutionImage = async (
+    base64String,
+    fileName,
+    overrideWidth,
+    overrideHeight,
+    overrideQuality
+  ) => {
     return new Promise((resolve, reject) => {
       // Timeout de segurança
       const timeoutId = setTimeout(() => {
-        reject(new Error('Timeout no processamento de imagem'));
+        reject(new Error("Timeout no processamento de imagem"));
       }, 60000); // 60 segundos
-      
+
       const img = new Image();
       let canvas = null;
-      
+
       const cleanup = () => {
         clearTimeout(timeoutId);
         if (canvas) {
@@ -630,44 +748,49 @@ const ReportModal = ({ onClose, onSubmit }) => {
           canvas.height = 0;
           canvas = null;
         }
-        img.src = '';
+        img.src = "";
         img.onload = null;
         img.onerror = null;
       };
-      
+
       img.onload = () => {
         try {
-//           console.log(`Imagem original: ${img.width}x${img.height}`);
-          
+          //           console.log(`Imagem original: ${img.width}x${img.height}`);
+
           // Validar dimensões antes de processar
-          if (!img.width || !img.height || img.width === 0 || img.height === 0) {
+          if (
+            !img.width ||
+            !img.height ||
+            img.width === 0 ||
+            img.height === 0
+          ) {
             cleanup();
-            reject(new Error('Dimensões de imagem inválidas'));
+            reject(new Error("Dimensões de imagem inválidas"));
             return;
           }
-          
+
           // Detectar Ultra HD (4K/8K) para preservação de qualidade
           const is4K = img.width >= 3840 && img.height >= 2160;
           const is8K = img.width >= 7680 && img.height >= 4320;
           const isUltraHD = is4K || is8K;
           const isHighRes = img.width > 4000 || img.height > 3000;
-          
+
           // Estratégia inteligente para manter qualidade com limite de 10MB
           let targetWidth, targetHeight, quality;
-          
+
           // Calcular tamanho aproximado em MB antes de processar
           const sizeInBytes = (base64String.length * 3) / 4;
           const sizeInMB = sizeInBytes / (1024 * 1024);
-          
-//           console.log(`Tamanho original estimado: ${sizeInMB.toFixed(2)}MB, Ultra HD: ${isUltraHD ? 'Sim' : 'Não'}`);
-          
+
+          //           console.log(`Tamanho original estimado: ${sizeInMB.toFixed(2)}MB, Ultra HD: ${isUltraHD ? 'Sim' : 'Não'}`);
+
           if (overrideWidth && overrideHeight && overrideQuality) {
             targetWidth = overrideWidth;
             targetHeight = overrideHeight;
             quality = overrideQuality;
-          } else 
+          }
           // Algoritmos de preservação de qualidade para Ultra HD
-          if (isUltraHD) {
+          else if (isUltraHD) {
             // Para 4K/8K, usar estratégias conservadoras
             if (sizeInMB > 30) {
               // Ultra HD muito grande - compressão moderada
@@ -706,151 +829,202 @@ const ReportModal = ({ onClose, onSubmit }) => {
             targetHeight = 1875;
             quality = 0.9;
           }
-          
+
           // Calcular dimensões mantendo proporção
-          const ratio = Math.min(targetWidth / img.width, targetHeight / img.height);
+          const ratio = Math.min(
+            targetWidth / img.width,
+            targetHeight / img.height
+          );
           const width = Math.floor(img.width * ratio);
           const height = Math.floor(img.height * ratio);
-          
-//           console.log(`Imagem redimensionada: ${width}x${height}, qualidade: ${quality}, Ultra HD: ${isUltraHD}`);
-          
-          canvas = document.createElement('canvas');
+
+          //           console.log(`Imagem redimensionada: ${width}x${height}, qualidade: ${quality}, Ultra HD: ${isUltraHD}`);
+
+          canvas = document.createElement("canvas");
           canvas.width = width;
           canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          
+          const ctx = canvas.getContext("2d");
+
           if (!ctx) {
             cleanup();
-            reject(new Error('Não foi possível criar contexto do canvas'));
+            reject(new Error("Não foi possível criar contexto do canvas"));
             return;
           }
-          
+
           // Configurações de performance para qualidade máxima
           ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          
+          ctx.imageSmoothingQuality = "high";
+
           // Desenhar imagem redimensionada
           ctx.drawImage(img, 0, 0, width, height);
-          
+
           // Função para tentar diferentes níveis de compressão até atingir 10MB
           const tryCompression = (currentQuality) => {
             canvas.toBlob(
               (blob) => {
                 if (!blob) {
                   cleanup();
-                  reject(new Error('Falha ao comprimir imagem'));
+                  reject(new Error("Falha ao comprimir imagem"));
                   return;
                 }
-                
+
                 const blobSizeMB = blob.size / (1024 * 1024);
-//                 console.log(`Tentativa com qualidade ${currentQuality}: ${blobSizeMB.toFixed(2)}MB`);
-                
+                //                 console.log(`Tentativa com qualidade ${currentQuality}: ${blobSizeMB.toFixed(2)}MB`);
+
                 // Se temos overrides, não tentamos ajustar automaticamente o tamanho
                 if (overrideWidth && overrideHeight && overrideQuality) {
-//                    console.log(`✅ Tamanho final (override): ${blobSizeMB.toFixed(2)}MB`);
-                   const file = new File([blob], fileName, { type: 'image/jpeg' });
-                   cleanup();
-                   resolve(file);
-                   return;
+                  //                    console.log(`✅ Tamanho final (override): ${blobSizeMB.toFixed(2)}MB`);
+                  const file = new File([blob], fileName, {
+                    type: "image/jpeg",
+                  });
+                  cleanup();
+                  resolve(file);
+                  return;
                 }
 
                 // Algoritmo adaptativo para Ultra HD - ser mais conservador
                 const minQuality = isUltraHD ? 0.7 : 0.3; // Mínimo 70% para Ultra HD
                 const maxQuality = isUltraHD ? 0.95 : 0.9; // Máximo 95% para Ultra HD
-                
+
                 // Se ainda é muito grande e podemos reduzir mais
                 if (blobSizeMB > 10 && currentQuality > minQuality) {
-                  const newQuality = Math.max(minQuality, currentQuality - 0.05); // Redução menor para Ultra HD
-//                   console.log(`Arquivo grande (${blobSizeMB.toFixed(2)}MB), tentando com qualidade ${newQuality}`);
+                  const newQuality = Math.max(
+                    minQuality,
+                    currentQuality - 0.05
+                  ); // Redução menor para Ultra HD
+                  //                   console.log(`Arquivo grande (${blobSizeMB.toFixed(2)}MB), tentando com qualidade ${newQuality}`);
                   tryCompression(newQuality);
                   return;
                 }
-                
+
                 // Se ficou muito pequeno e podemos melhorar a qualidade
                 if (blobSizeMB < 1 && currentQuality < maxQuality) {
-                  const newQuality = Math.min(maxQuality, currentQuality + 0.05); // Aumento menor para Ultra HD
-//                   console.log(`Arquivo pequeno (${blobSizeMB.toFixed(2)}MB), tentando com qualidade ${newQuality}`);
+                  const newQuality = Math.min(
+                    maxQuality,
+                    currentQuality + 0.05
+                  ); // Aumento menor para Ultra HD
+                  //                   console.log(`Arquivo pequeno (${blobSizeMB.toFixed(2)}MB), tentando com qualidade ${newQuality}`);
                   tryCompression(newQuality);
                   return;
                 }
-                
+
                 // Tamanho ideal encontrado
-//                 console.log(`✅ Tamanho final: ${blobSizeMB.toFixed(2)}MB (Ultra HD: ${isUltraHD ? 'Sim' : 'Não'})`);
-                const file = new File([blob], fileName, { type: 'image/jpeg' });
+                //                 console.log(`✅ Tamanho final: ${blobSizeMB.toFixed(2)}MB (Ultra HD: ${isUltraHD ? 'Sim' : 'Não'})`);
+                const file = new File([blob], fileName, { type: "image/jpeg" });
                 cleanup();
                 resolve(file);
               },
-              'image/jpeg',
+              "image/jpeg",
               currentQuality
             );
           };
-          
+
           // Iniciar compressão com qualidade inicial
           tryCompression(quality);
-          
         } catch (error) {
           cleanup();
           reject(error);
         }
       };
-      
+
       img.onerror = (error) => {
         cleanup();
-        reject(new Error('Erro ao carregar imagem para redimensionamento'));
+        reject(new Error("Erro ao carregar imagem para redimensionamento"));
       };
-      
+
       // Carregar imagem do base64
       try {
-      const dataUrl = base64String.includes(',') ? base64String : `data:image/jpeg;base64,${base64String}`;
-      img.src = dataUrl;
+        const dataUrl = base64String.includes(",")
+          ? base64String
+          : `data:image/jpeg;base64,${base64String}`;
+        img.src = dataUrl;
       } catch (error) {
         cleanup();
-        reject(new Error('Erro ao processar dados da imagem'));
+        reject(new Error("Erro ao processar dados da imagem"));
       }
     });
   };
 
   // FUNÇÃO OTIMIZADA: Processar imagem grande usando Web Worker (não trava UI)
-  const processImageWithWorker = async (base64String, fileName, maxWidth = 2000, maxHeight = 1500, quality = 0.85) => {
+  const processImageWithWorker = async (
+    base64String,
+    fileName,
+    maxWidth = 2000,
+    maxHeight = 1500,
+    quality = 0.85
+  ) => {
     return new Promise((resolve, reject) => {
       try {
         let worker;
         try {
-          worker = new Worker(new URL('../workers/imageProcessor.worker.js', import.meta.url), { type: 'module' });
+          worker = new Worker(
+            new URL("../workers/imageProcessor.worker.js", import.meta.url),
+            { type: "module" }
+          );
         } catch (workerError) {
-          return processHighResolutionImage(base64String, fileName, maxWidth, maxHeight, quality)
+          return processHighResolutionImage(
+            base64String,
+            fileName,
+            maxWidth,
+            maxHeight,
+            quality
+          )
             .then(resolve)
             .catch(reject);
         }
         const timeout = setTimeout(() => {
           if (worker) worker.terminate();
-          reject(new Error('Timeout no processamento da imagem'));
+          reject(new Error("Timeout no processamento da imagem"));
         }, 60000);
-        const dataUrl = base64String.includes(',') ? base64String : `data:image/jpeg;base64,${base64String}`;
+        const dataUrl = base64String.includes(",")
+          ? base64String
+          : `data:image/jpeg;base64,${base64String}`;
         photoWorkerRef.current = worker;
-        worker.postMessage({ imageData: dataUrl, maxWidth, maxHeight, quality, fileName });
+        worker.postMessage({
+          imageData: dataUrl,
+          maxWidth,
+          maxHeight,
+          quality,
+          fileName,
+        });
         worker.onmessage = (e) => {
           clearTimeout(timeout);
           if (worker) worker.terminate();
           photoWorkerRef.current = null;
           if (e.data.success) {
-            const blob = new Blob([e.data.buffer], { type: e.data.mime || 'image/webp' });
-            const file = new File([blob], e.data.fileName, { type: e.data.mime || 'image/webp' });
+            const blob = new Blob([e.data.buffer], {
+              type: e.data.mime || "image/webp",
+            });
+            const file = new File([blob], e.data.fileName, {
+              type: e.data.mime || "image/webp",
+            });
             resolve(file);
           } else {
-            reject(new Error(e.data.error || 'Erro no processamento'));
+            reject(new Error(e.data.error || "Erro no processamento"));
           }
         };
         worker.onerror = () => {
           clearTimeout(timeout);
           if (worker) worker.terminate();
           photoWorkerRef.current = null;
-          processHighResolutionImage(base64String, fileName, maxWidth, maxHeight, quality)
+          processHighResolutionImage(
+            base64String,
+            fileName,
+            maxWidth,
+            maxHeight,
+            quality
+          )
             .then(resolve)
             .catch(reject);
         };
       } catch (error) {
-        processHighResolutionImage(base64String, fileName, maxWidth, maxHeight, quality)
+        processHighResolutionImage(
+          base64String,
+          fileName,
+          maxWidth,
+          maxHeight,
+          quality
+        )
           .then(resolve)
           .catch(reject);
       }
@@ -861,145 +1035,165 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const processPhotoFromBase64Optimized = async (image) => {
     // Bloquear processamento paralelo
     if (isProcessingRef.current) {
-//       console.log('Processamento já em andamento, aguardando...');
+      //       console.log('Processamento já em andamento, aguardando...');
       return;
     }
-    
+
     // Verificar se componente está montado
     if (!isMountedRef.current) {
-//       console.log('Componente desmontado, cancelando processamento');
+      //       console.log('Componente desmontado, cancelando processamento');
       return;
     }
-    
+
     isProcessingRef.current = true;
     let previewUrl = null;
-    
+
     // Timeout de segurança para evitar travamento
     const safetyTimeout = setTimeout(() => {
       if (isProcessingRef.current) {
-//         console.warn('Timeout no processamento de imagem, cancelando...');
+        //         console.warn('Timeout no processamento de imagem, cancelando...');
         isProcessingRef.current = false;
         if (previewUrl) {
           try {
             URL.revokeObjectURL(previewUrl);
           } catch (e) {
-            console.error('Erro ao limpar preview no timeout:', e);
+            console.error("Erro ao limpar preview no timeout:", e);
           }
         }
       }
     }, 120000); // 2 minutos máximo
-    
+
     try {
       const timestamp = Date.now();
       const fileName = `photo_${timestamp}.webp`;
-      
-      const base64String = image.base64String || (image.dataUrl?.includes(',') ? image.dataUrl.split(',')[1] : image.dataUrl);
-      
+
+      const base64String =
+        image.base64String ||
+        (image.dataUrl?.includes(",")
+          ? image.dataUrl.split(",")[1]
+          : image.dataUrl);
+
       if (!base64String || base64String.length === 0) {
-        throw new Error('Dados da imagem não disponíveis');
+        throw new Error("Dados da imagem não disponíveis");
       }
-      
+
       // Validar tamanho máximo (50MB em base64)
       if (base64String.length > 67 * 1024 * 1024) {
-        throw new Error('Imagem muito grande para processar');
+        throw new Error("Imagem muito grande para processar");
       }
-      
+
       // Calcular tamanho aproximado em MB
       const sizeInBytes = (base64String.length * 3) / 4;
       const sizeInMB = sizeInBytes / (1024 * 1024);
-      
-//       console.log(`📸 Processando imagem: ${sizeInMB.toFixed(2)}MB`);
-      
+
+      //       console.log(`📸 Processando imagem: ${sizeInMB.toFixed(2)}MB`);
+
       // ESTRATÉGIA PARA CÂMERAS DE ALTA RESOLUÇÃO
       // Desabilitar Web Worker temporariamente para evitar crashes
       // Usar sempre processamento normal otimizado
       if (sizeInMB > 3) {
         setIsPhotoProcessing(true);
         setPhotoProcessingProgress(5);
-        setPhotoProcessingMessage('Processando imagem...');
+        setPhotoProcessingMessage("Processando imagem...");
         // // window.__BLOCK_NAVIGATION__ = true;
-            // window.__BLOCK_MODAL_CLOSE__ = true;
-        const optimizedFile = await processImageWithWorker(base64String, fileName, 2000, 1500, 0.85);
+        // window.__BLOCK_MODAL_CLOSE__ = true;
+        const optimizedFile = await processImageWithWorker(
+          base64String,
+          fileName,
+          2000,
+          1500,
+          0.85
+        );
         previewUrl = URL.createObjectURL(optimizedFile);
-        
+
         // Limpar timeout de segurança
         clearTimeout(safetyTimeout);
-        
+
         // Verificar se componente ainda está montado antes de atualizar
         if (isMountedRef.current) {
-        setFormData(prev => ({
-          ...prev,
-          photos: [...prev.photos, { 
-            file: optimizedFile, 
-            name: fileName, 
-            preview: previewUrl 
-          }]
-        }));
-        
-        // feedback minimizado
-        setPhotoProcessingProgress(100);
-      } else {
+          setFormData((prev) => ({
+            ...prev,
+            photos: [
+              ...prev.photos,
+              {
+                file: optimizedFile,
+                name: fileName,
+                preview: previewUrl,
+              },
+            ],
+          }));
+
+          // feedback minimizado
+          setPhotoProcessingProgress(100);
+        } else {
           // Limpar preview se componente foi desmontado
           if (previewUrl) {
             try {
               URL.revokeObjectURL(previewUrl);
             } catch (e) {
-              console.error('Erro ao limpar preview:', e);
+              console.error("Erro ao limpar preview:", e);
             }
           }
         }
-        
+
         isProcessingRef.current = false;
-        
       } else {
-        const optimizedFile = await processImageWithWorker(base64String, fileName, 2000, 1500, 0.9);
+        const optimizedFile = await processImageWithWorker(
+          base64String,
+          fileName,
+          2000,
+          1500,
+          0.9
+        );
         previewUrl = URL.createObjectURL(optimizedFile);
         if (isMountedRef.current) {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
-            photos: [...prev.photos, { 
-              file: optimizedFile, 
-              name: fileName, 
-              preview: previewUrl 
-            }]
+            photos: [
+              ...prev.photos,
+              {
+                file: optimizedFile,
+                name: fileName,
+                preview: previewUrl,
+              },
+            ],
           }));
         }
         clearTimeout(safetyTimeout);
         isProcessingRef.current = false;
       }
-      
+
       if (errors.photos) {
-        setErrors(prev => ({ ...prev, photos: undefined }));
+        setErrors((prev) => ({ ...prev, photos: undefined }));
       }
-      
     } catch (error) {
-      console.error('❌ Erro em processPhotoFromBase64Optimized:', error);
-      
+      console.error("❌ Erro em processPhotoFromBase64Optimized:", error);
+
       // Limpar timeout
       clearTimeout(safetyTimeout);
-      
+
       // Limpar preview se foi criado
       if (previewUrl) {
         try {
           URL.revokeObjectURL(previewUrl);
         } catch (e) {
-          console.error('Erro ao limpar preview:', e);
+          console.error("Erro ao limpar preview:", e);
         }
       }
-      
+
       isProcessingRef.current = false;
-      
+
       // Não relançar erro para evitar crash, apenas logar
       if (isMountedRef.current) {
         toast({
           title: "⚠️ Erro ao processar foto",
           description: "Tente novamente ou use uma foto menor",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
       setIsPhotoProcessing(false);
       setPhotoProcessingProgress(0);
-      setPhotoProcessingMessage('');
+      setPhotoProcessingMessage("");
       setTimeout(() => {
         window.__BLOCK_NAVIGATION__ = false;
         // window.__BLOCK_MODAL_CLOSE__ = false;
@@ -1013,73 +1207,84 @@ const ReportModal = ({ onClose, onSubmit }) => {
     try {
       // OTIMIZAÇÃO: Se tivermos o plugin VideoProcessor, usar caminho nativo direto
       // Isso evita ler o arquivo para memória (Base64/Blob) prevenindo OOM em fotos 50MP+
-      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('VideoProcessor')) {
+      if (
+        Capacitor.isNativePlatform() &&
+        Capacitor.isPluginAvailable("VideoProcessor")
+      ) {
         let finalPath = imagePath;
         // Normalizar caminho se necessário (embora VideoProcessor agora trate content://)
-        if (finalPath.startsWith('file://')) {
-          finalPath = finalPath.replace('file://', '');
+        if (finalPath.startsWith("file://")) {
+          finalPath = finalPath.replace("file://", "");
         }
 
         // Tentar comprimir para garantir performance no upload
         try {
-           // Só comprime se não for um arquivo já processado (evitar recompressão desnecessária)
-           // Verifica tanto o nome lógico quanto o caminho físico
-           if (!fileName.includes('compressed') && !finalPath.includes('compressed')) {
-             const comp = await VideoProcessor.compressImage({ 
-                 filePath: finalPath, 
-                 maxWidth: 1280, // Aumentado levemente para 'medium'
-                 maxHeight: 1280, 
-                 maxSizeMB: 0.5, // Aumentado para 500KB para acomodar qualidade média
-                 quality: 'medium', // Restaurado para medium
-                 format: 'jpeg' 
-             });
-             if (comp && comp.outputPath) {
-                 finalPath = comp.outputPath;
-             }
-           }
+          // Só comprime se não for um arquivo já processado (evitar recompressão desnecessária)
+          // Verifica tanto o nome lógico quanto o caminho físico
+          if (
+            !fileName.includes("compressed") &&
+            !finalPath.includes("compressed")
+          ) {
+            const comp = await VideoProcessor.compressImage({
+              filePath: finalPath,
+              maxWidth: 1280, // Aumentado levemente para 'medium'
+              maxHeight: 1280,
+              maxSizeMB: 0.5, // Aumentado para 500KB para acomodar qualidade média
+              quality: "medium", // Restaurado para medium
+              format: "jpeg",
+            });
+            if (comp && comp.outputPath) {
+              finalPath = comp.outputPath;
+            }
+          }
         } catch (e) {
-//            console.warn('Falha na compressão automática:', e);
-           // Verificação de segurança - Apenas logar, não bloquear
-           try {
-              const meta = await VideoProcessor.getImageMetadata({ filePath: finalPath });
-              if (meta.width > 4096 || meta.height > 4096) {
-//                  console.log("Imagem de alta resolução processada nativamente:", meta);
-              }
-           } catch (ignored) {
-//               console.warn("Falha ao verificar metadados da imagem, prosseguindo mesmo assim.");
-           }
+          //            console.warn('Falha na compressão automática:', e);
+          // Verificação de segurança - Apenas logar, não bloquear
+          try {
+            const meta = await VideoProcessor.getImageMetadata({
+              filePath: finalPath,
+            });
+            if (meta.width > 4096 || meta.height > 4096) {
+              //                  console.log("Imagem de alta resolução processada nativamente:", meta);
+            }
+          } catch (ignored) {
+            //               console.warn("Falha ao verificar metadados da imagem, prosseguindo mesmo assim.");
+          }
         }
 
         // GERAR THUMBNAIL LEVE (512px)
         let previewPath = finalPath;
         try {
-           const thumb = await VideoProcessor.compressImage({
-               filePath: finalPath,
-               maxWidth: 512,
-               maxHeight: 512,
-               maxSizeMB: 0.5,
-               quality: 'low',
-               format: 'jpeg' // Thumbnail em JPEG para garantir orientação correta
-           });
-           if (thumb && thumb.outputPath) {
-               previewPath = thumb.outputPath;
-           }
+          const thumb = await VideoProcessor.compressImage({
+            filePath: finalPath,
+            maxWidth: 512,
+            maxHeight: 512,
+            maxSizeMB: 0.5,
+            quality: "low",
+            format: "jpeg", // Thumbnail em JPEG para garantir orientação correta
+          });
+          if (thumb && thumb.outputPath) {
+            previewPath = thumb.outputPath;
+          }
         } catch (e) {
-//            console.warn('Falha ao gerar thumbnail fallback:', e);
+          //            console.warn('Falha ao gerar thumbnail fallback:', e);
         }
 
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          photos: [...prev.photos, { 
-            file: null, // Importante: null para não ocupar memória JS
-            name: fileName, 
-            nativePath: finalPath,
-            preview: Capacitor.convertFileSrc(previewPath)
-          }]
+          photos: [
+            ...prev.photos,
+            {
+              file: null, // Importante: null para não ocupar memória JS
+              name: fileName,
+              nativePath: finalPath,
+              preview: Capacitor.convertFileSrc(previewPath),
+            },
+          ],
         }));
-        
-        toast({ 
-          title: "✅ Foto adicionada!", 
+
+        toast({
+          title: "✅ Foto adicionada!",
         });
         return;
       }
@@ -1087,44 +1292,46 @@ const ReportModal = ({ onClose, onSubmit }) => {
       // Converter caminho do Capacitor para caminho do Filesystem
       // O caminho pode ser absoluto (file://) ou relativo
       let filePath = imagePath;
-      if (imagePath.startsWith('file://')) {
-        filePath = imagePath.replace('file://', '');
+      if (imagePath.startsWith("file://")) {
+        filePath = imagePath.replace("file://", "");
       }
-      if (imagePath.startsWith('capacitor://')) {
-        filePath = imagePath.replace('capacitor://localhost/', '');
+      if (imagePath.startsWith("capacitor://")) {
+        filePath = imagePath.replace("capacitor://localhost/", "");
       }
-      
+
       // FALLBACK SEGURO: Se não conseguimos usar o plugin nativo (VideoProcessor),
       // NÃO tentamos ler o arquivo via FileReader/Filesystem se for grande.
       // Apenas usamos a URL direta para preview se possível, mas evitamos carregar dados em memória.
-      
-//       console.warn('VideoProcessor não disponível ou falha no processamento nativo. Usando fallback seguro.');
-      
+
+      //       console.warn('VideoProcessor não disponível ou falha no processamento nativo. Usando fallback seguro.');
+
       // Tenta criar um preview direto sem ler o arquivo
       const previewUrl = Capacitor.convertFileSrc(filePath);
-      
-      setFormData(prev => ({
+
+      setFormData((prev) => ({
         ...prev,
-        photos: [...prev.photos, { 
-          file: null, // Não temos o objeto File seguro aqui
-          name: fileName, 
-          nativePath: filePath,
-          preview: previewUrl 
-        }]
+        photos: [
+          ...prev.photos,
+          {
+            file: null, // Não temos o objeto File seguro aqui
+            name: fileName,
+            nativePath: filePath,
+            preview: previewUrl,
+          },
+        ],
       }));
-      
-      toast({ 
-        title: "Foto adicionada", 
-        description: "Foto adicionada (modo compatibilidade)" 
+
+      toast({
+        title: "Foto adicionada",
+        description: "Foto adicionada (modo compatibilidade)",
       });
-      
     } catch (error) {
-      console.error('Erro ao processar foto de URI:', error);
+      console.error("Erro ao processar foto de URI:", error);
       // Não lançar erro para não quebrar a UI, apenas logar
-      toast({ 
-        title: "Erro na foto", 
-        description: "Não foi possível processar a foto.", 
-        variant: "destructive" 
+      toast({
+        title: "Erro na foto",
+        description: "Não foi possível processar a foto.",
+        variant: "destructive",
       });
     }
   };
@@ -1132,90 +1339,102 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // Handler para solicitação de gravação de vídeo (In-App)
   const handleRecordVideoRequest = () => {
     if (isTakingPhoto || isRecordingVideo || isProcessingRef.current) return;
-    
+
     // Pequeno delay para evitar conflitos de UI
     setTimeout(() => {
-        setCameraMode('video');
-        setShowCamera(true);
-        setIsRecordingVideo(true);
+      setCameraMode("video");
+      setShowCamera(true);
+      setIsRecordingVideo(true);
     }, 100);
   };
 
   // Handler unificado para captura da câmera In-App (Foto e Vídeo)
   // handleInAppCapture removido - processamento agora é feito diretamente nas funções de captura
 
-
   // Handler para captura interna da câmera
   const handleInAppCapture = async (capturedData) => {
     try {
       if (!capturedData) {
-        throw new Error('Nenhum dado capturado');
+        throw new Error("Nenhum dado capturado");
       }
 
       const timestamp = Date.now();
-      
+
       // Se for vídeo (objeto com type='video')
-      if (typeof capturedData === 'object' && capturedData.type === 'video') {
-        const mimeTypeRaw = capturedData?.mimeType || capturedData?.file?.type || 'video/webm';
-        const mimeType = String(mimeTypeRaw).split(';')[0].trim() || 'video/webm';
-        const ext = String(capturedData?.ext || '').trim() || (String(mimeType).includes('mp4') ? 'mp4' : 'webm');
+      if (typeof capturedData === "object" && capturedData.type === "video") {
+        const mimeTypeRaw =
+          capturedData?.mimeType || capturedData?.file?.type || "video/webm";
+        const mimeType =
+          String(mimeTypeRaw).split(";")[0].trim() || "video/webm";
+        const ext =
+          String(capturedData?.ext || "").trim() ||
+          (String(mimeType).includes("mp4") ? "mp4" : "webm");
         const fileName = `video_${timestamp}.${ext}`;
-        const finalFile = capturedData?.file ? new File([capturedData.file], fileName, { type: mimeType }) : null;
+        const finalFile = capturedData?.file
+          ? new File([capturedData.file], fileName, { type: mimeType })
+          : null;
 
-        if (!finalFile) throw new Error('Vídeo inválido');
+        if (!finalFile) throw new Error("Vídeo inválido");
 
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          videos: [...prev.videos, {
-            file: finalFile,
-            name: fileName,
-            preview: null,
-            size: finalFile.size
-          }]
+          videos: [
+            ...prev.videos,
+            {
+              file: finalFile,
+              name: fileName,
+              preview: null,
+              size: finalFile.size,
+            },
+          ],
         }));
 
         toast({
           title: "Vídeo capturado!",
-          description: "Vídeo adicionado com sucesso."
+          description: "Vídeo adicionado com sucesso.",
         });
 
         return;
       }
 
       setIsPhotoProcessing(true);
-      setPhotoProcessingMessage('Processando imagem...');
+      setPhotoProcessingMessage("Processando imagem...");
 
       // Processamento de FOTO
       const fileName = `photo_${timestamp}.jpg`;
-      
+
       let finalFile = null;
       let finalPath = null;
       let finalPreview = null;
 
-      if (typeof capturedData === 'string') {
+      if (typeof capturedData === "string") {
         // Veio como Base64 string (do CameraCapture)
         // Precisamos converter para File e criar URL de preview
         try {
-            const base64Content = capturedData.includes(',') ? capturedData.split(',')[1] : capturedData;
-            const byteCharacters = atob(base64Content);
-            const arrayBuffer = new ArrayBuffer(byteCharacters.length);
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            for (let i = 0; i < byteCharacters.length; i++) {
-                uint8Array[i] = byteCharacters.charCodeAt(i);
-            }
-            
-            finalFile = new File([uint8Array], fileName, { type: 'image/jpeg' });
-            finalPreview = URL.createObjectURL(finalFile);
-            
-            // Opcional: Salvar em cache nativo se necessário, mas para base64 direto, o File é suficiente para upload
+          const base64Content = capturedData.includes(",")
+            ? capturedData.split(",")[1]
+            : capturedData;
+          const byteCharacters = atob(base64Content);
+          const arrayBuffer = new ArrayBuffer(byteCharacters.length);
+          const uint8Array = new Uint8Array(arrayBuffer);
+
+          for (let i = 0; i < byteCharacters.length; i++) {
+            uint8Array[i] = byteCharacters.charCodeAt(i);
+          }
+
+          finalFile = new File([uint8Array], fileName, { type: "image/jpeg" });
+          finalPreview = URL.createObjectURL(finalFile);
+
+          // Opcional: Salvar em cache nativo se necessário, mas para base64 direto, o File é suficiente para upload
         } catch (e) {
-            console.error('Erro ao converter base64:', e);
-            throw new Error('Falha ao processar imagem capturada');
+          console.error("Erro ao converter base64:", e);
+          throw new Error("Falha ao processar imagem capturada");
         }
       } else if (capturedData.file) {
         // Veio como Blob/File (Web)
-        finalFile = new File([capturedData.file], fileName, { type: 'image/jpeg' });
+        finalFile = new File([capturedData.file], fileName, {
+          type: "image/jpeg",
+        });
         finalPreview = URL.createObjectURL(finalFile);
       } else if (capturedData.path) {
         // Veio como path nativo
@@ -1227,30 +1446,32 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }
 
       if (!finalPreview && !finalFile && !finalPath) {
-          throw new Error('Formato de captura não reconhecido');
+        throw new Error("Formato de captura não reconhecido");
       }
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        photos: [...prev.photos, {
-          file: finalFile,
-          name: fileName,
-          nativePath: finalPath,
-          preview: finalPreview
-        }]
+        photos: [
+          ...prev.photos,
+          {
+            file: finalFile,
+            name: fileName,
+            nativePath: finalPath,
+            preview: finalPreview,
+          },
+        ],
       }));
 
       toast({
         title: "Foto capturada!",
-        description: "Imagem adicionada com sucesso."
+        description: "Imagem adicionada com sucesso.",
       });
-
     } catch (error) {
-      console.error('Erro ao processar captura in-app:', error);
+      console.error("Erro ao processar captura in-app:", error);
       toast({
         title: "Erro na captura",
         description: "Não foi possível processar a foto.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsPhotoProcessing(false);
@@ -1267,42 +1488,44 @@ const ReportModal = ({ onClose, onSubmit }) => {
       toast({
         title: "Aguarde...",
         description: "Já existe uma operação em andamento",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     // Se estiver em dispositivo móvel, usar câmera nativa para evitar OOM (Crash Kill)
-     if (Capacitor.isNativePlatform()) {
-       try {
-         setIsTakingPhoto(true);
-         // VOLTANDO PARA VideoProcessor.capturePhoto MAS OTIMIZADO (sem processamento no retorno)
-         // O plugin foi modificado para apenas retornar o caminho do arquivo sem tocar nos bits da imagem.
-         // Isso evita o OOM que ocorria quando o Java tentava decodificar a imagem de 50MP.
-         const result = await VideoProcessor.capturePhoto({
-           // Parâmetros são ignorados pelo plugin agora, pois ele não processa
-           quality: 'medium',
-           maxWidth: 1600,
-           maxHeight: 1600
-         });
+    if (Capacitor.isNativePlatform()) {
+      try {
+        setIsTakingPhoto(true);
+        // VOLTANDO PARA VideoProcessor.capturePhoto MAS OTIMIZADO (sem processamento no retorno)
+        // O plugin foi modificado para apenas retornar o caminho do arquivo sem tocar nos bits da imagem.
+        // Isso evita o OOM que ocorria quando o Java tentava decodificar a imagem de 50MP.
+        const result = await VideoProcessor.capturePhoto({
+          // Parâmetros são ignorados pelo plugin agora, pois ele não processa
+          quality: "medium",
+          maxWidth: 1600,
+          maxHeight: 1600,
+        });
 
-         if (result && result.filePath) {
+        if (result && result.filePath) {
           // Processar o resultado manualmente via VideoProcessor.compressImage
           // que é seguro e usa inSampleSize corretamente.
           const timestamp = Date.now();
-          await processPhotoFromUriOptimized(result.filePath, `photo_native_${timestamp}.jpg`);
+          await processPhotoFromUriOptimized(
+            result.filePath,
+            `photo_native_${timestamp}.jpg`
+          );
         }
       } catch (error) {
-        console.error('Erro na câmera nativa:', error);
-      
+        console.error("Erro na câmera nativa:", error);
       } finally {
         setIsTakingPhoto(false);
       }
       return;
     }
-    
+
     // Fallback para Web: Ativar modo câmera in-app (JS)
-    setCameraMode('photo');
+    setCameraMode("photo");
     setShowCamera(true);
     setIsTakingPhoto(true);
   };
@@ -1310,59 +1533,68 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // FUNÇÃO PARA PROCESSAMENTO EM BACKGROUND DE FOTOS PENDENTES
   const processPendingPhotoInBackground = async () => {
     if (!pendingPhotoRef.current || isProcessingRef.current) return;
-    
+
     isProcessingRef.current = true;
-    
+
     try {
       const image = pendingPhotoRef.current;
       pendingPhotoRef.current = null;
-      
+
       // feedback minimizado
-      
+
       if (image.base64String || image.dataUrl) {
         // Estratégia ULTRA conservadora para imagens muito grandes
-        const base64String = image.base64String || (image.dataUrl?.includes(',') ? image.dataUrl.split(',')[1] : image.dataUrl);
-        
+        const base64String =
+          image.base64String ||
+          (image.dataUrl?.includes(",")
+            ? image.dataUrl.split(",")[1]
+            : image.dataUrl);
+
         if (base64String) {
           const timestamp = Date.now();
           const fileName = `photo_${timestamp}.jpg`;
-          
+
           // Processamento mínimo - apenas criar o arquivo
           const byteCharacters = atob(base64String);
           const arrayBuffer = new ArrayBuffer(byteCharacters.length);
           const uint8Array = new Uint8Array(arrayBuffer);
-          
+
           // Copiar dados diretamente sem chunks
           for (let i = 0; i < byteCharacters.length; i++) {
             uint8Array[i] = byteCharacters.charCodeAt(i);
           }
-          
-          const photoFile = new File([uint8Array], fileName, { type: 'image/jpeg' });
+
+          const photoFile = new File([uint8Array], fileName, {
+            type: "image/jpeg",
+          });
           const previewUrl = URL.createObjectURL(photoFile);
-          
-          setFormData(prev => ({
+
+          setFormData((prev) => ({
             ...prev,
-            photos: [...prev.photos, { 
-              file: photoFile, 
-              name: fileName, 
-              preview: previewUrl,
-              size: photoFile.size
-            }]
+            photos: [
+              ...prev.photos,
+              {
+                file: photoFile,
+                name: fileName,
+                preview: previewUrl,
+                size: photoFile.size,
+              },
+            ],
           }));
-          
+
           toast({
             title: "✅ Foto adicionada!",
             description: "Processamento em background concluído",
-            variant: "default"
+            variant: "default",
           });
         }
       }
     } catch (error) {
-      console.error('❌ Erro no processamento em background:', error);
+      console.error("❌ Erro no processamento em background:", error);
       toast({
         title: "❌ Falha no processamento",
         description: "Não foi possível processar a foto",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       isProcessingRef.current = false;
@@ -1372,12 +1604,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // FUNÇÃO ALTERNATIVA: Usar a câmera frontal (sempre funciona)
   const handleTakePhotoWithFrontCamera = async () => {
     if (isTakingPhoto || isRecordingVideo) return;
-    
+
     setIsTakingPhoto(true);
-    
+
     try {
-      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Camera')) {
-        
+      if (
+        Capacitor.isNativePlatform() &&
+        Capacitor.isPluginAvailable("Camera")
+      ) {
         // Configurações para câmera frontal (seguro contra crash)
         const cameraOptions = {
           quality: 70,
@@ -1388,19 +1622,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
           correctOrientation: true,
           saveToGallery: false,
           width: 1920, // Full HD é suficiente para selfie/rosto
-          height: 1920
+          height: 1920,
         };
-        
+
         const image = await CapacitorCamera.getPhoto(cameraOptions);
 
         if (image && (image.path || image.webPath)) {
           const filePath = image.path || image.webPath;
           // USAR PLACEHOLDER para evitar crash de memória com imagens de 50MP na WebView
-          const previewUrl = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
+          const previewUrl =
+            "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
 
           const ts = Date.now();
           const fileName = `selfie_${ts}.jpg`;
-          
+
           let fileSize = 0;
           try {
             if (Capacitor.isNativePlatform()) {
@@ -1408,30 +1643,32 @@ const ReportModal = ({ onClose, onSubmit }) => {
               fileSize = stat.size;
             }
           } catch (e) {
-//             console.warn('Não foi possível obter tamanho do arquivo:', e);
+            //             console.warn('Não foi possível obter tamanho do arquivo:', e);
           }
 
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
-            photos: [...prev.photos, {
-              file: null,
-              name: fileName,
-              nativePath: filePath,
-              preview: previewUrl,
-              size: fileSize
-            }]
+            photos: [
+              ...prev.photos,
+              {
+                file: null,
+                name: fileName,
+                nativePath: filePath,
+                preview: previewUrl,
+                size: fileSize,
+              },
+            ],
           }));
 
-          toast({ title: '✅ Foto adicionada!' });
+          toast({ title: "✅ Foto adicionada!" });
         } else if (image && (image.base64String || image.dataUrl)) {
           await processPhotoFromBase64Optimized(image);
         }
-        
       } else {
         photoCameraInputRef.current?.click();
       }
     } catch (error) {
-      console.error('Erro com câmera frontal:', error);
+      console.error("Erro com câmera frontal:", error);
     } finally {
       setIsTakingPhoto(false);
     }
@@ -1440,9 +1677,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // FUNÇÃO DE GALERIA OTIMIZADA: Prioriza fluxo nativo para evitar crash
   const handleOpenGallery = async () => {
     if (isTakingPhoto || isRecordingVideo || isProcessingRef.current) return;
-    
+
     try {
-      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Camera')) {
+      if (
+        Capacitor.isNativePlatform() &&
+        Capacitor.isPluginAvailable("Camera")
+      ) {
         // Removido loading prévio "Abrindo galeria..." conforme solicitado
         // O loading será ativado apenas se uma imagem for realmente selecionada
 
@@ -1455,22 +1695,21 @@ const ReportModal = ({ onClose, onSubmit }) => {
           width: 0, // 0 = Sem redimensionamento (Original)
           height: 0,
           correctOrientation: true,
-          presentationStyle: 'fullscreen'
+          presentationStyle: "fullscreen",
         });
 
         if (image && (image.path || image.webPath)) {
           setIsPhotoProcessing(true); // Ativa loading agora
-          setPhotoProcessingMessage('Adicionando...');
+          setPhotoProcessingMessage("Adicionando...");
           setPhotoProcessingProgress(30);
-          
+
           const filePath = image.path || image.webPath;
           const ts = Date.now();
           const fileName = `photo_gallery_${ts}.jpg`;
-          
+
           // MUDANÇA: Usar fluxo unificado de processamento e compressão
           // Isso garante que fotos da galeria sejam redimensionadas (1600x1600) igual à câmera
           await processPhotoFromUriOptimized(filePath, fileName);
-          
         }
       } else {
         // Web fallback
@@ -1478,202 +1717,250 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }
     } catch (e) {
       // Ignorar cancelamento
-      if (!e.message?.includes('cancelled') && !e.message?.includes('cancelado')) {
-         toast({ title: 'Erro ao selecionar foto', description: e.message || 'Tente novamente', variant: 'destructive' });
+      if (
+        !e.message?.includes("cancelled") &&
+        !e.message?.includes("cancelado")
+      ) {
+        toast({
+          title: "Erro ao selecionar foto",
+          description: e.message || "Tente novamente",
+          variant: "destructive",
+        });
       }
     } finally {
       // Pequeno delay para garantir que a UI não trave na transição
       setTimeout(() => {
         setIsPhotoProcessing(false);
         // setPhotoProcessingProgress(0);
-        setPhotoProcessingMessage('');
+        setPhotoProcessingMessage("");
         // window.__BLOCK_NAVIGATION__ = false;
         // window.__BLOCK_MODAL_CLOSE__ = false;
       }, 800);
     }
   };
 
-  const resizeAndCompressImage = (base64String, maxWidth = 1200, maxHeight = 1200, initialQuality = 0.7) => {
+  const resizeAndCompressImage = (
+    base64String,
+    maxWidth = 1200,
+    maxHeight = 1200,
+    initialQuality = 0.7
+  ) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         try {
           let width = img.width;
           let height = img.height;
-          
+
           if (width > maxWidth || height > maxHeight) {
             const ratio = Math.min(maxWidth / width, maxHeight / height);
             width = Math.floor(width * ratio);
             height = Math.floor(height * ratio);
           }
-          
-          const canvas = document.createElement('canvas');
+
+          const canvas = document.createElement("canvas");
           canvas.width = width;
           canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          
+          const ctx = canvas.getContext("2d");
+
           ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
+          ctx.imageSmoothingQuality = "high";
           ctx.drawImage(img, 0, 0, width, height);
-          
+
           // Função para tentar diferentes qualidades até atingir 10MB
           const tryCompression = (currentQuality) => {
             canvas.toBlob(
               (blob) => {
                 if (!blob) {
-                  reject(new Error('Falha ao comprimir imagem'));
+                  reject(new Error("Falha ao comprimir imagem"));
                   return;
                 }
-                
+
                 const blobSizeMB = blob.size / (1024 * 1024);
-//                 console.log(`Compressão com qualidade ${currentQuality}: ${blobSizeMB.toFixed(2)}MB`);
-                
+                //                 console.log(`Compressão com qualidade ${currentQuality}: ${blobSizeMB.toFixed(2)}MB`);
+
                 // Se ainda é muito grande, reduzir qualidade
                 if (blobSizeMB > 10 && currentQuality > 0.3) {
                   const newQuality = Math.max(0.3, currentQuality - 0.1);
                   tryCompression(newQuality);
                   return;
                 }
-                
+
                 // Se ficou muito pequeno, podemos melhorar a qualidade
                 if (blobSizeMB < 1 && currentQuality < 0.9) {
                   const newQuality = Math.min(0.9, currentQuality + 0.1);
                   tryCompression(newQuality);
                   return;
                 }
-                
+
                 // Tamanho ideal
-//                 console.log(`✅ Imagem comprimida: ${blobSizeMB.toFixed(2)}MB`);
+                //                 console.log(`✅ Imagem comprimida: ${blobSizeMB.toFixed(2)}MB`);
                 resolve(blob);
               },
-              'image/jpeg',
+              "image/jpeg",
               currentQuality
             );
           };
-          
+
           // Iniciar com qualidade inicial
           tryCompression(initialQuality);
-          
         } catch (error) {
           reject(error);
         }
       };
-      img.onerror = () => reject(new Error('Erro ao carregar imagem'));
-      
-      const dataUrl = base64String.includes(',') ? base64String : `data:image/jpeg;base64,${base64String}`;
+      img.onerror = () => reject(new Error("Erro ao carregar imagem"));
+
+      const dataUrl = base64String.includes(",")
+        ? base64String
+        : `data:image/jpeg;base64,${base64String}`;
       img.src = dataUrl;
     });
   };
 
   const handleFileChange = async (e, fileType) => {
     const files = Array.from(e.target.files);
-    
+
     if (!files || files.length === 0) {
       e.target.value = null;
       return;
     }
-    
-    const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-    const validVideoTypes = ['video/mp4', 'video/quicktime', 'video/webm'];
-    
+
+    const validImageTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+    const validVideoTypes = ["video/mp4", "video/quicktime", "video/webm"];
+
     // Limite de tamanho para vídeos (1GB)
     const MAX_VIDEO_SIZE = 1024 * 1024 * 1024; // 1GB
     // Limite de tamanho para imagens (100MB - permite 50MP+ RAW/PNG)
     const MAX_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB
-    
+
     for (const file of files) {
       // Validar tipo
-      if (fileType === 'photos' && !validImageTypes.includes(file.type)) {
-        toast({ 
-          title: "Tipo de arquivo inválido!", 
-          description: "Por favor, selecione apenas imagens (JPEG, PNG, WEBP ou GIF).", 
-          variant: "destructive" 
+      if (fileType === "photos" && !validImageTypes.includes(file.type)) {
+        toast({
+          title: "Tipo de arquivo inválido!",
+          description:
+            "Por favor, selecione apenas imagens (JPEG, PNG, WEBP ou GIF).",
+          variant: "destructive",
         });
         continue;
       }
-      if (fileType === 'videos' && !validVideoTypes.includes(file.type)) {
-        toast({ 
-          title: "Tipo de arquivo inválido!", 
-          description: "Por favor, selecione apenas vídeos (MP4, MOV ou WEBM).", 
-          variant: "destructive" 
-        });
-        continue;
-      }
-      
-      // Validar tamanho
-      const maxSize = fileType === 'videos' ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
-      if (file.size > maxSize) {
-        const sizeLimit = fileType === 'videos' ? '1GB' : '100MB';
-        toast({ 
-          title: "Arquivo muito grande!", 
-          description: `O arquivo excede o limite de ${sizeLimit}. Por favor, use um arquivo menor ou aguarde a compressão automática.`, 
-          variant: "destructive" 
+      if (fileType === "videos" && !validVideoTypes.includes(file.type)) {
+        toast({
+          title: "Tipo de arquivo inválido!",
+          description: "Por favor, selecione apenas vídeos (MP4, MOV ou WEBM).",
+          variant: "destructive",
         });
         continue;
       }
 
-      if (fileType === 'videos') {
+      // Validar tamanho
+      const maxSize = fileType === "videos" ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+      if (file.size > maxSize) {
+        const sizeLimit = fileType === "videos" ? "1GB" : "100MB";
+        toast({
+          title: "Arquivo muito grande!",
+          description: `O arquivo excede o limite de ${sizeLimit}. Por favor, use um arquivo menor ou aguarde a compressão automática.`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      if (fileType === "videos") {
         try {
-           await validateVideoFile(file);
+          await validateVideoFile(file);
         } catch (e) {
-           toast({ 
-              title: "Vídeo inválido!", 
-              description: e.message, 
-              variant: "destructive" 
-           });
-           continue;
+          toast({
+            title: "Vídeo inválido!",
+            description: e.message,
+            variant: "destructive",
+          });
+          continue;
         }
       }
 
       try {
         // Para imagens da galeria, sempre otimizar para reduzir tamanho (limitando a 1MB e redimensionando)
-        if (fileType === 'photos' && file.size > 200 * 1024) { // Processar imagens acima de 200KB
+        if (fileType === "photos" && file.size > 200 * 1024) {
+          // Processar imagens acima de 200KB
           if (Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
             const reader = new FileReader();
             setIsPhotoProcessing(true);
             setPhotoProcessingProgress(5);
-            setPhotoProcessingMessage('Otimizando imagem...');
+            setPhotoProcessingMessage("Otimizando imagem...");
             // window.__BLOCK_NAVIGATION__ = true;
             // window.__BLOCK_MODAL_CLOSE__ = true;
             reader.onload = async (e) => {
               try {
                 const base64String = e.target.result;
-                const base64Data = typeof base64String === 'string' && base64String.includes(',') ? base64String.split(',')[1] : base64String;
+                const base64Data =
+                  typeof base64String === "string" && base64String.includes(",")
+                    ? base64String.split(",")[1]
+                    : base64String;
                 const ts = Date.now();
                 const relPath = `temp/gallery_${ts}.webp`;
-                await Filesystem.writeFile({ path: relPath, data: base64Data, directory: Directory.Cache });
+                await Filesystem.writeFile({
+                  path: relPath,
+                  data: base64Data,
+                  directory: Directory.Cache,
+                });
                 setPhotoProcessingProgress(30);
-                const { uri } = await Filesystem.getUri({ path: relPath, directory: Directory.Cache });
+                const { uri } = await Filesystem.getUri({
+                  path: relPath,
+                  directory: Directory.Cache,
+                });
                 setPhotoProcessingProgress(45);
                 let outPath = uri;
                 try {
                   // Compressão balanceada (Max 500KB, 1280px, Medium Quality)
-                  const comp = await VideoProcessor.compressImage({ 
-                    filePath: uri, 
-                    maxWidth: 1280, 
-                    maxHeight: 1280, 
-                    maxSizeMB: 0.5, 
-                    quality: 'medium', 
-                    format: 'jpeg' 
+                  const comp = await VideoProcessor.compressImage({
+                    filePath: uri,
+                    maxWidth: 1280,
+                    maxHeight: 1280,
+                    maxSizeMB: 0.5,
+                    quality: "medium",
+                    format: "jpeg",
                   });
                   outPath = comp.outputPath || uri;
                 } catch {}
                 setPhotoProcessingProgress(85);
-                setFormData(prev => ({
+                setFormData((prev) => ({
                   ...prev,
-                  [fileType]: [...prev[fileType], { file: null, name: file.name, nativePath: outPath, preview: null, size: file.size }]
+                  [fileType]: [
+                    ...prev[fileType],
+                    {
+                      file: null,
+                      name: file.name,
+                      nativePath: outPath,
+                      preview: null,
+                      size: file.size,
+                    },
+                  ],
                 }));
                 setPhotoProcessingProgress(100);
               } catch (error) {
                 const previewUrl = URL.createObjectURL(file);
-                setFormData(prev => ({
+                setFormData((prev) => ({
                   ...prev,
-                  [fileType]: [...prev[fileType], { file: file, name: file.name, preview: previewUrl, size: file.size }]
+                  [fileType]: [
+                    ...prev[fileType],
+                    {
+                      file: file,
+                      name: file.name,
+                      preview: previewUrl,
+                      size: file.size,
+                    },
+                  ],
                 }));
               } finally {
                 setIsPhotoProcessing(false);
                 setPhotoProcessingProgress(0);
-                setPhotoProcessingMessage('');
+                setPhotoProcessingMessage("");
                 setTimeout(() => {
                   window.__BLOCK_NAVIGATION__ = false;
                   window.__BLOCK_MODAL_CLOSE__ = false;
@@ -1686,31 +1973,57 @@ const ReportModal = ({ onClose, onSubmit }) => {
             let previewUrl = null;
             setIsPhotoProcessing(true);
             setPhotoProcessingProgress(5);
-            setPhotoProcessingMessage('Otimizando imagem...');
+            setPhotoProcessingMessage("Otimizando imagem...");
             // window.__BLOCK_NAVIGATION__ = true;
             // window.__BLOCK_MODAL_CLOSE__ = true;
             reader.onload = async (e) => {
               try {
                 const base64String = e.target.result;
                 // Web: 1280x1280 e qualidade 0.7 para bom balanço
-                const optimizedFile = await processImageWithWorker(base64String, file.name, 1280, 1280, 0.7);
+                const optimizedFile = await processImageWithWorker(
+                  base64String,
+                  file.name,
+                  1280,
+                  1280,
+                  0.7
+                );
                 previewUrl = URL.createObjectURL(optimizedFile);
-                setFormData(prev => ({
+                setFormData((prev) => ({
                   ...prev,
-                  [fileType]: [...prev[fileType], { file: optimizedFile, name: optimizedFile.name, preview: previewUrl, size: optimizedFile.size }]
+                  [fileType]: [
+                    ...prev[fileType],
+                    {
+                      file: optimizedFile,
+                      name: optimizedFile.name,
+                      preview: previewUrl,
+                      size: optimizedFile.size,
+                    },
+                  ],
                 }));
                 setPhotoProcessingProgress(100);
               } catch (error) {
-                if (previewUrl) { try { URL.revokeObjectURL(previewUrl); } catch {} }
+                if (previewUrl) {
+                  try {
+                    URL.revokeObjectURL(previewUrl);
+                  } catch {}
+                }
                 previewUrl = URL.createObjectURL(file);
-                setFormData(prev => ({
+                setFormData((prev) => ({
                   ...prev,
-                  [fileType]: [...prev[fileType], { file: file, name: file.name, preview: previewUrl, size: file.size }]
+                  [fileType]: [
+                    ...prev[fileType],
+                    {
+                      file: file,
+                      name: file.name,
+                      preview: previewUrl,
+                      size: file.size,
+                    },
+                  ],
                 }));
               } finally {
                 setIsPhotoProcessing(false);
                 setPhotoProcessingProgress(0);
-                setPhotoProcessingMessage('');
+                setPhotoProcessingMessage("");
                 setTimeout(() => {
                   // window.__BLOCK_NAVIGATION__ = false;
                   // window.__BLOCK_MODAL_CLOSE__ = false;
@@ -1720,7 +2033,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             reader.onerror = () => {
               setIsPhotoProcessing(false);
               setPhotoProcessingProgress(0);
-              setPhotoProcessingMessage('');
+              setPhotoProcessingMessage("");
               setTimeout(() => {
                 // window.__BLOCK_NAVIGATION__ = false;
                 // window.__BLOCK_MODAL_CLOSE__ = false;
@@ -1728,34 +2041,38 @@ const ReportModal = ({ onClose, onSubmit }) => {
             };
             reader.readAsDataURL(file);
           }
-        } else if (fileType === 'videos') {
+        } else if (fileType === "videos") {
           // Processamento de vídeos
           if (Capacitor.isNativePlatform()) {
             // BLOQUEIO DE SEGURANÇA:
             // O input type="file" não deve ser usado para vídeos no Android/iOS pois o FileReader
             // tenta carregar o arquivo inteiro na memória (base64), causando crash (OOM) com vídeos grandes (ex: 2GB).
             // O usuário deve usar o botão "Galeria de Vídeos" que usa o VideoProcessorPlugin (nativo).
-            
-//             console.warn('Tentativa de selecionar vídeo via input nativo bloqueada para evitar crash.');
+
+            //             console.warn('Tentativa de selecionar vídeo via input nativo bloqueada para evitar crash.');
             toast({
               title: "Use a Galeria de Vídeos",
-              description: "Por favor, utilize o botão 'Galeria de Vídeos' abaixo para selecionar arquivos grandes.",
-              variant: "default"
+              description:
+                "Por favor, utilize o botão 'Galeria de Vídeos' abaixo para selecionar arquivos grandes.",
+              variant: "default",
             });
-            
+
             e.target.value = null; // Limpar input
             return;
           } else {
             // Web fallback (sem compressão real por enquanto, apenas validação)
-//             console.log('Vídeo selecionado na web (sem compressão nativa)');
-            setFormData(prev => ({
+            //             console.log('Vídeo selecionado na web (sem compressão nativa)');
+            setFormData((prev) => ({
               ...prev,
-              videos: [...prev.videos, { 
-                file: file, 
-                name: file.name, 
-                preview: null,
-                size: file.size
-              }]
+              videos: [
+                ...prev.videos,
+                {
+                  file: file,
+                  name: file.name,
+                  preview: null,
+                  size: file.size,
+                },
+              ],
             }));
           }
         } else {
@@ -1763,162 +2080,176 @@ const ReportModal = ({ onClose, onSubmit }) => {
           let previewUrl = null;
           try {
             previewUrl = URL.createObjectURL(file);
-          setFormData(prev => ({
-            ...prev,
-            [fileType]: [...prev[fileType], { 
-              file: file, 
-              name: file.name, 
-              preview: previewUrl 
-            }]
-          }));
+            setFormData((prev) => ({
+              ...prev,
+              [fileType]: [
+                ...prev[fileType],
+                {
+                  file: file,
+                  name: file.name,
+                  preview: previewUrl,
+                },
+              ],
+            }));
           } catch (urlError) {
-            console.error('Erro ao criar preview URL:', urlError);
+            console.error("Erro ao criar preview URL:", urlError);
             if (previewUrl) {
               try {
                 URL.revokeObjectURL(previewUrl);
               } catch (e) {
-                console.error('Erro ao limpar preview:', e);
+                console.error("Erro ao limpar preview:", e);
               }
             }
             throw urlError;
           }
         }
-        
+
         if (errors[fileType]) {
-          setErrors(prev => ({ ...prev, [fileType]: undefined }));
+          setErrors((prev) => ({ ...prev, [fileType]: undefined }));
         }
-        
       } catch (error) {
         console.error("Error processing file:", error);
-        toast({ 
-          title: "Erro ao processar arquivo", 
-          description: error.message || "Não foi possível carregar o arquivo selecionado.", 
-          variant: "destructive" 
+        toast({
+          title: "Erro ao processar arquivo",
+          description:
+            error.message || "Não foi possível carregar o arquivo selecionado.",
+          variant: "destructive",
         });
       }
     }
     e.target.value = null;
   };
 
-
-
   // FUNÇÃO DE GRAVAÇÃO NATIVA (Solução para crash de memória e falha de compressão)
   const handleNativeVideoRecording = async () => {
     if (isTakingPhoto || isRecordingVideo || isProcessingRef.current) return;
-    
+
     try {
       if (Capacitor.isNativePlatform()) {
         setIsPhotoProcessing(true);
-        setPhotoProcessingMessage('Iniciando upload...');
-        
+        setPhotoProcessingMessage("Iniciando upload...");
+
         // 1. Capturar vídeo usando Intent nativa
         const { filePath } = await VideoProcessor.captureVideo({
-                  maxDurationSec: 600, // Limite de 10 minutos
-                  lowQuality: false
-              });
-        
+          maxDurationSec: 600, // Limite de 10 minutos
+          lowQuality: false,
+        });
+
         if (!filePath) return;
 
         // 2. Iniciar upload em background imediatamente
         const timestamp = Date.now();
         const fileName = `video_${timestamp}.mp4`;
         const storagePath = `${user.id}/${reportUUID}/${fileName}`;
-        
+
         // Configurar URL de upload e Headers
-        const bucket = 'reports-media';
+        const bucket = "reports-media";
         const projectUrl = supabase.supabaseUrl;
         const uploadUrl = `${projectUrl}/storage/v1/object/${bucket}/${storagePath}`;
-        
+
         const headers = {
-            'Authorization': `Bearer ${session?.access_token}`,
-            'x-upsert': 'false'
+          Authorization: `Bearer ${session?.access_token}`,
+          "x-upsert": "false",
         };
 
         // Inicia o upload e retorna o ID imediatamente (Fire and Forget)
         const uploadId = await uploadVideo(filePath, uploadUrl, headers);
-        
+
         // 3. Adicionar ao estado com referência do upload
-        setFormData(prev => ({
-            ...prev,
-            videos: [...prev.videos, { 
-                file: null, 
-                name: fileName, 
-                nativePath: filePath,
-                uploadId,
-                storagePath,
-                status: 'pending',
-                preview: null 
-            }]
+        setFormData((prev) => ({
+          ...prev,
+          videos: [
+            ...prev.videos,
+            {
+              file: null,
+              name: fileName,
+              nativePath: filePath,
+              uploadId,
+              storagePath,
+              status: "pending",
+              preview: null,
+            },
+          ],
         }));
-        
       } else {
         // Web fallback
         videoCameraInputRef.current?.click();
       }
     } catch (error) {
-      console.error('Erro na gravação nativa:', error);
-      if (!error.message?.includes('cancelada') && !error.message?.includes('indisponível')) {
-          toast({
-            title: "Erro ao gravar",
-            description: error.message || "Falha ao processar o vídeo. Tente novamente.",
-            variant: "destructive"
-          });
+      console.error("Erro na gravação nativa:", error);
+      if (
+        !error.message?.includes("cancelada") &&
+        !error.message?.includes("indisponível")
+      ) {
+        toast({
+          title: "Erro ao gravar",
+          description:
+            error.message || "Falha ao processar o vídeo. Tente novamente.",
+          variant: "destructive",
+        });
       }
     } finally {
       setIsPhotoProcessing(false);
       setPhotoProcessingProgress(0);
-      setPhotoProcessingMessage('');
+      setPhotoProcessingMessage("");
     }
   };
 
   const removeFile = (fileType, index) => {
     try {
-    setFormData(prev => {
+      setFormData((prev) => {
         // Proteção: garantir que o array existe
         if (!prev[fileType] || !Array.isArray(prev[fileType])) {
           return prev;
         }
-        
-      const fileToRemove = prev[fileType][index];
-        
-        
-        
+
+        const fileToRemove = prev[fileType][index];
+
         // Limpar preview apenas se existir (para vídeos sempre será null)
-      if (fileToRemove?.preview) {
+        if (fileToRemove?.preview) {
           try {
-        URL.revokeObjectURL(fileToRemove.preview);
+            URL.revokeObjectURL(fileToRemove.preview);
           } catch (e) {
-            console.error('Erro ao limpar preview:', e);
-      }
+            console.error("Erro ao limpar preview:", e);
+          }
         }
-        
-      const newFiles = [...prev[fileType]];
-      newFiles.splice(index, 1);
-        
-      return {
-        ...prev,
-        [fileType]: newFiles
-      };
-    });
+
+        const newFiles = [...prev[fileType]];
+        newFiles.splice(index, 1);
+
+        return {
+          ...prev,
+          [fileType]: newFiles,
+        };
+      });
     } catch (error) {
-      console.error('Erro ao remover arquivo:', error);
+      console.error("Erro ao remover arquivo:", error);
     }
   };
 
-  
-
- 
-
   const uploadMedia = async (reportId) => {
     // Preparar listas de mídia
-    const photosToUpload = formData.photos.map(p => ({ 
-        file: p.file, name: p.name, type: 'photo', nativePath: p.nativePath 
-    })).filter(Boolean);
-    
-    const videosToUpload = formData.videos.map(v => ({
-        file: v.file, name: v.name, type: 'video', nativePath: v.nativePath, uploadId: v.uploadId, storagePath: v.storagePath, isProcessing: v.isProcessing
-    })).filter(Boolean);
-    
+    const photosToUpload = formData.photos
+      .map((p) => ({
+        file: p.file,
+        name: p.name,
+        type: "photo",
+        nativePath: p.nativePath,
+      }))
+      .filter(Boolean);
+
+    const videosToUpload = formData.videos
+      .map((v) => ({
+        file: v.file,
+        name: v.name,
+        type: "video",
+        nativePath: v.nativePath,
+        uploadId: v.uploadId,
+        storagePath: v.storagePath,
+        isProcessing: v.isProcessing,
+      }))
+      .filter(Boolean);
+
     const mediaToUpload = [...photosToUpload, ...videosToUpload];
     if (mediaToUpload.length === 0) return { success: true };
 
@@ -1927,121 +2258,153 @@ const ReportModal = ({ onClose, onSubmit }) => {
     const uploadTasks = [];
 
     for (const media of mediaToUpload) {
-        // Sanitizar nome
-        const rawFileName = media.name || `arquivo_${Date.now()}`;
-        const safeFileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const filePath = `${user.id}/${reportId}/${Date.now()}-${safeFileName}`;
-        
-        // Obter URL pública (assumindo bucket público 'reports-media')
-        const { data: { publicUrl } } = supabase.storage.from('reports-media').getPublicUrl(filePath);
+      // Sanitizar nome
+      const rawFileName = media.name || `arquivo_${Date.now()}`;
+      const safeFileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `${user.id}/${reportId}/${Date.now()}-${safeFileName}`;
 
-        optimisticRows.push({
-            report_id: reportId,
-            url: publicUrl,
-            type: media.type,
-            name: media.name
-        });
+      // Obter URL pública (assumindo bucket público 'reports-media')
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("reports-media").getPublicUrl(filePath);
 
-        uploadTasks.push({ media, filePath, publicUrl });
+      optimisticRows.push({
+        report_id: reportId,
+        url: publicUrl,
+        type: media.type,
+        name: media.name,
+      });
+
+      uploadTasks.push({ media, filePath, publicUrl });
     }
 
     // 2. Inserir no Banco IMEDIATAMENTE (Otimista)
     if (optimisticRows.length > 0) {
-      const { error: insertError } = await supabase.from('report_media').insert(optimisticRows);
+      const { error: insertError } = await supabase
+        .from("report_media")
+        .insert(optimisticRows);
       if (insertError) {
         console.error("Erro ao inserir mídia placeholder:", insertError);
-        return { success: false, errors: [`Erro ao salvar referências: ${insertError.message}`] };
+        return {
+          success: false,
+          errors: [`Erro ao salvar referências: ${insertError.message}`],
+        };
       }
     }
 
     // 3. Disparar Uploads em Background (Fire and Forget)
     (async () => {
-        const isNative = Capacitor.isNativePlatform();
-        
-        for (const task of uploadTasks) {
-            const { media, filePath } = task;
-            
-            try {
-                if (isNative && media.nativePath) {
-                    // --- FLUXO NATIVO (ANDROID/iOS) ---
-                    // Gerar URL assinada apenas para fluxo nativo
-                    const { data: signed, error: signedErr } = await supabase.storage
-                      .from('reports-media')
-                      .createSignedUploadUrl(filePath, 3600); // 1h validade
+      const isNative = Capacitor.isNativePlatform();
 
-                    if (signedErr || !signed?.signedUrl) {
-                        console.error("Falha URL assinada:", signedErr);
-                        continue;
-                    }
-                    const uploadUrl = signed.signedUrl || signed.url;
+      for (const task of uploadTasks) {
+        const { media, filePath } = task;
 
-                    const cleanNativePath = media.nativePath.startsWith('file://') 
-                        ? media.nativePath.replace('file://', '') 
-                        : media.nativePath;
+        try {
+          if (isNative && media.nativePath) {
+            // --- FLUXO NATIVO (ANDROID/iOS) ---
+            // Gerar URL assinada apenas para fluxo nativo
+            const { data: signed, error: signedErr } = await supabase.storage
+              .from("reports-media")
+              .createSignedUploadUrl(filePath, 3600); // 1h validade
 
-                    if (media.type === 'video') {
-                         const { uploadId } = await VideoProcessor.uploadVideoInBackground({
-                            filePath: cleanNativePath,
-                            uploadUrl: uploadUrl,
-                            headers: { 'Content-Type': 'video/mp4', 'x-upsert': 'false' },
-                            skipCompression: false 
-                        });
-                        registerUpload(uploadId, { name: media.name || 'Vídeo', type: 'video', reportId: reportId });
-                    } else {
-                        let finalPath = cleanNativePath;
-                        try {
-                             const comp = await VideoProcessor.compressImage({
-                                 filePath: cleanNativePath,
-                                 maxWidth: 1600, 
-                                 maxHeight: 1600,
-                                 quality: 'high',
-                                 format: 'jpeg'
-                             });
-                             if (comp && comp.outputPath) finalPath = comp.outputPath;
-                        } catch (e) {
-//                             console.warn("Compressão de imagem falhou, usando original:", e);
-                        }
-
-                        const { uploadId } = await VideoProcessor.uploadVideoInBackground({
-                            filePath: finalPath,
-                            uploadUrl: uploadUrl,
-                            headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
-                            skipCompression: true
-                        });
-                        registerUpload(uploadId, { name: media.name || 'Foto', type: 'photo', reportId: reportId });
-                    }
-                } else {
-                    // --- FLUXO WEB ---
-                    let fileToUpload = media.file;
-                    
-                    if (!fileToUpload && media.nativePath) {
-                        try {
-                           const r = await fetch(Capacitor.convertFileSrc(media.nativePath));
-                           const b = await r.blob();
-                           fileToUpload = new File([b], media.name, { type: media.type === 'video' ? 'video/mp4' : 'image/jpeg' });
-                        } catch (e) {
-                           console.error("Falha ao recuperar arquivo para upload web:", e);
-                           continue;
-                        }
-                    }
-
-                    if (fileToUpload) {
-                        // Determinar se precisa comprimir (se ainda estava processando, usamos o original e comprimimos agora)
-                        const shouldCompress = media.type === 'video' && media.isProcessing;
-                        
-                        queueWebUpload(fileToUpload, filePath, { 
-                            name: media.name, 
-                            type: media.type === 'video' ? 'video' : 'photo', 
-                            reportId: reportId 
-                        }, {
-                            skipCompression: !shouldCompress
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error(`Falha no upload de background (${media.name}):`, err);
+            if (signedErr || !signed?.signedUrl) {
+              console.error("Falha URL assinada:", signedErr);
+              continue;
             }
+            const uploadUrl = signed.signedUrl || signed.url;
+
+            const cleanNativePath = media.nativePath.startsWith("file://")
+              ? media.nativePath.replace("file://", "")
+              : media.nativePath;
+
+            if (media.type === "video") {
+              const { uploadId } = await VideoProcessor.uploadVideoInBackground(
+                {
+                  filePath: cleanNativePath,
+                  uploadUrl: uploadUrl,
+                  headers: { "Content-Type": "video/mp4", "x-upsert": "false" },
+                  skipCompression: false,
+                }
+              );
+              registerUpload(uploadId, {
+                name: media.name || "Vídeo",
+                type: "video",
+                reportId: reportId,
+              });
+            } else {
+              let finalPath = cleanNativePath;
+              try {
+                const comp = await VideoProcessor.compressImage({
+                  filePath: cleanNativePath,
+                  maxWidth: 1600,
+                  maxHeight: 1600,
+                  quality: "high",
+                  format: "jpeg",
+                });
+                if (comp && comp.outputPath) finalPath = comp.outputPath;
+              } catch (e) {
+                //                             console.warn("Compressão de imagem falhou, usando original:", e);
+              }
+
+              const { uploadId } = await VideoProcessor.uploadVideoInBackground(
+                {
+                  filePath: finalPath,
+                  uploadUrl: uploadUrl,
+                  headers: {
+                    "Content-Type": "image/jpeg",
+                    "x-upsert": "false",
+                  },
+                  skipCompression: true,
+                }
+              );
+              registerUpload(uploadId, {
+                name: media.name || "Foto",
+                type: "photo",
+                reportId: reportId,
+              });
+            }
+          } else {
+            // --- FLUXO WEB ---
+            let fileToUpload = media.file;
+
+            if (!fileToUpload && media.nativePath) {
+              try {
+                const r = await fetch(
+                  Capacitor.convertFileSrc(media.nativePath)
+                );
+                const b = await r.blob();
+                fileToUpload = new File([b], media.name, {
+                  type: media.type === "video" ? "video/mp4" : "image/jpeg",
+                });
+              } catch (e) {
+                console.error("Falha ao recuperar arquivo para upload web:", e);
+                continue;
+              }
+            }
+
+            if (fileToUpload) {
+              // Determinar se precisa comprimir (se ainda estava processando, usamos o original e comprimimos agora)
+              const shouldCompress =
+                media.type === "video" && media.isProcessing;
+
+              queueWebUpload(
+                fileToUpload,
+                filePath,
+                {
+                  name: media.name,
+                  type: media.type === "video" ? "video" : "photo",
+                  reportId: reportId,
+                },
+                {
+                  skipCompression: !shouldCompress,
+                }
+              );
+            }
+          }
+        } catch (err) {
+          console.error(`Falha no upload de background (${media.name}):`, err);
         }
+      }
     })();
 
     return { success: true };
@@ -2070,7 +2433,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
         newErrors.category = "Por favor, selecione uma categoria.";
         hasErrors = true;
       }
-      if (formData.category === 'iluminacao' && (!formData.issue_type || formData.issue_type.trim() === '')) {
+      if (
+        formData.category === "iluminacao" &&
+        (!formData.issue_type || formData.issue_type.trim() === "")
+      ) {
         newErrors.issue_type = "Por favor, selecione o tipo do problema.";
         hasErrors = true;
       }
@@ -2081,30 +2447,40 @@ const ReportModal = ({ onClose, onSubmit }) => {
         newErrors.location = "Por favor, marque o local da bronca no mapa.";
         hasErrors = true;
       }
-      if (!formData.address || formData.address.trim() === '') {
+      if (!formData.address || formData.address.trim() === "") {
         newErrors.address = "Por favor, preencha o endereço de referência.";
         hasErrors = true;
       }
-      if (formData.category === 'iluminacao' && !formData.pole_id && (!formData.pole_number || formData.pole_number.trim() === '')) {
-        newErrors.pole_number = "Por favor, selecione um poste sugerido ou informe o número/plaqueta.";
+      if (
+        formData.category === "iluminacao" &&
+        !formData.pole_id &&
+        (!formData.pole_number || formData.pole_number.trim() === "")
+      ) {
+        newErrors.pole_number =
+          "Por favor, selecione um poste sugerido ou informe o número/plaqueta.";
         hasErrors = true;
       }
     }
 
     if (stepToValidate === 2) {
-      if ((formData.photos.length + formData.videos.length) === 0) {
-        newErrors.photos = "Por favor, adicione pelo menos uma foto ou vídeo da bronca.";
+      if (formData.photos.length + formData.videos.length === 0) {
+        newErrors.photos =
+          "Por favor, adicione pelo menos uma foto ou vídeo da bronca.";
         hasErrors = true;
       }
     }
 
     if (hasErrors) {
-      setErrors(prev => ({ ...prev, ...newErrors }));
+      setErrors((prev) => ({ ...prev, ...newErrors }));
       const firstErrorField = Object.keys(newErrors)[0];
-      const errorElement = document.querySelector(`[data-error-field="${firstErrorField}"]`);
+      const errorElement = document.querySelector(
+        `[data-error-field="${firstErrorField}"]`
+      );
       if (errorElement) {
-        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        try { errorElement.focus(); } catch {}
+        errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        try {
+          errorElement.focus();
+        } catch {}
       }
       return false;
     }
@@ -2114,16 +2490,21 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const newErrors = {};
     let hasErrors = false;
-    
+
     if (!formData.title || !formData.category) {
-      if (!formData.title) newErrors.title = "Por favor, preencha o título da bronca.";
-      if (!formData.category) newErrors.category = "Por favor, selecione uma categoria.";
+      if (!formData.title)
+        newErrors.title = "Por favor, preencha o título da bronca.";
+      if (!formData.category)
+        newErrors.category = "Por favor, selecione uma categoria.";
       hasErrors = true;
     }
-    if (formData.category === 'iluminacao' && (!formData.issue_type || formData.issue_type.trim() === '')) {
+    if (
+      formData.category === "iluminacao" &&
+      (!formData.issue_type || formData.issue_type.trim() === "")
+    ) {
       newErrors.issue_type = "Por favor, selecione o tipo do problema.";
       hasErrors = true;
     }
@@ -2131,81 +2512,101 @@ const ReportModal = ({ onClose, onSubmit }) => {
       newErrors.location = "Por favor, marque o local da bronca no mapa.";
       hasErrors = true;
     }
-    if (!formData.address || formData.address.trim() === '') {
+    if (!formData.address || formData.address.trim() === "") {
       newErrors.address = "Por favor, preencha o endereço de referência.";
       hasErrors = true;
     }
-    if ((formData.photos.length + formData.videos.length) === 0) {
-      newErrors.photos = "Por favor, adicione pelo menos uma foto ou vídeo da bronca.";
+    if (formData.photos.length + formData.videos.length === 0) {
+      newErrors.photos =
+        "Por favor, adicione pelo menos uma foto ou vídeo da bronca.";
       hasErrors = true;
     }
-    if (formData.category === 'iluminacao' && !formData.pole_id && (!formData.pole_number || formData.pole_number.trim() === '')) {
-      newErrors.pole_number = "Por favor, selecione um poste sugerido ou informe o número/plaqueta.";
+    if (
+      formData.category === "iluminacao" &&
+      !formData.pole_id &&
+      (!formData.pole_number || formData.pole_number.trim() === "")
+    ) {
+      newErrors.pole_number =
+        "Por favor, selecione um poste sugerido ou informe o número/plaqueta.";
       hasErrors = true;
     }
 
-    if (!hasErrors && formData.category === 'iluminacao') {
+    if (!hasErrors && formData.category === "iluminacao") {
       if (formData.pole_id) {
         if (duplicatePoleReportsLoading) {
           toast({
             title: "Aguarde…",
-            description: "Estamos verificando se já existe bronca para este poste.",
-            variant: "default"
+            description:
+              "Estamos verificando se já existe bronca para este poste.",
+            variant: "default",
           });
           return;
         }
 
         if (duplicatePoleReports.length > 0) {
-          newErrors.pole_number = "Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.";
+          newErrors.pole_number =
+            "Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.";
           hasErrors = true;
         }
       } else if (formData.pole_number?.trim()) {
         const identifier = formatPoleLabel(formData.pole_number);
         const { data, error } = await supabase
-          .from('reports')
-          .select('id')
-          .eq('category_id', 'iluminacao')
-          .eq('reported_post_identifier', identifier)
-          .neq('status', 'duplicate')
-          .in('status', ['pending', 'in-progress'])
+          .from("reports")
+          .select("id")
+          .eq("category_id", "iluminacao")
+          .eq("reported_post_identifier", identifier)
+          .neq("status", "duplicate")
+          .in("status", ["pending", "in-progress"])
           .limit(1);
 
         if (!error && Array.isArray(data) && data.length > 0) {
-          newErrors.pole_number = "Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.";
+          newErrors.pole_number =
+            "Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.";
           hasErrors = true;
         }
       }
     }
-    
+
     if (hasErrors) {
       setErrors(newErrors);
       const firstErrorField = Object.keys(newErrors)[0];
       if (useWizardLayout) {
         const targetStep = fieldToWizardStep[firstErrorField];
-        if (typeof targetStep === 'number') {
+        if (typeof targetStep === "number") {
           setWizardStep(targetStep);
         }
       }
       setTimeout(() => {
-        const errorElement = document.querySelector(`[data-error-field="${firstErrorField}"]`);
+        const errorElement = document.querySelector(
+          `[data-error-field="${firstErrorField}"]`
+        );
         if (errorElement) {
-          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          try { errorElement.focus(); } catch {}
+          errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+          try {
+            errorElement.focus();
+          } catch {}
         }
       }, 0);
       return;
     }
-    
+
     setErrors({});
     setIsSubmitting(true);
     setUploadProgress(0);
     uploadAbortControllerRef.current = new AbortController();
-    
+
     try {
       const uploadMediaWrapper = async (reportId) => {
         const result = await uploadMedia(reportId);
-        if (!result.success && formData.photos.length + formData.videos.length > 0 && result.errors?.length === formData.photos.length + formData.videos.length) {
-          throw new Error('Falha ao fazer upload de todos os arquivos. A criação da bronca foi cancelada.');
+        if (
+          !result.success &&
+          formData.photos.length + formData.videos.length > 0 &&
+          result.errors?.length ===
+            formData.photos.length + formData.videos.length
+        ) {
+          throw new Error(
+            "Falha ao fazer upload de todos os arquivos. A criação da bronca foi cancelada."
+          );
         }
         return result;
       };
@@ -2213,91 +2614,95 @@ const ReportModal = ({ onClose, onSubmit }) => {
       // Verificar se ainda está processando vídeo CRÍTICO (sem arquivo ou path) antes de submeter
       // Se tiver nativePath (galeria/câmera salva) ou file, pode enviar em background
       // O UploadService lidará com a compressão se necessário
-      const hasCriticalProcessing = formData.videos.some(v => 
-        v.isProcessing && !v.nativePath && !v.file
+      const hasCriticalProcessing = formData.videos.some(
+        (v) => v.isProcessing && !v.nativePath && !v.file
       );
 
       if (hasCriticalProcessing) {
         toast({
           title: "Aguarde...",
-          description: "Ainda estamos preparando seus vídeos. Por favor aguarde um momento.",
-          variant: "default"
+          description:
+            "Ainda estamos preparando seus vídeos. Por favor aguarde um momento.",
+          variant: "default",
         });
         setIsSubmitting(false);
         return;
       }
 
       // Se tiver vídeos processando mas com path/file, avisar que será em background
-      const hasBackgroundProcessing = formData.videos.some(v => v.isProcessing);
+      const hasBackgroundProcessing = formData.videos.some(
+        (v) => v.isProcessing
+      );
       if (hasBackgroundProcessing) {
-         // Toast removed as per user request
+        // Toast removed as per user request
       }
 
       await onSubmit(formData, uploadMediaWrapper);
-      
+
       // Limpar previews de forma segura
       try {
-      formData.photos.forEach(photo => {
+        formData.photos.forEach((photo) => {
           if (photo?.preview) {
             try {
-          URL.revokeObjectURL(photo.preview);
+              URL.revokeObjectURL(photo.preview);
             } catch (e) {
-              console.error('Erro ao limpar preview de foto:', e);
+              console.error("Erro ao limpar preview de foto:", e);
             }
-        }
-      });
-      formData.videos.forEach(video => {
+          }
+        });
+        formData.videos.forEach((video) => {
           if (video?.preview) {
             try {
-          URL.revokeObjectURL(video.preview);
+              URL.revokeObjectURL(video.preview);
             } catch (e) {
-              console.error('Erro ao limpar preview de vídeo:', e);
+              console.error("Erro ao limpar preview de vídeo:", e);
             }
-        }
-      });
+          }
+        });
       } catch (cleanupError) {
-        console.error('Erro ao limpar previews:', cleanupError);
+        console.error("Erro ao limpar previews:", cleanupError);
       }
-      
+
       // Resetar estado de forma segura
       try {
-      setFormData({ 
-        title: '', 
-        description: '', 
-        category: '', 
-        address: '', 
-        location: null, 
-        photos: [], 
-        videos: [],
-        pole_number: '',
-        pole_id: null,
-        reported_post_identifier: null,
-        reported_plate: null,
-        reported_pole_distance_m: null,
-        issue_type: '',
-        is_from_water_utility: false,
-      });
-      setWizardStep(0);
-        
+        setFormData({
+          title: "",
+          description: "",
+          category: "",
+          address: "",
+          location: null,
+          photos: [],
+          videos: [],
+          pole_number: "",
+          pole_id: null,
+          reported_post_identifier: null,
+          reported_plate: null,
+          reported_pole_distance_m: null,
+          issue_type: "",
+          is_from_water_utility: false,
+        });
+        setWizardStep(0);
       } catch (resetError) {
-        console.error('Erro ao resetar formData:', resetError);
+        console.error("Erro ao resetar formData:", resetError);
       }
-      
+
       // Fechar modal apenas após tudo estar limpo
       // Adicionar pequeno delay para garantir que tudo foi processado
       setTimeout(() => {
         try {
-      onClose();
+          onClose();
         } catch (closeError) {
-          console.error('Erro ao fechar modal:', closeError);
+          console.error("Erro ao fechar modal:", closeError);
         }
       }, 100);
     } catch (error) {
       console.error("Erro ao submeter formulário:", error);
-      toast({ 
-        title: "Erro ao criar bronca", 
-        description: error.message || "Ocorreu um erro ao processar sua solicitação. Tente novamente.", 
-        variant: "destructive" 
+      toast({
+        title: "Erro ao criar bronca",
+        description:
+          error.message ||
+          "Ocorreu um erro ao processar sua solicitação. Tente novamente.",
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -2307,55 +2712,55 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const handleLocationChange = (newLocation) => {
     // Se a categoria não for iluminação, atualiza o target para reverse geocode
     // assim o endereço será atualizado conforme o marcador se move
-    if (formData.category !== 'iluminacao') {
+    if (formData.category !== "iluminacao") {
       reverseGeocodeTargetRef.current = newLocation;
       lastReverseGeocodeKeyRef.current = null;
     }
-    setFormData(prev => ({ ...prev, location: newLocation }));
+    setFormData((prev) => ({ ...prev, location: newLocation }));
   };
 
   const handleClose = () => {
     // REMOVIDO: Bloqueios de fechamento e delays (Solicitação do usuário)
     // Agora o modal fecha imediatamente e cancela processos em andamento via cleanup
-    
+
     // Cancelar upload se estiver em andamento
     if (uploadAbortControllerRef.current) {
       uploadAbortControllerRef.current.abort();
       uploadAbortControllerRef.current = null;
     }
-    
+
     setIsSubmitting(false);
     setUploadProgress(0);
-    
-    formData.photos.forEach(photo => {
+
+    formData.photos.forEach((photo) => {
       if (photo?.preview) {
         URL.revokeObjectURL(photo.preview);
       }
     });
-    formData.videos.forEach(video => {
+    formData.videos.forEach((video) => {
       if (video?.preview) {
         URL.revokeObjectURL(video.preview);
       }
     });
-    
-    setFormData({ 
-      title: '', 
-      description: '', 
-      category: '', 
-      address: '', 
-      location: null, 
-      photos: [], 
+
+    setFormData({
+      title: "",
+      description: "",
+      category: "",
+      address: "",
+      location: null,
+      photos: [],
       videos: [],
-      pole_number: '',
+      pole_number: "",
       pole_id: null,
       reported_pole_distance_m: null,
-      issue_type: '',
+      issue_type: "",
       is_from_water_utility: false,
     });
     setWizardStep(0);
-    
+
     setErrors({});
-    
+
     onClose();
   };
 
@@ -2376,26 +2781,37 @@ const ReportModal = ({ onClose, onSubmit }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center ${isFullScreenModal ? 'p-0' : 'p-4'} z-[1200]`}
+      className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center ${
+        isFullScreenModal ? "p-0" : "p-4"
+      } z-[1200]`}
       onClick={safeHandleClose}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className={`bg-card shadow-2xl w-full border border-border ${isFullScreenModal ? 'h-full max-h-full rounded-none overflow-hidden flex flex-col' : 'rounded-2xl max-w-2xl h-[90vh] max-h-[90vh] overflow-hidden flex flex-col'}`}
+        className={`bg-card shadow-2xl w-full border border-border ${
+          isFullScreenModal
+            ? "h-full max-h-full rounded-none overflow-hidden flex flex-col"
+            : "rounded-2xl max-w-2xl h-[90vh] max-h-[90vh] overflow-hidden flex flex-col"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {useWizardLayout ? (
           <form onSubmit={handleSubmit} className="h-full flex flex-col">
             <div
               className="border-b border-border px-4 pb-3"
-              style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}
+              style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}
             >
               <div className="flex items-center justify-between pt-3">
                 <div className="flex flex-col min-w-0">
-                  <h2 className="text-lg font-bold text-foreground truncate">Nova Bronca</h2>
-                  <p className="text-xs text-muted-foreground">Etapa {wizardStep + 1} de {wizardStepTitles.length} • {wizardStepTitle}</p>
+                  <h2 className="text-lg font-bold text-foreground truncate">
+                    Nova Bronca
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Etapa {wizardStep + 1} de {wizardStepTitles.length} •{" "}
+                    {wizardStepTitle}
+                  </p>
                 </div>
                 <button
                   onClick={handleClose}
@@ -2408,38 +2824,57 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 </button>
               </div>
               <div className="mt-3 h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: `${wizardProgressPct}%` }} />
+                <div
+                  className="h-full bg-primary rounded-full"
+                  style={{ width: `${wizardProgressPct}%` }}
+                />
               </div>
             </div>
 
-            <div ref={wizardBodyRef} className={`flex-1 overflow-y-auto ${wizardStep === 1 ? 'p-0' : 'p-4'} space-y-6`}>
+            <div
+              ref={wizardBodyRef}
+              className={`flex-1 overflow-y-auto ${
+                wizardStep === 1 ? "p-0" : "p-4"
+              } space-y-6`}
+            >
               {wizardStep === 0 && (
                 <>
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <label className="block text-sm font-medium text-foreground">Título da Bronca *</label>
-                      <span className="text-xs text-muted-foreground">{formData.title.length}/65</span>
+                      <label className="block text-sm font-medium text-foreground">
+                        Título da Bronca *
+                      </label>
+                      <span className="text-xs text-muted-foreground">
+                        {formData.title.length}/65
+                      </span>
                     </div>
                     <input
                       type="text"
                       value={formData.title}
                       onChange={(e) => {
                         setFormData({ ...formData, title: e.target.value });
-                        if (errors.title) setErrors(prev => ({ ...prev, title: undefined }));
+                        if (errors.title)
+                          setErrors((prev) => ({ ...prev, title: undefined }));
                       }}
                       data-error-field="title"
                       maxLength="65"
-                      className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${errors.title ? 'border-destructive' : 'border-input'}`}
+                      className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
+                        errors.title ? "border-destructive" : "border-input"
+                      }`}
                       placeholder="Ex: Buraco na Rua Principal"
                       required
                     />
                     {errors.title && (
-                      <p className="text-xs text-destructive mt-1">{errors.title}</p>
+                      <p className="text-xs text-destructive mt-1">
+                        {errors.title}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Categoria *</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Categoria *
+                    </label>
                     <div className="grid grid-cols-3 gap-3">
                       {categories.map((c) => (
                         <button
@@ -2447,67 +2882,110 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           type="button"
                           data-error-field="category"
                           onClick={() => {
-                            setFormData(prev => ({
+                            setFormData((prev) => ({
                               ...prev,
                               category: c.id,
-                              pole_number: c.id !== 'iluminacao' ? '' : prev.pole_number,
-                              pole_id: c.id !== 'iluminacao' ? null : prev.pole_id,
-                              reported_pole_distance_m: c.id !== 'iluminacao' ? null : prev.reported_pole_distance_m,
-                              issue_type: c.id !== 'iluminacao' ? '' : prev.issue_type,
+                              pole_number:
+                                c.id !== "iluminacao" ? "" : prev.pole_number,
+                              pole_id:
+                                c.id !== "iluminacao" ? null : prev.pole_id,
+                              reported_pole_distance_m:
+                                c.id !== "iluminacao"
+                                  ? null
+                                  : prev.reported_pole_distance_m,
+                              issue_type:
+                                c.id !== "iluminacao" ? "" : prev.issue_type,
                             }));
-                            if (errors.category) setErrors(prev => ({ ...prev, category: undefined }));
+                            if (errors.category)
+                              setErrors((prev) => ({
+                                ...prev,
+                                category: undefined,
+                              }));
                           }}
-                          className={`p-3 rounded-xl border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : errors.category ? 'border-destructive' : 'border-border hover:border-accent'}`}
+                          className={`p-3 rounded-xl border-2 transition-all text-center ${
+                            formData.category === c.id
+                              ? "border-primary bg-primary/10"
+                              : errors.category
+                              ? "border-destructive"
+                              : "border-border hover:border-accent"
+                          }`}
                         >
                           <div className="text-2xl mb-1">{c.icon}</div>
-                          <div className="text-[11px] font-medium leading-tight">{c.name}</div>
+                          <div className="text-[11px] font-medium leading-tight">
+                            {c.name}
+                          </div>
                         </button>
                       ))}
                     </div>
                     {errors.category && (
-                      <p className="text-xs text-destructive mt-1">{errors.category}</p>
+                      <p className="text-xs text-destructive mt-1">
+                        {errors.category}
+                      </p>
                     )}
                   </div>
 
-                  {formData.category === 'buracos' && (
+                  {formData.category === "buracos" && (
                     <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-3">
                       <input
                         id="is_from_water_utility"
                         type="checkbox"
                         checked={!!formData.is_from_water_utility}
                         onChange={(e) => {
-                          setFormData({ ...formData, is_from_water_utility: e.target.checked });
+                          setFormData({
+                            ...formData,
+                            is_from_water_utility: e.target.checked,
+                          });
                         }}
                         className="mt-0.5 h-6 w-6 rounded border-input text-primary focus:ring-primary"
                       />
-                      <label htmlFor="is_from_water_utility" className="text-xs text-foreground">
-                        Marque se o buraco foi aberto por obras da companhia de abastecimento de água/esgoto.
+                      <label
+                        htmlFor="is_from_water_utility"
+                        className="text-xs text-foreground"
+                      >
+                        Marque se o buraco foi aberto por obras da companhia de
+                        abastecimento de água/esgoto.
                       </label>
                     </div>
                   )}
 
-                  {formData.category === 'iluminacao' && (
+                  {formData.category === "iluminacao" && (
                     <div>
                       <div>
                         <label className="block text-sm font-medium text-foreground mb-2">
-                          Tipo do problema <span className="text-destructive">*</span>
+                          Tipo do problema{" "}
+                          <span className="text-destructive">*</span>
                         </label>
                         <select
                           value={formData.issue_type}
                           onChange={(e) => {
-                            setFormData({ ...formData, issue_type: e.target.value });
-                            if (errors.issue_type) setErrors(prev => ({ ...prev, issue_type: undefined }));
+                            setFormData({
+                              ...formData,
+                              issue_type: e.target.value,
+                            });
+                            if (errors.issue_type)
+                              setErrors((prev) => ({
+                                ...prev,
+                                issue_type: undefined,
+                              }));
                           }}
                           data-error-field="issue_type"
-                          className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${errors.issue_type ? 'border-destructive' : 'border-input'}`}
+                          className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
+                            errors.issue_type
+                              ? "border-destructive"
+                              : "border-input"
+                          }`}
                         >
                           <option value="">Selecione…</option>
                           {lightingIssueTypes.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
+                            <option key={t.value} value={t.value}>
+                              {t.label}
+                            </option>
                           ))}
                         </select>
                         {errors.issue_type && (
-                          <p className="text-xs text-destructive mt-1">{errors.issue_type}</p>
+                          <p className="text-xs text-destructive mt-1">
+                            {errors.issue_type}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -2515,12 +2993,21 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <label className="block text-sm font-medium text-foreground">Descrição</label>
-                      <span className="text-xs text-muted-foreground">{formData.description.length}/2000</span>
+                      <label className="block text-sm font-medium text-foreground">
+                        Descrição
+                      </label>
+                      <span className="text-xs text-muted-foreground">
+                        {formData.description.length}/2000
+                      </span>
                     </div>
                     <textarea
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
                       maxLength="2000"
                       rows={5}
                       className="w-full bg-background px-4 py-3 border border-input rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -2537,28 +3024,49 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       <MapPin className="w-4 h-4" />
                       Localização *
                     </label>
-                    <p className="text-xs text-muted-foreground mb-3">Ajuste o marcador para o local exato da bronca.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Ajuste o marcador para o local exato da bronca.
+                    </p>
                   </div>
 
                   <div
                     id="location-picker-map"
                     data-error-field="location"
-                    className={`w-full overflow-hidden border-y ${errors.location ? 'border-destructive' : 'border-input'} ${isTakingPhoto ? 'h-[44vh]' : 'h-[48vh]'}`}
+                    className={`w-full overflow-hidden border-y ${
+                      errors.location ? "border-destructive" : "border-input"
+                    } ${isTakingPhoto ? "h-[44vh]" : "h-[48vh]"}`}
                   >
                     {!isTakingPhoto ? (
-                      <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
+                      <Suspense
+                        fallback={
+                          <div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">
+                            Carregando mapa...
+                          </div>
+                        }
+                      >
                         <LocationPickerMap
                           onLocationChange={(newLocation) => {
                             handleLocationChange(newLocation);
-                            if (errors.location) setErrors(prev => ({ ...prev, location: undefined }));
+                            if (errors.location)
+                              setErrors((prev) => ({
+                                ...prev,
+                                location: undefined,
+                              }));
                           }}
                           initialPosition={formData.location}
                           overlayMarkers={nearbyPoles
-                            .filter((p) => Number.isFinite(p?.latitude) && Number.isFinite(p?.longitude))
+                            .filter(
+                              (p) =>
+                                Number.isFinite(p?.latitude) &&
+                                Number.isFinite(p?.longitude)
+                            )
                             .map((p) => ({
                               id: p.pole_id,
-                              title: formatPoleLabel(p.plate || p.identifier) || `Poste ${p.pole_id}`,
-                              distanceLabel: p.distance_m != null ? `${p.distance_m}m` : '',
+                              title:
+                                formatPoleLabel(p.plate || p.identifier) ||
+                                `Poste ${p.pole_id}`,
+                              distanceLabel:
+                                p.distance_m != null ? `${p.distance_m}m` : "",
                               isBroken: !!p.is_broken,
                               location: { lat: p.latitude, lng: p.longitude },
                               data: p,
@@ -2568,7 +3076,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             if (!addressTouchedRef.current) {
                               const lat = m.data?.latitude;
                               const lng = m.data?.longitude;
-                              if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                              if (
+                                Number.isFinite(lat) &&
+                                Number.isFinite(lng)
+                              ) {
                                 reverseGeocodeTargetRef.current = { lat, lng };
                                 lastReverseGeocodeKeyRef.current = null;
                               }
@@ -2577,27 +3088,45 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             setFormData((prev) => ({
                               ...prev,
                               pole_id: m.id,
-                              reported_pole_distance_m: m.data?.distance_m ?? null,
-                              reported_post_identifier: m.data?.identifier ?? null,
+                              reported_pole_distance_m:
+                                m.data?.distance_m ?? null,
+                              reported_post_identifier:
+                                m.data?.identifier ?? null,
                               reported_plate: m.data?.plate ?? null,
-                              pole_number: formatPoleLabel(m.data?.plate || m.data?.identifier || m.title || m.id),
-                              address: addressTouchedRef.current ? prev.address : (m.data?.address || ''),
+                              pole_number: formatPoleLabel(
+                                m.data?.plate ||
+                                  m.data?.identifier ||
+                                  m.title ||
+                                  m.id
+                              ),
+                              address: addressTouchedRef.current
+                                ? prev.address
+                                : m.data?.address || "",
                             }));
-                            if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                            if (errors.pole_number)
+                              setErrors((prev) => ({
+                                ...prev,
+                                pole_number: undefined,
+                              }));
                           }}
+                          showSatelliteToggle={true}
                         />
                       </Suspense>
                     ) : (
                       <div className="w-full h-full bg-muted flex items-center justify-center flex-col gap-2">
                         <Camera className="w-8 h-8 text-muted-foreground animate-pulse" />
-                        <p className="text-sm text-muted-foreground">Câmera em uso...</p>
+                        <p className="text-sm text-muted-foreground">
+                          Câmera em uso...
+                        </p>
                       </div>
                     )}
                   </div>
 
                   <div className="px-4 pb-6 pt-4">
                     {errors.location && (
-                      <p className="text-xs text-destructive mb-2">{errors.location}</p>
+                      <p className="text-xs text-destructive mb-2">
+                        {errors.location}
+                      </p>
                     )}
                     <input
                       type="text"
@@ -2605,22 +3134,33 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       onChange={(e) => {
                         addressTouchedRef.current = true;
                         setFormData({ ...formData, address: e.target.value });
-                        if (errors.address) setErrors(prev => ({ ...prev, address: undefined }));
+                        if (errors.address)
+                          setErrors((prev) => ({
+                            ...prev,
+                            address: undefined,
+                          }));
                       }}
                       data-error-field="address"
-                      className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${errors.address ? 'border-destructive' : 'border-input'}`}
+                      className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
+                        errors.address ? "border-destructive" : "border-input"
+                      }`}
                       placeholder="Endereço de referência (ex: Rua da Floresta, 123)"
                       required
                     />
                     {errors.address && (
-                      <p className="text-xs text-destructive mt-1">{errors.address}</p>
+                      <p className="text-xs text-destructive mt-1">
+                        {errors.address}
+                      </p>
                     )}
 
-                    {formData.category === 'iluminacao' && (
+                    {formData.category === "iluminacao" && (
                       <div className="mt-4 space-y-2">
                         <div>
                           <label className="block text-sm font-medium text-foreground mb-2">
-                            Número/plaqueta do poste <span className="text-muted-foreground">(opcional)</span>
+                            Número/plaqueta do poste{" "}
+                            <span className="text-muted-foreground">
+                              (opcional)
+                            </span>
                           </label>
                           <input
                             type="text"
@@ -2636,16 +3176,29 @@ const ReportModal = ({ onClose, onSubmit }) => {
                                 reported_post_identifier: normalized || null,
                                 reported_plate: normalized || null,
                               });
-                              if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                              if (errors.pole_number)
+                                setErrors((prev) => ({
+                                  ...prev,
+                                  pole_number: undefined,
+                                }));
                             }}
                             data-error-field="pole_number"
-                            className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${errors.pole_number ? 'border-destructive' : 'border-input'}`}
+                            className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
+                              errors.pole_number
+                                ? "border-destructive"
+                                : "border-input"
+                            }`}
                             placeholder="Ex: 1234 ou P-5678"
                           />
                         </div>
 
                         {errors.pole_number && (
-                          <p className="text-xs text-destructive" data-error-field="pole_number">{errors.pole_number}</p>
+                          <p
+                            className="text-xs text-destructive"
+                            data-error-field="pole_number"
+                          >
+                            {errors.pole_number}
+                          </p>
                         )}
 
                         {nearbyPolesLoading && (
@@ -2656,16 +3209,26 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         )}
 
                         {!nearbyPolesLoading && nearbyPolesError && (
-                          <p className="text-xs text-destructive">{nearbyPolesError}</p>
+                          <p className="text-xs text-destructive">
+                            {nearbyPolesError}
+                          </p>
                         )}
 
-                        {!nearbyPolesLoading && !nearbyPolesError && nearbyPoles.length > 0 && (
-                          <p className="text-xs text-muted-foreground">Toque no ícone do poste no mapa para selecionar.</p>
-                        )}
+                        {!nearbyPolesLoading &&
+                          !nearbyPolesError &&
+                          nearbyPoles.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Toque no ícone do poste no mapa para selecionar.
+                            </p>
+                          )}
 
-                        {!nearbyPolesLoading && !nearbyPolesError && nearbyPoles.length === 0 && (
-                          <p className="text-xs text-muted-foreground">Nenhum poste encontrado perto desta localização.</p>
-                        )}
+                        {!nearbyPolesLoading &&
+                          !nearbyPolesError &&
+                          nearbyPoles.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Nenhum poste encontrado perto desta localização.
+                            </p>
+                          )}
 
                         {formData.pole_id && (
                           <div className="space-y-2">
@@ -2676,33 +3239,44 @@ const ReportModal = ({ onClose, onSubmit }) => {
                               </div>
                             )}
 
-                            {!duplicatePoleReportsLoading && duplicatePoleReportsError && (
-                              <p className="text-xs text-destructive">{duplicatePoleReportsError}</p>
-                            )}
-
-                            {!duplicatePoleReportsLoading && !duplicatePoleReportsError && duplicatePoleReports.length > 0 && (
-                              <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
-                                <p className="text-xs text-foreground">
-                                  Já existe bronca aberta para este poste. Se for o mesmo problema, vale acompanhar em vez de duplicar.
+                            {!duplicatePoleReportsLoading &&
+                              duplicatePoleReportsError && (
+                                <p className="text-xs text-destructive">
+                                  {duplicatePoleReportsError}
                                 </p>
-                                <div className="space-y-1">
-                                  {duplicatePoleReports.map((r) => (
-                                    <button
-                                      key={r.id}
-                                      type="button"
-                                      onClick={() => {
-                                        onClose();
-                                        navigate(`/bronca/${r.id}`);
-                                      }}
-                                      className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-background border border-border hover:border-accent transition-colors"
-                                    >
-                                      <span className="text-xs text-foreground truncate">{r.title}</span>
-                                      <span className="text-[11px] text-muted-foreground">{r.status}</span>
-                                    </button>
-                                  ))}
+                              )}
+
+                            {!duplicatePoleReportsLoading &&
+                              !duplicatePoleReportsError &&
+                              duplicatePoleReports.length > 0 && (
+                                <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
+                                  <p className="text-xs text-foreground">
+                                    Já existe bronca aberta para este poste. Se
+                                    for o mesmo problema, vale acompanhar em vez
+                                    de duplicar.
+                                  </p>
+                                  <div className="space-y-1">
+                                    {duplicatePoleReports.map((r) => (
+                                      <button
+                                        key={r.id}
+                                        type="button"
+                                        onClick={() => {
+                                          onClose();
+                                          navigate(`/bronca/${r.id}`);
+                                        }}
+                                        className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-background border border-border hover:border-accent transition-colors"
+                                      >
+                                        <span className="text-xs text-foreground truncate">
+                                          {r.title}
+                                        </span>
+                                        <span className="text-[11px] text-muted-foreground">
+                                          {r.status}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
                           </div>
                         )}
                       </div>
@@ -2718,24 +3292,34 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       <label className="block text-sm font-medium text-foreground">
                         Mídia <span className="text-destructive">*</span>
                       </label>
-                      {(formData.photos.length > 0 || formData.videos.length > 0) && (
+                      {(formData.photos.length > 0 ||
+                        formData.videos.length > 0) && (
                         <span className="text-xs text-muted-foreground">
-                          {formData.photos.length} foto{formData.photos.length !== 1 ? 's' : ''} • {formData.videos.length} vídeo{formData.videos.length !== 1 ? 's' : ''}
+                          {formData.photos.length} foto
+                          {formData.photos.length !== 1 ? "s" : ""} •{" "}
+                          {formData.videos.length} vídeo
+                          {formData.videos.length !== 1 ? "s" : ""}
                         </span>
                       )}
                     </div>
                     {errors.photos && (
-                      <p className="text-xs text-destructive mb-2">{errors.photos}</p>
+                      <p className="text-xs text-destructive mb-2">
+                        {errors.photos}
+                      </p>
                     )}
-                    {(formData.photos.length === 0 && formData.videos.length === 0 && !errors.photos) && (
-                      <p className="text-xs text-muted-foreground mb-2">Adicione pelo menos uma foto ou vídeo</p>
-                    )}
+                    {formData.photos.length === 0 &&
+                      formData.videos.length === 0 &&
+                      !errors.photos && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Adicione pelo menos uma foto ou vídeo
+                        </p>
+                      )}
                     <div className="space-y-3" data-error-field="photos">
                       <input
                         type="file"
                         accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                         multiple
-                        onChange={(e) => handleFileChange(e, 'photos')}
+                        onChange={(e) => handleFileChange(e, "photos")}
                         ref={photoGalleryInputRef}
                         className="hidden"
                         disabled={isSubmitting}
@@ -2744,7 +3328,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         type="file"
                         accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                         capture="environment"
-                        onChange={(e) => handleFileChange(e, 'photos')}
+                        onChange={(e) => handleFileChange(e, "photos")}
                         ref={photoCameraInputRef}
                         className="hidden"
                         disabled={isSubmitting}
@@ -2753,7 +3337,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         type="file"
                         accept="video/mp4,video/quicktime,video/*"
                         capture="environment"
-                        onChange={(e) => handleFileChange(e, 'videos')}
+                        onChange={(e) => handleFileChange(e, "videos")}
                         ref={videoCameraInputRef}
                         className="hidden"
                         disabled={isSubmitting}
@@ -2764,7 +3348,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           type="button"
                           variant="outline"
                           onClick={() => {
-                            setCameraMode('photo');
+                            setCameraMode("photo");
                             handleTakePhoto();
                           }}
                           className="h-20 flex-col gap-1 rounded-xl"
@@ -2790,17 +3374,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         maxVideos={5}
                         videos={formData.videos}
                         onVideosChange={(newVideosOrUpdater) => {
-                          setFormData(prev => {
+                          setFormData((prev) => {
                             const currentVideos = prev.videos || [];
-                            const newVideos = typeof newVideosOrUpdater === 'function'
-                              ? newVideosOrUpdater(currentVideos)
-                              : newVideosOrUpdater;
+                            const newVideos =
+                              typeof newVideosOrUpdater === "function"
+                                ? newVideosOrUpdater(currentVideos)
+                                : newVideosOrUpdater;
                             return { ...prev, videos: newVideos };
                           });
                         }}
                         disabled={isSubmitting}
                         showList={false}
-                        onRecordVideo={!isNative ? handleRecordVideoRequest : undefined}
+                        onRecordVideo={
+                          !isNative ? handleRecordVideoRequest : undefined
+                        }
                         onProcessingChange={(processing) => {
                           isAddingVideoRef.current = processing;
                           if (!processing) {
@@ -2810,10 +3397,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       />
                     </div>
 
-                    {(formData.photos.length > 0 || formData.videos.length > 0) && (
+                    {(formData.photos.length > 0 ||
+                      formData.videos.length > 0) && (
                       <div className="mt-4 space-y-3">
                         <div className="flex justify-between items-center border-b pb-2 mb-2">
-                          <h3 className="text-sm font-medium text-foreground">Arquivos Adicionados</h3>
+                          <h3 className="text-sm font-medium text-foreground">
+                            Arquivos Adicionados
+                          </h3>
                         </div>
 
                         {formData.photos.map((media, index) => (
@@ -2833,14 +3423,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
                                 />
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs text-muted-foreground truncate">{media.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {media.name}
+                                </p>
                               </div>
                             </div>
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                removeFile('photos', index);
+                                removeFile("photos", index);
                               }}
                               className="text-muted-foreground hover:text-destructive p-2 ml-2"
                               aria-label="Remover foto"
@@ -2862,7 +3454,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             <div className="flex items-center gap-2 flex-1 min-w-0">
                               {video.preview ? (
                                 <div className="relative w-12 h-12">
-                                  <img src={video.preview} alt="Thumb do vídeo" className="w-12 h-12 object-cover rounded-lg" />
+                                  <img
+                                    src={video.preview}
+                                    alt="Thumb do vídeo"
+                                    className="w-12 h-12 object-cover rounded-lg"
+                                  />
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
                                     <Play className="w-3 h-3 text-white fill-white" />
                                   </div>
@@ -2873,14 +3469,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs text-muted-foreground truncate">{video.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {video.name}
+                                </p>
                               </div>
                             </div>
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                removeFile('videos', index);
+                                removeFile("videos", index);
                               }}
                               className="text-muted-foreground hover:text-destructive p-2 ml-2"
                               aria-label="Remover vídeo"
@@ -2894,12 +3492,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   </div>
                 </>
               )}
-
             </div>
 
             <div
               className="border-t border-border p-4"
-              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
+              style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
             >
               <div className="flex gap-3 pb-2">
                 <Button
@@ -2919,7 +3516,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   className="flex-1"
                   disabled={false}
                 >
-                  {isSubmitting ? 'Cancelar Envio' : (wizardStep === 0 ? 'Cancelar' : 'Voltar')}
+                  {isSubmitting
+                    ? "Cancelar Envio"
+                    : wizardStep === 0
+                    ? "Cancelar"
+                    : "Voltar"}
                 </Button>
 
                 {!isSubmitting && wizardStep < 2 && (
@@ -2951,7 +3552,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
           <>
             <div className="p-6 border-b border-border">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold gradient-text">Nova Bronca</h2>
+                <h2 className="text-2xl font-bold gradient-text">
+                  Nova Bronca
+                </h2>
                 <button
                   onClick={handleClose}
                   className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
@@ -2961,35 +3564,48 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-muted-foreground mt-1">Cadastre um problema em Floresta-PE</p>
+              <p className="text-muted-foreground mt-1">
+                Cadastre um problema em Floresta-PE
+              </p>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-foreground">Título da Bronca *</label>
-                  <span className="text-xs text-muted-foreground">{formData.title.length}/65</span>
+                  <label className="block text-sm font-medium text-foreground">
+                    Título da Bronca *
+                  </label>
+                  <span className="text-xs text-muted-foreground">
+                    {formData.title.length}/65
+                  </span>
                 </div>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => {
                     setFormData({ ...formData, title: e.target.value });
-                    if (errors.title) setErrors(prev => ({ ...prev, title: undefined }));
+                    if (errors.title)
+                      setErrors((prev) => ({ ...prev, title: undefined }));
                   }}
                   data-error-field="title"
                   maxLength="65"
-                  className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.title ? 'border-destructive' : 'border-input'}`}
+                  className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                    errors.title ? "border-destructive" : "border-input"
+                  }`}
                   placeholder="Ex: Buraco na Rua Principal"
                   required
                 />
                 {errors.title && (
-                  <p className="text-xs text-destructive mt-1">{errors.title}</p>
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.title}
+                  </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Categoria *</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Categoria *
+                </label>
                 <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                   {categories.map((c) => (
                     <button
@@ -2997,17 +3613,32 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       type="button"
                       data-error-field="category"
                       onClick={() => {
-                        setFormData(prev => ({
+                        setFormData((prev) => ({
                           ...prev,
                           category: c.id,
-                          pole_number: c.id !== 'iluminacao' ? '' : prev.pole_number,
-                          pole_id: c.id !== 'iluminacao' ? null : prev.pole_id,
-                          reported_pole_distance_m: c.id !== 'iluminacao' ? null : prev.reported_pole_distance_m,
-                          issue_type: c.id !== 'iluminacao' ? '' : prev.issue_type,
+                          pole_number:
+                            c.id !== "iluminacao" ? "" : prev.pole_number,
+                          pole_id: c.id !== "iluminacao" ? null : prev.pole_id,
+                          reported_pole_distance_m:
+                            c.id !== "iluminacao"
+                              ? null
+                              : prev.reported_pole_distance_m,
+                          issue_type:
+                            c.id !== "iluminacao" ? "" : prev.issue_type,
                         }));
-                        if (errors.category) setErrors(prev => ({ ...prev, category: undefined }));
+                        if (errors.category)
+                          setErrors((prev) => ({
+                            ...prev,
+                            category: undefined,
+                          }));
                       }}
-                      className={`p-3 rounded-lg border-2 transition-all text-center ${formData.category === c.id ? 'border-primary bg-primary/10' : errors.category ? 'border-destructive' : 'border-border hover:border-accent'}`}
+                      className={`p-3 rounded-lg border-2 transition-all text-center ${
+                        formData.category === c.id
+                          ? "border-primary bg-primary/10"
+                          : errors.category
+                          ? "border-destructive"
+                          : "border-border hover:border-accent"
+                      }`}
                     >
                       <div className="text-2xl mb-1">{c.icon}</div>
                       <div className="text-xs font-medium">{c.name}</div>
@@ -3015,72 +3646,116 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   ))}
                 </div>
                 {errors.category && (
-                  <p className="text-xs text-destructive mt-1">{errors.category}</p>
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.category}
+                  </p>
                 )}
               </div>
 
-              {formData.category === 'buracos' && (
+              {formData.category === "buracos" && (
                 <div className="flex items-start gap-2">
                   <input
                     id="is_from_water_utility"
                     type="checkbox"
                     checked={formData.is_from_water_utility}
                     onChange={(e) => {
-                      setFormData({ ...formData, is_from_water_utility: e.target.checked });
+                      setFormData({
+                        ...formData,
+                        is_from_water_utility: e.target.checked,
+                      });
                     }}
                     className="mt-1 h-6 w-6 rounded border-input text-primary focus:ring-primary"
                   />
-                  <label htmlFor="is_from_water_utility" className="text-xs text-foreground">
-                    Marque se o buraco foi aberto por obras da companhia de abastecimento
-                    de água/esgoto (por exemplo, conserto de canos).
+                  <label
+                    htmlFor="is_from_water_utility"
+                    className="text-xs text-foreground"
+                  >
+                    Marque se o buraco foi aberto por obras da companhia de
+                    abastecimento de água/esgoto (por exemplo, conserto de
+                    canos).
                   </label>
                 </div>
               )}
 
-              {formData.category === 'iluminacao' && (
+              {formData.category === "iluminacao" && (
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
-                      Tipo do problema <span className="text-destructive">*</span>
+                      Tipo do problema{" "}
+                      <span className="text-destructive">*</span>
                     </label>
                     <select
                       value={formData.issue_type}
                       onChange={(e) => {
-                        setFormData({ ...formData, issue_type: e.target.value });
-                        if (errors.issue_type) setErrors(prev => ({ ...prev, issue_type: undefined }));
+                        setFormData({
+                          ...formData,
+                          issue_type: e.target.value,
+                        });
+                        if (errors.issue_type)
+                          setErrors((prev) => ({
+                            ...prev,
+                            issue_type: undefined,
+                          }));
                       }}
                       data-error-field="issue_type"
-                      className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.issue_type ? 'border-destructive' : 'border-input'}`}
+                      className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                        errors.issue_type
+                          ? "border-destructive"
+                          : "border-input"
+                      }`}
                     >
                       <option value="">Selecione…</option>
                       {lightingIssueTypes.map((t) => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
                       ))}
                     </select>
                     {errors.issue_type && (
-                      <p className="text-xs text-destructive mt-1">{errors.issue_type}</p>
+                      <p className="text-xs text-destructive mt-1">
+                        {errors.issue_type}
+                      </p>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
-                      Número/plaqueta do poste <span className="text-muted-foreground">(opcional)</span>
+                      Número/plaqueta do poste{" "}
+                      <span className="text-muted-foreground">(opcional)</span>
                     </label>
                     <input
                       type="text"
                       value={formData.pole_number}
                       onChange={(e) => {
-                        setFormData({ ...formData, pole_number: e.target.value, pole_id: null, reported_pole_distance_m: null });
-                        if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                        setFormData({
+                          ...formData,
+                          pole_number: e.target.value,
+                          pole_id: null,
+                          reported_pole_distance_m: null,
+                        });
+                        if (errors.pole_number)
+                          setErrors((prev) => ({
+                            ...prev,
+                            pole_number: undefined,
+                          }));
                       }}
                       data-error-field="pole_number"
-                      className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${errors.pole_number ? 'border-destructive' : 'border-input'}`}
+                      className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                        errors.pole_number
+                          ? "border-destructive"
+                          : "border-input"
+                      }`}
                       placeholder="Ex: 1234 ou P-5678"
                     />
                     {errors.pole_number ? (
-                      <p className="text-xs text-destructive mt-1">{errors.pole_number}</p>
+                      <p className="text-xs text-destructive mt-1">
+                        {errors.pole_number}
+                      </p>
                     ) : (
-                      <p className="text-xs text-muted-foreground mt-1">Se você não souber, selecione o poste mais próximo mais abaixo.</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Se você não souber, selecione o poste mais próximo mais
+                        abaixo.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -3088,30 +3763,70 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-foreground">Descrição</label>
-                  <span className="text-xs text-muted-foreground">{formData.description.length}/2000</span>
+                  <label className="block text-sm font-medium text-foreground">
+                    Descrição
+                  </label>
+                  <span className="text-xs text-muted-foreground">
+                    {formData.description.length}/2000
+                  </span>
                 </div>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} maxLength="2000" rows={4} className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Descreva detalhadamente o problema..." />
+                <textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  maxLength="2000"
+                  rows={4}
+                  className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Descreva detalhadamente o problema..."
+                />
               </div>
 
               <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><MapPin className="w-4 h-4" /> Localização *</label>
-                <p className="text-xs text-muted-foreground mb-2">Ajuste o marcador para o local exato da bronca.</p>
-                <div id="location-picker-map" data-error-field="location" className={`h-64 w-full rounded-lg overflow-hidden border ${errors.location ? 'border-destructive' : 'border-input'}`}>
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
+                  <MapPin className="w-4 h-4" /> Localização *
+                </label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Ajuste o marcador para o local exato da bronca.
+                </p>
+                <div
+                  id="location-picker-map"
+                  data-error-field="location"
+                  className={`h-64 w-full rounded-lg overflow-hidden border ${
+                    errors.location ? "border-destructive" : "border-input"
+                  }`}
+                >
                   {!isTakingPhoto ? (
-                    <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
+                    <Suspense
+                      fallback={
+                        <div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">
+                          Carregando mapa...
+                        </div>
+                      }
+                    >
                       <LocationPickerMap
                         onLocationChange={(newLocation) => {
                           handleLocationChange(newLocation);
-                          if (errors.location) setErrors(prev => ({ ...prev, location: undefined }));
+                          if (errors.location)
+                            setErrors((prev) => ({
+                              ...prev,
+                              location: undefined,
+                            }));
                         }}
                         initialPosition={formData.location}
                         overlayMarkers={nearbyPoles
-                          .filter((p) => Number.isFinite(p?.latitude) && Number.isFinite(p?.longitude))
+                          .filter(
+                            (p) =>
+                              Number.isFinite(p?.latitude) &&
+                              Number.isFinite(p?.longitude)
+                          )
                           .map((p) => ({
                             id: p.pole_id,
-                            title: formatPoleLabel(p.plate || p.identifier) || `Poste ${p.pole_id}`,
-                            distanceLabel: p.distance_m != null ? `${p.distance_m}m` : '',
+                            title:
+                              formatPoleLabel(p.plate || p.identifier) ||
+                              `Poste ${p.pole_id}`,
+                            distanceLabel:
+                              p.distance_m != null ? `${p.distance_m}m` : "",
                             isBroken: !!p.is_broken,
                             location: { lat: p.latitude, lng: p.longitude },
                             data: p,
@@ -3130,25 +3845,43 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           setFormData((prev) => ({
                             ...prev,
                             pole_id: m.id,
-                            reported_pole_distance_m: m.data?.distance_m ?? null,
-                            reported_post_identifier: m.data?.identifier ?? null,
+                            reported_pole_distance_m:
+                              m.data?.distance_m ?? null,
+                            reported_post_identifier:
+                              m.data?.identifier ?? null,
                             reported_plate: m.data?.plate ?? null,
-                            pole_number: formatPoleLabel(m.data?.plate || m.data?.identifier || m.title || m.id),
-                            address: addressTouchedRef.current ? prev.address : (m.data?.address || ''),
+                            pole_number: formatPoleLabel(
+                              m.data?.plate ||
+                                m.data?.identifier ||
+                                m.title ||
+                                m.id
+                            ),
+                            address: addressTouchedRef.current
+                              ? prev.address
+                              : m.data?.address || "",
                           }));
-                          if (errors.pole_number) setErrors(prev => ({ ...prev, pole_number: undefined }));
+                          if (errors.pole_number)
+                            setErrors((prev) => ({
+                              ...prev,
+                              pole_number: undefined,
+                            }));
                         }}
+                        showSatelliteToggle={true}
                       />
                     </Suspense>
                   ) : (
                     <div className="w-full h-full bg-muted flex items-center justify-center flex-col gap-2">
                       <Camera className="w-8 h-8 text-muted-foreground animate-pulse" />
-                      <p className="text-sm text-muted-foreground">Câmera em uso...</p>
+                      <p className="text-sm text-muted-foreground">
+                        Câmera em uso...
+                      </p>
                     </div>
                   )}
                 </div>
                 {errors.location && (
-                  <p className="text-xs text-destructive mt-1">{errors.location}</p>
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.location}
+                  </p>
                 )}
                 <input
                   type="text"
@@ -3156,21 +3889,31 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   onChange={(e) => {
                     addressTouchedRef.current = true;
                     setFormData({ ...formData, address: e.target.value });
-                    if (errors.address) setErrors(prev => ({ ...prev, address: undefined }));
+                    if (errors.address)
+                      setErrors((prev) => ({ ...prev, address: undefined }));
                   }}
                   data-error-field="address"
-                  className={`w-full bg-background px-4 py-3 border rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent ${errors.address ? 'border-destructive' : 'border-input'}`}
+                  className={`w-full bg-background px-4 py-3 border rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent ${
+                    errors.address ? "border-destructive" : "border-input"
+                  }`}
                   placeholder="Endereço de referência (ex: Rua da Floresta, 123)"
                   required
                 />
                 {errors.address && (
-                  <p className="text-xs text-destructive mt-1">{errors.address}</p>
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.address}
+                  </p>
                 )}
 
-                {formData.category === 'iluminacao' && (
+                {formData.category === "iluminacao" && (
                   <div className="mt-4 space-y-2">
                     {errors.pole_number && (
-                      <p className="text-xs text-destructive" data-error-field="pole_number">{errors.pole_number}</p>
+                      <p
+                        className="text-xs text-destructive"
+                        data-error-field="pole_number"
+                      >
+                        {errors.pole_number}
+                      </p>
                     )}
 
                     {nearbyPolesLoading && (
@@ -3181,16 +3924,26 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     )}
 
                     {!nearbyPolesLoading && nearbyPolesError && (
-                      <p className="text-xs text-destructive">{nearbyPolesError}</p>
+                      <p className="text-xs text-destructive">
+                        {nearbyPolesError}
+                      </p>
                     )}
 
-                    {!nearbyPolesLoading && !nearbyPolesError && nearbyPoles.length > 0 && (
-                      <p className="text-xs text-muted-foreground">Clique no ícone do poste no mapa para selecionar.</p>
-                    )}
+                    {!nearbyPolesLoading &&
+                      !nearbyPolesError &&
+                      nearbyPoles.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Clique no ícone do poste no mapa para selecionar.
+                        </p>
+                      )}
 
-                    {!nearbyPolesLoading && !nearbyPolesError && nearbyPoles.length === 0 && (
-                      <p className="text-xs text-muted-foreground">Nenhum poste encontrado perto desta localização.</p>
-                    )}
+                    {!nearbyPolesLoading &&
+                      !nearbyPolesError &&
+                      nearbyPoles.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum poste encontrado perto desta localização.
+                        </p>
+                      )}
 
                     {formData.pole_id && (
                       <div className="space-y-2">
@@ -3201,33 +3954,44 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           </div>
                         )}
 
-                        {!duplicatePoleReportsLoading && duplicatePoleReportsError && (
-                          <p className="text-xs text-destructive">{duplicatePoleReportsError}</p>
-                        )}
-
-                        {!duplicatePoleReportsLoading && !duplicatePoleReportsError && duplicatePoleReports.length > 0 && (
-                          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-                            <p className="text-xs text-foreground">
-                              Já existe bronca aberta para este poste. Se for o mesmo problema, vale acompanhar em vez de duplicar.
+                        {!duplicatePoleReportsLoading &&
+                          duplicatePoleReportsError && (
+                            <p className="text-xs text-destructive">
+                              {duplicatePoleReportsError}
                             </p>
-                            <div className="space-y-1">
-                              {duplicatePoleReports.map((r) => (
-                                <button
-                                  key={r.id}
-                                  type="button"
-                                  onClick={() => {
-                                    onClose();
-                                    navigate(`/bronca/${r.id}`);
-                                  }}
-                                  className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-background border border-border hover:border-accent transition-colors"
-                                >
-                                  <span className="text-xs text-foreground truncate">{r.title}</span>
-                                  <span className="text-[11px] text-muted-foreground">{r.status}</span>
-                                </button>
-                              ))}
+                          )}
+
+                        {!duplicatePoleReportsLoading &&
+                          !duplicatePoleReportsError &&
+                          duplicatePoleReports.length > 0 && (
+                            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                              <p className="text-xs text-foreground">
+                                Já existe bronca aberta para este poste. Se for
+                                o mesmo problema, vale acompanhar em vez de
+                                duplicar.
+                              </p>
+                              <div className="space-y-1">
+                                {duplicatePoleReports.map((r) => (
+                                  <button
+                                    key={r.id}
+                                    type="button"
+                                    onClick={() => {
+                                      onClose();
+                                      navigate(`/bronca/${r.id}`);
+                                    }}
+                                    className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-background border border-border hover:border-accent transition-colors"
+                                  >
+                                    <span className="text-xs text-foreground truncate">
+                                      {r.title}
+                                    </span>
+                                    <span className="text-[11px] text-muted-foreground">
+                                      {r.status}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     )}
                   </div>
@@ -3239,24 +4003,34 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   <label className="block text-sm font-medium text-foreground">
                     Mídia <span className="text-destructive">*</span>
                   </label>
-                  {(formData.photos.length > 0 || formData.videos.length > 0) && (
+                  {(formData.photos.length > 0 ||
+                    formData.videos.length > 0) && (
                     <span className="text-xs text-muted-foreground">
-                      {formData.photos.length} foto{formData.photos.length !== 1 ? 's' : ''} • {formData.videos.length} vídeo{formData.videos.length !== 1 ? 's' : ''}
+                      {formData.photos.length} foto
+                      {formData.photos.length !== 1 ? "s" : ""} •{" "}
+                      {formData.videos.length} vídeo
+                      {formData.videos.length !== 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
                 {errors.photos && (
-                  <p className="text-xs text-destructive mb-2">{errors.photos}</p>
+                  <p className="text-xs text-destructive mb-2">
+                    {errors.photos}
+                  </p>
                 )}
-                {(formData.photos.length === 0 && formData.videos.length === 0 && !errors.photos) && (
-                  <p className="text-xs text-muted-foreground mb-2">Adicione pelo menos uma foto ou vídeo</p>
-                )}
+                {formData.photos.length === 0 &&
+                  formData.videos.length === 0 &&
+                  !errors.photos && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Adicione pelo menos uma foto ou vídeo
+                    </p>
+                  )}
                 <div className="space-y-3" data-error-field="photos">
                   <input
                     type="file"
                     accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                     multiple
-                    onChange={(e) => handleFileChange(e, 'photos')}
+                    onChange={(e) => handleFileChange(e, "photos")}
                     ref={photoGalleryInputRef}
                     className="hidden"
                     disabled={isSubmitting}
@@ -3265,7 +4039,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     type="file"
                     accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                     capture="environment"
-                    onChange={(e) => handleFileChange(e, 'photos')}
+                    onChange={(e) => handleFileChange(e, "photos")}
                     ref={photoCameraInputRef}
                     className="hidden"
                     disabled={isSubmitting}
@@ -3274,7 +4048,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     type="file"
                     accept="video/mp4,video/quicktime,video/*"
                     capture="environment"
-                    onChange={(e) => handleFileChange(e, 'videos')}
+                    onChange={(e) => handleFileChange(e, "videos")}
                     ref={videoCameraInputRef}
                     className="hidden"
                     disabled={isSubmitting}
@@ -3287,7 +4061,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           type="button"
                           variant="outline"
                           onClick={() => {
-                            setCameraMode('photo');
+                            setCameraMode("photo");
                             handleTakePhoto();
                           }}
                           className="h-20 flex-col gap-1"
@@ -3313,11 +4087,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         maxVideos={5}
                         videos={formData.videos}
                         onVideosChange={(newVideosOrUpdater) => {
-                          setFormData(prev => {
+                          setFormData((prev) => {
                             const currentVideos = prev.videos || [];
-                            const newVideos = typeof newVideosOrUpdater === 'function'
-                              ? newVideosOrUpdater(currentVideos)
-                              : newVideosOrUpdater;
+                            const newVideos =
+                              typeof newVideosOrUpdater === "function"
+                                ? newVideosOrUpdater(currentVideos)
+                                : newVideosOrUpdater;
                             return { ...prev, videos: newVideos };
                           });
                         }}
@@ -3348,11 +4123,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         maxVideos={5}
                         videos={formData.videos}
                         onVideosChange={(newVideosOrUpdater) => {
-                          setFormData(prev => {
+                          setFormData((prev) => {
                             const currentVideos = prev.videos || [];
-                            const newVideos = typeof newVideosOrUpdater === 'function'
-                              ? newVideosOrUpdater(currentVideos)
-                              : newVideosOrUpdater;
+                            const newVideos =
+                              typeof newVideosOrUpdater === "function"
+                                ? newVideosOrUpdater(currentVideos)
+                                : newVideosOrUpdater;
                             return { ...prev, videos: newVideos };
                           });
                         }}
@@ -3372,7 +4148,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 {(formData.photos.length > 0 || formData.videos.length > 0) && (
                   <div className="mt-4 space-y-3">
                     <div className="flex justify-between items-center border-b pb-2 mb-2">
-                      <h3 className="text-sm font-medium text-foreground">Arquivos Adicionados </h3>
+                      <h3 className="text-sm font-medium text-foreground">
+                        Arquivos Adicionados{" "}
+                      </h3>
                     </div>
 
                     {formData.photos.map((media, index) => (
@@ -3383,7 +4161,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       >
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           {media.preview && (
-
                             <img
                               src={media.preview}
                               alt={media.name}
@@ -3393,15 +4170,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-muted-foreground truncate">{media.name}</p>
-
+                            <p className="text-xs text-muted-foreground truncate">
+                              {media.name}
+                            </p>
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            removeFile('photos', index);
+                            removeFile("photos", index);
                           }}
                           className="text-muted-foreground hover:text-destructive p-1 ml-2"
                           aria-label="Remover foto"
@@ -3423,7 +4201,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           {video.preview ? (
                             <div className="relative w-12 h-12">
-                              <img src={video.preview} alt="Thumb do vídeo" className="w-12 h-12 object-cover rounded" />
+                              <img
+                                src={video.preview}
+                                alt="Thumb do vídeo"
+                                className="w-12 h-12 object-cover rounded"
+                              />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
                                 <Play className="w-3 h-3 text-white fill-white" />
                               </div>
@@ -3434,14 +4216,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-muted-foreground truncate">{video.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {video.name}
+                            </p>
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            removeFile('videos', index);
+                            removeFile("videos", index);
                           }}
                           className="text-muted-foreground hover:text-destructive p-1 ml-2"
                           aria-label="Remover vídeo"
@@ -3463,7 +4247,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     className="flex-1"
                     disabled={false}
                   >
-                    {isSubmitting ? 'Cancelar Envio' : 'Cancelar'}
+                    {isSubmitting ? "Cancelar Envio" : "Cancelar"}
                   </Button>
                   {!isSubmitting && (
                     <Button
@@ -3508,43 +4292,48 @@ const ReportModal = ({ onClose, onSubmit }) => {
         </div>
       )}
 
-    
-
       {/* Media Viewer for Photos */}
-      {viewingPhotoIndex !== null && createPortal(
-        <MediaViewer
-          media={formData.photos.map(p => ({
-            type: 'photo',
-            url: p.nativePath ? Capacitor.convertFileSrc(p.nativePath) : (p.preview || p.url),
-            name: p.name
-          }))}
-          startIndex={viewingPhotoIndex}
-          onClose={() => setViewingPhotoIndex(null)}
-        />,
-        document.body
-      )}
+      {viewingPhotoIndex !== null &&
+        createPortal(
+          <MediaViewer
+            media={formData.photos.map((p) => ({
+              type: "photo",
+              url: p.nativePath
+                ? Capacitor.convertFileSrc(p.nativePath)
+                : p.preview || p.url,
+              name: p.name,
+            }))}
+            startIndex={viewingPhotoIndex}
+            onClose={() => setViewingPhotoIndex(null)}
+          />,
+          document.body
+        )}
 
       {/* Media Viewer for Videos */}
-      {viewingVideoIndex !== null && createPortal(
-        <MediaViewer
-          media={formData.videos.map(v => ({
-            type: 'video',
-            url: v.nativePath ? Capacitor.convertFileSrc(v.nativePath) : (v.file ? URL.createObjectURL(v.file) : ''),
-            name: v.name,
-            preview: v.preview
-          }))}
-          startIndex={viewingVideoIndex}
-          onClose={() => {
-            setViewingVideoIndex(null);
-            setGlobalUserViewingMedia(false);
-          }}
-          onRemove={(index) => removeFile('videos', index)}
-        />,
-        document.body
-      )}
+      {viewingVideoIndex !== null &&
+        createPortal(
+          <MediaViewer
+            media={formData.videos.map((v) => ({
+              type: "video",
+              url: v.nativePath
+                ? Capacitor.convertFileSrc(v.nativePath)
+                : v.file
+                ? URL.createObjectURL(v.file)
+                : "",
+              name: v.name,
+              preview: v.preview,
+            }))}
+            startIndex={viewingVideoIndex}
+            onClose={() => {
+              setViewingVideoIndex(null);
+              setGlobalUserViewingMedia(false);
+            }}
+            onRemove={(index) => removeFile("videos", index)}
+          />,
+          document.body
+        )}
     </motion.div>
   );
 };
 
 export default ReportModal;
-
