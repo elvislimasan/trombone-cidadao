@@ -53,6 +53,7 @@ const ReportsStats = () => {
   const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
+
   const COLORS = ['#ef4444', '#f97316', '#3b82f6', '#8b5cf6', '#ec4899', '#facc15'];
 
   const fetchStats = useCallback(async () => {
@@ -618,6 +619,7 @@ const StatsPage = () => {
     resolved: 0,
   });
   const [summaryLoading, setSummaryLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('reports');
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -673,6 +675,7 @@ const StatsPage = () => {
     },
   ];
 
+
   return (
     <>
       <Helmet>
@@ -698,43 +701,46 @@ const StatsPage = () => {
               Acompanhe em tempo real o andamento das solicitações e obras e veja os dados que movem a cidade.
             </p>
           </motion.div>
-
-          <motion.div
-            className="grid grid-cols-2 sm:grid-cols-4 gap-2"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.15, duration: 0.4 }}
+    {/* Exibir quando tiver na tab de reports */}
+          {activeTab === 'reports' && (
+  <motion.div
+    className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ delay: 0.15, duration: 0.4 }}
+  >
+    {summaryCards.map((card, index) => (
+      <Card
+        key={index}
+        className="border border-[#E5E7EB] bg-white shadow-sm hover:shadow-md transition-shadow duration-300 rounded-xl"
+      >
+        <div className="flex items-center justify-between px-3 py-3 lg:px-6 lg:py-6">
+          <div>
+            <div className={`text-[11px] md:text-xs ${card.valueColor}`}>
+              {card.title}
+            </div>
+            <div
+              className={`text-xl md:text-2xl font-extrabold leading-tight ${card.valueColor}`}
+            >
+              {summaryLoading ? '–' : card.value}
+            </div>
+          </div>
+          <div
+            className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl ${card.accentBg} text-white`}
           >
-            {summaryCards.map((card, index) => (
-              <Card
-                key={index}
-                className="border border-[#E5E7EB] bg-white shadow-sm hover:shadow-md transition-shadow duration-300 rounded-xl"
-              >
-                <div className="flex items-center justify-between px-3 py-3 lg:px-6 lg:py-6">
-                  <div>
-                    <div className={`text-[11px] md:text-xs ${card.valueColor}`}>
-                      {card.title}
-                    </div>
-                    <div
-                      className={`text-xl md:text-2xl font-extrabold leading-tight ${card.valueColor}`}
-                    >
-                      {summaryLoading ? '–' : card.value}
-                    </div>
-                  </div>
-                  <div
-                    className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl ${card.accentBg} text-white`}
-                  >
-                    {index === 0 && <BarChart3 className="w-4 h-4" />}
-                    {index === 1 && <AlertTriangle className="w-4 h-4" />}
-                    {index === 2 && <Clock className="w-4 h-4" />}
-                    {index === 3 && <CheckCircle className="w-4 h-4" />}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </motion.div>
+            {index === 0 && <BarChart3 className="w-4 h-4" />}
+            {index === 1 && <AlertTriangle className="w-4 h-4" />}
+            {index === 2 && <Clock className="w-4 h-4" />}
+            {index === 3 && <CheckCircle className="w-4 h-4" />}
+          </div>
+        </div>
+      </Card>
+    ))}
+  </motion.div>
+)}
+          
 
-          <Tabs defaultValue="reports" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2 bg-white/80 border border-[#E5E7EB] rounded-xl">
               <TabsTrigger value="reports" className="gap-2 text-xs md:text-sm">
                 <Wrench className="w-4 h-4" />

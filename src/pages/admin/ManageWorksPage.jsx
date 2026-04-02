@@ -879,9 +879,15 @@ const ManageWorksPage = () => {
     const locationString = location ? `POINT(${location.lng} ${location.lat})` : null;
     const payload = { ...data, location: locationString };
     
+    // Convert empty strings to null for UUID fields
     ['bairro_id', 'work_category_id', 'work_area_id', 'contractor_id'].forEach(key => {
         if(payload[key] === '') payload[key] = null;
     });
+
+    // Remove id from payload if it's empty/null (for new works)
+    if (payload.id === '' || payload.id === null) {
+        delete payload.id;
+    }
     
     // Ensure funding source is always an array
     if (!Array.isArray(payload.funding_source)) {

@@ -362,6 +362,20 @@ export const UploadProvider = ({ children }) => {
             if (controller.signal.aborted) throw new Error('Upload cancelado');
             updateUploadProgress(uploadId, 0, 'uploading');
             
+            if (metadata.type === 'video' && fileToUpload?.type) {
+                const rawType = String(fileToUpload.type);
+                const baseType = rawType.split(';')[0].trim();
+                if (baseType && baseType !== rawType) {
+                    const baseName = String(fileToUpload.name || 'video').replace(/\.[^/.]+$/, '');
+                    const ext = baseType === 'video/webm' ? 'webm' : baseType === 'video/mp4' ? 'mp4' : '';
+                    const nextName = ext ? `${baseName}.${ext}` : String(fileToUpload.name || baseName);
+                    fileToUpload = new File([fileToUpload], nextName, {
+                        type: baseType,
+                        lastModified: Date.now()
+                    });
+                }
+            }
+            
             await uploadLargeFile(fileToUpload, filePath, {
                 onProgress: (p) => updateUploadProgress(uploadId, p, 'uploading'),
                 bucket: options.bucket || 'reports-media',

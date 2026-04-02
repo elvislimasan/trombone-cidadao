@@ -23,9 +23,18 @@ const LoginPage = () => {
 
   useEffect(() => {
     if (user) {
-      navigate('/painel-usuario', { replace: true });
+      let target = null;
+      try {
+        target = sessionStorage.getItem('tc_post_login_redirect');
+        if (target) sessionStorage.removeItem('tc_post_login_redirect');
+      } catch {}
+      const from = location.state?.from;
+      if (!target && from?.pathname) {
+        target = `${from.pathname}${from.search || ''}`;
+      }
+      navigate(target || '/painel-usuario', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, location.state]);
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
@@ -83,9 +92,14 @@ const LoginPage = () => {
           title: `Bem-vindo(a) de volta!`,
           description: "Login realizado com sucesso. 🎉",
         });
-          // Redirecionar para a página anterior se houver, ou para a home
-          const from = location.state?.from?.pathname || '/';
-          navigate(from, { replace: true });
+          let target = null;
+          try {
+            target = sessionStorage.getItem('tc_post_login_redirect');
+            if (target) sessionStorage.removeItem('tc_post_login_redirect');
+          } catch {}
+          const from = location.state?.from;
+          if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
+          navigate(target || '/', { replace: true });
       } else {
           setErrors({
             email: '',
@@ -127,7 +141,14 @@ const LoginPage = () => {
         title: `Bem-vindo(a) de volta!`,
         description: "Login realizado com sucesso. 🎉",
       });
-        navigate('/');
+        let target = null;
+        try {
+          target = sessionStorage.getItem('tc_post_login_redirect');
+          if (target) sessionStorage.removeItem('tc_post_login_redirect');
+        } catch {}
+        const from = location.state?.from;
+        if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
+        navigate(target || '/', { replace: true });
       }
     } catch (error) {
       setErrors({

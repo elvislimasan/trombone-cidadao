@@ -36,12 +36,12 @@ const MapModeToggle = ({ className = '' }) => {
             {mode === 'map' ? (
               <>
                 <Unlock className="w-4 h-4 mr-1" />
-                <span className="hidden sm:inline">Mover Mapa</span>
+                <span className="hidden sm:inline"></span>
               </>
             ) : (
               <>
                 <Lock className="w-4 h-4 mr-1" />
-                <span className="hidden sm:inline">Scroll</span>
+                <span className="hidden sm:inline"></span>
               </>
             )}
           </Button>

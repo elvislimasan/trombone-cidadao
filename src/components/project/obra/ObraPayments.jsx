@@ -106,6 +106,7 @@ export function ObraPayments({
   phaseName,
   embedded = false,
   measurementId = null,
+  defaultCreditorName = "",
   canAdd = false,
   onAddPayment,
   onEditPayment,
@@ -193,8 +194,11 @@ export function ObraPayments({
       const payments = paymentsRaw.map((p, idx) => ({ ...p, _row_key: String(idx) }));
       const payload = {
         portal_link: data?.portal_link || url,
+        portal_auth_code: data?.portal_auth_code || "",
         commitment_number: data?.commitment_number || "",
         commitment_type: data?.commitment_type || "",
+        commitment_date: data?.commitment_date || "",
+        creditor_name: data?.creditor_name || "",
         payments,
       };
       setImportPayload(payload);
@@ -249,6 +253,12 @@ export function ObraPayments({
 
     const commitmentNumber = String(importPayload.commitment_number || "").trim() || null;
     const commitmentType = String(importPayload.commitment_type || "").trim() || null;
+    const commitmentDate = String(importPayload.commitment_date || "").trim() || null;
+    const portalAuthCode = String(importPayload.portal_auth_code || "").trim() || null;
+    const creditorName =
+      String(defaultCreditorName || "").trim() ||
+      String(importPayload.creditor_name || "").trim() ||
+      null;
     const portalLink = String(importPayload.portal_link || "").trim() || null;
     const rows = (importPayload.payments || [])
       .map((p, idx) => ({ p, key: String(p?._row_key ?? idx) }))
@@ -263,9 +273,12 @@ export function ObraPayments({
           value: Number.isFinite(value) ? value : null,
           commitment_number: commitmentNumber,
           commitment_type: commitmentType,
+          commitment_date: commitmentDate,
           installment: String(edit.installment || "").trim() || null,
           payment_description: String(edit.history || "").trim() || null,
+          creditor_name: creditorName,
           portal_link: portalLink,
+          portal_auth_code: portalAuthCode,
         };
       })
       .filter((p) => p.payment_date && p.value);
@@ -280,13 +293,14 @@ export function ObraPayments({
     try {
       const installments = rows.map((r) => r.installment).filter(Boolean);
       let existingInstallments = new Set();
-      if (commitmentNumber && installments.length) {
-        const { data: existing, error } = await supabase
+      if (portalAuthCode && installments.length) {
+        let query = supabase
           .from("public_work_payments")
           .select("installment")
           .eq("measurement_id", measurementId)
-          .eq("commitment_number", commitmentNumber)
+          .eq("portal_auth_code", portalAuthCode)
           .in("installment", installments);
+        const { data: existing, error } = await query;
         if (!error && Array.isArray(existing)) {
           existingInstallments = new Set(existing.map((x) => String(x?.installment || "").trim()).filter(Boolean));
         }
@@ -471,13 +485,16 @@ export function ObraPayments({
   const groups = useMemo(() => {
     const map = new Map();
     (sortedPayments || []).forEach((p) => {
-      const key = String(p?.orderNumber || "").trim() || "SEM_EMPENHO";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(p);
+      const orderKey = String(p?.orderNumber || "").trim() || "SEM_EMPENHO";
+      const typeKey = normalizeTypeKey(p?.commitmentType) || "SEM_TIPO";
+      const groupKey = `${orderKey}__${typeKey}`;
+      if (!map.has(groupKey)) map.set(groupKey, []);
+      map.get(groupKey).push(p);
     });
 
     const list = [];
-    map.forEach((items, key) => {
+    map.forEach((items, groupKey) => {
+      const orderKey = String(items?.[0]?.orderNumber || "").trim() || "SEM_EMPENHO";
       const itemsSorted = [...items].sort((a, b) => (getPaymentDate(b)?.getTime() ?? 0) - (getPaymentDate(a)?.getTime() ?? 0));
       const latestDate = getPaymentDate(itemsSorted[0]) || null;
       const latestDateLabel = formatDateLabel(latestDate);
@@ -506,16 +523,16 @@ export function ObraPayments({
 
       const descriptionPreview =
         itemsSorted.length > 1
-          ? key === "SEM_EMPENHO"
+          ? orderKey === "SEM_EMPENHO"
             ? "Pagamentos sem nº de empenho. Expanda para conferir os pagamentos.".toLocaleUpperCase()
-            : `Pagamentos referentes ao empenho nº ${key}. Expanda para conferir os pagamentos detalhados.`.toLocaleUpperCase()
+            : `Pagamentos referentes ao empenho nº ${orderKey}. Expanda para conferir os pagamentos detalhados.`.toLocaleUpperCase()
           : String(itemsSorted[0]?.description || "").trim() || "—";
       const installmentPreview = itemsSorted.length === 1 ? String(itemsSorted[0]?.installment || "").trim() || "—" : "—";
       const hasPortal = itemsSorted.some((x) => Boolean(x?.url));
 
       list.push({
-        key,
-        orderNumber: key === "SEM_EMPENHO" ? "" : key,
+        key: groupKey,
+        orderNumber: orderKey === "SEM_EMPENHO" ? "" : orderKey,
         items: itemsSorted,
         count: itemsSorted.length,
         total,
@@ -1173,6 +1190,7 @@ export function ObraPayments({
                                           <TableHeader className="bg-muted/20">
                                             <TableRow className="hover:bg-transparent">
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data do pagamento</TableHead>
+                                              <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Tipo</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Parcela</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Credor</TableHead>
@@ -1186,12 +1204,12 @@ export function ObraPayments({
                                               return (
                                                 <TableRow key={p.id} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
                                                   <TableCell className="whitespace-nowrap text-foreground">{paymentDateLabel}</TableCell>
-                                                <TableCell className="whitespace-nowrap">
-                                                  <span className="inline-flex items-center h-6 px-2.5 rounded-full bg-muted/20 border border-border text-xs text-foreground">
-                                                    {formatTypeLabel(p.commitmentType)}
-                                                  </span>
-                                                </TableCell>
-                                                <TableCell className="whitespace-normal break-words text-foreground text-[11px]">{p.description || "—"}</TableCell>
+                                                  <TableCell className="text-center whitespace-nowrap">
+                                                    <span className="inline-flex items-center h-6 px-2.5 rounded-full bg-muted/20 border border-border text-xs text-foreground">
+                                                      {formatTypeLabel(p.commitmentType)}
+                                                    </span>
+                                                  </TableCell>
+                                                  <TableCell className="whitespace-normal break-words text-foreground text-[11px]">{p.description || "—"}</TableCell>
                                                 <TableCell className="text-center whitespace-nowrap text-muted-foreground">{p.installment || "—"}</TableCell>
                                                 <TableCell className="whitespace-normal break-words text-foreground">{p.contractor || "—"}</TableCell>
                                                 <TableCell className="text-right font-semibold text-foreground whitespace-nowrap">{formatCurrency(p.value)}</TableCell>
@@ -1628,7 +1646,9 @@ export function ObraPayments({
                 <div className="rounded-2xl border border-border overflow-hidden flex flex-col">
                   <div className="px-4 py-3 bg-muted/20 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="text-sm font-semibold text-foreground">
-                      Empenho: {importPayload.commitment_number || "—"} {importPayload.commitment_type ? `(${importPayload.commitment_type})` : ""}
+                      Empenho: {importPayload.commitment_number || "—"} {importPayload.commitment_type ? `(${importPayload.commitment_type})` : ""}{" "}
+                      {importPayload.commitment_date ? `- ${importPayload.commitment_date}` : ""}
+                      {importPayload.portal_auth_code ? ` | Autenticidade: ${importPayload.portal_auth_code}` : ""}
                     </div>
                     {importPayload.portal_link ? (
                       <a
