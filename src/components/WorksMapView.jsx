@@ -31,6 +31,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [loadingLastUpdatedAt, setLoadingLastUpdatedAt] = useState(false);
+  const [paidTotal, setPaidTotal] = useState(null);
   const mapRef = useRef();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -48,7 +49,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
         supabase.from('public_work_media').select('*').eq('work_id', workId).order('created_at'),
         supabase
           .from('public_work_measurements')
-          .select('updated_at, created_at, payments:public_work_payments(created_at, payment_date)')
+          .select('updated_at, created_at, payments:public_work_payments(created_at, payment_date, value)')
           .eq('work_id', workId)
           .order('created_at', { ascending: false }),
       ]);
@@ -68,6 +69,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
         toast({ title: "Erro ao buscar fases da obra", description: measurementsRes.error.message, variant: "destructive" });
       }
 
+      let computedPaidTotal = 0;
       const candidates = [];
       const workRow = workRes.data || null;
       if (workRow?.last_update) candidates.push(new Date(workRow.last_update));
@@ -78,6 +80,8 @@ const WorksMapView = forwardRef(({ works }, ref) => {
         if (m?.created_at) candidates.push(new Date(m.created_at));
         (m?.payments || []).forEach((p) => {
           if (p?.created_at) candidates.push(new Date(p.created_at));
+          const v = Number(p?.value);
+          if (Number.isFinite(v) && v > 0) computedPaidTotal += v;
         });
       });
 
@@ -89,6 +93,8 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       const valid = candidates.filter((d) => d instanceof Date && !Number.isNaN(d.getTime()));
       if (valid.length === 0) setLastUpdatedAt(null);
       else setLastUpdatedAt(new Date(Math.max(...valid.map((d) => d.getTime()))));
+
+      setPaidTotal(computedPaidTotal > 0 ? computedPaidTotal : null);
     } finally {
       setLoadingMedia(false);
       setLoadingLastUpdatedAt(false);
@@ -101,6 +107,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
     } else {
       setWorkMedia([]);
       setLastUpdatedAt(null);
+      setPaidTotal(null);
     }
   }, [selectedWork, fetchWorkModalData]);
 
@@ -265,7 +272,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                 initial={{ scale: 0.9, opacity: 0 }} 
                 animate={{ scale: 1, opacity: 1 }} 
                 exit={{ scale: 0.9, opacity: 0 }} 
-                className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto border border-border" 
+                className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] overflow-hidden border border-border flex flex-col" 
                 onClick={(e) => e.stopPropagation()}
           >
                 <div className="p-6 border-b border-border">
@@ -276,9 +283,6 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                         {React.createElement(getStatusInfo(selectedWork.status).icon, { className: "w-4 h-4" })}
                     {getStatusInfo(selectedWork.status).text}
                       </div>
-                      {selectedWork.description && (
-                        <p className="text-muted-foreground text-sm mt-3 leading-relaxed">{selectedWork.description}</p>
-                      )}
                     </div>
                     <button 
                       onClick={() => setSelectedWork(null)} 
@@ -289,7 +293,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                     </button>
                   </div>
                 </div>
-                <div className="p-6 space-y-6">
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
               <Tabs defaultValue="details" className="w-full">
                     <TabsList className="grid w-full grid-cols-4 mb-6 gap-2 bg-muted/40 p-1.5 rounded-xl">
                       <TabsTrigger value="details" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"><Info className="w-4 h-4" /></TabsTrigger>
@@ -316,7 +320,11 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                       <div className="space-y-2.5">
                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Valores</h4>
                         <DetailItem icon={DollarSign} label="Valor Total" value={selectedWork.total_value ? formatCurrency(selectedWork.total_value) : null} />
-                        <DetailItem icon={DollarSign} label="Valor Gasto" value={selectedWork.amount_spent ? formatCurrency(selectedWork.amount_spent) : null} />
+                        <DetailItem
+                          icon={DollarSign}
+                          label="Valor Pago"
+                          value={paidTotal != null ? formatCurrency(paidTotal) : selectedWork.amount_spent ? formatCurrency(selectedWork.amount_spent) : null}
+                        />
                       </div>
                     )}
 
@@ -328,42 +336,6 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                         {selectedWork.contractor?.cnpj && (
                           <DetailItem icon={FileCheck} label="CNPJ" value={formatCnpj(selectedWork.contractor.cnpj)} />
                         )}
-                      </div>
-                    )}
-
-                    {/* Seção: Recursos */}
-                    {(selectedWork.funding_source?.length > 0 || selectedWork.parliamentary_amendment?.has) && (
-                      <div className="space-y-2.5">
-                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Recursos</h4>
-                        <DetailItem icon={Landmark} label="Fonte do Recurso" value={getFundingSourceText(selectedWork.funding_source)} />
-                        {selectedWork.parliamentary_amendment?.has && (
-                          <DetailItem icon={UserCheck} label="Emenda Parlamentar" value={selectedWork.parliamentary_amendment.author} />
-                        )}
-                      </div>
-                    )}
-
-                    {/* Seção: Cronograma */}
-                    {(selectedWork.start_date || selectedWork.execution_period_days || selectedWork.expected_end_date || selectedWork.inauguration_date || selectedWork.stalled_date || lastUpdatedAt) && (
-                      <div className="space-y-2.5">
-                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Cronograma</h4>
-                        <DetailItem icon={Calendar} label="Data de Início" value={selectedWork.start_date ? formatDate(selectedWork.start_date) : null} />
-                        {selectedWork.execution_period_days && <DetailItem icon={Clock} label="Prazo de Execução" value={`${selectedWork.execution_period_days} dias`} />}
-                        {selectedWork.status === 'in-progress' && <DetailItem icon={Calendar} label="Previsão de Conclusão" value={selectedWork.expected_end_date ? formatDate(selectedWork.expected_end_date) : null} />}
-                        {selectedWork.status === 'completed' && <DetailItem icon={Calendar} label="Data de Inauguração" value={selectedWork.inauguration_date ? formatDate(selectedWork.inauguration_date) : null} />}
-                        {(selectedWork.status === 'stalled' || selectedWork.status === 'unfinished') && <DetailItem icon={Calendar} label="Data de Paralisação" value={selectedWork.stalled_date ? formatDate(selectedWork.stalled_date) : null} />}
-                        <DetailItem
-                          icon={Calendar}
-                          label="Última Atualização"
-                          value={loadingLastUpdatedAt ? "Carregando…" : lastUpdatedAt ? formatDate(lastUpdatedAt) : null}
-                        />
-                      </div>
-                    )}
-
-                    {/* Seção: Outras Informações */}
-                    {selectedWork.other_details && (
-                      <div className="space-y-2.5">
-                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">Outras Informações</h4>
-                        <DetailItem icon={ListChecks} label="Detalhes Adicionais" value={selectedWork.other_details} />
                       </div>
                     )}
                   </div>
@@ -440,20 +412,23 @@ const WorksMapView = forwardRef(({ works }, ref) => {
                   )}
                 </TabsContent>
               </Tabs>
-                  
-                  <div className="flex flex-col md:flex-row gap-3 pt-4 border-t border-border">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDetailsClick(selectedWork);
-                      }} 
-                      className="w-full bg-tc-red text-white py-3.5 px-5 rounded-xl font-semibold hover:bg-tc-red/90 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
-                      style={{ pointerEvents: 'auto', touchAction: 'auto' }}
-                    >
-                      <Info className="w-5 h-5" />
-                Ver Mais Detalhes
-              </button>
-            </div>
+                </div>
+
+                <div
+                  className="border-t border-border p-4 bg-card flex items-center"
+                  style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
+                >
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDetailsClick(selectedWork);
+                    }} 
+                    className="w-full bg-tc-red text-white py-3.5 px-5 rounded-xl font-semibold hover:bg-tc-red/90 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                    style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                  >
+                    <Info className="w-5 h-5" />
+                    Ver Mais Detalhes
+                  </button>
                 </div>
               </motion.div>
           </motion.div>

@@ -204,6 +204,30 @@ const ReportPage = () => {
 
   const getCategoryName = (category) => categories[category] || 'Outros';
 
+  const formatPoleLabel = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    return s.replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
+  };
+
+  const getLightingIssueTypeLabel = (issueType) => {
+    const key = String(issueType || '').trim();
+    if (!key) return '';
+    const map = {
+      lamp_off: 'lâmpada apagada',
+      lamp_blinking: 'piscando',
+      lamp_on_daytime: 'acesa durante o dia',
+      no_lighting: 'poste sem iluminação',
+      arm_damaged: 'braço/luminária danificado',
+      exposed_wiring: 'fiação exposta',
+      pole_leaning: 'poste inclinado',
+      pole_broken: 'poste quebrado',
+      no_identifier: 'sem identificação',
+      other: 'outro',
+    };
+    return map[key] || key;
+  };
+
   const getStatusInfo = (status) => {
     const info = {
       pending: { text: 'Pendente', colorClasses: 'bg-red-50 text-red-600 border border-red-100' },
@@ -478,7 +502,7 @@ const ReportPage = () => {
     catch (e) { console.error(e); }
     const { data, error } = await supabase
       .from('reports')
-      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), timeline:report_timeline(*), report_media(*), upvotes:signatures(count), favorite_reports(user_id), petitions(id, status)')
+      .select('*, pole_number, pole:poles(id, identifier, plate, address), category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), timeline:report_timeline(*), report_media(*), upvotes:signatures(count), favorite_reports(user_id), petitions(id, status)')
       .eq('id', reportId)
       .single();
     if (error || !data) {
@@ -498,6 +522,7 @@ const ReportPage = () => {
       category: data.category_id,
       categoryName: data.category?.name,
       categoryIcon: data.category?.icon,
+      pole: data.pole || null,
       authorName: data.author?.name || 'Anônimo',
       authorAvatar: data.author?.avatar_url,
       photos: (data.report_media || []).filter(m => m.type === 'photo').sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)),
@@ -853,6 +878,8 @@ const ReportPage = () => {
                           { icon: <Calendar className="w-4 h-4 text-red-600" />, label: 'Cadastrado em', value: formatDateTime(report.created_at) },
                           // Removido endereço daqui para evitar redundância (já aparece no título e no mapa)
                           report.category === 'buracos' && { icon: <Droplet className="w-4 h-4 text-red-600" />, label: 'Aberto pela COMPESA?', value: isFromWaterUtility ? 'Sim' : 'Não' },
+                          report.category === 'iluminacao' && { icon: <AlertCircle className="w-4 h-4 text-red-600" />, label: 'Tipo do problema', value: report.issue_type ? getLightingIssueTypeLabel(report.issue_type) : '—' },
+                          report.category === 'iluminacao' && { icon: <Hash className="w-4 h-4 text-red-600" />, label: 'Poste/Plaqueta', value: formatPoleLabel(report?.pole?.plate || report?.pole?.identifier || report?.pole_number || report?.reported_plate || report?.reported_post_identifier) || '-' },
                           { icon: <Flag className="w-4 h-4 text-red-600" />, label: 'Status', value: getStatusInfo(report.status).text },
                         ].filter(Boolean).map((item, i) => (
                           <div key={i} className="flex items-center gap-3 bg-white px-3 py-2">

@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { ThumbsUp, Calendar } from 'lucide-react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
+import { ThumbsUp, Calendar, Layers, Grid3X3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Toggle } from '@/components/ui/toggle';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
@@ -63,13 +64,60 @@ const createMarkerIcon = (category, status) => {
   return icon;
 };
 
+const ClusterZoomHandler = ({ clusterToZoom, onZoomComplete }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (clusterToZoom && clusterToZoom.items && clusterToZoom.items.length > 0) {
+      const bounds = L.latLngBounds(
+        clusterToZoom.items.map(r => [r.location.lat, r.location.lng])
+      );
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
+      if (onZoomComplete) onZoomComplete();
+    }
+  }, [clusterToZoom, map, onZoomComplete]);
+  
+  return null;
+};
+
 const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showModeToggle = true, interactive = true }) => {
   const { mode } = useMapModeToggle();
+  const [clusterToZoom, setClusterToZoom] = useState(null);
+  const [expandedCluster, setExpandedCluster] = useState(null);
+  
+  // Load cluster preference from localStorage, default to false (individual view)
+  const [clusterModeEnabled, setClusterModeEnabled] = useState(() => {
+    const saved = localStorage.getItem('map-cluster-mode');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // Save preference to localStorage when changed
+  useEffect(() => {
+    localStorage.setItem('map-cluster-mode', JSON.stringify(clusterModeEnabled));
+  }, [clusterModeEnabled]);
+
+  const toggleClusterMode = useCallback(() => {
+    setClusterModeEnabled(prev => !prev);
+    setExpandedCluster(null);
+  }, []);
 
   const formatDate = (dateString) => {
     if (!dateString || isNaN(new Date(dateString))) return 'Data inválida';
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
+
+  const handleClusterClick = useCallback((cluster) => {
+    setClusterToZoom(cluster);
+    setExpandedCluster(cluster);
+  }, []);
+
+  const handleZoomComplete = useCallback(() => {
+    setClusterToZoom(null);
+  }, []);
+
+  const handleCloseExpanded = useCallback(() => {
+    setExpandedCluster(null);
+  }, []);
 
   const MapScrollLock = () => {
     useMapScrollLock(mode);
@@ -81,7 +129,8 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
   const clusterSize = 0.003; // ~300-350m dependendo da latitude
   const clustered = useMemo(() => {
     const list = Array.isArray(reports) ? reports : [];
-    if (list.length <= 200) return null;
+    // Only cluster if clusterModeEnabled is true
+    if (!clusterModeEnabled) return null;
     const buckets = new Map();
     for (const r of list) {
       const loc = r.location;
@@ -106,7 +155,7 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
       }
     }
     return clusters;
-  }, [reports]);
+  }, [reports, clusterModeEnabled]);
 
   const createClusterIcon = (count) => {
     const size = count >= 50 ? 46 : count >= 10 ? 42 : 38;
@@ -153,11 +202,93 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapScrollLock />
+          <ClusterZoomHandler clusterToZoom={clusterToZoom} onZoomComplete={handleZoomComplete} />
+          {expandedCluster && expandedCluster.count > 1 && (() => {
+            const cluster = expandedCluster;
+            const radius = Math.max(
+              ...cluster.items.map(r => {
+                const dLat = r.location.lat - cluster.lat;
+                const dLng = r.location.lng - cluster.lng;
+                return Math.sqrt(dLat * dLat + dLng * dLng) * 111000;
+              }),
+              50
+            ) * 1.3;
+            const intensity = cluster.count >= 50 ? '#ef4444' : cluster.count >= 10 ? '#f59e0b' : '#3b82f6';
+            return (
+              <Circle
+                key={`circle-${cluster.lat}-${cluster.lng}`}
+                center={[cluster.lat, cluster.lng]}
+                radius={radius}
+                pathOptions={{
+                  color: intensity,
+                  fillColor: intensity,
+                  fillOpacity: 0.15,
+                  weight: 2,
+                  opacity: 0.6,
+                  dashArray: '5, 5'
+                }}
+              />
+            );
+          })()}
+          {expandedCluster && expandedCluster.items.map((report) => {
+            const location = report.location;
+            if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
+              return null;
+            }
+            return (
+              <Marker
+                key={`expanded-${report.id}`}
+                position={[location.lat, location.lng]}
+                icon={createMarkerIcon(report.category, report.status)}
+                eventHandlers={{
+                  click: (e) => {
+                    e.originalEvent.stopPropagation();
+                  },
+                  dblclick: (e) => {
+                    e.originalEvent.stopPropagation();
+                    onReportClick(report);
+                  },
+                }}
+              >
+                <Popup>
+                  <div className="w-64">
+                    <h3 className="font-bold text-base mb-1">{report.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{report.description}</p>
+                    <div className="flex items-center text-xs text-muted-foreground mb-3">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {formatDate(report.created_at)}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onUpvote(report.id); }} className="flex items-center space-x-1">
+                        <ThumbsUp className="w-3 h-3" />
+                        <span>{report.upvotes}</span>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReportClick(report);
+                        }} 
+                        className="bg-primary hover:bg-primary/90"
+                        style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                      >
+                        Ver Detalhes
+                      </Button>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
           {(clustered ? clustered : reports).map((item) => {
             const isCluster = !!item.items;
+            const isThisClusterExpanded = expandedCluster && isCluster && 
+              expandedCluster.lat === item.lat && expandedCluster.lng === item.lng;
+            
+            if (isThisClusterExpanded) return null;
+            
             const location = isCluster ? { lat: item.lat, lng: item.lng } : item.location;
             const report = isCluster ? null : item;
-            // const location = report.location;
             if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
               return null;
             }
@@ -167,6 +298,12 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
                 position={[location.lat, location.lng]}
                 icon={isCluster ? createClusterIcon(item.count) : createMarkerIcon(report.category, report.status)}
                 eventHandlers={{
+                  click: (e) => {
+                    if (isCluster && item.count > 1) {
+                      e.originalEvent.stopPropagation();
+                      handleClusterClick(item);
+                    }
+                  },
                   dblclick: (e) => {
                     e.originalEvent.stopPropagation();
                     if (!isCluster) onReportClick(report);
@@ -177,20 +314,34 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
                   <div className="w-64">
                     {isCluster ? (
                       <>
-                        <h3 className="font-bold text-base mb-2">Broncas nesta área</h3>
-                        <ul className="space-y-1 mb-3">
-                          {item.items.slice(0, 3).map((r) => (
-                            <li key={r.id} className="text-sm line-clamp-1">{r.title}</li>
+                        <h3 className="font-bold text-base mb-2">Broncas nesta área ({item.count})</h3>
+                        <p className="text-xs text-muted-foreground mb-3">Clique no cluster para expandir a área</p>
+                        <ul className="space-y-1 mb-3 max-h-48 overflow-y-auto">
+                          {item.items.map((r) => (
+                            <li 
+                              key={r.id} 
+                              className="text-sm line-clamp-1 cursor-pointer hover:text-primary hover:underline py-1 border-b border-border/50 last:border-0"
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                onReportClick(r); 
+                              }}
+                              style={{ pointerEvents: 'auto' }}
+                            >
+                              {r.title}
+                            </li>
                           ))}
-                          {item.count > 3 && (
-                            <li className="text-xs text-muted-foreground">+{item.count - 3} outras</li>
-                          )}
                         </ul>
-                        <div className="flex justify-between">
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); }}>
-                            Área com {item.count}
-                          </Button>
-                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClusterClick(item);
+                          }}
+                        >
+                          Expandir área
+                        </Button>
                       </>
                     ) : (
                       <>
@@ -226,9 +377,34 @@ const MapView = ({ reports, onReportClick, onUpvote, showLegend = true, showMode
             );
           })}
         </MapContainer>
+        {expandedCluster && clusterModeEnabled && (
+          <div className="absolute top-14 left-4 z-[800]">
+            <Button 
+              size="sm" 
+              variant="secondary"
+              className="shadow-lg"
+              onClick={handleCloseExpanded}
+            >
+              ← Voltar ao agrupamento
+            </Button>
+          </div>
+        )}
         {showModeToggle && (
-          <div className="absolute top-4 right-4 z-[800]">
+          <div className="absolute top-4 right-4 z-[800] flex gap-2 items-center">
             <MapModeToggle />
+            <Toggle
+              pressed={clusterModeEnabled}
+              onPressedChange={toggleClusterMode}
+              className="bg-white/95 backdrop-blur-sm shadow-lg border border-border px-3 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              title={clusterModeEnabled ? 'Ver broncas individuais' : 'Ver agrupamentos'}
+            >
+              {clusterModeEnabled ? (
+                <><Grid3X3 className="w-4 h-4 " /> <span className="text-xs font-medium"></span></>
+              ) : (
+                <><Layers className="w-4 h-4" /> <span className="text-xs font-medium"></span></>
+              )}
+            </Toggle>
+            
           </div>
         )}
         {showLegend && (

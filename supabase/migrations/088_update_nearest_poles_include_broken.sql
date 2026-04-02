@@ -1,3 +1,5 @@
+drop function if exists public.nearest_poles(double precision, double precision, integer, integer);
+
 create or replace function public.nearest_poles(
   lat double precision,
   lng double precision,

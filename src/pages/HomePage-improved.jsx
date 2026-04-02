@@ -1,5 +1,5 @@
 import React, { Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, ChevronRight, Heart, Megaphone, List, Map as MapIcon, Filter, Maximize2, Minimize2, X, BarChart3, AlertTriangle, Clock3, Check, Share2, Search, Plus, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import ReportModal from '@/components/ReportModal';
 import { supabase } from '@/lib/customSupabaseClient';
 import BottomNav from '@/components/BottomNav';
 import { useUpvote } from '../hooks/useUpvotes';
-import { getReportShareUrl, getPetitionShareUrl } from '@/lib/shareUtils';
+import { getBaseAppUrl, getReportShareUrl, getPetitionShareUrl } from '@/lib/shareUtils';
 import { getNextSignatureGoal } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import {
@@ -43,10 +43,12 @@ const PETITIONS_DONATIONS_CHUNK = 250;
 
 function HomePageImproved() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const { handleUpvote, loading: upvoteLoading } = useUpvote();
   const [showPetitionsUpdate, setShowPetitionsUpdate] = useState(false);
+  const [promoModalConfig, setPromoModalConfig] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -73,6 +75,37 @@ function HomePageImproved() {
 
   const explorerRef = useRef(null);
   const cancelledRef = useRef(false);
+
+  const createReportShareUrl = useMemo(() => {
+    const base = getBaseAppUrl();
+    return `${base}/?criar_bronca=1`;
+  }, []);
+
+  const openCreateReportFlow = useCallback((originUrl = null) => {
+    const url = originUrl || `${location.pathname || '/'}${location.search || ''}`;
+    if (user) {
+      setShowReportModal(true);
+      try {
+        const params = new URLSearchParams(location.search || '');
+        if (params.has('criar_bronca')) {
+          params.delete('criar_bronca');
+          const next = params.toString();
+          navigate(`${location.pathname || '/'}${next ? `?${next}` : ''}`, { replace: true });
+        }
+      } catch {}
+      return;
+    }
+
+    try {
+      sessionStorage.setItem('tc_post_login_redirect', url);
+    } catch {}
+    toast({
+      title: "Acesso restrito",
+      description: "Faça login para cadastrar sua bronca. Você será redirecionado de volta.",
+      variant: "destructive",
+    });
+    navigate('/login', { state: { from: { pathname: location.pathname || '/', search: location.search || '' } } });
+  }, [location.pathname, location.search, navigate, toast, user]);
   const normalizeReportStatus = useCallback((s) => {
     const v = String(s || '').trim().toLowerCase();
     const norm = v.replace(/[\s_]+/g, '-');
@@ -91,29 +124,63 @@ function HomePageImproved() {
   }, []);
 
   useEffect(() => {
-    const seen = localStorage.getItem('home-petitions-update-modal-v1');
-    if (!seen) {
-      setShowPetitionsUpdate(true);
-    }
+    const fetchPromoModalConfig = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('site_config')
+          .select('promo_modal_settings')
+          .eq('id', 1)
+          .single();
+
+        if (!error && data?.promo_modal_settings?.petitions_modal) {
+          const modalConfig = data.promo_modal_settings.petitions_modal;
+          setPromoModalConfig(modalConfig);
+          
+          // Only show modal if enabled in admin and user hasn't seen it today
+          if (modalConfig.enabled) {
+            const lastSeen = localStorage.getItem('home-petitions-update-modal-v1');
+            const today = new Date().toDateString();
+            if (!lastSeen || lastSeen !== today) {
+              setShowPetitionsUpdate(true);
+            }
+          }
+        } else {
+          // Fallback: use default behavior if config not available
+          const seen = localStorage.getItem('home-petitions-update-modal-v1');
+          if (!seen) {
+            setShowPetitionsUpdate(true);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching promo modal config:', err);
+        // Fallback to default behavior
+        const seen = localStorage.getItem('home-petitions-update-modal-v1');
+        if (!seen) {
+          setShowPetitionsUpdate(true);
+        }
+      }
+    };
+
+    fetchPromoModalConfig();
   }, []);
 
   const handlePetitionsUpdateVisibility = (open) => {
     setShowPetitionsUpdate(open);
     if (!open) {
-      localStorage.setItem('home-petitions-update-modal-v1', 'true');
+      localStorage.setItem('home-petitions-update-modal-v1', new Date().toDateString());
     }
   };
 
   const handleGoToPetitionsOverview = () => {
-    localStorage.setItem('home-petitions-update-modal-v1', 'true');
+    localStorage.setItem('home-petitions-update-modal-v1', new Date().toDateString());
     setShowPetitionsUpdate(false);
-    navigate('/abaixo-assinados');
+    navigate(promoModalConfig?.secondary_button_url || '/abaixo-assinados');
   };
 
   const handleGoToMyPetitions = () => {
-    localStorage.setItem('home-petitions-update-modal-v1', 'true');
+    localStorage.setItem('home-petitions-update-modal-v1', new Date().toDateString());
     setShowPetitionsUpdate(false);
-    navigate('/minhas-peticoes');
+    navigate(promoModalConfig?.primary_button_url || '/minhas-peticoes');
   };
 
   const fetchStats = useCallback(async (retryCount = 0) => {
@@ -557,22 +624,52 @@ function HomePageImproved() {
   const featuredReports = useMemo(() => (reportsPreview || []).filter(r => r.is_featured), [reportsPreview]);
 
   const handleNewReportClick = () => {
-    if (user) {
-      setShowReportModal(true);
-    } else {
-      toast({
-        title: "Acesso restrito",
-        description: "Você precisa fazer login para criar uma nova bronca.",
-        variant: "destructive",
-      });
-      navigate('/login');
-    }
+    openCreateReportFlow();
   };
+
+  const handleShareCreateReport = useCallback(async () => {
+    const url = createReportShareUrl;
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({
+          title: 'Cadastre sua bronca',
+          text: 'Acesse e cadastre sua bronca.',
+          url,
+          dialogTitle: 'Compartilhar',
+        });
+        return;
+      }
+      if (navigator?.share) {
+        await navigator.share({ title: 'Cadastre sua bronca', text: 'Acesse e cadastre sua bronca.', url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Link copiado!', description: 'Cole e compartilhe para abrir o formulário direto.' });
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: 'Link copiado!', description: 'Cole e compartilhe para abrir o formulário direto.' });
+      } catch {
+        toast({ title: 'Não foi possível compartilhar', variant: 'destructive' });
+      }
+    }
+  }, [createReportShareUrl, toast]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const shouldOpen = params.get('criar_bronca') === '1' || params.get('criar_bronca') === 'true';
+    if (!shouldOpen) return;
+    openCreateReportFlow(`${location.pathname || '/'}${location.search || ''}`);
+  }, [location.pathname, location.search, openCreateReportFlow]);
 
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
     if (!user) return;
 
-    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, is_from_water_utility } = newReportData;
+    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility } = newReportData;
+    const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
+    const normalizedPole = normalizePoleLabel(pole_number);
+    const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
+    const savedReportedPlate = reported_plate ? normalizePoleLabel(reported_plate) : (normalizedPole || null);
 
     const { data, error } = await supabase
       .from('reports')
@@ -586,7 +683,8 @@ function HomePageImproved() {
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
         pole_id: category === 'iluminacao' ? pole_id : null,
-        reported_post_identifier: category === 'iluminacao' ? (pole_number?.trim() || null) : null,
+        reported_post_identifier: category === 'iluminacao' ? savedReportedPostIdentifier : null,
+        reported_plate: category === 'iluminacao' ? savedReportedPlate : null,
         reported_pole_distance_m: category === 'iluminacao' ? reported_pole_distance_m : null,
         issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
@@ -621,41 +719,54 @@ function HomePageImproved() {
     <div className=" flex flex-col bg-[#F9FAFB] md:px-6">
       <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-4 space-y-10 max-w-[88rem] mx-auto w-full">
         <section className="space-y-4">
-
-          {!user && (
-            <div className="relative overflow-hidden rounded-3xl border border-[#FCA5A5] bg-gradient-to-r from-[#FEF2F2] via-white to-[#FFF7ED] shadow-md p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#EF4444]/15 rounded-full blur-3xl" />
-              <div className="absolute -bottom-10 -left-10 w-52 h-52 bg-[#F59E0B]/15 rounded-full blur-3xl" />
-              <div className="relative min-w-0">
-                <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-[#B91C1C]">
-                  <span className="inline-block w-1 h-3 rounded-full bg-[#EF4444]" />
-                  Bem-vindo
-                </p>
-                <p className="text-base md:text-lg font-extrabold text-[#111827] mt-2">
-                  Entre para participar da comunidade
-                </p>
-                <p className="text-xs md:text-sm text-[#6B7280] mt-1">
-                  Faça login ou crie sua conta para favoritar, comentar e acompanhar suas broncas.
-                </p>
-              </div>
-              <div className="relative flex items-center gap-2 w-full md:w-auto">
-                <Button
-                  variant="outline"
-                  className="flex-1 md:flex-none rounded-full border-[#FCA5A5] bg-white/80 hover:bg-white"
-                  onClick={() => navigate('/login')}
-                >
-                  Entrar
-                </Button>
-                <Button
-                  className="flex-1 md:flex-none bg-tc-red hover:bg-tc-red/90 rounded-full shadow-sm"
-                  onClick={() => navigate('/cadastro')}
-                >
-                  Criar conta
-                </Button>
-              </div>
+          <div className="rounded-3xl border border-[#FEE2E2] bg-gradient-to-r from-[#FEF2F2] via-white to-[#FFF7ED] shadow-sm p-4 md:p-5">
+            <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-[#B91C1C]">
+              <span className="inline-block w-1 h-3 rounded-full bg-[#EF4444]" />
+              Bem-vindo
+            </p>
+            <div className="text-lg md:text-xl lg:text-2xl font-extrabold text-[#111827] mt-2">
+              Ajude a melhorar a cidade
             </div>
-          )}
-          <div className="lg:pt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-xs lg:text-sm text-[#6B7280] mt-1">
+              Cadastre broncas, apoie petições e convide alguém para contribuir.
+            </div>
+
+            <div className="mt-4 flex items-stretch gap-3 overflow-x-auto pb-1 no-scrollbar">
+              <button
+                type="button"
+                onClick={() => openCreateReportFlow()}
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#EF4444]/50 bg-white shadow-sm hover:shadow-md hover:border-[#EF4444]/70 transition p-3 flex flex-col items-center justify-center gap-2"
+              >
+                <Megaphone className="w-6 h-6 text-[#EF4444]" />
+                <div className="text-xs font-semibold text-[#111827] leading-tight text-center">Cadastre sua bronca</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/abaixo-assinados')}
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#F97316]/50 bg-white shadow-sm hover:shadow-md hover:border-[#F97316]/70 transition p-3 flex flex-col items-center justify-center gap-2"
+              >
+                <Heart className="w-6 h-6 text-[#F97316]" />
+                <div className="text-xs font-semibold text-[#111827] leading-tight text-center">Petições</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleShareCreateReport}
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#EF4444]/30 bg-white shadow-sm hover:shadow-md hover:border-[#EF4444]/50 transition p-3 flex flex-col items-center justify-center gap-2"
+              >
+                <Share2 className="w-6 h-6 text-[#EF4444]" />
+                <div
+                  className="text-[11px] font-semibold text-[#111827] leading-tight text-center"
+                  style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                >
+                  Convide alguém para contribuir
+                </div>
+              </button>
+            </div>
+          </div>
+         
+           <div className="lg:pt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827] mb-2">Broncas da Sua Cidade</h1>
               <p className="text-xs lg:text-sm text-[#6B7280]">
@@ -663,7 +774,7 @@ function HomePageImproved() {
               </p>
             </div>
             <div className="hidden md:flex items-center gap-3">
-              <Button 
+              <Button
                 onClick={handleNewReportClick}
                 className="bg-tc-red hover:bg-tc-red/90 gap-2 text-tc-white rounded-full px-4 h-9 text-xs lg:h-10 lg:text-sm"
               >
@@ -672,9 +783,6 @@ function HomePageImproved() {
               </Button>
             </div>
           </div>
-
-        
-
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
@@ -757,7 +865,7 @@ function HomePageImproved() {
             </button>
           </div>
 
-          
+         
         </section>
 
         <section ref={explorerRef} className="space-y-4">
@@ -811,6 +919,8 @@ function HomePageImproved() {
                 </div>
                   
               </div>
+
+        
           
           <div className="grid lg:grid-cols-12 gap-4 items-start">
             <div className="lg:col-span-8 space-y-4">
@@ -913,6 +1023,7 @@ function HomePageImproved() {
                               </span>
                             )}
                           </Button>
+                          
                         </DialogTrigger>
                         
                         {/* Filtros + Busca compacta no diálogo */}
@@ -1129,7 +1240,6 @@ function HomePageImproved() {
                               onReportClick={handleReportClick}
                               onUpvote={() => {}}
                               showLegend
-                              showModeToggle={false}
                               interactive
                             />
                           </Suspense>
@@ -1149,7 +1259,6 @@ function HomePageImproved() {
                             onReportClick={handleReportClick}
                             onUpvote={() => {}}
                             showLegend
-                            showModeToggle={false}
                             interactive
                           />
                         </Suspense>
@@ -1445,14 +1554,16 @@ function HomePageImproved() {
       <Dialog open={showPetitionsUpdate} onOpenChange={handlePetitionsUpdateVisibility}>
         <DialogContent hideClose className="max-w-[calc(100vw-1.5rem)] sm:max-w-[520px] md:max-w-[720px] p-0 overflow-hidden border-none rounded-xl">
           <div className="flex flex-col md:flex-row">
-            <div className="w-full md:w-1/2 bg-[#FEF2F2] overflow-hidden h-36 sm:h-56 md:h-auto">
-              <img
-                src="/abaixo-assinado.jpg"
-                alt="Criar e apoiar abaixo-assinados"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="w-full md:w-1/2 p-5 md:p-7 flex flex-col gap-4">
+            {promoModalConfig?.image_url && (
+              <div className="w-full md:w-1/2 bg-[#FEF2F2] overflow-hidden h-36 sm:h-56 md:h-auto">
+                <img
+                  src={promoModalConfig.image_url}
+                  alt={promoModalConfig?.title || "Promoção"}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className={`w-full ${promoModalConfig?.image_url ? 'md:w-1/2' : ''} p-5 md:p-7 flex flex-col gap-4`}>
               <DialogClose asChild>
                 <button
                   type="button"
@@ -1469,39 +1580,48 @@ function HomePageImproved() {
                   <X className="h-4 w-4" />
                 </button>
               </DialogClose>
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#F97316] uppercase tracking-[0.18em]">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]" />
-                Novidade na plataforma
-              </div>
+              {promoModalConfig?.badge_text && (
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#F97316] uppercase tracking-[0.18em]">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]" />
+                  {promoModalConfig.badge_text}
+                </div>
+              )}
               <div className="space-y-2">
-                <h2 className="text-xl md:text-2xl font-bold text-[#111827]">
-                  Agora você também pode criar e apoiar abaixo-assinados
-                </h2>
-                <p className="text-sm md:text-[15px] text-[#4B5563] leading-relaxed">
-                  Suas broncas podem virar campanhas completas, fortaleça causas que já estão em andamento.
-                  Assine, compartilhe e ajude a pressionar por soluções reais para a cidade.
-                </p>
+                {promoModalConfig?.title && (
+                  <h2 className="text-xl md:text-2xl font-bold text-[#111827]">
+                    {promoModalConfig.title}
+                  </h2>
+                )}
+                {promoModalConfig?.description && (
+                  <p className="text-sm md:text-[15px] text-[#4B5563] leading-relaxed">
+                    {promoModalConfig.description}
+                  </p>
+                )}
               </div>
               <div className="flex flex-col gap-2 mt-2">
-                <Button
-                  className="w-full h-10 text-sm font-semibold rounded-full bg-tc-red hover:bg-tc-red/90"
-                  onClick={handleGoToMyPetitions}
-                >
-                  Criar meu abaixo-assinado
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full h-10 text-sm font-semibold rounded-full border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
-                  onClick={handleGoToPetitionsOverview}
-                >
-                  Ver causas para apoiar
-                </Button>
+                {promoModalConfig?.primary_button_text && (
+                  <Button
+                    className="w-full h-10 text-sm font-semibold rounded-full bg-tc-red hover:bg-tc-red/90"
+                    onClick={handleGoToMyPetitions}
+                  >
+                    {promoModalConfig.primary_button_text}
+                  </Button>
+                )}
+                {promoModalConfig?.secondary_button_text && (
+                  <Button
+                    variant="outline"
+                    className="w-full h-10 text-sm font-semibold rounded-full border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
+                    onClick={handleGoToPetitionsOverview}
+                  >
+                    {promoModalConfig.secondary_button_text}
+                  </Button>
+                )}
                 <DialogClose asChild>
                   <button
                     type="button"
                     className="mt-1 text-xs text-[#6B7280] hover:text-[#111827] self-center"
                   >
-                    Talvez depois
+                    {promoModalConfig?.dismiss_text || "Fechar"}
                   </button>
                 </DialogClose>
               </div>

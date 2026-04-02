@@ -523,13 +523,13 @@ const VideoProcessor = ({
       />
 
       {/* Botões de ação */}
-      <div className={`grid ${Capacitor.isNativePlatform() ? 'grid-cols-2' : 'grid-cols-1'} gap-3`} >
-        {Capacitor.isNativePlatform() && (
+      <div className={`grid ${(Capacitor.isNativePlatform() || onRecordVideo) ? 'grid-cols-2' : 'grid-cols-1'} gap-3`} >
+        {(Capacitor.isNativePlatform() || onRecordVideo) && (
           <Button
             type="button"
             variant="outline"
             onClick={handleRecordVideo}
-            className="h-20 flex-col gap-1"
+            className="h-20 flex-col gap-1 rounded-xl"
             disabled={disabled || !canAddMoreVideos}
           >
             <Video className="w-6 h-6" />
@@ -541,7 +541,7 @@ const VideoProcessor = ({
           type="button"
           variant="outline"
           onClick={handleGallerySelect}
-          className="h-20 flex-col gap-1"
+          className="h-20 flex-col gap-1 rounded-xl"
           disabled={disabled || !canAddMoreVideos}
         >
           <Film className="w-6 h-6" />
