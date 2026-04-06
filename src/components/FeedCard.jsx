@@ -29,26 +29,26 @@ const STATUS_CONFIG = {
   },
 };
 
-const AuthorAvatar = ({ name, avatarUrl }) => {
+const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-9 h-9', textClassName = 'text-sm' }) => {
   if (avatarUrl) {
     return (
       <img
         src={avatarUrl}
         alt={name}
-        className="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-muted"
+        className={`${sizeClassName} rounded-full object-cover flex-shrink-0 bg-muted`}
         loading="lazy"
       />
     );
   }
   const initial = (name || 'C')[0].toUpperCase();
   return (
-    <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0 select-none">
+    <div className={`${sizeClassName} rounded-full bg-primary/10 text-primary flex items-center justify-center ${textClassName} font-bold flex-shrink-0 select-none`}>
       {initial}
     </div>
   );
 };
 
-const FeedCard = ({ report, onToggleUpvote }) => {
+const FeedCard = ({ report, onToggleUpvote, isNew = false }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -199,21 +199,20 @@ const FeedCard = ({ report, onToggleUpvote }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.25 }}
+      transition={{ duration: 0.28, ease: 'easeOut' }}
       className={`bg-card rounded-xl border shadow-sm overflow-hidden ${
         signals.score >= 70 ? 'border-red-200' : 'border-border'
-      }`}
+      } ${isNew ? 'ring-2 ring-primary/25' : ''}`}
     >
       {/* ── Card Header ── */}
-      <div className="flex items-center gap-3 p-3">
-        <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
-
+      <div className="flex items-start gap-3 p-3">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate leading-tight">
-            {report.authorName || 'Cidadão'}
+          <p className="text-sm font-extrabold leading-snug line-clamp-2 text-foreground">
+            {report.title}
           </p>
-          <div className="flex items-center gap-1.5 mt-0.5">
+          <div className="flex items-center gap-1.5 mt-1">
             <span className="text-xs text-muted-foreground">
               {emoji} {report.categoryName || report.category_id}
             </span>
@@ -303,8 +302,24 @@ const FeedCard = ({ report, onToggleUpvote }) => {
       {/* ── Text content ── */}
       <button
         onClick={goToReport}
-        className="w-full text-left px-4 pb-4 pt-1 focus:outline-none"
+        className="w-full text-left px-4 pb-4 pt-2 focus:outline-none"
       >
+        {(report.authorName || report.authorAvatar) && (
+          <div className="flex items-center gap-2 mb-2">
+            <AuthorAvatar
+              name={report.authorName}
+              avatarUrl={report.authorAvatar}
+              sizeClassName="w-5 h-5"
+              textClassName="text-[10px]"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              por{' '}
+              <span className="font-semibold text-foreground/80">
+                {report.authorName || 'Cidadão'}
+              </span>
+            </p>
+          </div>
+        )}
         {signals.story && (
           <div className="mb-2">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg bg-muted/70 text-foreground border border-border/60">
@@ -317,9 +332,6 @@ const FeedCard = ({ report, onToggleUpvote }) => {
             {signals.community}
           </p>
         )}
-        <h3 className="font-semibold text-sm leading-snug line-clamp-2 text-foreground mb-1">
-          {report.title}
-        </h3>
         {report.description && (
           <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
             {report.description}

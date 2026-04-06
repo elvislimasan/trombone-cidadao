@@ -33,7 +33,7 @@ export function useFeed(tab = 'recent') {
         .select(
           `
           id, title, description, status, created_at, address,
-          category_id, is_recurrent, author_id,
+          category_id, is_recurrent, author_id, views, is_anonymous,
           category:categories(name, icon),
           upvotes:signatures(count),
           comments_count:comments(count),
@@ -50,10 +50,7 @@ export function useFeed(tab = 'recent') {
       } else if (tab === 'trending') {
         q = q
           .in('status', ['pending', 'in-progress'])
-          .gte(
-            'created_at',
-            new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-          )
+          .order('views', { ascending: false })
           .order('created_at', { ascending: false });
       } else {
         // recent: all active broncas
@@ -89,6 +86,7 @@ export function useFeed(tab = 'recent') {
 
       return items.map((r) => {
         const catName = r.category?.name || r.category_id || '';
+        const isAnonymous = Boolean(r.is_anonymous);
         return {
           id: r.id,
           title: r.title,
@@ -98,6 +96,8 @@ export function useFeed(tab = 'recent') {
           address: r.address,
           category_id: r.category_id,
           is_recurrent: r.is_recurrent,
+          views: Number(r.views ?? 0),
+          is_anonymous: isAnonymous,
           categoryName: catName,
           categoryIcon: r.category?.icon || '',
           categoryEmoji: CATEGORY_EMOJIS[catName] || '📍',
@@ -107,8 +107,8 @@ export function useFeed(tab = 'recent') {
           comments_count: Number(r.comments_count?.[0]?.count ?? 0),
           user_has_upvoted: upvoted.has(r.id),
           is_favorited: favorites.has(r.id),
-          authorName: r.author?.name || 'Cidadão',
-          authorAvatar: r.author?.avatar_url || null,
+          authorName: isAnonymous ? 'Anônimo' : r.author?.name || 'Cidadão',
+          authorAvatar: isAnonymous ? null : r.author?.avatar_url || null,
         };
       });
     },
@@ -128,8 +128,8 @@ export function useFeed(tab = 'recent') {
         const sorted =
           tab === 'trending'
             ? [...items].sort((a, b) => {
-                const aScore = (a.upvotes || 0) * 2 + (a.comments_count || 0);
-                const bScore = (b.upvotes || 0) * 2 + (b.comments_count || 0);
+                const aScore = a.views || 0;
+                const bScore = b.views || 0;
                 if (bScore !== aScore) return bScore - aScore;
                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
               })
@@ -166,8 +166,8 @@ export function useFeed(tab = 'recent') {
         const next =
           tab === 'trending'
             ? [...items].sort((a, b) => {
-                const aScore = (a.upvotes || 0) * 2 + (a.comments_count || 0);
-                const bScore = (b.upvotes || 0) * 2 + (b.comments_count || 0);
+                const aScore = a.views || 0;
+                const bScore = b.views || 0;
                 if (bScore !== aScore) return bScore - aScore;
                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
               })

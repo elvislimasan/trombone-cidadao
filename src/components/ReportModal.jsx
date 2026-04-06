@@ -75,6 +75,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     reported_pole_distance_m: null,
     issue_type: "",
     is_from_water_utility: false,
+    is_anonymous: false,
   });
   const [errors, setErrors] = useState({});
   const { toast } = useToast();
@@ -3013,6 +3014,28 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       className="w-full bg-background px-4 py-3 border border-input rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="Descreva detalhadamente o problema..."
                     />
+                  </div>
+
+                  <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-3">
+                    <input
+                      id="is_anonymous"
+                      type="checkbox"
+                      checked={!!formData.is_anonymous}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          is_anonymous: e.target.checked,
+                        });
+                      }}
+                      className="mt-0.5 h-6 w-6 rounded border-input text-primary focus:ring-primary"
+                    />
+                    <label
+                      htmlFor="is_anonymous"
+                      className="text-xs text-foreground"
+                    >
+                      <span className="font-semibold">Anônimo:</span> seu nome
+                      não aparecerá no feed
+                    </label>
                   </div>
                 </>
               )}

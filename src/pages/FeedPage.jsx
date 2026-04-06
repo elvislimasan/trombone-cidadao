@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Loader2, Flame, Megaphone, AlertTriangle, ThumbsUp, MessageCircle, ChevronRight, Heart, UserPlus } from 'lucide-react';
+import { RefreshCw, Loader2, Megaphone, Heart, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Capacitor } from '@capacitor/core';
@@ -84,6 +84,8 @@ export default function FeedPage() {
   const [activeTab, setActiveTab] = useState('recent');
   const [showReportModal, setShowReportModal] = useState(false);
   const [newCount, setNewCount] = useState(0);
+  const [recentCreatedId, setRecentCreatedId] = useState(null);
+  const recentCreatedTimerRef = useRef(null);
   const [submittedCount, setSubmittedCount] = useState(() => {
     try {
       return readInt(localStorage.getItem(STORAGE_KEYS.reportsSubmitted), 0);
@@ -130,9 +132,38 @@ export default function FeedPage() {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    const onReportsUpdated = (e) => {
+      const createdId = e?.detail?.id || null;
+      setActiveTab('recent');
+      setNewCount(0);
+      loadedAtRef.current = new Date().toISOString();
+      refresh();
+      if (createdId) {
+        setRecentCreatedId(createdId);
+        if (recentCreatedTimerRef.current) {
+          clearTimeout(recentCreatedTimerRef.current);
+        }
+        recentCreatedTimerRef.current = setTimeout(() => {
+          setRecentCreatedId(null);
+        }, 8000);
+      }
+      try {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {}
+    };
+
+    window.addEventListener('reports-updated', onReportsUpdated);
+    return () => {
+      window.removeEventListener('reports-updated', onReportsUpdated);
+      if (recentCreatedTimerRef.current) clearTimeout(recentCreatedTimerRef.current);
+    };
+  }, [refresh]);
+
   const handleTabChange = useCallback((tabKey) => {
     setActiveTab(tabKey);
     setNewCount(0);
+    setRecentCreatedId(null);
   }, []);
 
   const handleCreateReport = useCallback(
@@ -143,6 +174,7 @@ export default function FeedPage() {
         pole_number, pole_id, reported_pole_distance_m,
         issue_type, reported_post_identifier, reported_plate,
         is_from_water_utility,
+        is_anonymous,
       } = newReportData;
 
       const normPole = (raw) =>
@@ -172,6 +204,7 @@ export default function FeedPage() {
             category === 'iluminacao' ? reported_pole_distance_m : null,
           issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
           is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
+          is_anonymous: !!is_anonymous,
           status: 'pending',
           moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
         })
@@ -225,7 +258,7 @@ export default function FeedPage() {
         duration: 4500,
       });
       setShowReportModal(false);
-      window.dispatchEvent(new CustomEvent('reports-updated'));
+      window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
     },
     [submittedCount, user, toast]
   );
@@ -263,36 +296,6 @@ export default function FeedPage() {
       }
     }
   }, [toast]);
-
-  const highlights = useMemo(() => {
-    if (loading || reports.length === 0) {
-      return { eligibleCount: 0, hotCount: 0, staleCount: 0, top: [] };
-    }
-
-    const score = (r) => (Number(r.upvotes || 0) * 2) + Number(r.comments_count || 0);
-    const isEligible = (r) => Number(r.upvotes || 0) >= 50;
-    const isStale = (r) => {
-      const days = Math.floor((Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60 * 24));
-      return days >= 7;
-    };
-
-    const eligible = reports.filter(isEligible);
-    const top = [...eligible]
-      .sort((a, b) => {
-        const aScore = score(a);
-        const bScore = score(b);
-        if (bScore !== aScore) return bScore - aScore;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      })
-      .slice(0, 3);
-
-    return {
-      eligibleCount: eligible.length,
-      hotCount: eligible.length,
-      staleCount: eligible.filter(isStale).length,
-      top,
-    };
-  }, [loading, reports]);
 
   return (
     <div className="min-h-full bg-[#F3F4F6]">
@@ -407,76 +410,6 @@ export default function FeedPage() {
       {/* ── Feed Content ── */}
       <div className="container mx-auto max-w-2xl px-3 py-4">
       
-
-        {!loading && highlights.eligibleCount > 0 && activeTab !== 'resolved' && (
-          <div className="mb-4">
-            <div className="rounded-2xl border border-border bg-gradient-to-br from-background via-background to-muted/40 px-4 py-3 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex items-start gap-3">
-                  <div
-                    className={`w-9 h-9 rounded-2xl flex items-center justify-center text-white shadow-sm ${
-                      activeTab === 'trending'
-                        ? 'bg-gradient-to-br from-red-600 to-orange-500'
-                        : 'bg-gradient-to-br from-primary to-primary/70'
-                    }`}
-                  >
-                    {activeTab === 'trending' ? <Flame className="w-5 h-5" /> : <Megaphone className="w-5 h-5" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold tracking-tight text-foreground">
-                      {activeTab === 'trending' ? 'Em alta na sua cidade' : 'Agora na sua cidade'}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {activeTab === 'trending'
-                        ? 'O que está movimentando a comunidade agora.'
-                        : 'O que está pedindo atenção agora.'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-red-50 text-red-700 border border-red-100 px-2.5 py-1 text-[11px] font-bold">
-                    <Flame className="w-3.5 h-3.5" />
-                    <span>{highlights.hotCount}</span>
-                    <span className="font-semibold tracking-tight">50+ apoios</span>
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100 px-2.5 py-1 text-[11px] font-bold">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>{highlights.staleCount}</span>
-                    <span className="font-semibold tracking-tight">sem solução</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 space-y-2">
-                {highlights.top.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => navigate(`/bronca/${r.id}`)}
-                    className="group w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-background/70 px-3 py-2 text-left hover:bg-background transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold text-foreground truncate">
-                        {r.title}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-3 text-[10px] text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <ThumbsUp className="w-3 h-3" />
-                          {r.upvotes || 0}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <MessageCircle className="w-3 h-3" />
-                          {r.comments_count || 0}
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
         {loading ? (
           <FeedSkeleton count={3} />
         ) : reports.length === 0 ? (
@@ -492,6 +425,7 @@ export default function FeedPage() {
                 key={report.id}
                 report={report}
                 onToggleUpvote={toggleUpvote}
+                isNew={report.id === recentCreatedId}
               />
             ))}
 

@@ -60,6 +60,7 @@ const BottomNav = () => {
         pole_number, pole_id, reported_pole_distance_m,
         issue_type, reported_post_identifier, reported_plate,
         is_from_water_utility,
+        is_anonymous,
       } = newReportData;
 
       const normPole = (raw) =>
@@ -92,6 +93,7 @@ const BottomNav = () => {
             category === 'iluminacao' ? (issue_type?.trim() || null) : null,
           is_from_water_utility:
             category === 'buracos' ? !!is_from_water_utility : null,
+          is_anonymous: !!is_anonymous,
           status: 'pending',
           moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
         })
@@ -139,7 +141,7 @@ const BottomNav = () => {
         duration: 4500,
       });
       setShowReportModal(false);
-      window.dispatchEvent(new CustomEvent('reports-updated'));
+      window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
     },
     [user, toast]
   );
