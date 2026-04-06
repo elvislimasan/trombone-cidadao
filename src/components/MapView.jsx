@@ -13,7 +13,7 @@ import {
   Layers,
   Grid3X3,
   ArrowLeft,
-  Radar,
+  LocateFixed,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
@@ -94,20 +94,6 @@ const userMarkerIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-const toRad = (deg) => (deg * Math.PI) / 180;
-const distanceMeters = (a, b) => {
-  const R = 6371000;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const x =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-  return R * c;
-};
-
 const ClusterZoomHandler = ({ clusterToZoom, onZoomComplete }) => {
   const map = useMap();
 
@@ -148,7 +134,6 @@ const MapView = ({
   const mapRef = useRef(null);
   const hasCenteredRef = useRef(false);
   const [userLocation, setUserLocation] = useState(null);
-  const [nearbyOnly, setNearbyOnly] = useState(true);
   const [clusterToZoom, setClusterToZoom] = useState(null);
   const [expandedCluster, setExpandedCluster] = useState(null);
 
@@ -277,20 +262,9 @@ const MapView = ({
     return null;
   };
 
-  const nearbyRadiusM = 2500;
-  const baseReports = useMemo(() => {
-    const list = Array.isArray(reports) ? reports : [];
-    if (!nearbyOnly || !userLocation) return list;
-    return list.filter((r) => {
-      const loc = r.location;
-      if (!loc || typeof loc.lat !== "number" || typeof loc.lng !== "number") return false;
-      return distanceMeters(userLocation, loc) <= nearbyRadiusM;
-    });
-  }, [nearbyOnly, reports, userLocation]);
-
   const clusterSize = 0.003;
   const clustered = useMemo(() => {
-    const list = Array.isArray(baseReports) ? baseReports : [];
+    const list = Array.isArray(reports) ? reports : [];
     // Only cluster if clusterModeEnabled is true
     if (!clusterModeEnabled) return null;
     const buckets = new Map();
@@ -323,7 +297,7 @@ const MapView = ({
       }
     }
     return clusters;
-  }, [baseReports, clusterModeEnabled]);
+  }, [reports, clusterModeEnabled]);
 
   const createClusterIcon = (count) => {
     const size = count >= 50 ? 46 : count >= 10 ? 42 : 38;
@@ -501,7 +475,7 @@ const MapView = ({
                 </Marker>
               );
             })}
-          {(clustered ? clustered : baseReports).map((item) => {
+          {(clustered ? clustered : reports).map((item) => {
             const isCluster = !!item.items;
             const isThisClusterExpanded =
               expandedCluster &&
@@ -636,18 +610,20 @@ const MapView = ({
         {showModeToggle && (
           <div className="absolute bottom-3 right-3 z-[800]">
             <div className="flex items-center overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
-              <Toggle
-                pressed={nearbyOnly}
-                onPressedChange={(v) => setNearbyOnly(Boolean(v))}
-                className="bg-transparent shadow-none border-0 rounded-none px-3 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                title={
-                  nearbyOnly
-                    ? `Mostrando broncas próximas (${baseReports.length})`
-                    : "Mostrar broncas próximas"
-                }
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  recenterToUser();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                className="px-3 py-2 inline-flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
+                title="Voltar para minha posição"
               >
-                <Radar className="w-4 h-4" />
-              </Toggle>
+                <LocateFixed className="w-4 h-4" />
+              </button>
               <div className="w-px self-stretch bg-border" />
               {expandedCluster && clusterModeEnabled && (
                 <>

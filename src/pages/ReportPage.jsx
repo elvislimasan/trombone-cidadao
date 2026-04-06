@@ -9,7 +9,6 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import LinkReportModal from "@/components/LinkReportModal";
 import ReportDetails from "@/components/ReportDetails";
 import {
@@ -98,7 +97,7 @@ const ReportMap = ({ location, address }) => {
   }, [location]);
 
   return (
-    <div className="h-48 w-full rounded-2xl overflow-hidden relative z-0 border border-gray-100 shadow-sm">
+    <div className="h-48 w-full rounded-2xl overflow-hidden relative z-0 shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
       <MapContainer
         center={position}
         zoom={15}
@@ -315,27 +314,27 @@ const ReportPage = () => {
     const info = {
       pending: {
         text: "Pendente",
-        colorClasses: "bg-red-50 text-red-600 border border-red-100",
+        colorClasses: "bg-amber-50 text-amber-700",
       },
       "in-progress": {
         text: "Em Andamento",
-        colorClasses: "bg-amber-50 text-amber-600 border border-amber-100",
+        colorClasses: "bg-blue-50 text-blue-700",
       },
       resolved: {
         text: "Resolvido",
-        colorClasses: "bg-green-50 text-green-600 border border-green-100",
+        colorClasses: "bg-emerald-50 text-emerald-700",
       },
       duplicate: {
         text: "Duplicada",
-        colorClasses: "bg-gray-50 text-gray-600 border border-gray-200",
+        colorClasses: "bg-gray-100 text-gray-500",
       },
       pending_resolution: {
         text: "Verificando Resolução",
-        colorClasses: "bg-blue-50 text-blue-600 border border-blue-100",
+        colorClasses: "bg-blue-50 text-blue-700",
       },
       pending_approval: {
         text: "Aguardando Aprovação",
-        colorClasses: "bg-yellow-50 text-yellow-700 border border-yellow-100",
+        colorClasses: "bg-amber-50 text-amber-700",
       },
     };
     return info[status] || info.pending;
@@ -1272,29 +1271,29 @@ const ReportPage = () => {
         <>
           {/* ── TOP NAV ── */}
           {!isInteractive && (
-            <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
+            <div className="bg-white/90 backdrop-blur-sm sticky top-0 z-30 shadow-[0_1px_0_0_rgba(25,28,30,0.06)]">
               <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-14 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Button
                     size="icon"
-                    variant="outline"
-                    className="h-9 w-9 rounded-xl border-gray-200 bg-[#F4F6F9]"
+                    variant="ghost"
+                    className="h-9 w-9 rounded-xl bg-[#f2f4f7] hover:bg-[#e8eaed]"
                     onClick={() => navigate(-1)}
                   >
-                    <ArrowLeft className="w-4 h-4 text-gray-700" />
+                    <ArrowLeft className="w-4 h-4 text-[#191c1e]" strokeWidth={1.5} />
                   </Button>
-                  <span className="text-sm font-extrabold tracking-tight text-gray-900">
+                  <span className="text-sm font-bold tracking-tight text-[#191c1e]">
                     Voltar para página inicial
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     size="icon"
-                    variant="outline"
-                    className={`h-9 w-9 rounded-xl border ${
+                    variant="ghost"
+                    className={`h-9 w-9 rounded-xl ${
                       report.is_favorited
-                        ? "border-red-200 bg-red-50"
-                        : "border-gray-200 bg-[#F4F6F9]"
+                        ? "bg-red-50 hover:bg-red-100"
+                        : "bg-[#f2f4f7] hover:bg-[#e8eaed]"
                     }`}
                     onClick={() =>
                       handleFavoriteToggle(report.id, report.is_favorited)
@@ -1303,91 +1302,46 @@ const ReportPage = () => {
                     <Star
                       className={`w-4 h-4 ${
                         report.is_favorited
-                          ? "fill-red-500 text-red-500"
-                          : "text-gray-500"
+                          ? "fill-[#b61722] text-[#b61722]"
+                          : "text-[#191c1e]"
                       }`}
+                      strokeWidth={1.5}
                     />
                   </Button>
                   <Button
                     size="icon"
-                    variant="outline"
-                    className="h-9 w-9 rounded-xl border-gray-200 bg-[#F4F6F9]"
+                    variant="ghost"
+                    className="h-9 w-9 rounded-xl bg-[#f2f4f7] hover:bg-[#e8eaed]"
                     onClick={handleShare}
                   >
-                    <Share2 className="w-4 h-4 text-gray-500" />
+                    <Share2 className="w-4 h-4 text-[#191c1e]" strokeWidth={1.5} />
                   </Button>
                 </div>
               </div>
-              <div className="hidden lg:block border-t border-gray-100">
-                <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-gray-500 flex items-center gap-1">
-                  <Link to="/" className="hover:text-red-500 transition-colors">
+              <div className="hidden lg:block bg-[#f7f9fc]">
+                <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-[#6b7280] flex items-center gap-1">
+                  <Link to="/" className="hover:text-[#b61722] transition-colors">
                     Início
                   </Link>
                   <span className="opacity-50">›</span>
                   <span>Broncas</span>
                   <span className="opacity-50">›</span>
-                  <span className="text-gray-700 truncate">{report.title}</span>
+                  <span className="text-[#191c1e] truncate">{report.title}</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* ── PAGE ── */}
-          <div className="bg-muted min-h-screen overflow-x-hidden">
-            <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-4 lg:py-8 grid gap-8 grid-cols-1 lg:grid-cols-3">
+          <div className="bg-[#f7f9fc] min-h-screen overflow-x-hidden">
+            <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-4 lg:py-8 grid gap-6 grid-cols-1 lg:grid-cols-3">
               <div className="lg:col-span-2">
                 {managementPanel && (
                   <div className="mb-4 lg:hidden">{managementPanel}</div>
                 )}
-                <div className="bg-background shadow-sm rounded-2xl border border-border overflow-hidden">
-                  {/* Título primeiro (mobile) */}
-                  <div className="px-6 pt-5 pb-4 border-b border-border lg:hidden">
-                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground">
-                      {report.title}
-                    </h1>
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span>
-                          Cadastrado {formatDateTime(report.created_at).replace(",", " às")}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="border-red-200 bg-red-50 text-red-700"
-                      >
-                        {getCategoryName(report.category)}
-                      </Badge>
-                      <Badge className={getStatusInfo(report.status).colorClasses}>
-                        {getStatusInfo(report.status).text}
-                      </Badge>
-                      {report.protocol && (
-                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-mono bg-muted text-foreground/80 border border-border break-all">
-                          {report.protocol}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* media hero */}
-                  <div className="relative overflow-hidden px-6">
-                    {/* Título para desktop (mantido no lugar original) */}
-                    <div className="hidden lg:block  pt-5 pb-4 border-b border-gray-100">
-                      <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-gray-900">
-                        {report.title}
-                      </h1>
-                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span>
-                            Cadastrado {formatDateTime(report.created_at).replace(",", " às")}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-full max-w-full h-56 sm:h-64 bg-slate-900 relative overflow-hidden rounded-xl">
+                <div className="bg-white shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] rounded-2xl overflow-hidden">
+                  <div className="relative overflow-hidden">
+                    <div className="w-full max-w-full h-[52vw] sm:h-64 lg:h-80 bg-slate-900 relative overflow-hidden">
                       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
                       {hasMedia ? (
                         <button
@@ -1421,7 +1375,7 @@ const ReportPage = () => {
                             <img
                               src={firstMedia.url}
                               alt="Mídia da bronca"
-                              className="w-full h-full max-w-full object-cover rounded-xl"
+                              className="w-full h-full max-w-full object-cover"
                             />
                           )}
                         </button>
@@ -1433,27 +1387,20 @@ const ReportPage = () => {
                         </div>
                       )}
                       <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                      <div className="hidden sm:block absolute top-3 right-3 px-3 py-1 rounded-lg bg-black/50 border border-white/10 text-[11px] font-mono text-white/80">
-                        {report.protocol || "Sem protocolo"}
-                      </div>
-                      <div className="absolute left-4 right-4 bottom-4 flex flex-wrap items-center gap-3 pointer-events-none">
-                        <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold tracking-[0.18em] uppercase bg-white/10 text-white/80 border border-white/20">
+                      <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2 pointer-events-none">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] bg-white/90 backdrop-blur-md text-[#191c1e] shadow-sm">
                           {getCategoryName(report.category)}
                         </span>
-                        <div
-                          className={`hidden sm:inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold ${
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] shadow-sm ${
                             getStatusInfo(report.status).colorClasses
                           }`}
                         >
                           <span className="w-2 h-2 rounded-full bg-current mr-2 animate-pulse" />
                           {getStatusInfo(report.status).text}
-                        </div>
-                        {report.category === "buracos" && waterUtilityName && (
-                          <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-red-300/60 bg-red-500/20 text-[11px] font-medium text-red-50">
-                            <Droplet className="w-3.5 h-3.5" />
-                            Aberto pela {waterUtilityName}
-                          </div>
-                        )}
+                        </span>
+                      </div>
+                      <div className="absolute left-4 right-4 bottom-4 flex flex-wrap items-center gap-3 pointer-events-none">
                         {hasMedia && viewerMedia.length > 1 && (
                           <button
                             type="button"
@@ -1479,54 +1426,135 @@ const ReportPage = () => {
                     </div>
                   </div>
 
-                  <div className="px-5 py-5 sm:px-6 sm:py-6 space-y-6 sm:space-y-8">
+                  <div className="relative -mt-5 px-3 pb-4 lg:-mt-10 lg:px-4">
+                    <div className="bg-white rounded-2xl p-4 space-y-4 shadow-[0_4px_16px_-4px_rgba(25,28,30,0.08)] lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-[0_12px_32px_-4px_rgba(25,28,30,0.10)]">
+
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-[-0.02em] text-[#191c1e] leading-tight">
+                            {report.title}
+                          </h1>
+                          <span
+                            className={`hidden lg:inline-flex items-center px-3 py-1 rounded-full text-xs font-bold flex-shrink-0 ${
+                              getStatusInfo(report.status).colorClasses
+                            }`}
+                          >
+                            {getStatusInfo(report.status).text}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#6b7280]">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />
+                            <span>
+                              {formatDateTime(report.created_at).replace(",", " às")}
+                            </span>
+                          </div>
+                          {report.protocol && (
+                            <span className="bg-[#e0e3e6] px-3 py-1 rounded-full font-mono text-[10px] font-semibold text-[#191c1e] tabular-nums">
+                              #{report.protocol}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {viewerMedia.length > 1 && (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-bold text-[#191c1e] flex items-center gap-1.5">
+                              <Image className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
+                              Galeria
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setMediaViewerState({ isOpen: true, startIndex: 0 })
+                              }
+                              className="text-xs font-semibold text-[#b61722] hover:underline"
+                            >
+                              Ver todas ({viewerMedia.length})
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                            {viewerMedia.slice(1, 8).map((m, idx) => (
+                              <button
+                                key={`${m.type}-${m.url}-${idx}`}
+                                type="button"
+                                onClick={() =>
+                                  setMediaViewerState({
+                                    isOpen: true,
+                                    startIndex: idx + 1,
+                                  })
+                                }
+                                className="relative aspect-square rounded-xl overflow-hidden bg-[#f2f4f7] hover:opacity-90 transition-opacity"
+                              >
+                                {m.type === "image" ? (
+                                  <img
+                                    src={m.url}
+                                    alt="Mídia da bronca"
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center">
+                                    <div className="w-9 h-9 rounded-full bg-black/40 border border-white/15 flex items-center justify-center">
+                                      <Play className="w-5 h-5 text-white" strokeWidth={1.5} />
+                                    </div>
+                                  </div>
+                                )}
+                                {idx === 6 && viewerMedia.length > 8 && (
+                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                    <span className="text-white text-sm font-bold">+{viewerMedia.length - 8}</span>
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     {/* description */}
                     {report.description && (
-                      <div className="bg-muted/40 border border-border rounded-xl px-4 py-3">
-                        <div className="flex items-center gap-2 text-xs font-bold text-foreground mb-2">
-                          <span className="inline-block w-1 h-4 rounded bg-primary" />
+                      <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
+                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b] mb-2">
+                          <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
                           Descrição
                         </div>
-                        <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-line">
+                        <p className="text-sm leading-relaxed text-[#191c1e] whitespace-pre-line">
                           {report.description}
                         </p>
                       </div>
                     )}
 
-                    {/* Map Section (Mobile Only) - Mapa com endereço integrado */}
-                    <div className="lg:hidden space-y-4">
-                      <div className="bg-background rounded-2xl border border-border overflow-hidden">
-                        <div className="p-4 border-b border-border">
-                          <h3 className="font-bold text-foreground flex items-center">
-                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
-                              <MapPin className="w-4 h-4" />
-                            </div>
-                            Localização
-                          </h3>
+                    {/* Map Section (Mobile Only) */}
+                    <div className="lg:hidden">
+                      <div className="bg-[#f2f4f7] rounded-2xl overflow-hidden">
+                        <div className="px-4 pt-4 pb-3 flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]">
+                            <MapPin className="w-4 h-4" strokeWidth={1.5} />
+                          </div>
+                          <h3 className="font-bold text-[#191c1e] text-sm">Localização</h3>
                         </div>
-                        <div className="h-48">
+                        <div className="h-48 mx-3 rounded-xl overflow-hidden">
                           <ReportMap
                             location={report.location}
                             address={report.address}
                           />
                         </div>
                         {report.address && (
-                          <div className="mt-2 flex items-start gap-2 px-4 pb-3">
-                            <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-sm font-semibold text-foreground leading-tight">
-                                {report.address}
-                              </p>
-                            </div>
+                          <div className="mt-3 flex items-start gap-2 px-4">
+                            <MapPin className="w-4 h-4 text-[#b61722] mt-0.5 shrink-0" strokeWidth={1.5} />
+                            <p className="text-sm font-medium text-[#191c1e] leading-tight">
+                              {report.address}
+                            </p>
                           </div>
                         )}
                         {report?.location?.lat && report?.location?.lng && (
-                          <div className="px-3 pb-3">
+                          <div className="px-3 py-3">
                             <button
                               onClick={handleNavigateToReport}
-                              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-semibold transition-colors active:scale-[0.98]"
+                              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white text-sm font-semibold transition-colors active:scale-[0.98]"
                             >
-                              <Navigation className="w-4 h-4" />
+                              <Navigation className="w-4 h-4" strokeWidth={1.5} />
                               Traçar Rota
                             </button>
                           </div>
@@ -1535,32 +1563,32 @@ const ReportPage = () => {
                     </div>
 
                     {/* details */}
-                    <div className="bg-muted/40 border border-border rounded-xl px-4 py-4 space-y-3">
-                      <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                        <span className="inline-block w-1 h-4 rounded bg-primary" />
+                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4 space-y-3">
+                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
+                        <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
                         Informações
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {[
                           {
-                            icon: <Calendar className="w-4 h-4 text-primary" />,
+                            icon: <Calendar className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
                             label: "Cadastrado",
                             value: formatDateTime(report.created_at).replace(",", " às"),
                           },
                           report.category === "buracos" && {
-                            icon: <Droplet className="w-4 h-4 text-primary" />,
+                            icon: <Droplet className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
                             label: `Abertura ${waterUtilityName || "COMPESA"}`,
                             value: isFromWaterUtility ? "Sim" : "Não",
                           },
                           report.category === "iluminacao" && {
-                            icon: <AlertCircle className="w-4 h-4 text-primary" />,
+                            icon: <AlertCircle className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
                             label: "Tipo",
                             value: report.issue_type
                               ? getLightingIssueTypeLabel(report.issue_type)
                               : "—",
                           },
                           report.category === "iluminacao" && {
-                            icon: <Hash className="w-4 h-4 text-primary" />,
+                            icon: <Hash className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
                             label: "Poste / plaqueta",
                             value:
                               formatPoleLabel(
@@ -1576,16 +1604,16 @@ const ReportPage = () => {
                           .map((item, i) => (
                             <div
                               key={i}
-                              className="flex items-center gap-3 bg-background px-3 py-2.5 rounded-xl border border-border"
+                              className="flex items-center gap-3 bg-white px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]"
                             >
-                              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <div className="w-8 h-8 rounded-lg bg-[#b61722]/10 flex items-center justify-center flex-shrink-0">
                                 {item.icon}
                               </div>
                               <div className="min-w-0">
-                                <div className="text-[11px] font-semibold text-muted-foreground leading-tight">
+                                <div className="text-[11px] font-semibold text-[#6b7280] leading-tight">
                                   {item.label}
                                 </div>
-                                <div className="text-xs text-foreground break-words leading-tight">
+                                <div className="text-xs text-[#191c1e] break-words leading-tight">
                                   {item.value}
                                 </div>
                               </div>
@@ -1596,25 +1624,25 @@ const ReportPage = () => {
 
                     {/* timeline */}
                     {report.timeline && report.timeline.length > 0 && (
-                      <div className="bg-muted/40 border border-border rounded-xl px-4 py-4">
-                        <div className="flex items-center gap-2 text-xs font-bold text-foreground mb-2">
-                          <span className="inline-block w-1 h-4 rounded bg-primary" />
+                      <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
+                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b] mb-3">
+                          <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
                           Atualizações
                         </div>
                         <div className="relative pl-4">
-                          <div className="absolute left-1 top-1 bottom-1 w-px bg-border" />
+                          <div className="absolute left-1 top-1 bottom-1 w-px bg-[#b61722]/20" />
                           <div className="space-y-4">
                             {report.timeline.map((item) => (
                               <div
                                 key={item.id}
                                 className="relative flex gap-3"
                               >
-                                <div className="mt-1 w-3 h-3 rounded-full bg-red-500 border-2 border-white shadow ring-2 ring-red-500" />
+                                <div className="mt-1 w-3 h-3 rounded-full bg-[#b61722] border-2 border-white shadow-sm ring-2 ring-[#b61722]/30" />
                                 <div>
-                                  <div className="text-[11px] text-muted-foreground">
+                                  <div className="text-[11px] text-[#6b7280]">
                                     {formatDateTime(item.date)}
                                   </div>
-                                  <div className="text-sm font-medium text-foreground leading-snug">
+                                  <div className="text-sm font-medium text-[#191c1e] leading-snug">
                                     {item.description}
                                   </div>
                                 </div>
@@ -1676,10 +1704,11 @@ const ReportPage = () => {
                             Vincular
                           </Button>
                         </div>
+                       
                         <button
                           type="button"
                           onClick={handleReportError}
-                          className="inline-flex items-center gap-2 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                          className="w-full inline-flex items-center justify-center gap-2 text-[11px] text-muted-foreground hover:text-primary transition-colors"
                         >
                           <Flag className="w-4 h-4" />
                           Sugerir correção
@@ -1687,40 +1716,36 @@ const ReportPage = () => {
                       </div>
                     )}
 
-                    {/* mobile upvote - Movido para baixo (menos prioritário) */}
-                    <div className="bg-background rounded-2xl border border-border px-4 py-4 shadow-sm lg:hidden">
-                      <div className="text-xs font-bold text-foreground mb-1 text-center">
+                    {/* mobile upvote */}
+                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4 lg:hidden">
+                      <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#6b7280] mb-1 text-center">
                         Apoios da comunidade
                       </div>
-                      <div className="text-3xl font-extrabold text-foreground text-center">
+                      <div className="text-3xl font-extrabold text-[#191c1e] tracking-[-0.02em] text-center">
                         {report.upvotes || 0}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1 mb-4 text-center">
+                      <div className="text-xs text-[#6b7280] mt-1 mb-4 text-center">
                         pessoas já apoiaram
                       </div>
                       <Button
-                        className="w-full justify-center gap-2 text-sm font-semibold bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                        className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-gradient-to-r from-[#b61722] to-[#da3437] hover:from-[#9f1520] hover:to-[#c22e30] text-white shadow-[0_12px_32px_-4px_rgba(182,23,34,0.25)]"
                         onClick={handleUpvoteClick}
                       >
                         <ThumbsUp
-                          className={`w-4 h-4 ${
-                            report.user_has_upvoted
-                              ? "fill-white text-white"
-                              : ""
-                          }`}
+                          className={`w-4 h-4 ${report.user_has_upvoted ? "fill-white" : ""}`}
+                          strokeWidth={1.5}
                         />
                         {report.user_has_upvoted ? "Apoiada" : "Apoiar"}
                       </Button>
                       <Button
-                        className="mt-2 w-full justify-center gap-2 text-sm font-semibold bg-muted hover:bg-muted/80 text-foreground"
+                        className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-white hover:bg-[#f2f4f7] text-[#191c1e] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
                         onClick={handleShare}
                       >
-                        <Share2 className="w-4 h-4" />
+                        <Share2 className="w-4 h-4" strokeWidth={1.5} />
                         Compartilhar
                       </Button>
                       <Button
-                        variant="outline"
-                        className="w-full mt-2 justify-center gap-2 text-sm text-muted-foreground hover:text-foreground border-border"
+                        className="w-full mt-2 justify-center gap-2 text-sm text-[#191c1e] rounded-full bg-white hover:bg-[#f2f4f7] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
                         onClick={() =>
                           handleFavoriteToggle(report.id, report.is_favorited)
                         }
@@ -1728,9 +1753,10 @@ const ReportPage = () => {
                         <Star
                           className={`w-4 h-4 ${
                             report.is_favorited
-                              ? "fill-yellow-400 text-yellow-400"
+                              ? "fill-amber-400 text-amber-400"
                               : ""
                           }`}
+                          strokeWidth={1.5}
                         />
                         {report.is_favorited ? "Favoritada" : "Favoritar"}
                       </Button>
@@ -1748,7 +1774,7 @@ const ReportPage = () => {
                     </div>
 
                     {/* ── SHARE SECTION ── */}
-                    <section className="mt-6">
+                    <section>
                       <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-r from-primary/10 via-rose-50 to-amber-50 dark:from-primary/20 dark:via-slate-900 dark:to-amber-900/40 p-6 sm:p-8 flex flex-col lg:flex-row items-center gap-6">
                         <div className="absolute inset-0 pointer-events-none opacity-40">
                           <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/25 rounded-full blur-3xl" />
@@ -1826,15 +1852,13 @@ const ReportPage = () => {
                     </section>
 
                     {/* comments */}
-                    <div className="bg-background border border-border rounded-xl px-4 py-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground">
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </div>
-                        <h2 className="text-sm font-semibold text-foreground">
+                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <MessageSquare className="w-4 h-4 text-[#9f3f3b]" strokeWidth={1.5} />
+                        <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
                           Comentários
                         </h2>
-                        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-muted text-muted-foreground border border-border">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-white font-semibold text-[#6b7280]">
                           {comments.length}
                         </span>
                       </div>
@@ -1845,34 +1869,28 @@ const ReportPage = () => {
                               key={comment.id}
                               className="flex items-start gap-3"
                             >
-                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground/70 flex-shrink-0">
-                                {(
-                                  comment.authorName ||
-                                  comment.author?.name ||
-                                  "?"
-                                )
+                              <div className="w-8 h-8 rounded-full bg-[#b61722]/10 flex items-center justify-center text-xs font-bold text-[#b61722] flex-shrink-0">
+                                {(comment.authorName || comment.author?.name || "?")
                                   .charAt(0)
                                   .toUpperCase()}
                               </div>
-                              <div className="flex-1 min-w-0 bg-background border border-border rounded-lg px-3 py-2">
+                              <div className="flex-1 min-w-0 bg-white rounded-xl px-3 py-2.5 shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
                                 <div className="flex items-center justify-between gap-2 mb-1">
-                                  <p className="text-xs font-semibold text-foreground truncate">
-                                    {comment.authorName ||
-                                      comment.author?.name ||
-                                      "Anônimo"}
+                                  <p className="text-xs font-semibold text-[#191c1e] truncate">
+                                    {comment.authorName || comment.author?.name || "Anônimo"}
                                   </p>
-                                  <p className="text-[10px] text-muted-foreground flex-shrink-0">
+                                  <p className="text-[10px] text-[#6b7280] flex-shrink-0">
                                     {formatDateTime(comment.created_at)}
                                   </p>
                                 </div>
-                                <p className="text-xs text-foreground/90 break-words">
+                                <p className="text-xs text-[#191c1e] break-words leading-relaxed">
                                   {comment.text}
                                 </p>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <p className="text-xs text-muted-foreground text-center py-4">
+                          <p className="text-xs text-[#6b7280] text-center py-4">
                             Ainda não há comentários.
                           </p>
                         )}
@@ -1887,28 +1905,28 @@ const ReportPage = () => {
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             placeholder="Adicione seu comentário..."
-                            className="flex-1 text-xs sm:text-sm bg-background px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            className="flex-1 text-xs sm:text-sm bg-white px-4 py-2.5 rounded-full focus:outline-none focus:ring-2 focus:ring-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]"
                           />
                           <Button
                             type="submit"
                             size="icon"
-                            className="flex-shrink-0"
+                            className="flex-shrink-0 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white"
                           >
-                            <Send className="w-3.5 h-3.5" />
+                            <Send className="w-3.5 h-3.5" strokeWidth={1.5} />
                           </Button>
                         </form>
                       ) : (
-                        <div className="mt-4 text-center px-4 py-3 bg-muted/40 border border-border rounded-lg text-xs text-muted-foreground">
+                        <div className="mt-4 text-center px-4 py-3 bg-white rounded-xl text-xs text-[#6b7280]">
                           <Link
                             to="/login"
-                            className="font-semibold text-primary hover:underline"
+                            className="font-semibold text-[#b61722] hover:underline"
                           >
                             Faça login
                           </Link>{" "}
                           ou{" "}
                           <Link
                             to="/cadastro"
-                            className="font-semibold text-primary hover:underline"
+                            className="font-semibold text-[#b61722] hover:underline"
                           >
                             cadastre-se
                           </Link>{" "}
@@ -1918,41 +1936,40 @@ const ReportPage = () => {
                     </div>
                   </div>
                 </div>
+                </div>
               </div>
 
               {/* ── SIDEBAR ── */}
               <aside className="space-y-4">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-6 text-center hidden lg:block">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-1">
+                <div className="bg-white rounded-2xl shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] px-5 py-6 text-center hidden lg:block">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#6b7280] mb-1">
                     Apoios
                   </div>
-                  <div className="text-4xl font-extrabold text-gray-900">
+                  <div className="text-4xl font-extrabold text-[#191c1e] tracking-[-0.02em]">
                     {report.upvotes || 0}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1 mb-4">
+                  <div className="text-xs text-[#6b7280] mt-1 mb-4">
                     pessoas apoiaram essa bronca
                   </div>
                   <Button
-                    className="w-full justify-center gap-2 text-sm font-semibold bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                    className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-gradient-to-r from-[#b61722] to-[#da3437] hover:from-[#9f1520] hover:to-[#c22e30] text-white shadow-[0_12px_32px_-4px_rgba(182,23,34,0.25)]"
                     onClick={handleUpvoteClick}
                   >
                     <ThumbsUp
-                      className={`w-4 h-4 ${
-                        report.user_has_upvoted ? "fill-white text-white" : ""
-                      }`}
+                      className={`w-4 h-4 ${report.user_has_upvoted ? "fill-white" : ""}`}
+                      strokeWidth={1.5}
                     />
                     {report.user_has_upvoted ? "Apoiada" : "Apoiar essa bronca"}
                   </Button>
                   <Button
-                    className="mt-2 w-full justify-center gap-2 text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#f2f4f7] hover:bg-[#e8eaed] text-[#191c1e]"
                     onClick={handleShare}
                   >
-                    <Share2 className="w-4 h-4" />
+                    <Share2 className="w-4 h-4" strokeWidth={1.5} />
                     Compartilhar bronca
                   </Button>
                   <Button
-                    variant="outline"
-                    className="w-full mt-2 justify-center gap-2 text-sm text-gray-600 hover:text-gray-900 border-gray-200"
+                    className="w-full mt-2 justify-center gap-2 text-sm text-[#191c1e] rounded-full bg-[#f2f4f7] hover:bg-[#e8eaed]"
                     onClick={() =>
                       handleFavoriteToggle(report.id, report.is_favorited)
                     }
@@ -1960,19 +1977,20 @@ const ReportPage = () => {
                     <Star
                       className={`w-4 h-4 ${
                         report.is_favorited
-                          ? "fill-yellow-400 text-yellow-400"
+                          ? "fill-amber-400 text-amber-400"
                           : ""
                       }`}
+                      strokeWidth={1.5}
                     />
                     {report.is_favorited ? "Favoritada" : "Favoritar"}
                   </Button>
                   {report.petitionId && (
                     <Button
                       asChild
-                      className="w-full mt-2 justify-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white"
+                      className="w-full mt-2 justify-center gap-2 text-sm rounded-full bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       <Link to={`/abaixo-assinado/${report.petitionId}`}>
-                        <FileSignature className="w-4 h-4" />
+                        <FileSignature className="w-4 h-4" strokeWidth={1.5} />
                         Ver abaixo-assinado ligado
                       </Link>
                     </Button>
@@ -1980,29 +1998,27 @@ const ReportPage = () => {
                 </div>
 
                 {/* Map Card (Desktop Only) */}
-                <div className="hidden lg:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-bold text-gray-900 flex items-center">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-red-50 to-orange-50 text-red-600 mr-3 shadow-sm border border-red-100/50">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      Localização
-                    </h3>
+                <div className="hidden lg:block bg-white rounded-2xl shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] overflow-hidden">
+                  <div className="px-4 pt-4 pb-3 flex items-center gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#f2f4f7] text-[#b61722]">
+                      <MapPin className="w-4 h-4" strokeWidth={1.5} />
+                    </div>
+                    <h3 className="font-bold text-[#191c1e] text-sm">Localização</h3>
                   </div>
-                  <div className="h-48">
+                  <div className="h-48 mx-3 rounded-xl overflow-hidden">
                     <ReportMap
                       location={report.location}
                       address={report.address}
                     />
                   </div>
-                  <div className="px-4 py-4 bg-slate-50 space-y-3">
+                  <div className="px-4 py-4 bg-[#f7f9fc] space-y-3">
                     <div className="flex items-start gap-3">
-                      <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                      <MapPin className="w-4 h-4 text-[#b61722] mt-0.5 shrink-0" strokeWidth={1.5} />
                       <div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                        <span className="text-[10px] font-bold text-[#6b7280] uppercase tracking-wider block">
                           Endereço
                         </span>
-                        <p className="text-sm font-medium text-slate-700 leading-tight">
+                        <p className="text-sm font-medium text-[#191c1e] leading-tight">
                           {report.address || "Não informado"}
                         </p>
                       </div>
@@ -2010,9 +2026,9 @@ const ReportPage = () => {
                     {report?.location?.lat && report?.location?.lng && (
                       <button
                         onClick={handleNavigateToReport}
-                        className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-semibold transition-colors"
+                        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white text-sm font-semibold transition-colors"
                       >
-                        <Navigation className="w-4 h-4" />
+                        <Navigation className="w-4 h-4" strokeWidth={1.5} />
                         Traçar Rota
                       </button>
                     )}

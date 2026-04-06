@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalhe da Bronca - Trombone Cidadão</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#006765",
+                        "on-secondary-fixed": "#410004",
+                        "inverse-primary": "#ffb3ad",
+                        "surface-variant": "#e0e3e6",
+                        "primary-fixed-dim": "#ffb3ad",
+                        "surface": "#f7f9fc",
+                        "primary-fixed": "#ffdad7",
+                        "tertiary-fixed": "#87f4f0",
+                        "tertiary-container": "#008280",
+                        "on-error-container": "#93000a",
+                        "on-surface": "#191c1e",
+                        "tertiary-fixed-dim": "#69d8d4",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#f3fffd",
+                        "on-secondary-container": "#762120",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#802826",
+                        "surface-container": "#eceef1",
+                        "on-error": "#ffffff",
+                        "outline-variant": "#e4beba",
+                        "secondary-fixed": "#ffdad7",
+                        "surface-dim": "#d8dadd",
+                        "on-tertiary-fixed-variant": "#00504e",
+                        "inverse-surface": "#2d3133",
+                        "on-background": "#191c1e",
+                        "primary": "#b61722",
+                        "on-tertiary-fixed": "#00201f",
+                        "background": "#f7f9fc",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-primary-fixed-variant": "#930013",
+                        "outline": "#8f6f6d",
+                        "secondary-fixed-dim": "#ffb3ad",
+                        "on-primary-fixed": "#410004",
+                        "on-primary-container": "#fffbff",
+                        "on-surface-variant": "#5b403e",
+                        "secondary": "#9f3f3b",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f7f9fc",
+                        "surface-tint": "#b91a24",
+                        "primary-container": "#da3437",
+                        "surface-container-low": "#f2f4f7",
+                        "surface-container-high": "#e6e8eb",
+                        "inverse-on-surface": "#eff1f4",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#ff8982"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .pulse-amber {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .4; }
+        }
+        ::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body text-on-surface pb-32">
+<!-- Sticky Top Bar -->
+<header class="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-sm dark:shadow-none flex items-center justify-between px-4 h-16">
+<div class="flex items-center gap-3">
+<button class="active:scale-95 transition-transform text-red-700">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline font-bold tracking-tight text-red-700 text-base truncate max-w-[180px]">Cratera na Avenida Paulista</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform text-slate-600">
+<span class="material-symbols-outlined" data-icon="star">star</span>
+</button>
+<button class="active:scale-95 transition-transform text-slate-600">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+</button>
+</div>
+</header>
+<!-- Content -->
+<main class="mt-16">
+<!-- Media Hero -->
+<section class="relative w-full h-[58vw] overflow-hidden">
+<img alt="Cratera na Avenida Paulista" class="w-full h-full object-cover" data-alt="Large, deep pothole in the middle of a busy asphalt urban avenue with traffic lines visible and city buildings in background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfJgSYW36rSSSflcbO4EzfWXgxMhu3xWZE_6Yx0IT5HQyWZsmTDwsYloPVAnCs37Na-p0JLNT8Lh7VtQHFek9JgVnyI8FRzufNzCi31ZV1cqg1kKw1_-ueoUFheE_wqNy9DzFSLsGRooxI3MLnDVkO2OBEi0_fXwd4kw5c5dn0OfXx-8Y9LMYC_4KfKLxZddqYsJaxFTQrK18JIWBKT4JMAxlNoqZTZ6OP64y4N8UEWoveouTUI1SdTcW0-tLx8r20drriiG2WSTM"/>
+<!-- Category & Status Pills -->
+<div class="absolute top-4 left-4 flex gap-2">
+<span class="bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-on-surface shadow-sm">
+                    Infraestrutura
+                </span>
+<span class="bg-amber-50 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-amber-700 flex items-center gap-1.5 shadow-sm border border-amber-100">
+<span class="w-2 h-2 bg-amber-500 rounded-full pulse-amber"></span>
+                    Pendente
+                </span>
+</div>
+</section>
+<!-- Main Info Card -->
+<section class="relative px-4 -mt-6">
+<div class="bg-surface-container-lowest rounded-[2rem] p-6 shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)]">
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-start">
+<h2 class="font-headline text-2xl font-extrabold tracking-tight text-on-surface leading-tight">
+                            Cratera na Avenida Paulista
+                        </h2>
+</div>
+<div class="flex items-center gap-4 mt-2">
+<div class="flex items-center gap-1 text-slate-500 text-xs">
+<span class="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
+                            06/04/2026
+                        </div>
+<div class="bg-surface-container-highest px-3 py-1 rounded-full font-mono text-[10px] font-semibold text-slate-600">
+                            Protocolo: 8823-X
+                        </div>
+</div>
+</div>
+<!-- Description Block -->
+<div class="mt-8 flex gap-4">
+<div class="w-1 bg-primary rounded-full"></div>
+<div>
+<span class="block font-label text-[10px] font-bold text-tertiary tracking-[0.15em] mb-1">DESCRIÇÃO</span>
+<p class="text-on-surface-variant leading-relaxed font-body">
+                            Buraco de grandes proporções na faixa central da Avenida Paulista, próximo ao número 1000. O asfalto cedeu completamente, criando um risco iminente de acidentes, especialmente para motociclistas e ciclistas no período noturno.
+                        </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Map Section -->
+<section class="px-4 mt-6">
+<div class="bg-surface-container-low rounded-3xl overflow-hidden p-1">
+<div class="h-48 w-full rounded-2xl overflow-hidden relative grayscale-[0.2] contrast-[1.1]">
+<img class="w-full h-full object-cover" data-alt="Modern minimalist city map interface showing a pinpoint in a dense urban grid of São Paulo" data-location="São Paulo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGB8cUdLu8GC0BrUMIEhYYm8HR0aOMkCy_Gu_0iHs9fVtT-eYAlFAheq5Q8BDiLAnVZDJbyCOsz_f8UfrLuiA2Kfl4wtwhj4q8hSQvcsSxiETRzjRLX59wnm7X6Gc9UWzqAQRhVfKOzWO0G2XIHeLn4qmT84GUeM-UUlFNJOJeyv5Fz_jaR9qKCYjtv0xcvSFmOdW7RDLDMbWMoOhQ66cXqXHPlGkvl810vsuzyKC_6fPugUqjM0gY9KQe2Lyjr0sCxTyKjaTbkSs"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="location_on" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+</div>
+<div class="p-4 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="map">map</span>
+<span class="text-sm font-medium text-on-surface truncate">Av. Paulista, 1000, São Paulo - SP</span>
+</div>
+<a class="text-primary text-sm font-bold flex items-center gap-1 hover:underline" href="#">
+                        Navegar
+                        <span class="material-symbols-outlined text-xs" data-icon="open_in_new">open_in_new</span>
+</a>
+</div>
+</div>
+</section>
+<!-- Action Bar -->
+<section class="mt-8 px-4 border-y border-outline-variant/10 py-6">
+<div class="flex justify-between items-center bg-surface-container-low rounded-full px-4 py-2">
+<button class="flex items-center gap-2 text-slate-600 py-2 active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="thumb_up">thumb_up</span>
+<span class="text-xs font-bold">42</span>
+</button>
+<button class="flex items-center gap-2 text-slate-600 py-2 active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="bookmark">bookmark</span>
+<span class="text-xs font-bold">Salvar</span>
+</button>
+<button class="flex items-center gap-2 text-slate-600 py-2 active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+<span class="text-xs font-bold">Enviar</span>
+</button>
+<button class="flex items-center gap-2 text-error py-2 active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="report">report</span>
+<span class="text-xs font-bold">Denunciar</span>
+</button>
+</div>
+</section>
+<!-- Comments Section -->
+<section class="mt-8 px-6 pb-12">
+<h3 class="font-headline font-extrabold text-lg text-on-surface mb-6 flex items-center gap-2">
+                Comentários
+                <span class="bg-surface-container-highest px-2 py-0.5 rounded-md text-xs font-mono">12</span>
+</h3>
+<div class="space-y-8">
+<!-- Comment Item -->
+<div class="flex gap-4">
+<img class="w-10 h-10 rounded-full object-cover shadow-sm" data-alt="Portrait of a smiling young man in a professional setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACMXlTdhy6IzboQP5EICRSuG6ED7ocKIT6h9cjZLum0eMK7jfwD6Q9wRU_E_WRJtijP3_rpfPA1y0Ubhsb4JhNJiq0lFtiRwk3B6AZ8ZRZJgXo8fTiF4SXp6-EFMiGQdftROabwduPyq1_aw9q0CUc8n19m-1tep0ZGmvDp8S3EBT2x_fugtrvc1HwrnHvel0Ck_rMFXIEzps_JoDGAzmBcQq9Hp7kyGNIyc_PmXa0RZGHECdQlFXRkUQBiKOwDWCT3uLx-XPFmWo"/>
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm">Ricardo Mendes</span>
+<span class="text-[10px] text-slate-400">há 2 horas</span>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                            Passei por lá hoje cedo e quase cai da moto. Um absurdo a prefeitura ainda não ter isolado a área corretamente.
+                        </p>
+</div>
+</div>
+<!-- Comment Item -->
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold">MC</div>
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm">Mariana Costa</span>
+<span class="text-[10px] text-slate-400">há 4 horas</span>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                            Já abri um chamado no 156 também, mas sem retorno até agora. Vamos cobrar!
+                        </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Share Options Row -->
+<section class="mt-4 px-6 border-t border-outline-variant/10 pt-8 pb-12">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 block text-center">Espalhe a bronca</span>
+<div class="flex justify-around items-center">
+<button class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+<div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+</div>
+<span class="text-[10px] font-bold">WhatsApp</span>
+</button>
+<button class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+<div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined" data-icon="link">link</span>
+</div>
+<span class="text-[10px] font-bold">Link</span>
+</button>
+<button class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+<div class="w-12 h-12 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined" data-icon="camera">camera</span>
+</div>
+<span class="text-[10px] font-bold">Story</span>
+</button>
+<button class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+<div class="w-12 h-12 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+</div>
+<span class="text-[10px] font-bold">Flyer</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Sticky Comment Input -->
+<div class="fixed bottom-0 left-0 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl px-4 pt-3 pb-6 border-t border-outline-variant/10 z-[60]">
+<div class="flex items-center gap-3 bg-surface-container rounded-full px-4 py-2 border border-outline-variant/20">
+<img class="w-8 h-8 rounded-full object-cover" data-alt="Close up portrait of a young woman with a friendly expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaQwM8O9fbC1eU2z8nEMNmPQNpy7UPM_qqJev3-NJeZMaJ_z0YwkFsPqK6PLrOD7LGm3gHSvtcCYxSA3mVqJrGtZdeRjrf49LiX-LfdpgbGR2w19UPF96mCXdgqAM9GmiJTWdvvtPRQv_QNrPUebVvCeE7_aco6IU1d87SB09htQf3QdErCDmpzljZmDpgOrQG2u_PEMhj6QpEwvolNPRqYkaBP_2l5eDXFbibYIjB5k6WMLJEIkGvjxHqRA_94zrKlqPpnwiuIYk"/>
+<input class="bg-transparent border-none focus:ring-0 text-sm flex-1 placeholder:text-slate-400" placeholder="Escreva um comentário..." type="text"/>
+<button class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-lg" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</body></html>
