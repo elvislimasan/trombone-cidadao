@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(sed \"s/'//g\")",
-      "Bash(grep -l \"comments\\\\|notifications\" /c/Users/lairt/Downloads/horizons-export-eff1a4c5-4884-43cf-92e9-e90f584b8f04/supabase/migrations/*.sql)"
-    ]
-  }
-}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback, useState } from "react";
+import React, { useEffect, useMemo, useCallback, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -7,7 +7,14 @@ import {
   useMap,
   Circle,
 } from "react-leaflet";
-import { ThumbsUp, Calendar, Layers, Grid3X3, ArrowLeft } from "lucide-react";
+import {
+  ThumbsUp,
+  Calendar,
+  Layers,
+  Grid3X3,
+  ArrowLeft,
+  Radar,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import L from "leaflet";
@@ -71,6 +78,36 @@ const createMarkerIcon = (category, status) => {
   return icon;
 };
 
+const userMarkerIcon = L.divIcon({
+  html: `
+    <div style="
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #2563eb;
+      border: 3px solid white;
+      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+    "></div>
+  `,
+  className: "user-leaflet-icon",
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+const toRad = (deg) => (deg * Math.PI) / 180;
+const distanceMeters = (a, b) => {
+  const R = 6371000;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const x =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  return R * c;
+};
+
 const ClusterZoomHandler = ({ clusterToZoom, onZoomComplete }) => {
   const map = useMap();
 
@@ -91,6 +128,14 @@ const ClusterZoomHandler = ({ clusterToZoom, onZoomComplete }) => {
   return null;
 };
 
+const MapInstanceBinder = ({ onReady }) => {
+  const map = useMap();
+  useEffect(() => {
+    onReady?.(map);
+  }, [map, onReady]);
+  return null;
+};
+
 const MapView = ({
   reports,
   onReportClick,
@@ -100,6 +145,10 @@ const MapView = ({
   interactive = true,
 }) => {
   const { mode } = useMapModeToggle();
+  const mapRef = useRef(null);
+  const hasCenteredRef = useRef(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [nearbyOnly, setNearbyOnly] = useState(true);
   const [clusterToZoom, setClusterToZoom] = useState(null);
   const [expandedCluster, setExpandedCluster] = useState(null);
 
@@ -121,6 +170,88 @@ const MapView = ({
     setClusterModeEnabled((prev) => !prev);
     setExpandedCluster(null);
   }, []);
+
+  const recenterToUser = useCallback(() => {
+    if (!interactive) return;
+    if (!navigator.geolocation) return;
+    const map = mapRef.current;
+
+    const go = (loc) => {
+      if (!map) return;
+      const nextZoom = Math.max(map.getZoom?.() || INITIAL_ZOOM, 17);
+      map.flyTo([loc.lat, loc.lng], nextZoom, { animate: true });
+    };
+
+    if (userLocation) {
+      go(userLocation);
+      return;
+    }
+
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const next = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          };
+          setUserLocation(next);
+          go(next);
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+      );
+    } catch {}
+  }, [interactive, userLocation]);
+
+  useEffect(() => {
+    if (!interactive) return;
+    if (!navigator.geolocation) return;
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          });
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+      );
+    } catch {}
+  }, [interactive]);
+
+  useEffect(() => {
+    if (!interactive) return;
+    if (!navigator.geolocation) return;
+    let watchId = null;
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          });
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+      );
+    } catch {}
+    return () => {
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [interactive]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!interactive || !map || !userLocation || hasCenteredRef.current) return;
+    hasCenteredRef.current = true;
+    try {
+      map.setView([userLocation.lat, userLocation.lng], 16, { animate: false });
+    } catch {}
+  }, [interactive, userLocation]);
 
   const formatDate = (dateString) => {
     if (!dateString || isNaN(new Date(dateString))) return "Data inválida";
@@ -146,9 +277,20 @@ const MapView = ({
     return null;
   };
 
-  const clusterSize = 0.003; // ~300-350m dependendo da latitude
-  const clustered = useMemo(() => {
+  const nearbyRadiusM = 2500;
+  const baseReports = useMemo(() => {
     const list = Array.isArray(reports) ? reports : [];
+    if (!nearbyOnly || !userLocation) return list;
+    return list.filter((r) => {
+      const loc = r.location;
+      if (!loc || typeof loc.lat !== "number" || typeof loc.lng !== "number") return false;
+      return distanceMeters(userLocation, loc) <= nearbyRadiusM;
+    });
+  }, [nearbyOnly, reports, userLocation]);
+
+  const clusterSize = 0.003;
+  const clustered = useMemo(() => {
+    const list = Array.isArray(baseReports) ? baseReports : [];
     // Only cluster if clusterModeEnabled is true
     if (!clusterModeEnabled) return null;
     const buckets = new Map();
@@ -181,7 +323,7 @@ const MapView = ({
       }
     }
     return clusters;
-  }, [reports, clusterModeEnabled]);
+  }, [baseReports, clusterModeEnabled]);
 
   const createClusterIcon = (count) => {
     const size = count >= 50 ? 46 : count >= 10 ? 42 : 38;
@@ -228,11 +370,35 @@ const MapView = ({
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          <MapInstanceBinder
+            onReady={(map) => {
+              mapRef.current = map;
+            }}
+          />
           <MapScrollLock />
           <ClusterZoomHandler
             clusterToZoom={clusterToZoom}
             onZoomComplete={handleZoomComplete}
           />
+          {userLocation && (
+            <>
+              <Circle
+                center={[userLocation.lat, userLocation.lng]}
+                radius={Math.max(40, Math.min(250, Number(userLocation.accuracy || 0)))}
+                pathOptions={{
+                  color: "#2563eb",
+                  fillColor: "#2563eb",
+                  fillOpacity: 0.12,
+                  weight: 2,
+                  opacity: 0.6,
+                }}
+              />
+              <Marker
+                position={[userLocation.lat, userLocation.lng]}
+                icon={userMarkerIcon}
+              />
+            </>
+          )}
           {expandedCluster &&
             expandedCluster.count > 1 &&
             (() => {
@@ -335,7 +501,7 @@ const MapView = ({
                 </Marker>
               );
             })}
-          {(clustered ? clustered : reports).map((item) => {
+          {(clustered ? clustered : baseReports).map((item) => {
             const isCluster = !!item.items;
             const isThisClusterExpanded =
               expandedCluster &&
@@ -470,6 +636,19 @@ const MapView = ({
         {showModeToggle && (
           <div className="absolute bottom-3 right-3 z-[800]">
             <div className="flex items-center overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+              <Toggle
+                pressed={nearbyOnly}
+                onPressedChange={(v) => setNearbyOnly(Boolean(v))}
+                className="bg-transparent shadow-none border-0 rounded-none px-3 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                title={
+                  nearbyOnly
+                    ? `Mostrando broncas próximas (${baseReports.length})`
+                    : "Mostrar broncas próximas"
+                }
+              >
+                <Radar className="w-4 h-4" />
+              </Toggle>
+              <div className="w-px self-stretch bg-border" />
               {expandedCluster && clusterModeEnabled && (
                 <>
                   <button
