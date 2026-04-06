@@ -7,7 +7,7 @@ import {
   useMap,
   Circle,
 } from "react-leaflet";
-import { ThumbsUp, Calendar, Layers, Grid3X3 } from "lucide-react";
+import { ThumbsUp, Calendar, Layers, Grid3X3, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import L from "leaflet";
@@ -467,44 +467,48 @@ const MapView = ({
             );
           })}
         </MapContainer>
-        {expandedCluster && clusterModeEnabled && (
-          <div className="absolute top-2 left-2 z-[800]">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="shadow-lg h-7 px-2 py-0 text-xs gap-1"
-              onClick={handleCloseExpanded}
-            >
-              ← <span className="hidden sm:inline">Voltar ao agrupamento</span>
-              <span className="sm:hidden">Agrupar</span>
-            </Button>
-          </div>
-        )}
         {showModeToggle && (
-          <div className="absolute top-4 right-4 z-[800] flex gap-2 items-center">
-            <MapModeToggle />
-            <Toggle
-              pressed={clusterModeEnabled}
-              onPressedChange={toggleClusterMode}
-              className="bg-white/95 backdrop-blur-sm shadow-lg border border-border px-3 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-              title={
-                clusterModeEnabled
-                  ? "Ver broncas individuais"
-                  : "Ver agrupamentos"
-              }
-            >
-              {clusterModeEnabled ? (
+          <div className="absolute bottom-3 right-3 z-[800]">
+            <div className="flex items-center overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+              {expandedCluster && clusterModeEnabled && (
                 <>
-                  <Grid3X3 className="w-4 h-4 " />{" "}
-                  <span className="text-xs font-medium"></span>
-                </>
-              ) : (
-                <>
-                  <Layers className="w-4 h-4" />{" "}
-                  <span className="text-xs font-medium"></span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCloseExpanded();
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className="px-3 py-2 inline-flex items-center gap-2 text-xs font-semibold text-foreground hover:bg-muted/60 transition-colors"
+                    title="Voltar ao agrupamento"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span className="hidden sm:inline">Agrupar</span>
+                  </button>
+                  <div className="w-px self-stretch bg-border" />
                 </>
               )}
-            </Toggle>
+              <MapModeToggle className="bg-transparent shadow-none border-0 rounded-none" />
+              <div className="w-px self-stretch bg-border" />
+              <Toggle
+                pressed={clusterModeEnabled}
+                onPressedChange={toggleClusterMode}
+                className="bg-transparent shadow-none border-0 rounded-none px-3 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                title={
+                  clusterModeEnabled
+                    ? "Ver broncas individuais"
+                    : "Ver agrupamentos"
+                }
+              >
+                {clusterModeEnabled ? (
+                  <Grid3X3 className="w-4 h-4" />
+                ) : (
+                  <Layers className="w-4 h-4" />
+                )}
+              </Toggle>
+            </div>
           </div>
         )}
         {showLegend && (

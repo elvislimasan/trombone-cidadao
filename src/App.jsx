@@ -61,6 +61,8 @@ import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
 import HomePageImproved from './pages/HomePage-improved';
+import MapPage from './pages/MapPage';
+import HomeRouter from './pages/HomeRouter';
 import NotFoundPage from '@/pages/NotFoundPage';
 import SearchPage from '@/pages/SearchPage';
 import MobileHeader from '@/components/MobileHeader';
@@ -562,7 +564,9 @@ function AppShell() {
             <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
             <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
             
-            <Route path="/" element={<HomePageImproved />} />
+            <Route path="/" element={<HomeRouter />} />
+            <Route path="/mapa" element={<MapPage />} />
+            <Route path="/home-legado" element={<HomePageImproved />} />
             <Route path="/buscar" element={<SearchPage />} />
             <Route path="/broncas" element={<HomePage />} />
             <Route path="/bronca/:reportId" element={<ReportPage />} />
