@@ -1341,7 +1341,7 @@ const ReportPage = () => {
                 )}
                 <div className="bg-white shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] rounded-2xl overflow-hidden">
                   <div className="relative overflow-hidden">
-                    <div className="w-full max-w-full h-[52vw] sm:h-64 lg:h-80 bg-slate-900 relative overflow-hidden">
+                    <div className="w-full max-w-full h-[64vw] sm:h-64 lg:h-80 bg-slate-900 relative overflow-hidden">
                       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
                       {hasMedia ? (
                         <button
@@ -1400,7 +1400,7 @@ const ReportPage = () => {
                           {getStatusInfo(report.status).text}
                         </span>
                       </div>
-                      <div className="absolute left-4 right-4 bottom-4 flex flex-wrap items-center gap-3 pointer-events-none">
+                      {/* <div className="absolute left-4 right-4 bottom-4 flex flex-wrap items-center gap-3 pointer-events-none">
                         {hasMedia && viewerMedia.length > 1 && (
                           <button
                             type="button"
@@ -1422,7 +1422,7 @@ const ReportPage = () => {
                             </span>
                           </button>
                         )}
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 
@@ -1519,7 +1519,7 @@ const ReportPage = () => {
                           <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
                           Descrição
                         </div>
-                        <p className="text-sm leading-relaxed text-[#191c1e] whitespace-pre-line">
+                        <p className="text-sm leading-relaxed text-[#191c1e] whitespace-pre-line break-words [overflow-wrap:anywhere]">
                           {report.description}
                         </p>
                       </div>
@@ -1763,7 +1763,7 @@ const ReportPage = () => {
                       {report.petitionId && (
                         <Button
                           asChild
-                          className="w-full mt-2 justify-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white"
+                          className="w-full mt-2 justify-center gap-2 text-sm bg-muted text-black "
                         >
                           <Link to={`/abaixo-assinado/${report.petitionId}`}>
                             <FileSignature className="w-4 h-4" />
@@ -1987,7 +1987,7 @@ const ReportPage = () => {
                   {report.petitionId && (
                     <Button
                       asChild
-                      className="w-full mt-2 justify-center gap-2 text-sm rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+                      className="w-full mt-2 justify-center gap-2 text-sm rounded-full bg-muted text-black"
                     >
                       <Link to={`/abaixo-assinado/${report.petitionId}`}>
                         <FileSignature className="w-4 h-4" strokeWidth={1.5} />

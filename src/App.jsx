@@ -60,6 +60,7 @@ import { VideoProcessor } from '@/plugins/VideoProcessor';
 import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
+import NativeUpdateNotice from '@/components/NativeUpdateNotice';
 import HomePageImproved from './pages/HomePage-improved';
 import MapPage from './pages/MapPage';
 import HomeRouter from './pages/HomeRouter';
@@ -548,7 +549,7 @@ function AppShell() {
           {isNative && isInteractive && <MobileHeader />}
           {!isNative && <AppDownloadBanner />}
           <main
-            className="flex-grow pb-20 lg:pb-0"
+            className="flex-grow pb-20 lg:pb-0 flex flex-col min-h-0"
             style={{
               paddingTop: (isNative && isInteractive)
                 ? 'calc(4rem + max(env(safe-area-inset-top), 0px))'
@@ -558,65 +559,68 @@ function AppShell() {
                 : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
             }}
           >
-            <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/cadastro" element={<RegisterPage />} />
-            <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
-            <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
-            
-            <Route path="/" element={<HomeRouter />} />
-            <Route path="/mapa" element={<MapPage />} />
-            <Route path="/home-legado" element={<HomePageImproved />} />
-            <Route path="/buscar" element={<SearchPage />} />
-            <Route path="/broncas" element={<HomePage />} />
-            <Route path="/bronca/:reportId" element={<ReportPage />} />
-          <Route path="/abaixo-assinados" element={<PetitionsOverviewPage />} />
-          <Route path="/abaixo-assinado/:id" element={<PetitionPage />} />
-          <Route path="/abaixo-assinado-moderno/:id" element={<PetitionPageModern />} />
-            <Route path="/sobre" element={<AboutPage />} />
-            <Route path="/estatisticas" element={<StatsPage />} />
-            <Route path="/obras-publicas" element={<PublicWorksPage />} />
-            <Route path="/obras-publicas/:workId" element={<WorkDetailsPageProject />} />
-            <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
-            <Route path="/servicos" element={<ServicesPage />} />
-            <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />
-            <Route path="/servicos/ponto-turistico/:id" element={<TouristSpotDetailsPage />} />
-            <Route path="/noticias" element={<NewsPage />} />
-            <Route path="/noticias/:newsId" element={<NewsDetailsPage />} />
-            <Route path="/contato" element={<ContactPage />} />
-
-            <Route path="/perfil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-            <Route path="/perfil/preferencias" element={<PrivateRoute><NativePreferencesPage /></PrivateRoute>} />
-            <Route path="/minhas-peticoes" element={<PrivateRoute><MyPetitionsPage /></PrivateRoute>} />
-            <Route path="/favoritos" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
-            <Route path="/obras-favoritas" element={<PrivateRoute><FavoriteWorksPage /></PrivateRoute>} />
-            <Route path="/painel-usuario" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
-            <Route path="/alterar-senha" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
-            <Route path="/excluir-conta" element={<PrivateRoute><DeleteAccountPage /></PrivateRoute>} />
-            
-            <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
-            <Route path="/admin/moderacao/:type" element={<AdminRoute><ModerationPage /></AdminRoute>} />
-            <Route path="/admin/usuarios" element={<AdminRoute><ManageUsersPage /></AdminRoute>} />
-            <Route path="/admin/servicos" element={<AdminRoute><ManageServicesPage /></AdminRoute>} />
-            <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
-            <Route path="/admin/obras" element={<AdminRoute><ManageWorksPage /></AdminRoute>} />
-            <Route path="/admin/obras/opcoes" element={<AdminRoute><ManageWorkOptionsPage /></AdminRoute>} />
-            <Route path="/admin/pavimentacao" element={<AdminRoute><ManagePavementPage /></AdminRoute>} />
-            <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
-            <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
-            <Route path="/admin/reports" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
-            <Route path="/admin/broncas" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
-            <Route path="/admin/petitions" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
-            <Route path="/admin/assinaturas" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
-            <Route path="/admin/signatures" element={<Navigate to="/admin/petitions" replace />} />
-            <Route path="/admin/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
-            <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
-            <Route path="/settings/notifications" element={<NotificationPreferences />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+            <div className="flex-1 min-h-0 flex flex-col">
+              <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/cadastro" element={<RegisterPage />} />
+              <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
+              <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
+              
+              <Route path="/" element={<HomeRouter />} />
+              <Route path="/mapa" element={<MapPage />} />
+              <Route path="/home-legado" element={<HomePageImproved />} />
+              <Route path="/buscar" element={<SearchPage />} />
+              <Route path="/broncas" element={<HomePage />} />
+              <Route path="/bronca/:reportId" element={<ReportPage />} />
+            <Route path="/abaixo-assinados" element={<PetitionsOverviewPage />} />
+            <Route path="/abaixo-assinado/:id" element={<PetitionPage />} />
+            <Route path="/abaixo-assinado-moderno/:id" element={<PetitionPageModern />} />
+              <Route path="/sobre" element={<AboutPage />} />
+              <Route path="/estatisticas" element={<StatsPage />} />
+              <Route path="/obras-publicas" element={<PublicWorksPage />} />
+              <Route path="/obras-publicas/:workId" element={<WorkDetailsPageProject />} />
+              <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
+              <Route path="/servicos" element={<ServicesPage />} />
+              <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />
+              <Route path="/servicos/ponto-turistico/:id" element={<TouristSpotDetailsPage />} />
+              <Route path="/noticias" element={<NewsPage />} />
+              <Route path="/noticias/:newsId" element={<NewsDetailsPage />} />
+              <Route path="/contato" element={<ContactPage />} />
+  
+              <Route path="/perfil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+              <Route path="/perfil/preferencias" element={<PrivateRoute><NativePreferencesPage /></PrivateRoute>} />
+              <Route path="/minhas-peticoes" element={<PrivateRoute><MyPetitionsPage /></PrivateRoute>} />
+              <Route path="/favoritos" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
+              <Route path="/obras-favoritas" element={<PrivateRoute><FavoriteWorksPage /></PrivateRoute>} />
+              <Route path="/painel-usuario" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
+              <Route path="/alterar-senha" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
+              <Route path="/excluir-conta" element={<PrivateRoute><DeleteAccountPage /></PrivateRoute>} />
+              
+              <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+              <Route path="/admin/moderacao/:type" element={<AdminRoute><ModerationPage /></AdminRoute>} />
+              <Route path="/admin/usuarios" element={<AdminRoute><ManageUsersPage /></AdminRoute>} />
+              <Route path="/admin/servicos" element={<AdminRoute><ManageServicesPage /></AdminRoute>} />
+              <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
+              <Route path="/admin/obras" element={<AdminRoute><ManageWorksPage /></AdminRoute>} />
+              <Route path="/admin/obras/opcoes" element={<AdminRoute><ManageWorkOptionsPage /></AdminRoute>} />
+              <Route path="/admin/pavimentacao" element={<AdminRoute><ManagePavementPage /></AdminRoute>} />
+              <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
+              <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
+              <Route path="/admin/reports" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
+              <Route path="/admin/broncas" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
+              <Route path="/admin/petitions" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
+              <Route path="/admin/assinaturas" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
+              <Route path="/admin/signatures" element={<Navigate to="/admin/petitions" replace />} />
+              <Route path="/admin/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
+              <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
+              <Route path="/settings/notifications" element={<NotificationPreferences />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+            </div>
           </main>
           {(!isNative || !isInteractive) && <Footer />}
           <BottomNav />
+          <NativeUpdateNotice />
           <Toaster />
           <SonnerToast position="top-right" richColors />
           <WebUploadIndicator />

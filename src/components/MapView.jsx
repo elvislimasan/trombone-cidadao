@@ -118,6 +118,15 @@ const MapInstanceBinder = ({ onReady }) => {
   const map = useMap();
   useEffect(() => {
     onReady?.(map);
+    try {
+      const t0 = setTimeout(() => map.invalidateSize?.(), 0);
+      const t1 = setTimeout(() => map.invalidateSize?.(), 250);
+      map.whenReady?.(() => map.invalidateSize?.());
+      return () => {
+        clearTimeout(t0);
+        clearTimeout(t1);
+      };
+    } catch {}
   }, [map, onReady]);
   return null;
 };
@@ -329,8 +338,8 @@ const MapView = ({
   };
 
   return (
-    <div className="relative w-full h-full bg-background rounded-xl overflow-hidden flex flex-col">
-      <div className="relative flex-1">
+    <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
+      <div className="absolute inset-0">
         <MapContainer
           center={FLORESTA_COORDS}
           zoom={INITIAL_ZOOM}
@@ -338,7 +347,8 @@ const MapView = ({
           dragging={interactive}
           doubleClickZoom={interactive}
           zoomControl={interactive}
-          className="w-full h-full"
+          className="absolute inset-0"
+          style={{ height: "100%", width: "100%" }}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -609,7 +619,7 @@ const MapView = ({
         </MapContainer>
         {showModeToggle && (
           <div className="absolute bottom-3 right-3 z-[800]">
-            <div className="flex items-center overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+            <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
               <button
                 type="button"
                 onClick={(e) => {
@@ -619,12 +629,12 @@ const MapView = ({
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
-                className="px-3 py-2 inline-flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
+                className="w-10 h-10 inline-flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
                 title="Voltar para minha posição"
               >
                 <LocateFixed className="w-4 h-4" />
               </button>
-              <div className="w-px self-stretch bg-border" />
+              <div className="h-px w-full bg-border" />
               {expandedCluster && clusterModeEnabled && (
                 <>
                   <button
@@ -636,21 +646,20 @@ const MapView = ({
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
-                    className="px-3 py-2 inline-flex items-center gap-2 text-xs font-semibold text-foreground hover:bg-muted/60 transition-colors"
+                    className="w-10 h-10 inline-flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
                     title="Voltar ao agrupamento"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    <span className="hidden sm:inline">Agrupar</span>
                   </button>
-                  <div className="w-px self-stretch bg-border" />
+                  <div className="h-px w-full bg-border" />
                 </>
               )}
-              <MapModeToggle className="bg-transparent shadow-none border-0 rounded-none" />
-              <div className="w-px self-stretch bg-border" />
+              <MapModeToggle className="w-10 h-10 p-0 bg-transparent shadow-none border-0 rounded-none hover:bg-muted/60" />
+              <div className="h-px w-full bg-border" />
               <Toggle
                 pressed={clusterModeEnabled}
                 onPressedChange={toggleClusterMode}
-                className="bg-transparent shadow-none border-0 rounded-none px-3 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                className="w-10 h-10 p-0 bg-transparent shadow-none border-0 rounded-none data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                 title={
                   clusterModeEnabled
                     ? "Ver broncas individuais"

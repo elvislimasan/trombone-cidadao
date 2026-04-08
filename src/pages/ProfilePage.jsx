@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { User, Briefcase, Edit, LogOut, Award, ThumbsUp, MessageSquare, FileText, KeyRound, Shield } from 'lucide-react';
+import { User, Briefcase, Edit, LogOut, Award, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Megaphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import EditProfileModal from '@/components/EditProfileModal';
@@ -84,7 +84,7 @@ const ProfilePage = () => {
   const getAvatarComponent = (profile) => {
     if (!profile) return <Avatar className="w-full h-full" />;
 
-    if (profile.avatar_type === 'url' && profile.avatar_url) {
+    if ((profile.avatar_type === 'url' || profile.avatar_type === 'upload') && profile.avatar_url) {
       return <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />;
     }
     
@@ -214,6 +214,12 @@ const ProfilePage = () => {
                   <Button variant="default" className="w-full gap-2 bg-tc-red hover:bg-tc-red/90">
                     <FileText className="w-4 h-4" />
                     Minhas Petições
+                  </Button>
+                </Link>
+                <Link to="/painel-usuario?tab=reports" className="w-full block">
+                  <Button variant="outline" className="w-full gap-2">
+                    <Megaphone className="w-4 h-4" />
+                    Minhas Broncas
                   </Button>
                 </Link>
                 {Capacitor.isNativePlatform() && (

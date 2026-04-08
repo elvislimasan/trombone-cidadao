@@ -111,6 +111,13 @@ const SiteSettingsPage = () => {
     phone: '(87) 99948-8360',
   });
   const [promoModalSettings, setPromoModalSettings] = useState(defaultPromoModalSettings);
+  const [appUpdateSettings, setAppUpdateSettings] = useState({
+    enabled: true,
+    latest_android_version_code: null,
+    min_android_version_code: null,
+    android_application_id: 'com.trombonecidadao.app',
+    play_store_url: '',
+  });
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
   const promoImageInputRef = React.useRef(null);
@@ -254,6 +261,19 @@ const SiteSettingsPage = () => {
       }));
     }
 
+    const { data: appData, error: appError } = await supabase
+      .from('site_config')
+      .select('app_update_settings')
+      .eq('id', 1)
+      .single();
+
+    if (!appError && appData?.app_update_settings) {
+      setAppUpdateSettings((prev) => ({
+        ...prev,
+        ...appData.app_update_settings,
+      }));
+    }
+
     setLoading(false);
   }, [toast]);
 
@@ -317,6 +337,15 @@ const SiteSettingsPage = () => {
 
     if (promoError && promoError.code !== 'PGRST204' && promoError.code !== '42703') {
       console.warn('Aviso: Não foi possível salvar promo_modal_settings:', promoError.message);
+    }
+
+    const { error: appError } = await supabase
+      .from('site_config')
+      .update({ app_update_settings: appUpdateSettings })
+      .eq('id', 1);
+
+    if (appError && appError.code !== 'PGRST204' && appError.code !== '42703') {
+      console.warn('Aviso: Não foi possível salvar app_update_settings:', appError.message);
     }
 
     toast({
@@ -433,6 +462,89 @@ const SiteSettingsPage = () => {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><LucideIcons.Smartphone /> Atualização do App</CardTitle>
+                <CardDescription>Exibe um aviso no app nativo quando houver uma versão mais recente na Play Store.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="app-update-enabled"
+                    checked={appUpdateSettings.enabled !== false}
+                    onCheckedChange={(v) => setAppUpdateSettings((prev) => ({ ...prev, enabled: Boolean(v) }))}
+                  />
+                  <Label htmlFor="app-update-enabled">Ativar aviso de atualização</Label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="latest-android-version-code">Última versão (Android versionCode)</Label>
+                    <Input
+                      id="latest-android-version-code"
+                      inputMode="numeric"
+                      value={appUpdateSettings.latest_android_version_code ?? ''}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        const n = raw === '' ? null : Number(raw);
+                        setAppUpdateSettings((prev) => ({
+                          ...prev,
+                          latest_android_version_code: Number.isFinite(n) ? n : prev.latest_android_version_code,
+                        }));
+                        if (raw === '') {
+                          setAppUpdateSettings((prev) => ({ ...prev, latest_android_version_code: null }));
+                        }
+                      }}
+                      placeholder="Ex: 11"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="min-android-version-code">Versão mínima (forçar update)</Label>
+                    <Input
+                      id="min-android-version-code"
+                      inputMode="numeric"
+                      value={appUpdateSettings.min_android_version_code ?? ''}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        const n = raw === '' ? null : Number(raw);
+                        setAppUpdateSettings((prev) => ({
+                          ...prev,
+                          min_android_version_code: Number.isFinite(n) ? n : prev.min_android_version_code,
+                        }));
+                        if (raw === '') {
+                          setAppUpdateSettings((prev) => ({ ...prev, min_android_version_code: null }));
+                        }
+                      }}
+                      placeholder="Ex: 10"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="android-application-id">Android applicationId</Label>
+                    <Input
+                      id="android-application-id"
+                      value={appUpdateSettings.android_application_id || ''}
+                      onChange={(e) => setAppUpdateSettings((prev) => ({ ...prev, android_application_id: e.target.value }))}
+                      placeholder="com.trombonecidadao.app"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="play-store-url">URL da Play Store (opcional)</Label>
+                    <Input
+                      id="play-store-url"
+                      value={appUpdateSettings.play_store_url || ''}
+                      onChange={(e) => setAppUpdateSettings((prev) => ({ ...prev, play_store_url: e.target.value }))}
+                      placeholder="https://play.google.com/store/apps/details?id=..."
+                    />
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -25,12 +25,6 @@ const CATEGORIES = [
   { id: 'outros',             label: '📍 Outros' },
 ];
 
-// Altura total da tela menos header(4rem) + bottomnav(4.5rem) + buffer(0.5rem)
-const MAP_HEIGHT_STYLE = {
-  height: 'calc(100vh - 9.5rem)',
-  minHeight: '400px',
-};
-
 // ─── Chip ────────────────────────────────────────────────────────────────────
 
 const Chip = ({ active, onClick, children }) => (
@@ -131,7 +125,7 @@ export default function MapPage() {
   );
 
   return (
-    <div className="flex flex-col bg-background" style={MAP_HEIGHT_STYLE}>
+    <div className="flex flex-col bg-background flex-1 min-h-0 overflow-hidden">
 
       {/* ── Row 1: Status chips ── */}
       <div className="flex-shrink-0 bg-background border-b border-border">
@@ -161,7 +155,7 @@ export default function MapPage() {
       </div>
 
       {/* ── Map area ── */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 min-h-0 relative overflow-hidden">
 
         {/* ── Row 2: Category chips flutuantes sobre o mapa ── */}
         <div className="absolute top-2 left-0 right-0 z-[700] px-3">
@@ -183,7 +177,7 @@ export default function MapPage() {
 
         {loading && <MapLoader />}
         <Suspense fallback={<MapLoader />}>
-          <div className="w-full h-full">
+          <div className="absolute inset-0">
             <MapView
               reports={reports}
               onReportClick={handleReportClick}
