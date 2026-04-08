@@ -86,6 +86,7 @@ export default function FeedPage() {
   const [newCount, setNewCount] = useState(0);
   const [recentCreatedId, setRecentCreatedId] = useState(null);
   const recentCreatedTimerRef = useRef(null);
+  const preloadedImagesRef = useRef(new Set());
   const [submittedCount, setSubmittedCount] = useState(() => {
     try {
       return readInt(localStorage.getItem(STORAGE_KEYS.reportsSubmitted), 0);
@@ -159,6 +160,21 @@ export default function FeedPage() {
       if (recentCreatedTimerRef.current) clearTimeout(recentCreatedTimerRef.current);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    const urls = (reports || [])
+      .map((r) => r?.coverImage)
+      .filter(Boolean)
+      .slice(0, 6);
+
+    for (const url of urls) {
+      if (preloadedImagesRef.current.has(url)) continue;
+      preloadedImagesRef.current.add(url);
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = url;
+    }
+  }, [reports]);
 
   const handleTabChange = useCallback((tabKey) => {
     setActiveTab(tabKey);
@@ -420,12 +436,13 @@ export default function FeedPage() {
           />
         ) : (
           <div className="space-y-4">
-            {reports.map((report) => (
+            {reports.map((report, index) => (
               <FeedCard
                 key={report.id}
                 report={report}
                 onToggleUpvote={toggleUpvote}
                 isNew={report.id === recentCreatedId}
+                index={index}
               />
             ))}
 

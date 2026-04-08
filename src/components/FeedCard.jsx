@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Repeat } from 'lucide-react';
+import { MapPin, Play, Repeat } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -9,6 +9,136 @@ import TimeAgo from '@/components/TimeAgo';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+
+const videoThumbCache = new Map();
+const videoThumbPending = new Map();
+
+const trimVideoThumbCache = (max = 40) => {
+  while (videoThumbCache.size > max) {
+    const firstKey = videoThumbCache.keys().next().value;
+    const url = videoThumbCache.get(firstKey);
+    videoThumbCache.delete(firstKey);
+    if (typeof url === 'string' && url.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    }
+  }
+};
+
+const waitForEvent = (el, event, timeoutMs = 8000) =>
+  new Promise((resolve, reject) => {
+    const t = setTimeout(() => {
+      cleanup();
+      reject(new Error(`timeout:${event}`));
+    }, timeoutMs);
+    const onOk = () => {
+      cleanup();
+      resolve();
+    };
+    const onErr = () => {
+      cleanup();
+      reject(new Error(`error:${event}`));
+    };
+    const cleanup = () => {
+      clearTimeout(t);
+      el.removeEventListener(event, onOk);
+      el.removeEventListener('error', onErr);
+    };
+    el.addEventListener(event, onOk, { once: true });
+    el.addEventListener('error', onErr, { once: true });
+  });
+
+const getVideoThumbnailUrl = async (videoUrl) => {
+  if (!videoUrl) return null;
+  if (videoThumbCache.has(videoUrl)) return videoThumbCache.get(videoUrl);
+  if (videoThumbPending.has(videoUrl)) return videoThumbPending.get(videoUrl);
+
+  const p = (async () => {
+    const video = document.createElement('video');
+    const host = document.createElement('div');
+    host.style.position = 'fixed';
+    host.style.left = '-99999px';
+    host.style.top = '0';
+    host.style.width = '1px';
+    host.style.height = '1px';
+    host.style.overflow = 'hidden';
+    host.appendChild(video);
+    document.body.appendChild(host);
+
+    try {
+      video.crossOrigin = 'anonymous';
+      video.muted = true;
+      video.setAttribute('muted', '');
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.preload = 'metadata';
+      video.src = videoUrl;
+      try {
+        video.load?.();
+      } catch {}
+
+      await waitForEvent(video, 'loadedmetadata', 8000);
+      try {
+        await waitForEvent(video, 'loadeddata', 8000);
+      } catch {}
+
+      const seekTo = Math.min(
+        0.2,
+        Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.05) : 0.2
+      );
+      try {
+        video.currentTime = seekTo;
+      } catch {}
+      await Promise.race([waitForEvent(video, 'seeked', 8000), waitForEvent(video, 'timeupdate', 8000)]);
+
+      const w = Math.max(1, video.videoWidth || 0);
+      const h = Math.max(1, video.videoHeight || 0);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      try {
+        ctx.drawImage(video, 0, 0, w, h);
+      } catch (e) {
+        throw e;
+      }
+
+      const blobUrl = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('thumbnail:empty'));
+              return;
+            }
+            resolve(URL.createObjectURL(blob));
+          },
+          'image/jpeg',
+          0.82
+        );
+      });
+
+      videoThumbCache.set(videoUrl, blobUrl);
+      trimVideoThumbCache();
+      return blobUrl;
+    } finally {
+      try {
+        video.removeAttribute('src');
+        video.load?.();
+      } catch {}
+      try {
+        host.remove();
+      } catch {}
+    }
+  })();
+
+  videoThumbPending.set(videoUrl, p);
+  try {
+    return await p;
+  } finally {
+    videoThumbPending.delete(videoUrl);
+  }
+};
 
 const STATUS_CONFIG = {
   pending: {
@@ -48,10 +178,80 @@ const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-9 h-9', textClassNam
   );
 };
 
-const FeedCard = ({ report, onToggleUpvote, isNew = false }) => {
+const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const cardRef = useRef(null);
+  const [isInView, setIsInView] = useState(false);
+
+  const [imgSrc, setImgSrc] = useState(report.coverImage || null);
+  const [useVideoCover, setUseVideoCover] = useState(false);
+  const imgRetryRef = useRef(0);
+  const imgRetryTimerRef = useRef(null);
+
+  useEffect(() => {
+    setImgSrc(report.coverImage || null);
+    setUseVideoCover(false);
+    imgRetryRef.current = 0;
+    if (imgRetryTimerRef.current) clearTimeout(imgRetryTimerRef.current);
+  }, [report.coverImage]);
+
+  useEffect(() => {
+    return () => {
+      if (imgRetryTimerRef.current) clearTimeout(imgRetryTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          setIsInView(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (imgSrc) return;
+    if (!isInView) return;
+    if (index > 12) return;
+    if (!report.coverVideo) return;
+    if (report.coverImage) return;
+
+    let canceled = false;
+    let tries = 0;
+
+    const run = async () => {
+      try {
+        const thumb = await getVideoThumbnailUrl(report.coverVideo);
+        if (canceled) return;
+        if (thumb) setImgSrc(thumb);
+        else setUseVideoCover(true);
+      } catch {
+        if (canceled) return;
+        tries += 1;
+        if (tries <= 3) {
+          setTimeout(run, 900 * tries);
+        } else {
+          setUseVideoCover(true);
+        }
+      }
+    };
+
+    run();
+    return () => {
+      canceled = true;
+    };
+  }, [imgSrc, index, isInView, report.coverImage, report.coverVideo]);
 
   const statusCfg = STATUS_CONFIG[report.status] || STATUS_CONFIG.pending;
   const emoji = report.categoryEmoji || '📍';
@@ -198,6 +398,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false }) => {
 
   return (
     <motion.div
+      ref={cardRef}
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.25 }}
@@ -241,14 +442,72 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false }) => {
         className="w-full block text-left focus:outline-none"
         aria-label={`Ver detalhes: ${report.title}`}
       >
-        {report.coverImage ? (
+        {imgSrc ? (
           <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
             <img
-              src={report.coverImage}
+              src={imgSrc}
               alt={report.title}
               className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-              loading="lazy"
+              loading={index < 3 ? 'eager' : 'lazy'}
+              fetchPriority={index === 0 ? 'high' : 'auto'}
+              decoding="async"
+              onError={() => {
+                if (!imgSrc) return;
+                if (imgSrc.startsWith('blob:')) return;
+                if (imgRetryRef.current >= 4) return;
+                imgRetryRef.current += 1;
+                const delay = 650 * imgRetryRef.current;
+                if (imgRetryTimerRef.current) clearTimeout(imgRetryTimerRef.current);
+                imgRetryTimerRef.current = setTimeout(() => {
+                  const base = imgSrc.split('?')[0];
+                  setImgSrc(`${base}?v=${Date.now()}`);
+                }, delay);
+              }}
             />
+            {!report.coverImage && report.coverVideo && (
+              <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center">
+                <Play className="w-4 h-4 text-white" />
+              </div>
+            )}
+            {signals.chips.length > 0 && (
+              <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
+                {signals.chips.slice(0, 2).map((chip, idx) => (
+                  <span
+                    key={chip.key}
+                    className={`text-[10px] font-extrabold tracking-tight px-2 py-1 rounded-full border shadow-sm ${
+                      chip.className
+                    } ${idx === 0 ? '-rotate-2' : 'rotate-1'}`}
+                  >
+                    {chip.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : useVideoCover && report.coverVideo ? (
+          <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
+            <video
+              src={report.coverVideo}
+              muted
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-cover"
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget;
+                try {
+                  v.currentTime = 0.15;
+                } catch {}
+              }}
+              onCanPlay={(e) => {
+                const v = e.currentTarget;
+                try {
+                  v.pause();
+                } catch {}
+              }}
+            />
+            <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center">
+              <Play className="w-4 h-4 text-white" />
+            </div>
             {signals.chips.length > 0 && (
               <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
                 {signals.chips.slice(0, 2).map((chip, idx) => (

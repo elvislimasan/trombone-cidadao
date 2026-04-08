@@ -3016,27 +3016,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     />
                   </div>
 
-                  <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-3">
-                    <input
-                      id="is_anonymous"
-                      type="checkbox"
-                      checked={!!formData.is_anonymous}
-                      onChange={(e) => {
-                        setFormData({
-                          ...formData,
-                          is_anonymous: e.target.checked,
-                        });
-                      }}
-                      className="mt-0.5 h-6 w-6 rounded border-input text-primary focus:ring-primary"
-                    />
-                    <label
-                      htmlFor="is_anonymous"
-                      className="text-xs text-foreground"
-                    >
-                      <span className="font-semibold">Anônimo:</span> seu nome
-                      não aparecerá no feed
-                    </label>
-                  </div>
                 </>
               )}
 
@@ -3512,6 +3491,28 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         ))}
                       </div>
                     )}
+
+                    <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-4 mt-2">
+                      <input
+                        id="is_anonymous"
+                        type="checkbox"
+                        checked={!!formData.is_anonymous}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            is_anonymous: e.target.checked,
+                          });
+                        }}
+                        className="mt-0.5 h-6 w-6 rounded border-input text-primary focus:ring-primary"
+                      />
+                      <label
+                        htmlFor="is_anonymous"
+                        className="text-sm text-foreground"
+                      >
+                        <span className="font-semibold">Anônimo:</span> seu nome
+                        não aparecerá no feed
+                      </label>
+                    </div>
                   </div>
                 </>
               )}

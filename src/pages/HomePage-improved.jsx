@@ -124,6 +124,30 @@ function HomePageImproved() {
   }, []);
 
   useEffect(() => {
+    let nativeUpdateListener = null;
+    const tryOpenPetitionsModal = () => {
+      if (!Capacitor.isNativePlatform()) {
+        setShowPetitionsUpdate(true);
+        return;
+      }
+
+      const st = window.__nativeUpdateNoticeState;
+      if (st?.checked && !st.open) {
+        setShowPetitionsUpdate(true);
+        return;
+      }
+
+      nativeUpdateListener = (e) => {
+        const next = e?.detail;
+        if (next?.checked && !next.open) {
+          window.removeEventListener('native-update-notice-state', nativeUpdateListener);
+          nativeUpdateListener = null;
+          setShowPetitionsUpdate(true);
+        }
+      };
+      window.addEventListener('native-update-notice-state', nativeUpdateListener);
+    };
+
     const fetchPromoModalConfig = async () => {
       try {
         const { data, error } = await supabase
@@ -141,14 +165,14 @@ function HomePageImproved() {
             const lastSeen = localStorage.getItem('home-petitions-update-modal-v1');
             const today = new Date().toDateString();
             if (!lastSeen || lastSeen !== today) {
-              setShowPetitionsUpdate(true);
+              tryOpenPetitionsModal();
             }
           }
         } else {
           // Fallback: use default behavior if config not available
           const seen = localStorage.getItem('home-petitions-update-modal-v1');
           if (!seen) {
-            setShowPetitionsUpdate(true);
+            tryOpenPetitionsModal();
           }
         }
       } catch (err) {
@@ -156,12 +180,17 @@ function HomePageImproved() {
         // Fallback to default behavior
         const seen = localStorage.getItem('home-petitions-update-modal-v1');
         if (!seen) {
-          setShowPetitionsUpdate(true);
+          tryOpenPetitionsModal();
         }
       }
     };
 
     fetchPromoModalConfig();
+    return () => {
+      if (nativeUpdateListener) {
+        window.removeEventListener('native-update-notice-state', nativeUpdateListener);
+      }
+    };
   }, []);
 
   const handlePetitionsUpdateVisibility = (open) => {

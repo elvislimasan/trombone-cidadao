@@ -30,9 +30,9 @@
     "deploy:functions:prod": "npx supabase functions deploy send-push-notification create-payment-intent share-report og-image share-preview share-petition --project-ref mrejgpcxaevooofyenzq",
     "deploy:edge_function:prod": "npx supabase functions deploy send-push-notification --project-ref mrejgpcxaevooofyenzq",
     "build:prod": "npm run clean:dist && npm run clean:android && npm run build && timeout /t 2 /nobreak >nul 2>&1 & npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
-    "build:prod:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
+    "build:prod:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && node tools/bump-android-version-code.js && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
     "build:standalone": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
-    "build:standalone:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
+    "build:standalone:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && node tools/bump-android-version-code.js && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
     "import:poles": "node scripts/import_poles_from_kmz.js"
   },
   "dependencies": {

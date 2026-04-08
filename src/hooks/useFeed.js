@@ -103,6 +103,8 @@ export function useFeed(tab = 'recent') {
           categoryEmoji: CATEGORY_EMOJIS[catName] || '📍',
           coverImage:
             (r.report_media || []).find((m) => m.type === 'photo')?.url || null,
+          coverVideo:
+            (r.report_media || []).find((m) => m.type === 'video')?.url || null,
           upvotes: Number(r.upvotes?.[0]?.count ?? 0),
           comments_count: Number(r.comments_count?.[0]?.count ?? 0),
           user_has_upvoted: upvoted.has(r.id),
