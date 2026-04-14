@@ -2046,6 +2046,9 @@ export default function WorkDetailsPageProject() {
   const parliamentaryText = work.parliamentary_amendment?.has
     ? work.parliamentary_amendment?.author
     : "";
+  const parliamentaryValue = work.parliamentary_amendment?.has
+    ? Number(work.parliamentary_amendment?.value) || 0
+    : 0;
   const simplifyText = (value) =>
     String(value || "")
       .trim()
@@ -2066,6 +2069,7 @@ export default function WorkDetailsPageProject() {
     !isEmptyDisplayText(fundingSourceText) ||
     Object.values(fundingAmounts).some((v) => Number(v) > 0) ||
     !isEmptyDisplayText(parliamentaryText) ||
+    parliamentaryValue > 0 ||
     Number(currentMeasurement?.value || 0) > 0 ||
     Number(currentMeasurement?.expected_value || 0) > 0;
 
@@ -2240,6 +2244,7 @@ export default function WorkDetailsPageProject() {
                             fundingSource={fundingSourceText}
                             fundingAmounts={fundingAmounts}
                             parliamentaryAmendment={parliamentaryText}
+                            parliamentaryAmendmentValue={parliamentaryValue}
                             contractValue={currentMeasurement?.value || 0}
                             expectedValue={
                               currentMeasurement?.expected_value || 0

@@ -60,7 +60,6 @@ import { VideoProcessor } from '@/plugins/VideoProcessor';
 import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
-import NativeUpdateNotice from '@/components/NativeUpdateNotice';
 import HomePageImproved from './pages/HomePage-improved';
 import MapPage from './pages/MapPage';
 import HomeRouter from './pages/HomeRouter';
@@ -620,7 +619,6 @@ function AppShell() {
           </main>
           {(!isNative || !isInteractive) && <Footer />}
           <BottomNav />
-          <NativeUpdateNotice />
           <Toaster />
           <SonnerToast position="top-right" richColors />
           <WebUploadIndicator />

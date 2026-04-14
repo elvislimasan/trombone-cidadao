@@ -22,11 +22,23 @@ import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.Plugin;
 import com.trombonecidadao.app.VideoProcessorPlugin;
+import com.google.android.play.core.appupdate.AppUpdateInfo;
+import com.google.android.play.core.appupdate.AppUpdateManager;
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
+import com.google.android.play.core.install.InstallState;
+import com.google.android.play.core.install.InstallStateUpdatedListener;
+import com.google.android.play.core.install.model.AppUpdateType;
+import com.google.android.play.core.install.model.InstallStatus;
+import com.google.android.play.core.install.model.UpdateAvailability;
+import com.google.android.gms.tasks.Task;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "MainActivity";
     private static final String ACTION_PUSH_NOTIFICATION = "com.trombonecidadao.app.PUSH_NOTIFICATION";
+    private static final int UPDATE_REQUEST_CODE = 14577;
     private PushNotificationReceiver pushNotificationReceiver;
+    private AppUpdateManager appUpdateManager;
+    private InstallStateUpdatedListener installStateUpdatedListener;
     
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -136,6 +148,13 @@ public class MainActivity extends BridgeActivity {
             // Se falhar, não habilitar debug (padrão seguro para produção)
             e.printStackTrace();
         }
+
+        try {
+            appUpdateManager = AppUpdateManagerFactory.create(this);
+            checkForAppUpdate();
+        } catch (Exception e) {
+            Log.w(TAG, "AppUpdateManager init failed: " + e.getMessage());
+        }
     }
     
     @Override
@@ -186,6 +205,8 @@ public class MainActivity extends BridgeActivity {
                 Log.e(TAG, "Erro ao registrar BroadcastReceiver: " + e.getMessage(), e);
             }
         }
+
+        resumeAppUpdateIfNeeded();
     }
     
     @Override
@@ -208,6 +229,86 @@ public class MainActivity extends BridgeActivity {
             }
         }
         super.onDestroy();
+
+        if (appUpdateManager != null && installStateUpdatedListener != null) {
+            try {
+                appUpdateManager.unregisterListener(installStateUpdatedListener);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == UPDATE_REQUEST_CODE) {
+            Log.d(TAG, "In-app update result: " + resultCode);
+            if (resultCode != RESULT_OK) {
+                resumeAppUpdateIfNeeded();
+            }
+        }
+    }
+
+    private void checkForAppUpdate() {
+        if (appUpdateManager == null) return;
+
+        Task<AppUpdateInfo> task = appUpdateManager.getAppUpdateInfo();
+        task.addOnSuccessListener(appUpdateInfo -> {
+            int availability = appUpdateInfo.updateAvailability();
+            if (availability == UpdateAvailability.UPDATE_AVAILABLE) {
+                if (appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
+                    startAppUpdateFlow(appUpdateInfo, AppUpdateType.IMMEDIATE);
+                    return;
+                }
+                if (appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)) {
+                    ensureFlexibleUpdateListener();
+                    startAppUpdateFlow(appUpdateInfo, AppUpdateType.FLEXIBLE);
+                }
+                return;
+            }
+            if (availability == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                startAppUpdateFlow(appUpdateInfo, AppUpdateType.IMMEDIATE);
+            }
+        });
+
+        task.addOnFailureListener(e -> Log.w(TAG, "App update check failed: " + e.getMessage()));
+    }
+
+    private void resumeAppUpdateIfNeeded() {
+        if (appUpdateManager == null) return;
+        Task<AppUpdateInfo> task = appUpdateManager.getAppUpdateInfo();
+        task.addOnSuccessListener(appUpdateInfo -> {
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                startAppUpdateFlow(appUpdateInfo, AppUpdateType.IMMEDIATE);
+            }
+        });
+    }
+
+    private void startAppUpdateFlow(AppUpdateInfo info, int updateType) {
+        if (appUpdateManager == null) return;
+        try {
+            appUpdateManager.startUpdateFlowForResult(info, updateType, this, UPDATE_REQUEST_CODE);
+        } catch (Exception e) {
+            Log.w(TAG, "startUpdateFlowForResult failed: " + e.getMessage());
+        }
+    }
+
+    private void ensureFlexibleUpdateListener() {
+        if (appUpdateManager == null) return;
+        if (installStateUpdatedListener != null) return;
+
+        installStateUpdatedListener = new InstallStateUpdatedListener() {
+            @Override
+            public void onStateUpdate(InstallState state) {
+                if (state.installStatus() == InstallStatus.DOWNLOADED) {
+                    try {
+                        appUpdateManager.completeUpdate();
+                    } catch (Exception ignored) {}
+                }
+            }
+        };
+        try {
+            appUpdateManager.registerListener(installStateUpdatedListener);
+        } catch (Exception ignored) {}
     }
     
     // 🔥 BroadcastReceiver para receber notificações do FCMService

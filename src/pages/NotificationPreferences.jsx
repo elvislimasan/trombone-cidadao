@@ -200,8 +200,8 @@ const NotificationPreferences = () => {
     }
   ].map(type => {
     // 🔥 IMPORTANTE: Buscar valor atualizado das preferências
-    // Se não existir na preferência, usar false (não enabled)
-    const preferenceValue = safePreferences[type.id];
+    const hasPreference = safePreferences && Object.prototype.hasOwnProperty.call(safePreferences, type.id);
+    const preferenceValue = hasPreference ? safePreferences[type.id] : DEFAULT_PREFERENCES[type.id];
     const isEnabled = preferenceValue === true || preferenceValue === 'true';
     
     return {
@@ -407,16 +407,22 @@ const NotificationPreferences = () => {
                       <type.icon className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-semibold">{type.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{type.name}</p>
+                        {type.id === 'moderation_required' && isAdmin ? (
+                          <Badge variant="secondary">Sempre ativo</Badge>
+                        ) : null}
+                      </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         {type.description}
                       </p>
                     </div>
                   </div>
                   <Switch
-                    checked={!!type.enabled && !!notificationsEnabled}
+                    checked={(type.id === 'moderation_required' && isAdmin) ? true : (!!type.enabled && !!notificationsEnabled)}
                     onCheckedChange={async (checked) => {
                       try {
+                        if (type.id === 'moderation_required' && isAdmin) return;
                         const update = { [type.id]: checked };
                         
                         await updatePreferences(update);
@@ -434,7 +440,7 @@ const NotificationPreferences = () => {
                         toast.error(`Erro ao atualizar ${type.name}. Verifique o console.`, { duration: 4000 });
                       }
                     }}
-                    disabled={!notificationsEnabled || loading}
+                    disabled={!notificationsEnabled || loading || (type.id === 'moderation_required' && isAdmin)}
                     className="data-[state=checked]:bg-blue-500"
                   />
                 </div>

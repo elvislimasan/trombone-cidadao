@@ -315,7 +315,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
         other_details: '',
         long_description: '',
         address: '',
-        parliamentary_amendment: { has: false, author: '' },
+        parliamentary_amendment: { has: false, author: '', value: null },
       };
       setFormData(initialData);
 
@@ -633,6 +633,26 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                             onChange={(e) =>
                               setFormData(prev => ({ ...prev, parliamentary_amendment: { ...(prev.parliamentary_amendment || {}), author: e.target.value } }))
                             }
+                            disabled={!formData.parliamentary_amendment?.has}
+                          />
+                        </div>
+                        <div className="grid gap-2 mt-2">
+                          <Label htmlFor="parliamentary_value">Valor da emenda (R$)</Label>
+                          <Input
+                            id="parliamentary_value"
+                            name="parliamentary_value"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            value={formData.parliamentary_amendment?.value ?? ''}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              const value = raw === '' ? null : Number(raw);
+                              setFormData((prev) => ({
+                                ...prev,
+                                parliamentary_amendment: { ...(prev.parliamentary_amendment || {}), value: Number.isFinite(value) ? value : null }
+                              }));
+                            }}
                             disabled={!formData.parliamentary_amendment?.has}
                           />
                         </div>
