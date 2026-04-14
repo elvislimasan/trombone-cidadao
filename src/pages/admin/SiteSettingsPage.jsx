@@ -83,9 +83,24 @@ const IconPicker = ({ value, onChange, icons }) => {
   );
 };
 
+const defaultPromoModalSettings = {
+  petitions_modal: {
+    enabled: false,
+    title: '',
+    description: '',
+    badge_text: '',
+    image_url: '',
+    primary_button_text: '',
+    primary_button_url: '',
+    secondary_button_text: '',
+    secondary_button_url: '',
+    dismiss_text: 'Fechar',
+  },
+};
+
 const SiteSettingsPage = () => {
   const { toast } = useToast();
-  const [siteName, setSiteName] = useState('Trombone Cidadão');
+  const [siteName, setSiteName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
   const [footerSettings, setFooterSettings] = useState(defaultFooterSettings);
@@ -94,6 +109,7 @@ const SiteSettingsPage = () => {
     email: '',
     phone: '(87) 99948-8360',
   });
+  const [promoModalSettings, setPromoModalSettings] = useState(defaultPromoModalSettings);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
@@ -149,6 +165,24 @@ const SiteSettingsPage = () => {
       });
     }
 
+    // Tentar buscar promo_modal_settings separadamente (pode não existir)
+    const { data: promoData, error: promoError } = await supabase
+      .from('site_config')
+      .select('promo_modal_settings')
+      .eq('id', 1)
+      .single();
+
+    if (!promoError && promoData?.promo_modal_settings) {
+      setPromoModalSettings(prev => ({
+        ...prev,
+        ...promoData.promo_modal_settings,
+        petitions_modal: {
+          ...defaultPromoModalSettings.petitions_modal,
+          ...promoData.promo_modal_settings?.petitions_modal,
+        },
+      }));
+    }
+
     setLoading(false);
   }, [toast]);
 
@@ -202,6 +236,16 @@ const SiteSettingsPage = () => {
     // Ignorar erro se a coluna não existir (PGRST204 ou 42703)
     if (contactError && contactError.code !== 'PGRST204' && contactError.code !== '42703') {
       console.warn('Aviso: Não foi possível salvar contact_settings:', contactError.message);
+    }
+
+    // Tentar salvar promo_modal_settings separadamente (pode falhar se a coluna não existir)
+    const { error: promoError } = await supabase
+      .from('site_config')
+      .update({ promo_modal_settings: promoModalSettings })
+      .eq('id', 1);
+
+    if (promoError && promoError.code !== 'PGRST204' && promoError.code !== '42703') {
+      console.warn('Aviso: Não foi possível salvar promo_modal_settings:', promoError.message);
     }
 
     toast({
@@ -287,10 +331,11 @@ const SiteSettingsPage = () => {
         </motion.div>
 
         <Tabs defaultValue="geral" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="geral">Geral</TabsTrigger>
             <TabsTrigger value="menu">Menu</TabsTrigger>
             <TabsTrigger value="footer">Rodapé</TabsTrigger>
+            <TabsTrigger value="modais">Modais</TabsTrigger>
           </TabsList>
           
           <TabsContent value="geral" className="mt-6">
@@ -367,7 +412,9 @@ const SiteSettingsPage = () => {
 
           <TabsContent value="footer" className="mt-6">
             <Card>
-              <CardHeader><CardTitle>Personalização do Rodapé</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>Personalização do Rodapé</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-8">
                 <div className="space-y-2"><Label>Descrição Curta</Label><Textarea value={footerSettings.description} onChange={(e) => handleFooterChange('description', e.target.value)} /></div>
                 <div className="space-y-2"><Label>Texto de Copyright</Label><Input value={footerSettings.copyrightText} onChange={(e) => handleFooterChange('copyrightText', e.target.value)} /></div>
@@ -444,6 +491,166 @@ const SiteSettingsPage = () => {
                     ))}
                   </CardContent></Card>
                 ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="modais" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><LucideIcons.MessageSquare /> Modais Promocionais</CardTitle>
+                <CardDescription>Configure os modais que aparecem para os usuários na página inicial.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Modal Promocional</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="petitions-modal-enabled"
+                          checked={promoModalSettings.petitions_modal.enabled}
+                          onCheckedChange={(checked) => setPromoModalSettings(prev => ({
+                            ...prev,
+                            petitions_modal: { ...prev.petitions_modal, enabled: checked }
+                          }))}
+                        />
+                        <Label htmlFor="petitions-modal-enabled" className="font-medium">
+                          {promoModalSettings.petitions_modal.enabled ? 'Ativo' : 'Desativado'}
+                        </Label>
+                      </div>
+                    </div>
+                    <CardDescription>Este modal aparece uma vez para novos visitantes na página inicial.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="modal-badge">Texto do Badge</Label>
+                      <Input
+                        id="modal-badge"
+                        value={promoModalSettings.petitions_modal.badge_text}
+                        onChange={(e) => setPromoModalSettings(prev => ({
+                          ...prev,
+                          petitions_modal: { ...prev.petitions_modal, badge_text: e.target.value }
+                        }))}
+                        placeholder="Novidade na plataforma"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="modal-title">Título</Label>
+                      <Input
+                        id="modal-title"
+                        value={promoModalSettings.petitions_modal.title}
+                        onChange={(e) => setPromoModalSettings(prev => ({
+                          ...prev,
+                          petitions_modal: { ...prev.petitions_modal, title: e.target.value }
+                        }))}
+                        placeholder="Título da promoção"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="modal-description">Descrição</Label>
+                      <Textarea
+                        id="modal-description"
+                        value={promoModalSettings.petitions_modal.description}
+                        onChange={(e) => setPromoModalSettings(prev => ({
+                          ...prev,
+                          petitions_modal: { ...prev.petitions_modal, description: e.target.value }
+                        }))}
+                        placeholder="Descrição da promoção"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="modal-image">URL da Imagem</Label>
+                      <Input
+                        id="modal-image"
+                        value={promoModalSettings.petitions_modal.image_url}
+                        onChange={(e) => setPromoModalSettings(prev => ({
+                          ...prev,
+                          petitions_modal: { ...prev.petitions_modal, image_url: e.target.value }
+                        }))}
+                        placeholder="https://exemplo.com/imagem.jpg"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="modal-primary-btn">Texto do Botão Principal</Label>
+                        <Input
+                          id="modal-primary-btn"
+                          value={promoModalSettings.petitions_modal.primary_button_text}
+                          onChange={(e) => setPromoModalSettings(prev => ({
+                            ...prev,
+                            petitions_modal: { ...prev.petitions_modal, primary_button_text: e.target.value }
+                          }))}
+                          placeholder="Texto do botão principal"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="modal-primary-url">URL do Botão Principal</Label>
+                        <Input
+                          id="modal-primary-url"
+                          value={promoModalSettings.petitions_modal.primary_button_url}
+                          onChange={(e) => setPromoModalSettings(prev => ({
+                            ...prev,
+                            petitions_modal: { ...prev.petitions_modal, primary_button_url: e.target.value }
+                          }))}
+                          placeholder="/pagina-destino"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="modal-secondary-btn">Texto do Botão Secundário</Label>
+                        <Input
+                          id="modal-secondary-btn"
+                          value={promoModalSettings.petitions_modal.secondary_button_text}
+                          onChange={(e) => setPromoModalSettings(prev => ({
+                            ...prev,
+                            petitions_modal: { ...prev.petitions_modal, secondary_button_text: e.target.value }
+                          }))}
+                          placeholder="Texto do botão secundário"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="modal-secondary-url">URL do Botão Secundário</Label>
+                        <Input
+                          id="modal-secondary-url"
+                          value={promoModalSettings.petitions_modal.secondary_button_url}
+                          onChange={(e) => setPromoModalSettings(prev => ({
+                            ...prev,
+                            petitions_modal: { ...prev.petitions_modal, secondary_button_url: e.target.value }
+                          }))}
+                          placeholder="/outra-pagina"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="modal-dismiss">Texto de Dispensar</Label>
+                      <Input
+                        id="modal-dismiss"
+                        value={promoModalSettings.petitions_modal.dismiss_text}
+                        onChange={(e) => setPromoModalSettings(prev => ({
+                          ...prev,
+                          petitions_modal: { ...prev.petitions_modal, dismiss_text: e.target.value }
+                        }))}
+                        placeholder="Talvez depois"
+                      />
+                    </div>
+                    {promoModalSettings.petitions_modal.image_url && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2">Pré-visualização da Imagem:</p>
+                        <div className="p-4 bg-muted rounded-lg">
+                          <img
+                            src={promoModalSettings.petitions_modal.image_url}
+                            alt="Pré-visualização"
+                            className="max-h-32 w-auto rounded-lg mx-auto"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           </TabsContent>

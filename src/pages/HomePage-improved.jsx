@@ -48,6 +48,7 @@ function HomePageImproved() {
   const { toast } = useToast();
   const { handleUpvote, loading: upvoteLoading } = useUpvote();
   const [showPetitionsUpdate, setShowPetitionsUpdate] = useState(false);
+  const [promoModalConfig, setPromoModalConfig] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -123,10 +124,43 @@ function HomePageImproved() {
   }, []);
 
   useEffect(() => {
-    const seen = localStorage.getItem('home-petitions-update-modal-v1');
-    if (!seen) {
-      setShowPetitionsUpdate(true);
-    }
+    const fetchPromoModalConfig = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('site_config')
+          .select('promo_modal_settings')
+          .eq('id', 1)
+          .single();
+
+        if (!error && data?.promo_modal_settings?.petitions_modal) {
+          const modalConfig = data.promo_modal_settings.petitions_modal;
+          setPromoModalConfig(modalConfig);
+          
+          // Only show modal if enabled in admin and user hasn't seen it
+          if (modalConfig.enabled) {
+            const seen = localStorage.getItem('home-petitions-update-modal-v1');
+            if (!seen) {
+              setShowPetitionsUpdate(true);
+            }
+          }
+        } else {
+          // Fallback: use default behavior if config not available
+          const seen = localStorage.getItem('home-petitions-update-modal-v1');
+          if (!seen) {
+            setShowPetitionsUpdate(true);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching promo modal config:', err);
+        // Fallback to default behavior
+        const seen = localStorage.getItem('home-petitions-update-modal-v1');
+        if (!seen) {
+          setShowPetitionsUpdate(true);
+        }
+      }
+    };
+
+    fetchPromoModalConfig();
   }, []);
 
   const handlePetitionsUpdateVisibility = (open) => {
@@ -139,13 +173,13 @@ function HomePageImproved() {
   const handleGoToPetitionsOverview = () => {
     localStorage.setItem('home-petitions-update-modal-v1', 'true');
     setShowPetitionsUpdate(false);
-    navigate('/abaixo-assinados');
+    navigate(promoModalConfig?.secondary_button_url || '/abaixo-assinados');
   };
 
   const handleGoToMyPetitions = () => {
     localStorage.setItem('home-petitions-update-modal-v1', 'true');
     setShowPetitionsUpdate(false);
-    navigate('/minhas-peticoes');
+    navigate(promoModalConfig?.primary_button_url || '/minhas-peticoes');
   };
 
   const fetchStats = useCallback(async (retryCount = 0) => {
@@ -696,7 +730,7 @@ function HomePageImproved() {
               Cadastre broncas, apoie petições e convide alguém para contribuir.
             </div>
 
-            <div className="mt-4 flex items-stretch gap-3 overflow-x-auto pb-1">
+            <div className="mt-4 flex items-stretch gap-3 overflow-x-auto pb-1 no-scrollbar">
               <button
                 type="button"
                 onClick={() => openCreateReportFlow()}
@@ -1520,14 +1554,16 @@ function HomePageImproved() {
       <Dialog open={showPetitionsUpdate} onOpenChange={handlePetitionsUpdateVisibility}>
         <DialogContent hideClose className="max-w-[calc(100vw-1.5rem)] sm:max-w-[520px] md:max-w-[720px] p-0 overflow-hidden border-none rounded-xl">
           <div className="flex flex-col md:flex-row">
-            <div className="w-full md:w-1/2 bg-[#FEF2F2] overflow-hidden h-36 sm:h-56 md:h-auto">
-              <img
-                src="/abaixo-assinado.jpg"
-                alt="Criar e apoiar abaixo-assinados"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="w-full md:w-1/2 p-5 md:p-7 flex flex-col gap-4">
+            {promoModalConfig?.image_url && (
+              <div className="w-full md:w-1/2 bg-[#FEF2F2] overflow-hidden h-36 sm:h-56 md:h-auto">
+                <img
+                  src={promoModalConfig.image_url}
+                  alt={promoModalConfig?.title || "Promoção"}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className={`w-full ${promoModalConfig?.image_url ? 'md:w-1/2' : ''} p-5 md:p-7 flex flex-col gap-4`}>
               <DialogClose asChild>
                 <button
                   type="button"
@@ -1544,39 +1580,48 @@ function HomePageImproved() {
                   <X className="h-4 w-4" />
                 </button>
               </DialogClose>
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#F97316] uppercase tracking-[0.18em]">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]" />
-                Novidade na plataforma
-              </div>
+              {promoModalConfig?.badge_text && (
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#F97316] uppercase tracking-[0.18em]">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]" />
+                  {promoModalConfig.badge_text}
+                </div>
+              )}
               <div className="space-y-2">
-                <h2 className="text-xl md:text-2xl font-bold text-[#111827]">
-                  Agora você também pode criar e apoiar abaixo-assinados
-                </h2>
-                <p className="text-sm md:text-[15px] text-[#4B5563] leading-relaxed">
-                  Suas broncas podem virar campanhas completas, fortaleça causas que já estão em andamento.
-                  Assine, compartilhe e ajude a pressionar por soluções reais para a cidade.
-                </p>
+                {promoModalConfig?.title && (
+                  <h2 className="text-xl md:text-2xl font-bold text-[#111827]">
+                    {promoModalConfig.title}
+                  </h2>
+                )}
+                {promoModalConfig?.description && (
+                  <p className="text-sm md:text-[15px] text-[#4B5563] leading-relaxed">
+                    {promoModalConfig.description}
+                  </p>
+                )}
               </div>
               <div className="flex flex-col gap-2 mt-2">
-                <Button
-                  className="w-full h-10 text-sm font-semibold rounded-full bg-tc-red hover:bg-tc-red/90"
-                  onClick={handleGoToMyPetitions}
-                >
-                  Criar meu abaixo-assinado
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full h-10 text-sm font-semibold rounded-full border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
-                  onClick={handleGoToPetitionsOverview}
-                >
-                  Ver causas para apoiar
-                </Button>
+                {promoModalConfig?.primary_button_text && (
+                  <Button
+                    className="w-full h-10 text-sm font-semibold rounded-full bg-tc-red hover:bg-tc-red/90"
+                    onClick={handleGoToMyPetitions}
+                  >
+                    {promoModalConfig.primary_button_text}
+                  </Button>
+                )}
+                {promoModalConfig?.secondary_button_text && (
+                  <Button
+                    variant="outline"
+                    className="w-full h-10 text-sm font-semibold rounded-full border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
+                    onClick={handleGoToPetitionsOverview}
+                  >
+                    {promoModalConfig.secondary_button_text}
+                  </Button>
+                )}
                 <DialogClose asChild>
                   <button
                     type="button"
                     className="mt-1 text-xs text-[#6B7280] hover:text-[#111827] self-center"
                   >
-                    Talvez depois
+                    {promoModalConfig?.dismiss_text || "Fechar"}
                   </button>
                 </DialogClose>
               </div>
