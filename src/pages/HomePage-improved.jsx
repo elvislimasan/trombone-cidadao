@@ -123,29 +123,9 @@ function HomePageImproved() {
     };
   }, []);
 
-  useEffect(() => {
-    let nativeUpdateListener = null;
+   useEffect(() => {
     const tryOpenPetitionsModal = () => {
-      if (!Capacitor.isNativePlatform()) {
-        setShowPetitionsUpdate(true);
-        return;
-      }
-
-      const st = window.__nativeUpdateNoticeState;
-      if (st?.checked && !st.open) {
-        setShowPetitionsUpdate(true);
-        return;
-      }
-
-      nativeUpdateListener = (e) => {
-        const next = e?.detail;
-        if (next?.checked && !next.open) {
-          window.removeEventListener('native-update-notice-state', nativeUpdateListener);
-          nativeUpdateListener = null;
-          setShowPetitionsUpdate(true);
-        }
-      };
-      window.addEventListener('native-update-notice-state', nativeUpdateListener);
+      setShowPetitionsUpdate(true);
     };
 
     const fetchPromoModalConfig = async () => {
@@ -187,9 +167,6 @@ function HomePageImproved() {
 
     fetchPromoModalConfig();
     return () => {
-      if (nativeUpdateListener) {
-        window.removeEventListener('native-update-notice-state', nativeUpdateListener);
-      }
     };
   }, []);
 

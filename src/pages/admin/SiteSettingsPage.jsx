@@ -261,19 +261,6 @@ const SiteSettingsPage = () => {
       }));
     }
 
-    const { data: appData, error: appError } = await supabase
-      .from('site_config')
-      .select('app_update_settings')
-      .eq('id', 1)
-      .single();
-
-    if (!appError && appData?.app_update_settings) {
-      setAppUpdateSettings((prev) => ({
-        ...prev,
-        ...appData.app_update_settings,
-      }));
-    }
-
     setLoading(false);
   }, [toast]);
 
@@ -337,15 +324,6 @@ const SiteSettingsPage = () => {
 
     if (promoError && promoError.code !== 'PGRST204' && promoError.code !== '42703') {
       console.warn('Aviso: Não foi possível salvar promo_modal_settings:', promoError.message);
-    }
-
-    const { error: appError } = await supabase
-      .from('site_config')
-      .update({ app_update_settings: appUpdateSettings })
-      .eq('id', 1);
-
-    if (appError && appError.code !== 'PGRST204' && appError.code !== '42703') {
-      console.warn('Aviso: Não foi possível salvar app_update_settings:', appError.message);
     }
 
     toast({
@@ -465,6 +443,7 @@ const SiteSettingsPage = () => {
               </CardContent>
             </Card>
 
+            {false && (
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><LucideIcons.Smartphone /> Atualização do App</CardTitle>
@@ -547,6 +526,7 @@ const SiteSettingsPage = () => {
                 </div>
               </CardContent>
             </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="menu" className="mt-6">

@@ -255,26 +255,34 @@ const ReportsStats = () => {
         yPosition += 6;
 
         const isBuracos = /buraco/i.test(categoryName || '');
+        const isIluminacao = /ilumina/i.test(categoryName || '');
         const tableColumn = isBuracos
           ? ["#", "Protocolo", "Título", "Origem", "Endereço", "Data"]
-          : ["#", "Protocolo", "Título", "Endereço", "Data"];
+          : isIluminacao
+            ? ["#", "Protocolo", "Poste", "Título", "Endereço", "Data"]
+            : ["#", "Protocolo", "Título", "Endereço", "Data"];
         const tableRows = [];
         
         groupedByCategory[categoryName].forEach((report, index) => {
           const common = [
             index + 1,
             report.protocol,
-            doc.splitTextToSize(report.title, 60),
           ];
           const end = [
             doc.splitTextToSize(report.address || 'N/A', 50),
             new Date(report.created_at).toLocaleDateString('pt-BR'),
           ];
           if (isBuracos) {
+            const title = doc.splitTextToSize(report.title, 60);
             const origem = report.is_from_water_utility ? 'Abastecimento' : 'Outros';
-            tableRows.push([...common, origem, ...end]);
+            tableRows.push([...common, title, origem, ...end]);
+          } else if (isIluminacao) {
+            const poste = String(report.pole_number || report.reported_plate || report.reported_post_identifier || '').trim() || '—';
+            const title = doc.splitTextToSize(report.title, 50);
+            tableRows.push([...common, poste, title, ...end]);
           } else {
-            tableRows.push([...common, ...end]);
+            const title = doc.splitTextToSize(report.title, 60);
+            tableRows.push([...common, title, ...end]);
           }
         });
         

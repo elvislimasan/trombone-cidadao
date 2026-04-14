@@ -8,6 +8,7 @@ export function ObraFinancial({
   fundingSource,
   fundingAmounts,
   parliamentaryAmendment,
+  parliamentaryAmendmentValue,
   contractValue,
   expectedValue,
   embedded = false,
@@ -53,7 +54,9 @@ export function ObraFinancial({
   const hasFundingAmounts = fundingFederal > 0 &&  fundingSourceParts.includes('Federal') || fundingState > 0 && fundingSourceParts.includes('Estadual') || fundingMunicipal > 0 && fundingSourceParts.includes('Municipal');
 
   const hasFundingSource = !isEmptyValue(normalizedFundingSource) || hasFundingAmounts;
-  const hasParliamentaryAmendment = !isEmptyValue(parliamentaryAmendment);
+  const parliamentaryValueNumber = Number(parliamentaryAmendmentValue);
+  const hasParliamentaryValue = Number.isFinite(parliamentaryValueNumber) && parliamentaryValueNumber > 0;
+  const hasParliamentaryAmendment = !isEmptyValue(parliamentaryAmendment) || hasParliamentaryValue;
   const hasContractValue = Number(contractValue) > 0;
   const hasExpectedValue = Number(expectedValue) > 0;
 
@@ -114,7 +117,16 @@ export function ObraFinancial({
               <User className="h-4 w-4 text-red-500" />
               <span className="text-[10px] uppercase tracking-wide">Emenda Parlamentar</span>
             </div>
-            <div className="mt-3 sm:mt-2 lg:mt-2 font-semibold text-sm lg:text-[13px] leading-snug break-words text-foreground">{parliamentaryAmendment}</div>
+            {!isEmptyValue(parliamentaryAmendment) ? (
+              <div className="mt-3 sm:mt-2 lg:mt-2 font-semibold text-sm lg:text-[13px] leading-snug break-words text-foreground">
+                {parliamentaryAmendment}
+              </div>
+            ) : null}
+            {hasParliamentaryValue ? (
+              <div className="mt-2 text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground tabular-nums">{formatCurrency(parliamentaryValueNumber)}</span>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

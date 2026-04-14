@@ -31,6 +31,7 @@ export const NotificationProvider = ({ children }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
+  const [pushListenersReady, setPushListenersReady] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [notificationPreferences, setNotificationPreferences] = useState(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(true);
@@ -244,18 +245,23 @@ export const NotificationProvider = ({ children }) => {
   }, [isCapacitor]);
 
   // Migrar preferências antigas
-  const migrateOldPreferences = (preferences) => {
-    if (!preferences) return DEFAULT_PREFERENCES;
-    
-    if (preferences.system === undefined) {
-      return {
-        ...DEFAULT_PREFERENCES,
-        ...preferences,
-        system: true
-      };
+  const migrateOldPreferences = (preferences, isAdmin) => {
+    const base = { ...DEFAULT_PREFERENCES };
+    if (!preferences || typeof preferences !== 'object') {
+      if (isAdmin) base.moderation_required = true;
+      else base.moderation_required = false;
+      return base;
     }
-    
-    return preferences;
+
+    const merged = {
+      ...DEFAULT_PREFERENCES,
+      ...preferences
+    };
+
+    if (preferences.system === undefined) merged.system = true;
+    if (isAdmin) merged.moderation_required = true;
+    else merged.moderation_required = false;
+    return merged;
   };
 
   // Carregar preferências
@@ -271,7 +277,7 @@ export const NotificationProvider = ({ children }) => {
         if (preference !== null) setNotificationsEnabled(JSON.parse(preference));
         if (pushPreference !== null) setPushEnabled(JSON.parse(pushPreference));
         if (preferences !== null) {
-          const migratedPreferences = migrateOldPreferences(JSON.parse(preferences));
+          const migratedPreferences = migrateOldPreferences(JSON.parse(preferences), false);
           setNotificationPreferences(migratedPreferences);
         } else {
           setNotificationPreferences(DEFAULT_PREFERENCES);
@@ -286,13 +292,7 @@ export const NotificationProvider = ({ children }) => {
         // 🔥 Se não existir registro (PGRST116) ou se houver qualquer erro, criar preferências padrão
         if (error && error.code === 'PGRST116') {
           // Criar preferências padrão
-          const isAdmin = user?.is_admin === true;
           let initialPreferences = { ...DEFAULT_PREFERENCES };
-          
-          // 🔥 IMPORTANTE: Se não for admin, moderation_required deve ser false
-          if (!isAdmin) {
-            initialPreferences.moderation_required = false;
-          }
           
           const defaultPreferences = {
             user_id: user.id,
@@ -320,27 +320,12 @@ export const NotificationProvider = ({ children }) => {
             setPushEnabled(newData.push_enabled);
             
             let finalPreferences = newData.notification_preferences || DEFAULT_PREFERENCES;
-            
-            // 🔥 IMPORTANTE: Garantir que moderation_required seja false para não-admins
-            if (!isAdmin) {
-              finalPreferences = {
-                ...finalPreferences,
-                moderation_required: false
-              };
-            }
-            
             setNotificationPreferences(finalPreferences);
           }
         } else if (error) {
           // 🔥 Outro tipo de erro - tentar criar mesmo assim
           // Erro ao buscar preferências
-          
-          const isAdmin = user?.is_admin === true;
           let initialPreferences = { ...DEFAULT_PREFERENCES };
-          
-          if (!isAdmin) {
-            initialPreferences.moderation_required = false;
-          }
           
           const defaultPreferences = {
             user_id: user.id,
@@ -362,14 +347,6 @@ export const NotificationProvider = ({ children }) => {
             setPushEnabled(newData.push_enabled);
             
             let finalPreferences = newData.notification_preferences || DEFAULT_PREFERENCES;
-            
-            if (!isAdmin) {
-              finalPreferences = {
-                ...finalPreferences,
-                moderation_required: false
-              };
-            }
-            
             setNotificationPreferences(finalPreferences);
           } else {
             // Se mesmo assim falhar, definir no estado local
@@ -460,9 +437,8 @@ export const NotificationProvider = ({ children }) => {
                       : freshData.notification_preferences;
                     
                     if (freshPrefs && Object.keys(freshPrefs).length > 0) {
-                      const migratedPrefs = migrateOldPreferences(freshPrefs);
-                      const finalPrefs = !isAdmin ? { ...migratedPrefs, moderation_required: false } : migratedPrefs;
-                      setNotificationPreferences(finalPrefs);
+                      const migratedPrefs = migrateOldPreferences(freshPrefs, isAdmin);
+                      setNotificationPreferences(migratedPrefs);
                     } else {
                       setNotificationPreferences(initialPreferences);
                     }
@@ -484,9 +460,8 @@ export const NotificationProvider = ({ children }) => {
                     : freshData.notification_preferences;
                   
                   if (freshPrefs && Object.keys(freshPrefs).length > 0) {
-                    const migratedPrefs = migrateOldPreferences(freshPrefs);
-                    const finalPrefs = !isAdmin ? { ...migratedPrefs, moderation_required: false } : migratedPrefs;
-                    setNotificationPreferences(finalPrefs);
+                    const migratedPrefs = migrateOldPreferences(freshPrefs, isAdmin);
+                    setNotificationPreferences(migratedPrefs);
                   } else {
                     setNotificationPreferences(initialPreferences);
                   }
@@ -497,32 +472,8 @@ export const NotificationProvider = ({ children }) => {
             }
           } else {
             // Usar preferências do banco
-            const migratedPreferences = migrateOldPreferences(prefsFromDb);
-            let finalPreferences = migratedPreferences || DEFAULT_PREFERENCES;
-            
-            // 🔥 IMPORTANTE: Se não for admin, garantir que moderation_required seja false
-            if (!isAdmin) {
-              finalPreferences = {
-                ...finalPreferences,
-                moderation_required: false
-              };
-              
-              // 🔥 IMPORTANTE: Se moderation_required estava true no banco, atualizar
-              if (migratedPreferences?.moderation_required === true) {
-                const { error: updateError } = await supabase
-                  .from('user_preferences')
-                  .update({ 
-                    notification_preferences: finalPreferences 
-                  })
-                  .eq('user_id', user.id);
-                
-                if (updateError) {
-                  console.error('[PREF] Erro ao atualizar moderation_required:', updateError);
-                }
-              }
-            }
-            
-            setNotificationPreferences(finalPreferences);
+            const migratedPreferences = migrateOldPreferences(prefsFromDb, isAdmin);
+            setNotificationPreferences(migratedPreferences || DEFAULT_PREFERENCES);
           }
         }
       }
@@ -535,13 +486,16 @@ export const NotificationProvider = ({ children }) => {
 
   // 🔥 Salvar token FCM (para Capacitor)
   const saveFCMToken = useCallback(async (token) => {
-    if (!user) {
-      // Usuário não logado, não é possível salvar token FCM
+    if (!token) {
+      // Token FCM vazio, não é possível salvar
       return;
     }
 
-    if (!token) {
-      // Token FCM vazio, não é possível salvar
+    if (!user) {
+      try {
+        localStorage.setItem('pending-fcm-token', token);
+      } catch (e) {
+      }
       return;
     }
 
@@ -552,6 +506,10 @@ export const NotificationProvider = ({ children }) => {
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
+
+      if (checkError) {
+        console.error('[FCM] Erro ao verificar token FCM existente:', checkError);
+      }
 
       // Se já existe, fazer UPDATE; senão, fazer INSERT
       if (existingData) {
@@ -584,6 +542,11 @@ export const NotificationProvider = ({ children }) => {
         if (insertError) {
           console.error('[FCM] Erro ao inserir token FCM:', insertError);
         }
+      }
+
+      try {
+        localStorage.removeItem('pending-fcm-token');
+      } catch (e) {
       }
     } catch (error) {
       console.error('[FCM] Erro ao salvar token FCM:', error);
@@ -924,20 +887,16 @@ export const NotificationProvider = ({ children }) => {
     // Garantir que temos todas as preferências padrão
     const currentPrefs = notificationPreferences || DEFAULT_PREFERENCES;
     
-    // Verificar se o usuário é admin
-    const isAdmin = user?.is_admin === true;
-    
     // Mesclar preferências atuais com atualizações
     const newPreferences = { 
       ...DEFAULT_PREFERENCES,
       ...currentPrefs, 
       ...updates 
     };
-    
-    // 🔥 IMPORTANTE: Se não for admin, moderation_required sempre deve ser false
-    if (!isAdmin) {
-      newPreferences.moderation_required = false;
-    }
+
+    const isAdmin = user?.is_admin === true;
+    if (isAdmin) newPreferences.moderation_required = true;
+    else newPreferences.moderation_required = false;
     
     // Validar que todas as chaves necessárias estão presentes
     const requiredKeys = Object.keys(DEFAULT_PREFERENCES);
@@ -993,11 +952,10 @@ export const NotificationProvider = ({ children }) => {
           // 🔥 IMPORTANTE: Sincronizar estado local com o que foi salvo no banco
           // Isso garante que os toggles reflitam exatamente o que está no banco
           if (parsedPrefs && Object.keys(parsedPrefs).length > 0) {
-            const migratedPrefs = migrateOldPreferences(parsedPrefs);
-            const finalPrefs = !isAdmin ? { ...migratedPrefs, moderation_required: false } : migratedPrefs;
-            setNotificationPreferences(finalPrefs);
+            const migratedPrefs = migrateOldPreferences(parsedPrefs, isAdmin);
+            setNotificationPreferences(migratedPrefs);
             // Atualizar ref imediatamente
-            notificationPreferencesRef.current = finalPrefs;
+            notificationPreferencesRef.current = migratedPrefs;
           } else {
             // Preferências salvas como objeto vazio! Tentando novamente
             // Tentar novamente com estrutura explícita
@@ -1022,10 +980,9 @@ export const NotificationProvider = ({ children }) => {
                   retryPrefs = newPreferences;
                 }
               }
-              const migratedRetryPrefs = migrateOldPreferences(retryPrefs || newPreferences);
-              const finalRetryPrefs = !isAdmin ? { ...migratedRetryPrefs, moderation_required: false } : migratedRetryPrefs;
-              setNotificationPreferences(finalRetryPrefs);
-              notificationPreferencesRef.current = finalRetryPrefs;
+              const migratedRetryPrefs = migrateOldPreferences(retryPrefs || newPreferences, isAdmin);
+              setNotificationPreferences(migratedRetryPrefs);
+              notificationPreferencesRef.current = migratedRetryPrefs;
             } else {
               // Fallback: usar estado local
               setNotificationPreferences(newPreferences);
@@ -1412,18 +1369,35 @@ export const NotificationProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
-    if (pushSupported && user) {
-      // Aguardar um pouco para garantir que tudo está inicializado
-      const timer = setTimeout(() => {
-        // Primeiro, solicitar permissão automaticamente (se necessário)
-        requestPermissionOnInit().then(() => {
-          // Depois, verificar subscription
-          checkPushSubscription();
-        });
-      }, 500);
-      return () => clearTimeout(timer);
+    if (!user || !isCapacitor) {
+      return;
     }
-  }, [pushSupported, user, requestPermissionOnInit, checkPushSubscription]);
+    if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform()) {
+      return;
+    }
+    if (!Capacitor.isPluginAvailable('PushNotifications')) {
+      return;
+    }
+
+    try {
+      const pendingToken = localStorage.getItem('pending-fcm-token');
+      if (pendingToken) {
+        saveFCMToken(pendingToken);
+      }
+    } catch (e) {
+    }
+  }, [user, isCapacitor, saveFCMToken]);
+
+  useEffect(() => {
+    if (pushSupported && user) {
+      if (isCapacitor && !pushListenersReady) {
+        return;
+      }
+      requestPermissionOnInit().then(() => {
+        checkPushSubscription();
+      });
+    }
+  }, [pushSupported, user, requestPermissionOnInit, checkPushSubscription, isCapacitor, pushListenersReady]);
 
   // 🔥 CAPACITOR: Configurar listeners de Push Notifications
   // IMPORTANTE: Registrar listeners ANTES de qualquer notificação chegar
@@ -1431,6 +1405,8 @@ export const NotificationProvider = ({ children }) => {
     if (!isCapacitor || !Capacitor.isPluginAvailable('PushNotifications')) {
       return;
     }
+
+    setPushListenersReady(true);
     
     // Listener: Token FCM recebido
     const registrationListener = PushNotifications.addListener('registration', async (token) => {
@@ -1481,7 +1457,7 @@ export const NotificationProvider = ({ children }) => {
     });
 
     // Handler para processar notificação recebida em foreground
-    const handlePushNotificationReceived = (notification) => {
+    const handlePushNotificationReceived = async (notification) => {
       try {
         // Validar se notification é válido
         if (!notification || typeof notification !== 'object') {
@@ -1496,8 +1472,43 @@ export const NotificationProvider = ({ children }) => {
         const notificationType = notificationData.type || 'system';
         const notificationTitle = getNotificationTitle(notificationType);
         
-        // Mostrar notificação local usando Notification API
-        if ('Notification' in window && Notification.permission === 'granted') {
+        const targetUrl = notificationData.url || getNotificationUrl({ type: notificationType, report_id: notificationData.report_id, work_id: notificationData.work_id });
+
+        if (isCapacitor && Capacitor.isNativePlatform()) {
+          try {
+            const { LocalNotifications } = await import('@capacitor/local-notifications');
+            await LocalNotifications.requestPermissions();
+
+            const numericId = Number(notificationId);
+            const idForLocal = Number.isFinite(numericId) ? numericId : Date.now();
+
+            await LocalNotifications.schedule({
+              notifications: [{
+                id: idForLocal,
+                title: notificationTitle,
+                body: notificationMessage,
+                extra: {
+                  url: targetUrl || '/notificacoes',
+                  notificationId: notificationId,
+                  type: notificationType,
+                  report_id: notificationData.report_id,
+                  work_id: notificationData.work_id
+                }
+              }]
+            });
+          } catch (error) {
+            console.error('[FCM] Erro ao exibir notificação local (Capacitor):', error);
+            try {
+              showLocalNotification({
+                id: notificationId,
+                message: notificationMessage,
+                type: notificationType
+              });
+            } catch (fallbackError) {
+              console.error('[FCM] Erro no fallback de notificação:', fallbackError);
+            }
+          }
+        } else if ('Notification' in window && Notification.permission === 'granted') {
           try {
             const localNotification = new Notification(notificationTitle, {
               body: notificationMessage,
@@ -1505,7 +1516,7 @@ export const NotificationProvider = ({ children }) => {
               badge: '/logo.png',
               tag: notificationId,
               data: {
-                url: notificationData.url || getNotificationUrl({ type: notificationType, report_id: notificationData.report_id, work_id: notificationData.work_id }),
+                url: targetUrl || '/',
                 notificationId: notificationId,
                 type: notificationType
               },
@@ -1629,13 +1640,41 @@ export const NotificationProvider = ({ children }) => {
       }
     });
 
+    let localNotificationActionListener = null;
+    if (isCapacitor && Capacitor.isNativePlatform()) {
+      (async () => {
+        try {
+          const { LocalNotifications } = await import('@capacitor/local-notifications');
+          localNotificationActionListener = await LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+            const url = event?.notification?.extra?.url || '/notificacoes';
+            if (window.__BLOCK_NAVIGATION__) {
+              return;
+            }
+            if (window.location.pathname !== url) {
+              window.dispatchEvent(new CustomEvent('navigate-to', { detail: { url } }));
+              setTimeout(() => {
+                if (!window.__BLOCK_NAVIGATION__ && window.location.pathname !== url) {
+                  window.location.href = url;
+                }
+              }, 100);
+            }
+          });
+        } catch (error) {
+        }
+      })();
+    }
+
     // Cleanup listeners
     return () => {
+      setPushListenersReady(false);
       registrationListener.remove();
       registrationErrorListener.remove();
       pushNotificationReceivedListener.remove();
       pushNotificationActionPerformedListener.remove();
       window.removeEventListener('pushNotificationReceived', customPushNotificationListener);
+      if (localNotificationActionListener) {
+        localNotificationActionListener.remove();
+      }
     };
   }, [isCapacitor, user, saveFCMToken]);
 

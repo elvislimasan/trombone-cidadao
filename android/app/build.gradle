@@ -18,7 +18,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // ⚠️ IMPORTANTE: Incremente versionCode a cada release na Play Store
         // O versionCode deve ser sempre maior que o anterior
-        versionCode 12
+        versionCode 15
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -80,6 +80,7 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
     // Firebase Cloud Messaging para Push Notifications
     implementation 'com.google.firebase:firebase-messaging:23.0.0'
+    implementation 'com.google.android.play:app-update:2.1.0'
     // Kotlin
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"

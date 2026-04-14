@@ -138,12 +138,14 @@ export function ObraPayments({
   const [manageSortDir, setManageSortDir] = useState("desc");
   const [managePage, setManagePage] = useState(1);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importPortal, setImportPortal] = useState("floresta");
   const [importUrl, setImportUrl] = useState("");
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
   const [importPayload, setImportPayload] = useState(null);
   const [importSelected, setImportSelected] = useState(() => new Set());
   const [importEdits, setImportEdits] = useState({});
+  const [importCommitmentType, setImportCommitmentType] = useState("");
 
   const parsePtBrDate = useCallback((value) => {
     const str = String(value || "").trim();
@@ -172,8 +174,32 @@ export function ObraPayments({
     setImportPayload(null);
     setImportSelected(new Set());
     setImportEdits({});
+    setImportCommitmentType("");
     setImportUrl("");
     setIsImportOpen(true);
+  }, []);
+
+  const getInvokeErrorMessage = useCallback((err, fallback) => {
+    const status = err?.context?.status;
+    const rawBody = err?.context?.body;
+    let body = rawBody;
+    if (typeof rawBody === "string") {
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        body = { message: rawBody };
+      }
+    }
+
+    const bodyError = typeof body?.error === "string" ? body.error : "";
+    const bodyMessage = typeof body?.message === "string" ? body.message : "";
+    const rawSnippet = typeof rawBody === "string" ? rawBody.slice(0, 280) : "";
+    const message = bodyError || bodyMessage || err?.message || (rawSnippet ? `Erro: ${rawSnippet}` : fallback);
+    if (typeof message === "string" && message.toLowerCase().includes("no api key found")) {
+      const enriched = "Sem apikey (VITE_SUPABASE_ANON_KEY ausente/invalidada no front). Verifique seu .env e reinicie o dev server.";
+      return status ? `${enriched} (HTTP ${status})` : enriched;
+    }
+    return status ? `${message} (HTTP ${status})` : message;
   }, []);
 
   const fetchFromPortal = useCallback(async () => {
@@ -183,16 +209,42 @@ export function ObraPayments({
       return;
     }
 
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      setImportError("Link inválido. Cole a URL completa do portal (incluindo https://).");
+      return;
+    }
+
+    if (importPortal === "tomeconta" && parsed.hostname !== "tomeconta.tcepe.tc.br") {
+      setImportError("Link inválido para TomeConta. O domínio deve ser tomeconta.tcepe.tc.br.");
+      return;
+    }
+
+    if (importPortal === "floresta" && parsed.hostname !== "floresta.pe.gov.br") {
+      setImportError("Link inválido para o Portal de Floresta. O domínio deve ser floresta.pe.gov.br.");
+      return;
+    }
+
     setImportLoading(true);
     setImportError("");
     setImportPayload(null);
     setImportSelected(new Set());
     try {
-      const { data, error } = await supabase.functions.invoke("scrape-floresta-empenho", { body: { url } });
-      if (error) throw error;
+      const fnName = importPortal === "tomeconta" ? "scrape-tomeconta-empenho" : "scrape-floresta-empenho";
+      const { data, error } = await supabase.functions.invoke(fnName, { body: { url } });
+      if (error) {
+        setImportError(getInvokeErrorMessage(error, "Falha ao buscar dados do portal."));
+        return;
+      }
       const paymentsRaw = Array.isArray(data?.payments) ? data.payments : [];
       const payments = paymentsRaw.map((p, idx) => ({ ...p, _row_key: String(idx) }));
       const payload = {
+        parser_version: data?.parser_version || "",
+        payments_count: Number(data?.payments_count) || payments.length,
+        payments_retencao_count: Number(data?.payments_retencao_count) || 0,
+        commitment_history_present: Boolean(data?.commitment_history_present),
         portal_link: data?.portal_link || url,
         portal_auth_code: data?.portal_auth_code || "",
         commitment_number: data?.commitment_number || "",
@@ -202,6 +254,7 @@ export function ObraPayments({
         payments,
       };
       setImportPayload(payload);
+      setImportCommitmentType(String(payload.commitment_type || "").trim());
       setImportSelected(new Set(payments.map((p) => String(p?._row_key))));
       setImportEdits(
         Object.fromEntries(
@@ -222,11 +275,11 @@ export function ObraPayments({
       );
       if (!payments.length) setImportError("Nenhuma linha de pagamento encontrada nesse link.");
     } catch (e) {
-      setImportError(e?.message || "Não foi possível buscar os dados do portal.");
+      setImportError(getInvokeErrorMessage(e, "Não foi possível buscar os dados do portal."));
     } finally {
       setImportLoading(false);
     }
-  }, [importUrl, parseDashDateToIso]);
+  }, [importUrl, importPortal, parseDashDateToIso, getInvokeErrorMessage]);
 
   const toggleImportRow = useCallback((key) => {
     setImportSelected((prev) => {
@@ -252,7 +305,7 @@ export function ObraPayments({
     if (!measurementId) return;
 
     const commitmentNumber = String(importPayload.commitment_number || "").trim() || null;
-    const commitmentType = String(importPayload.commitment_type || "").trim() || null;
+    const commitmentType = String(importCommitmentType || importPayload.commitment_type || "").trim() || null;
     const commitmentDate = String(importPayload.commitment_date || "").trim() || null;
     const portalAuthCode = String(importPayload.portal_auth_code || "").trim() || null;
     const creditorName =
@@ -292,23 +345,38 @@ export function ObraPayments({
     setImportError("");
     try {
       const installments = rows.map((r) => r.installment).filter(Boolean);
-      let existingInstallments = new Set();
+      const installmentKeys = installments.map((v) => String(v || "").trim()).filter(Boolean);
+      const uniqueInstallments = new Set(installmentKeys);
+      const hasRepeatedInstallments = uniqueInstallments.size && uniqueInstallments.size < installmentKeys.length;
+      let toInsert = rows;
       if (portalAuthCode && installments.length) {
-        let query = supabase
-          .from("public_work_payments")
-          .select("installment")
-          .eq("measurement_id", measurementId)
-          .eq("portal_auth_code", portalAuthCode)
-          .in("installment", installments);
-        const { data: existing, error } = await query;
-        if (!error && Array.isArray(existing)) {
-          existingInstallments = new Set(existing.map((x) => String(x?.installment || "").trim()).filter(Boolean));
+        if (!hasRepeatedInstallments) {
+          let query = supabase
+            .from("public_work_payments")
+            .select("installment")
+            .eq("measurement_id", measurementId)
+            .eq("portal_auth_code", portalAuthCode)
+            .in("installment", installments);
+          const { data: existing, error } = await query;
+          if (!error && Array.isArray(existing)) {
+            const existingInstallments = new Set(existing.map((x) => String(x?.installment || "").trim()).filter(Boolean));
+            if (existingInstallments.size) {
+              toInsert = rows.filter((r) => !existingInstallments.has(String(r.installment || "").trim()));
+            }
+          }
+        } else {
+          const { data: existing, error } = await supabase
+            .from("public_work_payments")
+            .select("installment,payment_date,value")
+            .eq("measurement_id", measurementId)
+            .eq("portal_auth_code", portalAuthCode);
+          if (!error && Array.isArray(existing)) {
+            const makeKey = (r) => `${String(r?.installment || "").trim()}|${String(r?.payment_date || "").trim()}|${Number(r?.value || 0).toFixed(2)}`;
+            const existingKeys = new Set(existing.map((x) => makeKey(x)).filter(Boolean));
+            toInsert = rows.filter((r) => !existingKeys.has(makeKey(r)));
+          }
         }
       }
-
-      const toInsert = existingInstallments.size
-        ? rows.filter((r) => !existingInstallments.has(String(r.installment || "").trim()))
-        : rows;
 
       if (!toInsert.length) {
         setImportError("Esses pagamentos já parecem cadastrados para esta fase.");
@@ -328,7 +396,7 @@ export function ObraPayments({
     } finally {
       setImportLoading(false);
     }
-  }, [importPayload, importSelected, importEdits, measurementId, onRefresh]);
+  }, [importPayload, importSelected, importEdits, measurementId, onRefresh, importCommitmentType]);
 
   const getPaymentDate = useCallback(
     (p) => {
@@ -1629,10 +1697,22 @@ export function ObraPayments({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={importPortal}
+                  onChange={(e) => setImportPortal(e.target.value)}
+                  className="h-10 sm:w-[260px] rounded-xl border border-input bg-muted/20 px-3 text-sm"
+                >
+                  <option value="floresta">Portal de Floresta</option>
+                  <option value="tomeconta">TomeConta (TCE-PE)</option>
+                </select>
                 <Input
                   value={importUrl}
                   onChange={(e) => setImportUrl(e.target.value)}
-                  placeholder="https://floresta.pe.gov.br/transparencia/despesas/detalhes/empenho-n-..."
+                  placeholder={
+                    importPortal === "tomeconta"
+                      ? "https://tomeconta.tcepe.tc.br/dados/DetalhesDoFornecedor!detalhesEmpenhosMunicipaisEstaduais?despesas.idUG=..."
+                      : "https://floresta.pe.gov.br/transparencia/despesas/detalhes/empenho-n-..."
+                  }
                   className="bg-muted/20 rounded-xl"
                 />
                 <Button type="button" onClick={fetchFromPortal} disabled={importLoading} className="bg-red-500 hover:bg-red-600 text-white rounded-xl">
@@ -1649,6 +1729,9 @@ export function ObraPayments({
                       Empenho: {importPayload.commitment_number || "—"} {importPayload.commitment_type ? `(${importPayload.commitment_type})` : ""}{" "}
                       {importPayload.commitment_date ? `- ${importPayload.commitment_date}` : ""}
                       {importPayload.portal_auth_code ? ` | Autenticidade: ${importPayload.portal_auth_code}` : ""}
+                      {importPayload.payments_count ? ` | Itens: ${importPayload.payments_count}` : ""}
+                      {importPayload.payments_retencao_count ? ` (retenção: ${importPayload.payments_retencao_count})` : ""}
+                      {importPayload.parser_version ? ` | Parser: ${importPayload.parser_version}` : ""}
                     </div>
                     {importPayload.portal_link ? (
                       <a
@@ -1660,6 +1743,24 @@ export function ObraPayments({
                         Abrir no portal <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     ) : null}
+                  </div>
+
+                  <div className="px-4 py-3 border-b border-border bg-amber-50/40 flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div className="text-xs font-semibold text-amber-900 sm:w-[140px]">Tipo de empenho</div>
+                    <select
+                      value={importCommitmentType}
+                      onChange={(e) => setImportCommitmentType(e.target.value)}
+                      className="h-9 w-full sm:max-w-[320px] rounded-xl border border-amber-200 bg-white px-3 text-sm"
+                    >
+                      <option value="">Não informado</option>
+                      <option value="Ordinário">Ordinário</option>
+                      <option value="Estimativo">Estimativo</option>
+                      <option value="Extra Orçamentário">Extra Orçamentário</option>
+                      <option value="Global">Global</option>
+                    </select>
+                    <div className="text-xs text-amber-900/80">
+                      Opcional (pode ficar como <span className="font-semibold">Não informado</span>). Aplica para todos os pagamentos importados.
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto">
