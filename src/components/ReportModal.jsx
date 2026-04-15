@@ -94,6 +94,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [wizardStep, setWizardStep] = useState(0);
   const [nearbyPoles, setNearbyPoles] = useState([]);
+  const [localPendingPoles, setLocalPendingPoles] = useState([]);
   const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
   const [nearbyPolesError, setNearbyPolesError] = useState(null);
   const [duplicatePoleReports, setDuplicatePoleReports] = useState([]);
@@ -101,6 +102,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     useState(false);
   const [duplicatePoleReportsError, setDuplicatePoleReportsError] =
     useState(null);
+  const [isCreatingPendingPole, setIsCreatingPendingPole] = useState(false);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState("photo");
@@ -139,6 +141,114 @@ const ReportModal = ({ onClose, onSubmit }) => {
     const s = String(raw || "").trim();
     if (!s) return "";
     return s.replace(/^\s*\d+\s*[-–—]\s*/u, "").trim();
+  };
+
+  const handleCreatePendingPole = async () => {
+    if (!user) {
+      toast({
+        title: "Acesso restrito",
+        description: "Você precisa estar logado para cadastrar poste.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
+    if (!user?.is_admin) {
+      toast({
+        title: "Acesso restrito",
+        description: "Apenas administradores podem cadastrar postes no mapa.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.category !== "iluminacao") return;
+
+    const lat = formData.location?.lat;
+    const lng = formData.location?.lng;
+    const normalizedIdentifier = formatPoleLabel(formData.pole_number);
+
+    const nextErrors = {};
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      nextErrors.location = "Selecione a localização no mapa antes de cadastrar o poste.";
+    }
+    if (!normalizedIdentifier) {
+      nextErrors.pole_number = "Informe o número/plaqueta para cadastrar o poste.";
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...nextErrors }));
+      return;
+    }
+
+    setIsCreatingPendingPole(true);
+    try {
+      const { data, error } = await supabase.rpc("create_pending_pole", {
+        p_lat: lat,
+        p_lng: lng,
+        p_identifier: normalizedIdentifier,
+        p_address: formData.address || null,
+        p_plate: null,
+      });
+
+      if (error) throw error;
+
+      const createdPole = Array.isArray(data) ? data[0] : data;
+      if (!createdPole?.pole_id) {
+        throw new Error("Não foi possível obter o ID do poste criado.");
+      }
+
+      const localMarker = {
+        pole_id: createdPole.pole_id,
+        identifier: createdPole.identifier || normalizedIdentifier,
+        plate: createdPole.plate || null,
+        address: createdPole.address || formData.address || null,
+        latitude: createdPole.latitude ?? lat,
+        longitude: createdPole.longitude ?? lng,
+        is_broken: false,
+        distance_m: 0,
+      };
+
+      setLocalPendingPoles((prev) => {
+        const withoutDuplicated = prev.filter((p) => p.pole_id !== localMarker.pole_id);
+        return [localMarker, ...withoutDuplicated];
+      });
+
+      setNearbyPoles((prev) => {
+        const withoutDuplicated = prev.filter((p) => p.pole_id !== localMarker.pole_id);
+        return [localMarker, ...withoutDuplicated];
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        pole_id: createdPole.pole_id,
+        pole_number: normalizedIdentifier,
+        reported_pole_distance_m: 0,
+        reported_post_identifier: createdPole.identifier || normalizedIdentifier,
+        reported_plate: createdPole.plate ?? normalizedIdentifier,
+      }));
+
+      setErrors((prev) => ({
+        ...prev,
+        pole_number: undefined,
+        location: undefined,
+      }));
+
+      toast({
+        title: "Poste cadastrado!",
+        description: "Poste cadastrado no mapa e vinculado à bronca.",
+      });
+    } catch (createPoleError) {
+      toast({
+        title: "Erro ao cadastrar poste",
+        description:
+          createPoleError?.message || "Não foi possível cadastrar o poste agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPendingPole(false);
+    }
   };
 
   // Referência para armazenar dados da foto capturada enquanto processa
@@ -227,6 +337,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
     if (formData.category !== "iluminacao" || !formData.location) {
       setNearbyPoles([]);
+      setLocalPendingPoles([]);
       setNearbyPolesLoading(false);
       setNearbyPolesError(null);
       return;
@@ -253,7 +364,26 @@ const ReportModal = ({ onClose, onSubmit }) => {
         return;
       }
 
-      setNearbyPoles(Array.isArray(data) ? data : []);
+      const remote = Array.isArray(data) ? data : [];
+      const local = localPendingPoles.filter((p) => {
+        const pLat = p?.latitude;
+        const pLng = p?.longitude;
+        return (
+          Number.isFinite(pLat) &&
+          Number.isFinite(pLng) &&
+          Math.abs(pLat - lat) < 0.002 &&
+          Math.abs(pLng - lng) < 0.002
+        );
+      });
+      const seen = new Set();
+      const merged = [];
+      for (const p of [...local, ...remote]) {
+        const key = String(p?.pole_id ?? "");
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(p);
+      }
+      setNearbyPoles(merged);
       setNearbyPolesLoading(false);
     }, 350);
 
@@ -261,7 +391,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [formData.category, formData.location?.lat, formData.location?.lng]);
+  }, [formData.category, formData.location?.lat, formData.location?.lng, localPendingPoles]);
 
   useEffect(() => {
     if (!formData.pole_id) return;
@@ -3232,6 +3362,29 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             </p>
                           )}
 
+                        {user?.is_admin && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleCreatePendingPole}
+                            disabled={
+                              isCreatingPendingPole ||
+                              !formData.location ||
+                              !formatPoleLabel(formData.pole_number)
+                            }
+                            className="w-full"
+                          >
+                            {isCreatingPendingPole ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Cadastrando poste...
+                              </>
+                            ) : (
+                              "Cadastrar poste no mapa"
+                            )}
+                          </Button>
+                        )}
+
                         {formData.pole_id && (
                           <div className="space-y-2">
                             {duplicatePoleReportsLoading && (
@@ -3751,11 +3904,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       type="text"
                       value={formData.pole_number}
                       onChange={(e) => {
+                        const raw = e.target.value;
+                        const normalized = formatPoleLabel(raw);
                         setFormData({
                           ...formData,
-                          pole_number: e.target.value,
+                          pole_number: raw,
                           pole_id: null,
                           reported_pole_distance_m: null,
+                          reported_post_identifier: normalized || null,
+                          reported_plate: normalized || null,
                         });
                         if (errors.pole_number)
                           setErrors((prev) => ({
@@ -3968,6 +4125,29 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           Nenhum poste encontrado perto desta localização.
                         </p>
                       )}
+
+                    {user?.is_admin && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCreatePendingPole}
+                        disabled={
+                          isCreatingPendingPole ||
+                          !formData.location ||
+                          !formatPoleLabel(formData.pole_number)
+                        }
+                        className="w-full sm:w-auto"
+                      >
+                        {isCreatingPendingPole ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Cadastrando poste...
+                          </>
+                        ) : (
+                          "Cadastrar poste no mapa"
+                        )}
+                      </Button>
+                    )}
 
                     {formData.pole_id && (
                       <div className="space-y-2">
