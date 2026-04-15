@@ -215,6 +215,11 @@ const ManageReportsPage = () => {
       address,
       location,
       category_id,
+      pole_number,
+      pole_id,
+      reported_post_identifier,
+      reported_plate,
+      reported_pole_distance_m,
       newPhotos,
       newVideos,
       removedMedia,
@@ -245,6 +250,42 @@ const ManageReportsPage = () => {
 
     if (typeof is_from_water_utility !== 'undefined' && typeof category_id !== 'undefined') {
       reportUpdates.is_from_water_utility = category_id === 'buracos' ? !!is_from_water_utility : null;
+    }
+
+    if (typeof category_id !== 'undefined') {
+      if (category_id === 'iluminacao') {
+        if (typeof pole_number !== 'undefined') {
+          reportUpdates.pole_number = pole_number ? String(pole_number).trim() : null;
+        }
+        if (typeof pole_id !== 'undefined') reportUpdates.pole_id = pole_id || null;
+        if (typeof reported_post_identifier !== 'undefined') reportUpdates.reported_post_identifier = reported_post_identifier ? String(reported_post_identifier).trim() : null;
+        if (typeof reported_plate !== 'undefined') reportUpdates.reported_plate = reported_plate ? String(reported_plate).trim() : null;
+        if (typeof reported_pole_distance_m !== 'undefined') {
+          if (reported_pole_distance_m == null) reportUpdates.reported_pole_distance_m = null;
+          else {
+            const n = Number(reported_pole_distance_m);
+            reportUpdates.reported_pole_distance_m = Number.isFinite(n) ? n : null;
+          }
+        }
+      } else {
+        reportUpdates.pole_number = null;
+        reportUpdates.pole_id = null;
+        reportUpdates.reported_post_identifier = null;
+        reportUpdates.reported_plate = null;
+        reportUpdates.reported_pole_distance_m = null;
+      }
+    } else if (typeof pole_number !== 'undefined') {
+      reportUpdates.pole_number = pole_number ? String(pole_number).trim() : null;
+      if (typeof pole_id !== 'undefined') reportUpdates.pole_id = pole_id || null;
+      if (typeof reported_post_identifier !== 'undefined') reportUpdates.reported_post_identifier = reported_post_identifier ? String(reported_post_identifier).trim() : null;
+      if (typeof reported_plate !== 'undefined') reportUpdates.reported_plate = reported_plate ? String(reported_plate).trim() : null;
+      if (typeof reported_pole_distance_m !== 'undefined') {
+        if (reported_pole_distance_m == null) reportUpdates.reported_pole_distance_m = null;
+        else {
+          const n = Number(reported_pole_distance_m);
+          reportUpdates.reported_pole_distance_m = Number.isFinite(n) ? n : null;
+        }
+      }
     }
 
     if (location) reportUpdates.location = `POINT(${location.lng} ${location.lat})`;

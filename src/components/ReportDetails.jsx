@@ -196,6 +196,10 @@ const ReportDetails = ({
   const [isModerationSaving, setIsModerationSaving] = useState(false);
   const [statusOverride, setStatusOverride] = useState(null);
   const [categoryOverride, setCategoryOverride] = useState(null);
+  const [isCreatingPendingPole, setIsCreatingPendingPole] = useState(false);
+  const [nearbyPoles, setNearbyPoles] = useState([]);
+  const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
+  const [nearbyPolesError, setNearbyPolesError] = useState(null);
 
  
   const categories = {
@@ -224,6 +228,7 @@ const ReportDetails = ({
   };
 
   const formatDate = (dateString) => new Date(dateString).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const formatPoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
 
   // Base URL memoizada para evitar recálculos
   const baseUrl = useMemo(() => getBaseAppUrl(), []);
@@ -604,6 +609,11 @@ const ReportDetails = ({
     setIsSaving(true);
     try {
       await onUpdate(editData); // Aguarda a atualização
+      if (startInEdit) {
+        setIsSaving(false);
+        onClose();
+        return;
+      }
       setIsSaving(false);
       setIsEditing(false);
       setEditData(null);
@@ -614,6 +624,10 @@ const ReportDetails = ({
   };
 
   const handleCancelEdit = () => {
+    if (startInEdit) {
+      onClose();
+      return;
+    }
     setIsEditing(false);
     setEditData(null);
   };
@@ -623,9 +637,128 @@ const ReportDetails = ({
     setEditData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleEditPoleNumberChange = (e) => {
+    const raw = e.target.value;
+    const normalized = formatPoleLabel(raw);
+    setEditData(prev => ({
+      ...prev,
+      pole_number: raw,
+      pole_id: null,
+      reported_pole_distance_m: null,
+      reported_post_identifier: normalized || null,
+      reported_plate: normalized || null,
+    }));
+  };
+
+  const handleCreatePendingPoleForEdit = async () => {
+    if (!user) {
+      toast({ title: "Acesso restrito", description: "Você precisa estar logado para cadastrar poste.", variant: "destructive" });
+      navigate('/login');
+      return;
+    }
+    if (!user?.is_admin) {
+      toast({ title: "Acesso restrito", description: "Apenas administradores podem cadastrar postes no mapa.", variant: "destructive" });
+      return;
+    }
+    if (!editData) return;
+
+    const lat = editData.location?.lat;
+    const lng = editData.location?.lng;
+    const normalizedIdentifier = formatPoleLabel(editData.pole_number);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      toast({ title: "Localização obrigatória", description: "Ajuste a localização no mapa antes de cadastrar o poste.", variant: "destructive" });
+      return;
+    }
+    if (!normalizedIdentifier) {
+      toast({ title: "Número do poste obrigatório", description: "Informe o número/plaqueta para cadastrar o poste.", variant: "destructive" });
+      return;
+    }
+
+    setIsCreatingPendingPole(true);
+    try {
+      const { data, error } = await supabase.rpc('create_pending_pole', {
+        p_lat: lat,
+        p_lng: lng,
+        p_identifier: normalizedIdentifier,
+        p_address: editData.address || null,
+        p_plate: null,
+      });
+      if (error) throw error;
+
+      const createdPole = Array.isArray(data) ? data[0] : data;
+      if (!createdPole?.pole_id) {
+        throw new Error('Não foi possível obter o ID do poste criado.');
+      }
+
+      setEditData(prev => ({
+        ...prev,
+        pole_id: createdPole.pole_id,
+        pole_number: normalizedIdentifier,
+        reported_pole_distance_m: 0,
+        reported_post_identifier: createdPole.identifier || normalizedIdentifier,
+        reported_plate: createdPole.plate ?? normalizedIdentifier,
+      }));
+
+      toast({
+        title: "Poste cadastrado!",
+        description: "Poste cadastrado no mapa e vinculado à bronca."
+      });
+    } catch (createPoleError) {
+      toast({
+        title: "Erro ao cadastrar poste",
+        description: createPoleError?.message || "Não foi possível cadastrar o poste agora.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingPendingPole(false);
+    }
+  };
+
   const handleLocationChange = (newLocation) => {
     setEditData(prev => ({ ...prev, location: newLocation }));
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isEditing || editData?.category_id !== 'iluminacao' || !editData?.location) {
+      setNearbyPoles([]);
+      setNearbyPolesLoading(false);
+      setNearbyPolesError(null);
+      return;
+    }
+
+    const { lat, lng } = editData.location;
+    const timer = setTimeout(async () => {
+      setNearbyPolesLoading(true);
+      setNearbyPolesError(null);
+
+      const { data, error } = await supabase.rpc('nearest_poles', {
+        lat,
+        lng,
+        radius_m: 80,
+        max_results: 5,
+      });
+
+      if (cancelled) return;
+
+      if (error) {
+        setNearbyPoles([]);
+        setNearbyPolesError(error.message || 'Falha ao buscar postes próximos');
+        setNearbyPolesLoading(false);
+        return;
+      }
+
+      setNearbyPoles(Array.isArray(data) ? data : []);
+      setNearbyPolesLoading(false);
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isEditing, editData?.category_id, editData?.location?.lat, editData?.location?.lng]);
 
   const handleFileChange = async (e, fileType) => {
     const files = Array.from(e.target.files);
@@ -1147,7 +1280,7 @@ const ReportDetails = ({
               )}
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={onClose} className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
         </div>
       </div>
 
@@ -1422,13 +1555,128 @@ const ReportDetails = ({
                 <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2"><MapPin className="w-4 h-4" /> Localização</h3>
                 <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
                   <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                    <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={editData.location} />
+                    <LocationPickerMap
+                      onLocationChange={handleLocationChange}
+                      initialPosition={editData.location}
+                      overlayMarkers={
+                        editData?.category_id === 'iluminacao'
+                          ? nearbyPoles
+                              .filter(
+                                (p) =>
+                                  Number.isFinite(p?.latitude) &&
+                                  Number.isFinite(p?.longitude)
+                              )
+                              .map((p) => ({
+                                id: p.pole_id,
+                                title:
+                                  formatPoleLabel(p.plate || p.identifier) ||
+                                  `Poste ${p.pole_id}`,
+                                distanceLabel:
+                                  p.distance_m != null ? `${p.distance_m}m` : "",
+                                isBroken: !!p.is_broken,
+                                location: { lat: p.latitude, lng: p.longitude },
+                                data: p,
+                              }))
+                          : []
+                      }
+                      selectedOverlayMarkerId={editData?.pole_id}
+                      onOverlayMarkerSelect={(m) => {
+                        setEditData((prev) => ({
+                          ...prev,
+                          pole_id: m.id,
+                          reported_pole_distance_m: m.data?.distance_m ?? null,
+                          reported_post_identifier: m.data?.identifier ?? null,
+                          reported_plate: m.data?.plate ?? null,
+                          pole_number: formatPoleLabel(
+                            m.data?.plate || m.data?.identifier || m.title || m.id
+                          ),
+                          address: prev.address?.trim()
+                            ? prev.address
+                            : m.data?.address || prev.address || "",
+                        }));
+                      }}
+                      showSatelliteToggle={true}
+                    />
                   </Suspense>
                 </div>
+                {editData?.category_id === 'iluminacao' && (
+                  <div className="mt-3 space-y-2">
+                    {nearbyPolesLoading && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Carregando postes no mapa...
+                      </div>
+                    )}
+
+                    {!nearbyPolesLoading && nearbyPolesError && (
+                      <p className="text-xs text-destructive">{nearbyPolesError}</p>
+                    )}
+
+                    {!nearbyPolesLoading &&
+                      !nearbyPolesError &&
+                      nearbyPoles.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Clique no ícone do poste no mapa para selecionar.
+                        </p>
+                      )}
+
+                    {!nearbyPolesLoading &&
+                      !nearbyPolesError &&
+                      nearbyPoles.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum poste encontrado perto desta localização.
+                        </p>
+                      )}
+                  </div>
+                )}
                 <input type="text" name="address" value={editData.address} onChange={handleEditChange} className="w-full bg-background px-4 py-3 border border-input rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Endereço de referência" />
               </div>
             ) : (
               report.address && <div className="flex items-center space-x-2 text-muted-foreground"><MapPin className="w-4 h-4" /><span className="text-sm">{report.address}</span></div>
+            )}
+
+            {isEditing && (editData?.category_id === 'iluminacao' || report?.category === 'iluminacao') && (
+              <div className="space-y-2">
+                <h3 className="font-semibold text-foreground mb-2">Poste</h3>
+                <input
+                  type="text"
+                  name="pole_number"
+                  value={editData?.pole_number || ''}
+                  onChange={handleEditPoleNumberChange}
+                  className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="N°/plaqueta do poste"
+                />
+                {user?.is_admin && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCreatePendingPoleForEdit}
+                    disabled={isCreatingPendingPole || !editData?.location || !formatPoleLabel(editData?.pole_number)}
+                    className="w-full sm:w-auto"
+                  >
+                    {isCreatingPendingPole ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Cadastrando poste...
+                      </>
+                    ) : (
+                      "Cadastrar poste no mapa"
+                    )}
+                  </Button>
+                )}
+                {editData?.pole_id && (
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                      Poste vinculado: #{editData.pole_id}
+                    </span>
+                    {Number.isFinite(Number(editData?.reported_pole_distance_m)) && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                        Distância: {Number(editData.reported_pole_distance_m)}m
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             {isEditing && (editData?.category_id === 'buracos' || report?.category === 'buracos') && (
