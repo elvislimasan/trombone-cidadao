@@ -1,6 +1,15 @@
 
-const SUPABASE_URL = 'https://mrejgpcxaevooofyenzq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NzI3OTYsImV4cCI6MjA3NDA0ODc5Nn0.mfMzOixO1AUWPb6O6cFKNTbLHvYA2GBBAT8QW2WSsWU';
+import 'dotenv/config';
+
+const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY =
+  process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error(
+    'Variáveis ausentes: defina SUPABASE_URL e SUPABASE_ANON_KEY (ou VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).'
+  );
+}
 
 async function checkTable() {
   try {

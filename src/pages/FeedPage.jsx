@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Loader2, Megaphone, Heart, UserPlus } from 'lucide-react';
+import { RefreshCw, Loader2, Megaphone, Heart, UserPlus, WifiOff, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Capacitor } from '@capacitor/core';
@@ -15,6 +15,8 @@ import FeedSkeleton from '@/components/FeedSkeleton';
 import FeedEmptyState from '@/components/FeedEmptyState';
 import ReportModal from '@/components/ReportModal';
 import { useToast } from '@/components/ui/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 const TABS = [
   { key: 'recent', label: 'Recentes' },
@@ -95,11 +97,25 @@ export default function FeedPage() {
     }
   });
 
-  const { reports, loading, loadingMore, hasMore, loadMore, refresh, toggleUpvote } =
-    useFeed(activeTab);
+  const {
+    reports,
+    loading,
+    loadingMore,
+    hasMore,
+    loadMore,
+    refresh,
+    toggleUpvote,
+    error,
+    isSlow,
+    loadMoreError,
+    isSlowMore,
+  } = useFeed(activeTab);
+  const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
 
   // Sentinel for infinite scroll
-  const sentinelRef = useInfiniteScroll(loadMore, { enabled: !loading && !loadingMore && hasMore });
+  const sentinelRef = useInfiniteScroll(loadMore, {
+    enabled: !loading && !loadingMore && hasMore && !loadMoreError,
+  });
 
   // Realtime: count new reports since page load
   const loadedAtRef = useRef(new Date().toISOString());
@@ -130,7 +146,7 @@ export default function FeedPage() {
   const handleRefresh = useCallback(() => {
     setNewCount(0);
     loadedAtRef.current = new Date().toISOString();
-    refresh();
+    refresh({ preserve: true });
   }, [refresh]);
 
   useEffect(() => {
@@ -139,7 +155,7 @@ export default function FeedPage() {
       setActiveTab('recent');
       setNewCount(0);
       loadedAtRef.current = new Date().toISOString();
-      refresh();
+      refresh({ preserve: true });
       if (createdId) {
         setRecentCreatedId(createdId);
         if (recentCreatedTimerRef.current) {
@@ -425,9 +441,97 @@ export default function FeedPage() {
 
       {/* ── Feed Content ── */}
       <div className="container mx-auto max-w-2xl px-3 py-4">
-      
-        {loading ? (
+        {isOffline && reports.length > 0 && (
+          <Alert variant="destructive" className="mb-4">
+            <WifiOff className="h-4 w-4" />
+            <div>
+              <AlertTitle>Sem conexão</AlertTitle>
+              <AlertDescription>Conecte-se à internet para carregar o feed.</AlertDescription>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => refresh({ preserve: reports.length > 0 })}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            </div>
+          </Alert>
+        )}
+
+        {isSlow && !isOffline && (
+          <Alert className="mb-4">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <div>
+              <AlertTitle>Conexão lenta</AlertTitle>
+              <AlertDescription>
+                Estamos tentando carregar as broncas. Se demorar, tente novamente.
+              </AlertDescription>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => refresh({ preserve: reports.length > 0 })}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            </div>
+          </Alert>
+        )}
+
+        {error && reports.length > 0 && !isOffline && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <div>
+              <AlertTitle>Falha ao atualizar o feed</AlertTitle>
+              <AlertDescription>
+                {error.message}
+                <div className="mt-3 flex gap-2">
+                  <Button variant="outline" onClick={() => refresh({ preserve: true })}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
+
+        {loading && reports.length === 0 ? (
           <FeedSkeleton count={3} />
+        ) : isOffline && reports.length === 0 ? (
+          <div className="py-10">
+            <Alert variant="destructive">
+              <WifiOff className="h-4 w-4" />
+              <div>
+                <AlertTitle>Sem conexão</AlertTitle>
+                <AlertDescription>
+                  Conecte-se à internet para carregar o feed.
+                  <div className="mt-3 flex gap-2">
+                    <Button variant="outline" onClick={() => refresh({ preserve: false })}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </div>
+            </Alert>
+          </div>
+        ) : error && reports.length === 0 ? (
+          <div className="py-10">
+            <Alert variant="destructive">
+              <WifiOff className="h-4 w-4" />
+              <div>
+                <AlertTitle>Não foi possível carregar</AlertTitle>
+                <AlertDescription>
+                  {error.message}
+                  <div className="mt-3 flex gap-2">
+                    <Button variant="outline" onClick={() => refresh({ preserve: false })}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </div>
+            </Alert>
+          </div>
         ) : reports.length === 0 ? (
           <FeedEmptyState
             tab={activeTab}
@@ -436,6 +540,13 @@ export default function FeedPage() {
           />
         ) : (
           <div className="space-y-4">
+            {loading && (
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Loader2 size={14} className="animate-spin" />
+                Atualizando…
+              </div>
+            )}
+
             {reports.map((report, index) => (
               <FeedCard
                 key={report.id}
@@ -446,17 +557,38 @@ export default function FeedPage() {
               />
             ))}
 
-            {/* Infinite scroll sentinel */}
             <div ref={sentinelRef} className="h-4" />
 
-            {/* Loading more indicator */}
+            {loadMoreError && !isOffline && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <div>
+                  <AlertTitle>Falha ao carregar mais broncas</AlertTitle>
+                  <AlertDescription>
+                    {loadMoreError.message}
+                    <div className="mt-3 flex gap-2">
+                      <Button variant="outline" onClick={loadMore}>
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </div>
+              </Alert>
+            )}
+
+            {isSlowMore && (
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
+                <Loader2 size={14} className="animate-spin" />
+                Carregando mais… (conexão lenta)
+              </div>
+            )}
+
             {loadingMore && (
               <div className="flex justify-center py-4">
                 <Loader2 size={24} className="animate-spin text-muted-foreground" />
               </div>
             )}
 
-            {/* End of feed */}
             {!hasMore && reports.length > 0 && (
               <p className="text-center text-xs text-muted-foreground py-4">
                 Você viu todas as broncas desta categoria.

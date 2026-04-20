@@ -1,8 +1,18 @@
 
+import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://xxdletrjyjajtrmhwzev.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4ZGxldHJqeWphanRybWh3emV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MjMzNjksImV4cCI6MjA3NzI5OTM2OX0.DySq0AnK3aIi4RmJR--8_6wl72Ktj9exaxqYk6pP3Yo';
+const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  process.env.SUPABASE_ANON_KEY ??
+  process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    'Variáveis ausentes: defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (recomendado) ou SUPABASE_ANON_KEY.'
+  );
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

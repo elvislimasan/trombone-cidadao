@@ -65,6 +65,7 @@ import MapPage from './pages/MapPage';
 import HomeRouter from './pages/HomeRouter';
 import NotFoundPage from '@/pages/NotFoundPage';
 import SearchPage from '@/pages/SearchPage';
+import AppLandingPage from '@/pages/AppLandingPage';
 import MobileHeader from '@/components/MobileHeader';
 import { MobileHeaderProvider } from '@/contexts/MobileHeaderContext';
 import { NativeUIModeProvider, useNativeUIMode } from '@/contexts/NativeUIModeContext';
@@ -564,6 +565,7 @@ function AppShell() {
               <Route path="/cadastro" element={<RegisterPage />} />
               <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
               <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
+              <Route path="/app" element={<AppLandingPage />} />
               
               <Route path="/" element={<HomeRouter />} />
               <Route path="/mapa" element={<MapPage />} />

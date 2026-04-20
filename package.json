@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@capacitor-community/camera-preview": "^7.0.2",
-    "@capacitor-community/file-opener": "^8.0.0",
+    "@capacitor-community/file-opener": "^7.0.0",
     "@capacitor-community/media": "^8.0.1",
     "@capacitor/android": "^7.4.4",
     "@capacitor/app": "^7.1.0",
@@ -119,6 +119,7 @@
     "@vitejs/plugin-react": "^4.0.3",
     "autoprefixer": "^10.4.16",
     "baseline-browser-mapping": "^2.10.0",
+    "dotenv": "^16.6.1",
     "eslint": "^8.57.1",
     "eslint-config-react-app": "^7.0.1",
     "fast-xml-parser": "^5.3.0",
