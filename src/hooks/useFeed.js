@@ -3,6 +3,8 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const PAGE_SIZE = 10;
+const SLOW_LOAD_MS = 4500;
+const SLOW_MORE_MS = 6500;
 
 const CATEGORY_EMOJIS = {
   iluminacao: '💡',
@@ -14,14 +16,46 @@ const CATEGORY_EMOJIS = {
   outros: '📍',
 };
 
+const errorToMessage = (err) => {
+  if (!err) return 'Não foi possível carregar. Tente novamente.';
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return 'Sem conexão com a internet. Verifique sua rede e tente novamente.';
+  }
+
+  const message =
+    typeof err === 'string'
+      ? err
+      : err?.message || err?.error_description || String(err);
+
+  if (/timeout|timed out|aborterror/i.test(message)) {
+    return 'A conexão demorou demais. Tente novamente.';
+  }
+  if (/failed to fetch|networkerror|load failed|fetch/i.test(message)) {
+    return 'Falha de conexão. Verifique sua internet e tente novamente.';
+  }
+
+  return message || 'Não foi possível carregar. Tente novamente.';
+};
+
+const normalizeError = (err) => ({
+  message: errorToMessage(err),
+  code: err?.code ?? null,
+});
+
 export function useFeed(tab = 'recent') {
   const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState(null);
+  const [isSlow, setIsSlow] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(null);
+  const [isSlowMore, setIsSlowMore] = useState(false);
   const pageRef = useRef(0);
   const cancelRef = useRef(false);
+  const slowTimerRef = useRef(null);
+  const slowMoreTimerRef = useRef(null);
 
   const buildPage = useCallback(
     async (page) => {
@@ -117,12 +151,23 @@ export function useFeed(tab = 'recent') {
     [tab, user]
   );
 
-  const loadInitial = useCallback(() => {
+  const loadInitial = useCallback(({ preserve = false } = {}) => {
     cancelRef.current = false;
     setLoading(true);
-    setReports([]);
+    setError(null);
+    setIsSlow(false);
+    setLoadMoreError(null);
+    setIsSlowMore(false);
+    if (!preserve) setReports([]);
     setHasMore(true);
     pageRef.current = 0;
+
+    if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+    if (slowMoreTimerRef.current) clearTimeout(slowMoreTimerRef.current);
+    slowMoreTimerRef.current = null;
+    slowTimerRef.current = setTimeout(() => {
+      if (!cancelRef.current) setIsSlow(true);
+    }, SLOW_LOAD_MS);
 
     buildPage(0)
       .then((items) => {
@@ -141,10 +186,16 @@ export function useFeed(tab = 'recent') {
         pageRef.current = 1;
       })
       .catch((err) => {
-        if (!cancelRef.current) console.error('[useFeed] fetch error:', err);
+        if (cancelRef.current) return;
+        setError(normalizeError(err));
       })
       .finally(() => {
-        if (!cancelRef.current) setLoading(false);
+        if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+        slowTimerRef.current = null;
+        if (!cancelRef.current) {
+          setIsSlow(false);
+          setLoading(false);
+        }
       });
   }, [buildPage]);
 
@@ -154,6 +205,8 @@ export function useFeed(tab = 'recent') {
     loadInitial();
     return () => {
       cancelRef.current = true;
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+      if (slowMoreTimerRef.current) clearTimeout(slowMoreTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, user?.id]);
@@ -161,6 +214,13 @@ export function useFeed(tab = 'recent') {
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
+    setLoadMoreError(null);
+    setIsSlowMore(false);
+
+    if (slowMoreTimerRef.current) clearTimeout(slowMoreTimerRef.current);
+    slowMoreTimerRef.current = setTimeout(() => {
+      if (!cancelRef.current) setIsSlowMore(true);
+    }, SLOW_MORE_MS);
 
     buildPage(pageRef.current)
       .then((items) => {
@@ -179,10 +239,16 @@ export function useFeed(tab = 'recent') {
         pageRef.current += 1;
       })
       .catch((err) => {
-        if (!cancelRef.current) console.error('[useFeed] loadMore error:', err);
+        if (cancelRef.current) return;
+        setLoadMoreError(normalizeError(err));
       })
       .finally(() => {
-        if (!cancelRef.current) setLoadingMore(false);
+        if (slowMoreTimerRef.current) clearTimeout(slowMoreTimerRef.current);
+        slowMoreTimerRef.current = null;
+        if (!cancelRef.current) {
+          setIsSlowMore(false);
+          setLoadingMore(false);
+        }
       });
   }, [buildPage, loadingMore, hasMore]);
 
@@ -243,6 +309,10 @@ export function useFeed(tab = 'recent') {
     loading,
     loadingMore,
     hasMore,
+    error,
+    isSlow,
+    loadMoreError,
+    isSlowMore,
     loadMore,
     refresh: loadInitial,
     toggleUpvote,

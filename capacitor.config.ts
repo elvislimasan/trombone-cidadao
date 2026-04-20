@@ -1,5 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+const androidCleartext = process.env.CAPACITOR_CLEARTEXT === 'true';
+
 const config: CapacitorConfig = {
   appId: 'com.trombonecidadao.app',
   appName: 'Trombone Cidadão',
@@ -13,7 +15,7 @@ const config: CapacitorConfig = {
     // url: 'https://trombonecidadao.com.br',
     // url: 'http://192.168.100.107:3002',
     // url:  'https://2e08-2804-e94-93b-f200-65a2-6b74-cead-60ad.ngrok-free.app',
-    cleartext: true
+    cleartext: androidCleartext
   },
   plugins: {
     StatusBar: {
