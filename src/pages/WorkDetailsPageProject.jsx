@@ -16,6 +16,7 @@ import {
   ObraPayments,
   ObraPaymentsSummary,
 } from "@/components/project/obra/ObraPayments";
+import { ObraDelayMeter } from "@/components/project/obra/ObraDelayMeter";
 import { ObraGallery } from "@/components/project/obra/ObraGallery";
 import { ObraPhases } from "@/components/project/obra/ObraPhases";
 import { ObraContribution } from "@/components/project/obra/ObraContribution";
@@ -2203,6 +2204,14 @@ export default function WorkDetailsPageProject() {
                   as informações importantes sobre a execução desta fase da
                   obra.
                 </p>
+                <div className="mt-4 2xl:hidden">
+                  <ObraDelayMeter
+                    expectedEndDate={phase?.expectedEndDate}
+                    endDate={phase?.endDate}
+                    status={phase?.status}
+                    executionDays={phase?.executionDays}
+                  />
+                </div>
               </div>
               <div className="mx-0 lg:mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-0 lg:mb-8 overflow-hidden min-h-[400px]">
                 {currentPhaseView === "general" ? (
@@ -2582,6 +2591,14 @@ export default function WorkDetailsPageProject() {
           </div>
 
           <aside className="space-y-6 lg:col-span-12 2xl:col-span-3 3xl:col-span-3">
+            <div className="hidden 2xl:block">
+              <ObraDelayMeter
+                expectedEndDate={phase?.expectedEndDate}
+                endDate={phase?.endDate}
+                status={phase?.status}
+                executionDays={phase?.executionDays}
+              />
+            </div>
             <ObraLocation
               address={work.address}
               neighborhood={work.bairro?.name || ""}
