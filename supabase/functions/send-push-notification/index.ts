@@ -228,6 +228,8 @@ async function sendFCMNotification(
     badge?: string;
     image?: string;
     url?: string;
+    report_id?: string;
+    work_id?: string;
     notificationId?: string;
     type?: string;
     vibrate?: number[];
@@ -304,6 +306,8 @@ async function sendFCMNotification(
           },
         data: {
           url: notification.url || "/",
+          report_id: notification.report_id || "",
+          work_id: notification.work_id || "",
           notificationId: notification.notificationId || "",
           type: notification.type || "system",
           click_action: notification.url || "FLUTTER_NOTIFICATION_CLICK",
@@ -392,6 +396,8 @@ async function sendPushNotification(
     badge?: string;
     image?: string;
     url?: string;
+    report_id?: string;
+    work_id?: string;
     notificationId?: string;
     type?: string;
     vibrate?: number[];
@@ -435,6 +441,8 @@ async function sendPushNotification(
       image: notification.image, // Imagem grande (opcional)
       data: {
         url: notification.url || "/",
+        report_id: notification.report_id || "",
+        work_id: notification.work_id || "",
         notificationId: notification.notificationId,
         type: notification.type,
       },
@@ -497,6 +505,7 @@ serve(async (req) => {
         user_id: body.record.user_id,
         type: body.record.type,
         message: body.record.message,
+        link: body.record.link,
         report_id: body.record.report_id,
         work_id: body.record.work_id
       };
@@ -559,6 +568,38 @@ serve(async (req) => {
 
     // Verificar se o tipo de notificação está habilitado
     const notificationType = notification.type || 'system';
+
+    // 🔒 Blindagem: tipos admin-only não podem gerar push para não-admin
+    if (notificationType === "moderation_required") {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("[EDGE FUNCTION] Erro ao verificar is_admin:", profileError);
+        return new Response(
+          JSON.stringify({
+            message: "Não foi possível validar permissão para notificação admin-only",
+            sent: 0,
+            notificationType,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!profile?.is_admin) {
+        return new Response(
+          JSON.stringify({
+            message: "Notificação admin-only ignorada para usuário não-admin",
+            sent: 0,
+            notificationType,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
     
     // Parsear notification_preferences se for string JSON
     let notificationPrefs = {};
@@ -667,6 +708,39 @@ serve(async (req) => {
       ];
     };
 
+    const normalizeInternalUrl = (rawUrl?: string) => {
+      if (!rawUrl) return null;
+      const trimmed = String(rawUrl).trim();
+      if (!trimmed) return null;
+
+      try {
+        const parsed = trimmed.includes("://")
+          ? new URL(trimmed)
+          : new URL(trimmed, "https://trombonecidadao.local");
+        const path = `${parsed.pathname || ""}${parsed.search || ""}${parsed.hash || ""}`;
+        return path.startsWith("/") ? path : `/${path}`;
+      } catch {
+        return trimmed.startsWith("/") ? trimmed : null;
+      }
+    };
+
+    const computeTargetUrl = () => {
+      const explicit = normalizeInternalUrl(notification.url || notification.link);
+      if (explicit) return explicit;
+
+      if (notificationType === "moderation_required") {
+        if (notification.report_id) return "/admin/moderacao/broncas";
+        if (notification.work_id) return "/admin/moderacao/obras-midias";
+        return "/admin/moderacao/broncas";
+      }
+
+      if (notification.report_id) return `/bronca/${notification.report_id}`;
+      if (notification.work_id) return `/obras-publicas/${notification.work_id}`;
+      return "/painel-usuario";
+    };
+
+    const targetUrl = computeTargetUrl();
+
     // Personalizar notificação
     const notificationData = {
       title: notification.title || "Trombone Cidadão",
@@ -674,7 +748,9 @@ serve(async (req) => {
       icon: notification.icon || getNotificationIcon(notification.type || 'system'),
       badge: notification.badge || '/logo.png',
       image: notification.image, // Imagem grande (opcional)
-      url: notification.url,
+      url: targetUrl,
+      report_id: notification.report_id,
+      work_id: notification.work_id,
       notificationId: notification.id,
       type: notification.type,
       vibrate: notification.vibrate || getNotificationVibration(notification.type || 'system'),

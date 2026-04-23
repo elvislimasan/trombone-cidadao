@@ -80,13 +80,18 @@ export const NotificationProvider = ({ children }) => {
     if (notification.link) {
       return notification.link;
     }
+    if (notification.type === 'moderation_required') {
+      if (notification.report_id) return '/admin/moderacao/broncas';
+      if (notification.work_id) return '/admin/moderacao/obras-midias';
+      return '/admin/moderacao/broncas';
+    }
     if (notification.report_id) {
       return `/bronca/${notification.report_id}`;
     }
     if (notification.work_id) {
       return `/obras-publicas/${notification.work_id}`;
     }
-    return '/notificacoes';
+    return '/painel-usuario';
   };
 
   // Mostrar notificação local
@@ -293,6 +298,9 @@ export const NotificationProvider = ({ children }) => {
         if (error && error.code === 'PGRST116') {
           // Criar preferências padrão
           let initialPreferences = { ...DEFAULT_PREFERENCES };
+          if (user?.is_admin !== true) {
+            initialPreferences.moderation_required = false;
+          }
           
           const defaultPreferences = {
             user_id: user.id,
@@ -326,6 +334,9 @@ export const NotificationProvider = ({ children }) => {
           // 🔥 Outro tipo de erro - tentar criar mesmo assim
           // Erro ao buscar preferências
           let initialPreferences = { ...DEFAULT_PREFERENCES };
+          if (user?.is_admin !== true) {
+            initialPreferences.moderation_required = false;
+          }
           
           const defaultPreferences = {
             user_id: user.id,

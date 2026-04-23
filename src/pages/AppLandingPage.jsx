@@ -73,6 +73,9 @@ const AppLandingPage = () => {
             <p className="mt-1 text-sm text-white/90 md:text-base">
               Acesse mais rápido, receba notificações e acompanhe suas broncas.
             </p>
+            <p className="mt-1 text-sm text-white/80">
+              App Store (iOS) disponível em breve.
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -97,7 +100,7 @@ const AppLandingPage = () => {
               </>
             ) : (
               <>
-                Copiar link <Copy className="h-4 w-4" />
+                Copiar link /app <Copy className="h-4 w-4" />
               </>
             )}
           </Button>
@@ -160,21 +163,11 @@ const AppLandingPage = () => {
               {isIOS ? (
                 <>
                   <p className="mt-2 text-sm leading-relaxed text-[#8a7a76]">
-                    O app para iOS ainda não está disponível. Logo estará
-                    disponível na App Store.
+                    O app para iOS (App Store) estará disponível em breve.
                   </p>
                   <div className="mt-5 flex flex-wrap gap-3">
                     <Button variant="outline" asChild>
                       <Link to="/">Abrir o site</Link>
-                    </Button>
-                    <Button asChild className="bg-[#c0392b] hover:bg-[#e74c3c]">
-                      <a
-                        href={PLAY_STORE_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Ver versão Android
-                      </a>
                     </Button>
                   </div>
                 </>
@@ -183,20 +176,6 @@ const AppLandingPage = () => {
                   <p className="mt-2 text-sm leading-relaxed text-[#8a7a76]">
                     O app Android já está disponível na Play Store.
                   </p>
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <Button asChild className="bg-[#c0392b] hover:bg-[#e74c3c]">
-                      <a
-                        href={PLAY_STORE_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Abrir Play Store
-                      </a>
-                    </Button>
-                    <Button variant="outline" onClick={handleCopyLink}>
-                      {copied ? "Link copiado" : "Copiar link /app"}
-                    </Button>
-                  </div>
                 </>
               )}
             </div>
@@ -207,8 +186,13 @@ const AppLandingPage = () => {
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-[#8a7a76]">
                 Aponte a câmera do seu celular para este QR Code. Ele abre{" "}
-                <span className="font-semibold">{shareUrl}</span> e direciona
-                automaticamente conforme o dispositivo.
+                <a
+                  href={shareUrl}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  {shareUrl}
+                </a>{" "}
+                e direciona automaticamente conforme o dispositivo.
               </p>
               <div className="mt-5 flex flex-col items-center gap-4">
                 <img
@@ -217,20 +201,6 @@ const AppLandingPage = () => {
                   className="h-[260px] w-[260px] rounded-xl border border-[#e6ded8] bg-white p-3"
                   loading="lazy"
                 />
-                <div className="flex flex-wrap justify-center gap-3">
-                  <Button variant="outline" onClick={handleCopyLink}>
-                    {copied ? "Copiado" : "Copiar link"}
-                  </Button>
-                  <Button asChild className="bg-[#c0392b] hover:bg-[#e74c3c]">
-                    <a
-                      href={PLAY_STORE_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Abrir Play Store
-                    </a>
-                  </Button>
-                </div>
               </div>
             </div>
           </div>
