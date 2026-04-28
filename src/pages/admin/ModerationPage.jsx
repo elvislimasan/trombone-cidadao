@@ -121,6 +121,20 @@ const ModerationPage = () => {
 
   const processAction = async (item, newStatus) => {
     try {
+      const shouldRetryWithoutRejectionFields = (err) => {
+        const msg = String(err?.message || '');
+        if (err?.code === 'PGRST204') return true;
+        if (msg.includes('schema cache') && msg.includes('reports')) return true;
+        if (msg.includes("Could not find the 'rejection_")) return true;
+        if (msg.includes("Could not find the 'rejected_at'")) return true;
+        return false;
+      };
+
+      const stripRejectionFields = (obj) => {
+        const { rejection_title, rejection_description, rejected_at, ...rest } = obj || {};
+        return rest;
+      };
+
       if (isResolutionModeration) {
         let updateData = newStatus === 'approved' 
           ? { status: 'resolved', resolved_at: new Date().toISOString() }
@@ -205,10 +219,13 @@ const ModerationPage = () => {
           updateData.rejected_at = new Date().toISOString();
         }
 
-        const { error } = await supabase.from(tableToUpdate).update(updateData).eq('id', item.id);
+        let { error } = await supabase.from(tableToUpdate).update(updateData).eq('id', item.id);
+        if (error && tableToUpdate === 'reports' && shouldRetryWithoutRejectionFields(error)) {
+          ({ error } = await supabase.from(tableToUpdate).update(stripRejectionFields(updateData)).eq('id', item.id));
+        }
         if (error) throw error;
 
-        if (isReportModeration && newStatus === 'rejected') {
+        if (isReportModeration && newStatus === 'rejected' && item.author_id) {
           try {
             await supabase.functions.invoke('send-report-status-email', {
               body: {

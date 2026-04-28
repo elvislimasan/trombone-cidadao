@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { RefreshCw, Loader2, Megaphone, Heart, UserPlus, WifiOff, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -83,6 +83,7 @@ export default function FeedPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('recent');
   const [showReportModal, setShowReportModal] = useState(false);
   const [newCount, setNewCount] = useState(0);
@@ -296,12 +297,20 @@ export default function FeedPage() {
   );
 
   const handleOpenCreate = useCallback(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
     setShowReportModal(true);
-  }, [user, navigate]);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const shouldOpen = params.get('criar_bronca') === '1' || params.get('criar_bronca') === 'true';
+    if (!shouldOpen) return;
+    setShowReportModal(true);
+    try {
+      params.delete('criar_bronca');
+      const next = params.toString();
+      navigate(`${location.pathname || '/'}${next ? `?${next}` : ''}`, { replace: true });
+    } catch {}
+  }, [location.pathname, location.search, navigate]);
 
   const handleInvite = useCallback(async () => {
     const url = getInviteUrl();

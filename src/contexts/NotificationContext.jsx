@@ -21,7 +21,7 @@ const DEFAULT_PREFERENCES = {
   system: true,
   moderation_update: true,
   status_update: true,
-  moderation_required: true,
+  moderation_required: false,
   resolution_submission: true,
   work_update: true
 };

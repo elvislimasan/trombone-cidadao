@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { List, Map as MapIcon, Filter, Plus, Megaphone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -42,6 +42,7 @@ function HomePage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const viewContainerRef = useRef(null);
   const { handleUpvote, loading } = useUpvote();
   const [topDonated, setTopDonated] = useState([]);
@@ -85,6 +86,18 @@ function HomePage() {
       window.removeEventListener('open-report-modal-with-photo', handleOpenModal);
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const shouldOpen = params.get('criar_bronca') === '1' || params.get('criar_bronca') === 'true';
+    if (!shouldOpen) return;
+    setShowReportModal(true);
+    try {
+      params.delete('criar_bronca');
+      const next = params.toString();
+      navigate(`${location.pathname || '/'}${next ? `?${next}` : ''}`, { replace: true });
+    } catch {}
+  }, [location.pathname, location.search, navigate]);
 
   // Função para buscar reports
   const fetchReports = useCallback(async () => {
@@ -462,16 +475,7 @@ function HomePage() {
   }, [reports, user]);
 
   const handleNewReportClick = () => {
-    if (user) {
-      setShowReportModal(true);
-    } else {
-      toast({
-        title: "Acesso restrito",
-        description: "Você precisa fazer login para criar uma nova bronca.",
-        variant: "destructive",
-      });
-      navigate('/login');
-    }
+    setShowReportModal(true);
   };
 
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {

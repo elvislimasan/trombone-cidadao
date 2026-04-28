@@ -72,6 +72,7 @@ const RegisterPage = () => {
   const { control, register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
   const { signUp, signIn, signInWithGoogle, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -181,7 +182,16 @@ const RegisterPage = () => {
 
       if (!signInError) {
         await refreshUserProfile();
-        navigate('/painel-usuario', { replace: true });
+        let target = null;
+        try {
+          target = sessionStorage.getItem('tc_post_login_redirect');
+          if (target) sessionStorage.removeItem('tc_post_login_redirect');
+        } catch {}
+        const from = location.state?.from;
+        if (!target && from?.pathname) {
+          target = `${from.pathname}${from.search || ''}`;
+        }
+        navigate(target || '/painel-usuario', { replace: true });
       } else {
         const msg = (signInError.message || '').toLowerCase();
         if (msg.includes('email not confirmed') || msg.includes('confirm')) {

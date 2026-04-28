@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Map, PlusCircle, BarChart3, User } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ReportModal from '@/components/ReportModal';
@@ -30,7 +30,6 @@ const NAV_ITEMS = [
 const BottomNav = () => {
   const location = useLocation();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [showReportModal, setShowReportModal] = useState(false);
 
@@ -44,12 +43,8 @@ const BottomNav = () => {
 
   const handleNewReportClick = useCallback(() => {
     triggerHaptic();
-    if (user) {
-      setShowReportModal(true);
-    } else {
-      navigate('/login');
-    }
-  }, [triggerHaptic, user, navigate]);
+    setShowReportModal(true);
+  }, [triggerHaptic]);
 
   const handleCreateReport = useCallback(
     async (newReportData, uploadMediaCallback) => {

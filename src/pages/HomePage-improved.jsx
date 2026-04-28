@@ -82,7 +82,6 @@ function HomePageImproved() {
   }, []);
 
   const openCreateReportFlow = useCallback((originUrl = null) => {
-    const url = originUrl || `${location.pathname || '/'}${location.search || ''}`;
     if (user) {
       setShowReportModal(true);
       try {
@@ -95,17 +94,16 @@ function HomePageImproved() {
       } catch {}
       return;
     }
-
+    setShowReportModal(true);
     try {
-      sessionStorage.setItem('tc_post_login_redirect', url);
+      const params = new URLSearchParams(location.search || '');
+      if (params.has('criar_bronca')) {
+        params.delete('criar_bronca');
+        const next = params.toString();
+        navigate(`${location.pathname || '/'}${next ? `?${next}` : ''}`, { replace: true });
+      }
     } catch {}
-    toast({
-      title: "Acesso restrito",
-      description: "Faça login para cadastrar sua bronca. Você será redirecionado de volta.",
-      variant: "destructive",
-    });
-    navigate('/login', { state: { from: { pathname: location.pathname || '/', search: location.search || '' } } });
-  }, [location.pathname, location.search, navigate, toast, user]);
+  }, [location.pathname, location.search, navigate, user]);
   const normalizeReportStatus = useCallback((s) => {
     const v = String(s || '').trim().toLowerCase();
     const norm = v.replace(/[\s_]+/g, '-');
@@ -431,6 +429,15 @@ function HomePageImproved() {
     fetchReportsPreview();
     fetchCategories();
   }, [fetchStats, fetchTopPetitions, fetchReportsPreview, fetchCategories]);
+
+  useEffect(() => {
+    const onReportsUpdated = () => {
+      fetchStats();
+      fetchReportsPreview();
+    };
+    window.addEventListener('reports-updated', onReportsUpdated);
+    return () => window.removeEventListener('reports-updated', onReportsUpdated);
+  }, [fetchReportsPreview, fetchStats]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
