@@ -919,13 +919,30 @@ const ReportDetails = ({
       rejection_description: null,
       rejected_at: null
     };
+
+    const shouldRetryWithoutRejectionFields = (err) => {
+      const msg = String(err?.message || '');
+      if (err?.code === 'PGRST204') return true;
+      if (msg.includes('schema cache') && msg.includes('reports')) return true;
+      if (msg.includes("Could not find the 'rejection_")) return true;
+      if (msg.includes("Could not find the 'rejected_at'")) return true;
+      return false;
+    };
+
+    const stripRejectionFields = (obj) => {
+      const { rejection_title, rejection_description, rejected_at, ...rest } = obj || {};
+      return rest;
+    };
     
     try {
       setIsModerationSaving(true);
       if (typeof onUpdate === 'function') {
         await onUpdate({ id: report.id, ...updatedReport });
       } else {
-        const { error } = await supabase.from('reports').update(updatedReport).eq('id', report.id);
+        let { error } = await supabase.from('reports').update(updatedReport).eq('id', report.id);
+        if (error && shouldRetryWithoutRejectionFields(error)) {
+          ({ error } = await supabase.from('reports').update(stripRejectionFields(updatedReport)).eq('id', report.id));
+        }
         if (error) throw error;
       }
       toast({ 
@@ -985,7 +1002,10 @@ const ReportDetails = ({
       if (typeof onUpdate === 'function') {
         await onUpdate({ id: report.id, ...updatedReport });
       } else {
-        const { error } = await supabase.from('reports').update(updatedReport).eq('id', report.id);
+        let { error } = await supabase.from('reports').update(updatedReport).eq('id', report.id);
+        if (error && shouldRetryWithoutRejectionFields(error)) {
+          ({ error } = await supabase.from('reports').update(stripRejectionFields(updatedReport)).eq('id', report.id));
+        }
         if (error) throw error;
       }
 

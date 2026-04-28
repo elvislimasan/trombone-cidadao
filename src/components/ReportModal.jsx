@@ -19,7 +19,8 @@ import {
   Play,
   Loader2,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import ReCAPTCHA from "react-google-recaptcha";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Capacitor } from "@capacitor/core";
@@ -36,6 +37,14 @@ import { useBackgroundUpload } from "@/hooks/useBackgroundUpload";
 import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { FLORESTA_COORDS } from "@/config/mapConfig";
+import { isWithinRadiusKm } from "@/lib/geoUtils";
+import {
+  clearReportDraft,
+  loadReportDraft,
+  loadReportDraftMedia,
+  saveReportDraft,
+  saveReportDraftMedia,
+} from "@/lib/reportDraft";
 import VideoProcessorComponent from "@/components/VideoProcessor";
 import CameraCapture from "@/components/CameraCapture";
 import WebCameraCapture from "@/components/WebCameraCapture";
@@ -54,6 +63,7 @@ const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 const ReportModal = ({ onClose, onSubmit }) => {
   const isNative = Capacitor.isNativePlatform();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSmallScreen, setIsSmallScreen] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 640px)").matches;
@@ -82,6 +92,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const { registerUpload, updateUploadProgress, queueWebUpload } = useUpload();
   const { user, session } = useAuth();
   const { uploadVideo, uploads } = useBackgroundUpload();
+  const [anonCaptchaValue, setAnonCaptchaValue] = useState(null);
+  const anonRecaptchaRef = useRef(null);
+  const draftHydratedRef = useRef(false);
+  const suppressDraftCleanupRef = useRef(false);
   // Generate a consistent ID for this report session to allow immediate uploads
   const [reportUUID] = useState(
     () => Date.now().toString(36) + Math.random().toString(36).substr(2)
@@ -121,6 +135,43 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const wizardProgressPct = Math.round(
     ((wizardStep + 1) / wizardStepTitles.length) * 100
   );
+
+  useEffect(() => {
+    const draft = loadReportDraft();
+    if (!draft?.data) {
+      draftHydratedRef.current = true;
+      return;
+    }
+
+    const nextWizardStep = Math.max(0, Math.min(2, Number(draft.wizardStep ?? 0)));
+    setWizardStep(nextWizardStep);
+    setFormData((prev) => ({
+      ...prev,
+      ...draft.data,
+      photos: prev.photos,
+      videos: prev.videos,
+    }));
+    draftHydratedRef.current = true;
+
+    Promise.resolve()
+      .then(loadReportDraftMedia)
+      .then((media) => {
+        const restoredPhotos = Array.isArray(media?.photos) ? media.photos : [];
+        if (!restoredPhotos.length) return;
+        setFormData((prev) => ({
+          ...prev,
+          photos: [
+            ...prev.photos,
+            ...restoredPhotos.map(({ file, name }) => ({
+              file,
+              name,
+              preview: URL.createObjectURL(file),
+            })),
+          ],
+        }));
+      })
+      .catch(() => {});
+  }, []);
   const lightingIssueTypes = useMemo(
     () => [
       { value: "lamp_off", label: "lâmpada apagada" },
@@ -336,10 +387,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
     let cancelled = false;
 
     if (formData.category !== "iluminacao" || !formData.location) {
-      setNearbyPoles([]);
-      setLocalPendingPoles([]);
-      setNearbyPolesLoading(false);
-      setNearbyPolesError(null);
+      setNearbyPoles((prev) => (prev.length ? [] : prev));
+      setLocalPendingPoles((prev) => (prev.length ? [] : prev));
+      setNearbyPolesLoading((prev) => (prev ? false : prev));
+      setNearbyPolesError((prev) => (prev ? null : prev));
       return;
     }
 
@@ -2721,6 +2772,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
       return;
     }
 
+    if (!user) {
+      handleLoginToSubmit();
+      return;
+    }
+
     setErrors({});
     setIsSubmitting(true);
     setUploadProgress(0);
@@ -2769,6 +2825,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }
 
       await onSubmit(formData, uploadMediaWrapper);
+      clearReportDraft();
 
       // Limpar previews de forma segura
       try {
@@ -2860,6 +2917,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
       uploadAbortControllerRef.current = null;
     }
 
+    if (!suppressDraftCleanupRef.current) {
+      const draft = loadReportDraft();
+      if (draft?.data) clearReportDraft();
+    }
+    suppressDraftCleanupRef.current = false;
+
     setIsSubmitting(false);
     setUploadProgress(0);
 
@@ -2904,6 +2967,199 @@ const ReportModal = ({ onClose, onSubmit }) => {
     // Verificar se é um clique no backdrop (não no conteúdo)
     if (e.target === e.currentTarget) {
       handleClose();
+    }
+  };
+
+  const florestaCenter = useMemo(
+    () => ({ lat: FLORESTA_COORDS?.[0], lng: FLORESTA_COORDS?.[1] }),
+    []
+  );
+
+  const isAnonymousCityAllowed = useMemo(() => {
+    if (user) return false;
+    return isWithinRadiusKm(formData.location, florestaCenter, 35);
+  }, [florestaCenter, formData.location, user]);
+
+  const hasAttachments = useMemo(() => {
+    return (formData.photos?.length || 0) + (formData.videos?.length || 0) > 0;
+  }, [formData.photos?.length, formData.videos?.length]);
+
+  const handleLoginToSubmit = async () => {
+    if (!validateStep(0)) {
+      setWizardStep(0);
+      return;
+    }
+    if (!validateStep(1)) {
+      setWizardStep(1);
+      return;
+    }
+    if (!validateStep(2)) {
+      setWizardStep(2);
+      return;
+    }
+
+    saveReportDraft({ formData, wizardStep });
+    await saveReportDraftMedia({ photos: formData.photos });
+    const target = "/broncas?criar_bronca=1";
+
+    try {
+      sessionStorage.setItem("tc_post_login_redirect", target);
+    } catch {}
+
+    navigate("/login", {
+      state: { from: { pathname: "/broncas", search: "?criar_bronca=1" } },
+    });
+    suppressDraftCleanupRef.current = true;
+    handleClose();
+  };
+
+  const handleAnonymousSubmit = async () => {
+    if (!isAnonymousCityAllowed) return;
+
+    if (!validateStep(0)) {
+      setWizardStep(0);
+      return;
+    }
+    if (!validateStep(1)) {
+      setWizardStep(1);
+      return;
+    }
+    if (!validateStep(2)) {
+      setWizardStep(2);
+      return;
+    }
+
+    if (!anonCaptchaValue) {
+      toast({
+        title: "Confirme o reCAPTCHA",
+        description: "Complete o reCAPTCHA para enviar anonimamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setUploadProgress(0);
+    try {
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        address: formData.address,
+        location: formData.location,
+        pole_number: formData.pole_number,
+        pole_id: formData.pole_id,
+        reported_post_identifier: formData.reported_post_identifier,
+        reported_plate: formData.reported_plate,
+        reported_pole_distance_m: formData.reported_pole_distance_m,
+        issue_type: formData.issue_type,
+        is_from_water_utility: formData.is_from_water_utility,
+      };
+
+      const mediaManifest = [
+        ...(formData.photos || []).map((p, i) => ({
+          clientId: `photo:${i}`,
+          type: "photo",
+          name: p?.name || `foto_${i + 1}.jpg`,
+          contentType: p?.file?.type || "image/jpeg",
+          hasFile: !!p?.file,
+        })),
+        ...(formData.videos || []).map((v, i) => ({
+          clientId: `video:${i}`,
+          type: "video",
+          name: v?.name || `video_${i + 1}.mp4`,
+          contentType: v?.file?.type || "video/mp4",
+          hasFile: !!v?.file,
+        })),
+      ].filter((m) => m.hasFile);
+
+      if (mediaManifest.length === 0) {
+        toast({
+          title: "Anexo indisponível",
+          description: "Não foi possível acessar os arquivos anexados para envio anônimo. Tente anexar novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("create-anonymous-report", {
+        body: {
+          token: anonCaptchaValue,
+          siteKey: import.meta.env.VITE_RECAPTCHA_SITE_KEY,
+          report: payload,
+          media: mediaManifest.map(({ hasFile, ...rest }) => rest),
+        },
+      });
+
+      if (error || !data?.id || !Array.isArray(data?.uploads)) {
+        toast({
+          title: "Erro ao enviar bronca",
+          description: error?.message || data?.error || "Não foi possível enviar anonimamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const uploads = data.uploads || [];
+      const byClientId = new Map();
+      for (const m of mediaManifest) byClientId.set(m.clientId, m);
+
+      let done = 0;
+      for (const u of uploads) {
+        const clientId = String(u?.clientId || "");
+        const signedUrl = String(u?.signedUrl || "");
+        if (!clientId || !signedUrl) continue;
+
+        const local = byClientId.get(clientId);
+        if (!local?.hasFile) continue;
+
+        const localFile =
+          clientId.startsWith("photo:")
+            ? formData.photos?.[Number(clientId.split(":")[1])]?.file
+            : formData.videos?.[Number(clientId.split(":")[1])]?.file;
+
+        if (!localFile) continue;
+
+        const res = await fetch(signedUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": local.contentType || localFile.type || "application/octet-stream",
+            "x-upsert": "false",
+          },
+          body: localFile,
+        });
+
+        if (!res.ok) {
+          throw new Error("Falha ao enviar anexo");
+        }
+
+        done += 1;
+        setUploadProgress(Math.min(100, Math.round((done / uploads.length) * 100)));
+      }
+
+      clearReportDraft();
+      setAnonCaptchaValue(null);
+      if (anonRecaptchaRef.current) {
+        try {
+          anonRecaptchaRef.current.reset();
+        } catch {}
+      }
+
+      toast({
+        title: "Bronca enviada! 📬",
+        description: "Sua bronca (com anexos) foi enviada anonimamente para moderação.",
+      });
+      window.dispatchEvent(new CustomEvent("reports-updated", { detail: { id: data.id } }));
+      handleClose();
+    } catch (err) {
+      toast({
+        title: "Erro ao enviar anexos",
+        description: err?.message || "Não foi possível enviar os anexos anonimamente. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -3645,27 +3901,29 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       </div>
                     )}
 
-                    <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-4 mt-2">
-                      <input
-                        id="is_anonymous"
-                        type="checkbox"
-                        checked={!!formData.is_anonymous}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            is_anonymous: e.target.checked,
-                          });
-                        }}
-                        className="mt-0.5 h-6 w-6 rounded border-input text-primary focus:ring-primary"
-                      />
-                      <label
-                        htmlFor="is_anonymous"
-                        className="text-sm text-foreground"
-                      >
-                        <span className="font-semibold">Anônimo:</span> seu nome
-                        não aparecerá no feed
-                      </label>
-                    </div>
+                    {user && (
+                      <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-4 mt-2">
+                        <input
+                          id="is_anonymous"
+                          type="checkbox"
+                          checked={!!formData.is_anonymous}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              is_anonymous: e.target.checked,
+                            });
+                          }}
+                          className="mt-0.5 h-6 w-6 rounded border-input text-primary focus:ring-primary"
+                        />
+                        <label
+                          htmlFor="is_anonymous"
+                          className="text-sm text-foreground"
+                        >
+                          <span className="font-semibold">Anônimo:</span> seu nome
+                          não aparecerá no feed
+                        </label>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -3675,7 +3933,28 @@ const ReportModal = ({ onClose, onSubmit }) => {
               className="border-t border-border p-4"
               style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
             >
-              <div className="flex gap-3 pb-2">
+              {!isSubmitting && wizardStep === 2 && !user && isAnonymousCityAllowed && (
+                <div className="pb-3 space-y-2">
+                  <div
+                    className="flex justify-center relative"
+                    style={{ zIndex: 10, touchAction: "manipulation", width: "100%" }}
+                  >
+                    <div style={{ width: 304, maxWidth: "100%" }}>
+                      <ReCAPTCHA
+                        ref={anonRecaptchaRef}
+                        sitekey={
+                          import.meta.env.VITE_RECAPTCHA_SITE_KEY ||
+                          "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+                        }
+                        onChange={setAnonCaptchaValue}
+                        size="normal"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 pb-2">
                 <Button
                   type="button"
                   variant={isSubmitting ? "destructive" : "outline"}
@@ -3714,13 +3993,40 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 )}
 
                 {!isSubmitting && wizardStep === 2 && (
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-primary hover:bg-primary/90"
-                    disabled={isSubmitting}
-                  >
-                    Cadastrar Bronca
-                  </Button>
+                  <>
+                    {user ? (
+                      <Button
+                        type="submit"
+                        className="flex-1 bg-primary hover:bg-primary/90"
+                        disabled={isSubmitting}
+                      >
+                        Cadastrar Bronca
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          className="flex-1 bg-primary hover:bg-primary/90"
+                          onClick={handleLoginToSubmit}
+                          disabled={isSubmitting}
+                        >
+                          Entrar e enviar
+                        </Button>
+
+                        {isAnonymousCityAllowed && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={handleAnonymousSubmit}
+                            disabled={isSubmitting || !anonCaptchaValue}
+                          >
+                            Enviar anonimamente
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             </div>

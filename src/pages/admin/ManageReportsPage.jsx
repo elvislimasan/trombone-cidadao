@@ -290,7 +290,30 @@ const ManageReportsPage = () => {
 
     if (location) reportUpdates.location = `POINT(${location.lng} ${location.lat})`;
 
-    const { error: updateError } = await supabase.from('reports').update(reportUpdates).eq('id', id);
+    const shouldRetryWithoutRejectionFields = (err) => {
+      const msg = String(err?.message || '');
+      if (err?.code === 'PGRST204') return true;
+      if (msg.includes('schema cache') && msg.includes('reports')) return true;
+      if (msg.includes("Could not find the 'rejection_")) return true;
+      if (msg.includes("Could not find the 'rejected_at'")) return true;
+      return false;
+    };
+
+    const stripRejectionFields = (obj) => {
+      const { rejection_title, rejection_description, rejected_at, ...rest } = obj || {};
+      return rest;
+    };
+
+    const tryUpdate = async (payload) => {
+      const res = await supabase.from('reports').update(payload).eq('id', id);
+      return res?.error || null;
+    };
+
+    let updateError = await tryUpdate(reportUpdates);
+    if (updateError && shouldRetryWithoutRejectionFields(updateError)) {
+      updateError = await tryUpdate(stripRejectionFields(reportUpdates));
+    }
+
     if (updateError) {
       toast({ title: "Erro ao atualizar dados", description: updateError.message, variant: "destructive" });
       return;

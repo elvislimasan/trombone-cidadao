@@ -50,10 +50,16 @@ const Notifications = () => {
   
   setLoading(true);
   
-  const { data, error } = await supabase
+  let query = supabase
     .from('notifications')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', user.id);
+
+  if (!user.is_admin) {
+    query = query.neq('type', 'moderation_required');
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .limit(20);
 
@@ -125,6 +131,9 @@ const Notifications = () => {
           filter: `user_id=eq.${user.id}`
         },
         async (payload) => {
+          if (!user.is_admin && payload.new?.type === 'moderation_required') {
+            return;
+          }
           addNewNotification(payload.new);
         }
       )
@@ -137,6 +146,9 @@ const Notifications = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
+          if (!user.is_admin && payload.new?.type === 'moderation_required') {
+            return;
+          }
           // Atualizar notificação na lista
           setNotifications(prev =>
             prev.map(n => n.id === payload.new.id ? payload.new : n)

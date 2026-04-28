@@ -10,6 +10,16 @@ const VAPID_EMAIL = rawVapidEmail && !rawVapidEmail.startsWith("mailto:")
   ? "mailto:" + rawVapidEmail 
   : rawVapidEmail;
 
+const MODERATION_REQUIRED_ADMIN_USER_IDS_RAW = Deno.env.get("MODERATION_REQUIRED_ADMIN_USER_IDS");
+const MODERATION_REQUIRED_ADMIN_USER_IDS = (() => {
+  if (MODERATION_REQUIRED_ADMIN_USER_IDS_RAW == null) return null;
+  const items = MODERATION_REQUIRED_ADMIN_USER_IDS_RAW
+    .split(",")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  return new Set(items);
+})();
+
 // 🔥 FCM HTTP v1 API Configuration
 // ⚠️ IMPORTANTE: O project_id deve corresponder ao token FCM
 // O token FCM é gerado com base no project_id do google-services.json do app Android
@@ -571,33 +581,46 @@ serve(async (req) => {
 
     // 🔒 Blindagem: tipos admin-only não podem gerar push para não-admin
     if (notificationType === "moderation_required") {
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", userId)
-        .maybeSingle();
+      if (MODERATION_REQUIRED_ADMIN_USER_IDS) {
+        if (!MODERATION_REQUIRED_ADMIN_USER_IDS.has(String(userId))) {
+          return new Response(
+            JSON.stringify({
+              message: "Notificação admin-only ignorada (allowlist)",
+              sent: 0,
+              notificationType,
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", userId)
+          .maybeSingle();
 
-      if (profileError) {
-        console.error("[EDGE FUNCTION] Erro ao verificar is_admin:", profileError);
-        return new Response(
-          JSON.stringify({
-            message: "Não foi possível validar permissão para notificação admin-only",
-            sent: 0,
-            notificationType,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        );
-      }
+        if (profileError) {
+          console.error("[EDGE FUNCTION] Erro ao verificar is_admin:", profileError);
+          return new Response(
+            JSON.stringify({
+              message: "Não foi possível validar permissão para notificação admin-only",
+              sent: 0,
+              notificationType,
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
 
-      if (!profile?.is_admin) {
-        return new Response(
-          JSON.stringify({
-            message: "Notificação admin-only ignorada para usuário não-admin",
-            sent: 0,
-            notificationType,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        );
+        if (!profile?.is_admin) {
+          return new Response(
+            JSON.stringify({
+              message: "Notificação admin-only ignorada para usuário não-admin",
+              sent: 0,
+              notificationType,
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
       }
     }
     
