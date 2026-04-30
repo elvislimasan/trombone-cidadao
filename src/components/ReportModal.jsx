@@ -3442,6 +3442,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                               }));
                           }}
                           initialPosition={formData.location}
+                          showLocateButton={true}
                           overlayMarkers={nearbyPoles
                             .filter(
                               (p) =>
@@ -4301,6 +4302,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             }));
                         }}
                         initialPosition={formData.location}
+                        showLocateButton={true}
                         overlayMarkers={nearbyPoles
                           .filter(
                             (p) =>

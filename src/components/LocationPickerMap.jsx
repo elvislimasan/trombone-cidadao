@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Layers } from "lucide-react";
+import { Layers, LocateFixed } from "lucide-react";
 import {
   MapContainer,
   TileLayer,
@@ -135,6 +135,7 @@ const LocationPickerMap = ({
   onOverlayMarkerSelect,
   focusOverlayOnSelect = true,
   showSatelliteToggle = false,
+  showLocateButton = false,
 }) => {
   const [position, setPosition] = useState(initialPosition || FLORESTA_COORDS);
   const [mapLayer, setMapLayer] = useState("osm");
@@ -174,6 +175,29 @@ const LocationPickerMap = ({
 
   const handleLayerToggle = () => {
     setMapLayer((l) => (l === "osm" ? "satellite" : "osm"));
+  };
+
+  const recenterToUser = () => {
+    if (!mapRef.current) return;
+    if (!navigator?.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos?.coords?.latitude;
+        const lng = pos?.coords?.longitude;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        const next = { lat, lng };
+        try {
+          mapRef.current.flyTo([lat, lng], Math.max(mapRef.current.getZoom(), 17), {
+            animate: true,
+            duration: 0.5,
+          });
+        } catch {}
+        handlePositionChange(next);
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
   };
 
   return (
@@ -269,6 +293,27 @@ const LocationPickerMap = ({
             )
         )}
       </MapContainer>
+
+      {showLocateButton && (
+        <div className="absolute bottom-3 right-3 z-[9999]">
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                recenterToUser();
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              className="w-10 h-10 inline-flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
+              title="Voltar para minha posição"
+            >
+              <LocateFixed className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showSatelliteToggle && (
         <button
