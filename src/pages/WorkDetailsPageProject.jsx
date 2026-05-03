@@ -342,6 +342,9 @@ export default function WorkDetailsPageProject() {
   const [renamingDocumentId, setRenamingDocumentId] = useState(null);
   const [renamingDocumentValue, setRenamingDocumentValue] = useState("");
   const [pageUpdatedAt, setPageUpdatedAt] = useState(null);
+  const [currentPhaseSelection, setCurrentPhaseSelection] = useState("");
+  const [isSavingCurrentPhaseSelection, setIsSavingCurrentPhaseSelection] =
+    useState(false);
   const [currentPhaseForm, setCurrentPhaseForm] = useState({
     title: "",
     description: "",
@@ -372,10 +375,23 @@ export default function WorkDetailsPageProject() {
 
   const currentMeasurement = useMemo(() => {
     if (!Array.isArray(measurements) || measurements.length === 0) return null;
-    return [...measurements].sort(
-      (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    )[0];
-  }, [measurements]);
+    const overrideId = work?.current_measurement_id;
+    if (overrideId) {
+      const match = measurements.find((m) => m?.id === overrideId);
+      if (match) return match;
+    }
+    return measurements[0];
+  }, [measurements, work?.current_measurement_id]);
+
+  const isCurrentPhaseManual = useMemo(() => {
+    const overrideId = work?.current_measurement_id;
+    if (!overrideId) return false;
+    return (measurements || []).some((m) => m?.id === overrideId);
+  }, [measurements, work?.current_measurement_id]);
+
+  useEffect(() => {
+    setCurrentPhaseSelection(work?.current_measurement_id || "");
+  }, [work?.current_measurement_id]);
 
   useEffect(() => {
     setCurrentPhaseView("general");
@@ -710,6 +726,51 @@ export default function WorkDetailsPageProject() {
       setLoading(false);
     }
   }, [navigate, workId]);
+
+  const handleSaveCurrentPhaseSelection = useCallback(async () => {
+    if (!user?.is_admin) return;
+    if (!work?.id) return;
+
+    const nextId = currentPhaseSelection || null;
+    if (nextId && !(measurements || []).some((m) => m?.id === nextId)) {
+      toast("Fase inválida", {
+        description: "Selecione uma fase existente para definir como atual.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingCurrentPhaseSelection(true);
+    try {
+      const { error } = await supabase
+        .from("public_works")
+        .update({ current_measurement_id: nextId })
+        .eq("id", work.id);
+      if (error) throw error;
+
+      toast("Fase atual atualizada", {
+        description: nextId
+          ? "A fase atual foi definida manualmente."
+          : "Modo automático ativado (última fase cadastrada).",
+      });
+      touchPageUpdatedAt();
+      await loadData();
+    } catch (e) {
+      toast("Erro ao atualizar fase atual", {
+        description: e?.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingCurrentPhaseSelection(false);
+    }
+  }, [
+    currentPhaseSelection,
+    loadData,
+    measurements,
+    touchPageUpdatedAt,
+    user?.is_admin,
+    work?.id,
+  ]);
 
   const handleFavoriteToggle = useCallback(async () => {
     if (!user?.id) {
@@ -2204,6 +2265,57 @@ export default function WorkDetailsPageProject() {
                   as informações importantes sobre a execução desta fase da
                   obra.
                 </p>
+                {user?.is_admin && (measurements || []).length > 0 ? (
+                  <div className="mt-4 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Fase atual
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground border-border bg-muted/40"
+                      >
+                        {isCurrentPhaseManual ? "Manual" : "Automático"}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <select
+                        value={currentPhaseSelection}
+                        onChange={(e) =>
+                          setCurrentPhaseSelection(e.target.value)
+                        }
+                        disabled={isSavingCurrentPhaseSelection}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="">
+                          Automático (última fase cadastrada)
+                        </option>
+                        {(measurements || []).map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.title || "Fase"}
+                            {m.contractor?.name
+                              ? ` — ${m.contractor.name}`
+                              : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSaveCurrentPhaseSelection}
+                        disabled={
+                          isSavingCurrentPhaseSelection ||
+                          currentPhaseSelection ===
+                            (work?.current_measurement_id || "")
+                        }
+                        className="w-full sm:w-auto"
+                      >
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-4 2xl:hidden">
                   <ObraDelayMeter
                     expectedEndDate={phase?.expectedEndDate}
