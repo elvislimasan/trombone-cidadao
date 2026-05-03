@@ -21,6 +21,7 @@ const adminLinks = [
   { to: '/admin/noticias', icon: 'Newspaper', title: 'Gerenciar Notícias', description: 'Publique e edite notícias.' },
   { to: '/admin/configuracoes', icon: 'Settings', title: 'Configurações do Site', description: 'Personalize a aparência do site.' },
   { to: '/admin/lixeira', icon: 'Trash2', title: 'Lixeira', description: 'Gerencie broncas rejeitadas.' },
+  { to: '/admin/denuncias', icon: 'Flag', title: 'Denúncias de Conteúdo', description: 'Modere conteúdo reportado pelos usuários.' },
 ];
 
 const AdminPage = () => {

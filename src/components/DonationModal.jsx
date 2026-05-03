@@ -11,6 +11,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '../contexts/SupabaseAuthContext';
+import { isIOSNative } from '@/lib/platform';
 
 // Initialize Stripe outside component
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_sample';
@@ -61,6 +62,7 @@ const StripePaymentForm = ({ onSuccess }) => {
 }
 
 const DonationModal = ({ report, reportId, petitionId, reportTitle, isOpen, onClose, onSuccess, initialAmount = null, donationOptions = [2, 5, 10, 20, 50, 100], initialGuestName = '', initialGuestEmail = '' }) => {
+  if (isIOSNative()) return null;
   const navigate = useNavigate();
   const [amount, setAmount] = useState(initialAmount || donationOptions[1] || 5); // Default to provided initial or second option or 5
   const [step, setStep] = useState('select-amount'); // select-amount, processing, qr, stripe-payment, success

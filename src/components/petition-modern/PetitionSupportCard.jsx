@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Heart, TrendingUp, FileText } from "lucide-react";
 import DonationForm from "@/components/DonationForm";
+import { isIOSNative } from "@/lib/platform";
 
 const PetitionSupportCard = ({ onDonate, onShare, onChooseFlyer, petitionId, petitionTitle, donationGoal = null, totalDonations = 0 }) => {
+  if (isIOSNative()) return null;
   const raised = totalDonations || 0;
   const goal = Number(donationGoal);
   const progress = (goal && goal > 0) ? Math.min((raised / goal) * 100, 100) : 0;

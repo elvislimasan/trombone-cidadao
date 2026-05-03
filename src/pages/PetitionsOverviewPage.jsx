@@ -10,6 +10,7 @@ import Header from '@/components/Header';
 import PetitionCard from '@/components/PetitionCard';
 import { getNextSignatureGoal } from '@/lib/utils';
 import DonationModal from '@/components/DonationModal';
+import { isIOSNative } from '@/lib/platform';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
@@ -490,6 +491,7 @@ const PetitionsOverviewPage = () => {
         )}
 
         {/* CTA / Donation Section */}
+        {!isIOSNative() && (
         <section className="py-16 bg-background">
            <div className="container mx-auto px-4 max-w-5xl">
               <div className="bg-primary/5 rounded-3xl p-8 md:p-12 border border-primary/10 relative overflow-hidden">
@@ -513,6 +515,7 @@ const PetitionsOverviewPage = () => {
               </div>
            </div>
         </section>
+        )}
       </main>
 
       <DonationModal

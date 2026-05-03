@@ -47,6 +47,7 @@ import PetitionPageModern from '@/pages/PetitionPageModern';
 import PetitionsOverviewPage from '@/pages/PetitionsOverviewPage';
 import WorkDetailsPageProject from '@/pages/WorkDetailsPageProject';
 import ModerationPage from '@/pages/admin/ModerationPage';
+import ContentReportsPage from '@/pages/admin/ContentReportsPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
 import TermsOfUsePage from '@/pages/TermsOfUsePage';
 import FavoritesPage from '@/pages/FavoritesPage';
@@ -614,6 +615,7 @@ function AppShell() {
               <Route path="/admin/signatures" element={<Navigate to="/admin/petitions" replace />} />
               <Route path="/admin/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
               <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
+              <Route path="/admin/denuncias" element={<AdminRoute><ContentReportsPage /></AdminRoute>} />
               <Route path="/settings/notifications" element={<NotificationPreferences />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

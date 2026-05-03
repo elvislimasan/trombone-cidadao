@@ -44,6 +44,7 @@ const normalizeError = (err) => ({
 
 export function useFeed(tab = 'recent') {
   const { user } = useAuth();
+  const [blockedIds, setBlockedIds] = useState([]);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -78,6 +79,10 @@ export function useFeed(tab = 'recent') {
         .eq('moderation_status', 'approved')
         .neq('status', 'duplicate')
         .range(from, to);
+
+      if (blockedIds.length > 0) {
+        q = q.not('author_id', 'in', `(${blockedIds.join(',')})`);
+      }
 
       if (tab === 'resolved') {
         q = q.eq('status', 'resolved').order('created_at', { ascending: false });
@@ -148,8 +153,25 @@ export function useFeed(tab = 'recent') {
         };
       });
     },
-    [tab, user]
+    [tab, user, blockedIds]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.id) {
+      setBlockedIds([]);
+      return;
+    }
+    supabase
+      .from('blocked_users')
+      .select('blocked_id')
+      .eq('blocker_id', user.id)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setBlockedIds((data || []).map((r) => r.blocked_id));
+      });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const loadInitial = useCallback(({ preserve = false } = {}) => {
     cancelRef.current = false;

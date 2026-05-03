@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '../contexts/SupabaseAuthContext';
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { isIOSNative } from '@/lib/platform';
 
 // Initialize Stripe outside component
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_sample';
@@ -73,6 +74,7 @@ const DonationForm = ({
     donationGoal = null,
     totalDonations = 0
 }) => {
+  if (isIOSNative()) return null;
   const [amount, setAmount] = useState(initialAmount || donationOptions[1] || 5);
   const [step, setStep] = useState('select-amount'); // select-amount, details, processing, qr, stripe-payment, success
   const [pixPayload, setPixPayload] = useState('');

@@ -20,6 +20,7 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { validateVideoFile } from '@/utils/videoProcessor';
 import { ShareModal } from './PetitionComponents';
+import ReportContentModal from './ReportContentModal';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -171,6 +172,7 @@ const ReportDetails = ({
   const navigate = useNavigate();
   const [showEvaluation, setShowEvaluation] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showReportContentModal, setShowReportContentModal] = useState(false);
   const [evaluation, setEvaluation] = useState({ rating: 0, comment: '' });
   const [newComment, setNewComment] = useState('');
   const [isEditing, setIsEditing] = useState(startInEdit);
@@ -2031,6 +2033,17 @@ const ReportDetails = ({
                         <Flag className="w-4 h-4" />
                         Reportar Erro
                       </Button>
+
+                      {report.author_id && user?.id !== report.author_id && (
+                        <Button
+                          onClick={() => setShowReportContentModal(true)}
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-destructive gap-2 text-xs sm:text-sm col-span-2"
+                        >
+                          <Flag className="w-4 h-4" />
+                          Denunciar conteúdo / Bloquear usuário
+                        </Button>
+                      )}
                     </div>
             </>
                   )}
@@ -2119,11 +2132,20 @@ const ReportDetails = ({
 
 
       
-      <ShareModal 
-        isOpen={showShareModal} 
-        onClose={() => setShowShareModal(false)} 
-        url={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/share-report?id=${report.id}`} 
-        title={report.title} 
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        url={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/share-report?id=${report.id}`}
+        title={report.title}
+      />
+
+      <ReportContentModal
+        isOpen={showReportContentModal}
+        onClose={() => setShowReportContentModal(false)}
+        targetType="report"
+        targetId={report?.id}
+        authorId={report?.author_id}
+        authorName={report?.author_name || report?.profiles?.name}
       />
     </>
   );

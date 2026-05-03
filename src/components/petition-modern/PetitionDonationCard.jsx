@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import PropTypes from 'prop-types';
+import { isIOSNative } from '@/lib/platform';
 
 /**
  * Card component displaying donation progress and options.
@@ -20,9 +21,10 @@ import PropTypes from 'prop-types';
 const PetitionDonationCard = ({ 
   currentAmount = 0, 
   goalAmount = null, 
-  progressValue = 0, 
-  onDonate 
+  progressValue = 0,
+  onDonate
 }) => {
+  if (isIOSNative()) return null;
   const goal = Number(goalAmount);
   const hasGoal = !isNaN(goal) && goal > 0;
 

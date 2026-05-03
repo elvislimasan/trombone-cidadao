@@ -18,6 +18,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn, formatPhone, validateEmail } from "@/lib/utils";
+import { isIOSNative } from "@/lib/platform";
 
 const Combobox = ({ options, value, onSelect, placeholder, emptyText, disabled = false }) => {
   const [open, setOpen] = useState(false);
@@ -377,6 +378,8 @@ const RegisterPage = () => {
                   {loading ? "Cadastrando..." : "Cadastrar"}
                 </Button>
 
+                {!isIOSNative() && (
+                <>
                 <div className="relative flex items-center gap-2 my-2">
                       <div className="h-px bg-gray-200 flex-1" />
                       <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider">ou cadastre-se com</span>
@@ -395,6 +398,8 @@ const RegisterPage = () => {
                   </svg>
                   Google
                 </Button>
+                </>
+                )}
               </form>
               <div className="mt-6 text-center">
                 <p className="text-sm">

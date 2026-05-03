@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import Counter from './Counter';
 import PetitionDonationCard from './PetitionDonationCard';
 import { getNextSignatureGoal } from '@/lib/utils';
+import { isIOSNative } from '@/lib/platform';
 
 /**
  * Sidebar component containing the signature form, progress bar, and donation call-to-action.
@@ -59,6 +60,7 @@ const PetitionSidebar = ({
   const progress = Math.min((petition.signatureCount / nextGoal) * 100, 100);
   const progressColor = progress >= 80 ? "bg-red-500" : progress >= 50 ? "bg-yellow-500" : "bg-primary";
   const isExpired = petition.deadline && new Date(petition.deadline) < new Date();
+  const donationsAllowed = donationEnabled && !isIOSNative();
 
   return (
     <div className="space-y-8" data-testid="petition-sidebar">
@@ -250,13 +252,13 @@ const PetitionSidebar = ({
         </Card>
       </motion.div>
 
-      {donationEnabled && (
+      {donationsAllowed && (
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
         >
-          <PetitionDonationCard 
+          <PetitionDonationCard
             currentAmount={totalDonations} 
             goalAmount={petition.donation_goal} 
             progressValue={petition.donation_goal ? Math.min((totalDonations / petition.donation_goal) * 100, 100) : 0}

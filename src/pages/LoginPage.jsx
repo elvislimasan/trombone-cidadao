@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { LogIn, Eye, EyeOff, ShieldCheck, Megaphone, MapPin, Heart, Sparkles, Newspaper } from 'lucide-react';
+import { isIOSNative } from '@/lib/platform';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -337,6 +338,8 @@ const LoginPage = () => {
                       {isLoading ? 'Entrando...' : 'Entrar'}
                     </Button>
 
+                    {!isIOSNative() && (
+                    <>
                     <div className="relative flex items-center gap-2 my-2">
                       <div className="h-px bg-gray-200 flex-1" />
                       <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider">ou</span>
@@ -355,6 +358,8 @@ const LoginPage = () => {
                       </svg>
                       Google
                     </Button>
+                    </>
+                    )}
                     <p className="text-sm text-muted-foreground">
                       Não tem uma conta?{' '}
                       <Link to="/cadastro" className="font-semibold text-tc-red hover:underline">
