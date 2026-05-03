@@ -49,7 +49,7 @@ const ContentReportsPage = () => {
     setLoading(true);
     let q = supabase
       .from('content_reports')
-      .select('*, reporter:profiles!reporter_id(name)')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (filter !== 'all') q = q.eq('status', filter);
@@ -58,7 +58,28 @@ const ContentReportsPage = () => {
     if (error) {
       toast({ title: 'Erro ao carregar denúncias', description: error.message, variant: 'destructive' });
     } else {
-      setItems(data || []);
+      const rows = data || [];
+      const reporterIds = Array.from(new Set(rows.map((r) => r.reporter_id).filter(Boolean)));
+
+      if (reporterIds.length === 0) {
+        setItems(rows);
+        setLoading(false);
+        return;
+      }
+
+      const { data: reporters, error: reportersError } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', reporterIds);
+
+      if (reportersError) {
+        setItems(rows);
+        setLoading(false);
+        return;
+      }
+
+      const reporterById = new Map((reporters || []).map((p) => [p.id, p]));
+      setItems(rows.map((r) => ({ ...r, reporter: reporterById.get(r.reporter_id) || null })));
     }
     setLoading(false);
   }, [toast, filter]);
