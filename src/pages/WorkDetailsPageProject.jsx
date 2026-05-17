@@ -1380,7 +1380,6 @@ export default function WorkDetailsPageProject() {
       if (!latest) return;
 
       const workPayload = {
-        status: latest.status,
         execution_percentage: latest.execution_percentage,
         contractor_id: latest.contractor_id,
         funding_source: Array.isArray(latest.funding_source)
