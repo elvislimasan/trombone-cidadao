@@ -661,6 +661,41 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [pushSupported, user, isCapacitor]);
 
+  const savePushSubscription = useCallback(async (subscription) => {
+    if (!user) {
+      localStorage.setItem('push-subscription', JSON.stringify(subscription));
+      return;
+    }
+    try {
+      await supabase
+        .from('push_subscriptions')
+        .upsert({
+          user_id: user.id,
+          subscription: subscription,
+          created_at: new Date().toISOString()
+        });
+    } catch (error) {
+      console.error('Error saving subscription:', error);
+      localStorage.setItem('push-subscription', JSON.stringify(subscription));
+    }
+  }, [user]);
+
+  const deletePushSubscription = useCallback(async () => {
+    if (!user) {
+      localStorage.removeItem('push-subscription');
+      return;
+    }
+    try {
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('user_id', user.id);
+    } catch (error) {
+      console.error('Error deleting subscription:', error);
+    }
+    localStorage.removeItem('push-subscription');
+  }, [user]);
+
   // Verificar subscription push existente
   const checkPushSubscription = useCallback(async () => {
     if (!pushSupported || !user) {
@@ -691,38 +726,15 @@ export const NotificationProvider = ({ children }) => {
             console.error('[FCM] Erro ao atualizar push_enabled no banco:', prefError);
           }
           
-          // Primeiro, tentar usar a função SQL para verificar se precisa regenerar
-          // Se a função não existir, usar a verificação direta
-          let needsRegeneration = false;
+          // Sempre re-registrar no FCM ao abrir o app com permissão concedida.
+          // O FCM é idempotente: retorna o mesmo token se ainda for válido ou o novo
+          // token se foi refreshed pelo Firebase enquanto o app estava fechado.
+          // Isso garante que o banco nunca fica com token stale sem precisar de
+          // lógica de detecção de rotação.
           try {
-            const { data: sqlResult, error: sqlError } = await supabase
-              .rpc('user_needs_token_regeneration', { p_user_id: user.id });
-            
-            if (!sqlError && sqlResult !== null) {
-              needsRegeneration = sqlResult;
-            }
-          } catch (e) {
-            // Se função não existe ou erro, usar verificação direta
-          }
-          
-          // Se não usou a função SQL, fazer verificação direta
-          if (!needsRegeneration) {
-            const { data: subscriptionData } = await supabase
-              .from('push_subscriptions')
-              .select('subscription_details')
-              .eq('user_id', user.id)
-              .maybeSingle();
-            
-            needsRegeneration = !subscriptionData || !subscriptionData.subscription_details?.token;
-          }
-          
-          // Se não há token na base OU token inválido, forçar registro
-          if (needsRegeneration) {
-            try {
-              await PushNotifications.register();
-            } catch (regError) {
-              console.error('[FCM] Erro ao forçar registro:', regError);
-            }
+            await PushNotifications.register();
+          } catch (regError) {
+            console.error('[FCM] Erro ao registrar no FCM:', regError);
           }
         } else if (registration.receive === 'denied') {
           // Permissão negada, desabilitar toggle
@@ -751,19 +763,36 @@ export const NotificationProvider = ({ children }) => {
       // 🔥 WEB: Verificar Service Worker subscription
       const registration = await navigator.serviceWorker.ready;
       const existingSubscription = await registration.pushManager.getSubscription();
-      
+
       setSubscription(existingSubscription);
-      
+
       // Sincronizar estado
       if (existingSubscription && !pushEnabled) {
         setPushEnabled(true);
       } else if (!existingSubscription && pushEnabled) {
         setPushEnabled(false);
       }
+
+      // Garantir que a subscription atual está salva no banco.
+      // O browser pode ter rotacionado a subscription (pushsubscriptionchange) enquanto o
+      // usuário estava offline; se a atualização do SW falhou, o servidor fica com a
+      // subscription antiga inválida. Re-salvar aqui corrige isso.
+      if (existingSubscription && user) {
+        const { data: dbSub } = await supabase
+          .from('push_subscriptions')
+          .select('subscription')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const dbEndpoint = dbSub?.subscription?.endpoint;
+        if (dbEndpoint !== existingSubscription.endpoint) {
+          await savePushSubscription(existingSubscription);
+        }
+      }
     } catch (error) {
       console.error('Error checking push subscription:', error);
     }
-  }, [pushSupported, pushEnabled, isCapacitor, user]);
+  }, [pushSupported, pushEnabled, isCapacitor, user, savePushSubscription]);
 
 
   // Subscrever para push
@@ -852,45 +881,6 @@ export const NotificationProvider = ({ children }) => {
     } catch (error) {
       console.error('Error unsubscribing:', error);
     }
-  };
-
-  // Salvar subscription
-  const savePushSubscription = async (subscription) => {
-    if (!user) {
-      localStorage.setItem('push-subscription', JSON.stringify(subscription));
-      return;
-    }
-
-    try {
-      await supabase
-        .from('push_subscriptions')
-        .upsert({
-          user_id: user.id,
-          subscription: subscription,
-          created_at: new Date().toISOString()
-        });
-    } catch (error) {
-      console.error('Error saving subscription:', error);
-      localStorage.setItem('push-subscription', JSON.stringify(subscription));
-    }
-  };
-
-  // Deletar subscription
-  const deletePushSubscription = async () => {
-    if (!user) {
-      localStorage.removeItem('push-subscription');
-      return;
-    }
-
-    try {
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .eq('user_id', user.id);
-    } catch (error) {
-      console.error('Error deleting subscription:', error);
-    }
-    localStorage.removeItem('push-subscription');
   };
 
   // Atualizar preferências
@@ -1779,6 +1769,23 @@ export const NotificationProvider = ({ children }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user, pushSupported, isCapacitor, syncPushPermission]);
+
+  // Escutar mensagem do SW quando a subscription é rotacionada pelo browser
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || isCapacitor || !user) return;
+
+    const handleSwMessage = async (event) => {
+      if (event.data?.type !== 'PUSH_SUBSCRIPTION_CHANGED') return;
+      const sub = event.data.subscription;
+      if (sub) {
+        setSubscription(sub);
+        await savePushSubscription(sub);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+  }, [user, isCapacitor, savePushSubscription]);
 
   // 🔥 Função para lidar com novas notificações (para uso externo)
   const handleNewNotification = useCallback((notification) => {

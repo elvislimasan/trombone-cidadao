@@ -288,32 +288,28 @@ self.addEventListener('notificationclick', function(event) {
   }
 });
 
-// Handle push subscription changes
+// Handle push subscription changes (browser rotated the endpoint)
 self.addEventListener('pushsubscriptionchange', function(event) {
   event.waitUntil(
     self.registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: event.oldSubscription ? event.oldSubscription.options.applicationServerKey : undefined
-    }).then(function(subscription) {
-      // Send new subscription to server
-      return fetch('/api/push/subscription', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-SW-Registration': 'true'
-        },
-        body: JSON.stringify({
-          oldSubscription: event.oldSubscription,
-          newSubscription: subscription,
-          action: 'subscription-change'
-        })
-      }).then(response => {
-        if (!response.ok) {
-          throw new Error('Failed to update subscription on server');
-        }
+      applicationServerKey: event.oldSubscription
+        ? event.oldSubscription.options.applicationServerKey
+        : undefined
+    }).then(function(newSubscription) {
+      // Notify any open app windows so they can save the new subscription to
+      // the database immediately. If no window is open the app will sync the
+      // updated endpoint on the next login via checkPushSubscription().
+      return self.clients.matchAll({ type: 'window' }).then(function(clients) {
+        clients.forEach(function(client) {
+          client.postMessage({
+            type: 'PUSH_SUBSCRIPTION_CHANGED',
+            subscription: newSubscription.toJSON()
+          });
+        });
       });
-    }).catch(error => {
-      console.error('Service Worker: Error during push subscription change', error);
+    }).catch(function(error) {
+      console.error('Service Worker: Error renewing push subscription', error);
     })
   );
 });

@@ -14,10 +14,9 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const { 
-    notificationsEnabled, 
+  const {
+    notificationsEnabled,
     toggleNotifications,
-    handleNewNotification // 🔥 Função do contexto para novas notificações
   } = useNotifications();
   
   const [showSettings, setShowSettings] = useState(false);
@@ -102,10 +101,26 @@ const Notifications = () => {
     }
   }, []);
 
-  // 🔥 Configurar subscription real-time para atualizar automaticamente
+  // Escutar eventos de novas notificações disparados pelo NotificationContext
+  // O contexto já tem seu próprio canal realtime (context-notifications:userId) que lida com
+  // INSERT e dispara este evento. Ter um segundo canal para INSERT causaria contagem dupla.
+  useEffect(() => {
+    if (!user || !notificationsEnabled) return;
+
+    const handleCustomNotification = (event) => {
+      const notification = event.detail;
+      if (notification.user_id === user.id) {
+        addNewNotification(notification);
+      }
+    };
+
+    window.addEventListener('new-notification', handleCustomNotification);
+    return () => window.removeEventListener('new-notification', handleCustomNotification);
+  }, [user, notificationsEnabled, addNewNotification]);
+
+  // Canal realtime apenas para UPDATE (marcar como lida em outra sessão/dispositivo)
   useEffect(() => {
     if (!user || !notificationsEnabled) {
-      // Limpar canal se existir
       if (realtimeChannelRef.current) {
         supabase.removeChannel(realtimeChannelRef.current);
         realtimeChannelRef.current = null;
@@ -113,30 +128,13 @@ const Notifications = () => {
       return;
     }
 
-    // Remover canal existente antes de criar um novo
     if (realtimeChannelRef.current) {
       supabase.removeChannel(realtimeChannelRef.current);
       realtimeChannelRef.current = null;
     }
 
-    // Criar canal real-time para atualizar lista automaticamente
     const channel = supabase
       .channel(`notifications-component:${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        async (payload) => {
-          if (!user.is_admin && payload.new?.type === 'moderation_required') {
-            return;
-          }
-          addNewNotification(payload.new);
-        }
-      )
       .on(
         'postgres_changes',
         {
@@ -146,70 +144,26 @@ const Notifications = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          if (!user.is_admin && payload.new?.type === 'moderation_required') {
-            return;
-          }
-          // Atualizar notificação na lista
+          if (!user.is_admin && payload.new?.type === 'moderation_required') return;
           setNotifications(prev =>
             prev.map(n => n.id === payload.new.id ? payload.new : n)
           );
-          
-          // Atualizar contador de não lidas
-          if (payload.new.is_read) {
+          if (payload.new.is_read && !payload.old?.is_read) {
             setUnreadCount(prev => Math.max(0, prev - 1));
-          } else {
-            // Se uma notificação foi marcada como não lida
-            setUnreadCount(prev => {
-              // Verificar se já estava contada
-              const wasRead = payload.old?.is_read;
-              return wasRead ? prev + 1 : prev;
-            });
+          } else if (!payload.new.is_read && payload.old?.is_read) {
+            setUnreadCount(prev => prev + 1);
           }
         }
       )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Erro no canal real-time do componente Notifications');
-        } else if (status === 'TIMED_OUT') {
-          console.error('Timeout no canal real-time do componente Notifications');
-        }
-      });
+      .subscribe();
 
     realtimeChannelRef.current = channel;
 
-    // 🔥 Listener para eventos customizados do contexto
-    const handleCustomNotification = (event) => {
-      const notification = event.detail;
-      
-      // Verificar se é para o usuário atual
-      if (notification.user_id === user.id) {
-        addNewNotification(notification);
-      }
-    };
-
-    window.addEventListener('new-notification', handleCustomNotification);
-
-    // 🔥 Fallback: verificar periodicamente se há novas notificações (caso o real-time falhe)
-    const checkInterval = setInterval(() => {
-      if (user && notificationsEnabled) {
-        fetchNotifications();
-      }
-    }, 30000); // Verificar a cada 30 segundos
-
     return () => {
-      // Cleanup: remover canal quando componente desmonta ou dependências mudam
-      if (channel) {
-        supabase.removeChannel(channel);
-        realtimeChannelRef.current = null;
-      }
-      
-      // Remover listener de eventos customizados
-      window.removeEventListener('new-notification', handleCustomNotification);
-      
-      // Limpar intervalo de verificação
-      clearInterval(checkInterval);
+      supabase.removeChannel(channel);
+      realtimeChannelRef.current = null;
     };
-  }, [user, notificationsEnabled, addNewNotification, fetchNotifications]);
+  }, [user, notificationsEnabled]);
 
 
   const handleToggleWithTimestamp = async (enabled) => {
