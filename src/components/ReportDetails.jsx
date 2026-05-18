@@ -1,7 +1,9 @@
 import React, { useState, useRef, lazy, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play, Loader2, ArrowRight, FileSignature, FileText } from 'lucide-react';
+import { X, MapPin, Calendar, ThumbsUp, Star, CheckCircle, Clock, AlertTriangle, Flag, Share2, Video, Image as ImageIcon, MessageSquare, Send, Link as LinkIcon, Edit, Save, Trash2, Camera, Hourglass, Shield, Repeat, Check, Eye, Play, Loader2, ArrowRight, FileSignature, FileText, AlertOctagon } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
@@ -196,6 +198,9 @@ const ReportDetails = ({
   const [isModerationSaving, setIsModerationSaving] = useState(false);
   const [statusOverride, setStatusOverride] = useState(null);
   const [categoryOverride, setCategoryOverride] = useState(null);
+  const [showFlagDialog, setShowFlagDialog] = useState(false);
+  const [flagReason, setFlagReason] = useState('');
+  const [isFlagging, setIsFlagging] = useState(false);
   const [isCreatingPendingPole, setIsCreatingPendingPole] = useState(false);
   const [nearbyPoles, setNearbyPoles] = useState([]);
   const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
@@ -383,8 +388,26 @@ const ReportDetails = ({
     toast({ title: "Avaliação enviada! ⭐", description: "Obrigado pelo seu feedback!" });
   };
 
-  const handleReportError = () => {
-    toast({ title: "Reportar Erro", description: "Obrigado por nos avisar. Nossa equipe irá analisar o problema.", variant: "default" });
+  const handleFlagContent = async () => {
+    if (!flagReason) {
+      toast({ title: "Selecione um motivo", variant: "destructive" });
+      return;
+    }
+    setIsFlagging(true);
+    try {
+      await supabase.from('content_flags').insert({
+        report_id: report.id,
+        reporter_id: user?.id ?? null,
+        reason: flagReason,
+      });
+      toast({ title: "Denúncia enviada", description: "Nossa equipe irá analisar o conteúdo. Obrigado!" });
+      setShowFlagDialog(false);
+      setFlagReason('');
+    } catch {
+      toast({ title: "Erro ao enviar denúncia", description: "Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsFlagging(false);
+    }
   };
 
   const handleShare = async () => {
@@ -2027,9 +2050,9 @@ const ReportDetails = ({
                         </Button>
                       )}
                       
-                      <Button onClick={handleReportError} variant="ghost" className="text-muted-foreground hover:text-primary gap-2 text-xs sm:text-sm col-span-2">
-                        <Flag className="w-4 h-4" />
-                        Reportar Erro
+                      <Button onClick={() => setShowFlagDialog(true)} variant="ghost" className="text-muted-foreground hover:text-destructive gap-2 text-xs sm:text-sm col-span-2">
+                        <AlertOctagon className="w-4 h-4" />
+                        Denunciar conteúdo
                       </Button>
                     </div>
             </>
@@ -2119,12 +2142,56 @@ const ReportDetails = ({
 
 
       
-      <ShareModal 
-        isOpen={showShareModal} 
-        onClose={() => setShowShareModal(false)} 
-        url={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/share-report?id=${report.id}`} 
-        title={report.title} 
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        url={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/share-report?id=${report.id}`}
+        title={report.title}
       />
+
+      <Dialog open={showFlagDialog} onOpenChange={setShowFlagDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertOctagon className="w-5 h-5" />
+              Denunciar conteúdo
+            </DialogTitle>
+            <DialogDescription>
+              Selecione o motivo da denúncia. Nossa equipe irá analisar e tomar as medidas necessárias.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {[
+              { value: 'inappropriate', label: 'Conteúdo impróprio ou ofensivo' },
+              { value: 'fake', label: 'Informação falsa ou enganosa' },
+              { value: 'spam', label: 'Spam ou publicidade' },
+              { value: 'violence', label: 'Violência ou conteúdo perturbador' },
+              { value: 'other', label: 'Outro motivo' },
+            ].map(({ value, label }) => (
+              <label key={value} className="flex items-center gap-3 p-3 rounded-lg border border-border cursor-pointer hover:bg-muted/50 transition-colors">
+                <input
+                  type="radio"
+                  name="flagReason"
+                  value={value}
+                  checked={flagReason === value}
+                  onChange={(e) => setFlagReason(e.target.value)}
+                  className="accent-destructive"
+                />
+                <span className="text-sm">{label}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowFlagDialog(false); setFlagReason(''); }} disabled={isFlagging}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleFlagContent} disabled={isFlagging || !flagReason} className="gap-2">
+              {isFlagging ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertOctagon className="w-4 h-4" />}
+              Enviar denúncia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useAuth } from './SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+
+const NotificationPermissionModal = lazy(() => import('@/components/NotificationPermissionModal'));
 
 const NotificationContext = createContext();
 
@@ -36,6 +38,7 @@ export const NotificationProvider = ({ children }) => {
   const [notificationPreferences, setNotificationPreferences] = useState(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(true);
   const [realtimeChannel, setRealtimeChannel] = useState(null); // 🔥 Canal real-time no contexto
+  const [showPermissionRationale, setShowPermissionRationale] = useState(false);
   
   // 🔥 Detectar se está no Capacitor (apenas se Capacitor estiver disponível)
   const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
@@ -573,93 +576,66 @@ export const NotificationProvider = ({ children }) => {
     try {
       const registration = await PushNotifications.checkPermissions();
       
-      // Se permissão ainda não foi concedida, solicitar automaticamente
+      // Se permissão ainda não foi concedida, mostrar rationale (Guideline 2.5.13)
       if (registration.receive === 'prompt') {
-        const permission = await PushNotifications.requestPermissions();
-        
-        if (permission.receive === 'granted') {
-          // Forçar registro para gerar token
-          await PushNotifications.register();
-          setPushEnabled(true);
-          // Atualizar preferências no banco
-          if (user) {
-            const { error } = await supabase
-              .from('user_preferences')
-              .upsert({ 
-                user_id: user.id, 
-                push_enabled: true 
-              }, {
-                onConflict: 'user_id'
-              })
-              .select();
-            
-            if (error) {
-              console.error('[FCM] Erro ao atualizar push_enabled no banco:', error);
-            }
-          }
-        } else {
-          setPushEnabled(false);
-          // Atualizar preferências no banco
-          if (user) {
-            const { error } = await supabase
-              .from('user_preferences')
-              .upsert({ 
-                user_id: user.id, 
-                push_enabled: false 
-              }, {
-                onConflict: 'user_id'
-              })
-              .select();
-            
-            if (error) {
-              console.error('[FCM] Erro ao atualizar push_enabled no banco:', error);
-            }
-          }
-        }
-      } else if (registration.receive === 'granted') {
-        // Permissão já concedida, verificar token
+        setShowPermissionRationale(true);
+        return;
+      }
+
+      if (registration.receive === 'granted') {
+        // Permissão já concedida — apenas sincronizar estado
         setPushEnabled(true);
-        // Atualizar preferências no banco
         if (user) {
-          const { error } = await supabase
-            .from('user_preferences')
-            .upsert({ 
-              user_id: user.id, 
-              push_enabled: true 
-            }, {
-              onConflict: 'user_id'
-            })
-            .select();
-          
-          if (error) {
-            console.error('[FCM] Erro ao atualizar push_enabled no banco:', error);
-          }
+          await supabase.from('user_preferences').upsert(
+            { user_id: user.id, push_enabled: true },
+            { onConflict: 'user_id' }
+          );
         }
       } else {
         // Permissão negada
         setPushEnabled(false);
-        // Atualizar preferências no banco
         if (user) {
-          const { error } = await supabase
-            .from('user_preferences')
-            .upsert({ 
-              user_id: user.id, 
-              push_enabled: false 
-            }, {
-              onConflict: 'user_id'
-            })
-            .select();
-          
-          if (error) {
-            console.error('[FCM] Erro ao atualizar push_enabled no banco:', error);
-          }
+          await supabase.from('user_preferences').upsert(
+            { user_id: user.id, push_enabled: false },
+            { onConflict: 'user_id' }
+          );
         }
       }
     } catch (error) {
-      console.error('[FCM] Erro ao solicitar permissão:', error);
+      console.error('[FCM] Erro ao verificar permissão:', error);
       setPushEnabled(false);
     }
   }, [pushSupported, user, isCapacitor]);
+
+  // Chamado quando o usuário confirma o rationale — aí sim pedimos a permissão nativa
+  const confirmPermissionRequest = useCallback(async () => {
+    setShowPermissionRationale(false);
+    if (!isCapacitor) return;
+    try {
+      const permission = await PushNotifications.requestPermissions();
+      if (permission.receive === 'granted') {
+        await PushNotifications.register();
+        setPushEnabled(true);
+        if (user) {
+          await supabase.from('user_preferences').upsert(
+            { user_id: user.id, push_enabled: true },
+            { onConflict: 'user_id' }
+          );
+        }
+      } else {
+        setPushEnabled(false);
+        if (user) {
+          await supabase.from('user_preferences').upsert(
+            { user_id: user.id, push_enabled: false },
+            { onConflict: 'user_id' }
+          );
+        }
+      }
+    } catch (error) {
+      console.error('[FCM] Erro ao confirmar permissão:', error);
+      setPushEnabled(false);
+    }
+  }, [isCapacitor, user]);
 
   const savePushSubscription = useCallback(async (subscription) => {
     if (!user) {
@@ -1827,12 +1803,20 @@ export const NotificationProvider = ({ children }) => {
     loading,
     handleNewNotification, // 🔥 Exportar função para uso externo
     isSubscribed: !!subscription, // 🔥 Adicionar propriedade que Header.jsx está tentando usar
-    isLoading: loading // 🔥 Adicionar propriedade que Header.jsx está tentando usar
+    isLoading: loading, // 🔥 Adicionar propriedade que Header.jsx está tentando usar
+    showPermissionRationale,
+    confirmPermissionRequest,
+    dismissPermissionRationale: () => setShowPermissionRationale(false),
   };
 
   return (
     <NotificationContext.Provider value={value}>
       {children}
+      {showPermissionRationale && (
+        <Suspense fallback={null}>
+          <NotificationPermissionModal />
+        </Suspense>
+      )}
     </NotificationContext.Provider>
   );
 };

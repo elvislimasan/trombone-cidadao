@@ -38,39 +38,18 @@ const DeleteAccountPage = () => {
     setIsDeleting(true);
 
     try {
-      // 1. Deletar dados relacionados do usuário (opcional - dependendo da política de retenção)
-      // Nota: Você pode querer manter alguns dados por questões legais
-      // Por enquanto, vamos apenas deletar o perfil e desativar a conta de autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase.functions.invoke('delete-user', {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
 
-      // Nota: A exclusão completa da conta requer permissões de admin
-      // Por enquanto, vamos apenas deletar o perfil e fazer logout
-      // Para exclusão completa da conta de autenticação, você pode:
-      // 1. Criar uma Edge Function que use o Supabase Admin API
-      // 2. Ou processar manualmente via painel do Supabase
-      
-      // 1. Deletar perfil
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', user.id);
+      if (error) throw error;
 
-      if (profileError) {
-        console.error('Erro ao deletar perfil:', profileError);
-        toast({
-          title: "Erro ao excluir conta",
-          description: "Não foi possível excluir sua conta. Entre em contato com o suporte.",
-          variant: "destructive",
-        });
-        setIsDeleting(false);
-        return;
-      }
-
-      // 2. Fazer logout (a conta de autenticação pode ser deletada manualmente ou via Edge Function)
       await signOut();
 
       toast({
         title: "Conta excluída",
-        description: "Sua conta foi excluída com sucesso. Sentiremos sua falta!",
+        description: "Sua conta foi completamente removida. Sentiremos sua falta!",
       });
 
       navigate('/');
