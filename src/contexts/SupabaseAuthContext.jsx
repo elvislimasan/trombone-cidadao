@@ -3,6 +3,22 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { SignInWithApple } from '@capacitor-community/apple-sign-in';
+
+async function _sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function _generateNonce(length = 16) {
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(length)))
+    .map(x => charset[x % charset.length])
+    .join('');
+}
 
 const getSiteUrl = () => {
   if (import.meta.env.VITE_APP_URL) {
@@ -410,6 +426,44 @@ export const AuthProvider = ({ children }) => {
     return { data, error };
   }, []);
 
+  const signInWithApple = useCallback(async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const rawNonce = _generateNonce();
+        const hashedNonce = await _sha256(rawNonce);
+
+        const result = await SignInWithApple.authorize({
+          clientId: 'com.trombonecidadao.app',
+          redirectURI: 'com.trombonecidadao.app://painel-usuario',
+          scopes: 'email name',
+          state: _generateNonce(8),
+          nonce: hashedNonce,
+        });
+
+        const { identityToken } = result.response;
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: identityToken,
+          nonce: rawNonce,
+        });
+
+        if (error) throw error;
+        return { data, error: null };
+      } catch (error) {
+        console.error('Erro no login com Apple:', error);
+        return { data: null, error };
+      }
+    } else {
+      const redirectTo = getSiteUrl();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo },
+      });
+      if (error) console.error('Erro no login com Apple:', error.message);
+      return { data, error };
+    }
+  }, []);
+
   const resetPassword = useCallback(async (email) => {
     const redirectTo = `${getSiteUrl()}/alterar-senha`;
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -434,6 +488,7 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signIn,
     signInWithGoogle,
+    signInWithApple,
     resetPassword,
     signOut,
     user,
