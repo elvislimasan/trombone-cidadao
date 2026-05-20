@@ -55,5 +55,14 @@
 	<string>O Trombone Cidadão salva fotos e vídeos dos seus relatos na galeria.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>O Trombone Cidadão usa sua localização para identificar o endereço do problema que você está relatando.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.trombonecidadao.app</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -18,7 +18,7 @@ const LoginPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signInWithGoogle, user } = useAuth();
+  const { signIn, signInWithGoogle, signInWithApple, refreshUserProfile, user } = useAuth();
   const bgHero = '/Login-Trombone-Cidadão-02-17-2026_01_24_PM.png';
 
   useEffect(() => {
@@ -35,6 +35,32 @@ const LoginPage = () => {
       navigate(target || '/painel-usuario', { replace: true });
     }
   }, [user, navigate, location.state]);
+
+  const handleAppleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await signInWithApple();
+      if (error) throw error;
+      // signInWithIdToken pode não disparar onAuthStateChange no Capacitor,
+      // então força atualização do perfil e redireciona explicitamente
+      await refreshUserProfile();
+      let target = null;
+      try {
+        target = sessionStorage.getItem('tc_post_login_redirect');
+        if (target) sessionStorage.removeItem('tc_post_login_redirect');
+      } catch {}
+      const from = location.state?.from;
+      if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
+      navigate(target || '/painel-usuario', { replace: true });
+    } catch (error) {
+      setErrors({
+        email: '',
+        password: '',
+        general: error.message || 'Erro ao conectar com Apple.',
+      });
+      setIsLoading(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
@@ -355,6 +381,19 @@ const LoginPage = () => {
                       </svg>
                       Google
                     </Button>
+
+                    <Button
+                      type="button"
+                      className="w-full h-10 gap-2 rounded-full bg-black text-white hover:bg-gray-900 border-black transition-colors"
+                      onClick={handleAppleLogin}
+                      disabled={isLoading}
+                    >
+                      <svg className="h-4 w-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 814 1000" fill="currentColor">
+                        <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 405.8 15.6 285.4 15.6 267.3c0-5.8.6-11.6.6-17.4v-.6c0-55.4 20.7-119.4 62.9-168.8C121.8 36.5 185.9 8.4 247.8 8.4c65.9 0 120.3 41.4 160.8 41.4 38.7 0 98.8-43.6 173.1-43.6 27.9 0 108.2 2.6 166.6 77.9zm-85.5-170.5c-31.5 37.9-79.5 67.7-130.9 67.7-3.2 0-6.5-.3-9.7-.6-1.9-41.9 14.8-85.5 43.6-115.9C640.8 90.9 695.8 62.3 750 60.6c1.6 42.5-13 83.5-47.4 109.8z"/>
+                      </svg>
+                      Continuar com Apple
+                    </Button>
+
                     <p className="text-sm text-muted-foreground">
                       Não tem uma conta?{' '}
                       <Link to="/cadastro" className="font-semibold text-tc-red hover:underline">
