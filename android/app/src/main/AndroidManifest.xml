@@ -167,9 +167,6 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     
-    <!-- Android 13+ (API 33+) - Gerenciamento granular de mídia -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
     <!-- Foreground Service (Android 9+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
