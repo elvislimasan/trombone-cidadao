@@ -440,7 +440,7 @@ export const AuthProvider = ({ children }) => {
           nonce: hashedNonce,
         });
 
-        const { identityToken } = result.response;
+        const { identityToken, givenName, familyName, email } = result.response;
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: identityToken,
@@ -448,6 +448,32 @@ export const AuthProvider = ({ children }) => {
         });
 
         if (error) throw error;
+
+        // Apple só envia nome na primeira autenticação — atualiza metadados se disponível
+        const fullName = [givenName, familyName].filter(Boolean).join(' ').trim();
+        if (fullName) {
+          await supabase.auth.updateUser({ data: { name: fullName } });
+        }
+
+        // Garante que o perfil existe com nome de fallback se ainda não foi criado
+        if (data?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .eq('id', data.user.id)
+            .single();
+
+          if (!profile) {
+            const fallbackName = fullName || (email ? email.split('@')[0] : 'Usuário Apple');
+            await supabase.from('profiles').insert({
+              id: data.user.id,
+              name: fallbackName,
+            });
+          } else if (!profile.name && fullName) {
+            await supabase.from('profiles').update({ name: fullName }).eq('id', data.user.id);
+          }
+        }
+
         return { data, error: null };
       } catch (error) {
         console.error('Erro no login com Apple:', error);
