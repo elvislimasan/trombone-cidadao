@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
@@ -81,6 +81,7 @@ const RegisterPage = () => {
   const [cities, setCities] = useState([]);
   const selectedState = watch('state_id');
   const [showPassword, setShowPassword] = useState(false);
+  const defaultCitySet = useRef(false);
 
   useEffect(() => {
     if (location.state) {
@@ -107,23 +108,27 @@ const RegisterPage = () => {
 
   useEffect(() => {
     if (selectedState) {
-      const fetchCitiesAndSetDefault = async () => {
+      const fetchCities = async () => {
         const { data, error } = await supabase.from('cities').select('*').eq('state_id', selectedState).order('name');
         if (error) {
           toast({ title: "Erro ao buscar cidades", variant: "destructive" });
-        } else {
-          setCities(data);
-          const floresta = data.find(c => c.name.toLowerCase() === 'floresta');
-          if (floresta) {
-            setValue('city_id', String(floresta.id));
-          }
+          return;
         }
+        setCities(data);
+        // Pré-seleciona Floresta apenas no carregamento inicial (estado padrão = PE).
+        // Ao trocar de estado, limpa a cidade para o usuário escolher.
+        const currentCity = data.find(c => String(c.id) === String(watch('city_id')));
+        if (!currentCity) {
+          const floresta = !defaultCitySet.current && data.find(c => c.name.toLowerCase() === 'floresta');
+          setValue('city_id', floresta ? String(floresta.id) : '');
+        }
+        defaultCitySet.current = true;
       };
-      fetchCitiesAndSetDefault();
+      fetchCities();
     } else {
       setCities([]);
     }
-  }, [selectedState, toast, setValue]);
+  }, [selectedState, toast, setValue, watch]);
 
   const randomizeAvatar = () => {
     setAvatarConfig(genConfig());
@@ -331,7 +336,6 @@ const RegisterPage = () => {
                           onSelect={field.onChange}
                           placeholder="Selecione um estado"
                           emptyText="Nenhum estado encontrado."
-                          disabled={true}
                         />
                       )}
                     />
@@ -350,7 +354,6 @@ const RegisterPage = () => {
                           onSelect={field.onChange}
                           placeholder="Selecione uma cidade"
                           emptyText="Nenhuma cidade encontrada."
-                          disabled={true}
                         />
                       )}
                     />
