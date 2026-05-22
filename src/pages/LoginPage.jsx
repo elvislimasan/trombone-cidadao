@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { LogIn, Eye, EyeOff, ShieldCheck, Megaphone, MapPin, Heart, Sparkles, Newspaper } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 const isIOS = Capacitor.getPlatform() === 'ios' || !Capacitor.isNativePlatform();
 
@@ -23,6 +24,16 @@ const LoginPage = () => {
   const location = useLocation();
   const { signIn, signInWithGoogle, signInWithApple, refreshUserProfile, user } = useAuth();
   const bgHero = '/Login-Trombone-Cidadão-02-17-2026_01_24_PM.png';
+
+  // Reseta loading quando o browser OAuth fecha sem completar o login
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let listener;
+    Browser.addListener('browserFinished', () => {
+      setIsLoading(false);
+    }).then(l => { listener = l; });
+    return () => { listener?.remove(); };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -56,11 +67,20 @@ const LoginPage = () => {
       if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
       navigate(target || '/painel-usuario', { replace: true });
     } catch (error) {
-      setErrors({
-        email: '',
-        password: '',
-        general: error.message || 'Erro ao conectar com Apple.',
-      });
+      // Código 1001 = usuário cancelou o painel da Apple — ignorar silenciosamente
+      const cancelled =
+        error?.code === 1001 ||
+        error?.message?.includes('1001') ||
+        error?.message?.toLowerCase().includes('cancel') ||
+        error?.message?.toLowerCase().includes('dismiss');
+
+      if (!cancelled) {
+        setErrors({
+          email: '',
+          password: '',
+          general: error.message || 'Erro ao conectar com Apple.',
+        });
+      }
       setIsLoading(false);
     }
   };
