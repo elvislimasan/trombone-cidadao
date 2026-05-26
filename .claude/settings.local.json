@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s 'https://xxdletrjyjajtrmhwzev.supabase.co/rest/v1/cities?select=id,name,state_id&state_id=neq.17&limit=10' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4ZGxldHJqeWphanRybWh3emV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MjMzNjksImV4cCI6MjA3NzI5OTM2OX0.DySq0AnK3aIi4RmJR--8_6wl72Ktj9exaxqYk6pP3Yo' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4ZGxldHJqeWphanRybWh3emV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MjMzNjksImV4cCI6MjA3NzI5OTM2OX0.DySq0AnK3aIi4RmJR--8_6wl72Ktj9exaxqYk6pP3Yo')",
+      "Bash(curl -s 'https://xxdletrjyjajtrmhwzev.supabase.co/rest/v1/cities?select=count&state_id=eq.25' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4ZGxldHJqeWphanRybWh3emV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MjMzNjksImV4cCI6MjA3NzI5OTM2OX0.DySq0AnK3aIi4RmJR--8_6wl72Ktj9exaxqYk6pP3Yo' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4ZGxldHJqeWphanRybWh3emV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MjMzNjksImV4cCI6MjA3NzI5OTM2OX0.DySq0AnK3aIi4RmJR--8_6wl72Ktj9exaxqYk6pP3Yo' -H 'Prefer: count=exact' -I)"
+    ]
+  }
+}

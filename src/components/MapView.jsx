@@ -137,6 +137,7 @@ const MapView = ({
   onUpvote,
   showLegend = true,
   showModeToggle = true,
+  flyToTarget,
   interactive = true,
 }) => {
   const { mode } = useMapModeToggle();
@@ -246,6 +247,18 @@ const MapView = ({
       map.setView([userLocation.lat, userLocation.lng], 16, { animate: false });
     } catch {}
   }, [interactive, userLocation]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!interactive || !map || !flyToTarget) return;
+    const lat = Number(flyToTarget.lat);
+    const lng = Number(flyToTarget.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    hasCenteredRef.current = true;
+    try {
+      map.flyTo([lat, lng], flyToTarget.zoom ?? 18, { animate: true });
+    } catch {}
+  }, [interactive, flyToTarget?.lat, flyToTarget?.lng, flyToTarget?.zoom, flyToTarget?.nonce]);
 
   const formatDate = (dateString) => {
     if (!dateString || isNaN(new Date(dateString))) return "Data inválida";
