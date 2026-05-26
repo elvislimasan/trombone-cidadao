@@ -4,9 +4,11 @@ import { Link } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Copy, Check } from "lucide-react";
-
-const PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.trombonecidadao.app";
+import {
+  PLAY_STORE_URL,
+  APP_STORE_URL,
+  isAppStoreConfigured,
+} from "@/config/storeLinks";
 
 const getBaseUrl = () => {
   if (import.meta.env.VITE_APP_URL) return import.meta.env.VITE_APP_URL;
@@ -31,6 +33,11 @@ const AppLandingPage = () => {
 
   const { isAndroid, isIOS, isDesktop } = useMemo(() => getPlatform(), []);
 
+  const useAppStore = isIOS && isAppStoreConfigured;
+  const storeUrl = useAppStore ? APP_STORE_URL : PLAY_STORE_URL;
+  const storeLabel = useAppStore ? "Abrir App Store" : "Abrir Play Store";
+  const willRedirect = isAndroid || useAppStore;
+
   const qrCodeUrl = useMemo(() => {
     return `https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=${encodeURIComponent(
       shareUrl
@@ -40,7 +47,8 @@ const AppLandingPage = () => {
   useEffect(() => {
     if (Capacitor.isNativePlatform()) return;
     if (isAndroid) window.location.replace(PLAY_STORE_URL);
-  }, [isAndroid]);
+    else if (isIOS && isAppStoreConfigured) window.location.replace(APP_STORE_URL);
+  }, [isAndroid, isIOS]);
 
   const handleCopyLink = async () => {
     try {
@@ -73,20 +81,22 @@ const AppLandingPage = () => {
             <p className="mt-1 text-sm text-white/90 md:text-base">
               Acesse mais rápido, receba notificações e acompanhe suas broncas.
             </p>
-            <p className="mt-1 text-sm text-white/80">
-              App Store (iOS) disponível em breve.
-            </p>
+            {!isAppStoreConfigured && (
+              <p className="mt-1 text-sm text-white/80">
+                App Store (iOS) disponível em breve.
+              </p>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button asChild className="bg-white text-[#c0392b] hover:bg-white/90">
             <a
-              href={PLAY_STORE_URL}
+              href={storeUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="gap-2"
             >
-              Abrir Play Store <ExternalLink className="h-4 w-4" />
+              {storeLabel} <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
           <Button
@@ -109,7 +119,8 @@ const AppLandingPage = () => {
     </div>
   );
 
-  if (!Capacitor.isNativePlatform() && isAndroid) {
+  if (!Capacitor.isNativePlatform() && willRedirect) {
+    const storeName = useAppStore ? "App Store" : "Play Store";
     return (
       <>
         <Helmet>
@@ -120,7 +131,7 @@ const AppLandingPage = () => {
             {Banner}
             <div className="mt-8 rounded-2xl border border-[#e6ded8] bg-white p-6 shadow-sm">
               <h2 className="text-lg font-bold text-[#1a0a08]">
-                Redirecionando para a Play Store…
+                Redirecionando para a {storeName}…
               </h2>
               <p className="mt-2 text-sm text-[#8a7a76]">
                 Se não abrir automaticamente, use o botão abaixo.
@@ -128,11 +139,11 @@ const AppLandingPage = () => {
               <div className="mt-5 flex flex-wrap gap-3">
                 <Button asChild className="bg-[#c0392b] hover:bg-[#e74c3c]">
                   <a
-                    href={PLAY_STORE_URL}
+                    href={storeUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Abrir Play Store
+                    {storeLabel}
                   </a>
                 </Button>
                 <Button variant="outline" asChild>
@@ -161,16 +172,31 @@ const AppLandingPage = () => {
                 {isIOS ? "iOS (iPhone)" : "Android"}
               </h2>
               {isIOS ? (
-                <>
-                  <p className="mt-2 text-sm leading-relaxed text-[#8a7a76]">
-                    O app para iOS (App Store) estará disponível em breve.
-                  </p>
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <Button variant="outline" asChild>
-                      <Link to="/">Abrir o site</Link>
-                    </Button>
-                  </div>
-                </>
+                isAppStoreConfigured ? (
+                  <>
+                    <p className="mt-2 text-sm leading-relaxed text-[#8a7a76]">
+                      O app para iPhone já está disponível na App Store.
+                    </p>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <Button asChild className="bg-[#c0392b] hover:bg-[#e74c3c]">
+                        <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                          Abrir App Store
+                        </a>
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm leading-relaxed text-[#8a7a76]">
+                      O app para iOS (App Store) estará disponível em breve.
+                    </p>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <Button variant="outline" asChild>
+                        <Link to="/">Abrir o site</Link>
+                      </Button>
+                    </div>
+                  </>
+                )
               ) : (
                 <>
                   <p className="mt-2 text-sm leading-relaxed text-[#8a7a76]">

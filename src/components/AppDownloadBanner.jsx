@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Capacitor } from '@capacitor/core';
+import { getStoreUrl, detectPlatform } from '@/config/storeLinks';
 
 const AppDownloadBanner = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -52,15 +53,10 @@ const AppDownloadBanner = () => {
   };
 
   const handleDownload = () => {
-    // Link da Play Store
-    const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.trombonecidadao.app';
-    
-    // Tentar abrir no app nativo se estiver disponível
-    if (window.location.href.includes('android-app://')) {
-      window.location.href = playStoreUrl;
-    } else {
-      window.open(playStoreUrl, '_blank');
-    }
+    // Escolhe a loja conforme o dispositivo (iOS → App Store quando configurada).
+    const { isIOS } = detectPlatform();
+    const storeUrl = getStoreUrl({ isIOS });
+    window.open(storeUrl, '_blank');
   };
 
   if (isDismissed || !isVisible) {
