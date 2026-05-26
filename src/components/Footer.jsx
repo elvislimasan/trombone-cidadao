@@ -76,12 +76,12 @@ const Footer = () => {
               {footerSettings.socialMedia
                 .filter(social => social.isVisible && social.platform === 'Instagram')
                 .map(social => renderSocialIcon(social.platform, social.url))}
-              <a href="https://play.google.com/store/apps/details?id=com.trombonecidadao.app" target="_blank" rel="noopener noreferrer" aria-label="Baixar na Google Play">
+              <Link to="/app" aria-label="Baixar o app">
                 <Button className="gap-2 bg-tc-red hover:bg-tc-red/90 h-9 px-3 text-sm font-semibold">
                   <LucideIcons.Download className="w-4 h-4" />
                   Baixar App
                 </Button>
-              </a>
+              </Link>
             </div>
           </div>
 

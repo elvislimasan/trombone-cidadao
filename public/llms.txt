@@ -23,7 +23,6 @@
 - [Notícias - Trombone Cidadão](/news): Fique por dentro de todas as novidades sobre a plataforma Trombone Cidadão e o impacto na nossa cidade.
 - [Obras Favoritas - Trombone Cidadão](/favoriteworks): No description available
 - [Recuperar Senha - Trombone Cidadão](/forgotpassword): Recupere o acesso à sua conta na plataforma Trombone Cidadão.
-- [Redirecionando… – Trombone Cidadão](/applanding): No description available
 - [Serviços - Trobone Cidadão](/services): Encontre informações úteis sobre Floresta-PE: pontos turísticos, transportes e guia comercial.
 - [Sobre o Trombone Cidadão](/about): Saiba mais sobre o projeto Trombone Cidadão, nossa missão, visão e como você pode colaborar para uma cidade melhor.
 - [Termos de Uso - Trombone Cidadão](/termsofuse): Leia os termos e condições de uso da plataforma Trombone Cidadão, em conformidade com a LGPD.
