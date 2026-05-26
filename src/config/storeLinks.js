@@ -10,8 +10,10 @@ export const APP_STORE_APP_ID = '6766293242'; // <-- ex: '6471234567'
 export const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.trombonecidadao.app';
 
+// Usa a loja do Brasil (/br/): o app está publicado apenas no storefront BR,
+// então a URL sem país (apps.apple.com/app/id...) retorna 404.
 export const APP_STORE_URL = APP_STORE_APP_ID
-  ? `https://apps.apple.com/app/id${APP_STORE_APP_ID}`
+  ? `https://apps.apple.com/br/app/id${APP_STORE_APP_ID}`
   : '';
 
 export const isAppStoreConfigured = Boolean(APP_STORE_APP_ID);
