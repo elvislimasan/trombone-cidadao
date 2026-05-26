@@ -17,6 +17,8 @@ import { SplashScreen } from '@capacitor/splash-screen';
 if (Capacitor.isNativePlatform()) {
   try {
     document.documentElement.classList.add('native-app');
+    // Classe por plataforma para ajustes específicos de CSS (ex.: safe-area do header no iOS).
+    document.documentElement.classList.add(`plt-${Capacitor.getPlatform()}`);
   } catch {}
   try {
     if (Capacitor.isPluginAvailable('SplashScreen')) {
@@ -24,6 +26,13 @@ if (Capacitor.isNativePlatform()) {
     }
   } catch {}
   const applySafeAreas = async () => {
+    // iOS: confiar 100% no CSS env(safe-area-inset-*). Com viewport-fit=cover +
+    // contentInset:'never', o env() é estável e correto. A medição via JS (StatusBar.getInfo
+    // / intervalo de 5s) gerava valores inconsistentes — origem do "às vezes buga" no header.
+    // Android mantém o cálculo atual (que já funciona).
+    if (Capacitor.getPlatform() === 'ios') {
+      return;
+    }
     try {
       const root = document.documentElement;
       let safeAreaTop = '0px';

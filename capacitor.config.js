@@ -36,7 +36,7 @@ const config = {
   },
   // ✅ CONFIGURAÇÃO iOS PARA SAFE AREAS
   ios: {
-    contentInset: 'automatic'
+    contentInset: 'never'
   }
 };
 

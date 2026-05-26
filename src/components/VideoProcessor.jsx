@@ -314,9 +314,15 @@ const VideoProcessor = ({
       });
 
     } catch (e) {
-      if (e.message !== 'Seleção cancelada' && e.message !== 'cancelled') {
+      const msg = e?.message || '';
+      const cancelled = /cancel|cancelad/i.test(msg);
+      if (!cancelled) {
         console.error("Erro ao gravar vídeo:", e);
-       
+        toast({
+          variant: 'destructive',
+          title: 'Não foi possível abrir a câmera de vídeo',
+          description: msg || 'Verifique as permissões de câmera/microfone.'
+        });
       }
     }
   }, [disabled, isProcessing, onRecordVideo, handleAddVideo, toast]);
@@ -327,7 +333,7 @@ const VideoProcessor = ({
 
     lastSourceRef.current = 'gallery';
 
-    if (Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('VideoProcessor')) {
       try {
         const result = await VideoProcessorPlugin.pickVideo();
         if (result && result.filePath) {
@@ -340,12 +346,25 @@ const VideoProcessor = ({
              nativePath: result.filePath, // Caminho real no disco
              duration: result.duration,
              // Importante: Marcar como nativo para evitar leitura de blob
-             isNative: true 
+             isNative: true
            });
         }
       } catch (e) {
-       
+        // Ignorar cancelamento do usuário; demais erros precisam de feedback
+        const msg = e?.message || '';
+        const cancelled = /cancel|cancelad/i.test(msg);
+        if (!cancelled) {
+          console.error('Erro ao abrir galeria de vídeos:', e);
+          toast({
+            variant: 'destructive',
+            title: 'Não foi possível abrir a galeria de vídeos',
+            description: msg || 'Verifique as permissões de acesso à galeria.'
+          });
+        }
       }
+    } else if (Capacitor.isNativePlatform() && !Capacitor.isPluginAvailable('VideoProcessor')) {
+      // Plugin nativo indisponível: usar o seletor de arquivos como fallback
+      if (fileInputRef.current) fileInputRef.current.click();
     } else {
       if (fileInputRef.current) {
         fileInputRef.current.click();
