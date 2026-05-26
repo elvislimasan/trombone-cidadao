@@ -7,14 +7,25 @@
 // Enquanto APP_STORE_APP_ID estiver vazio, o iOS continua sem redirect (estado "em breve").
 export const APP_STORE_APP_ID = '6766293242'; // <-- ex: '6471234567'
 
+const PLAY_STORE_APP_ID = 'com.trombonecidadao.app';
+
 export const PLAY_STORE_URL =
-  'https://play.google.com/store/apps/details?id=com.trombonecidadao.app';
+  `https://play.google.com/store/apps/details?id=${PLAY_STORE_APP_ID}`;
 
 // Usa a loja do Brasil (/br/): o app está publicado apenas no storefront BR,
 // então a URL sem país (apps.apple.com/app/id...) retorna 404.
 export const APP_STORE_URL = APP_STORE_APP_ID
   ? `https://apps.apple.com/br/app/id${APP_STORE_APP_ID}`
   : '';
+
+// Esquemas nativos: abrem direto o app da loja (App Store / Play Store) no
+// dispositivo, em vez de mostrar a página web dentro do navegador (Safari/in-app
+// browsers do Instagram, Facebook, WhatsApp). Use no redirect automático em mobile.
+export const APP_STORE_DEEPLINK = APP_STORE_APP_ID
+  ? `itms-apps://apps.apple.com/br/app/id${APP_STORE_APP_ID}`
+  : '';
+
+export const PLAY_STORE_DEEPLINK = `market://details?id=${PLAY_STORE_APP_ID}`;
 
 export const isAppStoreConfigured = Boolean(APP_STORE_APP_ID);
 

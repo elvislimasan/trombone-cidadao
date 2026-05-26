@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 
 const MapView         = lazy(() => import('@/components/MapView'));
@@ -49,14 +49,25 @@ const MapLoader = () => (
   </div>
 );
 
+const normalizePole = (value) =>
+  String(value ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, '');
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function MapPage() {
   const navigate = useNavigate();
   const [reports,        setReports]        = useState([]);
+  const [flyToTarget, setFlyToTarget] = useState(null);
   const [loading,        setLoading]        = useState(true);
   const [statusFilter,   setStatusFilter]   = useState('active');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchMode, setSearchMode] = useState('title');
+  const [titleSearchInput, setTitleSearchInput] = useState('');
+  const [titleSearchTerm, setTitleSearchTerm] = useState('');
+  const [poleSearchInput, setPoleSearchInput] = useState('');
+  const [poleSearchTerm, setPoleSearchTerm] = useState('');
   const cancelRef = useRef(false);
 
   const fetchReports = useCallback(async () => {
@@ -67,7 +78,7 @@ export default function MapPage() {
         .from('reports')
         .select(`
           id, title, description, status, created_at, address,
-          category_id, location,
+          category_id, location, pole_number,
           category:categories(name, icon),
           upvotes:signatures(count),
           report_media(url, type)
@@ -104,6 +115,7 @@ export default function MapPage() {
             categoryName: r.category?.name || r.category_id,
             coverImage:   (r.report_media || []).find((m) => m.type === 'photo')?.url || null,
             upvotes:      Number(r.upvotes?.[0]?.count ?? 0),
+            pole_number:  r.pole_number ?? null,
           }))
       );
     } catch (err) {
@@ -119,10 +131,94 @@ export default function MapPage() {
     return () => { cancelRef.current = true; };
   }, [fetchReports]);
 
+  useEffect(() => {
+    if (categoryFilter !== 'iluminacao') {
+      setSearchMode('title');
+      setPoleSearchInput('');
+      setPoleSearchTerm('');
+    }
+  }, [categoryFilter]);
+
+  const visibleReports = useMemo(() => {
+    let result = reports || [];
+
+    if (categoryFilter === 'iluminacao') {
+      const poleTerm = normalizePole(poleSearchTerm);
+      if (poleTerm) {
+        result = result.filter((r) => normalizePole(r.pole_number).includes(poleTerm));
+      }
+    }
+
+    const titleTerm = String(titleSearchTerm ?? '').trim().toLowerCase();
+    if (titleTerm) {
+      result = result.filter((r) => String(r.title ?? '').toLowerCase().includes(titleTerm));
+    }
+
+    return result;
+  }, [reports, categoryFilter, poleSearchTerm, titleSearchTerm]);
+
   const handleReportClick = useCallback(
     (report) => navigate(`/bronca/${report.id ?? report}`),
     [navigate]
   );
+
+  const handlePoleSearch = useCallback(() => {
+    if (categoryFilter !== 'iluminacao') return;
+    const next = String(poleSearchInput ?? '').trim();
+    setPoleSearchTerm(next);
+
+    const term = normalizePole(next);
+    if (!term) {
+      setFlyToTarget(null);
+      return;
+    }
+
+    const first = (reports || []).find((r) => normalizePole(r.pole_number).includes(term));
+    const loc = first?.location;
+    if (loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng)) {
+      setFlyToTarget({ lat: loc.lat, lng: loc.lng, zoom: 18, nonce: Date.now() });
+    } else {
+      setFlyToTarget(null);
+    }
+  }, [categoryFilter, poleSearchInput, reports]);
+
+  const handleTitleSearch = useCallback(() => {
+    const next = String(titleSearchInput ?? '').trim();
+    setTitleSearchTerm(next);
+
+    const term = next.toLowerCase();
+    if (!term) {
+      setFlyToTarget(null);
+      return;
+    }
+
+    let base = reports || [];
+    if (categoryFilter === 'iluminacao') {
+      const poleTerm = normalizePole(poleSearchTerm);
+      if (poleTerm) {
+        base = base.filter((r) => normalizePole(r.pole_number).includes(poleTerm));
+      }
+    }
+
+    const first = base.find((r) => String(r.title ?? '').toLowerCase().includes(term));
+    const loc = first?.location;
+    if (loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng)) {
+      setFlyToTarget({ lat: loc.lat, lng: loc.lng, zoom: 18, nonce: Date.now() });
+    } else {
+      setFlyToTarget(null);
+    }
+  }, [titleSearchInput, reports, categoryFilter, poleSearchTerm]);
+
+  const noResultsMessage = useMemo(() => {
+    if (loading) return null;
+    if (visibleReports.length > 0) return null;
+    const hasPoleSearch = categoryFilter === 'iluminacao' && Boolean(poleSearchTerm);
+    const hasTitleSearch = Boolean(String(titleSearchTerm ?? '').trim());
+    if (!hasPoleSearch && !hasTitleSearch) return null;
+    if (hasPoleSearch && !hasTitleSearch) return 'Nenhuma bronca encontrada para este poste';
+    if (!hasPoleSearch && hasTitleSearch) return 'Nenhuma bronca encontrada para este título';
+    return 'Nenhuma bronca encontrada';
+  }, [loading, visibleReports.length, categoryFilter, poleSearchTerm, titleSearchTerm]);
 
   return (
     <div className="flex flex-col bg-background flex-1 min-h-0 overflow-hidden">
@@ -159,19 +255,97 @@ export default function MapPage() {
 
         {/* ── Row 2: Category chips flutuantes sobre o mapa ── */}
         <div className="absolute top-2 left-0 right-0 z-[700] px-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            <span className="flex-shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1 bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
-              Cat.
-            </span>
-            {CATEGORIES.map((c) => (
-              <Chip
-                key={c.id}
-                active={categoryFilter === c.id}
-                onClick={() => setCategoryFilter(c.id)}
+          <div className="flex flex-col gap-2">
+            <div className="bg-background/90 backdrop-blur-sm border border-border/80 rounded-full px-2 py-2 shadow-sm flex items-center gap-2">
+              <Search size={14} className="text-muted-foreground flex-shrink-0" />
+              {categoryFilter === 'iluminacao' && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSearchMode('title')}
+                    className={`h-7 px-2 rounded-full text-[11px] font-semibold border transition-colors ${
+                      searchMode === 'title'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background/70 text-muted-foreground border-border/80 hover:text-foreground'
+                    }`}
+                  >
+                    Título
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSearchMode('pole')}
+                    className={`h-7 px-2 rounded-full text-[11px] font-semibold border transition-colors ${
+                      searchMode === 'pole'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background/70 text-muted-foreground border-border/80 hover:text-foreground'
+                    }`}
+                  >
+                    Poste
+                  </button>
+                </div>
+              )}
+              <input
+                value={searchMode === 'pole' ? poleSearchInput : titleSearchInput}
+                onChange={(e) => {
+                  if (searchMode === 'pole') setPoleSearchInput(e.target.value);
+                  else setTitleSearchInput(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (searchMode === 'pole') handlePoleSearch();
+                    else handleTitleSearch();
+                  }
+                }}
+                placeholder={searchMode === 'pole' ? 'Buscar por nº do poste' : 'Buscar bronca pelo título'}
+                className="bg-transparent outline-none text-sm flex-1 min-w-0"
+                inputMode="search"
+              />
+              {(searchMode === 'pole' ? poleSearchInput : titleSearchInput) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (searchMode === 'pole') {
+                      setPoleSearchInput('');
+                      setPoleSearchTerm('');
+                    } else {
+                      setTitleSearchInput('');
+                      setTitleSearchTerm('');
+                    }
+                    setFlyToTarget(null);
+                  }}
+                  className="w-8 h-8 rounded-full inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  aria-label="Limpar busca"
+                >
+                  <X size={14} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (searchMode === 'pole') handlePoleSearch();
+                  else handleTitleSearch();
+                }}
+                className="px-3 h-8 rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90"
               >
-                {c.label}
-              </Chip>
-            ))}
+                Buscar
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <span className="flex-shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1 bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                Cat.
+              </span>
+              {CATEGORIES.map((c) => (
+                <Chip
+                  key={c.id}
+                  active={categoryFilter === c.id}
+                  onClick={() => setCategoryFilter(c.id)}
+                >
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
+
           </div>
         </div>
 
@@ -179,20 +353,29 @@ export default function MapPage() {
         <Suspense fallback={<MapLoader />}>
           <div className="absolute inset-0">
             <MapView
-              reports={reports}
+              reports={visibleReports}
               onReportClick={handleReportClick}
               onUpvote={() => {}}
               showLegend={true}
               showModeToggle={true}
               interactive={true}
+              flyToTarget={flyToTarget}
             />
           </div>
         </Suspense>
 
-        {!loading && reports.length > 0 && (
+        {!loading && visibleReports.length > 0 && (
           <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-[600] pointer-events-none">
             <div className="bg-background/90 backdrop-blur-md border border-border rounded-full px-4 py-1.5 text-xs font-semibold text-foreground shadow-lg">
-              {reports.length} {reports.length === 1 ? 'bronca' : 'broncas'} visíveis
+              {visibleReports.length} {visibleReports.length === 1 ? 'bronca' : 'broncas'} visíveis
+            </div>
+          </div>
+        )}
+
+        {noResultsMessage && (
+          <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-[600] pointer-events-none">
+            <div className="bg-background/90 backdrop-blur-md border border-border rounded-full px-4 py-1.5 text-xs font-semibold text-foreground shadow-lg">
+              {noResultsMessage}
             </div>
           </div>
         )}

@@ -7,6 +7,8 @@ import { ExternalLink, Copy, Check } from "lucide-react";
 import {
   PLAY_STORE_URL,
   APP_STORE_URL,
+  APP_STORE_DEEPLINK,
+  PLAY_STORE_DEEPLINK,
   isAppStoreConfigured,
 } from "@/config/storeLinks";
 
@@ -46,8 +48,16 @@ const AppLandingPage = () => {
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) return;
-    if (isAndroid) window.location.replace(PLAY_STORE_URL);
-    else if (isIOS && isAppStoreConfigured) window.location.replace(APP_STORE_URL);
+    // Tenta abrir direto o app nativo da loja (itms-apps:// / market://). Se o
+    // esquema nativo não estiver disponível, cai no link https da loja.
+    const openStore = (deeplink, webUrl) => {
+      window.location.href = deeplink;
+      window.setTimeout(() => {
+        window.location.replace(webUrl);
+      }, 1200);
+    };
+    if (isAndroid) openStore(PLAY_STORE_DEEPLINK, PLAY_STORE_URL);
+    else if (isIOS && isAppStoreConfigured) openStore(APP_STORE_DEEPLINK, APP_STORE_URL);
   }, [isAndroid, isIOS]);
 
   const handleCopyLink = async () => {
