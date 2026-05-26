@@ -27,8 +27,14 @@
     --safe-area-bottom: var(--sab);
     --safe-area-left: var(--sal);
     --safe-area-right: var(--sar);
+
+    /* Inset do topo usado pelos headers fixos. Usa env(safe-area-inset-top):
+       no iOS reflete a status bar/Dynamic Island; no Android a WebView reporta 0
+       quando já está abaixo da status bar. Com contentInset:'never' no iOS, este é
+       o único inset aplicado (sem duplicação). */
+    --header-safe-top: env(safe-area-inset-top, 0px);
   }
-  
+
   /* Garantir que as variáveis sejam aplicadas mesmo em produção */
   html {
     box-sizing: border-box;

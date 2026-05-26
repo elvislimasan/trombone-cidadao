@@ -138,12 +138,19 @@ const Header = () => {
       style={{
         ...headerStyle, 
         top: 0,
-        paddingTop: 'max(env(safe-area-inset-top), 0px)',
-        height: 'calc(4rem + max(env(safe-area-inset-top), 0px))',
+        paddingTop: 'var(--header-safe-top)',
+        height: 'calc(4rem + var(--header-safe-top))',
         marginTop: 0
       }} 
       className="fixed left-0 right-0 z-[1001] border-b"
     >
+      {/* Preenche o vão acima do header durante o overscroll (rubber-band) do iOS,
+          evitando a faixa branca. Usa a mesma cor do header. */}
+      <div
+        aria-hidden="true"
+        className="absolute left-0 right-0 bottom-full h-screen pointer-events-none"
+        style={{ backgroundColor: headerStyle.backgroundColor }}
+      />
       <div className="container mx-auto px-4 h-16 flex justify-between items-center" style={{ marginTop: 0 }}>
         <Link to="/" className="flex items-center gap-3">
           <img 

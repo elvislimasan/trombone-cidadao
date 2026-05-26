@@ -110,10 +110,17 @@ const MobileHeader = () => {
       className="fixed top-0 left-0 right-0 z-[1001] border-b transition-all duration-300"
       style={{
         ...headerStyle,
-        paddingTop: 'max(env(safe-area-inset-top), 0px)',
-        height: 'calc(4rem + max(env(safe-area-inset-top), 0px))'
+        paddingTop: 'var(--header-safe-top)',
+        height: 'calc(4rem + var(--header-safe-top))'
       }}
     >
+      {/* Preenche o vão acima do header durante o overscroll (rubber-band) do iOS,
+          evitando a faixa branca. Usa a mesma cor do header. */}
+      <div
+        aria-hidden="true"
+        className="absolute left-0 right-0 bottom-full h-screen pointer-events-none"
+        style={{ backgroundColor: headerStyle.backgroundColor }}
+      />
       <div className="container h-16 px-4 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {shouldShowBack ? (

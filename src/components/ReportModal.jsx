@@ -1699,7 +1699,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
           );
         }
       } catch (error) {
-        console.error("Erro na câmera nativa:", error);
+        const msg = error?.message || "";
+        const cancelled = /cancel|cancelad/i.test(msg);
+        if (!cancelled) {
+          console.error("Erro na câmera nativa:", error);
+          toast({
+            variant: "destructive",
+            title: "Não foi possível abrir a câmera",
+            description: msg || "Verifique as permissões de câmera.",
+          });
+        }
       } finally {
         setIsTakingPhoto(false);
       }
@@ -2482,8 +2491,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
         const { media, filePath } = task;
 
         try {
-          if (isNative && media.nativePath) {
-            // --- FLUXO NATIVO (ANDROID/iOS) ---
+          if (
+            isNative &&
+            media.nativePath &&
+            Capacitor.isPluginAvailable("VideoProcessor")
+          ) {
+            // --- FLUXO NATIVO (ANDROID) ---
+            // O plugin VideoProcessor só existe no Android. No iOS ele não está
+            // disponível, então caímos no FLUXO WEB abaixo (fetch + queueWebUpload),
+            // evitando que o upload falhe silenciosamente.
             // Gerar URL assinada apenas para fluxo nativo
             const { data: signed, error: signedErr } = await supabase.storage
               .from("reports-media")
@@ -3188,7 +3204,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
           <form onSubmit={handleSubmit} className="h-full flex flex-col">
             <div
               className="border-b border-border px-4 pb-3"
-              style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}
+              style={{ paddingTop: "var(--header-safe-top)" }}
             >
               <div className="flex items-center justify-between pt-3">
                 <div className="flex flex-col min-w-0">

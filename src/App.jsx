@@ -552,8 +552,8 @@ function AppShell() {
             className="flex-grow pb-20 lg:pb-0 flex flex-col min-h-0"
             style={{
               paddingTop: (isNative && isInteractive)
-                ? 'calc(4rem + max(env(safe-area-inset-top), 0px))'
-                : 'calc(4rem + max(env(safe-area-inset-top), 0px) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+                ? 'calc(4rem + var(--header-safe-top))'
+                : 'calc(4rem + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
               paddingBottom: (isNative && isInteractive)
                 ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
                 : 'calc(5rem + env(safe-area-inset-bottom, 0px))',

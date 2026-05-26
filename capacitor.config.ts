@@ -41,8 +41,11 @@ const config: CapacitorConfig = {
     }
   },
   // ✅ CONFIGURAÇÃO iOS PARA SAFE AREAS
+  // 'never': a WebView não adiciona inset automático de safe-area. O app trata o inset
+  // via CSS env(safe-area-inset-*). Com 'automatic' havia inset DUPLICADO (scrollview + env),
+  // causando o "padding gigante" no topo.
   ios: {
-    contentInset: 'automatic'
+    contentInset: 'never'
   }
 };
 
