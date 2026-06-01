@@ -182,18 +182,34 @@ class VideoProcessorPlugin : Plugin() {
 
     @PluginMethod
     fun pickVideo(call: PluginCall) {
-        val alias = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) "storage_video" else "storage"
-        
-        if (getPermissionState(alias) != PermissionState.GRANTED) {
-            requestPermissionForAlias(alias, call, "permissionPickCallback")
+        // Android 13+ (API 33+): usar o Photo Picker (ACTION_PICK_IMAGES). Ele NÃO
+        // exige permissão de armazenamento e funciona tanto com acesso total quanto
+        // com "acesso limitado" — evitando o bug em que o seletor rejeitava quando o
+        // usuário concedia apenas acesso parcial.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            startPickVideo(call)
+            return
+        }
+
+        // Android 12 e abaixo: precisa de READ_EXTERNAL_STORAGE para ler a galeria.
+        if (getPermissionState("storage") != PermissionState.GRANTED) {
+            requestPermissionForAlias("storage", call, "permissionPickCallback")
         } else {
             startPickVideo(call)
         }
     }
-    
+
     private fun startPickVideo(call: PluginCall) {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-        intent.type = "video/*"
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Photo Picker do sistema (sem permissão necessária)
+            Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                type = "video/*"
+            }
+        } else {
+            Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI).apply {
+                type = "video/*"
+            }
+        }
         startActivityForResult(call, intent, "handlePickResult")
     }
 
@@ -582,8 +598,8 @@ class VideoProcessorPlugin : Plugin() {
 
     @PermissionCallback
     private fun permissionPickCallback(call: PluginCall) {
-        val alias = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) "storage_video" else "storage"
-        if (getPermissionState(alias) == PermissionState.GRANTED) {
+        // Só é alcançado em Android 12 e abaixo (no 13+ usamos o Photo Picker sem permissão).
+        if (getPermissionState("storage") == PermissionState.GRANTED) {
             startPickVideo(call)
         } else {
             call.reject("Permission denied")
@@ -663,28 +679,38 @@ class VideoProcessorPlugin : Plugin() {
         if (call == null) return
 
         if (result.resultCode == Activity.RESULT_OK) {
-             // pendingCaptureFile should be set
-             if (pendingCaptureFile != null && pendingCaptureFile!!.exists()) {
-                 val ret = JSObject()
-                 ret.put("filePath", pendingCaptureFile!!.absolutePath)
-                 ret.put("nativePath", pendingCaptureFile!!.absolutePath)
-                 ret.put("isNative", true)
-                 call.resolve(ret)
-             } else if (pendingCaptureUri != null) {
-                 val ret = JSObject()
-                 ret.put("filePath", pendingCaptureUri.toString())
-                 call.resolve(ret)
-             } else {
-                 // Fallback: try to get from data
-                 val uri = result.data?.data
-                 if (uri != null) {
-                     val ret = JSObject()
-                     ret.put("filePath", uri.toString())
-                     call.resolve(ret)
-                 } else {
-                     call.reject("Error capturing video")
-                 }
-             }
+            // Primeiro: verificar se o arquivo EXTRA_OUTPUT tem conteúdo real.
+            // Alguns apps de câmera ignoram EXTRA_OUTPUT e retornam o vídeo em
+            // result.data?.data; nesse caso pendingCaptureFile existe mas tem 0 bytes.
+            val fileHasContent = pendingCaptureFile != null &&
+                                 pendingCaptureFile!!.exists() &&
+                                 pendingCaptureFile!!.length() > 0L
+
+            if (fileHasContent) {
+                val ret = JSObject()
+                ret.put("filePath", pendingCaptureFile!!.absolutePath)
+                ret.put("nativePath", pendingCaptureFile!!.absolutePath)
+                ret.put("isNative", true)
+                call.resolve(ret)
+            } else {
+                // Câmera não usou EXTRA_OUTPUT — tentar pegar URI do resultado
+                val dataUri = result.data?.data
+                if (dataUri != null) {
+                    val ret = JSObject()
+                    ret.put("filePath", dataUri.toString())
+                    ret.put("nativePath", dataUri.toString())
+                    ret.put("isNative", true)
+                    call.resolve(ret)
+                } else if (pendingCaptureUri != null) {
+                    val ret = JSObject()
+                    ret.put("filePath", pendingCaptureUri.toString())
+                    ret.put("nativePath", pendingCaptureUri.toString())
+                    ret.put("isNative", true)
+                    call.resolve(ret)
+                } else {
+                    call.reject("Error capturing video: file not found")
+                }
+            }
         } else {
             call.reject("Capture canceled")
         }

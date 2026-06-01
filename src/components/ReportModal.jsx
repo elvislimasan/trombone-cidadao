@@ -2318,7 +2318,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     try {
       if (Capacitor.isNativePlatform()) {
         setIsPhotoProcessing(true);
-        setPhotoProcessingMessage("Iniciando upload...");
+        setPhotoProcessingMessage("Processando vídeo...");
 
         // 1. Capturar vídeo usando Intent nativa
         const { filePath } = await VideoProcessor.captureVideo({
@@ -2328,25 +2328,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
         if (!filePath) return;
 
-        // 2. Iniciar upload em background imediatamente
+        // 2. Apenas registrar o vídeo no estado com o caminho nativo.
+        // O upload real (com URL assinada correta vinculada ao reportId) é
+        // feito por uploadMedia() no submit. Evitamos aqui um segundo upload
+        // para um caminho que o banco não referencia (arquivo órfão + banda).
         const timestamp = Date.now();
         const fileName = `video_${timestamp}.mp4`;
-        const storagePath = `${user.id}/${reportUUID}/${fileName}`;
 
-        // Configurar URL de upload e Headers
-        const bucket = "reports-media";
-        const projectUrl = supabase.supabaseUrl;
-        const uploadUrl = `${projectUrl}/storage/v1/object/${bucket}/${storagePath}`;
-
-        const headers = {
-          Authorization: `Bearer ${session?.access_token}`,
-          "x-upsert": "false",
-        };
-
-        // Inicia o upload e retorna o ID imediatamente (Fire and Forget)
-        const uploadId = await uploadVideo(filePath, uploadUrl, headers);
-
-        // 3. Adicionar ao estado com referência do upload
         setFormData((prev) => ({
           ...prev,
           videos: [
@@ -2355,9 +2343,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
               file: null,
               name: fileName,
               nativePath: filePath,
-              uploadId,
-              storagePath,
-              status: "pending",
               preview: null,
             },
           ],
@@ -2445,7 +2430,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
     if (mediaToUpload.length === 0) return { success: true };
 
     // 1. Preparar metadados e tarefas de upload
-    const optimisticRows = [];
+    const isNative = Capacitor.isNativePlatform();
+    const pluginAvailable = Capacitor.isPluginAvailable("VideoProcessor");
+
+    // Linhas inseridas imediatamente apenas para o fluxo NATIVO (Android):
+    // ali o upload roda em um Foreground Service que conclui mesmo se o app
+    // for fechado, então o arquivo chega ao caminho referenciado pela linha.
+    // No fluxo WEB/iOS o upload morre junto com o app; por isso a linha em
+    // report_media só é inserida QUANDO o upload conclui (ver UploadContext),
+    // evitando referências órfãs que aparecem como "mídia que não abre".
+    const nativeRows = [];
     const uploadTasks = [];
 
     for (const media of mediaToUpload) {
@@ -2459,23 +2453,28 @@ const ReportModal = ({ onClose, onSubmit }) => {
         data: { publicUrl },
       } = supabase.storage.from("reports-media").getPublicUrl(filePath);
 
-      optimisticRows.push({
+      const usesNative = isNative && media.nativePath && pluginAvailable;
+      const mediaRow = {
         report_id: reportId,
         url: publicUrl,
         type: media.type,
         name: media.name,
-      });
+      };
 
-      uploadTasks.push({ media, filePath, publicUrl });
+      if (usesNative) {
+        nativeRows.push(mediaRow);
+      }
+
+      uploadTasks.push({ media, filePath, publicUrl, usesNative, mediaRow });
     }
 
-    // 2. Inserir no Banco IMEDIATAMENTE (Otimista)
-    if (optimisticRows.length > 0) {
+    // 2. Inserir no Banco as referências do fluxo nativo
+    if (nativeRows.length > 0) {
       const { error: insertError } = await supabase
         .from("report_media")
-        .insert(optimisticRows);
+        .insert(nativeRows);
       if (insertError) {
-        console.error("Erro ao inserir mídia placeholder:", insertError);
+        console.error("Erro ao inserir mídia (nativo):", insertError);
         return {
           success: false,
           errors: [`Erro ao salvar referências: ${insertError.message}`],
@@ -2485,17 +2484,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
     // 3. Disparar Uploads em Background (Fire and Forget)
     (async () => {
-      const isNative = Capacitor.isNativePlatform();
-
       for (const task of uploadTasks) {
         const { media, filePath } = task;
 
         try {
-          if (
-            isNative &&
-            media.nativePath &&
-            Capacitor.isPluginAvailable("VideoProcessor")
-          ) {
+          if (task.usesNative) {
             // --- FLUXO NATIVO (ANDROID) ---
             // O plugin VideoProcessor só existe no Android. No iOS ele não está
             // disponível, então caímos no FLUXO WEB abaixo (fetch + queueWebUpload),
@@ -2592,6 +2585,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   name: media.name,
                   type: media.type === "video" ? "video" : "photo",
                   reportId: reportId,
+                  // Linha de report_media inserida só após o upload concluir
+                  mediaRow: task.mediaRow,
                 },
                 {
                   skipCompression: !shouldCompress,
@@ -2601,6 +2596,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
           }
         } catch (err) {
           console.error(`Falha no upload de background (${media.name}):`, err);
+          toast({
+            title: "Erro no upload",
+            description: `Não foi possível enviar "${media.name}": ${err?.message || "erro desconhecido"}`,
+            variant: "destructive",
+          });
         }
       }
     })();
@@ -3072,24 +3072,76 @@ const ReportModal = ({ onClose, onSubmit }) => {
         is_from_water_utility: formData.is_from_water_utility,
       };
 
-      const mediaManifest = [
-        ...(formData.photos || []).map((p, i) => ({
-          clientId: `photo:${i}`,
-          type: "photo",
-          name: p?.name || `foto_${i + 1}.jpg`,
-          contentType: p?.file?.type || "image/jpeg",
-          hasFile: !!p?.file,
-        })),
-        ...(formData.videos || []).map((v, i) => ({
-          clientId: `video:${i}`,
-          type: "video",
-          name: v?.name || `video_${i + 1}.mp4`,
-          contentType: v?.file?.type || "video/mp4",
-          hasFile: !!v?.file,
-        })),
-      ].filter((m) => m.hasFile);
+      // Detectar plataforma nativa com plugin disponível
+      const isAnonNative = Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("VideoProcessor");
 
-      if (mediaManifest.length === 0) {
+      // Retorna o content-type a partir do nome/tipo sem ler bytes
+      const getAnonContentType = (name, type) => {
+        const ext = String(name || "").split(".").pop().toLowerCase();
+        if (type === "video") return "video/mp4";
+        if (ext === "webp") return "image/webp";
+        if (ext === "png") return "image/png";
+        return "image/jpeg";
+      };
+
+      // Para plataformas nativas com nativePath: NÃO lemos bytes no JS.
+      // O upload é feito via VideoProcessor.uploadFile (Android usa ContentResolver
+      // para content:// URIs; iOS usa URLSession). Isso evita arquivos corrompidos
+      // causados por leituras via WebView de conteúdos grandes ou content:// URIs.
+      const fileByClientId = new Map();     // clientId -> File (upload web)
+      const nativeByClientId = new Map();   // clientId -> { nativePath, contentType }
+
+      const resolvedMedia = [];
+
+      const processAnonItem = async (item, type, idx) => {
+        const fallbackName = type === "video" ? `video_${idx + 1}.mp4` : `foto_${idx + 1}.jpg`;
+        const name = item?.name || fallbackName;
+        const clientId = `${type}:${idx}`;
+        const contentType = getAnonContentType(name, type);
+
+        // Nativo com nativePath → upload via plugin (sem ler bytes no JS).
+        // Sem verificar item.file: após addVideoFile sem compressão, item.file pode ser
+        // o objeto nativo simples (não File/Blob), então priorizamos sempre o caminho nativo.
+        if (isAnonNative && item?.nativePath) {
+          nativeByClientId.set(clientId, { nativePath: item.nativePath, contentType });
+          return { clientId, type, name, contentType };
+        }
+
+        // Arquivo web já disponível (File ou Blob real)
+        if (item?.file instanceof File || item?.file instanceof Blob) {
+          const ct = item.file.type || contentType;
+          fileByClientId.set(clientId, item.file);
+          return { clientId, type, name, contentType: ct };
+        }
+
+        // Fallback: nativePath em plataforma web (PWA) — lê via fetch com checagem
+        if (item?.nativePath) {
+          try {
+            const r = await fetch(Capacitor.convertFileSrc(item.nativePath));
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const b = await r.blob();
+            if (!b.size) throw new Error("Arquivo vazio");
+            const file = new File([b], name, { type: b.type || contentType });
+            fileByClientId.set(clientId, file);
+            return { clientId, type, name, contentType: b.type || contentType };
+          } catch (e) {
+            console.error("Falha ao recuperar anexo para envio anônimo:", e);
+          }
+        }
+
+        return null;
+      };
+
+      for (let i = 0; i < (formData.photos || []).length; i++) {
+        const entry = await processAnonItem(formData.photos[i], "photo", i);
+        if (entry) resolvedMedia.push(entry);
+      }
+      for (let i = 0; i < (formData.videos || []).length; i++) {
+        const entry = await processAnonItem(formData.videos[i], "video", i);
+        if (entry) resolvedMedia.push(entry);
+      }
+
+      if (resolvedMedia.length === 0) {
         toast({
           title: "Anexo indisponível",
           description: "Não foi possível acessar os arquivos anexados para envio anônimo. Tente anexar novamente.",
@@ -3103,7 +3155,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
           token: anonCaptchaValue,
           siteKey: import.meta.env.VITE_RECAPTCHA_SITE_KEY,
           report: payload,
-          media: mediaManifest.map(({ hasFile, ...rest }) => rest),
+          media: resolvedMedia.map(({ file: _f, ...rest }) => rest),
         },
       });
 
@@ -3117,41 +3169,83 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }
 
       const uploads = data.uploads || [];
-      const byClientId = new Map();
-      for (const m of mediaManifest) byClientId.set(m.clientId, m);
 
-      let done = 0;
-      for (const u of uploads) {
-        const clientId = String(u?.clientId || "");
-        const signedUrl = String(u?.signedUrl || "");
-        if (!clientId || !signedUrl) continue;
+      // Espelha o fluxo autenticado: dispara uploads em background via UploadService
+      // (OkHttp, compressão H.264, timeout 600s). Modal fecha imediatamente.
+      // registerUpload sem reportId → mostra indicador global mas NÃO faz auto-approve/delete.
+      ;(async () => {
+        for (const u of uploads) {
+          const clientId = String(u?.clientId || "");
+          const signedUrl = String(u?.signedUrl || "");
+          if (!clientId || !signedUrl) continue;
 
-        const local = byClientId.get(clientId);
-        if (!local?.hasFile) continue;
+          const nativeInfo = nativeByClientId.get(clientId);
+          const localFile = fileByClientId.get(clientId);
 
-        const localFile =
-          clientId.startsWith("photo:")
-            ? formData.photos?.[Number(clientId.split(":")[1])]?.file
-            : formData.videos?.[Number(clientId.split(":")[1])]?.file;
+          try {
+            if (nativeInfo) {
+              const cleanPath = nativeInfo.nativePath.startsWith("file://")
+                ? nativeInfo.nativePath.replace("file://", "")
+                : nativeInfo.nativePath;
 
-        if (!localFile) continue;
-
-        const res = await fetch(signedUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": local.contentType || localFile.type || "application/octet-stream",
-            "x-upsert": "false",
-          },
-          body: localFile,
-        });
-
-        if (!res.ok) {
-          throw new Error("Falha ao enviar anexo");
+              if (nativeInfo.contentType.startsWith("video/")) {
+                // Vídeo nativo: UploadService comprime (Transcoder H.264) e envia (OkHttp)
+                const { uploadId } = await VideoProcessor.uploadVideoInBackground({
+                  filePath: cleanPath,
+                  uploadUrl: signedUrl,
+                  headers: { "Content-Type": "video/mp4", "x-upsert": "false" },
+                  skipCompression: false,
+                });
+                registerUpload(uploadId, {
+                  name: u.name || "Vídeo",
+                  type: "video",
+                  // Sem reportId: report anônimo fica em pending_approval para moderação manual
+                });
+              } else {
+                // Foto nativa: comprimir via plugin e enviar via UploadService
+                let finalPath = cleanPath;
+                try {
+                  const comp = await VideoProcessor.compressImage({
+                    filePath: cleanPath,
+                    maxWidth: 1600,
+                    maxHeight: 1600,
+                    quality: "high",
+                    format: "jpeg",
+                  });
+                  if (comp?.outputPath) finalPath = comp.outputPath;
+                } catch (e) {
+                  // usa caminho original se compressão falhar
+                }
+                const { uploadId } = await VideoProcessor.uploadVideoInBackground({
+                  filePath: finalPath,
+                  uploadUrl: signedUrl,
+                  headers: { "Content-Type": "image/jpeg", "x-upsert": "false" },
+                  skipCompression: true,
+                });
+                registerUpload(uploadId, {
+                  name: u.name || "Foto",
+                  type: "photo",
+                });
+              }
+            } else if (localFile) {
+              // Web (PWA): PUT direto
+              const res = await fetch(signedUrl, {
+                method: "PUT",
+                headers: {
+                  "Content-Type": localFile.type || "application/octet-stream",
+                  "x-upsert": "false",
+                },
+                body: localFile,
+              });
+              if (!res.ok) {
+                console.error(`Falha ao enviar arquivo web: HTTP ${res.status}`);
+              }
+            }
+          } catch (err) {
+            console.error("Falha ao iniciar upload anônimo:", err);
+          }
         }
-
-        done += 1;
-        setUploadProgress(Math.min(100, Math.round((done / uploads.length) * 100)));
-      }
+      })();
 
       clearReportDraft();
       setAnonCaptchaValue(null);
@@ -3163,7 +3257,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
       toast({
         title: "Bronca enviada! 📬",
-        description: "Sua bronca (com anexos) foi enviada anonimamente para moderação.",
+        description: "Sua bronca foi recebida e será analisada pela moderação.",
       });
       window.dispatchEvent(new CustomEvent("reports-updated", { detail: { id: data.id } }));
       handleClose();
@@ -3950,6 +4044,28 @@ const ReportModal = ({ onClose, onSubmit }) => {
               className="border-t border-border p-4"
               style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
             >
+              {isSubmitting && !user && (
+                <div className="pb-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <svg className="animate-spin h-4 w-4 text-primary flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span>
+                      {uploadProgress > 0
+                        ? `Enviando arquivos… ${Math.round(uploadProgress)}%`
+                        : "Preparando envio…"}
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(5, uploadProgress)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {!isSubmitting && wizardStep === 2 && !user && isAnonymousCityAllowed && (
                 <div className="pb-3 space-y-2">
                   <div

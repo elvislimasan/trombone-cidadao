@@ -158,23 +158,24 @@ export const UploadProvider = ({ children }) => {
 
                 if (isStuckState && upload.progress === 0) {
                     const timeSinceLastUpdate = now - (upload.lastUpdate || upload.timestamp);
-                    
-                    // Aumentar timeout para 180 segundos por segurança (3 min) para inicialização lenta
-                    if (timeSinceLastUpdate > 180000) { 
-//                         console.warn(`[UploadContext] Upload ${upload.id} stuck at 0% for ${timeSinceLastUpdate}ms. Aborting.`);
-                        
-                        // Cancelar upload e remover bronca
+                    if (timeSinceLastUpdate > 180000) {
                         cancelUpload(upload.id);
                         toast.error("Upload demorou muito para iniciar e foi cancelado. Tente novamente.");
                     }
                 } else if ((upload.status === 'compressing' || upload.status === 'optimizing' || upload.status === 'preparing') && upload.progress === 0) {
-                     // Para compressão de vídeos grandes, permitir timeout MUITO maior (ex: 10 minutos)
                      const timeSinceLastUpdate = now - (upload.lastUpdate || upload.timestamp);
-                     if (timeSinceLastUpdate > 600000) { // 10 minutos
-//                         console.warn(`[UploadContext] Compression/Preparation stuck for ${timeSinceLastUpdate}ms. Aborting.`);
+                     if (timeSinceLastUpdate > 600000) { // 10 minutos sem iniciar
                         cancelUpload(upload.id);
                         toast.error("Processamento do vídeo demorou muito e foi cancelado.");
                      }
+                } else if ((upload.status === 'compressing' || upload.status === 'optimizing') && upload.progress > 0) {
+                    // Transcoder iniciou mas travou em progresso não-zero (ex: 11%, 46%)
+                    // Isso ocorre com vídeos HEVC/4K onde o MediaCodec congela
+                    const timeSinceLastUpdate = now - (upload.lastUpdate || upload.timestamp);
+                    if (timeSinceLastUpdate > 180000) { // 3 minutos sem progresso
+                        cancelUpload(upload.id);
+                        toast.error("Otimização do vídeo travou. Tente novamente com um vídeo menor.");
+                    }
                 }
             });
 
@@ -210,7 +211,16 @@ export const UploadProvider = ({ children }) => {
         if (status === 'completed') {
              if (upload.status !== 'completed') {
                 const currentReportId = upload.reportId;
-                
+
+                // Inserir a referência da mídia somente agora que o arquivo
+                // existe no storage (evita linhas órfãs no fluxo Web/iOS).
+                if (upload.mediaRow && !upload.mediaRowInserted) {
+                    newState[uploadId] = { ...newState[uploadId], mediaRowInserted: true };
+                    supabase.from('report_media').insert(upload.mediaRow).then(({ error }) => {
+                        if (error) console.error("Falha ao registrar mídia após upload:", error);
+                    });
+                }
+
                 // Verificar se há outros uploads pendentes para este report
                 const hasPendingUploadsForThisReport = Object.values(newState).some(u => 
                     u.reportId === currentReportId && 

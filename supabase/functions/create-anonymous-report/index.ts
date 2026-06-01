@@ -251,7 +251,7 @@ serve(async (req) => {
 
       const safeName = sanitizeFileName(originalName);
       const filePath = `anonymous/${reportId}/${Date.now()}-${safeName}`;
-      const publicUrl = `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/object/public/reports-media/${filePath}`;
+      const { data: { publicUrl } } = supabaseAdmin.storage.from("reports-media").getPublicUrl(filePath);
 
       const { data: signed, error: signedErr } = await supabaseAdmin.storage
         .from("reports-media")

@@ -18,6 +18,9 @@ import com.otaliastudios.transcoder.resize.AtMostResizer
 import com.otaliastudios.transcoder.strategy.DefaultAudioStrategy
 import com.otaliastudios.transcoder.strategy.DefaultVideoStrategy
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okio.BufferedSink
@@ -36,7 +39,15 @@ class UploadService : Service() {
 
     companion object {
         var progressListener: ((String, Int, String) -> Unit)? = null
-        private val activeUploads = mutableMapOf<String, Job>()
+
+        // ConcurrentHashMap: thread-safe para acesso de múltiplas coroutines em paralelo
+        private val activeUploads = ConcurrentHashMap<String, Job>()
+
+        // Mutex: garante que só UMA compressão Transcoder rode por vez.
+        // O hardware MediaCodec H.264 é geralmente único no dispositivo — rodar dois
+        // Transcoder simultaneamente faz um falhar, caindo no fallback de arquivo original
+        // que pode ser grande demais para o servidor aceitar.
+        private val compressionMutex = Mutex()
 
         fun cancelUpload(id: String?) {
             id?.let {
@@ -88,36 +99,74 @@ class UploadService : Service() {
     }
 
     private suspend fun processAndUpload(id: String, path: String, url: String, headers: HashMap<String, String>?, skipCompression: Boolean) {
+        var tempSourceFile: File? = null   // cópia temporária do content:// URI
         var tempCompressedFile: File? = null
 
         try {
-            // 1. Determine Input (Uri or File)
-            val isContentUri = path.startsWith("content://")
-            val inputUri = if (isContentUri) Uri.parse(path) else Uri.fromFile(File(path))
+            // 1. Resolver caminho: content:// URIs (galeria/Photo Picker) precisam ser
+            //    copiados para um arquivo real ANTES do Transcoder. O addDataSource(context, uri)
+            //    trava em native MediaCodec com alguns vídeos HEVC/4K via Photo Picker.
+            //    Câmera já retorna caminho absoluto — não precisa copiar.
+            val resolvedPath: String
+            if (path.startsWith("content://")) {
+                val srcUri = Uri.parse(path)
+                val ext = (contentResolver.getType(srcUri) ?: "").let {
+                    if (it.contains("video")) ".mp4" else ".tmp"
+                }
+                val tempSrc = File(cacheDir, "src_${id}${ext}")
 
-            // 2. Compress (only if NOT skipped)
-            var fileToUpload: Any = if (isContentUri) inputUri else File(path)
+                notifyProgress(id, 0, "preparing")
+                updateNotification("Preparando vídeo...", 0)
+
+                contentResolver.openInputStream(srcUri)?.use { input ->
+                    tempSrc.outputStream().use { output -> input.copyTo(output) }
+                }
+
+                if (!tempSrc.exists() || tempSrc.length() == 0L) {
+                    throw IOException("Falha ao acessar vídeo da galeria")
+                }
+
+                tempSourceFile = tempSrc
+                resolvedPath = tempSrc.absolutePath
+            } else {
+                resolvedPath = path
+            }
+
+            // 2. Input como File (sempre, após resolução acima)
+            val inputUri = Uri.fromFile(File(resolvedPath))
+
+            // 3. Compress (only if NOT skipped)
+            var fileToUpload: Any = File(resolvedPath)
 
             if (!skipCompression) {
                 notifyProgress(id, 0, "compressing")
                 updateNotification("Otimizando vídeo...", 0)
-                
+
                 val compressedFile = File(cacheDir, "compressed_${id}.mp4")
-                
-                try {
-                    val compressionSuccess = compressVideo(inputUri, compressedFile, id)
-                    
-                    if (compressionSuccess && compressedFile.exists() && compressedFile.length() > 0) {
-                         fileToUpload = compressedFile
-                         tempCompressedFile = compressedFile
-                    } else {
-                         Log.e("UploadService", "Compression failed. Aborting.")
-                         throw IOException("Compression failed")
+
+                // Mutex garante que só uma compressão roda por vez (hardware H.264 único).
+                // withTimeoutOrNull: retorna null no timeout — sem exceção, sem bloquear.
+                // Após 90s, o lock é liberado e enviamos o arquivo original como fallback.
+                val compressionResult = try {
+                    compressionMutex.withLock {
+                        withTimeoutOrNull(90_000L) {
+                            compressVideo(inputUri, compressedFile, id)
+                        }
                     }
+                } catch (e: CancellationException) {
+                    throw e // cancelamento explícito via cancelUpload()
                 } catch (e: Exception) {
-                     if (e is CancellationException) throw e
-                     Log.e("UploadService", "Compression exception", e)
-                     throw IOException("Compression exception", e)
+                    Log.w("UploadService", "Compression error, uploading original: $id", e)
+                    null
+                }
+
+                if (compressionResult == true && compressedFile.exists() && compressedFile.length() > 0) {
+                    fileToUpload = compressedFile
+                    tempCompressedFile = compressedFile
+                    Log.d("UploadService", "Compression OK, using compressed file: $id")
+                } else {
+                    Log.w("UploadService", "Compression failed/timed out, uploading original: $id")
+                    updateNotification("Enviando arquivo original...", 0)
                 }
             }
 
@@ -141,10 +190,8 @@ class UploadService : Service() {
             performUpload(id, requestBody, url, headers)
 
         } finally {
-            // Cleanup compressed file
-            if (tempCompressedFile != null && tempCompressedFile!!.exists()) {
-                tempCompressedFile!!.delete()
-            }
+            tempSourceFile?.let { if (it.exists()) it.delete() }
+            tempCompressedFile?.let { if (it.exists()) it.delete() }
         }
     }
 
@@ -279,8 +326,8 @@ class UploadService : Service() {
     }
 
     private fun createProgressRequestBodyFromFile(
-        contentType: MediaType?, 
-        file: File, 
+        contentType: MediaType?,
+        file: File,
         onProgress: (Int) -> Unit
     ): RequestBody {
         return object : RequestBody() {
@@ -292,14 +339,20 @@ class UploadService : Service() {
                 val buffer = Buffer()
                 var totalBytesRead = 0L
                 val fileLength = file.length()
-                
+                var lastReportedProgress = -1
+
                 try {
                     var readCount: Long
-                    while (source.read(buffer, 2048L).also { readCount = it } != -1L) {
+                    // Buffer 256 KB: menos iterações, menos overhead de bridge JS
+                    while (source.read(buffer, 262144L).also { readCount = it } != -1L) {
                         sink.write(buffer, readCount)
                         totalBytesRead += readCount
                         val progress = if (fileLength > 0) (totalBytesRead * 100 / fileLength).toInt() else 0
-                        onProgress(progress)
+                        // Só notifica quando o valor inteiro (0-100) realmente muda
+                        if (progress != lastReportedProgress) {
+                            lastReportedProgress = progress
+                            onProgress(progress)
+                        }
                     }
                 } finally {
                     source.close()
@@ -309,8 +362,8 @@ class UploadService : Service() {
     }
 
     private fun createProgressRequestBodyFromUri(
-        contentType: MediaType?, 
-        uri: Uri, 
+        contentType: MediaType?,
+        uri: Uri,
         onProgress: (Int) -> Unit
     ): RequestBody {
         return object : RequestBody() {
@@ -334,14 +387,18 @@ class UploadService : Service() {
                 val buffer = Buffer()
                 var totalBytesRead = 0L
                 val fileLength = contentLength()
-                
+                var lastReportedProgress = -1
+
                 try {
                     var readCount: Long
-                    while (source.read(buffer, 2048L).also { readCount = it } != -1L) {
+                    while (source.read(buffer, 262144L).also { readCount = it } != -1L) {
                         sink.write(buffer, readCount)
                         totalBytesRead += readCount
                         val progress = if (fileLength > 0 && fileLength != -1L) (totalBytesRead * 100 / fileLength).toInt() else 0
-                        onProgress(progress)
+                        if (progress != lastReportedProgress) {
+                            lastReportedProgress = progress
+                            onProgress(progress)
+                        }
                     }
                 } finally {
                     source.close()
