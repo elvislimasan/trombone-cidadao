@@ -350,17 +350,9 @@ const VideoProcessor = ({
            });
         }
       } catch (e) {
-        // Ignorar cancelamento do usuário; demais erros precisam de feedback
-        const msg = e?.message || '';
-        const cancelled = /cancel|cancelad/i.test(msg);
-        if (!cancelled) {
-          console.error('Erro ao abrir galeria de vídeos:', e);
-          toast({
-            variant: 'destructive',
-            title: 'Não foi possível abrir a galeria de vídeos',
-            description: msg || 'Verifique as permissões de acesso à galeria.'
-          });
-        }
+        // Cancelamento, acesso limitado ou negação de permissão não devem
+        // exibir alerta — apenas registramos no log para depuração.
+        console.error('Erro ao abrir galeria de vídeos:', e);
       }
     } else if (Capacitor.isNativePlatform() && !Capacitor.isPluginAvailable('VideoProcessor')) {
       // Plugin nativo indisponível: usar o seletor de arquivos como fallback

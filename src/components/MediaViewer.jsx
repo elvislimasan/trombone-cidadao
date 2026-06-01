@@ -29,6 +29,14 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
     setVideoError(false);
   }, [currentIndex]);
 
+  const handleVideoLoadedMetadata = (e) => {
+    // Arquivo enviado vazio ou corrompido resulta em duração 0 / NaN
+    const dur = e.target.duration;
+    if (!dur || !isFinite(dur) || dur <= 0) {
+      setVideoError(true);
+    }
+  };
+
   const goToPrevious = (e) => {
     e.stopPropagation();
     setCurrentIndex((prevIndex) => (prevIndex === 0 ? safeMedia.length - 1 : prevIndex - 1));
@@ -189,17 +197,21 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
                       </Button>
                     </div>
                   ) : (
-                    <video 
-                      controls 
-                      autoPlay 
+                    <video
+                      key={currentItem.url}
+                      src={currentItem.url}
+                      controls
+                      autoPlay
+                      playsInline
+                      preload="metadata"
                       className="w-full h-full object-contain"
                       poster={currentItem.preview || currentItem.poster}
+                      onLoadedMetadata={handleVideoLoadedMetadata}
                       onError={(e) => {
                         console.error("Video playback error:", e);
                         setVideoError(true);
                       }}
                     >
-                      <source src={currentItem.url} />
                       Seu navegador não suporta o player de vídeo.
                     </video>
                   )
