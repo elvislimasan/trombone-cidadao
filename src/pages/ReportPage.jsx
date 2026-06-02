@@ -5,7 +5,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -53,11 +53,13 @@ import {
   Download,
   User2Icon,
   Megaphone,
+  Clock,
 } from "lucide-react";
 import { Share } from "@capacitor/share";
 import { toPng } from "html-to-image";
 import ReportFlyerModal from "@/components/report/ReportFlyerModal";
 import ReportStoryModal from "@/components/report/ReportStoryModal";
+import ReportUpdateModal from "@/components/report/ReportUpdateModal";
 import {
   AlertCircle,
   Layout as LayoutIcon,
@@ -122,6 +124,7 @@ const ReportMap = ({ location, address }) => {
 const ReportPage = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
   const { setTitle, setActions, setShowBack, setOnBack, reset } =
@@ -142,7 +145,37 @@ const ReportPage = () => {
     startIndex: 0,
   });
   const [showEditDetails, setShowEditDetails] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [submittingUpdate, setSubmittingUpdate] = useState(false);
+  const [reportUpdates, setReportUpdates] = useState([]);
+  const [showAllUpdates, setShowAllUpdates] = useState(false);
+  const [confirmingUpdateId, setConfirmingUpdateId] = useState(null);
+  const [expandedUpdateId, setExpandedUpdateId] = useState(null);
   const { handleUpvote } = useUpvote();
+
+  const UPDATES_VISIBLE_COUNT = 3;
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+  // Rate limit por tipo: mapeia tipo → Date de liberação (se bloqueado)
+  const disabledUpdateTypes = useMemo(() => {
+    if (!user) return {};
+    const cutoff = new Date(Date.now() - SEVEN_DAYS_MS);
+    const result = {};
+    reportUpdates.forEach((u) => {
+      if (u.author_id === user.id && new Date(u.created_at) > cutoff) {
+        const unlockDate = new Date(new Date(u.created_at).getTime() + SEVEN_DAYS_MS);
+        if (!result[u.update_type] || unlockDate > result[u.update_type]) {
+          result[u.update_type] = unlockDate;
+        }
+      }
+    });
+    return result;
+  }, [reportUpdates, user]);
+
+  const canSendAnyUpdate = useMemo(() => {
+    if (!user) return false;
+    return ['still_here', 'being_solved', 'solved'].some((t) => !disabledUpdateTypes[t]);
+  }, [user, disabledUpdateTypes]);
 
   const qrCodeUrl = useMemo(() => {
     if (!reportId) return "";
@@ -746,6 +779,224 @@ const ReportPage = () => {
     });
   };
 
+  const formatRelativeDate = (dateString) => {
+    if (!dateString) return "";
+    const diffMs = Date.now() - new Date(dateString).getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return "hoje";
+    if (diffDays === 1) return "ontem";
+    if (diffDays < 7) return `há ${diffDays} dias`;
+    return formatDateTime(dateString).split(",")[0];
+  };
+
+  const formatNextAvailable = (date) => {
+    if (!date) return "";
+    const diffDays = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 1) return "amanhã";
+    return `em ${diffDays} dias`;
+  };
+
+  // Retorna "disponível em X dias" para o tipo mais cedo que libera
+  const nextAvailableLabel = useMemo(() => {
+    const dates = Object.values(disabledUpdateTypes);
+    if (dates.length === 0) return null;
+    const soonest = new Date(Math.min(...dates.map((d) => d.getTime())));
+    return formatNextAvailable(soonest);
+  }, [disabledUpdateTypes]);
+
+  const getUpdateTypeInfo = (updateType) => {
+    const map = {
+      still_here: {
+        label: "O problema ainda está aqui",
+        color: "text-red-600",
+        bgColor: "bg-red-50",
+        cardBg: "bg-red-50/70",
+        cardBorder: "border-red-100",
+        iconBg: "bg-red-100",
+        dotColor: "bg-red-500",
+        Icon: AlertCircle,
+        reportStatus: "pending",
+      },
+      being_solved: {
+        label: "O problema está sendo resolvido",
+        color: "text-amber-600",
+        bgColor: "bg-amber-50",
+        cardBg: "bg-amber-50/70",
+        cardBorder: "border-amber-100",
+        iconBg: "bg-amber-100",
+        dotColor: "bg-amber-500",
+        Icon: Clock,
+        reportStatus: "in-progress",
+      },
+      solved: {
+        label: "O problema foi resolvido",
+        color: "text-emerald-600",
+        bgColor: "bg-emerald-50",
+        cardBg: "bg-emerald-50/70",
+        cardBorder: "border-emerald-100",
+        iconBg: "bg-emerald-100",
+        dotColor: "bg-emerald-500",
+        Icon: CheckCircle,
+        reportStatus: "pending_resolution",
+      },
+    };
+    return map[updateType] || map.still_here;
+  };
+
+  const handleSubmitUpdate = async ({ updateType, message, photos }) => {
+    if (!user || !report) return;
+    setSubmittingUpdate(true);
+    try {
+      const { data: newUpdate, error: insertError } = await supabase
+        .from("report_updates")
+        .insert({
+          report_id: report.id,
+          author_id: user.id,
+          update_type: updateType,
+          message: message || null,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      if (photos && photos.length > 0) {
+        try {
+          const mediaRecords = await Promise.all(
+            photos.map(async (photo) => {
+              const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${photo.name}`;
+              const { error: uploadError } = await supabase.storage
+                .from("reports-media")
+                .upload(filePath, photo);
+              if (uploadError) throw uploadError;
+              const {
+                data: { publicUrl },
+              } = supabase.storage.from("reports-media").getPublicUrl(filePath);
+              return { report_update_id: newUpdate.id, url: publicUrl, type: "photo" };
+            })
+          );
+          await supabase.from("report_update_media").insert(mediaRecords);
+        } catch (uploadErr) {
+          // Rollback: exclui o update para não deixar registro órfão
+          await supabase.from("report_updates").delete().eq("id", newUpdate.id);
+          throw new Error(
+            "Falha no upload das fotos. A atualização não foi enviada. Tente novamente ou envie sem fotos."
+          );
+        }
+      }
+
+      // Atualização otimista: só adiciona ao estado após upload concluído
+      // (impede reenvio do mesmo tipo antes do fetchReport completar)
+      setReportUpdates((prev) => [
+        {
+          id: newUpdate.id,
+          report_id: report.id,
+          author_id: user.id,
+          update_type: updateType,
+          message: message || null,
+          status: "pending",
+          created_at: new Date().toISOString(),
+          media: [],
+          author: { name: user.name || "Você" },
+        },
+        ...prev,
+      ]);
+
+      // Autor da bronca ou admin: auto-confirma e já muda o status
+      const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
+      if (isAuthorOrAdmin) {
+        const typeInfo = getUpdateTypeInfo(updateType);
+        const newStatus =
+          updateType === "solved" && user.is_admin
+            ? "resolved"
+            : typeInfo.reportStatus;
+
+        await supabase
+          .from("report_updates")
+          .update({
+            status: "confirmed",
+            confirmed_by: user.id,
+            confirmed_at: new Date().toISOString(),
+          })
+          .eq("id", newUpdate.id);
+
+        await supabase
+          .from("reports")
+          .update({ status: newStatus })
+          .eq("id", report.id);
+
+        setShowUpdateModal(false);
+        toast({
+          title: "Atualização confirmada! ✅",
+          description: `Status da bronca atualizado para "${getStatusInfo(newStatus).text}".`,
+        });
+      } else {
+        setShowUpdateModal(false);
+        toast({
+          title: "Atualização enviada! 📢",
+          description: "O criador da bronca e os administradores serão notificados.",
+        });
+      }
+
+      fetchReport();
+    } catch (err) {
+      const isRlsError =
+        err.message?.includes("row-level security") ||
+        err.code === "42501";
+      toast({
+        title: isRlsError
+          ? "Limite semanal atingido"
+          : "Erro ao enviar atualização",
+        description: isRlsError
+          ? "Você já enviou este tipo de atualização esta semana. Tente outro tipo ou aguarde."
+          : err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingUpdate(false);
+    }
+  };
+
+  const handleConfirmUpdate = async (update) => {
+    if (!user || !report) return;
+    const typeInfo = getUpdateTypeInfo(update.update_type);
+    const newReportStatus =
+      update.update_type === "solved" && user.is_admin
+        ? "resolved"
+        : typeInfo.reportStatus;
+
+    const { error: updateError } = await supabase
+      .from("report_updates")
+      .update({
+        status: "confirmed",
+        confirmed_by: user.id,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq("id", update.id);
+
+    if (updateError) {
+      toast({
+        title: "Erro ao confirmar",
+        description: updateError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await supabase
+      .from("reports")
+      .update({ status: newReportStatus })
+      .eq("id", report.id);
+
+    toast({
+      title: "Atualização confirmada!",
+      description: `Status da bronca atualizado para "${
+        getStatusInfo(newReportStatus).text
+      }".`,
+    });
+    fetchReport();
+  };
+
   const managementPanel =
     canChangeStatus && report?.moderation_status === "approved" ? (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
@@ -946,12 +1197,32 @@ const ReportPage = () => {
       petitionStatus: data.petitions?.[0]?.status || null,
       is_from_water_utility: data.is_from_water_utility,
     });
+
+    const { data: updatesData } = await supabase
+      .from("report_updates")
+      .select(
+        "id, report_id, author_id, update_type, message, status, confirmed_by, confirmed_at, created_at, author:profiles!report_updates_author_id_fkey(name, avatar_type, avatar_url, avatar_config), media:report_update_media(*)"
+      )
+      .eq("report_id", reportId)
+      .order("created_at", { ascending: false });
+    setReportUpdates(updatesData || []);
+
     setLoading(false);
   }, [reportId, navigate, toast, user]);
 
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
+
+  // Auto-open update modal when navigated from FeedCard prompt
+  useEffect(() => {
+    if (location.state?.openUpdateModal && user && !loading) {
+      setShowUpdateModal(true);
+      // Clear state so modal doesn't re-open on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.openUpdateModal, user, loading]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform() || !reportId) return;
@@ -1808,6 +2079,15 @@ const ReportPage = () => {
                         <Share2 className="w-4 h-4" strokeWidth={1.5} />
                         Compartilhar
                       </Button>
+                      {user && canSendAnyUpdate && (
+                        <Button
+                          className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#fff7f7] hover:bg-[#ffe8e8] text-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
+                          onClick={() => setShowUpdateModal(true)}
+                        >
+                          <Megaphone className="w-4 h-4" strokeWidth={1.5} />
+                          Enviar Atualização
+                        </Button>
+                      )}
                       <Button
                         className="w-full mt-2 justify-center gap-2 text-sm text-[#191c1e] rounded-full bg-white hover:bg-[#f2f4f7] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
                         onClick={() =>
@@ -1914,6 +2194,218 @@ const ReportPage = () => {
                         </div>
                       </div>
                     </section>
+
+                    {/* ── COMMUNITY UPDATES ── */}
+                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-1.5">
+                          <Megaphone className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
+                          <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
+                            Atualizações
+                          </h2>
+                          {reportUpdates.length > 0 && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-white font-semibold text-[#6b7280]">
+                              {reportUpdates.length}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Send button or rate-limit info */}
+                        {user ? (
+                          canSendAnyUpdate ? (
+                            <button
+                              type="button"
+                              onClick={() => setShowUpdateModal(true)}
+                              className="text-[11px] font-semibold text-[#b61722] hover:underline"
+                            >
+                              + Enviar atualização
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-[#9b9fa3]">
+                              disponível {nextAvailableLabel}
+                            </span>
+                          )
+                        ) : null}
+                      </div>
+
+                      {/* Update list */}
+                      {reportUpdates.length === 0 ? (
+                        <div className="py-3 flex items-center gap-3">
+                          <p className="text-xs text-[#9b9fa3] flex-1">
+                            Esteve no local? Informe o status atual.
+                          </p>
+                          {user ? (
+                            canSendAnyUpdate ? (
+                              <button
+                                type="button"
+                                onClick={() => setShowUpdateModal(true)}
+                                className="text-[11px] font-semibold text-[#b61722] hover:underline whitespace-nowrap"
+                              >
+                                Enviar
+                              </button>
+                            ) : null
+                          ) : (
+                            <Link
+                              to="/login"
+                              className="text-[11px] font-semibold text-[#b61722] hover:underline whitespace-nowrap"
+                            >
+                              Fazer login
+                            </Link>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            {(showAllUpdates
+                              ? reportUpdates
+                              : reportUpdates.slice(0, UPDATES_VISIBLE_COUNT)
+                            ).map((upd) => {
+                              const typeInfo = getUpdateTypeInfo(upd.update_type);
+                              const TypeIcon = typeInfo.Icon;
+                              const isOwnPending =
+                                upd.status === "pending" && upd.author_id === user?.id;
+                              const canConfirm =
+                                upd.status === "pending" &&
+                                user &&
+                                (user.is_admin || report?.author_id === user?.id);
+                              const isConfirming = confirmingUpdateId === upd.id;
+                              const isExpanded = expandedUpdateId === upd.id;
+                              const hasExpandable = canConfirm || (upd.media && upd.media.length > 0);
+                              const confirmStatusText = getStatusInfo(
+                                upd.update_type === "solved" && user?.is_admin
+                                  ? "resolved"
+                                  : typeInfo.reportStatus
+                              ).text;
+                              return (
+                                <div key={upd.id} className={`rounded-2xl border overflow-hidden ${typeInfo.cardBorder} ${typeInfo.cardBg}`}>
+
+                                  {/* Main row */}
+                                  <div className="flex items-start gap-3 px-3.5 pt-3 pb-3">
+                                    {/* Icon */}
+                                    <div className={`w-9 h-9 rounded-xl ${typeInfo.iconBg} flex items-center justify-center flex-shrink-0`}>
+                                      <TypeIcon className={`w-4.5 h-4.5 ${typeInfo.color}`} strokeWidth={2.5} />
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <span className={`text-[13px] font-bold leading-tight ${typeInfo.color}`}>
+                                          {typeInfo.label}
+                                        </span>
+                                        {upd.status === "confirmed" && (
+                                          <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                            <CheckCircle className="w-3 h-3" strokeWidth={2.5} />
+                                            Confirmada
+                                          </span>
+                                        )}
+                                        {isOwnPending && (
+                                          <span className="flex-shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                            Aguardando
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {upd.message && (
+                                        <p className="text-xs text-[#374151] mt-1 leading-relaxed">
+                                          {upd.message}
+                                        </p>
+                                      )}
+
+                                      {/* Inline photo thumbnails (always visible, small) */}
+                                      {upd.media && upd.media.length > 0 && (
+                                        <div className="flex gap-1.5 mt-2">
+                                          {upd.media.slice(0, 3).map((m, idx) => (
+                                            <button
+                                              key={m.id}
+                                              type="button"
+                                              onClick={() => setExpandedUpdateId(isExpanded && expandedUpdateId === upd.id ? null : upd.id)}
+                                              className="relative flex-shrink-0"
+                                            >
+                                              <img
+                                                src={m.url}
+                                                alt=""
+                                                className="w-16 h-16 rounded-xl object-cover"
+                                                loading="lazy"
+                                              />
+                                              {idx === 2 && upd.media.length > 3 && (
+                                                <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
+                                                  <span className="text-white text-xs font-bold">+{upd.media.length - 3}</span>
+                                                </div>
+                                              )}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      <div className="flex items-center justify-between mt-2 gap-2">
+                                        <span className="text-[10px] text-[#6b7280]">
+                                          {upd.author?.name || "Usuário"} · {formatRelativeDate(upd.created_at)}
+                                        </span>
+
+                                        {canConfirm && !isConfirming && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setConfirmingUpdateId(upd.id)}
+                                            className={`flex-shrink-0 text-[11px] font-bold ${typeInfo.color} underline underline-offset-2 hover:opacity-70 transition-opacity`}
+                                          >
+                                            Confirmar →
+                                          </button>
+                                        )}
+                                        {canConfirm && isConfirming && (
+                                          <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                                            <span className="text-[10px] text-[#6b7280] text-right">
+                                              Muda para <strong>"{confirmStatusText}"</strong>
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                              <button type="button" onClick={() => setConfirmingUpdateId(null)} className="text-[10px] text-[#9b9fa3]">
+                                                Cancelar
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => { setConfirmingUpdateId(null); handleConfirmUpdate(upd); }}
+                                                className="text-[10px] font-bold text-white bg-[#b61722] px-2.5 py-1 rounded-full"
+                                              >
+                                                Confirmar
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Expand / collapse */}
+                          {reportUpdates.length > UPDATES_VISIBLE_COUNT && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAllUpdates((v) => !v)}
+                              className="mt-2 w-full text-center text-[11px] font-semibold text-[#6b7280] hover:text-[#191c1e] py-1.5 border-t border-gray-200 transition-colors"
+                            >
+                              {showAllUpdates
+                                ? "Ver menos"
+                                : `Ver mais ${reportUpdates.length - UPDATES_VISIBLE_COUNT} atualização${
+                                    reportUpdates.length - UPDATES_VISIBLE_COUNT > 1 ? "s" : ""
+                                  }`}
+                            </button>
+                          )}
+
+                          {/* Login prompt for guests */}
+                          {!user && (
+                            <p className="mt-3 pt-3 border-t border-gray-200 text-center text-[11px] text-[#9b9fa3]">
+                              <Link to="/login" className="font-semibold text-[#b61722] hover:underline">
+                                Faça login
+                              </Link>{" "}
+                              para enviar uma atualização
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
 
                     {/* comments */}
                     <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
@@ -2032,6 +2524,15 @@ const ReportPage = () => {
                     <Share2 className="w-4 h-4" strokeWidth={1.5} />
                     Compartilhar bronca
                   </Button>
+                  {user && (
+                    <Button
+                      className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#fff7f7] hover:bg-[#ffe8e8] text-[#b61722]"
+                      onClick={() => setShowUpdateModal(true)}
+                    >
+                      <Megaphone className="w-4 h-4" strokeWidth={1.5} />
+                      Enviar Atualização
+                    </Button>
+                  )}
                   <Button
                     className="w-full mt-2 justify-center gap-2 text-sm text-[#191c1e] rounded-full bg-[#f2f4f7] hover:bg-[#e8eaed]"
                     onClick={() =>
@@ -2147,6 +2648,15 @@ const ReportPage = () => {
               allReports={allReports}
               onClose={() => setShowLinkModal(false)}
               onLink={handleLinkReport}
+            />
+          )}
+
+          {showUpdateModal && (
+            <ReportUpdateModal
+              onClose={() => setShowUpdateModal(false)}
+              onSubmit={handleSubmitUpdate}
+              submitting={submittingUpdate}
+              disabledTypes={disabledUpdateTypes}
             />
           )}
 
