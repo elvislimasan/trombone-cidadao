@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Play, Repeat } from 'lucide-react';
+import { MapPin, Play, Repeat, Megaphone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -603,6 +603,27 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
           </div>
         )}
       </button>
+
+      {/* Update prompt — only for active reports */}
+      {report.status !== 'resolved' && report.status !== 'duplicate' && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
+          }}
+          className="w-full flex items-center gap-2.5 px-4 py-3 mx-0 bg-[#fff7f7] hover:bg-[#ffe8e8] border-t border-[#f5c6c8] transition-colors rounded-b-[inherit] group"
+        >
+          <div className="w-7 h-7 rounded-full bg-[#b61722]/10 flex items-center justify-center flex-shrink-0">
+            <Megaphone className="w-3.5 h-3.5 text-[#b61722]" strokeWidth={1.5} />
+          </div>
+          <div className="flex-1 text-left min-w-0">
+            <span className="text-xs font-semibold text-[#b61722]">Esteve no local?</span>
+            <span className="text-xs text-[#9f3f3b]/70"> Informe o que viu</span>
+          </div>
+          <span className="text-xs font-bold text-[#b61722] group-hover:translate-x-0.5 transition-transform">→</span>
+        </button>
+      )}
     </motion.div>
   );
 };

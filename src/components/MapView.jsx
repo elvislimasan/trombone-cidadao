@@ -14,7 +14,9 @@ import {
   Grid3X3,
   ArrowLeft,
   LocateFixed,
+  Megaphone,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import L from "leaflet";
@@ -141,6 +143,7 @@ const MapView = ({
   interactive = true,
 }) => {
   const { mode } = useMapModeToggle();
+  const navigate = useNavigate();
   const mapRef = useRef(null);
   const hasCenteredRef = useRef(false);
   const [userLocation, setUserLocation] = useState(null);
@@ -468,7 +471,7 @@ const MapView = ({
                         <Calendar className="w-3 h-3 mr-1" />
                         {formatDate(report.created_at)}
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -481,6 +484,21 @@ const MapView = ({
                           <ThumbsUp className="w-3 h-3" />
                           <span>{report.upvotes}</span>
                         </Button>
+                        {report.status !== "resolved" && report.status !== "duplicate" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
+                            }}
+                            className="flex items-center gap-1 border-[#b61722]/30 text-[#b61722] hover:bg-[#fff7f7] text-xs"
+                            style={{ pointerEvents: "auto", touchAction: "auto" }}
+                          >
+                            <Megaphone className="w-3 h-3" />
+                            Atualizar
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           onClick={(e) => {
@@ -490,7 +508,7 @@ const MapView = ({
                           className="bg-primary hover:bg-primary/90"
                           style={{ pointerEvents: "auto", touchAction: "auto" }}
                         >
-                          Ver Detalhes
+                          Detalhes
                         </Button>
                       </div>
                     </div>
@@ -594,7 +612,7 @@ const MapView = ({
                           <Calendar className="w-3 h-3 mr-1" />
                           {formatDate(report.created_at)}
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -607,6 +625,21 @@ const MapView = ({
                             <ThumbsUp className="w-3 h-3" />
                             <span>{report.upvotes}</span>
                           </Button>
+                          {report.status !== "resolved" && report.status !== "duplicate" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
+                              }}
+                              className="flex items-center gap-1 border-[#b61722]/30 text-[#b61722] hover:bg-[#fff7f7] text-xs"
+                              style={{ pointerEvents: "auto", touchAction: "auto" }}
+                            >
+                              <Megaphone className="w-3 h-3" />
+                              Atualizar
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             onClick={(e) => {
@@ -619,7 +652,7 @@ const MapView = ({
                               touchAction: "auto",
                             }}
                           >
-                            Ver Detalhes
+                            Detalhes
                           </Button>
                         </div>
                       </>

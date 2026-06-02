@@ -84,12 +84,12 @@ const VideoProcessor = ({
 
     // Tentar gerar thumbnail do original imediatamente para feedback visual rápido
     if (file.isNative && file.nativePath && Capacitor.isNativePlatform()) {
+      console.log('VideoProcessor: Attempting to get thumbnail for path:', file.nativePath);
       // Executar sem await para não bloquear
       VideoProcessorPlugin.getVideoThumbnail({ 
-        filePath: file.nativePath, 
-        maxWidth: 100, 
-        maxHeight: 100 
+        filePath: file.nativePath
       }).then(({ imagePath }) => {
+        console.log('VideoProcessor: Thumbnail received:', imagePath);
         if (mountedRef.current && imagePath) {
           const previewUrl = Capacitor.convertFileSrc(imagePath);
           onVideosChange(prevVideos => prevVideos.map(v => 
@@ -97,7 +97,8 @@ const VideoProcessor = ({
           ));
         }
       }).catch(err => {
-        console.warn('Falha ao gerar preview antecipado:', err);
+        console.warn('VideoProcessor: Failed to generate initial preview:', err);
+        // Don't remove the video on thumbnail failure!
       });
     } else if (!file.isNative) {
       // Gera thumbnail para Web imediatamente
@@ -335,24 +336,44 @@ const VideoProcessor = ({
 
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('VideoProcessor')) {
       try {
+        console.log('VideoProcessor: Opening video picker');
         const result = await VideoProcessorPlugin.pickVideo();
-        if (result && result.filePath) {
+        console.log('VideoProcessor: Pick result received:', result);
+        
+        if (result && (result.filePath || result.nativePath)) {
+           const path = result.filePath || result.nativePath;
+           console.log('VideoProcessor: Adding video with path:', path);
+           
            // Adicionar vídeo nativo diretamente
            await handleAddVideo({
              // Mock de objeto File para compatibilidade
              name: result.name || `video_${Date.now()}.mp4`,
-             size: result.size,
+             size: result.size || 0,
              type: 'video/mp4',
-             nativePath: result.filePath, // Caminho real no disco
+             nativePath: path, // Caminho real no disco
              duration: result.duration,
              // Importante: Marcar como nativo para evitar leitura de blob
              isNative: true
            });
+        } else {
+          console.warn('VideoProcessor: No valid filePath or nativePath in pick result');
         }
       } catch (e) {
         // Cancelamento, acesso limitado ou negação de permissão não devem
         // exibir alerta — apenas registramos no log para depuração.
-        console.error('Erro ao abrir galeria de vídeos:', e);
+        const errorMsg = e?.message || String(e);
+        const isCancellation = errorMsg.toLowerCase().includes('cancel') || 
+                             errorMsg.toLowerCase().includes('user cancelled');
+        if (!isCancellation) {
+          console.error('VideoProcessor: Error picking video:', e);
+          toast({
+            title: "Erro ao selecionar vídeo",
+            description: "Tente novamente",
+            variant: "destructive"
+          });
+        } else {
+          console.log('VideoProcessor: Video pick cancelled');
+        }
       }
     } else if (Capacitor.isNativePlatform() && !Capacitor.isPluginAvailable('VideoProcessor')) {
       // Plugin nativo indisponível: usar o seletor de arquivos como fallback

@@ -616,6 +616,15 @@ class VideoProcessorPlugin : Plugin() {
                 // Offload to background thread to avoid ANR on large files
                 Thread {
                     try {
+                        // Take persistable read permissions for this URI so we can access it later
+                        try {
+                            val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                            Log.d("VideoProcessor", "Took persistable permissions for URI: $uri")
+                        } catch (e: Exception) {
+                            Log.w("VideoProcessor", "Could not take persistable permissions (not a big deal for one-time use): ${e.message}")
+                        }
+                        
                         // OTIMIZAÇÃO: Não copiar o arquivo imediatamente!
                         // Vídeos 8K podem ter gigabytes e copiar trava o app ou demora muito.
                         // Vamos usar o URI diretamente (content://) e deixar o UploadService
