@@ -322,23 +322,28 @@ function AppShell() {
       try {
         const recovered = await VideoProcessor.recoverLostPhoto();
         if (recovered && (recovered.filePath || recovered.nativePath)) {
-         
-           
-           window.__PENDING_RESTORED_PHOTO__ = recovered;
-           
-           toast({
-             title: "Foto recuperada!",
-             description: "Sua foto foi restaurada após o reinício.",
-             duration: 4000
-           });
-
-           // Se estivermos na home, dispara; senão navega
-           setTimeout(() => {
+          // Se câmera foi de outro contexto (ex: modal de atualização), não navega para /
+          if (window.__NATIVE_CAMERA_CONTEXT__) {
+            const rawPath = recovered.filePath || recovered.nativePath;
+            window.__NATIVE_CAMERA_PENDING_PHOTO__ = {
+              rawPath,
+              filename: `photo_restored_${Date.now()}.jpg`,
+            };
+            window.__NATIVE_CAMERA_CONTEXT__ = null;
+          } else {
+            window.__PENDING_RESTORED_PHOTO__ = recovered;
+            toast({
+              title: "Foto recuperada!",
+              description: "Sua foto foi restaurada após o reinício.",
+              duration: 4000
+            });
+            setTimeout(() => {
               window.dispatchEvent(new CustomEvent('open-report-modal-with-photo'));
               if (window.location.pathname !== '/') {
                 navigate('/', { replace: true });
               }
-           }, 1000);
+            }, 1000);
+          }
         }
       } catch (e) {
 //          console.warn('Erro ao verificar fotos perdidas:', e);
@@ -360,12 +365,26 @@ function AppShell() {
             (data.pluginId === 'Camera' && (data.methodName === 'getPhoto' || data.methodName === 'pickImages'))) {
           
           if (data.success && data.data) {
-//             console.log('📸 Foto recuperada após morte da Activity!');
-            
-            // Salvar dados globalmente para o Modal recuperar
+            // Se a câmera foi aberta por useNativeCamera (ex: modal de atualização),
+            // não navegar para / — o hook recuperará a foto via localStorage no remount.
+            const nativeCameraCtx = (() => {
+              try { return localStorage.getItem('__native_camera_context__'); } catch (_) { return null; }
+            })();
+            if (nativeCameraCtx === 'useNativeCamera') {
+              try { localStorage.removeItem('__native_camera_context__'); } catch (_) {}
+              const rawPath = data.data.filePath || data.data.path || data.data.webPath;
+              if (rawPath) {
+                try {
+                  localStorage.setItem('__native_camera_pending_photo__', JSON.stringify({
+                    rawPath, filename: `photo_restored_${Date.now()}.jpg`, ts: Date.now(),
+                  }));
+                } catch (_) {}
+              }
+              return; // não navega para /
+            }
+
+            // Fluxo padrão do ReportModal
             window.__PENDING_RESTORED_PHOTO__ = data.data;
-            
-            // Disparar evento para abrir o modal na Home
             setTimeout(() => {
               window.dispatchEvent(new CustomEvent('open-report-modal-with-photo'));
               if (window.location.pathname !== '/') {

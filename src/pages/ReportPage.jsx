@@ -54,12 +54,14 @@ import {
   User2Icon,
   Megaphone,
   Clock,
+  Trash2,
 } from "lucide-react";
 import { Share } from "@capacitor/share";
 import { toPng } from "html-to-image";
 import ReportFlyerModal from "@/components/report/ReportFlyerModal";
 import ReportStoryModal from "@/components/report/ReportStoryModal";
 import ReportUpdateModal from "@/components/report/ReportUpdateModal";
+import { useNativeCamera } from "@/hooks/useNativeCamera";
 import {
   AlertCircle,
   Layout as LayoutIcon,
@@ -150,8 +152,13 @@ const ReportPage = () => {
   const [reportUpdates, setReportUpdates] = useState([]);
   const [showAllUpdates, setShowAllUpdates] = useState(false);
   const [confirmingUpdateId, setConfirmingUpdateId] = useState(null);
-  const [expandedUpdateId, setExpandedUpdateId] = useState(null);
+  const [deletingUpdateId, setDeletingUpdateId] = useState(null);
+  const [updateMediaViewer, setUpdateMediaViewer] = useState({ isOpen: false, media: [], startIndex: 0 });
   const { handleUpvote } = useUpvote();
+  // Estado da câmera, tipo e mensagem vivem em ReportPage — sobrevivem a qualquer remount do modal
+  const updateCam = useNativeCamera({ maxPhotos: 5 });
+  const [updateType, setUpdateType] = useState(null);
+  const [updateMessage, setUpdateMessage] = useState('');
 
   const UPDATES_VISIBLE_COUNT = 3;
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -176,6 +183,18 @@ const ReportPage = () => {
     if (!user) return false;
     return ['still_here', 'being_solved', 'solved'].some((t) => !disabledUpdateTypes[t]);
   }, [user, disabledUpdateTypes]);
+
+  const visibleUpdates = useMemo(() => {
+    return reportUpdates.filter((upd) => {
+      // Rejeitadas e excluídas não aparecem para ninguém na ReportPage
+      if (upd.status === 'rejected') return false;
+      // Pendentes de moderação: só admin, autor da bronca e autor da atualização
+      if (upd.status === 'pending_moderation') {
+        return user?.is_admin || user?.id === report?.author_id || user?.id === upd.author_id;
+      }
+      return true;
+    });
+  }, [reportUpdates, user, report?.author_id]);
 
   const qrCodeUrl = useMemo(() => {
     if (!reportId) return "";
@@ -843,9 +862,12 @@ const ReportPage = () => {
     return map[updateType] || map.still_here;
   };
 
-  const handleSubmitUpdate = async ({ updateType, message, photos }) => {
-    if (!user || !report) return;
+  const handleSubmitUpdate = async () => {
+    if (!user || !report || !updateType) return;
+    const photos = await updateCam.resolveForUpload();
+    const message = updateMessage;
     setSubmittingUpdate(true);
+    const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
     try {
       const { data: newUpdate, error: insertError } = await supabase
         .from("report_updates")
@@ -854,6 +876,8 @@ const ReportPage = () => {
           author_id: user.id,
           update_type: updateType,
           message: message || null,
+          // Autor e admin auto-confirmam; outros entram em moderação
+          status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
         })
         .select()
         .single();
@@ -885,8 +909,8 @@ const ReportPage = () => {
         }
       }
 
-      // Atualização otimista: só adiciona ao estado após upload concluído
-      // (impede reenvio do mesmo tipo antes do fetchReport completar)
+      // Atualização otimista
+      const optimisticStatus = isAuthorOrAdmin ? 'pending' : 'pending_moderation';
       setReportUpdates((prev) => [
         {
           id: newUpdate.id,
@@ -894,7 +918,7 @@ const ReportPage = () => {
           author_id: user.id,
           update_type: updateType,
           message: message || null,
-          status: "pending",
+          status: optimisticStatus,
           created_at: new Date().toISOString(),
           media: [],
           author: { name: user.name || "Você" },
@@ -903,7 +927,6 @@ const ReportPage = () => {
       ]);
 
       // Autor da bronca ou admin: auto-confirma e já muda o status
-      const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
       if (isAuthorOrAdmin) {
         const typeInfo = getUpdateTypeInfo(updateType);
         const newStatus =
@@ -926,15 +949,21 @@ const ReportPage = () => {
           .eq("id", report.id);
 
         setShowUpdateModal(false);
+        updateCam.clearPhotos();
+        setUpdateType(null);
+        setUpdateMessage('');
         toast({
           title: "Atualização confirmada! ✅",
           description: `Status da bronca atualizado para "${getStatusInfo(newStatus).text}".`,
         });
       } else {
         setShowUpdateModal(false);
+        updateCam.clearPhotos();
+        setUpdateType(null);
+        setUpdateMessage('');
         toast({
           title: "Atualização enviada! 📢",
-          description: "O criador da bronca e os administradores serão notificados.",
+          description: "Sua atualização será revisada antes de aparecer para todos.",
         });
       }
 
@@ -990,11 +1019,21 @@ const ReportPage = () => {
 
     toast({
       title: "Atualização confirmada!",
-      description: `Status da bronca atualizado para "${
-        getStatusInfo(newReportStatus).text
-      }".`,
+      description: `Status da bronca atualizado para "${getStatusInfo(newReportStatus).text}".`,
     });
     fetchReport();
+  };
+
+  const handleDeleteUpdate = async (upd) => {
+    if (!user) return;
+    // Usa RPC security definer — evita RLS silencioso que retorna error:null sem deletar
+    const { error } = await supabase.rpc('delete_report_update', { p_update_id: upd.id });
+    if (error) {
+      toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setReportUpdates((prev) => prev.filter((u) => u.id !== upd.id));
+    toast({ title: 'Atualização excluída.' });
   };
 
   const managementPanel =
@@ -2024,13 +2063,6 @@ const ReportPage = () => {
                             Editar
                           </Button>
                           <Button
-                            className="justify-center gap-2 text-sm bg-emerald-500 hover:bg-emerald-600 text-white"
-                            onClick={handleMarkResolvedClick}
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            Marcar Resolvido
-                          </Button>
-                          <Button
                             variant="outline"
                             className="justify-center gap-2 text-sm"
                             onClick={() => handleOpenLinkModal(report)}
@@ -2204,9 +2236,9 @@ const ReportPage = () => {
                           <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
                             Atualizações
                           </h2>
-                          {reportUpdates.length > 0 && (
+                          {visibleUpdates.length > 0 && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-white font-semibold text-[#6b7280]">
-                              {reportUpdates.length}
+                              {visibleUpdates.length}
                             </span>
                           )}
                         </div>
@@ -2230,7 +2262,7 @@ const ReportPage = () => {
                       </div>
 
                       {/* Update list */}
-                      {reportUpdates.length === 0 ? (
+                      {visibleUpdates.length === 0 ? (
                         <div className="py-3 flex items-center gap-3">
                           <p className="text-xs text-[#9b9fa3] flex-1">
                             Esteve no local? Informe o status atual.
@@ -2258,20 +2290,24 @@ const ReportPage = () => {
                         <>
                           <div className="space-y-2">
                             {(showAllUpdates
-                              ? reportUpdates
-                              : reportUpdates.slice(0, UPDATES_VISIBLE_COUNT)
+                              ? visibleUpdates
+                              : visibleUpdates.slice(0, UPDATES_VISIBLE_COUNT)
                             ).map((upd) => {
                               const typeInfo = getUpdateTypeInfo(upd.update_type);
                               const TypeIcon = typeInfo.Icon;
                               const isOwnPending =
                                 upd.status === "pending" && upd.author_id === user?.id;
+                              const isPendingModeration = upd.status === "pending_moderation";
+                              const isRejected = upd.status === "rejected";
                               const canConfirm =
                                 upd.status === "pending" &&
                                 user &&
                                 (user.is_admin || report?.author_id === user?.id);
                               const isConfirming = confirmingUpdateId === upd.id;
-                              const isExpanded = expandedUpdateId === upd.id;
-                              const hasExpandable = canConfirm || (upd.media && upd.media.length > 0);
+                              const isDeleting = deletingUpdateId === upd.id;
+                              // Admin: exclui qualquer status. Autor: só se ainda não confirmada.
+                              const canDelete = user?.is_admin ||
+                                (upd.author_id === user?.id && ['pending_moderation', 'pending'].includes(upd.status));
                               const confirmStatusText = getStatusInfo(
                                 upd.update_type === "solved" && user?.is_admin
                                   ? "resolved"
@@ -2299,6 +2335,11 @@ const ReportPage = () => {
                                             Confirmada
                                           </span>
                                         )}
+                                        {isPendingModeration && (
+                                          <span className="flex-shrink-0 text-[10px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                                            Em moderação
+                                          </span>
+                                        )}
                                         {isOwnPending && (
                                           <span className="flex-shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
                                             Aguardando
@@ -2312,25 +2353,31 @@ const ReportPage = () => {
                                         </p>
                                       )}
 
-                                      {/* Inline photo thumbnails (always visible, small) */}
+                                      {/* Inline photo thumbnails — click to expand */}
                                       {upd.media && upd.media.length > 0 && (
-                                        <div className="flex gap-1.5 mt-2">
-                                          {upd.media.slice(0, 3).map((m, idx) => (
+                                        <div className="flex gap-2 mt-2 flex-wrap">
+                                          {upd.media.slice(0, 4).map((m, idx) => (
                                             <button
                                               key={m.id}
                                               type="button"
-                                              onClick={() => setExpandedUpdateId(isExpanded && expandedUpdateId === upd.id ? null : upd.id)}
-                                              className="relative flex-shrink-0"
+                                              onClick={() =>
+                                                setUpdateMediaViewer({
+                                                  isOpen: true,
+                                                  media: upd.media.map((mm) => ({ ...mm, url: mm.url, type: 'image' })),
+                                                  startIndex: idx,
+                                                })
+                                              }
+                                              className="relative flex-shrink-0 hover:opacity-90 transition-opacity"
                                             >
                                               <img
                                                 src={m.url}
                                                 alt=""
-                                                className="w-16 h-16 rounded-xl object-cover"
+                                                className="w-20 h-20 rounded-xl object-cover"
                                                 loading="lazy"
                                               />
-                                              {idx === 2 && upd.media.length > 3 && (
-                                                <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
-                                                  <span className="text-white text-xs font-bold">+{upd.media.length - 3}</span>
+                                              {idx === 3 && upd.media.length > 4 && (
+                                                <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
+                                                  <span className="text-white text-xs font-bold">+{upd.media.length - 4}</span>
                                                 </div>
                                               )}
                                             </button>
@@ -2338,20 +2385,77 @@ const ReportPage = () => {
                                         </div>
                                       )}
 
-                                      <div className="flex items-center justify-between mt-2 gap-2">
-                                        <span className="text-[10px] text-[#6b7280]">
-                                          {upd.author?.name || "Usuário"} · {formatRelativeDate(upd.created_at)}
-                                        </span>
+                                      {/* Autor + data */}
+                                      <div className="mt-2 flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <span className="text-[10px] text-[#6b7280]">
+                                            {upd.author?.name || "Usuário"}
+                                          </span>
+                                          <span className="text-[10px] text-[#9b9fa3] ml-1">
+                                            · {formatRelativeDate(upd.created_at)}
+                                          </span>
+                                          <span className="text-[10px] text-[#b0b5bc] ml-1 hidden sm:inline">
+                                            · {formatDateTime(upd.created_at).replace(",", " às")}
+                                          </span>
+                                          {/* data completa em linha própria no mobile */}
+                                          <div className="text-[10px] text-[#b0b5bc] sm:hidden">
+                                            {formatDateTime(upd.created_at).replace(",", " às")}
+                                          </div>
+                                        </div>
 
-                                        {canConfirm && !isConfirming && (
+                                        {/* Ações: confirmar ou excluir — nunca os dois ao mesmo tempo */}
+                                        {!isDeleting && canConfirm && !isConfirming && (
+                                          <div className="flex items-center gap-2 flex-shrink-0">
+                                            {canDelete && (
+                                              <button
+                                                type="button"
+                                                onClick={() => { setConfirmingUpdateId(null); setDeletingUpdateId(upd.id); }}
+                                                className="p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                                                title="Excluir atualização"
+                                              >
+                                                <Trash2 className="w-3 h-3" />
+                                              </button>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() => setConfirmingUpdateId(upd.id)}
+                                              className={`text-[11px] font-bold ${typeInfo.color} underline underline-offset-2 hover:opacity-70 transition-opacity`}
+                                            >
+                                              Confirmar →
+                                            </button>
+                                          </div>
+                                        )}
+                                        {!isDeleting && canDelete && !canConfirm && !isConfirming && (
                                           <button
                                             type="button"
-                                            onClick={() => setConfirmingUpdateId(upd.id)}
-                                            className={`flex-shrink-0 text-[11px] font-bold ${typeInfo.color} underline underline-offset-2 hover:opacity-70 transition-opacity`}
+                                            onClick={() => setDeletingUpdateId(upd.id)}
+                                            className="flex-shrink-0 p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                                            title="Excluir atualização"
                                           >
-                                            Confirmar →
+                                            <Trash2 className="w-3 h-3" />
                                           </button>
                                         )}
+
+                                        {/* Confirmação de exclusão inline */}
+                                        {isDeleting && (
+                                          <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                                            <span className="text-[10px] text-[#6b7280] text-right">Excluir esta atualização?</span>
+                                            <div className="flex items-center gap-2">
+                                              <button type="button" onClick={() => setDeletingUpdateId(null)} className="text-[10px] text-[#9b9fa3]">
+                                                Cancelar
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => { setDeletingUpdateId(null); handleDeleteUpdate(upd); }}
+                                                className="text-[10px] font-bold text-white bg-red-500 px-2.5 py-1 rounded-full"
+                                              >
+                                                Excluir
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Confirmação de confirmação inline */}
                                         {canConfirm && isConfirming && (
                                           <div className="flex-shrink-0 flex flex-col items-end gap-1">
                                             <span className="text-[10px] text-[#6b7280] text-right">
@@ -2380,7 +2484,7 @@ const ReportPage = () => {
                           </div>
 
                           {/* Expand / collapse */}
-                          {reportUpdates.length > UPDATES_VISIBLE_COUNT && (
+                          {visibleUpdates.length > UPDATES_VISIBLE_COUNT && (
                             <button
                               type="button"
                               onClick={() => setShowAllUpdates((v) => !v)}
@@ -2388,8 +2492,8 @@ const ReportPage = () => {
                             >
                               {showAllUpdates
                                 ? "Ver menos"
-                                : `Ver mais ${reportUpdates.length - UPDATES_VISIBLE_COUNT} atualização${
-                                    reportUpdates.length - UPDATES_VISIBLE_COUNT > 1 ? "s" : ""
+                                : `Ver mais ${visibleUpdates.length - UPDATES_VISIBLE_COUNT} atualização${
+                                    visibleUpdates.length - UPDATES_VISIBLE_COUNT > 1 ? "s" : ""
                                   }`}
                             </button>
                           )}
@@ -2653,10 +2757,23 @@ const ReportPage = () => {
 
           {showUpdateModal && (
             <ReportUpdateModal
-              onClose={() => setShowUpdateModal(false)}
+              onClose={() => { setShowUpdateModal(false); updateCam.clearPhotos(); setUpdateType(null); setUpdateMessage(''); }}
               onSubmit={handleSubmitUpdate}
               submitting={submittingUpdate}
               disabledTypes={disabledUpdateTypes}
+              cam={updateCam}
+              selectedType={updateType}
+              onSelectType={setUpdateType}
+              message={updateMessage}
+              onMessageChange={setUpdateMessage}
+            />
+          )}
+
+          {updateMediaViewer.isOpen && updateMediaViewer.media.length > 0 && (
+            <MediaViewer
+              media={updateMediaViewer.media}
+              startIndex={updateMediaViewer.startIndex}
+              onClose={() => setUpdateMediaViewer({ isOpen: false, media: [], startIndex: 0 })}
             />
           )}
 

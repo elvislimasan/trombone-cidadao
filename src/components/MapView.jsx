@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { Toggle } from "@/components/ui/toggle";
 import L from "leaflet";
 import { FLORESTA_COORDS, INITIAL_ZOOM } from "@/config/mapConfig";
@@ -144,6 +145,7 @@ const MapView = ({
 }) => {
   const { mode } = useMapModeToggle();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const mapRef = useRef(null);
   const hasCenteredRef = useRef(false);
   const [userLocation, setUserLocation] = useState(null);
@@ -490,6 +492,10 @@ const MapView = ({
                             variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!user) {
+                                navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
+                                return;
+                              }
                               navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
                             }}
                             className="flex items-center gap-1 border-[#b61722]/30 text-[#b61722] hover:bg-[#fff7f7] text-xs"
@@ -631,7 +637,11 @@ const MapView = ({
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
+                                if (!user) {
+                                navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
+                                return;
+                              }
+                              navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
                               }}
                               className="flex items-center gap-1 border-[#b61722]/30 text-[#b61722] hover:bg-[#fff7f7] text-xs"
                               style={{ pointerEvents: "auto", touchAction: "auto" }}
