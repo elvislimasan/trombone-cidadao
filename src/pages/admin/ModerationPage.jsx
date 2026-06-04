@@ -14,7 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, Check, X, Eye, ChevronLeft, ChevronRight, Search,
   MessageSquare, AlertCircle, FileText, CheckCircle2, Info,
-  Filter, Calendar, User, Clock, Image as ImageIcon, Megaphone, Trash2
+  Filter, Calendar, User, Clock, Image as ImageIcon, Megaphone, Trash2,
+  ChevronDown, ZoomIn, ExternalLink, Loader2
 } from 'lucide-react';
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -43,6 +44,13 @@ const ModerationPage = () => {
 
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [itemToApprove, setItemToApprove] = useState(null);
+
+  // Update expansion + lightbox
+  const [expandedUpdateId, setExpandedUpdateId] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
+
+  // Per-item action loading state
+  const [actionLoadingId, setActionLoadingId] = useState(null);
 
   const isReportModeration = type === 'broncas';
   const isResolutionModeration = type === 'resolucoes';
@@ -133,13 +141,17 @@ const ModerationPage = () => {
   }, [fetchItems]);
 
   const handleDeleteUpdate = async (item) => {
+    setActionLoadingId(`${item.id}-deleted`);
     try {
       const { error } = await supabase.rpc('delete_report_update', { p_update_id: item.id });
       if (error) throw error;
       toast({ title: 'Atualização excluída definitivamente.' });
+      setExpandedUpdateId(null);
       fetchItems();
     } catch (err) {
       toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -163,6 +175,7 @@ const ModerationPage = () => {
   };
 
   const processAction = async (item, newStatus) => {
+    setActionLoadingId(`${item.id}-${newStatus}`);
     try {
       if (isUpdateModeration) {
         if (newStatus === 'approved') {
@@ -319,9 +332,12 @@ const ModerationPage = () => {
       }
 
       toast({ title: `Item ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso!` });
+      setExpandedUpdateId(null);
       fetchItems();
     } catch (error) {
       toast({ title: "Erro ao processar", description: error.message, variant: "destructive" });
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -340,6 +356,10 @@ const ModerationPage = () => {
     await processAction(itemToApprove, 'approved');
     setIsApproveModalOpen(false);
     setItemToApprove(null);
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedUpdateId(prev => prev === id ? null : id);
   };
 
   // Filter and Pagination Logic
@@ -439,12 +459,12 @@ const ModerationPage = () => {
                   exit={{ opacity: 0, scale: 0.98 }}
                   key={item.id}
                 >
-                  <Card className="overflow-hidden border-muted-foreground/10 hover:border-tc-red/20 transition-all shadow-sm hover:shadow-md">
+                  <Card className={`overflow-hidden border-muted-foreground/10 transition-all shadow-sm hover:shadow-md ${isUpdateModeration && expandedUpdateId === item.id ? 'border-orange-300 shadow-orange-100' : 'hover:border-tc-red/20'}`}>
                     <CardContent className="p-0">
                       <div className="flex flex-row items-stretch min-h-[110px] md:min-h-[130px]">
                         {/* Icon/Visual Indicator - Always vertical stripe */}
                         <div className={`w-1.5 md:w-2 shrink-0 ${isUpdateModeration ? 'bg-orange-500' : isWorkMediaModeration ? 'bg-purple-500' : isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
-                        
+
                         <div className="flex-1 p-2.5 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-6 min-w-0">
                           <div className="space-y-1 md:space-y-2 flex-1 min-w-0 w-full">
                             <div className="flex items-center gap-1.5 md:gap-3 flex-wrap mb-0.5">
@@ -512,13 +532,13 @@ const ModerationPage = () => {
                           </div>
 
                           <div className="flex items-center gap-1.5 md:gap-3 shrink-0 self-end md:self-center bg-muted/30 p-1.5 md:p-2 rounded-xl w-full sm:w-auto justify-end border-t border-muted sm:border-0 pt-2 sm:pt-2 mt-1 sm:mt-0">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 md:h-10 px-2.5 md:px-4 hover:bg-background flex-1 sm:flex-none text-[11px] md:text-sm"
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-8 md:h-10 px-2.5 md:px-4 hover:bg-background flex-1 sm:flex-none text-[11px] md:text-sm ${isUpdateModeration && expandedUpdateId === item.id ? 'bg-orange-50 text-orange-700' : ''}`}
                               onClick={() => {
                                 if (isUpdateModeration) {
-                                  navigate(`/bronca/${item.report_id}`);
+                                  toggleExpand(item.id);
                                 } else if (isPetitionModeration) {
                                   navigate(`/abaixo-assinado/${item.id}`);
                                 } else if (isWorkMediaModeration) {
@@ -528,48 +548,186 @@ const ModerationPage = () => {
                                 }
                               }}
                             >
-                              <Eye className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                              Revisar
+                              {isUpdateModeration ? (
+                                <>
+                                  <ChevronDown className={`w-3.5 h-3.5 md:w-4 md:h-4 mr-1 transition-transform duration-200 ${expandedUpdateId === item.id ? 'rotate-180' : ''}`} />
+                                  {expandedUpdateId === item.id ? 'Fechar' : 'Revisar'}
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                                  Revisar
+                                </>
+                              )}
                             </Button>
-                            
+
                             <div className="hidden sm:block w-px h-6 bg-muted-foreground/20 mx-1" />
-                            
+
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 md:h-10 md:w-10 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-colors"
+                                className="h-8 w-8 md:h-10 md:w-10 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-colors disabled:opacity-50"
                                 onClick={() => handleAction(item, 'approved')}
                                 title="Aprovar"
+                                disabled={!!actionLoadingId}
                               >
-                                <Check className="w-4 h-4 md:w-5 md:h-5" />
+                                {actionLoadingId === `${item.id}-approved` ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Check className="w-4 h-4 md:w-5 md:h-5" />
+                                )}
                               </Button>
 
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 md:h-10 md:w-10 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
+                                className="h-8 w-8 md:h-10 md:w-10 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50"
                                 onClick={() => handleAction(item, 'rejected')}
                                 title="Rejeitar (mantém registro)"
+                                disabled={!!actionLoadingId}
                               >
-                                <X className="w-4 h-4 md:w-5 md:h-5" />
+                                {actionLoadingId === `${item.id}-rejected` ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <X className="w-4 h-4 md:w-5 md:h-5" />
+                                )}
                               </Button>
 
                               {isUpdateModeration && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 md:h-10 md:w-10 text-gray-400 hover:text-white hover:bg-gray-500 rounded-lg transition-colors"
+                                  className="h-8 w-8 md:h-10 md:w-10 text-gray-400 hover:text-white hover:bg-gray-500 rounded-lg transition-colors disabled:opacity-50"
                                   onClick={() => handleAction(item, 'deleted')}
                                   title="Excluir definitivamente"
+                                  disabled={!!actionLoadingId}
                                 >
-                                  <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
+                                  {actionLoadingId === `${item.id}-deleted` ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
+                                  )}
                                 </Button>
                               )}
                             </div>
                           </div>
                         </div>
                       </div>
+
+                      {/* Expandable update detail panel */}
+                      <AnimatePresence>
+                        {isUpdateModeration && expandedUpdateId === item.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.22, ease: 'easeInOut' }}
+                            className="overflow-hidden"
+                          >
+                            <div className="border-t border-orange-100 bg-orange-50/40 px-4 md:px-6 py-4 space-y-4">
+                              {/* Report context link */}
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Bronca relacionada</p>
+                                <a
+                                  href={`/bronca/${item.report_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs text-orange-700 hover:underline font-medium"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  Abrir bronca
+                                </a>
+                              </div>
+                              <div className="bg-white rounded-xl border border-orange-100 px-4 py-3">
+                                <p className="font-semibold text-sm">{item.report?.title || 'Bronca sem título'}</p>
+                              </div>
+
+                              {/* Full message */}
+                              {item.message && (
+                                <div>
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Mensagem do autor</p>
+                                  <div className="bg-white rounded-xl border border-orange-100 px-4 py-3">
+                                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{item.message}</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Media gallery */}
+                              {item.media && item.media.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                    Fotos ({item.media.length})
+                                  </p>
+                                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                                    {item.media.map((m) => (
+                                      <button
+                                        key={m.id}
+                                        onClick={() => setLightboxImage(m.url)}
+                                        className="relative aspect-square rounded-xl overflow-hidden border border-orange-100 bg-gray-100 group focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                      >
+                                        <img
+                                          src={m.url}
+                                          alt=""
+                                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                                          <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Action row inside panel */}
+                              <div className="flex items-center gap-2 pt-2 border-t border-orange-100">
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 flex-1 sm:flex-none sm:px-6 shadow-sm"
+                                  onClick={() => handleAction(item, 'approved')}
+                                  disabled={!!actionLoadingId}
+                                >
+                                  {actionLoadingId === `${item.id}-approved` ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : (
+                                    <Check className="w-4 h-4 mr-2" />
+                                  )}
+                                  Aprovar atualização
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="rounded-lg h-9 flex-1 sm:flex-none sm:px-6 shadow-sm"
+                                  onClick={() => handleAction(item, 'rejected')}
+                                  disabled={!!actionLoadingId}
+                                >
+                                  {actionLoadingId === `${item.id}-rejected` ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : (
+                                    <X className="w-4 h-4 mr-2" />
+                                  )}
+                                  Rejeitar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="rounded-lg h-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                  onClick={() => handleAction(item, 'deleted')}
+                                  disabled={!!actionLoadingId}
+                                  title="Excluir definitivamente"
+                                >
+                                  {actionLoadingId === `${item.id}-deleted` ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -718,7 +876,7 @@ const ModerationPage = () => {
       </Dialog>
 
       {/* Approve/Reject Dialogs (Simplified for better UX) */}
-      <Dialog open={isApproveModalOpen} onOpenChange={setIsApproveModalOpen}>
+      <Dialog open={isApproveModalOpen} onOpenChange={(open) => { if (!actionLoadingId) setIsApproveModalOpen(open); }}>
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
@@ -729,13 +887,21 @@ const ModerationPage = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-6 gap-3">
-            <Button variant="ghost" onClick={() => setIsApproveModalOpen(false)} className="rounded-xl h-12 flex-1">Cancelar</Button>
-            <Button onClick={confirmApproval} className="bg-green-600 hover:bg-green-700 text-white rounded-xl h-12 flex-1 shadow-lg shadow-green-200">Aprovar Agora</Button>
+            <Button variant="ghost" onClick={() => setIsApproveModalOpen(false)} className="rounded-xl h-12 flex-1" disabled={!!actionLoadingId}>Cancelar</Button>
+            <Button
+              onClick={confirmApproval}
+              className="bg-green-600 hover:bg-green-700 text-white rounded-xl h-12 flex-1 shadow-lg shadow-green-200"
+              disabled={!!actionLoadingId}
+            >
+              {actionLoadingId ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Aprovando...</>
+              ) : 'Aprovar Agora'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
+      <Dialog open={isRejectModalOpen} onOpenChange={(open) => { if (!actionLoadingId) setIsRejectModalOpen(open); }}>
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
@@ -759,36 +925,68 @@ const ModerationPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Descrição</Label>
-                  <Textarea 
-                    value={rejectionDescription} 
-                    onChange={(e) => setRejectionDescription(e.target.value)} 
+                  <Textarea
+                    value={rejectionDescription}
+                    onChange={(e) => setRejectionDescription(e.target.value)}
                     placeholder="Explique o que precisa ser ajustado para reenviar a bronca."
                     className="min-h-[120px] rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
                   />
                 </div>
               </div>
             ) : (
-              <Textarea 
-                value={rejectionReason} 
-                onChange={(e) => setRejectionReason(e.target.value)} 
+              <Textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Ex: Conteúdo duplicado, informações incompletas..."
                 className="min-h-[120px] rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
               />
             )}
           </div>
           <DialogFooter className="gap-3">
-            <Button variant="ghost" onClick={() => setIsRejectModalOpen(false)} className="rounded-xl h-12 flex-1">Cancelar</Button>
+            <Button variant="ghost" onClick={() => setIsRejectModalOpen(false)} className="rounded-xl h-12 flex-1" disabled={!!actionLoadingId}>Cancelar</Button>
             <Button
               variant="destructive"
               onClick={confirmRejection}
-              disabled={isReportModeration ? (!rejectionTitle.trim() || !rejectionDescription.trim()) : !rejectionReason.trim()}
+              disabled={!!actionLoadingId || (isReportModeration ? (!rejectionTitle.trim() || !rejectionDescription.trim()) : !rejectionReason.trim())}
               className="rounded-xl h-12 flex-1 shadow-lg shadow-red-200"
             >
-              Confirmar Rejeição
+              {actionLoadingId ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Rejeitando...</>
+              ) : 'Confirmar Rejeição'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+            onClick={() => setLightboxImage(null)}
+          >
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              src={lightboxImage}
+              alt=""
+              className="max-h-[90vh] max-w-full rounded-xl shadow-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+              onClick={() => setLightboxImage(null)}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
