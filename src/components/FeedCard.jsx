@@ -610,6 +610,10 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
           type="button"
           onClick={(e) => {
             e.stopPropagation();
+            if (!user) {
+              navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
+              return;
+            }
             navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
           }}
           className="w-full flex items-center gap-2.5 px-4 py-3 mx-0 bg-[#fff7f7] hover:bg-[#ffe8e8] border-t border-[#f5c6c8] transition-colors rounded-b-[inherit] group"

@@ -1,33 +1,38 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, AlertCircle, Clock, CheckCircle2, Send, Check } from 'lucide-react';
+import {
+  X, Camera, Image as GalleryIcon, AlertCircle, Clock,
+  CheckCircle2, Send, Check, Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import MediaViewer from '@/components/MediaViewer';
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 const UPDATE_TYPES = [
   {
     id: 'still_here',
     label: 'O problema ainda está aqui',
-    description: 'O problema persiste e não foi resolvido',
+    description: 'O problema persiste no local',
     icon: AlertCircle,
     color: 'text-red-600',
+    selectedText: 'text-red-700',
     bg: 'bg-red-50',
-    activeBg: 'bg-red-100',
-    activeBorder: 'border-red-500',
-    ringColor: 'ring-red-200',
-    dotColor: 'bg-red-500',
+    border: 'border-red-400',
+    dot: 'bg-red-500',
+    glow: 'shadow-red-100',
   },
   {
     id: 'being_solved',
-    label: 'O problema está sendo resolvido',
+    label: 'Está sendo resolvido',
     description: 'Já iniciaram o processo de resolução',
     icon: Clock,
     color: 'text-amber-600',
+    selectedText: 'text-amber-700',
     bg: 'bg-amber-50',
-    activeBg: 'bg-amber-100',
-    activeBorder: 'border-amber-500',
-    ringColor: 'ring-amber-200',
-    dotColor: 'bg-amber-500',
+    border: 'border-amber-400',
+    dot: 'bg-amber-500',
+    glow: 'shadow-amber-100',
   },
   {
     id: 'solved',
@@ -35,88 +40,58 @@ const UPDATE_TYPES = [
     description: 'O problema foi completamente solucionado',
     icon: CheckCircle2,
     color: 'text-emerald-600',
+    selectedText: 'text-emerald-700',
     bg: 'bg-emerald-50',
-    activeBg: 'bg-emerald-100',
-    activeBorder: 'border-emerald-500',
-    ringColor: 'ring-emerald-200',
-    dotColor: 'bg-emerald-500',
+    border: 'border-emerald-400',
+    dot: 'bg-emerald-500',
+    glow: 'shadow-emerald-100',
   },
 ];
 
-// disabledTypes: { still_here: Date, being_solved: Date, solved: Date } — tipos bloqueados com data de liberação
-const ReportUpdateModal = ({ onClose, onSubmit, submitting = false, disabledTypes = {} }) => {
-  const [selectedType, setSelectedType] = useState(null);
-  const [message, setMessage] = useState('');
-  const [photos, setPhotos] = useState([]);
-  const [photoPreviews, setPhotoPreviews] = useState([]);
-  const fileInputRef = useRef(null);
+// ─── Componente ───────────────────────────────────────────────────────────────
+// Todos os estados que precisam sobreviver a remounts vivem em ReportPage e são passados como props:
+//   cam           → useNativeCamera (fotos)
+//   selectedType  → tipo de atualização selecionado
+//   onSelectType  → setter do tipo
+//   message       → texto descritivo
+//   onMessageChange → setter da mensagem
+const ReportUpdateModal = ({
+  onClose,
+  onSubmit,
+  submitting = false,
+  disabledTypes = {},
+  cam,
+  selectedType,
+  onSelectType,
+  message,
+  onMessageChange,
+}) => {
+  const [viewer, setViewer] = useState({ open: false, index: 0 });
   const { toast } = useToast();
 
-  const handleFileChange = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+  // Converte photoItems para o formato que MediaViewer espera
+  const viewerMedia = cam.photoItems.map((item) => ({
+    url: item.preview,
+    type: 'image',
+  }));
 
-    const newPhotos = [];
-    const newPreviews = [];
-
-    for (const file of files) {
-      try {
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(file);
-        });
-        const img = await new Promise((resolve, reject) => {
-          const image = new Image();
-          image.onload = () => resolve(image);
-          image.onerror = reject;
-          image.src = dataUrl;
-        });
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        canvas.getContext('2d').drawImage(img, 0, 0);
-        // Usar JPEG — bucket reports-media não aceita WebP
-        const blob = await new Promise((res, rej) => {
-          if (canvas.convertToBlob) {
-            canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 }).then(res).catch(rej);
-          } else {
-            canvas.toBlob((b) => b ? res(b) : rej(new Error('toBlob failed')), 'image/jpeg', 0.85);
-          }
-        });
-        const jpegFile = new File(
-          [blob],
-          file.name.replace(/\.(webp|png)$/i, '.jpg'),
-          { type: 'image/jpeg' }
-        );
-        newPhotos.push(jpegFile);
-        newPreviews.push(URL.createObjectURL(jpegFile));
-      } catch (_) {
-        newPhotos.push(file);
-        newPreviews.push(URL.createObjectURL(file));
-      }
-    }
-
-    setPhotos((prev) => [...prev, ...newPhotos]);
-    setPhotoPreviews((prev) => [...prev, ...newPreviews]);
-    e.target.value = '';
-  };
-
-  const removePhoto = (index) => {
-    URL.revokeObjectURL(photoPreviews[index]);
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
-    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
-  };
+  const openPreview = useCallback((index) => {
+    setViewer({ open: true, index });
+  }, []);
 
   const handleSubmit = () => {
     if (!selectedType) {
       toast({ title: 'Selecione o tipo de atualização', variant: 'destructive' });
       return;
     }
-    onSubmit({ updateType: selectedType, message: message.trim(), photos });
+    // selectedType, message e fotos vivem em ReportPage — onSubmit não precisa de parâmetros
+    onSubmit();
   };
 
+  const selectedInfo = UPDATE_TYPES.find((t) => t.id === selectedType);
+
   return (
+    <>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -124,161 +99,268 @@ const ReportUpdateModal = ({ onClose, onSubmit, submitting = false, disabledType
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[3000]"
       onClick={onClose}
     >
+      {/* Web fallback file input */}
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        ref={cam.fileInputRef}
+        onChange={cam.handleFileChange}
+        className="hidden"
+      />
+
       <motion.div
-        initial={{ y: 60, opacity: 0 }}
+        initial={{ y: '100%', opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 60, opacity: 0 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 380 }}
-        className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        exit={{ y: '100%', opacity: 0 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 380 }}
+        className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg flex flex-col overflow-hidden"
+        style={{ maxHeight: '94vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-gray-100 flex items-start justify-between sticky top-0 bg-white z-10 rounded-t-3xl sm:rounded-t-2xl">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-[#191c1e]">Enviar Atualização</h2>
-            <p className="text-xs text-[#6b7280] mt-0.5">Informe o status atual do problema</p>
+            <h2 className="text-[17px] font-extrabold text-[#111827] tracking-tight">
+              Enviar Atualização
+            </h2>
+            <p className="text-xs text-[#9ca3af] mt-0.5">O que você encontrou no local?</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-[#6b7280] hover:bg-[#f2f4f7] rounded-full transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb] transition-colors active:scale-90"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-5 space-y-5">
-          {/* Update type selection */}
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wider">
-              Qual é a situação?
-            </p>
-            {UPDATE_TYPES.map((type) => {
-              const Icon = type.icon;
-              const isSelected = selectedType === type.id;
-              const blockedUntil = disabledTypes[type.id];
-              const isDisabled = !!blockedUntil;
-
-              if (isDisabled) {
-                const diffDays = Math.ceil((blockedUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                const label = diffDays <= 1 ? 'amanhã' : `em ${diffDays} dias`;
-                return (
-                  <div
-                    key={type.id}
-                    className="w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed text-left"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-gray-400 leading-tight">{type.label}</div>
-                      <div className="text-[11px] text-gray-400 mt-0.5">Disponível {label}</div>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <button
-                  key={type.id}
-                  type="button"
-                  onClick={() => setSelectedType(type.id)}
-                  className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left ${
-                    isSelected
-                      ? `${type.activeBg} ${type.activeBorder}`
-                      : 'bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isSelected ? type.activeBg : type.bg}`}>
-                    <Icon className={`w-5 h-5 ${type.color}`} strokeWidth={1.5} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-semibold leading-tight ${isSelected ? type.color : 'text-[#191c1e]'}`}>
-                      {type.label}
-                    </div>
-                    <div className="text-xs text-[#6b7280] mt-0.5">{type.description}</div>
-                  </div>
-                  {isSelected && (
-                    <div className={`w-5 h-5 rounded-full ${type.dotColor} flex items-center justify-center flex-shrink-0`}>
-                      <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Message */}
-          <div>
-            <label className="text-xs font-semibold text-[#6b7280] uppercase tracking-wider mb-1.5 block">
-              Descrição (opcional)
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Descreva o que você observou no local..."
-              rows={3}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-[#191c1e] placeholder-gray-400 resize-none focus:outline-none focus:border-[#b61722] focus:ring-2 focus:ring-[#b61722]/20 transition-colors"
-            />
-          </div>
-
-          {/* Photo upload */}
-          <div>
-            <label className="text-xs font-semibold text-[#6b7280] uppercase tracking-wider mb-1.5 block">
-              Fotos (opcional)
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            {photoPreviews.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {photoPreviews.map((preview, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(idx)}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors"
-                    >
-                      <X className="w-3 h-3 text-white" />
-                    </button>
-                  </div>
-                ))}
-                {photoPreviews.length < 5 && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                  >
-                    <Upload className="w-5 h-5 text-gray-400" />
-                    <span className="text-[10px] text-gray-400">Adicionar</span>
-                  </button>
-                )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-5 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 hover:border-gray-300 hover:bg-gray-50 transition-colors"
-              >
-                <Upload className="w-6 h-6 text-gray-400" />
-                <span className="text-sm text-gray-400">Toque para adicionar fotos</span>
-              </button>
+        {/* ── Fotos — sempre visível ── */}
+        <div className="px-5 pb-4 flex-shrink-0">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-[#6b7280] uppercase tracking-widest">
+              Fotos
+            </span>
+            {cam.photoItems.length > 0 && (
+              <span className="text-[11px] text-[#9ca3af]">
+                {cam.photoItems.length}/5
+              </span>
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-2 flex-wrap">
+            <AnimatePresence>
+              {cam.photoItems.map((item, idx) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ scale: 0.7, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.7, opacity: 0 }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                  className="relative w-[72px] h-[72px] rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0"
+                >
+                  {/* Clique na imagem abre preview fullscreen */}
+                  <button
+                    type="button"
+                    onClick={() => openPreview(idx)}
+                    className="w-full h-full"
+                  >
+                    <img
+                      src={item.preview}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                  {/* Botão de remover */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); cam.removePhoto(item.id); }}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center active:scale-90"
+                  >
+                    <X className="w-2.5 h-2.5 text-white" />
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {/* Spinner enquanto processa */}
+            {cam.addingPhoto && (
+              <motion.div
+                initial={{ scale: 0.7, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="w-[72px] h-[72px] rounded-2xl bg-gray-100 flex items-center justify-center flex-shrink-0"
+              >
+                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+              </motion.div>
+            )}
+
+            {/* Botões câmera + galeria */}
+            {cam.canAdd && (
+              <>
+                <button
+                  type="button"
+                  onClick={cam.handleCamera}
+                  className="w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center gap-1 border-2 border-dashed border-[#b61722]/30 bg-[#fff7f7] hover:bg-[#ffe8e8] hover:border-[#b61722]/60 transition-colors active:scale-90 flex-shrink-0"
+                >
+                  <Camera className="w-5 h-5 text-[#b61722]" />
+                  <span className="text-[9px] font-semibold text-[#b61722]">Câmera</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={cam.handleGallery}
+                  className="w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors active:scale-90 flex-shrink-0"
+                >
+                  <GalleryIcon className="w-5 h-5 text-gray-400" />
+                  <span className="text-[9px] font-semibold text-gray-500">Galeria</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="h-px bg-gray-100 mx-5 flex-shrink-0" />
+
+        {/* Scrollable */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="px-5 pt-4 pb-2 space-y-3">
+            {/* Tipo */}
+            <div>
+              <p className="text-[11px] font-bold text-[#6b7280] uppercase tracking-widest mb-2">
+                Qual é a situação?
+              </p>
+              <div className="space-y-2">
+                {UPDATE_TYPES.map((type) => {
+                  const Icon = type.icon;
+                  const isSelected = selectedType === type.id;
+                  const blockedUntil = disabledTypes[type.id];
+
+                  if (blockedUntil) {
+                    const days = Math.ceil(
+                      (blockedUntil.getTime() - Date.now()) / 86400000
+                    );
+                    return (
+                      <div
+                        key={type.id}
+                        className="flex items-center gap-3 p-3 rounded-2xl border border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <Icon className="w-4 h-4 text-gray-300" strokeWidth={2} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-400 leading-tight">
+                            {type.label}
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            Disponível {days <= 1 ? 'amanhã' : `em ${days} dias`}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <motion.button
+                      key={type.id}
+                      type="button"
+                      onClick={() => onSelectType(type.id)}
+                      whileTap={{ scale: 0.98 }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 transition-all text-left ${
+                        isSelected
+                          ? `${type.bg} ${type.border} shadow-md ${type.glow}`
+                          : 'bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          isSelected ? type.bg : 'bg-gray-50'
+                        }`}
+                      >
+                        <Icon
+                          className={`w-4 h-4 ${isSelected ? type.color : 'text-gray-400'}`}
+                          strokeWidth={2}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-sm font-bold leading-tight ${
+                            isSelected ? type.selectedText : 'text-[#111827]'
+                          }`}
+                        >
+                          {type.label}
+                        </p>
+                        <p className="text-[11px] text-[#9ca3af] mt-0.5">
+                          {type.description}
+                        </p>
+                      </div>
+                      {isSelected ? (
+                        <div
+                          className={`w-6 h-6 rounded-full ${type.dot} flex items-center justify-center flex-shrink-0 shadow-sm`}
+                        >
+                          <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full border-2 border-gray-200 flex-shrink-0" />
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Descrição */}
+            <div className="pb-2">
+              <label className="text-[11px] font-bold text-[#6b7280] uppercase tracking-widest mb-2 block">
+                Descrição{' '}
+                <span className="normal-case font-normal text-gray-400">(opcional)</span>
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => onMessageChange(e.target.value)}
+                placeholder="Descreva o que você observou no local..."
+                rows={3}
+                className="w-full px-3.5 py-3 rounded-2xl border border-gray-200 text-sm text-[#111827] placeholder-gray-300 resize-none focus:outline-none focus:border-[#b61722] focus:ring-2 focus:ring-[#b61722]/10 transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex-shrink-0 bg-white border-t border-gray-100"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+        >
+          {/* Banner do tipo selecionado */}
+          <AnimatePresence>
+            {selectedInfo && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div
+                  className={`mx-5 mt-3 px-3.5 py-2 rounded-xl ${selectedInfo.bg} flex items-center gap-2`}
+                >
+                  <selectedInfo.icon
+                    className={`w-3.5 h-3.5 ${selectedInfo.color} flex-shrink-0`}
+                    strokeWidth={2.5}
+                  />
+                  <span
+                    className={`text-xs font-semibold ${selectedInfo.selectedText} leading-tight`}
+                  >
+                    {selectedInfo.label}
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="flex gap-3 px-5 pt-3">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="flex-1 rounded-xl h-11"
+              className="flex-1 rounded-2xl h-12 text-sm font-semibold border-gray-200"
               disabled={submitting}
             >
               Cancelar
@@ -286,15 +368,38 @@ const ReportUpdateModal = ({ onClose, onSubmit, submitting = false, disabledType
             <Button
               onClick={handleSubmit}
               disabled={!selectedType || submitting}
-              className="flex-1 rounded-xl h-11 gap-2 bg-[#b61722] hover:bg-[#9f1520] text-white disabled:opacity-50"
+              className={`flex-[2] rounded-2xl h-12 gap-2 text-sm font-bold text-white transition-all ${
+                selectedType
+                  ? 'bg-[#b61722] hover:bg-[#9f1520] shadow-lg shadow-red-200 active:scale-[0.98]'
+                  : 'bg-gray-200 cursor-not-allowed'
+              }`}
             >
-              <Send className="w-4 h-4" />
-              {submitting ? 'Enviando...' : 'Enviar'}
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Enviar atualização
+                </>
+              )}
             </Button>
           </div>
         </div>
       </motion.div>
     </motion.div>
+
+    {/* Preview fullscreen das fotos — z-index acima do modal */}
+    {viewer.open && viewerMedia.length > 0 && (
+      <MediaViewer
+        media={viewerMedia}
+        startIndex={viewer.index}
+        onClose={() => setViewer({ open: false, index: 0 })}
+      />
+    )}
+    </>
   );
 };
 

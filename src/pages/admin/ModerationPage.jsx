@@ -11,10 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ArrowLeft, Check, X, Eye, ChevronLeft, ChevronRight, Search, 
-  MessageSquare, AlertCircle, FileText, CheckCircle2, Info, 
-  Filter, Calendar, User, Clock, Image as ImageIcon
+import {
+  ArrowLeft, Check, X, Eye, ChevronLeft, ChevronRight, Search,
+  MessageSquare, AlertCircle, FileText, CheckCircle2, Info,
+  Filter, Calendar, User, Clock, Image as ImageIcon, Megaphone, Trash2
 } from 'lucide-react';
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -48,18 +48,44 @@ const ModerationPage = () => {
   const isResolutionModeration = type === 'resolucoes';
   const isPetitionModeration = type === 'peticoes';
   const isWorkMediaModeration = type === 'obras-midias';
-  
-  const pageTitle = isWorkMediaModeration ? 'Moderação de Mídias de Obras' :
-                   isResolutionModeration ? 'Moderação de Resoluções' : 
-                   isReportModeration ? 'Moderação de Broncas' : 
+  const isUpdateModeration = type === 'atualizacoes';
+
+  const pageTitle = isUpdateModeration ? 'Moderação de Atualizações' :
+                   isWorkMediaModeration ? 'Moderação de Mídias de Obras' :
+                   isResolutionModeration ? 'Moderação de Resoluções' :
+                   isReportModeration ? 'Moderação de Broncas' :
                    isPetitionModeration ? 'Moderação de Abaixo-Assinados' :
                    'Moderação de Comentários';
 
+  const UPDATE_TYPE_LABELS = {
+    still_here: 'O problema ainda está aqui',
+    being_solved: 'O problema está sendo resolvido',
+    solved: 'O problema foi resolvido',
+  };
+  const UPDATE_TYPE_COLORS = {
+    still_here: 'bg-red-50 text-red-700 border-red-200',
+    being_solved: 'bg-amber-50 text-amber-700 border-amber-200',
+    solved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  };
+
   const fetchItems = useCallback(async () => {
     setLoading(true);
-    
+
     try {
-      if (isWorkMediaModeration) {
+      if (isUpdateModeration) {
+        const { data, error } = await supabase
+          .from('report_updates')
+          .select(
+            'id, report_id, author_id, update_type, message, status, created_at, ' +
+            'author:profiles!report_updates_author_id_fkey(name), ' +
+            'report:reports!report_updates_report_id_fkey(id, title), ' +
+            'media:report_update_media(*)'
+          )
+          .eq('status', 'pending_moderation')
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        setItems(data || []);
+      } else if (isWorkMediaModeration) {
         const { data, error } = await supabase
           .from('public_work_media')
           .select('*, work:public_works(title), contributor:profiles!contributor_id(name)')
@@ -100,13 +126,30 @@ const ModerationPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isReportModeration, isResolutionModeration, isPetitionModeration, isWorkMediaModeration, toast]);
+  }, [isReportModeration, isResolutionModeration, isPetitionModeration, isWorkMediaModeration, isUpdateModeration, toast]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
 
+  const handleDeleteUpdate = async (item) => {
+    try {
+      const { error } = await supabase.rpc('delete_report_update', { p_update_id: item.id });
+      if (error) throw error;
+      toast({ title: 'Atualização excluída definitivamente.' });
+      fetchItems();
+    } catch (err) {
+      toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
+    }
+  };
+
   const handleAction = async (item, newStatus) => {
+    if (newStatus === 'deleted' && isUpdateModeration) {
+      if (window.confirm('Excluir esta atualização definitivamente? Esta ação não pode ser desfeita.')) {
+        await handleDeleteUpdate(item);
+      }
+      return;
+    }
     if (newStatus === 'rejected') {
       setItemToReject(item);
       setRejectionReason('');
@@ -121,6 +164,37 @@ const ModerationPage = () => {
 
   const processAction = async (item, newStatus) => {
     try {
+      if (isUpdateModeration) {
+        if (newStatus === 'approved') {
+          const { error } = await supabase
+            .from('report_updates')
+            .update({ status: 'pending' })
+            .eq('id', item.id);
+          if (error) throw error;
+        } else {
+          // rejected: notify the update author
+          if (item.author_id) {
+            await supabase.from('notifications').insert({
+              user_id: item.author_id,
+              type: 'status_update',
+              title: 'Atualização rejeitada',
+              message: `Sua atualização em "${item.report?.title || 'bronca'}" não foi aprovada por não cumprir as diretrizes.`,
+              link: '/bronca/' + item.report_id,
+              report_id: item.report_id,
+              is_read: false,
+            });
+          }
+          const { error } = await supabase
+            .from('report_updates')
+            .update({ status: 'rejected' })
+            .eq('id', item.id);
+          if (error) throw error;
+        }
+        toast({ title: `Atualização ${newStatus === 'approved' ? 'aprovada' : 'rejeitada'} com sucesso!` });
+        fetchItems();
+        return;
+      }
+
       const shouldRetryWithoutRejectionFields = (err) => {
         const msg = String(err?.message || '');
         if (err?.code === 'PGRST204') return true;
@@ -272,7 +346,7 @@ const ModerationPage = () => {
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const searchLower = searchTerm.toLowerCase();
-      const title = item.title || item.text || item.work?.title || '';
+      const title = item.title || item.text || item.work?.title || item.report?.title || UPDATE_TYPE_LABELS[item.update_type] || '';
       const authorName = item.author?.name || item.resolution_submission?.userName || item.contributor?.name || '';
       return title.toLowerCase().includes(searchLower) || authorName.toLowerCase().includes(searchLower);
     });
@@ -325,7 +399,7 @@ const ModerationPage = () => {
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{pageTitle}</h1>
             </div>
             <p className="text-muted-foreground ml-10 md:ml-12 text-sm md:text-base">
-              {isWorkMediaModeration ? 'Aprove ou rejeite fotos e vídeos enviados pelos cidadãos' : isResolutionModeration ? 'Valide as resoluções enviadas' : 'Garanta a qualidade do conteúdo da plataforma'}
+              {isUpdateModeration ? 'Revise atualizações enviadas antes de ficarem visíveis ao público' : isWorkMediaModeration ? 'Aprove ou rejeite fotos e vídeos enviados pelos cidadãos' : isResolutionModeration ? 'Valide as resoluções enviadas' : 'Garanta a qualidade do conteúdo da plataforma'}
             </p>
           </div>
           
@@ -369,25 +443,58 @@ const ModerationPage = () => {
                     <CardContent className="p-0">
                       <div className="flex flex-row items-stretch min-h-[110px] md:min-h-[130px]">
                         {/* Icon/Visual Indicator - Always vertical stripe */}
-                        <div className={`w-1.5 md:w-2 shrink-0 ${isWorkMediaModeration ? 'bg-purple-500' : isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
+                        <div className={`w-1.5 md:w-2 shrink-0 ${isUpdateModeration ? 'bg-orange-500' : isWorkMediaModeration ? 'bg-purple-500' : isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
                         
                         <div className="flex-1 p-2.5 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-6 min-w-0">
                           <div className="space-y-1 md:space-y-2 flex-1 min-w-0 w-full">
                             <div className="flex items-center gap-1.5 md:gap-3 flex-wrap mb-0.5">
                               <Badge variant="outline" className="gap-1 font-medium py-0 h-5 md:h-6 text-[9px] md:text-xs">
-                                {isWorkMediaModeration ? <ImageIcon className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isPetitionModeration ? <FileText className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isResolutionModeration ? <CheckCircle2 className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : <MessageSquare className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />}
-                                {isWorkMediaModeration ? 'Mídia de Obra' : isPetitionModeration ? 'Abaixo-Assinado' : isResolutionModeration ? 'Resolução' : 'Comentário'}
+                                {isUpdateModeration ? <Megaphone className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isWorkMediaModeration ? <ImageIcon className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isPetitionModeration ? <FileText className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isResolutionModeration ? <CheckCircle2 className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : <MessageSquare className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />}
+                                {isUpdateModeration ? 'Atualização' : isWorkMediaModeration ? 'Mídia de Obra' : isPetitionModeration ? 'Abaixo-Assinado' : isResolutionModeration ? 'Resolução' : 'Comentário'}
                               </Badge>
+                              {isUpdateModeration && item.update_type && (
+                                <span className={`text-[9px] md:text-xs font-semibold px-2 py-0.5 rounded-full border ${UPDATE_TYPE_COLORS[item.update_type] || 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                                  {UPDATE_TYPE_LABELS[item.update_type] || item.update_type}
+                                </span>
+                              )}
                               <span className="text-[9px] md:text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />
                                 {new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
-                            
+
                             <h3 className="font-bold text-sm md:text-lg leading-tight line-clamp-2 group-hover:text-tc-red transition-colors">
-                              {isWorkMediaModeration ? (item.work?.title || 'Obra desconhecida') : (item.title || (item.text ? `"${item.text}"` : 'Sem título'))}
+                              {isUpdateModeration
+                                ? (item.report?.title || 'Bronca sem título')
+                                : isWorkMediaModeration
+                                  ? (item.work?.title || 'Obra desconhecida')
+                                  : (item.title || (item.text ? `"${item.text}"` : 'Sem título'))}
                             </h3>
-                            
+
+                            {isUpdateModeration && item.message && (
+                              <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 italic">
+                                "{item.message}"
+                              </p>
+                            )}
+
+                            {isUpdateModeration && item.media && item.media.length > 0 && (
+                              <div className="flex gap-1.5 mt-1.5">
+                                {item.media.slice(0, 3).map((m) => (
+                                  <img
+                                    key={m.id}
+                                    src={m.url}
+                                    alt=""
+                                    className="w-10 h-10 rounded-lg object-cover border border-gray-100"
+                                  />
+                                ))}
+                                {item.media.length > 3 && (
+                                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">
+                                    +{item.media.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             <div className="flex flex-col xs:flex-row xs:items-center gap-1.5 xs:gap-4 text-[10px] md:text-sm text-muted-foreground">
                               <div className="flex items-center gap-1.5">
                                 <User className="w-3.5 h-3.5 md:w-4 md:h-4" />
@@ -410,7 +517,9 @@ const ModerationPage = () => {
                               size="sm" 
                               className="h-8 md:h-10 px-2.5 md:px-4 hover:bg-background flex-1 sm:flex-none text-[11px] md:text-sm"
                               onClick={() => {
-                                if (isPetitionModeration) {
+                                if (isUpdateModeration) {
+                                  navigate(`/bronca/${item.report_id}`);
+                                } else if (isPetitionModeration) {
                                   navigate(`/abaixo-assinado/${item.id}`);
                                 } else if (isWorkMediaModeration) {
                                   setSelectedWorkMedia(item);
@@ -426,23 +535,37 @@ const ModerationPage = () => {
                             <div className="hidden sm:block w-px h-6 bg-muted-foreground/20 mx-1" />
                             
                             <div className="flex items-center gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="h-8 w-8 md:h-10 md:w-10 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-colors"
                                 onClick={() => handleAction(item, 'approved')}
+                                title="Aprovar"
                               >
                                 <Check className="w-4 h-4 md:w-5 md:h-5" />
                               </Button>
-                              
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="h-8 w-8 md:h-10 md:w-10 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
                                 onClick={() => handleAction(item, 'rejected')}
+                                title="Rejeitar (mantém registro)"
                               >
                                 <X className="w-4 h-4 md:w-5 md:h-5" />
                               </Button>
+
+                              {isUpdateModeration && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 md:h-10 md:w-10 text-gray-400 hover:text-white hover:bg-gray-500 rounded-lg transition-colors"
+                                  onClick={() => handleAction(item, 'deleted')}
+                                  title="Excluir definitivamente"
+                                >
+                                  <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>
