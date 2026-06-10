@@ -514,47 +514,29 @@ export const NotificationProvider = ({ children }) => {
     }
 
     try {
-      // Verificar se já existe registro para este usuário
-      const { data: existingData, error: checkError } = await supabase
-        .from('push_subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // "1 device = 1 conta": a conta atual reivindica o token, removendo-o de
+      // qualquer OUTRA conta que tenha usado o app neste device antes.
+      // claim_fcm_token (SECURITY DEFINER) faz a limpeza cross-account + o upsert
+      // de forma atômica, contornando a RLS de forma controlada.
+      const { error: claimError } = await supabase.rpc('claim_fcm_token', {
+        p_token: token,
+      });
 
-      if (checkError) {
-        console.error('[FCM] Erro ao verificar token FCM existente:', checkError);
-      }
-
-      // Se já existe, fazer UPDATE; senão, fazer INSERT
-      if (existingData) {
-        const { error: updateError } = await supabase
+      if (claimError) {
+        console.error('[FCM] Erro ao reivindicar token FCM:', claimError);
+        // Fallback: gravar ao menos para a conta atual (sem limpeza cross-account)
+        const { error: upsertError } = await supabase
           .from('push_subscriptions')
-          .update({
-            subscription_details: {
-              type: 'fcm',
-              token: token
+          .upsert(
+            {
+              user_id: user.id,
+              subscription_details: { type: 'fcm', token },
+              updated_at: new Date().toISOString(),
             },
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id);
-
-        if (updateError) {
-          console.error('[FCM] Erro ao atualizar token FCM:', updateError);
-        }
-      } else {
-        const { error: insertError } = await supabase
-          .from('push_subscriptions')
-          .insert({
-            user_id: user.id,
-            subscription_details: {
-              type: 'fcm',
-              token: token
-            },
-            updated_at: new Date().toISOString()
-          });
-
-        if (insertError) {
-          console.error('[FCM] Erro ao inserir token FCM:', insertError);
+            { onConflict: 'user_id' }
+          );
+        if (upsertError) {
+          console.error('[FCM] Erro no fallback de salvar token FCM:', upsertError);
         }
       }
 
@@ -638,21 +620,35 @@ export const NotificationProvider = ({ children }) => {
   }, [isCapacitor, user]);
 
   const savePushSubscription = useCallback(async (subscription) => {
+    // Gravar no formato que a Edge Function espera ler em `subscription_details`
+    // ({ endpoint, keys: { p256dh, auth } }). PushSubscription.toJSON() já
+    // entrega exatamente esse shape.
+    const details = typeof subscription?.toJSON === 'function'
+      ? subscription.toJSON()
+      : subscription;
+
     if (!user) {
-      localStorage.setItem('push-subscription', JSON.stringify(subscription));
+      localStorage.setItem('push-subscription', JSON.stringify(details));
       return;
     }
     try {
-      await supabase
+      // A tabela tem UNIQUE(user_id) — uma linha por usuário. Usar upsert por
+      // user_id para gravar a subscription web push em `subscription_details`,
+      // que é a coluna lida pela Edge Function e pelo fluxo FCM nativo.
+      const { error } = await supabase
         .from('push_subscriptions')
-        .upsert({
-          user_id: user.id,
-          subscription: subscription,
-          created_at: new Date().toISOString()
-        });
+        .upsert(
+          {
+            user_id: user.id,
+            subscription_details: details,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+      if (error) throw error;
     } catch (error) {
       console.error('Error saving subscription:', error);
-      localStorage.setItem('push-subscription', JSON.stringify(subscription));
+      localStorage.setItem('push-subscription', JSON.stringify(details));
     }
   }, [user]);
 
@@ -754,14 +750,15 @@ export const NotificationProvider = ({ children }) => {
       // usuário estava offline; se a atualização do SW falhou, o servidor fica com a
       // subscription antiga inválida. Re-salvar aqui corrige isso.
       if (existingSubscription && user) {
-        const { data: dbSub } = await supabase
+        const { data: dbSubs } = await supabase
           .from('push_subscriptions')
-          .select('subscription')
-          .eq('user_id', user.id)
-          .maybeSingle();
+          .select('subscription_details')
+          .eq('user_id', user.id);
 
-        const dbEndpoint = dbSub?.subscription?.endpoint;
-        if (dbEndpoint !== existingSubscription.endpoint) {
+        const hasMatching = (dbSubs || []).some(
+          (row) => row.subscription_details?.endpoint === existingSubscription.endpoint
+        );
+        if (!hasMatching) {
           await savePushSubscription(existingSubscription);
         }
       }

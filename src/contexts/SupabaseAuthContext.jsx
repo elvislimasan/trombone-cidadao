@@ -502,6 +502,25 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signOut = useCallback(async () => {
+    // "1 device = 1 conta": remover o token FCM desta conta ANTES de encerrar a
+    // sessão (depois do signOut a RLS bloquearia o delete). Assim o device para
+    // de receber notificações da conta da qual está saindo.
+    // Timeout de segurança: se offline/rede lenta, não travar o logout — o
+    // próximo login (claim_fcm_token) limpa o token das outras contas mesmo
+    // que esta remoção não complete agora.
+    try {
+      const releasePromise = supabase.rpc('release_fcm_token', { p_token: null });
+      const releaseTimeout = new Promise((resolve) =>
+        setTimeout(() => resolve({ timedOut: true }), 3000)
+      );
+      const result = await Promise.race([releasePromise, releaseTimeout]);
+      if (result?.timedOut) {
+        console.warn("release_fcm_token excedeu 3s; prosseguindo com logout.");
+      }
+    } catch (e) {
+      console.error("Erro ao remover token FCM no logout:", e);
+    }
+
     const { error } = await supabase.auth.signOut();
     if (error && error.message !== 'Session from session_id claim in JWT does not exist') {
       console.error("Erro ao sair:", error.message);
