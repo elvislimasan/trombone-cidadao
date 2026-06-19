@@ -440,6 +440,24 @@ const ReportPage = () => {
     [mediaItems]
   );
 
+  const reportAgeStory = useMemo(() => {
+    if (!report?.created_at || report?.status === "resolved") return null;
+
+    const createdAt = new Date(report.created_at);
+    if (Number.isNaN(createdAt.getTime())) return null;
+
+    const ageDays = Math.max(
+      0,
+      Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    if (ageDays < 7) return null;
+
+    return report.category === "iluminacao"
+      ? `Essa rua está há ${ageDays} dias no escuro.`
+      : `Esse problema está há ${ageDays} dias sem solução.`;
+  }, [report?.category, report?.created_at, report?.status]);
+
   const waterUtilityName = useMemo(() => {
     if (!report || !report.is_from_water_utility) return null;
     const address = (report.address || "").toLowerCase();
@@ -1830,6 +1848,14 @@ const ReportPage = () => {
                             </span>
                           )}
                         </div>
+
+                        {reportAgeStory && (
+                          <div>
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg bg-muted/70 text-foreground border border-border/60">
+                              {reportAgeStory}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {viewerMedia.length > 1 && (
@@ -2267,17 +2293,9 @@ const ReportPage = () => {
                           <p className="text-xs text-[#9b9fa3] flex-1">
                             Esteve no local? Informe o status atual.
                           </p>
-                          {user ? (
-                            canSendAnyUpdate ? (
-                              <button
-                                type="button"
-                                onClick={() => setShowUpdateModal(true)}
-                                className="text-[11px] font-semibold text-[#b61722] hover:underline whitespace-nowrap"
-                              >
-                                Enviar
-                              </button>
-                            ) : null
-                          ) : (
+                          {/* Usuário logado já tem o botão "+ Enviar atualização" no header acima;
+                              aqui mostramos apenas o atalho de login para quem está deslogado. */}
+                          {!user && (
                             <Link
                               to="/login"
                               className="text-[11px] font-semibold text-[#b61722] hover:underline whitespace-nowrap"

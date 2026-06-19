@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar, Cell, PieChart, Pie, LabelList, Label } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar, Cell, PieChart, Pie, LabelList, Label } from 'recharts';
+import { toPng } from 'html-to-image';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2 } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2, LineChart as LineChartIcon, Layers, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import WorksStatsReports from '@/components/WorksStatsReports';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -20,7 +22,7 @@ import { FileOpener } from '@capacitor-community/file-opener';
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-background/80 backdrop-blur-sm p-3 border border-border rounded-lg shadow-lg">
+      <div className="max-w-[180px] bg-background/90 backdrop-blur-sm p-3 border border-border rounded-lg shadow-lg">
         <p className="label font-bold text-foreground">{label}</p>
         {payload.map((p, i) => (
           <p key={i} style={{ color: p.color }} className="text-sm">
@@ -31,6 +33,107 @@ const CustomTooltip = ({ active, payload, label }) => {
     );
   }
   return null;
+};
+
+const TimelineLegend = () => (
+  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-2 text-[11px] sm:justify-start sm:text-xs">
+    {TIMELINE_STATUS.map((status) => (
+      <div key={status.key} className="inline-flex items-center gap-1.5 text-muted-foreground">
+        <span
+          className="h-2.5 w-2.5 rounded-sm"
+          style={{ backgroundColor: status.color }}
+          aria-hidden="true"
+        />
+        <span className="font-medium">{status.label}</span>
+      </div>
+    ))}
+  </div>
+);
+
+const TimelineFloatingTooltip = ({ tooltip }) => {
+  if (!tooltip) return null;
+
+  return (
+    <div
+      className="absolute z-20 w-[180px] rounded-lg border border-border bg-background/95 p-3 shadow-lg backdrop-blur-sm pointer-events-none"
+      style={{ left: tooltip.left, top: tooltip.top }}
+    >
+      <p className="font-bold text-foreground">{tooltip.label}</p>
+      {tooltip.payload.map((item) => (
+        <p key={item.key} className="text-sm" style={{ color: item.color }}>
+          {`${item.label}: ${item.value}`}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+// Status das broncas exibidos no gráfico temporal, com cores no padrão do sistema.
+const TIMELINE_STATUS = [
+  { key: 'pending', label: 'Pendentes', color: '#f97316' },
+  { key: 'in-progress', label: 'Em Andamento', color: '#3b82f6' },
+  { key: 'resolved', label: 'Resolvidas', color: '#22c55e' },
+];
+
+const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+// Anos distintos presentes nos dados (ordenados do mais antigo ao mais recente).
+const getAvailableYears = (reports) => {
+  const years = new Set();
+  reports.forEach((report) => {
+    if (!report.created_at) return;
+    const date = new Date(report.created_at);
+    if (Number.isNaN(date.getTime())) return;
+    years.add(date.getFullYear());
+  });
+  return Array.from(years).sort((a, b) => a - b);
+};
+
+const buildTimelineData = (reports, view, selectedYear) => {
+  // Visão mensal: sempre exibir os 12 meses (Jan–Dez) do ano selecionado,
+  // preenchendo com zero os meses sem registros. O ano fica no seletor do card.
+  if (view === 'monthly') {
+    const months = MONTH_LABELS.map((label, monthIndex) => {
+      const entry = { key: `${selectedYear}-${monthIndex}`, label, sortValue: monthIndex };
+      TIMELINE_STATUS.forEach((s) => { entry[s.key] = 0; });
+      return entry;
+    });
+
+    reports.forEach((report) => {
+      if (!report.created_at) return;
+      const date = new Date(report.created_at);
+      if (Number.isNaN(date.getTime())) return;
+      if (date.getFullYear() !== selectedYear) return;
+      const entry = months[date.getMonth()];
+      if (Object.prototype.hasOwnProperty.call(entry, report.status)) {
+        entry[report.status] += 1;
+      }
+    });
+
+    return months;
+  }
+
+  // Visão anual: uma barra por ano com dados.
+  const buckets = new Map();
+  reports.forEach((report) => {
+    if (!report.created_at) return;
+    const date = new Date(report.created_at);
+    if (Number.isNaN(date.getTime())) return;
+
+    const year = date.getFullYear();
+    const key = `${year}`;
+    if (!buckets.has(key)) {
+      const entry = { key, label: `${year}`, sortValue: year };
+      TIMELINE_STATUS.forEach((s) => { entry[s.key] = 0; });
+      buckets.set(key, entry);
+    }
+    const entry = buckets.get(key);
+    if (Object.prototype.hasOwnProperty.call(entry, report.status)) {
+      entry[report.status] += 1;
+    }
+  });
+
+  return Array.from(buckets.values()).sort((a, b) => a.sortValue - b.sortValue);
 };
 
 const ReportsStats = () => {
@@ -49,9 +152,16 @@ const ReportsStats = () => {
   const [categoryData, setCategoryData] = useState([]);
   const [statusData, setStatusData] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('all'); // all | buracos
+  const [timelineView, setTimelineView] = useState('monthly'); // monthly | annual
+  const [chartType, setChartType] = useState('grouped'); // grouped | stacked | line
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [chartDownloading, setChartDownloading] = useState(false);
+  const [timelineTooltip, setTimelineTooltip] = useState(null);
   const { toast } = useToast();
+  const timelineChartRef = useRef(null);
+  const timelineTooltipLayerRef = useRef(null);
 
 
   const COLORS = ['#ef4444', '#f97316', '#3b82f6', '#8b5cf6', '#ec4899', '#facc15'];
@@ -330,6 +440,71 @@ const ReportsStats = () => {
     });
   };
 
+  const savePdfDocument = useCallback(async ({ doc, fileName, successTitle, successDescription }) => {
+    const isNative = Capacitor.isNativePlatform();
+
+    if (isNative) {
+      const permissionStatus = await LocalNotifications.checkPermissions();
+      if (permissionStatus.display !== 'granted') {
+        await LocalNotifications.requestPermissions();
+      }
+
+      const base64Data = await pdfToBase64(doc);
+      const platform = Capacitor.getPlatform();
+
+      let downloadPath = fileName;
+      let directory = Directory.Documents;
+
+      if (platform === 'android') {
+        try { await Filesystem.requestPermissions(); } catch {}
+        directory = Directory.ExternalStorage;
+        downloadPath = `Download/${fileName}`;
+      } else if (platform === 'ios') {
+        directory = Directory.Documents;
+        downloadPath = fileName;
+      }
+
+      await Filesystem.writeFile({
+        path: downloadPath,
+        data: base64Data,
+        directory,
+        recursive: true,
+      });
+
+      const uriResult = await Filesystem.getUri({
+        directory,
+        path: downloadPath,
+      });
+
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            title: 'Download Concluído',
+            body: `${fileName} salvo com sucesso. Toque para abrir.`,
+            id: Math.floor(Date.now() % 2147483647),
+            schedule: { at: new Date(Date.now() + 100) },
+            extra: {
+              filePath: uriResult.uri,
+              contentType: 'application/pdf',
+            },
+          },
+        ],
+      });
+
+      toast({
+        title: successTitle,
+        description: successDescription,
+      });
+      return;
+    }
+
+    doc.save(fileName);
+    toast({
+      title: successTitle,
+      description: successDescription,
+    });
+  }, [toast]);
+
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
@@ -420,9 +595,181 @@ const ReportsStats = () => {
     }
   };
 
+  const availableYears = useMemo(
+    () => getAvailableYears(stats.reports || []),
+    [stats.reports]
+  );
+
+  // Se o ano selecionado não tiver dados, cair para o ano mais recente disponível.
+  useEffect(() => {
+    if (availableYears.length === 0) return;
+    if (!availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[availableYears.length - 1]);
+    }
+  }, [availableYears, selectedYear]);
+
+  useEffect(() => {
+    const handlePointerOutsideChart = (event) => {
+      const chartElement = timelineChartRef.current;
+      if (!chartElement) return;
+      if (chartElement.contains(event.target)) return;
+      // Apenas esconder o tooltip flutuante. NÃO remontar o gráfico aqui:
+      // alterar a key do chart a cada clique causava flicker e re-subscrições.
+      setTimelineTooltip((current) => (current ? null : current));
+    };
+
+    document.addEventListener('pointerdown', handlePointerOutsideChart);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerOutsideChart);
+    };
+  }, []);
+
+  const timelineData = useMemo(
+    () => buildTimelineData(stats.reports || [], timelineView, selectedYear),
+    [stats.reports, timelineView, selectedYear]
+  );
+
+  const clearTimelineTooltip = useCallback(() => {
+    setTimelineTooltip(null);
+  }, []);
+
+  const updateTimelineTooltip = useCallback((chartState) => {
+    if (!timelineChartRef.current || !timelineTooltipLayerRef.current) return;
+
+    if (!chartState?.activeCoordinate || !chartState?.activePayload?.length) {
+      setTimelineTooltip(null);
+      return;
+    }
+
+    const chartRect = timelineChartRef.current.getBoundingClientRect();
+    const layerRect = timelineTooltipLayerRef.current.getBoundingClientRect();
+    const tooltipWidth = 180;
+    const tooltipHeight = 96;
+    const pointX = chartRect.left - layerRect.left + chartState.activeCoordinate.x;
+    const pointY = chartRect.top - layerRect.top + chartState.activeCoordinate.y;
+    const left = Math.min(
+      Math.max(pointX - (tooltipWidth / 2), 8),
+      Math.max(8, layerRect.width - tooltipWidth - 8)
+    );
+    const top = Math.max(
+      8,
+      pointY > 110
+        ? pointY - tooltipHeight - 110
+        : pointY - 82
+    );
+
+    setTimelineTooltip({
+      left,
+      top,
+      label: chartState.activeLabel,
+      payload: chartState.activePayload.map((item) => ({
+        key: item.dataKey,
+        label: item.name,
+        value: item.value,
+        color: item.color,
+      })),
+    });
+  }, []);
+
+  // Exporta o gráfico atual como PDF com gráfico e tabela dos valores exatos.
+  const handleDownloadChartImage = async () => {
+    if (!timelineChartRef.current) return;
+    setChartDownloading(true);
+    try {
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve);
+        });
+      });
+
+      const dataUrl = await toPng(timelineChartRef.current, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 14;
+      const chartWidth = pageWidth - (margin * 2);
+      const chartHeight = 84;
+      const viewLabel = timelineView === 'monthly' ? 'Mensal' : 'Anual';
+      const chartTypeLabel = chartType === 'grouped'
+        ? 'Barras agrupadas'
+        : chartType === 'stacked'
+          ? 'Barras empilhadas'
+          : 'Linha';
+      const totals = timelineData.reduce((acc, entry) => {
+        TIMELINE_STATUS.forEach((status) => {
+          acc[status.key] += Number(entry[status.key] || 0);
+        });
+        return acc;
+      }, { pending: 0, 'in-progress': 0, resolved: 0 });
+
+      doc.setFontSize(16);
+      doc.text('Painel do gráfico de broncas', margin, 18);
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, margin, 26);
+      doc.text(`Visão: ${viewLabel}`, margin, 34);
+      doc.text(`Ano: ${timelineView === 'monthly' ? selectedYear : 'Todos os anos disponíveis'}`, margin, 40);
+      doc.text(`Tipo de gráfico: ${chartTypeLabel}`, margin, 46);
+      doc.text(
+        `Totais - Pendentes: ${totals.pending} | Em andamento: ${totals['in-progress']} | Resolvidas: ${totals.resolved}`,
+        margin,
+        52
+      );
+
+      doc.addImage(dataUrl, 'PNG', margin, 58, chartWidth, chartHeight);
+
+      const tableRows = timelineData.map((entry) => {
+        const total = TIMELINE_STATUS.reduce((sum, status) => sum + Number(entry[status.key] || 0), 0);
+        return [
+          entry.label,
+          Number(entry.pending || 0),
+          Number(entry['in-progress'] || 0),
+          Number(entry.resolved || 0),
+          total,
+        ];
+      });
+
+      doc.autoTable({
+        head: [['Período', 'Pendentes', 'Em andamento', 'Resolvidas', 'Total']],
+        body: tableRows,
+        startY: 150,
+        theme: 'grid',
+        headStyles: { fillColor: [239, 68, 68] },
+      });
+
+      const fileName = `grafico_broncas_${timelineView === 'monthly' ? selectedYear : 'anual'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      await savePdfDocument({
+        doc,
+        fileName,
+        successTitle: 'Documento do gráfico baixado!',
+        successDescription: 'O PDF foi gerado com gráfico e tabela detalhada.',
+      });
+    } catch (error) {
+      console.error('Erro ao exportar gráfico:', error);
+      toast({
+        title: 'Erro ao baixar documento',
+        description: 'Não foi possível exportar o gráfico com os dados. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setChartDownloading(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-96">Carregando estatísticas...</div>;
   }
+
+  // Navegação de ano (seletor no canto do gráfico, só na visão mensal).
+  const yearIndex = availableYears.indexOf(selectedYear);
+  const hasPrevYear = yearIndex > 0;
+  const hasNextYear = yearIndex >= 0 && yearIndex < availableYears.length - 1;
+  const goToPrevYear = () => { if (hasPrevYear) setSelectedYear(availableYears[yearIndex - 1]); };
+  const goToNextYear = () => { if (hasNextYear) setSelectedYear(availableYears[yearIndex + 1]); };
 
   const showBuracosInsight = categoryFilter === 'buracos' && stats.waterUtility.totalBuracos > 0;
   const buracosPercentValue = stats.waterUtility.percentualFromWaterUtility || 0;
@@ -451,6 +798,170 @@ const ReportsStats = () => {
           </Button>
         </div>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.5 }}
+      >
+        <Card className="border border-[#E5E7EB] bg-white rounded-2xl shadow-sm">
+          <CardHeader>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className="text-sm md:text-base text-[#111827]">
+                  Estatísticas das broncas
+                </CardTitle>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  {/* Seletor de ano (canto superior direito) — só na visão mensal */}
+                  {timelineView === 'monthly' && (
+                    <div className="flex items-center gap-1 rounded-md border border-input px-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={goToPrevYear}
+                        disabled={!hasPrevYear}
+                        aria-label="Ano anterior"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="min-w-[3rem] text-center text-sm font-semibold tabular-nums text-[#111827]">
+                        {selectedYear}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={goToNextYear}
+                        disabled={!hasNextYear}
+                        aria-label="Próximo ano"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  <ToggleGroup
+                    type="single"
+                    value={timelineView}
+                    onValueChange={(value) => value && setTimelineView(value)}
+                    variant="outline"
+                    size="sm"
+                    className="justify-start sm:justify-end"
+                  >
+                    <ToggleGroupItem value="monthly" aria-label="Visão mensal">Mensal</ToggleGroupItem>
+                    <ToggleGroupItem value="annual" aria-label="Visão anual">Anual</ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+              </div>
+
+              {/* Toolbar do gráfico: tipo (barras / empilhado / linha), atualizar e baixar imagem */}
+              <div className="flex flex-wrap items-center justify-start gap-1 border-t border-[#E5E7EB] pt-2 sm:justify-end">
+                <ToggleGroup
+                  type="single"
+                  value={chartType}
+                  onValueChange={(value) => value && setChartType(value)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                >
+                  <ToggleGroupItem value="grouped" aria-label="Gráfico de barras" className="h-8 w-8 p-0">
+                    <BarChart3 className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="stacked" aria-label="Barras empilhadas" className="h-8 w-8 p-0">
+                    <Layers className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="line" aria-label="Gráfico de linha" className="h-8 w-8 p-0">
+                    <LineChartIcon className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={fetchStats}
+                  aria-label="Atualizar dados"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={handleDownloadChartImage}
+                  aria-label="Baixar documento do gráfico"
+                  disabled={chartDownloading}
+                >
+                  {chartDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent ref={timelineTooltipLayerRef} className="relative space-y-3">
+            {!chartDownloading && <TimelineFloatingTooltip tooltip={timelineTooltip} />}
+            <div className="-mx-2 overflow-x-auto overflow-y-visible px-2 sm:mx-0 sm:overflow-visible sm:px-0">
+              <div
+                ref={timelineChartRef}
+                className={`h-72 bg-white sm:h-80 ${timelineView === 'monthly' ? 'min-w-[560px] sm:min-w-0' : 'min-w-full'}`}
+              >
+              {timelineData.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  Sem dados para exibir no período.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  {chartType === 'line' ? (
+                    <LineChart
+                      key={`line-${timelineView}-${selectedYear}`}
+                      data={timelineData}
+                      margin={{ top: 8, right: 12, left: 0, bottom: 5 }}
+                      onMouseMove={updateTimelineTooltip}
+                      onClick={updateTimelineTooltip}
+                      onMouseLeave={clearTimelineTooltip}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval={0} tickMargin={8} height={32} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} width={36} />
+                      {TIMELINE_STATUS.map((s) => (
+                        <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      ))}
+                    </LineChart>
+                  ) : (
+                    <BarChart
+                      key={`bar-${timelineView}-${selectedYear}-${chartType}`}
+                      data={timelineData}
+                      margin={{ top: 8, right: 12, left: 0, bottom: 5 }}
+                      onMouseMove={updateTimelineTooltip}
+                      onClick={updateTimelineTooltip}
+                      onMouseLeave={clearTimelineTooltip}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval={0} tickMargin={8} height={32} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} width={36} />
+                      {TIMELINE_STATUS.map((s, i) => (
+                        <Bar
+                          key={s.key}
+                          dataKey={s.key}
+                          name={s.label}
+                          fill={s.color}
+                          stackId={chartType === 'stacked' ? 'status' : undefined}
+                          radius={chartType === 'stacked' ? (i === TIMELINE_STATUS.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]) : [4, 4, 0, 0]}
+                          maxBarSize={chartType === 'stacked' ? 40 : 28}
+                        />
+                      ))}
+                    </BarChart>
+                  )}
+                </ResponsiveContainer>
+              )}
+              </div>
+            </div>
+            <TimelineLegend />
+          </CardContent>
+        </Card>
+      </motion.div>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <motion.div
