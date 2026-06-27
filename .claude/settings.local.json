@@ -18,7 +18,8 @@
       "Bash(supabase --help)",
       "Bash(supabase inspect *)",
       "Bash(curl -s -X POST https://mrejgpcxaevooofyenzq.supabase.co/rest/v1/rpc/check_table_exists -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODQ3Mjc5NiwiZXhwIjoyMDc0MDQ4Nzk2fQ.9h0UfdIUdCoa98iEy5FFWwbvowr-1lK3QNF9SyF6bG4' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODQ3Mjc5NiwiZXhwIjoyMDc0MDQ4Nzk2fQ.9h0UfdIUdCoa98iEy5FFWwbvowr-1lK3QNF9SyF6bG4')",
-      "Bash(curl -s -X GET https://mrejgpcxaevooofyenzq.supabase.co/rest/v1/report_updates?limit=1 -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NzI3OTYsImV4cCI6MjA3NDA0ODc5Nn0.mfMzOixO1AUWPb6O6cFKNTbLHvYA2GBBAT8QW2WSsWU' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NzI3OTYsImV4cCI6MjA3NDA0ODc5Nn0.mfMzOixO1AUWPb6O6cFKNTbLHvYA2GBBAT8QW2WSsWU')"
+      "Bash(curl -s -X GET https://mrejgpcxaevooofyenzq.supabase.co/rest/v1/report_updates?limit=1 -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NzI3OTYsImV4cCI6MjA3NDA0ODc5Nn0.mfMzOixO1AUWPb6O6cFKNTbLHvYA2GBBAT8QW2WSsWU' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NzI3OTYsImV4cCI6MjA3NDA0ODc5Nn0.mfMzOixO1AUWPb6O6cFKNTbLHvYA2GBBAT8QW2WSsWU')",
+      "Bash(git add *)"
     ]
   }
 }
