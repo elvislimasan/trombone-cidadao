@@ -6,20 +6,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const normalizeCity = (raw: unknown) => {
-  return String(raw ?? "").trim().toLowerCase();
+const STATE_NAME_TO_UF: Record<string, string> = {
+  "Acre": "AC", "Alagoas": "AL", "Amapá": "AP", "Amazonas": "AM",
+  "Bahia": "BA", "Ceará": "CE", "Distrito Federal": "DF",
+  "Espírito Santo": "ES", "Goiás": "GO", "Maranhão": "MA",
+  "Mato Grosso": "MT", "Mato Grosso do Sul": "MS", "Minas Gerais": "MG",
+  "Pará": "PA", "Paraíba": "PB", "Paraná": "PR", "Pernambuco": "PE",
+  "Piauí": "PI", "Rio de Janeiro": "RJ", "Rio Grande do Norte": "RN",
+  "Rio Grande do Sul": "RS", "Rondônia": "RO", "Roraima": "RR",
+  "Santa Catarina": "SC", "São Paulo": "SP", "Sergipe": "SE",
+  "Tocantins": "TO",
 };
 
-const extractCityFromNominatim = (payload: Record<string, unknown>) => {
+const extractCityUFFromNominatim = (payload: Record<string, unknown>): { city: string | null; state_uf: string | null } => {
   const address = (payload.address ?? {}) as Record<string, unknown>;
-  const city =
-    address.city ??
-    address.town ??
-    address.village ??
-    address.municipality ??
-    address.county ??
-    "";
-  return String(city ?? "").trim() || null;
+  const city = String(
+    address.city ?? address.town ?? address.village ?? address.municipality ?? ""
+  ).trim() || null;
+  let state_uf: string | null = null;
+  const iso = String(address["ISO3166-2-lvl4"] ?? "").trim();
+  if (iso.includes("-")) state_uf = iso.split("-")[1] ?? null;
+  if (!state_uf) state_uf = STATE_NAME_TO_UF[String(address.state ?? "").trim()] ?? null;
+  return { city, state_uf };
 };
 
 const reverseGeocode = async (lat: number, lng: number) => {
@@ -33,18 +41,13 @@ const reverseGeocode = async (lat: number, lng: number) => {
 
   const userAgent = Deno.env.get("APP_USER_AGENT") || "TromboneCidadao/1.0";
   const res = await fetch(url.toString(), {
-    headers: {
-      "User-Agent": userAgent,
-      "Accept": "application/json",
-    },
+    headers: { "User-Agent": userAgent, "Accept": "application/json" },
   });
 
   const data = await res.json();
-  if (!res.ok) {
-    return { ok: false, raw: data, city: null as string | null };
-  }
-  const city = extractCityFromNominatim(data as Record<string, unknown>);
-  return { ok: true, raw: data, city };
+  if (!res.ok) return { ok: false, city: null as string | null, state_uf: null as string | null };
+  const { city, state_uf } = extractCityUFFromNominatim(data as Record<string, unknown>);
+  return { ok: true, city, state_uf };
 };
 
 const verifyRecaptcha = async (token: string, siteKey?: string | null) => {
@@ -140,18 +143,21 @@ serve(async (req) => {
     }
 
     const geo = await reverseGeocode(lat, lng);
-    const cityNorm = normalizeCity(geo.city);
-    if (cityNorm !== "floresta") {
-      return new Response(JSON.stringify({ error: "not_allowed_city", city: geo.city }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 403,
-      });
-    }
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
+
+    // Resolve city_id via match_city; fallback silencioso se geocode falhar
+    let cityId: number | null = null;
+    if (geo.ok && geo.city && geo.state_uf) {
+      const { data: cityData } = await supabaseAdmin.rpc("match_city", {
+        p_name: geo.city,
+        p_uf: geo.state_uf,
+      });
+      cityId = typeof cityData === "number" ? cityData : null;
+    }
 
     const isLighting = category === "iluminacao";
     const isBuracos = category === "buracos";
@@ -205,6 +211,7 @@ serve(async (req) => {
       reported_pole_distance_m: isLighting ? reportedPoleDistanceM : null,
       issue_type: isLighting ? (issueType || null) : null,
       is_from_water_utility: isBuracos ? Boolean(report?.is_from_water_utility) : null,
+      city_id: cityId,
     };
 
     const { data, error } = await supabaseAdmin

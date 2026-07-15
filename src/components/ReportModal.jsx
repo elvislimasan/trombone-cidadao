@@ -543,6 +543,19 @@ const ReportModal = ({ onClose, onSubmit }) => {
           addressTouchedRef.current ? prev : { ...prev, address }
         );
       }
+
+      // Resolve city_id a partir do geocode (sem bloquear o submit se falhar)
+      const city = data?.city;
+      const state_uf = data?.state_uf;
+      if (city && state_uf) {
+        const { data: cityId } = await supabase.rpc("match_city", {
+          p_name: city,
+          p_uf: state_uf,
+        });
+        if (!cancelled && typeof cityId === "number") {
+          setFormData((prev) => ({ ...prev, city_id: cityId }));
+        }
+      }
     }, 450);
 
     return () => {

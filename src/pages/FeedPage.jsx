@@ -208,10 +208,14 @@ export default function FeedPage() {
         issue_type, reported_post_identifier, reported_plate,
         is_from_water_utility,
         is_anonymous,
+        city_id: geocodedCityId,
       } = newReportData;
 
       const normPole = (raw) =>
         String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
+
+      // city_id: prefer geocode result; fallback to author's profile city
+      const cityId = geocodedCityId ?? user?.city_id ?? null;
 
       const { data, error } = await supabase
         .from('reports')
@@ -240,6 +244,7 @@ export default function FeedPage() {
           is_anonymous: !!is_anonymous,
           status: 'pending',
           moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
+          city_id: cityId,
         })
         .select('id')
         .single();

@@ -5,6 +5,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+const STATE_NAME_TO_UF: Record<string, string> = {
+  "Acre": "AC", "Alagoas": "AL", "Amapá": "AP", "Amazonas": "AM",
+  "Bahia": "BA", "Ceará": "CE", "Distrito Federal": "DF",
+  "Espírito Santo": "ES", "Goiás": "GO", "Maranhão": "MA",
+  "Mato Grosso": "MT", "Mato Grosso do Sul": "MS", "Minas Gerais": "MG",
+  "Pará": "PA", "Paraíba": "PB", "Paraná": "PR", "Pernambuco": "PE",
+  "Piauí": "PI", "Rio de Janeiro": "RJ", "Rio Grande do Norte": "RN",
+  "Rio Grande do Sul": "RS", "Rondônia": "RO", "Roraima": "RR",
+  "Santa Catarina": "SC", "São Paulo": "SP", "Sergipe": "SE",
+  "Tocantins": "TO",
+}
+
 const buildAddress = (payload: Record<string, unknown>) => {
   const address = (payload.address ?? {}) as Record<string, unknown>
   const road = String(address.road ?? address.pedestrian ?? address.footway ?? "").trim()
@@ -19,6 +31,21 @@ const buildAddress = (payload: Record<string, unknown>) => {
 
   const displayName = String(payload.display_name ?? "").trim()
   return compact || displayName || null
+}
+
+const extractCityUF = (payload: Record<string, unknown>): { city: string | null; state_uf: string | null } => {
+  const address = (payload.address ?? {}) as Record<string, unknown>
+  const city = String(address.city ?? address.town ?? address.village ?? address.municipality ?? "").trim() || null
+  let state_uf: string | null = null
+  const iso = String(address["ISO3166-2-lvl4"] ?? "").trim()
+  if (iso.includes("-")) {
+    state_uf = iso.split("-")[1] ?? null
+  }
+  if (!state_uf) {
+    const stateName = String(address.state ?? "").trim()
+    state_uf = STATE_NAME_TO_UF[stateName] ?? null
+  }
+  return { city, state_uf }
 }
 
 serve(async (req) => {
@@ -72,9 +99,10 @@ serve(async (req) => {
     }
 
     const address = buildAddress(data as Record<string, unknown>)
+    const { city, state_uf } = extractCityUF(data as Record<string, unknown>)
 
     return new Response(
-      JSON.stringify({ address, raw: data }),
+      JSON.stringify({ address, city, state_uf, raw: data }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
     )
   } catch (error) {
