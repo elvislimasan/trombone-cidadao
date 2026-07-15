@@ -32,6 +32,7 @@ const STATE_NAME_TO_UF = {
 
 const password = process.env.DEV_DB_PASSWORD || process.env.PROD_DB_PASSWORD;
 const dbUser = process.env.DB_USER || 'postgres.xxdletrjyjajtrmhwzev';
+const DEFAULT_CITY_UF = process.env.DEFAULT_CITY_UF || 'Floresta,PE';
 
 if (!password) {
   console.error('Defina DEV_DB_PASSWORD ou PROD_DB_PASSWORD');
@@ -103,10 +104,10 @@ async function backfillReports(pool) {
         r.id,
         st_y(r.location::geometry) as lat,
         st_x(r.location::geometry) as lng,
-        r.user_id,
+        r.author_id,
         p.city_id as author_city_id
       from public.reports r
-      left join public.profiles p on p.id = r.user_id
+      left join public.profiles p on p.id = r.author_id
       where r.city_id is null
         and r.location is not null
       order by r.created_at
@@ -206,11 +207,28 @@ async function backfillProfiles(pool) {
       let cityId = null;
 
       // Parsear "Floresta-PE", "Floresta - PE", "Floresta/PE", "Floresta (PE)" etc.
-      const match = cityText.match(/^(.+?)[\s\-\/]+\(?([A-Z]{2})\)?$/i);
-      if (match) {
-        const name = match[1].trim();
-        const uf = match[2].toUpperCase();
+      const matchUF = cityText.match(/^(.+?)[\s\-\/]+\(?([A-Z]{2})\)?$/i);
+      if (matchUF) {
+        const name = matchUF[1].trim();
+        const uf = matchUF[2].toUpperCase();
         cityId = await matchCity(client, name, uf);
+      } else {
+        // city sem UF: resolve se exatamente 1 no Brasil
+        const res = await client.query(
+          `select id from public.cities
+           where unaccent(lower(trim(name))) = unaccent(lower(trim($1)))`,
+          [cityText]
+        );
+        if (res.rowCount === 1) {
+          cityId = res.rows[0].id;
+        } else if (res.rowCount > 1 && DEFAULT_CITY_UF) {
+          // ambíguo — usa fallback se o nome bater com a cidade padrão
+          const [defName, defUF] = DEFAULT_CITY_UF.split(',');
+          const norm = (s) => s.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+          if (norm(cityText) === norm(defName)) {
+            cityId = await matchCity(client, defName, defUF);
+          }
+        }
       }
 
       if (cityId) {

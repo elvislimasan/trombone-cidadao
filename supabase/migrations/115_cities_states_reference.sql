@@ -1,4 +1,4 @@
--- 115: extensões + dedup São Vicente Férrer + UNIQUE(name,state_id) + seed nacional
+-- 115: extensões + dedup São Vicente Ferrer + UNIQUE(name,state_id) + seed nacional
 -- Idempotente: rodar 2× não falha.
 
 -- 1. Extensões
@@ -1675,7 +1675,7 @@ from (values
   ('São José do Belmonte','PE'),
   ('São José do Egito','PE'),
   ('São Lourenço da Mata','PE'),
-  ('São Vicente Férrer','PE'),
+  ('São Vicente Ferrer','PE'),
   ('Serra Talhada','PE'),
   ('Serrita','PE'),
   ('Sertânia','PE'),
