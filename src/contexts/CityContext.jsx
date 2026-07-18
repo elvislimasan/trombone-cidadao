@@ -7,7 +7,7 @@ const STORAGE_KEY = 'tc_active_city_id';
 const CityContext = createContext(undefined);
 
 export const normCity = (s) =>
-  (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '').trim();
 
 // Extrai cidade + UF de uma resposta do Nominatim para o Brasil.
 // Tenta os campos em ordem de precisão — county cobre municípios que o

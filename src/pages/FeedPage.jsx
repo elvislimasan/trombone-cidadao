@@ -539,7 +539,7 @@ export default function FeedPage() {
                     cities
                       .filter(c => {
                         if (!citySearch.trim()) return true;
-                        const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+                        const norm = s => s.toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
                         const term = norm(citySearch.trim());
                         return norm(c.name).includes(term) || (c.state?.uf || '').toLowerCase().includes(term.toLowerCase());
                       })
