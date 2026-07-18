@@ -107,6 +107,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const videoCameraInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [wizardStep, setWizardStep] = useState(0);
+  // 'unknown' | 'requesting' | 'granted' | 'denied'
+  const [locationPermission, setLocationPermission] = useState("unknown");
   const [nearbyPoles, setNearbyPoles] = useState([]);
   const [localPendingPoles, setLocalPendingPoles] = useState([]);
   const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
@@ -342,44 +344,26 @@ const ReportModal = ({ onClose, onSubmit }) => {
   }, []);
 
   useEffect(() => {
-    // Solicita a geolocalização ao montar o componente
     if (!navigator.geolocation) {
-      const defaultLocation = {
-        lat: FLORESTA_COORDS[0],
-        lng: FLORESTA_COORDS[1],
-      };
-      setFormData((prev) => ({
-        ...prev,
-        location: prev.location || defaultLocation,
-      }));
+      setLocationPermission("denied");
       return;
     }
 
-    const geoOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
-    };
-
+    setLocationPermission("requesting");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
+        setLocationPermission("granted");
         setFormData((prev) => ({
           ...prev,
           location: { lat: latitude, lng: longitude },
         }));
       },
-      (error) => {
-        const defaultLocation = {
-          lat: FLORESTA_COORDS[0],
-          lng: FLORESTA_COORDS[1],
-        };
-        setFormData((prev) => ({
-          ...prev,
-          location: prev.location || defaultLocation,
-        }));
+      () => {
+        setLocationPermission("denied");
+        // Não seta localização default — o usuário deve ativar explicitamente
       },
-      geoOptions
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, []);
 
@@ -2699,6 +2683,34 @@ const ReportModal = ({ onClose, onSubmit }) => {
     return true;
   };
 
+  const requestLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocationPermission("requesting");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocationPermission("granted");
+        setFormData((prev) => ({
+          ...prev,
+          location: { lat: latitude, lng: longitude },
+        }));
+      },
+      () => {
+        setLocationPermission("denied");
+        // Permissão negada — no nativo, orientar o usuário a abrir as configurações
+        if (isNative) {
+          toast({
+            title: "Localização bloqueada",
+            description:
+              "Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização.",
+            duration: 6000,
+          });
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -3530,6 +3542,39 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
               {wizardStep === 1 && (
                 <div className="w-full">
+                  {locationPermission !== "granted" && (
+                    <div className="mx-4 mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-destructive shrink-0" />
+                        <p className="text-sm font-medium text-destructive">
+                          {locationPermission === "denied"
+                            ? "Localização desativada"
+                            : "Obtendo sua localização…"}
+                        </p>
+                      </div>
+                      {locationPermission === "denied" && (
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            A localização é obrigatória para registrar uma bronca. Ative-a para continuar.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={requestLocation}
+                            className="self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
+                          >
+                            Ativar localização
+                          </button>
+                        </>
+                      )}
+                      {(locationPermission === "requesting" || locationPermission === "unknown") && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Aguardando permissão…
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="px-4 pt-4">
                     <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-1">
                       <MapPin className="w-4 h-4" />
@@ -4129,12 +4174,17 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   <Button
                     type="button"
                     className="flex-1 bg-primary hover:bg-primary/90"
+                    disabled={
+                      wizardStep === 1 && locationPermission !== "granted"
+                    }
                     onClick={() => {
                       if (!validateStep(wizardStep)) return;
                       setWizardStep((s) => Math.min(2, s + 1));
                     }}
                   >
-                    Continuar
+                    {wizardStep === 1 && locationPermission !== "granted"
+                      ? "Aguardando localização…"
+                      : "Continuar"}
                   </Button>
                 )}
 
