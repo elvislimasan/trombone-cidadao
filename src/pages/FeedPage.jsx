@@ -479,10 +479,11 @@ export default function FeedPage() {
                       navigator.geolocation.getCurrentPosition(
                         async ({ coords }) => {
                           try {
+                            // Sem custom User-Agent header para evitar preflight CORS no Capacitor
                             const res = await fetch(
-                              `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`,
-                              { headers: { 'User-Agent': 'TromboneCidadao/1.0' } }
+                              `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`
                             );
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
                             const json = await res.json();
                             const cityName = json.address?.city || json.address?.town || json.address?.village || json.address?.municipality || '';
                             const stateCode = json.address?.['ISO3166-2-lvl4']?.split('-')[1] || '';
@@ -492,13 +493,33 @@ export default function FeedPage() {
                                 norm(c.name) === norm(cityName) &&
                                 (!stateCode || (c.state?.uf || '').toLowerCase() === stateCode.toLowerCase())
                               );
-                              if (found) { setActiveCity(found.id); setCityPickerOpen(false); }
+                              if (found) {
+                                setActiveCity(found.id);
+                                setCityPickerOpen(false);
+                              } else {
+                                toast({ title: 'Cidade não encontrada', description: `"${cityName}" não está no cadastro. Escolha manualmente.`, duration: 4000 });
+                              }
+                            } else {
+                              toast({ title: 'Não foi possível detectar a cidade', description: 'Escolha manualmente na lista.', duration: 4000 });
                             }
-                          } catch {}
-                          finally { setGpsLoading(false); }
+                          } catch {
+                            toast({ title: 'Erro ao obter localização', description: 'Verifique sua conexão e tente novamente.', duration: 4000 });
+                          } finally {
+                            setGpsLoading(false);
+                          }
                         },
-                        () => setGpsLoading(false),
-                        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+                        (err) => {
+                          setGpsLoading(false);
+                          const denied = err?.code === 1; // PERMISSION_DENIED
+                          toast({
+                            title: denied ? 'Localização bloqueada' : 'Não foi possível obter localização',
+                            description: denied
+                              ? 'Permita o acesso à localização nas configurações do navegador.'
+                              : 'Verifique se a localização está ativada e tente novamente.',
+                            duration: 5000,
+                          });
+                        },
+                        { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
                       );
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-muted transition-colors"
@@ -528,8 +549,9 @@ export default function FeedPage() {
                     cities
                       .filter(c => {
                         if (!citySearch.trim()) return true;
-                        const term = citySearch.trim().toLowerCase();
-                        return c.name.toLowerCase().includes(term) || (c.state?.uf || '').toLowerCase().includes(term);
+                        const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+                        const term = norm(citySearch.trim());
+                        return norm(c.name).includes(term) || (c.state?.uf || '').toLowerCase().includes(term.toLowerCase());
                       })
                       .slice(0, citySearch.trim() ? undefined : 50)
                       .map(city => {

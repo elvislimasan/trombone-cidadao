@@ -16,8 +16,7 @@ const detectCityFromGps = async (cities) => {
       async ({ coords }) => {
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`,
-            { headers: { 'User-Agent': 'TromboneCidadao/1.0' } }
+            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`
           );
           const json = await res.json();
           const cityName = json.address?.city || json.address?.town || json.address?.village || json.address?.municipality || '';
