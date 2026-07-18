@@ -9,7 +9,7 @@ import { Share } from '@capacitor/share';
 import { useFeed } from '@/hooks/useFeed';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useCity } from '@/contexts/CityContext';
+import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import FeedCard from '@/components/FeedCard';
 import FeedSkeleton from '@/components/FeedSkeleton';
@@ -479,28 +479,18 @@ export default function FeedPage() {
                       navigator.geolocation.getCurrentPosition(
                         async ({ coords }) => {
                           try {
-                            // Sem custom User-Agent header para evitar preflight CORS no Capacitor
                             const res = await fetch(
                               `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`
                             );
                             if (!res.ok) throw new Error(`HTTP ${res.status}`);
                             const json = await res.json();
-                            const cityName = json.address?.city || json.address?.town || json.address?.village || json.address?.municipality || '';
-                            const stateCode = json.address?.['ISO3166-2-lvl4']?.split('-')[1] || '';
-                            if (cityName && cities.length > 0) {
-                              const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-                              const found = cities.find(c =>
-                                norm(c.name) === norm(cityName) &&
-                                (!stateCode || (c.state?.uf || '').toLowerCase() === stateCode.toLowerCase())
-                              );
-                              if (found) {
-                                setActiveCity(found.id);
-                                setCityPickerOpen(false);
-                              } else {
-                                toast({ title: 'Cidade não encontrada', description: `"${cityName}" não está no cadastro. Escolha manualmente.`, duration: 4000 });
-                              }
+                            const { name, uf } = parseCityFromNominatim(json.address || {});
+                            const found = matchCityInList(cities, name, uf);
+                            if (found) {
+                              setActiveCity(found.id);
+                              setCityPickerOpen(false);
                             } else {
-                              toast({ title: 'Não foi possível detectar a cidade', description: 'Escolha manualmente na lista.', duration: 4000 });
+                              toast({ title: 'Cidade não encontrada', description: name ? `"${name}" não está no cadastro. Escolha manualmente.` : 'Escolha manualmente na lista.', duration: 4000 });
                             }
                           } catch {
                             toast({ title: 'Erro ao obter localização', description: 'Verifique sua conexão e tente novamente.', duration: 4000 });
@@ -510,7 +500,7 @@ export default function FeedPage() {
                         },
                         (err) => {
                           setGpsLoading(false);
-                          const denied = err?.code === 1; // PERMISSION_DENIED
+                          const denied = err?.code === 1;
                           toast({
                             title: denied ? 'Localização bloqueada' : 'Não foi possível obter localização',
                             description: denied
@@ -519,7 +509,7 @@ export default function FeedPage() {
                             duration: 5000,
                           });
                         },
-                        { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+                        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
                       );
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-muted transition-colors"

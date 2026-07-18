@@ -6,8 +6,44 @@ const STORAGE_KEY = 'tc_active_city_id';
 
 const CityContext = createContext(undefined);
 
-const normalize = (s) =>
-  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+export const normCity = (s) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+// Extrai cidade + UF de uma resposta do Nominatim para o Brasil.
+// Tenta os campos em ordem de precisão — county cobre municípios que o
+// Nominatim não classifica como city/town/village.
+export const parseCityFromNominatim = (addr) => {
+  const name =
+    addr.city ||
+    addr.town ||
+    addr.village ||
+    addr.municipality ||
+    addr.county ||       // cobre muitos municípios BR no Nominatim
+    addr.hamlet ||
+    addr.suburb ||
+    '';
+  // ISO3166-2-lvl4 = "BR-SP", split('-')[1] = "SP"
+  const uf = (addr['ISO3166-2-lvl4'] || '').split('-')[1] || addr.state_code || '';
+  return { name, uf };
+};
+
+// Bate nome+UF extraídos do Nominatim contra a lista de cidades do banco.
+// Tenta correspondência exata primeiro; se não achar, tenta sem UF (menos
+// preciso mas cobre casos onde o Nominatim devolve UF errada).
+export const matchCityInList = (cities, name, uf) => {
+  if (!name || cities.length === 0) return null;
+  const normName = normCity(name);
+  const normUf = uf.toLowerCase();
+  // 1ª tentativa: nome + UF
+  if (normUf) {
+    const exact = cities.find(
+      (c) => normCity(c.name) === normName && (c.state?.uf || '').toLowerCase() === normUf
+    );
+    if (exact) return exact;
+  }
+  // 2ª tentativa: só nome (desambiguação pelo GPS já garante região correta)
+  return cities.find((c) => normCity(c.name) === normName) || null;
+};
 
 const detectCityFromGps = async (cities) => {
   if (!navigator.geolocation || cities.length === 0) return null;
@@ -18,22 +54,16 @@ const detectCityFromGps = async (cities) => {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`
           );
+          if (!res.ok) return resolve(null);
           const json = await res.json();
-          const cityName = json.address?.city || json.address?.town || json.address?.village || json.address?.municipality || '';
-          const stateCode = json.address?.['ISO3166-2-lvl4']?.split('-')[1] || '';
-          if (!cityName) return resolve(null);
-          const found = cities.find((c) => {
-            const nameMatch = normalize(c.name) === normalize(cityName);
-            const ufMatch = !stateCode || (c.state?.uf || '').toLowerCase() === stateCode.toLowerCase();
-            return nameMatch && ufMatch;
-          });
-          resolve(found?.id ?? null);
+          const { name, uf } = parseCityFromNominatim(json.address || {});
+          resolve(matchCityInList(cities, name, uf)?.id ?? null);
         } catch {
           resolve(null);
         }
       },
       () => resolve(null),
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 }
     );
   });
 };
