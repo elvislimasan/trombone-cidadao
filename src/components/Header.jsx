@@ -15,11 +15,12 @@ import Notifications from '@/components/Notifications';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
-const CitySelector = () => {
+const MobileCitySelector = () => {
   const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
   const { user } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [search, setSearch] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const canSeeAll = user?.is_admin || user?.is_master || user?.is_ambassador;
 
@@ -32,6 +33,187 @@ const CitySelector = () => {
         (c.state?.uf || '').toLowerCase().includes(term)
     );
   }, [cities, search]);
+
+  const handleUseGps = useCallback(() => {
+    if (!navigator.geolocation || gpsLoading) return;
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`,
+            { headers: { 'User-Agent': 'TromboneCidadao/1.0' } }
+          );
+          const json = await res.json();
+          const cityName = json.address?.city || json.address?.town || json.address?.village || json.address?.municipality || '';
+          const stateCode = json.address?.['ISO3166-2-lvl4']?.split('-')[1] || '';
+          if (cityName && cities.length > 0) {
+            const normalize = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            const found = cities.find((c) => {
+              const nameMatch = normalize(c.name) === normalize(cityName);
+              const ufMatch = !stateCode || (c.state?.uf || '').toLowerCase() === stateCode.toLowerCase();
+              return nameMatch && ufMatch;
+            });
+            if (found) {
+              setActiveCity(found.id);
+              setExpanded(false);
+              setSearch('');
+            }
+          }
+        } catch {}
+        finally { setGpsLoading(false); }
+      },
+      () => setGpsLoading(false),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+    );
+  }, [cities, gpsLoading, setActiveCity]);
+
+  const label = activeCityId && activeCityName ? activeCityName : 'Todas as cidades';
+
+  return (
+    <div className="w-full">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-foreground hover:bg-white/15 transition-colors"
+      >
+        <span className="flex items-center gap-2 truncate">
+          <LucideIcons.MapPin className="h-4 w-4 shrink-0 text-primary" />
+          <span className="truncate">{label}</span>
+        </span>
+        <LucideIcons.ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+      </button>
+
+      {expanded && (
+        <div className="mt-2 rounded-xl border border-white/10 bg-background overflow-hidden">
+          <div className="p-2 border-b border-border">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Buscar cidade..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {/* GPS */}
+            <button
+              type="button"
+              onClick={handleUseGps}
+              disabled={gpsLoading}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-primary hover:bg-muted transition-colors"
+            >
+              {gpsLoading
+                ? <LucideIcons.Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                : <LucideIcons.LocateFixed className="h-4 w-4 shrink-0" />
+              }
+              {gpsLoading ? 'Detectando...' : 'Usar minha localização'}
+            </button>
+
+            {canSeeAll && (
+              <button
+                type="button"
+                onClick={() => { setActiveCity(null); setExpanded(false); setSearch(''); }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition-colors border-t border-border"
+              >
+                <LucideIcons.Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                Todas as cidades
+                {!activeCityId && <LucideIcons.Check className="ml-auto h-4 w-4 text-primary" />}
+              </button>
+            )}
+
+            {loadingCities ? (
+              <div className="flex justify-center py-4">
+                <LucideIcons.Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredCities.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground text-center">Nenhuma cidade encontrada.</p>
+            ) : (
+              filteredCities.map((city) => {
+                const isActive = String(activeCityId) === String(city.id);
+                return (
+                  <button
+                    key={city.id}
+                    type="button"
+                    onClick={() => { setActiveCity(city.id); setExpanded(false); setSearch(''); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors border-t border-border/50 ${isActive ? 'font-semibold text-primary' : 'text-foreground'}`}
+                  >
+                    <span className="flex-1 truncate">
+                      {city.name}
+                      {city.state?.uf && <span className="ml-1 text-xs text-muted-foreground">{city.state.uf}</span>}
+                    </span>
+                    {isActive && <LucideIcons.Check className="h-4 w-4 shrink-0 text-primary" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CitySelector = () => {
+  const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  const canSeeAll = user?.is_admin || user?.is_master || user?.is_ambassador;
+
+  const filteredCities = useMemo(() => {
+    if (!search.trim()) return cities.slice(0, 50);
+    const term = search.trim().toLowerCase();
+    return cities.filter(
+      (c) =>
+        c.name.toLowerCase().includes(term) ||
+        (c.state?.uf || '').toLowerCase().includes(term)
+    );
+  }, [cities, search]);
+
+  const handleUseGps = useCallback(() => {
+    if (!navigator.geolocation || gpsLoading) return;
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          // Nominatim reverse geocode — sem API key, respeita ToS com User-Agent
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`,
+            { headers: { 'User-Agent': 'TromboneCidadao/1.0' } }
+          );
+          const json = await res.json();
+          const cityName = json.address?.city || json.address?.town || json.address?.village || json.address?.municipality || '';
+          const stateCode = json.address?.['ISO3166-2-lvl4']?.split('-')[1] || '';
+
+          if (cityName && cities.length > 0) {
+            const normalize = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            const normCity = normalize(cityName);
+            const normUf = stateCode.toLowerCase();
+            const found = cities.find((c) => {
+              const nameMatch = normalize(c.name) === normCity;
+              const ufMatch = !stateCode || (c.state?.uf || '').toLowerCase() === normUf;
+              return nameMatch && ufMatch;
+            });
+            if (found) {
+              setActiveCity(found.id);
+              setOpen(false);
+              setSearch('');
+            }
+          }
+        } catch {
+          // Nominatim falhou — não faz nada, usuário escolhe manualmente
+        } finally {
+          setGpsLoading(false);
+        }
+      },
+      () => setGpsLoading(false),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+    );
+  }, [cities, gpsLoading, setActiveCity]);
 
   if (!user) return null;
 
@@ -63,6 +245,20 @@ const CitySelector = () => {
               {loadingCities ? 'Carregando...' : 'Nenhuma cidade encontrada.'}
             </CommandEmpty>
             <CommandGroup>
+              {/* Botão GPS */}
+              <CommandItem
+                value="__gps__"
+                onSelect={handleUseGps}
+                disabled={gpsLoading}
+                className="text-primary font-semibold"
+              >
+                {gpsLoading
+                  ? <LucideIcons.Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  : <LucideIcons.LocateFixed className="mr-2 h-4 w-4" />
+                }
+                {gpsLoading ? 'Detectando...' : 'Usar minha localização'}
+              </CommandItem>
+
               {canSeeAll && (
                 <CommandItem
                   value="__all__"
@@ -416,26 +612,8 @@ const Header = () => {
                         <span className="text-xs text-muted-foreground truncate">{user.email}</span>
                       </div>
                     </div>
-                    
-                    {/* <div className="h-px w-full bg-white/10 my-1" /> */}
-                    
-                    {/* <Button asChild variant="ghost" className="w-full justify-start hover:bg-white/10">
-                      <Link to="/settings/notifications" className="flex items-center gap-3">
-                        <div className="p-1.5 bg-white/10 rounded-md">
-                          <LucideIcons.Settings className="h-4 w-4" />
-                        </div>
-                        <span>Configurar Notificações</span>
-                      </Link>
-                    </Button> */}
-                    
-                    {/* <div className="flex items-center justify-between w-full px-4 py-2 rounded-md bg-black/20">
-                      <span className="text-sm font-medium">Notificações do Site</span>
-                      <Switch
-                        checked={notificationsEnabled}
-                        onCheckedChange={handleToggleNotifications}
-                        disabled={loading}
-                      />
-                    </div> */}
+
+                    <MobileCitySelector />
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3 w-full max-w-sm mx-auto p-4 rounded-xl -blur-sm">
