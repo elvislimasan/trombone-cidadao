@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { RefreshCw, Loader2, Megaphone, Heart, UserPlus, WifiOff, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Loader2, Megaphone, Heart, UserPlus, WifiOff, AlertTriangle, MapPin, ChevronDown, LocateFixed, Globe, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Capacitor } from '@capacitor/core';
@@ -83,7 +83,11 @@ const AnimatedNumber = ({ value, durationMs = 650, className = '' }) => {
 export default function FeedPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { activeCityId, activeCityName } = useCity();
+  const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const cityPickerRef = useRef(null);
   const { toast } = useToast();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('recent');
@@ -194,6 +198,22 @@ export default function FeedPage() {
       img.src = url;
     }
   }, [reports]);
+
+  // Fecha o city picker ao clicar fora
+  useEffect(() => {
+    if (!cityPickerOpen) return;
+    const handler = (e) => {
+      if (cityPickerRef.current && !cityPickerRef.current.contains(e.target)) {
+        setCityPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [cityPickerOpen]);
 
   const handleTabChange = useCallback((tabKey) => {
     setActiveTab(tabKey);
@@ -411,25 +431,131 @@ export default function FeedPage() {
             </div>
           </div>
         )}
-      {/* ── City indicator ── */}
-      {activeCityName && (
-        <div className="px-3 pt-2 pb-0">
-          <p className="text-[11px] text-muted-foreground text-center">
-            Mostrando broncas de <span className="font-semibold text-foreground">{activeCityName}</span>
-          </p>
-        </div>
-      )}
-      {!activeCityId && (
-        <div className="px-3 pt-2 pb-0">
-          <p className="text-[11px] text-muted-foreground text-center">
-            Mostrando broncas de todas as cidades
-          </p>
-        </div>
-      )}
-
-      {/* ── Sticky Tab Bar ── */}
+      {/* ── Sticky Tab Bar + City Picker ── */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto max-w-2xl px-3">
+
+          {/* Seletor de cidade */}
+          <div className="pt-2 pb-1 relative" ref={cityPickerRef}>
+            <button
+              type="button"
+              onClick={() => { setCityPickerOpen(v => !v); setCitySearch(''); }}
+              className="flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+            >
+              <MapPin className="h-3 w-3 shrink-0 text-primary" />
+              <span className="max-w-[180px] truncate">
+                {activeCityName ?? 'Todas as cidades'}
+              </span>
+              <ChevronDown className={`h-3 w-3 shrink-0 opacity-60 transition-transform ${cityPickerOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {cityPickerOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xl border border-border bg-background shadow-xl overflow-hidden">
+                {/* Busca */}
+                <div className="flex items-center gap-2 p-2 border-b border-border">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Buscar cidade..."
+                    value={citySearch}
+                    onChange={e => setCitySearch(e.target.value)}
+                    className="flex-1 rounded-lg bg-muted px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                  />
+                  {citySearch && (
+                    <button type="button" onClick={() => setCitySearch('')} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-60 overflow-y-auto">
+                  {/* GPS */}
+                  <button
+                    type="button"
+                    disabled={gpsLoading}
+                    onClick={() => {
+                      if (!navigator.geolocation || gpsLoading) return;
+                      setGpsLoading(true);
+                      navigator.geolocation.getCurrentPosition(
+                        async ({ coords }) => {
+                          try {
+                            const res = await fetch(
+                              `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`,
+                              { headers: { 'User-Agent': 'TromboneCidadao/1.0' } }
+                            );
+                            const json = await res.json();
+                            const cityName = json.address?.city || json.address?.town || json.address?.village || json.address?.municipality || '';
+                            const stateCode = json.address?.['ISO3166-2-lvl4']?.split('-')[1] || '';
+                            if (cityName && cities.length > 0) {
+                              const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+                              const found = cities.find(c =>
+                                norm(c.name) === norm(cityName) &&
+                                (!stateCode || (c.state?.uf || '').toLowerCase() === stateCode.toLowerCase())
+                              );
+                              if (found) { setActiveCity(found.id); setCityPickerOpen(false); }
+                            }
+                          } catch {}
+                          finally { setGpsLoading(false); }
+                        },
+                        () => setGpsLoading(false),
+                        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+                      );
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-muted transition-colors"
+                  >
+                    {gpsLoading
+                      ? <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      : <LocateFixed className="h-4 w-4 shrink-0" />
+                    }
+                    {gpsLoading ? 'Detectando...' : 'Usar minha localização'}
+                  </button>
+
+                  {/* Todas as cidades */}
+                  <button
+                    type="button"
+                    onClick={() => { setActiveCity(null); setCityPickerOpen(false); setCitySearch(''); }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted border-t border-border/50 transition-colors"
+                  >
+                    <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    Todas as cidades
+                    {!activeCityId && <Check className="ml-auto h-4 w-4 text-primary" />}
+                  </button>
+
+                  {/* Lista de cidades */}
+                  {loadingCities ? (
+                    <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                  ) : (
+                    cities
+                      .filter(c => {
+                        if (!citySearch.trim()) return true;
+                        const term = citySearch.trim().toLowerCase();
+                        return c.name.toLowerCase().includes(term) || (c.state?.uf || '').toLowerCase().includes(term);
+                      })
+                      .slice(0, citySearch.trim() ? undefined : 50)
+                      .map(city => {
+                        const isActive = String(activeCityId) === String(city.id);
+                        return (
+                          <button
+                            key={city.id}
+                            type="button"
+                            onClick={() => { setActiveCity(city.id); setCityPickerOpen(false); setCitySearch(''); }}
+                            className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-muted border-t border-border/50 transition-colors ${isActive ? 'font-semibold text-primary' : 'text-foreground'}`}
+                          >
+                            <span className="flex-1 truncate">
+                              {city.name}
+                              {city.state?.uf && <span className="ml-1 text-xs text-muted-foreground">{city.state.uf}</span>}
+                            </span>
+                            {isActive && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                          </button>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Tabs */}
           <div className="flex gap-1 py-2">
             {TABS.map((tab) => (
               <button
