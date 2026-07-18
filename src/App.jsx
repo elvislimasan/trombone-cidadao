@@ -70,11 +70,14 @@ import MobileHeader from '@/components/MobileHeader';
 import { MobileHeaderProvider } from '@/contexts/MobileHeaderContext';
 import { NativeUIModeProvider, useNativeUIMode } from '@/contexts/NativeUIModeContext';
 import NativePreferencesPage from '@/pages/NativePreferencesPage';
+import AmbassadorPage from '@/pages/AmbassadorPage';
+import ManageMastersPage from '@/pages/admin/ManageMastersPage';
+import AcceptInvitePage from '@/pages/AcceptInvitePage';
 
 const SEO = () => {
   const location = useLocation();
   const siteName = import.meta.env.VITE_APP_NAME || "Trombone Cidadão";
-  const defaultDescription = "Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE. Registre, acompanhe e resolva as broncas da sua cidade.";
+  const defaultDescription = "Plataforma colaborativa para solicitação de serviços públicos. Registre, acompanhe e resolva as broncas da sua cidade.";
   
   // Base URL automática - detecta automaticamente o ambiente
   const getBaseUrl = () => {
@@ -127,19 +130,19 @@ const SEO = () => {
       break;
     case '/estatisticas':
       pageTitle = `Estatísticas - ${siteName}`;
-      pageDescription = "Acompanhe em tempo real as estatísticas de solicitações, resoluções e o engajamento cívico em Floresta-PE.";
+      pageDescription = "Acompanhe em tempo real as estatísticas de solicitações, resoluções e o engajamento cívico na sua cidade.";
       break;
     case '/obras-publicas':
       pageTitle = `Mapa de Obras Públicas - ${siteName}`;
-      pageDescription = "Mapa interativo e informações sobre as obras públicas em Floresta-PE.";
+      pageDescription = "Mapa interativo e informações sobre as obras públicas na sua cidade.";
       break;
     case '/mapa-pavimentacao':
       pageTitle = `Mapa de Pavimentação - ${siteName}`;
-      pageDescription = "Consulte o status da pavimentação das ruas de Floresta-PE e acompanhe o progresso.";
+      pageDescription = "Consulte o status da pavimentação das ruas da sua cidade e acompanhe o progresso.";
       break;
     case '/noticias':
       pageTitle = `Notícias - ${siteName}`;
-      pageDescription = "Fique por dentro das últimas notícias e atualizações relevantes para a cidade de Floresta-PE.";
+      pageDescription = "Fique por dentro das últimas notícias e atualizações relevantes para a sua cidade.";
       break;
     case '/favoritos':
       pageTitle = `Meus Favoritos - ${siteName}`;
@@ -585,6 +588,7 @@ function AppShell() {
               <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
               <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
               <Route path="/app" element={<AppLandingPage />} />
+              <Route path="/convite/:token" element={<AcceptInvitePage />} />
               
               <Route path="/" element={<HomeRouter />} />
               <Route path="/mapa" element={<MapPage />} />
@@ -633,6 +637,8 @@ function AppShell() {
               <Route path="/admin/signatures" element={<Navigate to="/admin/petitions" replace />} />
               <Route path="/admin/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
               <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
+              <Route path="/admin/embaixadores" element={<AdminRoute><ManageMastersPage /></AdminRoute>} />
+              <Route path="/embaixador" element={<PrivateRoute><AmbassadorPage /></PrivateRoute>} />
               <Route path="/settings/notifications" element={<NotificationPreferences />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

@@ -9,6 +9,7 @@ import { Share } from '@capacitor/share';
 import { useFeed } from '@/hooks/useFeed';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import FeedCard from '@/components/FeedCard';
 import FeedSkeleton from '@/components/FeedSkeleton';
@@ -82,6 +83,7 @@ const AnimatedNumber = ({ value, durationMs = 650, className = '' }) => {
 export default function FeedPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { activeCityId, activeCityName } = useCity();
   const { toast } = useToast();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('recent');
@@ -110,7 +112,7 @@ export default function FeedPage() {
     isSlow,
     loadMoreError,
     isSlowMore,
-  } = useFeed(activeTab);
+  } = useFeed(activeTab, activeCityId);
   const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
 
   // Sentinel for infinite scroll
@@ -409,6 +411,22 @@ export default function FeedPage() {
             </div>
           </div>
         )}
+      {/* ── City indicator ── */}
+      {activeCityName && (
+        <div className="px-3 pt-2 pb-0">
+          <p className="text-[11px] text-muted-foreground text-center">
+            Mostrando broncas de <span className="font-semibold text-foreground">{activeCityName}</span>
+          </p>
+        </div>
+      )}
+      {!activeCityId && (
+        <div className="px-3 pt-2 pb-0">
+          <p className="text-[11px] text-muted-foreground text-center">
+            Mostrando broncas de todas as cidades
+          </p>
+        </div>
+      )}
+
       {/* ── Sticky Tab Bar ── */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto max-w-2xl px-3">

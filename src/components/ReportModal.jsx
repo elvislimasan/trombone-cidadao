@@ -349,22 +349,42 @@ const ReportModal = ({ onClose, onSubmit }) => {
       return;
     }
 
-    setLocationPermission("requesting");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setLocationPermission("granted");
-        setFormData((prev) => ({
-          ...prev,
-          location: { lat: latitude, lng: longitude },
-        }));
-      },
-      () => {
-        setLocationPermission("denied");
-        // Não seta localização default — o usuário deve ativar explicitamente
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    const doGetPosition = () => {
+      setLocationPermission("requesting");
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocationPermission("granted");
+          setFormData((prev) => ({
+            ...prev,
+            location: { lat: latitude, lng: longitude },
+          }));
+        },
+        () => {
+          setLocationPermission("denied");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    };
+
+    doGetPosition();
+
+    // Quando o usuário desbloquear a localização no browser e voltar à aba,
+    // o estado da permissão muda — reagir automaticamente.
+    let permStatus = null;
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" }).then((status) => {
+        permStatus = status;
+        status.onchange = () => {
+          if (status.state === "granted") doGetPosition();
+          else if (status.state === "denied") setLocationPermission("denied");
+        };
+      }).catch(() => {});
+    }
+
+    return () => {
+      if (permStatus) permStatus.onchange = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -2683,8 +2703,27 @@ const ReportModal = ({ onClose, onSubmit }) => {
     return true;
   };
 
-  const requestLocation = () => {
+  const requestLocation = async () => {
     if (!navigator.geolocation) return;
+
+    // Checar estado real da permissão antes de chamar getCurrentPosition.
+    // Se já está 'denied', o browser não mostrará o popup — orientar o usuário.
+    if (navigator.permissions) {
+      try {
+        const status = await navigator.permissions.query({ name: "geolocation" });
+        if (status.state === "denied") {
+          setLocationPermission("denied");
+          const description = isNative
+            ? "Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
+            : "Localização bloqueada no seu navegador. Toque no ícone de cadeado/info na barra de endereço e permita a localização, depois tente novamente.";
+          toast({ title: "Localização bloqueada", description, duration: 8000 });
+          return;
+        }
+      } catch {
+        // Permissions API não suportada — segue tentando getCurrentPosition
+      }
+    }
+
     setLocationPermission("requesting");
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -2697,15 +2736,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
       },
       () => {
         setLocationPermission("denied");
-        // Permissão negada — no nativo, orientar o usuário a abrir as configurações
-        if (isNative) {
-          toast({
-            title: "Localização bloqueada",
-            description:
-              "Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização.",
-            duration: 6000,
-          });
-        }
+        const description = isNative
+          ? "Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
+          : "Localização bloqueada no seu navegador. Toque no ícone de cadeado/info na barra de endereço e permita a localização, depois tente novamente.";
+        toast({ title: "Localização bloqueada", description, duration: 8000 });
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -3555,14 +3589,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       {locationPermission === "denied" && (
                         <>
                           <p className="text-xs text-muted-foreground">
-                            A localização é obrigatória para registrar uma bronca. Ative-a para continuar.
+                            {isNative
+                              ? "A localização é obrigatória. Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
+                              : "A localização está bloqueada no navegador. Toque no ícone de cadeado ou ⓘ na barra de endereço, permita a localização e toque em \"Tentar novamente\"."}
                           </p>
                           <button
                             type="button"
                             onClick={requestLocation}
                             className="self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
                           >
-                            Ativar localização
+                            {isNative ? "Ativar localização" : "Tentar novamente"}
                           </button>
                         </>
                       )}
@@ -4244,7 +4280,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 </button>
               </div>
               <p className="text-muted-foreground mt-1">
-                Cadastre um problema em Floresta-PE
+                Cadastre um problema na sua cidade
               </p>
             </div>
 

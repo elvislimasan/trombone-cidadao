@@ -83,12 +83,12 @@ const baseTextShadow =
 
 const getCityFromAddress = (address = '', report = {}) => {
   if (report.city) {
-    const uf = report.state || report.uf || 'PE';
+    const uf = report.state || report.uf || 'BR';
     return `${report.city}-${uf}`.toUpperCase();
   }
 
   const clean = normalizeText(address);
-  if (!clean) return 'FLORESTA-PE';
+  if (!clean) return 'BRASIL';
 
   const parts = clean.split(/[,-]/).map((p) => p.trim());
 
@@ -106,11 +106,7 @@ const getCityFromAddress = (address = '', report = {}) => {
     }
   }
 
-  if (clean.toUpperCase().includes('FLORESTA')) {
-    return 'FLORESTA-PE';
-  }
-
-  return 'FLORESTA-PE';
+  return 'BRASIL';
 };
 
 const getNormalizedStatus = (status) => {

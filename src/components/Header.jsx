@@ -1,16 +1,118 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { defaultMenuSettings } from '@/config/menuConfig';
 import Avatar from 'react-nice-avatar';
 import Notifications from '@/components/Notifications';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
+
+const CitySelector = () => {
+  const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const canSeeAll = user?.is_admin || user?.is_master || user?.is_ambassador;
+
+  const filteredCities = useMemo(() => {
+    if (!search.trim()) return cities.slice(0, 50);
+    const term = search.trim().toLowerCase();
+    return cities.filter(
+      (c) =>
+        c.name.toLowerCase().includes(term) ||
+        (c.state?.uf || '').toLowerCase().includes(term)
+    );
+  }, [cities, search]);
+
+  if (!user) return null;
+
+  const label = activeCityId && activeCityName ? activeCityName : 'Todas as cidades';
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden lg:flex items-center gap-1.5 text-white/80 hover:text-white hover:bg-white/10 max-w-[200px] truncate px-2"
+          title={label}
+        >
+          <LucideIcons.MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="truncate text-xs font-semibold">{label}</span>
+          <LucideIcons.ChevronsUpDown className="h-3 w-3 shrink-0 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0" align="end">
+        <Command>
+          <CommandInput
+            placeholder="Buscar cidade..."
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-[280px]">
+            <CommandEmpty>
+              {loadingCities ? 'Carregando...' : 'Nenhuma cidade encontrada.'}
+            </CommandEmpty>
+            <CommandGroup>
+              {canSeeAll && (
+                <CommandItem
+                  value="__all__"
+                  onSelect={() => {
+                    setActiveCity(null);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                  className="font-semibold"
+                >
+                  <LucideIcons.Globe className="mr-2 h-4 w-4 text-muted-foreground" />
+                  Todas as cidades
+                  {!activeCityId && (
+                    <LucideIcons.Check className="ml-auto h-4 w-4 text-primary" />
+                  )}
+                </CommandItem>
+              )}
+              {filteredCities.map((city) => {
+                const isActive = String(activeCityId) === String(city.id);
+                return (
+                  <CommandItem
+                    key={city.id}
+                    value={`${city.name} ${city.state?.uf || ''}`}
+                    onSelect={() => {
+                      setActiveCity(city.id);
+                      setOpen(false);
+                      setSearch('');
+                    }}
+                  >
+                    <span className="flex-1 truncate">
+                      {city.name}
+                      {city.state?.uf && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          {city.state.uf}
+                        </span>
+                      )}
+                    </span>
+                    {isActive && (
+                      <LucideIcons.Check className="ml-2 h-4 w-4 shrink-0 text-primary" />
+                    )}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -20,8 +122,8 @@ const Header = () => {
   const [logoError, setLogoError] = useState(false);
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
   const location = useLocation();
-  const { 
-    notificationsEnabled, 
+  const {
+    notificationsEnabled,
     toggleNotifications,
     pushEnabled,
     loading
@@ -187,6 +289,7 @@ const Header = () => {
         <div className="flex items-center gap-2 sm:gap-4">
           {user ? (
             <>
+              <CitySelector />
               <Notifications />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -217,6 +320,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/obras-favoritas" className="flex items-center"><LucideIcons.HardHat className="mr-2 h-4 w-4" /><span>Obras Favoritas</span></Link>
                   </DropdownMenuItem>
+                  {(user.is_ambassador || user.is_master) && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/embaixador" className="flex items-center"><LucideIcons.ShieldCheck className="mr-2 h-4 w-4" /><span>Painel Embaixador</span></Link>
+                    </DropdownMenuItem>
+                  )}
                   {user.is_admin && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center"><LucideIcons.Shield className="mr-2 h-4 w-4" /><span>Admin</span></Link>
