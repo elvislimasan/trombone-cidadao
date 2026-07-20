@@ -735,11 +735,16 @@ const ManageMastersPage = () => {
         </motion.div>
 
         <Tabs defaultValue="invite" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
+          <TabsList className="grid w-full grid-cols-4 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
             <TabsTrigger value="invite" className="gap-2 text-xs sm:text-sm">
               <Link2 className="w-4 h-4" />
               <span className="hidden sm:inline">Criar Convite</span>
               <span className="sm:hidden">Convite</span>
+            </TabsTrigger>
+            <TabsTrigger value="pending-invites" className="gap-2 text-xs sm:text-sm">
+              <Clock className="w-4 h-4" />
+              <span className="hidden sm:inline">Convites Pendentes</span>
+              <span className="sm:hidden">Pendentes</span>
             </TabsTrigger>
             <TabsTrigger value="ambassadors" className="gap-2 text-xs sm:text-sm">
               <Users className="w-4 h-4" />
@@ -755,6 +760,10 @@ const ManageMastersPage = () => {
 
           <TabsContent value="invite">
             <CreateInviteSection user={user} />
+          </TabsContent>
+
+          <TabsContent value="pending-invites">
+            <PendingInvitesSection />
           </TabsContent>
 
           <TabsContent value="ambassadors">
