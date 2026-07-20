@@ -50,7 +50,7 @@ const CreateInviteSection = ({ user }) => {
     latestCityIdRef.current = requestedCityId;
 
     setSelectedCityId(requestedCityId);
-    setSelectedCityLabel(`${city.name}${city.states?.uf ? ` (${city.states.uf})` : ''}`);
+    setSelectedCityLabel(`${city.name}${city.state?.uf ? ` (${city.state.uf})` : ''}`);
     setCitySearch('');
     setCityDropOpen(false);
     setExistingPendingInvite(null);
@@ -197,7 +197,7 @@ const CreateInviteSection = ({ user }) => {
                         onMouseDown={() => handleSelectCity(city)}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between ${String(city.id) === selectedCityId ? 'font-semibold text-primary' : ''}`}
                       >
-                        <span>{city.name}{city.states?.uf ? ` (${city.states.uf})` : ''}</span>
+                        <span>{city.name}{city.state?.uf ? ` (${city.state.uf})` : ''}</span>
                         {String(city.id) === selectedCityId && <Check className="w-3.5 h-3.5 text-primary" />}
                       </button>
                     ))
