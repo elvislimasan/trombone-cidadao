@@ -33,6 +33,8 @@ const CreateInviteSection = ({ user }) => {
   const [submitting, setSubmitting] = useState(false);
   const [generatedLink, setGeneratedLink] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [existingPendingInvite, setExistingPendingInvite] = useState(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   const filteredCities = useMemo(() => {
     const term = normStr(citySearch.trim());
@@ -42,11 +44,26 @@ const CreateInviteSection = ({ user }) => {
       .slice(0, 50);
   }, [cities, citySearch]);
 
-  const handleSelectCity = (city) => {
+  const handleSelectCity = async (city) => {
     setSelectedCityId(String(city.id));
     setSelectedCityLabel(`${city.name}${city.states?.uf ? ` (${city.states.uf})` : ''}`);
     setCitySearch('');
     setCityDropOpen(false);
+    setExistingPendingInvite(null);
+
+    setCheckingDuplicate(true);
+    const { data, error } = await supabase
+      .from('ambassador_invites')
+      .select('id, created_at')
+      .eq('city_id', city.id)
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
+    setCheckingDuplicate(false);
+
+    if (!error && data) {
+      setExistingPendingInvite(data);
+    }
   };
 
   const handleGenerateInvite = async () => {
@@ -81,10 +98,35 @@ const CreateInviteSection = ({ user }) => {
       const link = `${window.location.origin}/convite/${token}`;
       setGeneratedLink(link);
       setSelectedCityId('');
+      setSelectedCityLabel('');
       setInviteEmail('');
+      setExistingPendingInvite(null);
       toast({ title: 'Convite gerado com sucesso!' });
     }
     setSubmitting(false);
+  };
+
+  const handleRevokeAndCreate = async () => {
+    if (!existingPendingInvite) return;
+    setSubmitting(true);
+    const { error } = await supabase
+      .from('ambassador_invites')
+      .update({ status: 'revoked' })
+      .eq('id', existingPendingInvite.id);
+
+    if (error) {
+      toast({ title: 'Erro ao revogar convite existente', description: error.message, variant: 'destructive' });
+      setSubmitting(false);
+      return;
+    }
+    setExistingPendingInvite(null);
+    await handleGenerateInvite();
+  };
+
+  const handleCancelDuplicate = () => {
+    setSelectedCityId('');
+    setSelectedCityLabel('');
+    setExistingPendingInvite(null);
   };
 
   const handleCopy = async () => {
@@ -169,17 +211,46 @@ const CreateInviteSection = ({ user }) => {
           />
         </div>
 
-        <Button
-          onClick={handleGenerateInvite}
-          disabled={submitting || !selectedCityId}
-          className="w-full sm:w-auto"
-        >
-          {submitting ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Gerando...</>
-          ) : (
-            <><PlusCircle className="w-4 h-4 mr-2" /> Gerar Convite</>
-          )}
-        </Button>
+        {existingPendingInvite ? (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
+            <p className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Já existe um convite pendente para {selectedCityLabel}, criado em{' '}
+              {new Date(existingPendingInvite.created_at).toLocaleDateString('pt-BR')}.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                onClick={handleRevokeAndCreate}
+                disabled={submitting}
+                variant="outline"
+                className="border-amber-300 hover:bg-amber-100"
+              >
+                {submitting ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processando...</>
+                ) : (
+                  'Revogar e criar novo'
+                )}
+              </Button>
+              <Button onClick={handleCancelDuplicate} variant="ghost">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            onClick={handleGenerateInvite}
+            disabled={submitting || !selectedCityId || checkingDuplicate}
+            className="w-full sm:w-auto"
+          >
+            {submitting ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Gerando...</>
+            ) : checkingDuplicate ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verificando...</>
+            ) : (
+              <><PlusCircle className="w-4 h-4 mr-2" /> Gerar Convite</>
+            )}
+          </Button>
+        )}
 
         {generatedLink && (
           <motion.div
