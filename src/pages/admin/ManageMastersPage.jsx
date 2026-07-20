@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Copy, Check, X, Search, UserCheck, ShieldCheck,
-  MapPin, Loader2, Link2, Users, PlusCircle, AlertCircle
+  MapPin, Loader2, Link2, Users, PlusCircle, AlertCircle, Clock, RotateCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,45 +14,40 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Combobox } from '@/components/ui/combobox';
+import { useCity } from '@/contexts/CityContext';
 import { Navigate } from 'react-router-dom';
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Sub-component: Criar convite de embaixador
 // ────────────────────────────────────────────────────────────────────────────────
+const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
+
 const CreateInviteSection = ({ user }) => {
   const { toast } = useToast();
-  const [cities, setCities] = useState([]);
-  const [loadingCities, setLoadingCities] = useState(true);
+  const { cities, loadingCities } = useCity();
   const [selectedCityId, setSelectedCityId] = useState('');
+  const [selectedCityLabel, setSelectedCityLabel] = useState('');
+  const [citySearch, setCitySearch] = useState('');
+  const [cityDropOpen, setCityDropOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [generatedLink, setGeneratedLink] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const fetchCities = useCallback(async () => {
-    setLoadingCities(true);
-    const { data, error } = await supabase
-      .from('cities')
-      .select('id, name, state_id, states(uf)')
-      .order('name');
+  const filteredCities = useMemo(() => {
+    const term = normStr(citySearch.trim());
+    if (!term) return cities.slice(0, 50);
+    return cities
+      .filter(c => normStr(c.name).includes(term) || normStr(c.state?.uf || '').includes(term))
+      .slice(0, 50);
+  }, [cities, citySearch]);
 
-    if (error) {
-      toast({ title: 'Erro ao buscar cidades', description: error.message, variant: 'destructive' });
-    } else {
-      setCities(data || []);
-    }
-    setLoadingCities(false);
-  }, [toast]);
-
-  useEffect(() => {
-    fetchCities();
-  }, [fetchCities]);
-
-  const cityOptions = cities.map(c => ({
-    value: String(c.id),
-    label: `${c.name} ${c.states?.uf ? `(${c.states.uf})` : ''}`,
-  }));
+  const handleSelectCity = (city) => {
+    setSelectedCityId(String(city.id));
+    setSelectedCityLabel(`${city.name}${city.states?.uf ? ` (${city.states.uf})` : ''}`);
+    setCitySearch('');
+    setCityDropOpen(false);
+  };
 
   const handleGenerateInvite = async () => {
     if (!selectedCityId) {
@@ -123,15 +118,44 @@ const CreateInviteSection = ({ user }) => {
               <Loader2 className="w-4 h-4 animate-spin" /> Carregando cidades...
             </div>
           ) : (
-            <Combobox
-              options={cityOptions}
-              value={selectedCityId}
-              onChange={setSelectedCityId}
-              placeholder="Selecione uma cidade..."
-              searchPlaceholder="Buscar cidade..."
-              notFoundText="Nenhuma cidade encontrada."
-              modal
-            />
+            <div className="relative">
+              <div className="flex items-center gap-2 border border-input rounded-md px-3 py-2 bg-background focus-within:ring-2 focus-within:ring-ring">
+                <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+                <input
+                  type="text"
+                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                  placeholder={selectedCityLabel || 'Buscar cidade...'}
+                  value={citySearch}
+                  onChange={e => { setCitySearch(e.target.value); setCityDropOpen(true); }}
+                  onFocus={() => setCityDropOpen(true)}
+                  onBlur={() => setTimeout(() => setCityDropOpen(false), 150)}
+                />
+                {selectedCityId && !citySearch && (
+                  <button type="button" onClick={() => { setSelectedCityId(''); setSelectedCityLabel(''); }} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              {cityDropOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {filteredCities.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma cidade encontrada.</p>
+                  ) : (
+                    filteredCities.map(city => (
+                      <button
+                        key={city.id}
+                        type="button"
+                        onMouseDown={() => handleSelectCity(city)}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between ${String(city.id) === selectedCityId ? 'font-semibold text-primary' : ''}`}
+                      >
+                        <span>{city.name}{city.states?.uf ? ` (${city.states.uf})` : ''}</span>
+                        {String(city.id) === selectedCityId && <Check className="w-3.5 h-3.5 text-primary" />}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -188,6 +212,145 @@ const CreateInviteSection = ({ user }) => {
 };
 
 // ────────────────────────────────────────────────────────────────────────────────
+// Sub-component: Convites pendentes
+// ────────────────────────────────────────────────────────────────────────────────
+const PendingInvitesSection = () => {
+  const { toast } = useToast();
+  const [invites, setInvites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [revokingId, setRevokingId] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
+
+  const fetchInvites = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('ambassador_invites')
+      .select('id, city_id, invited_email, created_at, expires_at, cities(name, states(uf))')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast({ title: 'Erro ao buscar convites', description: error.message, variant: 'destructive' });
+    } else {
+      setInvites(data || []);
+    }
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => {
+    fetchInvites();
+  }, [fetchInvites]);
+
+  const handleRevoke = async (inviteId) => {
+    setRevokingId(inviteId);
+    const { error } = await supabase
+      .from('ambassador_invites')
+      .update({ status: 'revoked' })
+      .eq('id', inviteId);
+
+    if (error) {
+      toast({ title: 'Erro ao revogar convite', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Convite revogado.' });
+      fetchInvites();
+    }
+    setRevokingId(null);
+  };
+
+  const handleResend = async (inviteId) => {
+    setResendingId(inviteId);
+    const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { error } = await supabase
+      .from('ambassador_invites')
+      .update({ expires_at: newExpiresAt })
+      .eq('id', inviteId);
+
+    if (error) {
+      toast({ title: 'Erro ao reenviar convite', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Validade do convite estendida por mais 7 dias.' });
+      fetchInvites();
+    }
+    setResendingId(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <span className="text-muted-foreground">Carregando convites...</span>
+      </div>
+    );
+  }
+
+  if (invites.length === 0) {
+    return (
+      <Card className="border-dashed border-2 py-12 text-center bg-muted/20">
+        <CardContent className="flex flex-col items-center gap-3">
+          <Clock className="w-10 h-10 text-muted-foreground" />
+          <p className="text-lg font-semibold text-muted-foreground">Nenhum convite pendente</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {invites.map((inv) => (
+        <motion.div
+          key={inv.id}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="border-border">
+            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm md:text-base truncate">
+                  {inv.cities?.name || '—'} {inv.cities?.states?.uf ? `(${inv.cities.states.uf})` : ''}
+                </p>
+                <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                  <span>{inv.invited_email || 'Sem e-mail informado'}</span>
+                  <span>Criado em: {new Date(inv.created_at).toLocaleDateString('pt-BR')}</span>
+                  <span>Expira em: {new Date(inv.expires_at).toLocaleDateString('pt-BR')}</span>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  disabled={resendingId === inv.id}
+                  onClick={() => handleResend(inv.id)}
+                >
+                  {resendingId === inv.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <><RotateCw className="w-3 h-3 mr-1" /> Reenviar</>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                  disabled={revokingId === inv.id}
+                  onClick={() => handleRevoke(inv.id)}
+                >
+                  {revokingId === inv.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <><X className="w-3 h-3 mr-1" /> Revogar</>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ))}
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────────────────
 // Sub-component: Embaixadores ativos
 // ────────────────────────────────────────────────────────────────────────────────
 const ActiveAmbassadorsSection = () => {
@@ -200,7 +363,7 @@ const ActiveAmbassadorsSection = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('ambassador_cities')
-      .select('id, user_id, city_id, status, created_at, profiles(name, email), cities(name, state_id, states(uf))')
+      .select('id, user_id, city_id, status, created_at, profiles:user_id(name, email), cities(name, state_id, states(uf))')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
