@@ -88,6 +88,9 @@ export default function FeedPage() {
   const [citySearch, setCitySearch] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const cityPickerRef = useRef(null);
+  // Ref sempre atualizada para evitar closure stale quando cities ainda não carregou
+  const citiesRef = useRef(cities);
+  useEffect(() => { citiesRef.current = cities; }, [cities]);
   const { toast } = useToast();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('recent');
@@ -485,12 +488,21 @@ export default function FeedPage() {
                             if (!res.ok) throw new Error(`HTTP ${res.status}`);
                             const json = await res.json();
                             const { name, uf } = parseCityFromNominatim(json.address || {});
-                            const found = matchCityInList(cities, name, uf);
+                            console.log('[GPS picker] nominatim addr:', json.address, '→ name:', name, 'uf:', uf, 'cities loaded:', citiesRef.current.length);
+                            const found = matchCityInList(citiesRef.current, name, uf);
+                            console.log('[GPS picker] found:', found);
                             if (found) {
                               setActiveCity(found.id);
                               setCityPickerOpen(false);
                             } else {
-                              toast({ title: 'Cidade não encontrada', description: name ? `"${name}" não está no cadastro. Escolha manualmente.` : 'Escolha manualmente na lista.', duration: 4000 });
+                              const listSize = citiesRef.current.length;
+                              toast({
+                                title: 'Cidade não encontrada',
+                                description: listSize === 0
+                                  ? 'Lista de cidades ainda carregando. Aguarde e tente novamente.'
+                                  : name ? `"${name}" não está no cadastro. Escolha manualmente.` : 'Escolha manualmente na lista.',
+                                duration: 4000,
+                              });
                             }
                           } catch {
                             toast({ title: 'Erro ao obter localização', description: 'Verifique sua conexão e tente novamente.', duration: 4000 });

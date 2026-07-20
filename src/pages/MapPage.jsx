@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, RefreshCw, Search, X } from 'lucide-react';
+import { Loader2, RefreshCw, Search, X, MapPin, ChevronDown, LocateFixed, Check } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
 
 const MapView         = lazy(() => import('@/components/MapView'));
 
@@ -58,6 +59,33 @@ const normalizePole = (value) =>
 
 export default function MapPage() {
   const navigate = useNavigate();
+  const { cities, loadingCities } = useCity();
+  const citiesRef = useRef(cities);
+  useEffect(() => { citiesRef.current = cities; }, [cities]);
+  const [mapCityId, setMapCityId] = useState(null);
+  const [mapCityName, setMapCityName] = useState(null);
+  const [mapGpsInitDone, setMapGpsInitDone] = useState(false);
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const cityPickerRef = useRef(null);
+
+  const selectMapCity = useCallback(async (city) => {
+    setMapCityId(city ? city.id : null);
+    setMapCityName(city ? (city.state?.uf ? `${city.name} · ${city.state.uf}` : city.name) : null);
+    if (!city) return;
+    // Geocodifica o nome da cidade para centralizar o mapa mesmo sem broncas
+    try {
+      const uf = city.state?.uf || '';
+      const q = encodeURIComponent(`${city.name}${uf ? `, ${uf}, Brasil` : ', Brasil'}`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&accept-language=pt-BR&countrycodes=br`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json?.[0]?.lat && json?.[0]?.lon) {
+        setFlyToTarget({ lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon), zoom: 13, nonce: Date.now() });
+      }
+    } catch {}
+  }, []);
   const [reports,        setReports]        = useState([]);
   const [flyToTarget, setFlyToTarget] = useState(null);
   const [loading,        setLoading]        = useState(true);
@@ -98,32 +126,36 @@ export default function MapPage() {
         q = q.eq('category_id', categoryFilter);
       }
 
+      if (mapCityId) {
+        q = q.eq('city_id', mapCityId);
+      }
+
       const { data, error } = await q;
       if (error) throw error;
       if (cancelRef.current) return;
 
-      setReports(
-        (data || [])
-          .filter((r) => r.location)
-          .map((r) => ({
-            ...r,
-            location: {
-              lat: r.location.coordinates[1],
-              lng: r.location.coordinates[0],
-            },
-            category:     r.category_id,
-            categoryName: r.category?.name || r.category_id,
-            coverImage:   (r.report_media || []).find((m) => m.type === 'photo')?.url || null,
-            upvotes:      Number(r.upvotes?.[0]?.count ?? 0),
-            pole_number:  r.pole_number ?? null,
-          }))
-      );
+      const mapped = (data || [])
+        .filter((r) => r.location)
+        .map((r) => ({
+          ...r,
+          location: {
+            lat: r.location.coordinates[1],
+            lng: r.location.coordinates[0],
+          },
+          category:     r.category_id,
+          categoryName: r.category?.name || r.category_id,
+          coverImage:   (r.report_media || []).find((m) => m.type === 'photo')?.url || null,
+          upvotes:      Number(r.upvotes?.[0]?.count ?? 0),
+          pole_number:  r.pole_number ?? null,
+        }));
+
+      setReports(mapped);
     } catch (err) {
       console.error('[MapPage] fetch error:', err);
     } finally {
       if (!cancelRef.current) setLoading(false);
     }
-  }, [categoryFilter, statusFilter]);
+  }, [categoryFilter, statusFilter, mapCityId]);
 
   useEffect(() => {
     cancelRef.current = false;
@@ -138,6 +170,44 @@ export default function MapPage() {
       setPoleSearchTerm('');
     }
   }, [categoryFilter]);
+
+  useEffect(() => {
+    if (!cityPickerOpen) return;
+    const handler = (e) => {
+      if (cityPickerRef.current && !cityPickerRef.current.contains(e.target)) {
+        setCityPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [cityPickerOpen]);
+
+  // Auto-detecta cidade pelo GPS ao abrir o mapa (uma vez)
+  useEffect(() => {
+    if (mapGpsInitDone || !navigator.geolocation) { setMapGpsInitDone(true); return; }
+    setMapGpsInitDone(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`
+          );
+          if (!res.ok) return;
+          const json = await res.json();
+          const { name, uf } = parseCityFromNominatim(json.address || {});
+          const found = matchCityInList(citiesRef.current, name, uf);
+          if (found) selectMapCity(found);
+        } catch {}
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 }
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const visibleReports = useMemo(() => {
     let result = reports || [];
@@ -223,7 +293,7 @@ export default function MapPage() {
   return (
     <div className="flex flex-col bg-background flex-1 min-h-0 overflow-hidden">
 
-      {/* ── Row 1: Status chips ── */}
+      {/* ── Row 1: Status chips + filtro de cidade ── */}
       <div className="flex-shrink-0 bg-background border-b border-border">
         <div className="flex items-center gap-1.5 px-3 py-2 overflow-x-auto no-scrollbar">
           <span className="flex-shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">
@@ -347,6 +417,119 @@ export default function MapPage() {
             </div>
 
           </div>
+        </div>
+
+        {/* ── City picker — canto inferior esquerdo ── */}
+        <div
+          ref={cityPickerRef}
+          className="absolute bottom-10 left-3 z-[700]"
+        >
+          {/* Dropdown — abre para cima */}
+          {cityPickerOpen && (
+            <div className="absolute bottom-full mb-2 left-0 w-64 rounded-xl border border-border bg-background shadow-xl overflow-hidden">
+              {/* Busca */}
+              <div className="flex items-center gap-2 p-2 border-b border-border">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Buscar cidade..."
+                  value={citySearch}
+                  onChange={e => setCitySearch(e.target.value)}
+                  className="flex-1 rounded-lg bg-muted px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                />
+                {citySearch && (
+                  <button type="button" onClick={() => setCitySearch('')} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-56 overflow-y-auto">
+                {/* GPS */}
+                <button
+                  type="button"
+                  disabled={gpsLoading}
+                  onClick={() => {
+                    if (!navigator.geolocation || gpsLoading) return;
+                    setGpsLoading(true);
+                    navigator.geolocation.getCurrentPosition(
+                      async ({ coords }) => {
+                        try {
+                          const res = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`
+                          );
+                          if (!res.ok) throw new Error();
+                          const json = await res.json();
+                          const { name, uf } = parseCityFromNominatim(json.address || {});
+                          const found = matchCityInList(citiesRef.current, name, uf);
+                          if (found) {
+                            selectMapCity(found);
+                            setCityPickerOpen(false);
+                          }
+                        } catch {}
+                        finally { setGpsLoading(false); }
+                      },
+                      () => setGpsLoading(false),
+                      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+                    );
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-muted transition-colors"
+                >
+                  {gpsLoading
+                    ? <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                    : <LocateFixed className="h-4 w-4 shrink-0" />}
+                  {gpsLoading ? 'Detectando...' : 'Usar minha localização'}
+                </button>
+
+                {/* Lista */}
+                {loadingCities ? (
+                  <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                ) : cities
+                  .filter(c => {
+                    if (!citySearch.trim()) return true;
+                    const norm = s => s.toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
+                    const term = norm(citySearch.trim());
+                    return norm(c.name).includes(term) || (c.state?.uf || '').toLowerCase().includes(term);
+                  })
+                  .slice(0, citySearch.trim() ? undefined : 50)
+                  .map(city => {
+                    const isActive = String(mapCityId) === String(city.id);
+                    return (
+                      <button
+                        key={city.id}
+                        type="button"
+                        onClick={() => { selectMapCity(city); setCityPickerOpen(false); setCitySearch(''); }}
+                        className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-muted border-t border-border/50 transition-colors ${isActive ? 'font-semibold text-primary' : 'text-foreground'}`}
+                      >
+                        <span className="flex-1 truncate">
+                          {city.name}
+                          {city.state?.uf && <span className="ml-1 text-xs text-muted-foreground">{city.state.uf}</span>}
+                        </span>
+                        {isActive && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      </button>
+                    );
+                  })
+                }
+              </div>
+            </div>
+          )}
+
+          {/* Botão pill */}
+          <button
+            type="button"
+            onClick={() => { setCityPickerOpen(v => !v); setCitySearch(''); }}
+            className={`flex items-center gap-1.5 rounded-full border shadow-lg px-3 py-2 text-xs font-semibold transition-colors ${
+              mapCityId
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background/95 text-foreground border-border backdrop-blur-sm'
+            }`}
+          >
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <span className="max-w-[130px] truncate">
+              {mapCityName ?? 'Todas as cidades'}
+            </span>
+            <ChevronDown className={`h-3 w-3 shrink-0 opacity-70 transition-transform ${cityPickerOpen ? 'rotate-180' : ''}`} />
+          </button>
         </div>
 
         {loading && <MapLoader />}

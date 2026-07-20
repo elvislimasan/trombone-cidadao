@@ -18,7 +18,8 @@ export const parseCityFromNominatim = (addr) => {
     addr.town ||
     addr.village ||
     addr.municipality ||
-    addr.county ||       // cobre muitos municípios BR no Nominatim
+    addr.county ||         // cobre muitos municípios BR no Nominatim
+    addr.city_district ||  // usado pelo Nominatim para alguns municípios BR
     addr.hamlet ||
     addr.suburb ||
     '';
@@ -81,12 +82,22 @@ export const CityProvider = ({ children }) => {
     const fetchCities = async () => {
       setLoadingCities(true);
       try {
-        const { data, error } = await supabase
-          .from('cities')
-          .select('id, name, state:states(uf)')
-          .order('name', { ascending: true });
-        if (error) throw error;
-        setCities(data || []);
+        const PAGE = 1000;
+        let all = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from('cities')
+            .select('id, name, state:states(uf)')
+            .order('name', { ascending: true })
+            .range(from, from + PAGE - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          all = all.concat(data);
+          if (data.length < PAGE) break;
+          from += PAGE;
+        }
+        setCities(all);
       } catch (err) {
         console.error('[CityContext] Erro ao carregar cidades:', err);
         setCities([]);
