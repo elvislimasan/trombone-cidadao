@@ -14,6 +14,9 @@ import { Navigate } from 'react-router-dom';
 const AmbassadorPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [showOnboardingBanner, setShowOnboardingBanner] = useState(
+    user ? user.has_seen_ambassador_onboarding === false : false
+  );
 
   // State for "Minhas Cidades"
   const [myCities, setMyCities] = useState([]);
@@ -160,6 +163,14 @@ const AmbassadorPage = () => {
     return city ? `${city.name} - ${city.states?.uf || ''}` : '';
   };
 
+  const handleDismissOnboarding = async () => {
+    setShowOnboardingBanner(false);
+    await supabase
+      .from('profiles')
+      .update({ has_seen_ambassador_onboarding: true })
+      .eq('id', user.id);
+  };
+
   return (
     <>
       <Helmet>
@@ -181,6 +192,27 @@ const AmbassadorPage = () => {
             Modere o conteúdo da sua cidade e mantenha a plataforma de qualidade.
           </p>
         </motion.div>
+
+        {showOnboardingBanner && (
+          <Card className="mb-6 border-tc-red/30 bg-tc-red/5">
+            <CardContent className="p-4 flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-tc-red shrink-0 mt-0.5" />
+              <p className="flex-1 text-sm text-foreground">
+                Bem-vindo ao seu painel! Em <strong>Minhas Cidades</strong> você vê onde atua;
+                em <strong>Broncas Pendentes</strong> e <strong>Atualizações Pendentes</strong> você
+                aprova ou rejeita o que chega da sua cidade.
+              </p>
+              <button
+                type="button"
+                onClick={handleDismissOnboarding}
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                aria-label="Fechar aviso"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="cities" className="w-full">
           <TabsList className="grid w-full grid-cols-3 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
