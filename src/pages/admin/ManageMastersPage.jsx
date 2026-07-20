@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -35,6 +35,7 @@ const CreateInviteSection = ({ user }) => {
   const [copied, setCopied] = useState(false);
   const [existingPendingInvite, setExistingPendingInvite] = useState(null);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const latestCityIdRef = useRef(null);
 
   const filteredCities = useMemo(() => {
     const term = normStr(citySearch.trim());
@@ -45,7 +46,10 @@ const CreateInviteSection = ({ user }) => {
   }, [cities, citySearch]);
 
   const handleSelectCity = async (city) => {
-    setSelectedCityId(String(city.id));
+    const requestedCityId = String(city.id);
+    latestCityIdRef.current = requestedCityId;
+
+    setSelectedCityId(requestedCityId);
     setSelectedCityLabel(`${city.name}${city.states?.uf ? ` (${city.states.uf})` : ''}`);
     setCitySearch('');
     setCityDropOpen(false);
@@ -59,10 +63,13 @@ const CreateInviteSection = ({ user }) => {
       .eq('status', 'pending')
       .limit(1)
       .maybeSingle();
-    setCheckingDuplicate(false);
 
-    if (!error && data) {
-      setExistingPendingInvite(data);
+    // Guard against stale responses: only apply state updates if this request still matches the latest selection
+    if (latestCityIdRef.current === requestedCityId) {
+      setCheckingDuplicate(false);
+      if (!error && data) {
+        setExistingPendingInvite(data);
+      }
     }
   };
 

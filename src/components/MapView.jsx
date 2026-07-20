@@ -117,7 +117,7 @@ const ClusterZoomHandler = ({ clusterToZoom, onZoomComplete }) => {
   return null;
 };
 
-const MapInstanceBinder = ({ onReady }) => {
+const MapInstanceBinder = ({ onReady, onBoundsChange }) => {
   const map = useMap();
   useEffect(() => {
     onReady?.(map);
@@ -131,6 +131,22 @@ const MapInstanceBinder = ({ onReady }) => {
       };
     } catch {}
   }, [map, onReady]);
+
+  useEffect(() => {
+    if (!onBoundsChange) return;
+    const emit = () => {
+      try { onBoundsChange(map.getBounds()); } catch {}
+    };
+    map.on('moveend', emit);
+    map.on('zoomend', emit);
+    // emit initial bounds after map is ready
+    map.whenReady?.(emit);
+    return () => {
+      map.off('moveend', emit);
+      map.off('zoomend', emit);
+    };
+  }, [map, onBoundsChange]);
+
   return null;
 };
 
@@ -142,6 +158,8 @@ const MapView = ({
   showModeToggle = true,
   flyToTarget,
   interactive = true,
+  onBoundsChange,
+  onRecenter,
 }) => {
   const { mode } = useMapModeToggle();
   const navigate = useNavigate();
@@ -184,6 +202,7 @@ const MapView = ({
 
     if (userLocation) {
       go(userLocation);
+      onRecenter?.(userLocation);
       return;
     }
 
@@ -197,12 +216,13 @@ const MapView = ({
           };
           setUserLocation(next);
           go(next);
+          onRecenter?.(next);
         },
         () => {},
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
       );
     } catch {}
-  }, [interactive, userLocation]);
+  }, [interactive, userLocation, onRecenter]);
 
   useEffect(() => {
     if (!interactive) return;
@@ -373,9 +393,8 @@ const MapView = ({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapInstanceBinder
-            onReady={(map) => {
-              mapRef.current = map;
-            }}
+            onReady={(map) => { mapRef.current = map; }}
+            onBoundsChange={onBoundsChange}
           />
           <MapScrollLock />
           <ClusterZoomHandler
