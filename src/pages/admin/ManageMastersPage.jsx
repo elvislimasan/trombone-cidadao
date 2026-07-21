@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, Copy, Check, X, Search, UserCheck, ShieldCheck,
+  ArrowLeft, Copy, Check, X, Search,
   MapPin, Loader2, Link2, Users, PlusCircle, AlertCircle, Clock, RotateCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity } from '@/contexts/CityContext';
@@ -441,15 +440,31 @@ const ActiveAmbassadorsSection = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('ambassador_cities')
-      .select('id, user_id, city_id, status, created_at, profiles:user_id(name, email), cities(name, state_id, states(uf))')
+      .select('id, user_id, city_id, status, created_at, cities(name, state_id, states(uf))')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
     if (error) {
       toast({ title: 'Erro ao buscar embaixadores', description: error.message, variant: 'destructive' });
-    } else {
-      setAmbassadors(data || []);
+      setLoading(false);
+      return;
     }
+
+    const userIds = [...new Set((data || []).map(ac => ac.user_id))];
+    let profilesById = {};
+    if (userIds.length > 0) {
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds);
+      if (profilesError) {
+        toast({ title: 'Erro ao buscar perfis dos embaixadores', description: profilesError.message, variant: 'destructive' });
+      } else {
+        profilesById = Object.fromEntries((profilesData || []).map(p => [p.id, p]));
+      }
+    }
+
+    setAmbassadors((data || []).map(ac => ({ ...ac, profiles: profilesById[ac.user_id] || null })));
     setLoading(false);
   }, [toast]);
 
@@ -537,169 +552,6 @@ const ActiveAmbassadorsSection = () => {
 };
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Sub-component: Promover a Master
-// ────────────────────────────────────────────────────────────────────────────────
-const PromoteToMasterSection = ({ currentUser }) => {
-  const { toast } = useToast();
-  const [searchEmail, setSearchEmail] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [confirmUser, setConfirmUser] = useState(null);
-  const [promoting, setPromoting] = useState(false);
-
-  const handleSearch = async () => {
-    if (!searchEmail.trim()) return;
-    setSearching(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, is_master, is_admin, is_ambassador')
-      .ilike('name', `%${searchEmail.trim()}%`)
-      .limit(10);
-
-    if (error) {
-      toast({ title: 'Erro ao buscar usuários', description: error.message, variant: 'destructive' });
-    } else {
-      setSearchResults(data || []);
-    }
-    setSearching(false);
-  };
-
-  const handlePromote = async () => {
-    if (!confirmUser) return;
-    setPromoting(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_master: true })
-      .eq('id', confirmUser.id);
-
-    if (error) {
-      toast({ title: 'Erro ao promover usuário', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: `${confirmUser.name} foi promovido a Master!` });
-      setSearchResults(prev => prev.map(u => u.id === confirmUser.id ? { ...u, is_master: true } : u));
-    }
-    setConfirmUser(null);
-    setPromoting(false);
-  };
-
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-            <UserCheck className="w-5 h-5 text-tc-red" />
-            Promover Usuário a Master
-          </CardTitle>
-          <CardDescription>
-            Busque um usuário pelo nome e promova-o ao papel de Master.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome do usuário..."
-                value={searchEmail}
-                onChange={(e) => setSearchEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="pl-9"
-              />
-            </div>
-            <Button onClick={handleSearch} disabled={searching || !searchEmail.trim()}>
-              {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-            </Button>
-          </div>
-
-          {searchResults.length > 0 && (
-            <div className="space-y-2">
-              {searchResults.map((u) => (
-                <div key={u.id} className="flex items-center justify-between p-3 bg-background border rounded-lg gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{u.name}</p>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
-                      {u.is_admin && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-700 rounded">Admin</span>
-                      )}
-                      {u.is_master && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 rounded">Master</span>
-                      )}
-                      {u.is_ambassador && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">Embaixador</span>
-                      )}
-                    </div>
-                  </div>
-                  {u.id !== currentUser.id && !u.is_master && !u.is_admin && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-3 text-xs shrink-0"
-                      onClick={() => setConfirmUser(u)}
-                    >
-                      <ShieldCheck className="w-3 h-3 mr-1" /> Promover
-                    </Button>
-                  )}
-                  {u.is_master && (
-                    <span className="text-xs text-muted-foreground shrink-0">Já é Master</span>
-                  )}
-                  {u.is_admin && (
-                    <span className="text-xs text-muted-foreground shrink-0">É Admin</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {searchResults.length === 0 && searchEmail && !searching && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum usuário encontrado para "{searchEmail}".
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Dialog de confirmação de promoção */}
-      <Dialog open={!!confirmUser} onOpenChange={(open) => !open && setConfirmUser(null)}>
-        <DialogContent className="sm:max-w-md bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <AlertCircle className="w-5 h-5 text-orange-500" />
-              Confirmar Promoção
-            </DialogTitle>
-            <DialogDescription className="text-base pt-2">
-              Você está prestes a promover <strong>{confirmUser?.name}</strong> ao papel de <strong>Master</strong>.
-              Masters podem criar convites de embaixadores e gerenciar o painel de embaixadores.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="sm:justify-end gap-2 mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setConfirmUser(null)}
-              disabled={promoting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handlePromote}
-              disabled={promoting}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              {promoting ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Promovendo...</>
-              ) : (
-                <><ShieldCheck className="w-4 h-4 mr-2" /> Confirmar Promoção</>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-};
-
-// ────────────────────────────────────────────────────────────────────────────────
 // Main page
 // ────────────────────────────────────────────────────────────────────────────────
 const ManageMastersPage = () => {
@@ -730,12 +582,12 @@ const ManageMastersPage = () => {
           </Link>
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Gestão de Embaixadores</h1>
-            <p className="mt-1 text-muted-foreground">Convites, embaixadores ativos e promoções de masters.</p>
+            <p className="mt-1 text-muted-foreground">Convites e embaixadores ativos.</p>
           </div>
         </motion.div>
 
         <Tabs defaultValue="invite" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
+          <TabsList className="grid w-full grid-cols-3 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
             <TabsTrigger value="invite" className="gap-2 text-xs sm:text-sm">
               <Link2 className="w-4 h-4" />
               <span className="hidden sm:inline">Criar Convite</span>
@@ -751,11 +603,6 @@ const ManageMastersPage = () => {
               <span className="hidden sm:inline">Embaixadores Ativos</span>
               <span className="sm:hidden">Ativos</span>
             </TabsTrigger>
-            <TabsTrigger value="promote" className="gap-2 text-xs sm:text-sm">
-              <ShieldCheck className="w-4 h-4" />
-              <span className="hidden sm:inline">Promover Master</span>
-              <span className="sm:hidden">Masters</span>
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="invite">
@@ -768,10 +615,6 @@ const ManageMastersPage = () => {
 
           <TabsContent value="ambassadors">
             <ActiveAmbassadorsSection />
-          </TabsContent>
-
-          <TabsContent value="promote">
-            <PromoteToMasterSection currentUser={user} />
           </TabsContent>
         </Tabs>
       </div>
