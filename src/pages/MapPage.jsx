@@ -127,10 +127,11 @@ export default function MapPage() {
   const [titleSearchTerm,  setTitleSearchTerm]  = useState('');
 
   // ── Reports / map ──
-  const [reports,     setReports]     = useState([]);
+  const [mapClusters, setMapClusters] = useState([]); // [{ isCluster, lat, lng, count, ids, report }]
   const [flyToTarget, setFlyToTarget] = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [mapBounds,   setMapBounds]   = useState(null); // { minLat, maxLat, minLng, maxLng }
+  const [mapZoom,     setMapZoom]     = useState(13);
   const cancelRef = useRef(false);
 
   // Open filter sheet: seed pending state from committed state
@@ -259,63 +260,66 @@ export default function MapPage() {
     buildNearby(gpsCoordsCacheRef.current, cities);
   }, [cities, citySheetOpen, buildNearby]);
 
-  // ── Fetch reports ──
-  const fetchReports = useCallback(async () => {
+  // ── Fetch clusters (RPC espacial) ──
+  const fetchClustersTimerRef = useRef(null);
+
+  const fetchClusters = useCallback(async (bounds, zoom) => {
+    if (!bounds) return;
     cancelRef.current = false;
     setLoading(true);
     try {
-      let q = supabase
-        .from('reports')
-        .select(`
-          id, title, description, status, created_at, address,
-          category_id, location, pole_number,
-          category:categories(name, icon),
-          upvotes:signatures(count),
-          report_media(url, type)
-        `)
-        .eq('moderation_status', 'approved')
-        .neq('status', 'duplicate')
-        .limit(500);
-
-      if (statusFilter === 'active') {
-        q = q.in('status', ['pending', 'in-progress']);
-      } else {
-        q = q.eq('status', statusFilter);
-      }
-
-      if (categoryFilter !== 'all') q = q.eq('category_id', categoryFilter);
-
-      q = q.order('created_at', { ascending: false });
-
-      const { data, error } = await q;
+      const { data, error } = await supabase.rpc('reports_map_clusters', {
+        min_lat: bounds.minLat,
+        max_lat: bounds.maxLat,
+        min_lng: bounds.minLng,
+        max_lng: bounds.maxLng,
+        zoom: Math.round(zoom),
+        status_filter: statusFilter,
+        category_filter: categoryFilter === 'all' ? null : categoryFilter,
+      });
       if (error) throw error;
       if (cancelRef.current) return;
 
-      const mapped = (data || [])
-        .filter(r => r.location)
-        .map(r => ({
-          ...r,
-          location: { lat: r.location.coordinates[1], lng: r.location.coordinates[0] },
-          category:     r.category_id,
-          categoryName: r.category?.name || r.category_id,
-          coverImage:   (r.report_media || []).find(m => m.type === 'photo')?.url || null,
-          upvotes:      Number(r.upvotes?.[0]?.count ?? 0),
-          pole_number:  r.pole_number ?? null,
-        }));
+      const mapped = (data || []).map(row => (
+        row.is_cluster
+          ? { isCluster: true, lat: row.cluster_lat, lng: row.cluster_lng, count: row.item_count, ids: row.report_ids }
+          : {
+              isCluster: false,
+              lat: row.cluster_lat,
+              lng: row.cluster_lng,
+              count: 1,
+              ids: row.report_ids,
+              report: {
+                id: row.report.id,
+                title: row.report.title,
+                description: row.report.description,
+                status: row.report.status,
+                created_at: row.report.created_at,
+                category: row.report.category_id,
+                categoryName: row.report.category_name || row.report.category_id,
+                coverImage: row.report.cover_image,
+                upvotes: row.report.upvotes,
+                location: { lat: row.report.lat, lng: row.report.lng },
+              },
+            }
+      ));
 
-      setReports(mapped);
+      setMapClusters(mapped);
     } catch (err) {
-      console.error('[MapPage] fetch error:', err);
+      console.error('[MapPage] fetch clusters error:', err);
     } finally {
       if (!cancelRef.current) setLoading(false);
     }
-  }, [categoryFilter, statusFilter]);
+  }, [statusFilter, categoryFilter]);
 
   useEffect(() => {
-    cancelRef.current = false;
-    fetchReports();
-    return () => { cancelRef.current = true; };
-  }, [fetchReports]);
+    if (!mapBounds) return;
+    clearTimeout(fetchClustersTimerRef.current);
+    fetchClustersTimerRef.current = setTimeout(() => {
+      fetchClusters(mapBounds, mapZoom);
+    }, 300);
+    return () => clearTimeout(fetchClustersTimerRef.current);
+  }, [mapBounds, mapZoom, fetchClusters]);
 
   // Reajusta a cidade do filtro sem mover o mapa (usado após pan/zoom manual e após recentralização por GPS)
   const syncCityFromCoords = useCallback(async (coords) => {
@@ -340,7 +344,7 @@ export default function MapPage() {
   // Debounce: só reconsulta a cidade depois que o usuário para de arrastar/zoomar por um tempo
   const boundsCityTimerRef = useRef(null);
 
-  const handleBoundsChange = useCallback((bounds) => {
+  const handleBoundsChange = useCallback((bounds, zoom) => {
     if (!bounds) return;
     setMapBounds({
       minLat: bounds.getSouth(),
@@ -348,6 +352,7 @@ export default function MapPage() {
       minLng: bounds.getWest(),
       maxLng: bounds.getEast(),
     });
+    if (Number.isFinite(zoom)) setMapZoom(zoom);
 
     const center = bounds.getCenter?.();
     if (center) {
@@ -360,30 +365,32 @@ export default function MapPage() {
 
   useEffect(() => () => clearTimeout(boundsCityTimerRef.current), []);
 
-  const visibleReports = useMemo(() => {
-    let result = reports || [];
+  const visibleClusters = useMemo(() => {
     const term = titleSearchTerm.trim().toLowerCase();
-    if (term) result = result.filter(r => String(r.title ?? '').toLowerCase().includes(term));
-    if (mapBounds) {
-      const { minLat, maxLat, minLng, maxLng } = mapBounds;
-      result = result.filter(r => {
-        const { lat, lng } = r.location || {};
-        return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
-      });
-    }
-    return result;
-  }, [reports, titleSearchTerm, mapBounds]);
+    if (!term) return mapClusters;
+    // Busca por título só filtra pins individuais — clusters agregados não têm título.
+    return mapClusters.filter(item =>
+      !item.isCluster && String(item.report?.title ?? '').toLowerCase().includes(term)
+    );
+  }, [mapClusters, titleSearchTerm]);
+
+  const totalVisibleCount = useMemo(
+    () => visibleClusters.reduce((sum, item) => sum + item.count, 0),
+    [visibleClusters]
+  );
 
   const handleTitleSearch = useCallback(() => {
     const next = titleSearchInput.trim();
     setTitleSearchTerm(next);
     if (!next) { setFlyToTarget(null); return; }
-    const first = (reports || []).find(r => String(r.title ?? '').toLowerCase().includes(next.toLowerCase()));
-    const loc = first?.location;
+    const first = mapClusters.find(item =>
+      !item.isCluster && String(item.report?.title ?? '').toLowerCase().includes(next.toLowerCase())
+    );
+    const loc = first?.report?.location;
     if (loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng)) {
       setFlyToTarget({ lat: loc.lat, lng: loc.lng, zoom: 18, nonce: Date.now() });
     }
-  }, [titleSearchInput, reports]);
+  }, [titleSearchInput, mapClusters]);
 
   const handleReportClick = useCallback(
     (report) => navigate(`/bronca/${report.id ?? report}`),
@@ -484,7 +491,7 @@ export default function MapPage() {
         <Suspense fallback={<MapLoader />}>
           <div className="absolute inset-0">
             <MapView
-              reports={visibleReports}
+              clusters={visibleClusters}
               onReportClick={handleReportClick}
               onUpvote={() => {}}
               showLegend={true}
@@ -514,7 +521,7 @@ export default function MapPage() {
           {loading ? (
             <span className="text-muted-foreground">Carregando…</span>
           ) : (
-            `${visibleReports.length} ${visibleReports.length === 1 ? 'bronca visível' : 'broncas visíveis'}`
+            `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
           )}
         </span>
       </div>
