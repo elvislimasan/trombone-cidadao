@@ -520,6 +520,19 @@ function HomePageImproved() {
     return tempReports;
   }, [debouncedSearchTerm, filter.category, statusFilteredReports, viewMode]);
 
+  // MapView consome itens no formato { isCluster, lat, lng, count, report } — sem clustering aqui, cada report vira um pin individual.
+  const mapItems = useMemo(() => (
+    filteredReports
+      .filter(r => r.location)
+      .map(r => ({
+        isCluster: false,
+        lat: r.location.lat,
+        lng: r.location.lng,
+        count: 1,
+        report: r,
+      }))
+  ), [filteredReports]);
+
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filter.status !== 'active') count++;
@@ -1249,7 +1262,7 @@ function HomePageImproved() {
                         >
                           <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-white">Carregando mapa...</div>}>
                             <MapView
-                              reports={filteredReports}
+                              clusters={mapItems}
                               onReportClick={handleReportClick}
                               onUpvote={() => {}}
                               showLegend
@@ -1268,7 +1281,7 @@ function HomePageImproved() {
                       >
                         <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-white">Carregando mapa...</div>}>
                           <MapView
-                            reports={filteredReports}
+                            clusters={mapItems}
                             onReportClick={handleReportClick}
                             onUpvote={() => {}}
                             showLegend

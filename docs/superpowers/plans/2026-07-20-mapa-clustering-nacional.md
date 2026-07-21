@@ -16,7 +16,7 @@
 - Filtros existentes a replicar dentro do RPC: `moderation_status = 'approved'`, `status <> 'duplicate'`, e o mapeamento de `status_filter`: `'active'` → `status in ('pending','in-progress')`, senão `status = status_filter` (ver `src/pages/MapPage.jsx:280-284` antes da mudança).
 - `category_filter` é o `category_id` textual (ex: `'iluminacao'`), não um FK numérico — `null`/`'all'` significa sem filtro.
 - Numeração de migration: a próxima livre é `126` (última existente é `125_fix_ambassador_invites_insert_policy.sql`).
-- Popup de cluster só busca título/detalhes ao clicar (decisão já tomada) — o RPC nunca devolve título agregado para clusters, só `count` + array de ids.
+- **Atualizado após teste manual (2026-07-21):** todo clique em cluster (independente do `count`) dá zoom/aproxima a área via `ClusterZoomHandler`, revelando o próximo nível de agregação ou pins individuais — não abre mais uma lista de títulos no popup. O hook `useClusterDetails` (Task 2) foi removido do repo por ficar sem consumidor após essa mudança; o popup de cluster só mostra contagem + botão "Aproximar".
 
 ---
 
