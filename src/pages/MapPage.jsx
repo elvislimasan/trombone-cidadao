@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } fro
 import { useNavigate } from 'react-router-dom';
 import {
   Loader2, Search, X, MapPin, ChevronDown, LocateFixed, Check,
-  SlidersHorizontal, Plus, ChevronRight,
+  SlidersHorizontal, ChevronRight,
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
@@ -503,16 +503,6 @@ export default function MapPage() {
             />
           </div>
         </Suspense>
-
-        {/* Botão + flutuante */}
-        <button
-          type="button"
-          onClick={() => navigate('/nova-bronca')}
-          className="absolute bottom-16 right-4 z-[700] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-2xl flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-transform"
-          aria-label="Nova bronca"
-        >
-          <Plus size={26} />
-        </button>
       </div>
 
       {/* ── Bottom bar: contagem ── */}
