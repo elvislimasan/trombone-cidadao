@@ -387,91 +387,69 @@ const MapView = ({
                   },
                 }}
               >
-                <Popup>
-                  <div className="w-64">
-                    {isCluster ? (
-                      <>
-                        <h3 className="font-bold text-base mb-2">
-                          Broncas nesta área ({item.count})
-                        </h3>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          Clique no cluster para aproximar o zoom
-                        </p>
+                {!isCluster && (
+                  <Popup>
+                    <div className="w-64">
+                      <h3 className="font-bold text-base mb-1">
+                        {report.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                        {report.description}
+                      </p>
+                      <div className="flex items-center text-xs text-muted-foreground mb-3">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {formatDate(report.created_at)}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
                         <Button
-                          size="sm"
                           variant="outline"
-                          className="w-full"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleClusterClick(item);
+                            onUpvote(report.id);
+                          }}
+                          className="flex items-center space-x-1"
+                        >
+                          <ThumbsUp className="w-3 h-3" />
+                          <span>{report.upvotes}</span>
+                        </Button>
+                        {report.status !== "resolved" && report.status !== "duplicate" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!user) {
+                              navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
+                              return;
+                            }
+                            navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
+                            }}
+                            className="flex items-center gap-1 border-[#b61722]/30 text-[#b61722] hover:bg-[#fff7f7] text-xs"
+                            style={{ pointerEvents: "auto", touchAction: "auto" }}
+                          >
+                            <Megaphone className="w-3 h-3" />
+                            Atualizar
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReportClick(report);
+                          }}
+                          className="bg-primary hover:bg-primary/90"
+                          style={{
+                            pointerEvents: "auto",
+                            touchAction: "auto",
                           }}
                         >
-                          Aproximar
+                          Detalhes
                         </Button>
-                      </>
-                    ) : (
-                      <>
-                        <h3 className="font-bold text-base mb-1">
-                          {report.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                          {report.description}
-                        </p>
-                        <div className="flex items-center text-xs text-muted-foreground mb-3">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {formatDate(report.created_at)}
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpvote(report.id);
-                            }}
-                            className="flex items-center space-x-1"
-                          >
-                            <ThumbsUp className="w-3 h-3" />
-                            <span>{report.upvotes}</span>
-                          </Button>
-                          {report.status !== "resolved" && report.status !== "duplicate" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!user) {
-                                navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
-                                return;
-                              }
-                              navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
-                              }}
-                              className="flex items-center gap-1 border-[#b61722]/30 text-[#b61722] hover:bg-[#fff7f7] text-xs"
-                              style={{ pointerEvents: "auto", touchAction: "auto" }}
-                            >
-                              <Megaphone className="w-3 h-3" />
-                              Atualizar
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onReportClick(report);
-                            }}
-                            className="bg-primary hover:bg-primary/90"
-                            style={{
-                              pointerEvents: "auto",
-                              touchAction: "auto",
-                            }}
-                          >
-                            Detalhes
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </Popup>
+                      </div>
+                    </div>
+                  </Popup>
+                )}
               </Marker>
             );
           })}
