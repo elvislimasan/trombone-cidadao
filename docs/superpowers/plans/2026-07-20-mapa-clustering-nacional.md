@@ -105,8 +105,7 @@ as $$
       and r.status = any(params.status_list)
       and (params.category_sanitized is null or r.category_id = params.category_sanitized)
       and r.location is not null
-      and r.location && params.envelope
-      and extensions.st_within(r.location, params.envelope)
+      and extensions.st_intersects(r.location, params.envelope)
   ),
   -- Zoom >= 13: devolve reports individuais completos, sem agregação
   individual as (
