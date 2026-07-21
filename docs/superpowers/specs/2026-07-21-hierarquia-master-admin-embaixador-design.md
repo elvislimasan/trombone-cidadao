@@ -17,6 +17,7 @@ O sistema de papéis hoje é 3 booleans independentes (`is_admin`, `is_master`, 
 - **Master:** só 1 no sistema inteiro (o usuário/dono). Sem tela de promoção — sempre `UPDATE profiles SET is_master = true` manual no banco. Modera qualquer cidade. Único papel que gerencia convites/embaixadores (criar convite, suspender, revogar).
 - **Admin:** modera qualquer cidade (mesmo alcance de moderação que Master), mas **não** gerencia convites nem embaixadores — isso é exclusivo do Master.
 - **Embaixador:** modera só a(s) cidade(s) onde tem uma linha `ambassador_cities` com `status = 'active'`.
+- **Invariante operacional (importante para implementação):** todo usuário `is_master = true` **sempre** também terá `is_admin = true` — são setados juntos manualmente no banco pelo dono. Por isso, `AdminRoute` (`App.jsx:216-220`, guard de TODAS as ~17 rotas `/admin/*`) e qualquer outro dos ~25 arquivos que checam `is_admin` isoladamente **não precisam de mudança** — um master sempre passa por já ser admin também. A única exceção é a distinção Master vs. Admin dentro da área de embaixadores (seção abaixo), onde a regra é "Admin não gerencia convites" — ali `is_master` precisa ser checado *em vez de* `is_admin`, não em conjunto com ele.
 
 ## Mudanças necessárias
 
@@ -27,8 +28,8 @@ O sistema de papéis hoje é 3 booleans independentes (`is_admin`, `is_master`, 
 
 ### Frontend
 
-- **Guard de rota** (`App.jsx`, rota `/admin/embaixadores`): trocar `AdminRoute` (que exige `is_admin`) por um guard que exige `is_master`, já que só Master gerencia convites/embaixadores agora.
-- **`ManageMastersPage.jsx`**: guard interno vira só `is_master` (remover `|| is_admin`). Renomear referências visuais de "Masters" para refletir que a página não gerencia masters (é gestão de embaixadores).
+- **`/admin/embaixadores`**: continua atrás de `AdminRoute` (não mexer nesse guard genérico — ver invariante acima), mas o **guard interno do componente** (`ManageMastersPage.jsx`) vira só `is_master` (remover `|| is_admin`), já que só Master gerencia convites/embaixadores. Um admin puro (sem `is_master`) passa pela rota mas o componente barra com redirect, igual já funciona hoje para outras páginas restritas.
+- **`ManageMastersPage.jsx`**: guard interno vira só `is_master`. Renomear referências visuais de "Masters" para refletir que a página não gerencia masters (é gestão de embaixadores).
 - **`AmbassadorPage.jsx`**: se o usuário é `is_master` ou `is_admin`, buscar reports/updates pendentes de **todas** as cidades (sem filtrar por `ambassador_cities`); se só `is_ambassador`, manter o filtro atual por `ambassador_cities` do próprio usuário.
 - **`Header.jsx`**: incluir `is_admin` na condição que mostra o link "Painel Embaixador" no menu (hoje só `is_ambassador || is_master`).
 - **`AdminPage.jsx`**: remover/corrigir o texto "Convites, embaixadores ativos e promoções de masters" (já parcialmente corrigido no commit `8895cf9`, restam verificar se há outras menções).
