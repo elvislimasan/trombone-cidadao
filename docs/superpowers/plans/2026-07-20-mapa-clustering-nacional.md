@@ -17,6 +17,7 @@
 - `category_filter` é o `category_id` textual (ex: `'iluminacao'`), não um FK numérico — `null`/`'all'` significa sem filtro.
 - Numeração de migration: a próxima livre é `126` (última existente é `125_fix_ambassador_invites_insert_policy.sql`).
 - **Atualizado após teste manual (2026-07-21):** todo clique em cluster (independente do `count`) dá zoom/aproxima a área via `ClusterZoomHandler`, revelando o próximo nível de agregação ou pins individuais — não abre mais uma lista de títulos no popup. O hook `useClusterDetails` (Task 2) foi removido do repo por ficar sem consumidor após essa mudança; o popup de cluster só mostra contagem + botão "Aproximar".
+- **Atualizado após teste manual (2026-07-21), 2ª rodada:** o agrupamento por grid geográfico fixo (célula de tamanho `360/(256·2^zoom)`) foi substituído por agrupamento em fronteiras administrativas reais via `supabase/migrations/128_reports_map_clusters_admin_boundaries.sql`, usando `reports.city_id`/`cities.state_id` (100% dos reports ativos têm `city_id` preenchido). Faixas de zoom: 0–4 = 1 cluster por país; 5–8 = 1 cluster por estado (`state_id`); 9–12 = 1 cluster por cidade (`city_id`); 13+ = pins individuais (inalterado). Reports sem `city_id`/`state_id` formam seu próprio grupo (via `coalesce(..., 'no-city-'||id)` no `group by`) em vez de colapsar num cluster falso conjunto.
 
 ---
 
