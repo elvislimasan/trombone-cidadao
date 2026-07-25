@@ -472,7 +472,7 @@ const ActiveAmbassadorsSection = () => {
     if (userIds.length > 0) {
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, name, email')
+        .select('id, name')
         .in('id', userIds);
       if (profilesError) {
         toast({ title: 'Erro ao buscar perfis dos embaixadores', description: profilesError.message, variant: 'destructive' });
@@ -592,11 +592,33 @@ const ApplicationsSection = () => {
 
   useEffect(() => { fetchApps(); }, [fetchApps]);
 
+  // Dispara o e-mail de status ao candidato (best-effort — não bloqueia a ação)
+  const sendApplicationEmail = async (app, status, rejectionReason) => {
+    try {
+      await supabase.functions.invoke('send-ambassador-application-email', {
+        body: {
+          userId: app.user_id,
+          status,
+          cityName: app.cities?.name || null,
+          applicantName: app.applicant_name || null,
+          applicantEmail: app.applicant_email || null,
+          rejectionReason: rejectionReason || null,
+        },
+      });
+    } catch (e) {
+      console.error('Falha ao enviar e-mail de candidatura:', e);
+    }
+  };
+
   const handleApprove = async (app) => {
     setActionId(`${app.id}-approve`);
     const { error } = await supabase.rpc('approve_ambassador_application', { p_app_id: app.id });
     if (error) toast({ title: 'Erro ao aprovar', description: error.message, variant: 'destructive' });
-    else { toast({ title: 'Embaixador aprovado!' }); fetchApps(); }
+    else {
+      toast({ title: 'Embaixador aprovado!' });
+      sendApplicationEmail(app, 'approved');
+      fetchApps();
+    }
     setActionId(null);
   };
 
@@ -615,6 +637,7 @@ const ApplicationsSection = () => {
       message: 'Sua candidatura a embaixador não foi aprovada' + (reason ? `: ${reason}` : '.'),
       is_read: false,
     });
+    sendApplicationEmail(app, 'rejected', reason);
     toast({ title: 'Candidatura rejeitada.' });
     fetchApps();
     setActionId(null);
