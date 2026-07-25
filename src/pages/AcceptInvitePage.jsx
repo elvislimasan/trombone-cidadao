@@ -44,6 +44,7 @@ const AcceptInvitePage = () => {
           city_uf: row.city_uf,
           invited_by_name: row.invited_by_name,
           expires_at: row.expires_at,
+          invited_email_masked: row.invited_email_masked,
         });
         setPhase('preview');
       } catch (err) {
@@ -86,7 +87,14 @@ const AcceptInvitePage = () => {
         const json = await response.json();
 
         if (!response.ok) {
-          setErrorMessage(json?.error ?? 'Erro ao aceitar o convite.');
+          const code = json?.error;
+          const msg =
+            code === 'invite_email_mismatch'
+              ? 'Este convite é para outro e-mail. Entre com a conta do e-mail convidado.'
+              : code === 'invite_expired'
+              ? 'Este convite expirou. Peça um novo ao administrador.'
+              : (json?.error ?? 'Erro ao aceitar o convite.');
+          setErrorMessage(msg);
           setPhase('error');
           return;
         }
@@ -197,6 +205,11 @@ const AcceptInvitePage = () => {
               {preview?.invited_by_name && (
                 <p className="text-white/70 text-sm mt-3">
                   Convidado por <span className="font-semibold text-white">{preview.invited_by_name}</span>
+                </p>
+              )}
+              {preview?.invited_email_masked && (
+                <p className="text-white/70 text-xs mt-1">
+                  Convite para {preview.invited_email_masked}
                 </p>
               )}
             </div>
