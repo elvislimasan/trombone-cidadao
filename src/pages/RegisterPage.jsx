@@ -186,6 +186,22 @@ const RegisterPage = () => {
       const { error: signInError } = await signIn(data.email, data.password);
 
       if (!signInError) {
+        // Grava direto nas colunas de profiles (o trigger pode não copiar tudo do
+        // metadata). Garante que o gate de perfil-completo reconheça o cadastro.
+        try {
+          const { data: sess } = await supabase.auth.getSession();
+          const uid = sess?.session?.user?.id;
+          if (uid) {
+            await supabase.from('profiles').update({
+              name: data.name,
+              phone: phoneNumbers || null,
+              state_id: data.state_id ? Number(data.state_id) : null,
+              city_id: data.city_id ? Number(data.city_id) : null,
+              city: selectedCity ? selectedCity.name : null,
+              terms_accepted_at: new Date().toISOString(),
+            }).eq('id', uid);
+          }
+        } catch (e) { console.error('Falha ao completar profile no cadastro:', e); }
         await refreshUserProfile();
         let target = null;
         try {

@@ -73,6 +73,7 @@ import NativePreferencesPage from '@/pages/NativePreferencesPage';
 import AmbassadorPage from '@/pages/AmbassadorPage';
 import ManageMastersPage from '@/pages/admin/ManageMastersPage';
 import AmbassadorProfilePage from '@/pages/admin/AmbassadorProfilePage';
+import CompleteProfilePage from '@/pages/CompleteProfilePage';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 
@@ -200,19 +201,22 @@ const SEO = () => {
   );
 };
 
+// Profile obrigatório: quem entrou (inclusive via Google) sem telefone, cidade
+// ou sem aceitar os termos precisa completar o cadastro antes de usar o app.
+const isProfileIncomplete = (user) =>
+  !!user && (!user.phone || !user.city_id || !user.terms_accepted_at);
+
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
-  return user
-    ? children
-    : (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location }}
-      />
-    );
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+  if (isProfileIncomplete(user) && location.pathname !== '/completar-cadastro') {
+    return <Navigate to="/completar-cadastro" replace state={{ from: location }} />;
+  }
+  return children;
 };
 
 const AdminRoute = ({ children }) => {
@@ -587,6 +591,7 @@ function AppShell() {
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
+              <Route path="/completar-cadastro" element={<CompleteProfilePage />} />
               <Route path="/seja-embaixador" element={<BecomeAmbassadorPage />} />
               <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
               <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
