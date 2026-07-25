@@ -85,6 +85,11 @@ create table public.ambassador_applications (
 
 Rejeição **não** precisa de RPC: é um `UPDATE` simples coberto pela policy de UPDATE (master), + insert de notificação. Fica no client, como as outras ações de moderação da página.
 
+### 4.4 Notificação: nova candidatura → masters
+Trigger `notify_masters_new_application` (SECURITY DEFINER) `after insert on ambassador_applications`:
+- Insere uma notificação `type='ambassador_application'` para **cada master** (via `profiles.is_master = true`), mensagem: `Nova candidatura a embaixador de {cidade} ({nome}) aguarda avaliação.`, link `/admin/masters` (ou a rota da aba Candidaturas).
+- Espelha o padrão de `notify_admins_new_report` (migration 100), mas mira masters em vez de `moderation_admins`.
+
 ## 5. Página pública `/seja-embaixador` (`BecomeAmbassadorPage.jsx`)
 
 Rota pública nova em `App.jsx`. Mobile-first, responsiva, divulgável.
@@ -131,6 +136,26 @@ Reusa o padrão `actionLoadingId`, cards `motion.div`, `fetchX` das seções exi
 - Edge Function de aceite: se achou por token porém vencido → marca `expired`, retorna "convite expirado".
 - Não-abertos seguem `pending` até tocados (aceitável; a fila de pendentes filtra `expires_at > now()`).
 
+## 7.4 Notificar embaixadores da cidade (moderação)
+
+Hoje os triggers só notificam `moderation_admins`. Adicionamos, **nos mesmos triggers**, um bloco que notifica os **embaixadores ativos da cidade** — para que recebam alerta de moderação igual aos admins.
+
+Alvo em ambos os casos:
+```sql
+from public.ambassador_cities ac
+where ac.status = 'active'
+  and ac.city_id = <city da bronca>
+  and ac.user_id <> <autor>          -- não notificar quem gerou o item
+```
+
+### 7.4.1 Nova bronca → embaixadores (`notify_admins_new_report`, migration 100)
+Estende o trigger: quando `new.moderation_status = 'pending_approval'`, além dos admins, insere `type='moderation_required'` para cada embaixador ativo de `new.city_id` (exceto `new.author_id`). Guardar `new.city_id is not null`.
+
+### 7.4.2 Nova atualização → embaixadores (`notify_new_report_update`, migration 104)
+Estende o trigger: após notificar autor + admins, busca a `city_id` da bronca-pai (`select city_id from reports where id = new.report_id`) e insere `type='status_update'` para cada embaixador ativo daquela cidade (exceto `new.author_id`).
+
+Ambos preservam o comportamento atual (admins continuam recebendo); só **adicionam** os embaixadores. Reescritos numa nova migration para não editar migrations já aplicadas.
+
 ## 8. Arquivos afetados
 
 | # | Entrega | Arquivos |
@@ -142,16 +167,21 @@ Reusa o padrão `actionLoadingId`, cards `motion.div`, `fetchX` das seções exi
 | 5 | E-mail obrigatório + duplicado por email | `src/pages/admin/ManageMastersPage.jsx` |
 | 6 | Aceite amarrado ao e-mail + preview mascarado | `supabase/functions/accept-ambassador-invite/index.ts`, `get_invite_preview` (nova migration), `src/pages/AcceptInvitePage.jsx` |
 | 7 | Expiração marca `expired` | mesma migration do `get_invite_preview`, `accept-ambassador-invite` |
+| 8 | Notificação: candidatura → masters | trigger em nova migration (`ambassador_applications`) |
+| 9 | Notificação: nova bronca → embaixadores da cidade | nova migration reescrevendo `notify_admins_new_report` |
+| 10 | Notificação: nova atualização → embaixadores da cidade | mesma migration, reescrevendo `notify_new_report_update` |
 
 ## 9. Verificação (dev `xxdletrjyjajtrmhwzev` apenas)
 
-- Candidatura **logado**: envia → aparece na aba do master.
-- Candidatura **não logado**: cria conta → envia → aparece na aba.
+- Candidatura **logado**: envia → aparece na aba do master **+ master recebe notificação**.
+- Candidatura **não logado**: cria conta → envia → aparece na aba + master notificado.
 - **Aprovar** candidatura → vira embaixador ativo (`ambassador_cities.active`), candidato notificado, acessa `/embaixador`.
 - **Rejeitar** → status rejected + notificação.
 - Convite gerado com e-mail; aceite com **e-mail diferente** → bloqueado (`invite_email_mismatch`).
 - Convite **vencido** aberto → `status='expired'`, mensagem de expirado.
 - Candidatura **duplicada pending** mesma cidade → bloqueada.
+- **Nova bronca** `pending_approval` numa cidade com embaixador ativo → o embaixador recebe notificação (e o admin continua recebendo).
+- **Nova atualização** numa bronca de cidade com embaixador ativo → embaixador recebe notificação (autor e admins seguem recebendo).
 
 ## 10. Fora de escopo (YAGNI)
 
