@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { RefreshCw, Loader2, Megaphone, Heart, UserPlus, WifiOff, AlertTriangle, MapPin, ChevronDown, LocateFixed, Globe, Check, X } from 'lucide-react';
+import { RefreshCw, Loader2, Megaphone, Heart, UserPlus, WifiOff, AlertTriangle, MapPin, ChevronDown, LocateFixed, Globe, Check, X, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Capacitor } from '@capacitor/core';
@@ -531,7 +531,7 @@ export default function FeedPage() {
                     Ajude a melhorar a cidade
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Cadastre broncas, apoie petições e convide alguém para contribuir.
+                    Cadastre broncas, seja embaixador e convide alguém para contribuir.
                   </p>
                 </div>
               </div>
@@ -552,14 +552,14 @@ export default function FeedPage() {
 
                 <button
                   type="button"
-                  onClick={() => navigate('/abaixo-assinados')}
+                  onClick={() => navigate('/seja-embaixador')}
                   className="rounded-2xl border-2 border-orange-200 bg-white px-2.5 py-2.5 text-center shadow-sm hover:border-orange-300 transition-colors"
                 >
                   <div className="mx-auto w-9 h-9 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center">
-                    <Heart className="w-5 h-5" />
+                    <ShieldCheck className="w-5 h-5" />
                   </div>
                   <p className="mt-2 text-[11px] font-bold leading-snug text-foreground">
-                    Petições
+                    Se torne embaixador
                   </p>
                 </button>
 
