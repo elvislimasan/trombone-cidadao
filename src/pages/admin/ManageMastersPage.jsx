@@ -569,6 +569,118 @@ const ActiveAmbassadorsSection = () => {
 };
 
 // ────────────────────────────────────────────────────────────────────────────────
+// Sub-component: Candidaturas de embaixador
+// ────────────────────────────────────────────────────────────────────────────────
+const ApplicationsSection = () => {
+  const { toast } = useToast();
+  const [apps, setApps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionId, setActionId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+
+  const fetchApps = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('ambassador_applications')
+      .select('id, user_id, city_id, applicant_name, applicant_email, motivation, created_at, cities(name, states(uf))')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+    if (error) toast({ title: 'Erro ao buscar candidaturas', description: error.message, variant: 'destructive' });
+    else setApps(data || []);
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => { fetchApps(); }, [fetchApps]);
+
+  const handleApprove = async (app) => {
+    setActionId(`${app.id}-approve`);
+    const { error } = await supabase.rpc('approve_ambassador_application', { p_app_id: app.id });
+    if (error) toast({ title: 'Erro ao aprovar', description: error.message, variant: 'destructive' });
+    else { toast({ title: 'Embaixador aprovado!' }); fetchApps(); }
+    setActionId(null);
+  };
+
+  const handleReject = async (app) => {
+    const reason = window.prompt('Motivo da rejeição (opcional):') || null;
+    setActionId(`${app.id}-reject`);
+    const { error } = await supabase
+      .from('ambassador_applications')
+      .update({ status: 'rejected', rejection_reason: reason, reviewed_at: new Date().toISOString() })
+      .eq('id', app.id);
+    if (error) { toast({ title: 'Erro ao rejeitar', description: error.message, variant: 'destructive' }); setActionId(null); return; }
+    await supabase.from('notifications').insert({
+      user_id: app.user_id,
+      type: 'ambassador_application',
+      title: 'Candidatura não aprovada',
+      message: 'Sua candidatura a embaixador não foi aprovada' + (reason ? `: ${reason}` : '.'),
+      is_read: false,
+    });
+    toast({ title: 'Candidatura rejeitada.' });
+    fetchApps();
+    setActionId(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <span className="text-muted-foreground">Carregando candidaturas...</span>
+      </div>
+    );
+  }
+  if (apps.length === 0) {
+    return (
+      <Card className="border-dashed border-2 py-12 text-center bg-muted/20">
+        <CardContent className="flex flex-col items-center gap-3">
+          <Users className="w-10 h-10 text-muted-foreground" />
+          <p className="text-lg font-semibold text-muted-foreground">Nenhuma candidatura pendente</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {apps.map((app) => (
+        <motion.div key={app.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <Card className="border-border">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm md:text-base truncate">
+                    {app.applicant_name || 'Candidato'}
+                    <span className="text-muted-foreground font-normal"> · {app.cities?.name || '—'} {app.cities?.states?.uf ? `(${app.cities.states.uf})` : ''}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                    <span>{app.applicant_email || 'Sem e-mail'}</span>
+                    <span>{new Date(app.created_at).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" variant="outline" className="h-8 px-3 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                    disabled={!!actionId} onClick={() => handleReject(app)}>
+                    {actionId === `${app.id}-reject` ? <Loader2 className="w-3 h-3 animate-spin" /> : <><X className="w-3 h-3 mr-1" /> Rejeitar</>}
+                  </Button>
+                  <Button size="sm" className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700 text-white"
+                    disabled={!!actionId} onClick={() => handleApprove(app)}>
+                    {actionId === `${app.id}-approve` ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Check className="w-3 h-3 mr-1" /> Aprovar</>}
+                  </Button>
+                </div>
+              </div>
+              {app.motivation && (
+                <button type="button" className="text-left text-sm text-muted-foreground italic"
+                  onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}>
+                  <span className={expandedId === app.id ? '' : 'line-clamp-2'}>"{app.motivation}"</span>
+                </button>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      ))}
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────────────────
 // Main page
 // ────────────────────────────────────────────────────────────────────────────────
 const ManageMastersPage = () => {
@@ -604,7 +716,7 @@ const ManageMastersPage = () => {
         </motion.div>
 
         <Tabs defaultValue="invite" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
+          <TabsList className="grid w-full grid-cols-4 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
             <TabsTrigger value="invite" className="gap-2 text-xs sm:text-sm">
               <Link2 className="w-4 h-4" />
               <span className="hidden sm:inline">Criar Convite</span>
@@ -614,6 +726,11 @@ const ManageMastersPage = () => {
               <Clock className="w-4 h-4" />
               <span className="hidden sm:inline">Convites Pendentes</span>
               <span className="sm:hidden">Pendentes</span>
+            </TabsTrigger>
+            <TabsTrigger value="applications" className="gap-2 text-xs sm:text-sm">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Candidaturas</span>
+              <span className="sm:hidden">Cand.</span>
             </TabsTrigger>
             <TabsTrigger value="ambassadors" className="gap-2 text-xs sm:text-sm">
               <Users className="w-4 h-4" />
@@ -628,6 +745,10 @@ const ManageMastersPage = () => {
 
           <TabsContent value="pending-invites">
             <PendingInvitesSection />
+          </TabsContent>
+
+          <TabsContent value="applications">
+            <ApplicationsSection />
           </TabsContent>
 
           <TabsContent value="ambassadors">
