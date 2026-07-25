@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { Progress } from '@/components/ui/progress';
 import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
 import { WorkFinancialTab } from '@/components/admin/WorkFinancialTab';
@@ -825,6 +827,10 @@ const ManageWorksPage = () => {
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { resolveCityIdFromLocation } = useCityIdFromLocation();
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [works, setWorks] = useState([]);
   const [workOptions, setWorkOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
   const [editingWork, setEditingWork] = useState(null);
@@ -842,20 +848,24 @@ const ManageWorksPage = () => {
   const [isLoadingFilters, setIsLoadingFilters] = useState(false);
 
   const fetchData = useCallback(async () => {
-    const { data, error } = await supabase.from('public_works').select(`
+    let worksQuery = supabase.from('public_works').select(`
       *,
       bairro:bairros(id, name),
       work_category:work_categories(id, name),
       work_area:work_areas(id, name),
       contractor:contractors(id, name)
     `).order('created_at', { ascending: false });
+    if (isScopedAmbassador && myActiveCityIds.length > 0) {
+      worksQuery = worksQuery.in('city_id', myActiveCityIds);
+    }
+    const { data, error } = await worksQuery;
     if (error) {
       toast({ title: "Erro ao buscar obras", description: error.message, variant: "destructive" });
       console.error("Fetch Works Error:", error);
     } else {
       setWorks(data);
     }
-  }, [toast]);
+  }, [toast, isScopedAmbassador, myActiveCityIds]);
   
   const fetchOptions = useCallback(async () => {
     const [categories, areas, bairros, contractors] = await Promise.all([
@@ -871,6 +881,16 @@ const ManageWorksPage = () => {
         contractors: contractors.data || [],
     });
   }, []);
+
+  useEffect(() => {
+    if (!isScopedAmbassador || !user?.id) return;
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isScopedAmbassador, user?.id]);
 
   useEffect(() => {
     fetchData();
@@ -890,14 +910,34 @@ const ManageWorksPage = () => {
 
   const handleSaveWork = async (workToSave) => {
     const { id, location, ...data } = workToSave;
-    
+
+    // city_id SEMPRE do marcador (nunca nulo). Reusa a mesma lógica das broncas.
+    const resolvedCityId = await resolveCityIdFromLocation(location);
+    if (resolvedCityId == null) {
+      toast({
+        title: 'Não foi possível identificar a cidade',
+        description: 'Confira se o marcador no mapa está sobre a localização correta e tente novamente.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    // Embaixador só cadastra/edita obra nas cidades dele (admin/master isentos).
+    if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
+      toast({
+        title: 'Fora da sua área',
+        description: 'Você só pode gerenciar obras nas suas cidades.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     delete data.bairro;
     delete data.work_category;
     delete data.work_area;
     delete data.contractor;
 
     const locationString = location ? `POINT(${location.lng} ${location.lat})` : null;
-    const payload = { ...data, location: locationString };
+    const payload = { ...data, location: locationString, city_id: resolvedCityId };
     
     // Convert empty strings to null for UUID fields
     ['bairro_id', 'work_category_id', 'work_area_id', 'contractor_id'].forEach(key => {
@@ -1020,7 +1060,7 @@ const ManageWorksPage = () => {
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <Link to="/admin"><Button variant="outline" size="icon" className="flex-shrink-0"><ArrowLeft className="w-4 h-4" /></Button></Link>
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-tc-red truncate">Gerenciar Obras Públicas</h1>
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-tc-red truncate">{isScopedAmbassador ? 'Obras da minha cidade' : 'Gerenciar Obras Públicas'}</h1>
               <p className="mt-1 sm:mt-2 text-sm sm:text-base md:text-lg text-muted-foreground">Adicione, edite ou remova obras do mapa.</p>
             </div>
           </div>
