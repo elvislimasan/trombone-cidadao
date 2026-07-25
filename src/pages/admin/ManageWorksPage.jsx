@@ -855,7 +855,7 @@ const ManageWorksPage = () => {
       work_area:work_areas(id, name),
       contractor:contractors(id, name)
     `).order('created_at', { ascending: false });
-    if (isScopedAmbassador && myActiveCityIds.length > 0) {
+    if (isScopedAmbassador) {
       worksQuery = worksQuery.in('city_id', myActiveCityIds);
     }
     const { data, error } = await worksQuery;
