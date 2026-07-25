@@ -73,6 +73,7 @@ import NativePreferencesPage from '@/pages/NativePreferencesPage';
 import AmbassadorPage from '@/pages/AmbassadorPage';
 import ManageMastersPage from '@/pages/admin/ManageMastersPage';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
+import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 
 const SEO = () => {
   const location = useLocation();
@@ -585,6 +586,7 @@ function AppShell() {
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
+              <Route path="/seja-embaixador" element={<BecomeAmbassadorPage />} />
               <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
               <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
               <Route path="/app" element={<AppLandingPage />} />
