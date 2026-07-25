@@ -20,6 +20,7 @@ import { Navigate } from 'react-router-dom';
 // Sub-component: Criar convite de embaixador
 // ────────────────────────────────────────────────────────────────────────────────
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
+const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || '').trim());
 
 const CreateInviteSection = ({ user }) => {
   const { toast } = useToast();
@@ -77,7 +78,25 @@ const CreateInviteSection = ({ user }) => {
       toast({ title: 'Selecione uma cidade', variant: 'destructive' });
       return;
     }
+    if (!isValidEmail(inviteEmail)) {
+      toast({ title: 'Informe um e-mail válido para o convite', variant: 'destructive' });
+      return;
+    }
     setSubmitting(true);
+
+    const { data: dup } = await supabase
+      .from('ambassador_invites')
+      .select('id')
+      .eq('city_id', Number(selectedCityId))
+      .eq('invited_email', inviteEmail.trim())
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
+    if (dup) {
+      toast({ title: 'Já existe um convite pendente para este e-mail nesta cidade', variant: 'destructive' });
+      setSubmitting(false);
+      return;
+    }
 
     // Generate a random token
     const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -89,10 +108,8 @@ const CreateInviteSection = ({ user }) => {
       invited_by: user.id,
       status: 'pending',
       expires_at: expiresAt,
+      invited_email: inviteEmail.trim(),
     };
-    if (inviteEmail.trim()) {
-      insertData.invited_email = inviteEmail.trim();
-    }
 
     const { error } = await supabase
       .from('ambassador_invites')
@@ -208,7 +225,7 @@ const CreateInviteSection = ({ user }) => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1.5">E-mail do convidado (opcional)</label>
+          <label className="block text-sm font-medium mb-1.5">E-mail do convidado <span className="text-red-500">*</span></label>
           <Input
             type="email"
             placeholder="email@exemplo.com"
@@ -245,7 +262,7 @@ const CreateInviteSection = ({ user }) => {
         ) : (
           <Button
             onClick={handleGenerateInvite}
-            disabled={submitting || !selectedCityId || checkingDuplicate}
+            disabled={submitting || !selectedCityId || checkingDuplicate || !isValidEmail(inviteEmail)}
             className="w-full sm:w-auto"
           >
             {submitting ? (
