@@ -72,6 +72,7 @@ import { NativeUIModeProvider, useNativeUIMode } from '@/contexts/NativeUIModeCo
 import NativePreferencesPage from '@/pages/NativePreferencesPage';
 import AmbassadorPage from '@/pages/AmbassadorPage';
 import ManageMastersPage from '@/pages/admin/ManageMastersPage';
+import AmbassadorProfilePage from '@/pages/admin/AmbassadorProfilePage';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 
@@ -640,6 +641,7 @@ function AppShell() {
               <Route path="/admin/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
               <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
               <Route path="/admin/embaixadores" element={<AdminRoute><ManageMastersPage /></AdminRoute>} />
+              <Route path="/admin/embaixador/:id" element={<AdminRoute><AmbassadorProfilePage /></AdminRoute>} />
               <Route path="/embaixador" element={<PrivateRoute><AmbassadorPage /></PrivateRoute>} />
               <Route path="/settings/notifications" element={<NotificationPreferences />} />
               <Route path="*" element={<NotFoundPage />} />

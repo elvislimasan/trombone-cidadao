@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Copy, Check, X, Search,
-  MapPin, Loader2, Link2, Users, PlusCircle, AlertCircle, Clock, RotateCw
+  MapPin, Loader2, Link2, Users, PlusCircle, AlertCircle, Clock, RotateCw, Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -555,19 +555,26 @@ const ActiveAmbassadorsSection = () => {
                   <span>Desde: {new Date(ac.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 px-3 text-xs text-orange-600 border-orange-300 hover:bg-orange-50 shrink-0"
-                disabled={suspendingId === ac.id}
-                onClick={() => handleSuspend(ac.id)}
-              >
-                {suspendingId === ac.id ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <><X className="w-3 h-3 mr-1" /> Suspender</>
-                )}
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button asChild size="sm" variant="outline" className="h-8 px-3 text-xs">
+                  <Link to={`/admin/embaixador/${ac.user_id}`}>
+                    <Eye className="w-3 h-3 mr-1" /> Ver perfil
+                  </Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+                  disabled={suspendingId === ac.id}
+                  onClick={() => handleSuspend(ac.id)}
+                >
+                  {suspendingId === ac.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <><X className="w-3 h-3 mr-1" /> Suspender</>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
