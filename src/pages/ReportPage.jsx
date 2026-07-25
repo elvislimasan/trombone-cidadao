@@ -55,6 +55,7 @@ import {
   Megaphone,
   Clock,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { Share } from "@capacitor/share";
 import { toPng } from "html-to-image";
@@ -159,6 +160,12 @@ const ReportPage = () => {
   const updateCam = useNativeCamera({ maxPhotos: 5 });
   const [updateType, setUpdateType] = useState(null);
   const [updateMessage, setUpdateMessage] = useState('');
+
+  // ── Moderação (embaixador vindo do painel) ──
+  // Ativa quando navegamos com state.moderation=true a partir do Painel do Embaixador.
+  const cameFromModeration = !!location.state?.moderation;
+  const [canModerate, setCanModerate] = useState(false);
+  const [moderating, setModerating] = useState(false);
 
   const UPDATES_VISIBLE_COUNT = 3;
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1052,6 +1059,64 @@ const ReportPage = () => {
     }
     setReportUpdates((prev) => prev.filter((u) => u.id !== upd.id));
     toast({ title: 'Atualização excluída.' });
+  };
+
+  // Verifica se o usuário pode moderar esta bronca (admin/master, ou embaixador
+  // ativo da cidade dela). Só roda quando viemos do painel de moderação e a
+  // bronca ainda está aguardando aprovação.
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      if (
+        !cameFromModeration ||
+        !user ||
+        !report ||
+        report.moderation_status !== 'pending_approval'
+      ) {
+        if (!cancelled) setCanModerate(false);
+        return;
+      }
+      if (user.is_admin || user.is_master) {
+        if (!cancelled) setCanModerate(true);
+        return;
+      }
+      if (!user.is_ambassador || !report.city_id) {
+        if (!cancelled) setCanModerate(false);
+        return;
+      }
+      const { data, error } = await supabase.rpc('is_ambassador_of', {
+        p_user: user.id,
+        p_city_id: report.city_id,
+      });
+      if (!cancelled) setCanModerate(!error && data === true);
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, [cameFromModeration, user, report?.moderation_status, report?.city_id]);
+
+  const handleModerate = async (approve) => {
+    if (!report) return;
+    setModerating(true);
+    const newStatus = approve ? 'approved' : 'rejected';
+    const updateData = { moderation_status: newStatus };
+    if (approve) updateData.status = 'pending';
+    const { error } = await supabase
+      .from('reports')
+      .update(updateData)
+      .eq('id', report.id);
+    setModerating(false);
+    if (error) {
+      toast({
+        title: 'Erro ao moderar bronca',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({ title: approve ? 'Bronca aprovada! ✅' : 'Bronca rejeitada.' });
+    navigate(-1);
   };
 
   const managementPanel =
@@ -2813,6 +2878,40 @@ const ReportPage = () => {
             qrCodeUrl={qrCodeUrl}
             coverPhotoUrl={coverPhotoUrl}
           />
+
+          {/* Barra de moderação do embaixador (aprovar/rejeitar) */}
+          {canModerate && (
+            <div
+              className="fixed left-0 right-0 bottom-0 z-[1100] bg-white border-t border-border shadow-[0_-2px_12px_-4px_rgba(25,28,30,0.15)]"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
+            >
+              <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  className="h-11 px-4 text-red-600 border-red-300 hover:bg-red-50 flex-1"
+                  disabled={moderating}
+                  onClick={() => handleModerate(false)}
+                >
+                  {moderating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <><X className="w-4 h-4 mr-1.5" /> Rejeitar</>
+                  )}
+                </Button>
+                <Button
+                  className="h-11 px-4 bg-green-600 hover:bg-green-700 text-white flex-1"
+                  disabled={moderating}
+                  onClick={() => handleModerate(true)}
+                >
+                  {moderating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <><CheckCircle className="w-4 h-4 mr-1.5" /> Aprovar bronca</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </>

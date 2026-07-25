@@ -525,7 +525,7 @@ const ActiveAmbassadorsSection = () => {
                 <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3 h-3" />
-                    {ac.cities?.name || '—'} {ac.cities?.states?.uf ? `(${ac.cities.states.uf})` : ''}
+                    {ac.cities?.name || '—'} {ac.cities?.states?.uf ? `(${ac.cities.states.uf})` : ac.cities?.state?.uf ? `(${ac.cities.state.uf})` : ''}
                   </span>
                   <span>Desde: {new Date(ac.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>

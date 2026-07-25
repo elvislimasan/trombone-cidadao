@@ -239,8 +239,10 @@ export default function FeedPage() {
       const normPole = (raw) =>
         String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
 
-      // city_id: prefer geocode result; fallback to author's profile city
-      const cityId = geocodedCityId ?? user?.city_id ?? null;
+      // city_id vem SEMPRE do marcador (resolvido no ReportModal). Nunca usar a
+      // cidade do filtro ativo nem a do perfil do usuário — a bronca pertence ao
+      // local marcado no mapa.
+      const cityId = geocodedCityId ?? null;
 
       const { data, error } = await supabase
         .from('reports')
@@ -268,7 +270,7 @@ export default function FeedPage() {
           is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
           is_anonymous: !!is_anonymous,
           status: 'pending',
-          moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
+          moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
           city_id: cityId,
         })
         .select('id')

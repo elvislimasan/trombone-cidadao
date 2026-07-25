@@ -145,6 +145,9 @@ const LocationPickerMap = ({
   // Impede que o useEffect re-center o mapa toda vez que o usuário
   // move o marcador (o que forçava zoom 19 no Esri e quebrava o satélite).
   const hasSetInitialView = useRef(false);
+  // Após o usuário mover/clicar no mapa, ignorar atualizações externas de initialPosition
+  // (evita GPS tardio sobrescrever a posição escolhida pelo usuário)
+  const userMovedRef = useRef(false);
 
   const activeMaxZoom =
     mapLayer === "satellite" ? SATELLITE_MAX_ZOOM : OSM_MAX_ZOOM;
@@ -155,11 +158,10 @@ const LocationPickerMap = ({
     : INITIAL_ZOOM;
 
   useEffect(() => {
-    if (initialPosition) {
-      // Sempre atualiza a posição do marcador quando initialPosition muda
+    if (initialPosition && !userMovedRef.current) {
       setPosition(initialPosition);
 
-      // Mas só centraliza o mapa UMA VEZ (carga inicial), nunca ao mover o marcador
+      // Centraliza o mapa UMA VEZ (carga inicial)
       if (mapRef.current && !hasSetInitialView.current) {
         hasSetInitialView.current = true;
         const zoom = Math.min(19, activeMaxZoom);
@@ -169,6 +171,7 @@ const LocationPickerMap = ({
   }, [initialPosition]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePositionChange = (newPosition) => {
+    userMovedRef.current = true;
     setPosition(newPosition);
     onLocationChange(newPosition);
   };
@@ -193,6 +196,8 @@ const LocationPickerMap = ({
             duration: 0.5,
           });
         } catch {}
+        // Botão explícito do usuário — trata como movimento intencional
+        userMovedRef.current = true;
         handlePositionChange(next);
       },
       () => {},

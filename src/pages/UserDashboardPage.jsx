@@ -331,7 +331,7 @@ const UserDashboardPage = () => {
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
     if (!user) return;
 
-    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility } = newReportData;
+    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility, city_id: geocodedCityId } = newReportData;
     const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
     const normalizedPole = normalizePoleLabel(pole_number);
     const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
@@ -354,8 +354,9 @@ const UserDashboardPage = () => {
         reported_pole_distance_m: category === 'iluminacao' ? reported_pole_distance_m : null,
         issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
+        city_id: geocodedCityId ?? null,
         status: 'pending',
-        moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
+        moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
       })
       .select('id, title')
       .single();

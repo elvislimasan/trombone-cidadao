@@ -43,34 +43,23 @@ export const UploadProvider = ({ children }) => {
             );
 
             if (currentReportId && !hasPendingUploadsForThisReport) {
-//                 console.log(`[UploadContext] All uploads completed for report ${currentReportId}. Making visible.`);
-                supabase.from('reports')
-                  .update({ moderation_status: 'approved' })
-                  .eq('id', currentReportId)
-                  .then(async ({ error }) => {
-                      if (error) console.error("Failed to update report status:", error);
-                      else {
-                          toast.success("Bronca enviada com sucesso! ✅");
-                          
-                          // Notificação Local
-                          try {
-                            const notificationId = Math.floor(Date.now() % 2147483647);
-                            await LocalNotifications.schedule({
-                                notifications: [{
-                                    title: "Upload Concluído! 🚀",
-                                    body: "Sua bronca foi enviada com sucesso e já está visível no mapa.",
-                                    id: notificationId,
-                                    schedule: { at: new Date(Date.now() + 100) },
-                                    smallIcon: "ic_stat_icon_config_sample"
-                                }]
-                            });
-                          } catch (e) {
-                              console.error("Failed to schedule notification:", e);
-                          }
-                      }
-                  });
-            } else if (currentReportId) {
-//                 console.log(`[UploadContext] Upload completed for ${event.id}, but report ${currentReportId} still has pending uploads.`);
+                toast.success("Bronca enviada com sucesso! ✅");
+                (async () => {
+                  try {
+                    const notificationId = Math.floor(Date.now() % 2147483647);
+                    await LocalNotifications.schedule({
+                      notifications: [{
+                        title: "Upload Concluído! 🚀",
+                        body: "Sua bronca foi enviada com sucesso e já está visível no mapa.",
+                        id: notificationId,
+                        schedule: { at: new Date(Date.now() + 100) },
+                        smallIcon: "ic_stat_icon_config_sample"
+                      }]
+                    });
+                  } catch (e) {
+                    console.error("Failed to schedule notification:", e);
+                  }
+                })();
             }
 
             // Removemos da lista após um breve delay para o usuário ver o 100%
@@ -230,33 +219,25 @@ export const UploadProvider = ({ children }) => {
                 );
 
                 if (currentReportId && !hasPendingUploadsForThisReport) {
-                    supabase.from('reports')
-                      .update({ moderation_status: 'approved' })
-                      .eq('id', currentReportId)
-                      .then(async ({ error }) => {
-                          if (error) console.error("Failed to update report status:", error);
-                          else {
-                              if (!Capacitor.isNativePlatform()) {
-                                  toast.success("Bronca enviada com sucesso! ✅");
-                              }
-                              
-                              // Notificação Local
-                              try {
-                                const notificationId = Math.floor(Date.now() % 2147483647);
-                                await LocalNotifications.schedule({
-                                    notifications: [{
-                                        title: "Upload Concluído! 🚀",
-                                        body: "Sua bronca foi enviada com sucesso e já está visível no mapa.",
-                                        id: notificationId,
-                                        schedule: { at: new Date(Date.now() + 100) },
-                                        smallIcon: "ic_stat_icon_config_sample"
-                                    }]
-                                });
-                              } catch (e) {
-                                  console.error("Failed to schedule notification:", e);
-                              }
-                          }
-                      });
+                    if (!Capacitor.isNativePlatform()) {
+                        toast.success("Bronca enviada com sucesso! ✅");
+                    }
+                    (async () => {
+                      try {
+                        const notificationId = Math.floor(Date.now() % 2147483647);
+                        await LocalNotifications.schedule({
+                          notifications: [{
+                            title: "Upload Concluído! 🚀",
+                            body: "Sua bronca foi enviada com sucesso e já está visível no mapa.",
+                            id: notificationId,
+                            schedule: { at: new Date(Date.now() + 100) },
+                            smallIcon: "ic_stat_icon_config_sample"
+                          }]
+                        });
+                      } catch (e) {
+                        console.error("Failed to schedule notification:", e);
+                      }
+                    })();
                 } else if (!currentReportId) {
                     if (!Capacitor.isNativePlatform()) {
                         toast.success(`Upload de ${upload.name || 'arquivo'} concluído!`);

@@ -5,6 +5,7 @@ import React, {
   Suspense,
   useEffect,
   useMemo,
+  useCallback,
 } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
@@ -314,6 +315,66 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const addressTouchedRef = useRef(false);
   const lastReverseGeocodeKeyRef = useRef(null);
   const reverseGeocodeTargetRef = useRef(null);
+  const resolvedCityIdRef = useRef(null);
+  // Chave (lat,lng) para a qual resolvedCityIdRef foi resolvido — invalida cache ao mover marcador
+  const resolvedCityKeyRef = useRef(null);
+  // Após o usuário mover o marcador manualmente, não sobrescrever location com o GPS
+  const userPickedLocationRef = useRef(false);
+
+  // Resolve o city_id SEMPRE a partir das coordenadas do marcador (não do usuário).
+  // Chamado no submit para garantir um valor confiável e não-nulo, sem depender
+  // do useEffect assíncrono com debounce (que sofre de race conditions).
+  const resolveCityIdFromLocation = useCallback(async (loc) => {
+    const lat = loc?.lat;
+    const lng = loc?.lng;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+    const key = `${Number(lng).toFixed(5)},${Number(lat).toFixed(5)}`;
+    // Se já resolvemos para exatamente estas coordenadas, reutiliza
+    if (resolvedCityKeyRef.current === key && resolvedCityIdRef.current != null) {
+      return resolvedCityIdRef.current;
+    }
+
+    // Normaliza o retorno do RPC match_city: o PostgREST pode devolver o bigint
+    // como number OU como string ("159"). Aceita ambos; rejeita null/NaN.
+    const parseCityId = (raw) => {
+      if (raw == null) return null;
+      const n = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+
+    // Tenta resolver a partir de uma resposta do reverse-geocode
+    const matchFromGeocode = async (zoom) => {
+      const { data, error } = await supabase.functions.invoke("reverse-geocode", {
+        body: { lat, lng, zoom },
+      });
+      if (error || !data) return null;
+      const city = data.city;
+      const state_uf = data.state_uf;
+      if (!city || !state_uf) return null;
+      const { data: cityId } = await supabase.rpc("match_city", {
+        p_name: city,
+        p_uf: state_uf,
+      });
+      return parseCityId(cityId);
+    };
+
+    try {
+      // 1ª tentativa: zoom 18 (endereço detalhado)
+      let cityId = await matchFromGeocode(18);
+      // 2ª tentativa: zoom 10 (nível municipal — mais confiável para o nome da cidade)
+      if (cityId == null) cityId = await matchFromGeocode(10);
+
+      if (cityId != null) {
+        resolvedCityIdRef.current = cityId;
+        resolvedCityKeyRef.current = key;
+        return cityId;
+      }
+    } catch (e) {
+      console.error("[ReportModal] resolveCityIdFromLocation falhou:", e);
+    }
+    return resolvedCityIdRef.current;
+  }, []);
 
   // Atualizar flag de montagem
   useEffect(() => {
@@ -355,10 +416,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
         (position) => {
           const { latitude, longitude } = position.coords;
           setLocationPermission("granted");
-          setFormData((prev) => ({
-            ...prev,
-            location: { lat: latitude, lng: longitude },
-          }));
+          // Não sobrescrever se o usuário já escolheu uma localização no mapa
+          if (!userPickedLocationRef.current) {
+            setFormData((prev) => ({
+              ...prev,
+              location: { lat: latitude, lng: longitude },
+            }));
+          }
         },
         () => {
           setLocationPermission("denied");
@@ -548,15 +612,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
         );
       }
 
-      // Resolve city_id a partir do geocode (sem bloquear o submit se falhar)
+      // Resolve city_id a partir do geocode (sem bloquear o submit se falhar).
+      // O RPC pode devolver o bigint como number OU string ("159") — normaliza.
       const city = data?.city;
       const state_uf = data?.state_uf;
       if (city && state_uf) {
-        const { data: cityId } = await supabase.rpc("match_city", {
+        const { data: cityIdRaw } = await supabase.rpc("match_city", {
           p_name: city,
           p_uf: state_uf,
         });
-        if (!cancelled && typeof cityId === "number") {
+        const cityId =
+          cityIdRaw == null ? null : Number(cityIdRaw);
+        if (!cancelled && Number.isFinite(cityId) && cityId > 0) {
+          resolvedCityIdRef.current = cityId;
+          resolvedCityKeyRef.current = key;
           setFormData((prev) => ({ ...prev, city_id: cityId }));
         }
       }
@@ -2899,7 +2968,22 @@ const ReportModal = ({ onClose, onSubmit }) => {
         // Toast removed as per user request
       }
 
-      await onSubmit(formData, uploadMediaWrapper);
+      // Resolve o city_id SEMPRE a partir do marcador, aguardando se necessário.
+      // Isso garante que a bronca vá para a cidade do marcador (não a do usuário/filtro).
+      const resolvedCityId = await resolveCityIdFromLocation(formData.location);
+      if (resolvedCityId == null) {
+        // Nunca salvar city_id nulo — bloqueia o envio e orienta o usuário.
+        toast({
+          title: "Não foi possível identificar a cidade",
+          description:
+            "Confira se o marcador no mapa está sobre a localização correta e tente novamente. Se persistir, ajuste levemente o marcador.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      const finalFormData = { ...formData, city_id: resolvedCityId };
+      await onSubmit(finalFormData, uploadMediaWrapper);
       clearReportDraft();
 
       // Limpar previews de forma segura
@@ -2973,13 +3057,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
   };
 
   const handleLocationChange = (newLocation) => {
-    // Se a categoria não for iluminação, atualiza o target para reverse geocode
-    // assim o endereço será atualizado conforme o marcador se move
-    if (formData.category !== "iluminacao") {
-      reverseGeocodeTargetRef.current = newLocation;
-      lastReverseGeocodeKeyRef.current = null;
-    }
-    setFormData((prev) => ({ ...prev, location: newLocation }));
+    userPickedLocationRef.current = true;
+    // Marcador mudou → invalida qualquer city_id resolvido anteriormente
+    reverseGeocodeTargetRef.current = newLocation;
+    lastReverseGeocodeKeyRef.current = null;
+    resolvedCityIdRef.current = null;
+    resolvedCityKeyRef.current = null;
+    setFormData((prev) => ({ ...prev, location: newLocation, city_id: undefined }));
   };
 
   const handleClose = () => {
@@ -3116,6 +3200,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
     setIsSubmitting(true);
     setUploadProgress(0);
     try {
+      // city_id SEMPRE a partir do marcador — igual ao fluxo autenticado.
+      // Nunca enviar null: bloqueia se não conseguir resolver a cidade.
+      const anonCityId = await resolveCityIdFromLocation(formData.location);
+      if (anonCityId == null) {
+        toast({
+          title: "Não foi possível identificar a cidade",
+          description:
+            "Confira se o marcador no mapa está sobre a localização correta e tente novamente. Se persistir, ajuste levemente o marcador.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -3129,6 +3227,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         reported_pole_distance_m: formData.reported_pole_distance_m,
         issue_type: formData.issue_type,
         is_from_water_utility: formData.is_from_water_utility,
+        city_id: anonCityId,
       };
 
       // Detectar plataforma nativa com plugin disponível
@@ -3219,9 +3318,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
       });
 
       if (error || !data?.id || !Array.isArray(data?.uploads)) {
+        const isCityError = data?.error === "city_unresolved";
         toast({
-          title: "Erro ao enviar bronca",
-          description: error?.message || data?.error || "Não foi possível enviar anonimamente.",
+          title: isCityError
+            ? "Não foi possível identificar a cidade"
+            : "Erro ao enviar bronca",
+          description: isCityError
+            ? "Confira se o marcador no mapa está sobre a localização correta e tente novamente."
+            : error?.message || data?.error || "Não foi possível enviar anonimamente.",
           variant: "destructive",
         });
         return;

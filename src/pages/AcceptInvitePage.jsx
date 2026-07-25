@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Loader2, MapPin, ShieldCheck, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
@@ -234,7 +234,10 @@ const AcceptInvitePage = () => {
                 <>
                   <Button
                     className="w-full gap-2"
-                    onClick={() => navigate(`/login?redirect=/convite/${token}`)}
+                    onClick={() => {
+                      sessionStorage.setItem('tc_post_login_redirect', `/convite/${token}`);
+                      navigate('/login');
+                    }}
                   >
                     Entrar e aceitar convite
                     <ArrowRight className="w-4 h-4" />
@@ -242,7 +245,10 @@ const AcceptInvitePage = () => {
                   <Button
                     variant="outline"
                     className="w-full gap-2"
-                    onClick={() => navigate(`/cadastro?redirect=/convite/${token}`)}
+                    onClick={() => {
+                      sessionStorage.setItem('tc_post_login_redirect', `/convite/${token}`);
+                      navigate('/cadastro');
+                    }}
                   >
                     Criar conta e aceitar
                   </Button>

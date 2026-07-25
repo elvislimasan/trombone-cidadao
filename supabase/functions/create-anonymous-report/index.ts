@@ -30,12 +30,12 @@ const extractCityUFFromNominatim = (payload: Record<string, unknown>): { city: s
   return { city, state_uf };
 };
 
-const reverseGeocode = async (lat: number, lng: number) => {
+const reverseGeocode = async (lat: number, lng: number, zoom = 18) => {
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("lat", String(lat));
   url.searchParams.set("lon", String(lng));
-  url.searchParams.set("zoom", "18");
+  url.searchParams.set("zoom", String(zoom));
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("accept-language", "pt-BR");
 
@@ -142,21 +142,41 @@ serve(async (req) => {
       });
     }
 
-    const geo = await reverseGeocode(lat, lng);
-
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    // Resolve city_id via match_city; fallback silencioso se geocode falhar
-    let cityId: number | null = null;
-    if (geo.ok && geo.city && geo.state_uf) {
-      const { data: cityData } = await supabaseAdmin.rpc("match_city", {
-        p_name: geo.city,
-        p_uf: geo.state_uf,
+    // Normaliza o retorno de match_city: o PostgREST pode devolver o bigint
+    // como number OU string ("159"). Aceita ambos; rejeita null/NaN/<=0.
+    const parseCityId = (raw: unknown): number | null => {
+      if (raw === null || raw === undefined) return null;
+      const n = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+
+    const matchCityAtZoom = async (zoom: number): Promise<number | null> => {
+      const g = await reverseGeocode(lat, lng, zoom);
+      if (!g.ok || !g.city || !g.state_uf) return null;
+      const { data } = await supabaseAdmin.rpc("match_city", {
+        p_name: g.city,
+        p_uf: g.state_uf,
       });
-      cityId = typeof cityData === "number" ? cityData : null;
+      return parseCityId(data);
+    };
+
+    // Resolve city_id SEMPRE a partir das coordenadas do marcador.
+    // 1) zoom 18 (endereço), 2) zoom 10 (município), 3) city_id enviado pelo cliente.
+    let cityId: number | null = await matchCityAtZoom(18);
+    if (cityId === null) cityId = await matchCityAtZoom(10);
+    if (cityId === null) cityId = parseCityId(report?.city_id);
+
+    // Nunca persistir bronca sem cidade — o city_id deve refletir o marcador.
+    if (cityId === null) {
+      return new Response(JSON.stringify({ error: "city_unresolved" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 422,
+      });
     }
 
     const isLighting = category === "iluminacao";
