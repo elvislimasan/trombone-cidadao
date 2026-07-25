@@ -85,10 +85,10 @@ create table public.ambassador_applications (
 
 Rejeição **não** precisa de RPC: é um `UPDATE` simples coberto pela policy de UPDATE (master), + insert de notificação. Fica no client, como as outras ações de moderação da página.
 
-### 4.4 Notificação: nova candidatura → masters
-Trigger `notify_masters_new_application` (SECURITY DEFINER) `after insert on ambassador_applications`:
-- Insere uma notificação `type='ambassador_application'` para **cada master** (via `profiles.is_master = true`), mensagem: `Nova candidatura a embaixador de {cidade} ({nome}) aguarda avaliação.`, link `/admin/masters` (ou a rota da aba Candidaturas).
-- Espelha o padrão de `notify_admins_new_report` (migration 100), mas mira masters em vez de `moderation_admins`.
+### 4.4 Notificação: nova candidatura → masters **e** admins
+Trigger `notify_admins_new_application` (SECURITY DEFINER) `after insert on ambassador_applications`:
+- Insere uma notificação `type='ambassador_application'` para **cada master ou admin** — `select id from profiles where is_master = true or is_admin = true` (a condição OR evita duplicar quem é ambos). Mensagem: `Nova candidatura a embaixador de {cidade} ({nome}) aguarda avaliação.`, link `/admin/masters` (rota da aba Candidaturas).
+- Espelha o padrão de `notify_admins_new_report` (migration 100), mirando masters+admins.
 
 ## 5. Página pública `/seja-embaixador` (`BecomeAmbassadorPage.jsx`)
 
@@ -167,14 +167,14 @@ Ambos preservam o comportamento atual (admins continuam recebendo); só **adicio
 | 5 | E-mail obrigatório + duplicado por email | `src/pages/admin/ManageMastersPage.jsx` |
 | 6 | Aceite amarrado ao e-mail + preview mascarado | `supabase/functions/accept-ambassador-invite/index.ts`, `get_invite_preview` (nova migration), `src/pages/AcceptInvitePage.jsx` |
 | 7 | Expiração marca `expired` | mesma migration do `get_invite_preview`, `accept-ambassador-invite` |
-| 8 | Notificação: candidatura → masters | trigger em nova migration (`ambassador_applications`) |
+| 8 | Notificação: candidatura → masters **e** admins | trigger em nova migration (`ambassador_applications`) |
 | 9 | Notificação: nova bronca → embaixadores da cidade | nova migration reescrevendo `notify_admins_new_report` |
 | 10 | Notificação: nova atualização → embaixadores da cidade | mesma migration, reescrevendo `notify_new_report_update` |
 
 ## 9. Verificação (dev `xxdletrjyjajtrmhwzev` apenas)
 
-- Candidatura **logado**: envia → aparece na aba do master **+ master recebe notificação**.
-- Candidatura **não logado**: cria conta → envia → aparece na aba + master notificado.
+- Candidatura **logado**: envia → aparece na aba do master **+ masters e admins recebem notificação**.
+- Candidatura **não logado**: cria conta → envia → aparece na aba + masters e admins notificados.
 - **Aprovar** candidatura → vira embaixador ativo (`ambassador_cities.active`), candidato notificado, acessa `/embaixador`.
 - **Rejeitar** → status rejected + notificação.
 - Convite gerado com e-mail; aceite com **e-mail diferente** → bloqueado (`invite_email_mismatch`).
