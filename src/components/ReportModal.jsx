@@ -5,7 +5,6 @@ import React, {
   Suspense,
   useEffect,
   useMemo,
-  useCallback,
 } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
@@ -35,6 +34,7 @@ import { App } from "@capacitor/app";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { VideoProcessor } from "@/plugins/VideoProcessor";
 import { useBackgroundUpload } from "@/hooks/useBackgroundUpload";
+import { useCityIdFromLocation } from "@/hooks/useCityIdFromLocation";
 import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { FLORESTA_COORDS } from "@/config/mapConfig";
@@ -315,66 +315,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const addressTouchedRef = useRef(false);
   const lastReverseGeocodeKeyRef = useRef(null);
   const reverseGeocodeTargetRef = useRef(null);
-  const resolvedCityIdRef = useRef(null);
-  // Chave (lat,lng) para a qual resolvedCityIdRef foi resolvido — invalida cache ao mover marcador
-  const resolvedCityKeyRef = useRef(null);
   // Após o usuário mover o marcador manualmente, não sobrescrever location com o GPS
   const userPickedLocationRef = useRef(false);
 
   // Resolve o city_id SEMPRE a partir das coordenadas do marcador (não do usuário).
   // Chamado no submit para garantir um valor confiável e não-nulo, sem depender
   // do useEffect assíncrono com debounce (que sofre de race conditions).
-  const resolveCityIdFromLocation = useCallback(async (loc) => {
-    const lat = loc?.lat;
-    const lng = loc?.lng;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-
-    const key = `${Number(lng).toFixed(5)},${Number(lat).toFixed(5)}`;
-    // Se já resolvemos para exatamente estas coordenadas, reutiliza
-    if (resolvedCityKeyRef.current === key && resolvedCityIdRef.current != null) {
-      return resolvedCityIdRef.current;
-    }
-
-    // Normaliza o retorno do RPC match_city: o PostgREST pode devolver o bigint
-    // como number OU como string ("159"). Aceita ambos; rejeita null/NaN.
-    const parseCityId = (raw) => {
-      if (raw == null) return null;
-      const n = typeof raw === "number" ? raw : Number(raw);
-      return Number.isFinite(n) && n > 0 ? n : null;
-    };
-
-    // Tenta resolver a partir de uma resposta do reverse-geocode
-    const matchFromGeocode = async (zoom) => {
-      const { data, error } = await supabase.functions.invoke("reverse-geocode", {
-        body: { lat, lng, zoom },
-      });
-      if (error || !data) return null;
-      const city = data.city;
-      const state_uf = data.state_uf;
-      if (!city || !state_uf) return null;
-      const { data: cityId } = await supabase.rpc("match_city", {
-        p_name: city,
-        p_uf: state_uf,
-      });
-      return parseCityId(cityId);
-    };
-
-    try {
-      // 1ª tentativa: zoom 18 (endereço detalhado)
-      let cityId = await matchFromGeocode(18);
-      // 2ª tentativa: zoom 10 (nível municipal — mais confiável para o nome da cidade)
-      if (cityId == null) cityId = await matchFromGeocode(10);
-
-      if (cityId != null) {
-        resolvedCityIdRef.current = cityId;
-        resolvedCityKeyRef.current = key;
-        return cityId;
-      }
-    } catch (e) {
-      console.error("[ReportModal] resolveCityIdFromLocation falhou:", e);
-    }
-    return resolvedCityIdRef.current;
-  }, []);
+  const { resolveCityIdFromLocation, resetCityCache } = useCityIdFromLocation();
 
   // Atualizar flag de montagem
   useEffect(() => {
@@ -624,8 +571,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
         const cityId =
           cityIdRaw == null ? null : Number(cityIdRaw);
         if (!cancelled && Number.isFinite(cityId) && cityId > 0) {
-          resolvedCityIdRef.current = cityId;
-          resolvedCityKeyRef.current = key;
           setFormData((prev) => ({ ...prev, city_id: cityId }));
         }
       }
@@ -3061,8 +3006,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     // Marcador mudou → invalida qualquer city_id resolvido anteriormente
     reverseGeocodeTargetRef.current = newLocation;
     lastReverseGeocodeKeyRef.current = null;
-    resolvedCityIdRef.current = null;
-    resolvedCityKeyRef.current = null;
+    resetCityCache();
     setFormData((prev) => ({ ...prev, location: newLocation, city_id: undefined }));
   };
 
