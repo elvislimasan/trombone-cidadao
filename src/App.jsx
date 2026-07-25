@@ -234,6 +234,16 @@ const AdminRoute = ({ children }) => {
     );
 };
 
+const AmbassadorOrAdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
+  const allowed = user && (user.is_admin || user.is_master || user.is_ambassador);
+  return allowed
+    ? children
+    : <Navigate to={user ? '/' : '/login'} replace state={!user ? { from: location } : undefined} />;
+};
+
 function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -634,6 +644,7 @@ function AppShell() {
               <Route path="/admin/servicos" element={<AdminRoute><ManageServicesPage /></AdminRoute>} />
               <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
               <Route path="/admin/obras" element={<AdminRoute><ManageWorksPage /></AdminRoute>} />
+              <Route path="/obras/gerenciar" element={<AmbassadorOrAdminRoute><ManageWorksPage /></AmbassadorOrAdminRoute>} />
               <Route path="/admin/obras/opcoes" element={<AdminRoute><ManageWorkOptionsPage /></AdminRoute>} />
               <Route path="/admin/pavimentacao" element={<AdminRoute><ManagePavementPage /></AdminRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
