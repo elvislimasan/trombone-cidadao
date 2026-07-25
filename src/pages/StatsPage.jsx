@@ -12,12 +12,92 @@ import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import WorksStatsReports from '@/components/WorksStatsReports';
+import { useCity } from '@/contexts/CityContext';
+import { MapPin, Check, Globe, Search } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { FileOpener } from '@capacitor-community/file-opener';
+
+// Seletor de cidade ligado ao CityContext (mesma seleção do feed).
+const CitySelector = () => {
+  const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
+  const filtered = cities
+    .filter((c) => {
+      if (!search.trim()) return true;
+      const term = norm(search.trim());
+      return norm(c.name).includes(term) || (c.state?.uf || '').toLowerCase().includes(term);
+    })
+    .slice(0, search.trim() ? undefined : 50);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className="flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted transition-colors"
+      >
+        <MapPin className="w-4 h-4 text-tc-red shrink-0" />
+        <span className="truncate max-w-[10rem]">{activeCityId ? (activeCityName || 'Cidade') : 'Todas as cidades'}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 z-50 mt-1 w-64 max-h-80 overflow-y-auto rounded-xl border border-border bg-popover shadow-lg">
+          <div className="sticky top-0 bg-popover p-2 border-b border-border/50">
+            <div className="flex items-center gap-2 rounded-lg border border-input px-2 py-1.5">
+              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+              <input
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onMouseDown={(e) => e.stopPropagation()}
+                placeholder="Buscar cidade..."
+                className="flex-1 bg-transparent outline-none text-sm"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onMouseDown={() => { setActiveCity(null); setOpen(false); setSearch(''); }}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition-colors"
+          >
+            <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+            Todas as cidades
+            {!activeCityId && <Check className="ml-auto h-4 w-4 text-primary" />}
+          </button>
+          {loadingCities ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : (
+            filtered.map((city) => {
+              const isActive = String(activeCityId) === String(city.id);
+              return (
+                <button
+                  key={city.id}
+                  type="button"
+                  onMouseDown={() => { setActiveCity(city.id); setOpen(false); setSearch(''); }}
+                  className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-muted border-t border-border/50 transition-colors ${isActive ? 'font-semibold text-primary' : 'text-foreground'}`}
+                >
+                  <span className="flex-1 truncate">
+                    {city.name}
+                    {city.state?.uf && <span className="ml-1 text-xs text-muted-foreground">{city.state.uf}</span>}
+                  </span>
+                  {isActive && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -137,11 +217,12 @@ const buildTimelineData = (reports, view, selectedYear) => {
 };
 
 const ReportsStats = () => {
-  const [stats, setStats] = useState({ 
-    total: 0, 
-    pending: 0, 
-    inProgress: 0, 
-    resolved: 0, 
+  const { activeCityId } = useCity();
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    resolved: 0,
     reports: [],
     compesa: {
       totalBuracos: 0,
@@ -169,12 +250,13 @@ const ReportsStats = () => {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: reports, error } = await supabase
+      let query = supabase
         .from('reports')
         .select('*, category:categories(id, name)')
         .eq('moderation_status', 'approved')
-        .neq('status', 'duplicate')
-        .order('created_at', { ascending: false });
+        .neq('status', 'duplicate');
+      if (activeCityId) query = query.eq('city_id', activeCityId);
+      const { data: reports, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -241,7 +323,7 @@ const ReportsStats = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, categoryFilter]);
+  }, [toast, categoryFilter, activeCityId]);
 
   // Recalcular distribuições quando mudar o filtro sem reconsultar o backend
   useEffect(() => {
@@ -1131,6 +1213,7 @@ const PublicWorksStats = () => {
 };
 
 const StatsPage = () => {
+  const { activeCityId } = useCity();
   const [summary, setSummary] = useState({
     total: 0,
     pending: 0,
@@ -1142,12 +1225,15 @@ const StatsPage = () => {
 
   useEffect(() => {
     const fetchSummary = async () => {
+      setSummaryLoading(true);
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('reports')
           .select('status')
           .eq('moderation_status', 'approved')
           .neq('status', 'duplicate');
+        if (activeCityId) query = query.eq('city_id', activeCityId);
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -1165,7 +1251,7 @@ const StatsPage = () => {
     };
 
     fetchSummary();
-  }, []);
+  }, [activeCityId]);
 
   const summaryCards = [
     {
@@ -1209,13 +1295,18 @@ const StatsPage = () => {
             transition={{ duration: 0.5 }}
             className="space-y-2"
           >
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
-              <span className="inline-block w-1 h-3 rounded-full bg-tc-red" />
-              Panorama
-            </p>
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827]">
-              Estatísticas da Cidade
-            </h1>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                  <span className="inline-block w-1 h-3 rounded-full bg-tc-red" />
+                  Panorama
+                </p>
+                <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827]">
+                  Estatísticas da Cidade
+                </h1>
+              </div>
+              <CitySelector />
+            </div>
             <p className="text-xs lg:text-sm text-[#6B7280] max-w-2xl">
               Acompanhe em tempo real o andamento das solicitações e obras e veja os dados que movem a cidade.
             </p>
