@@ -491,13 +491,21 @@ const ActiveAmbassadorsSection = () => {
 
   const handleSuspend = async (acId) => {
     setSuspendingId(acId);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('ambassador_cities')
       .update({ status: 'suspended' })
-      .eq('id', acId);
+      .eq('id', acId)
+      .select('id');
 
     if (error) {
       toast({ title: 'Erro ao suspender', description: error.message, variant: 'destructive' });
+    } else if (!data || data.length === 0) {
+      // UPDATE não afetou linhas — provavelmente RLS bloqueou (sem permissão)
+      toast({
+        title: 'Não foi possível suspender',
+        description: 'Você não tem permissão para alterar este embaixador.',
+        variant: 'destructive',
+      });
     } else {
       toast({ title: 'Embaixador suspenso.' });
       fetchAmbassadors();
