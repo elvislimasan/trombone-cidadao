@@ -55,15 +55,41 @@ serve(async (req) => {
     // 5. Validar o convite
     const { data: invite, error: inviteError } = await supabaseAdmin
       .from("ambassador_invites")
-      .select("id, city_id, status, expires_at, cities(name)")
+      .select("id, city_id, status, expires_at, invited_email, cities(name)")
       .eq("token", token)
-      .eq("status", "pending")
-      .gt("expires_at", new Date().toISOString())
       .single();
 
     if (inviteError || !invite) {
-      return new Response(JSON.stringify({ error: "Convite inválido, expirado ou já utilizado" }), {
+      return new Response(JSON.stringify({ error: "Convite inválido ou já utilizado" }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Expirado → marca e retorna
+    if (invite.status === "pending" && new Date(invite.expires_at).getTime() <= Date.now()) {
+      await supabaseAdmin.from("ambassador_invites")
+        .update({ status: "expired" }).eq("id", invite.id);
+      return new Response(JSON.stringify({ error: "invite_expired" }), {
+        status: 410,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Não-pending → inválido
+    if (invite.status !== "pending") {
+      return new Response(JSON.stringify({ error: "Convite inválido ou já utilizado" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 5.1 Validar e-mail amarrado (se o convite tiver e-mail)
+    const inviteEmail: string | null = (invite as any).invited_email ?? null;
+    if (inviteEmail && user.email &&
+        inviteEmail.toLowerCase() !== user.email.toLowerCase()) {
+      return new Response(JSON.stringify({ error: "invite_email_mismatch" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
