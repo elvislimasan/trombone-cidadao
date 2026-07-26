@@ -389,6 +389,8 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
         parliamentary_amendment: { has: false, author: '', value: null },
       };
       setFormData(initialData);
+      // Se a obra já tem endereço, preserva-o (não deixa o mapa sobrescrever).
+      addressTouchedRef.current = !!(initialData.address && initialData.address.trim());
 
       // Restore draft if exists
       const draftKey = work.id ? `work_draft_${work.id}` : `work_draft_new`;
@@ -421,8 +423,24 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Marca que o usuário editou o endereço à mão — nesse caso o mapa não sobrescreve.
+  const addressTouchedRef = useRef(false);
+
   const handleLocationChange = (newLocation) => {
     setFormData(prev => ({ ...prev, location: newLocation }));
+    // Preenche o endereço automaticamente pelo reverse-geocode do pin,
+    // a menos que o usuário já tenha digitado um endereço manualmente.
+    if (!newLocation || addressTouchedRef.current) return;
+    supabase.functions
+      .invoke('reverse-geocode', { body: { lat: newLocation.lat, lng: newLocation.lng, zoom: 18 } })
+      .then(({ data, error }) => {
+        if (error) return;
+        const addr = data?.address;
+        if (typeof addr === 'string' && addr.trim()) {
+          setFormData((prev) => (addressTouchedRef.current ? prev : { ...prev, address: addr }));
+        }
+      })
+      .catch(() => {});
   };
   
   const handleLinkChange = (index, field, value) => {
@@ -632,8 +650,22 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                       <Textarea id="long_description" name="long_description" value={formData.long_description || ''} onChange={handleChange} rows={6} />
                     </div>
                     <div className="grid gap-2">
+                      <Label className="flex items-center gap-2"><MapPin className="w-4 h-4" /> Localização no Mapa</Label>
+                      <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
+                        <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
+                          <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
+                        </Suspense>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
                       <Label htmlFor="address">Endereço / Localização por extenso</Label>
-                      <Input id="address" name="address" value={formData.address || ''} onChange={handleChange} placeholder="Ex: Rua Principal, Centro" />
+                      <Input
+                        id="address"
+                        name="address"
+                        value={formData.address || ''}
+                        onChange={(e) => { addressTouchedRef.current = true; handleChange(e); }}
+                        placeholder="Ex: Rua Principal, Centro (ou marque no mapa acima)"
+                      />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
@@ -766,18 +798,8 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                   </CardContent>
                 </Card>
                 
-                <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5" /> Localização no Mapa</CardTitle></CardHeader>
-                    <CardContent>
-                      <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
-                        <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                          <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
-                        </Suspense>
-                      </div>
-                    </CardContent>
-                </Card>
               </div>
-        
+
             <div className={activeTab === 'links' ? 'block' : 'hidden'}>
               <div className="space-y-4">
                 <Card>
