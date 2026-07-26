@@ -119,8 +119,13 @@ serve(async (req) => {
     const cityData = resCity.ok ? await resCity.json() : data
     const { city, state_uf } = extractCityUF(cityData as Record<string, unknown>)
 
+    // Bairro (do resultado detalhado, zoom alto): suburb/neighbourhood/quarter
+    const addrDetail = ((data as Record<string, unknown>)?.address ?? {}) as Record<string, unknown>
+    const suburb =
+      String(addrDetail.suburb ?? addrDetail.neighbourhood ?? addrDetail.quarter ?? addrDetail.city_district ?? "").trim() || null
+
     return new Response(
-      JSON.stringify({ address, city, state_uf, raw: data }),
+      JSON.stringify({ address, city, state_uf, suburb, raw: data }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
     )
   } catch (error) {

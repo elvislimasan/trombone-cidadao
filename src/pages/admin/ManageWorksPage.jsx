@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, MapPin, Image as ImageIcon, Link2, Info, Search, SlidersHorizontal, Briefcase, Calculator } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, MapPin, Image as ImageIcon, Link2, Info, Search, SlidersHorizontal, Briefcase, Calculator, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -154,12 +154,81 @@ const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap
 });
 FiltersSection.displayName = 'FiltersSection';
 
-export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', onWorkUpdated, fallbackCityCenter = null }) => {
+export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', onWorkUpdated, fallbackCityCenter = null, defaultCityId = null, onBairroCreated }) => {
   const { toast } = useToast();
+  const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const [formData, setFormData] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState(null);
   const fileInputRef = useRef(null);
+  const [bairroSearch, setBairroSearch] = useState('');
+  const [creatingBairro, setCreatingBairro] = useState(false);
+  const [fetchingMapBairro, setFetchingMapBairro] = useState(false);
+
+  // Resolve o city_id alvo para criar bairro: cidade padrão (embaixador) ou,
+  // se não houver, a cidade do marcador atual.
+  const resolveTargetCityId = async () => {
+    if (defaultCityId) return defaultCityId;
+    if (formData?.location) return await resolveCityIdFromLocation(formData.location);
+    return null;
+  };
+
+  // Cria um bairro novo na cidade alvo e já seleciona.
+  const handleCreateBairro = async (rawName) => {
+    const name = (rawName || '').trim();
+    if (!name) return;
+    const cityId = await resolveTargetCityId();
+    if (!cityId) {
+      toast({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
+      return;
+    }
+    // Evita duplicado (case-insensitive) na mesma cidade
+    const existing = (workOptions.bairros || []).find(
+      (b) => (b.name || '').trim().toLowerCase() === name.toLowerCase()
+    );
+    if (existing) {
+      handleSelectChange('bairro_id', existing.id);
+      setBairroSearch('');
+      return;
+    }
+    setCreatingBairro(true);
+    const { data, error } = await supabase
+      .from('bairros')
+      .insert({ name, city_id: cityId })
+      .select('id, name')
+      .single();
+    setCreatingBairro(false);
+    if (error) {
+      toast({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
+      return;
+    }
+    onBairroCreated?.(data);
+    handleSelectChange('bairro_id', data.id);
+    setBairroSearch('');
+    toast({ title: `Bairro "${data.name}" criado.` });
+  };
+
+  // Pega o bairro do reverse-geocode do marcador e cria/seleciona.
+  const handleUseBairroFromMap = async () => {
+    if (!formData?.location) {
+      toast({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
+      return;
+    }
+    setFetchingMapBairro(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+        body: { lat: formData.location.lat, lng: formData.location.lng, zoom: 18 },
+      });
+      const suburb = !error ? (data?.suburb || null) : null;
+      if (!suburb) {
+        toast({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
+        return;
+      }
+      await handleCreateBairro(suburb);
+    } finally {
+      setFetchingMapBairro(false);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState('info');
   const [isMeasurementEditing, setIsMeasurementEditing] = useState(false);
@@ -588,6 +657,40 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                           searchPlaceholder="Buscar bairro..."
                           modal
                         />
+                        {/* Criar bairro novo + pegar do mapa */}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={bairroSearch}
+                            onChange={(e) => setBairroSearch(e.target.value)}
+                            placeholder="Ou digite um bairro novo..."
+                            className="h-9 text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.preventDefault(); handleCreateBairro(bairroSearch); }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-9 shrink-0"
+                            disabled={creatingBairro || !bairroSearch.trim()}
+                            onClick={() => handleCreateBairro(bairroSearch)}
+                          >
+                            {creatingBairro ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Criar'}
+                          </Button>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 justify-start px-2 text-xs text-tc-red"
+                          disabled={fetchingMapBairro || !formData.location}
+                          onClick={handleUseBairroFromMap}
+                          title={!formData.location ? 'Marque a localização no mapa primeiro' : 'Detectar o bairro pela posição no mapa'}
+                        >
+                          {fetchingMapBairro ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <MapPin className="w-3.5 h-3.5 mr-1" />}
+                          Usar bairro do mapa
+                        </Button>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1255,6 +1358,8 @@ const ManageWorksPage = () => {
         workOptions={workOptions}
         onWorkUpdated={fetchData}
         fallbackCityCenter={isScopedAmbassador && myCities.length > 0 ? { name: myCities[0].name, uf: myCities[0].uf } : null}
+        defaultCityId={isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null}
+        onBairroCreated={(b) => setWorkOptions((prev) => ({ ...prev, bairros: [...(prev.bairros || []), b] }))}
       />
 
       <Dialog open={!!deletingWork} onOpenChange={(open) => !open && setDeletingWork(null)}>
