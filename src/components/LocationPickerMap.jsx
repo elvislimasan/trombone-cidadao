@@ -10,6 +10,8 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { FLORESTA_COORDS, INITIAL_ZOOM } from "@/config/mapConfig";
+import { geocodeCity } from "@/lib/geocodeCity";
+import { useCity } from "@/contexts/CityContext";
 import "leaflet/dist/leaflet.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -136,10 +138,16 @@ const LocationPickerMap = ({
   focusOverlayOnSelect = true,
   showSatelliteToggle = false,
   showLocateButton = false,
+  fallbackCityCenter = null, // { name, uf } — centraliza aqui quando não há initialPosition
 }) => {
   const [position, setPosition] = useState(initialPosition || FLORESTA_COORDS);
   const [mapLayer, setMapLayer] = useState("osm");
   const mapRef = useRef();
+  const { activeCity } = useCity();
+  // Cidade para centralizar quando não há posição inicial: a prop explícita
+  // tem prioridade; senão usa a cidade ativa do app (feed/estatísticas/obras).
+  const effectiveCityCenter =
+    fallbackCityCenter || (activeCity ? { name: activeCity.name, uf: activeCity.state?.uf } : null);
 
   // Controla se a view inicial já foi definida.
   // Impede que o useEffect re-center o mapa toda vez que o usuário
@@ -169,6 +177,22 @@ const LocationPickerMap = ({
       }
     }
   }, [initialPosition]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sem posição inicial: centraliza na cidade informada (ex.: cadastro de obra
+  // pelo embaixador). Não move o marcador — só reposiciona a vista do mapa.
+  useEffect(() => {
+    if (initialPosition || userMovedRef.current || hasSetInitialView.current) return;
+    if (!effectiveCityCenter?.name) return;
+    let cancelled = false;
+    geocodeCity(effectiveCityCenter.name, effectiveCityCenter.uf).then((coord) => {
+      if (cancelled || !coord || userMovedRef.current || hasSetInitialView.current) return;
+      if (mapRef.current) {
+        hasSetInitialView.current = true;
+        try { mapRef.current.setView([coord.lat, coord.lng], 13, { animate: false }); } catch {}
+      }
+    });
+    return () => { cancelled = true; };
+  }, [effectiveCityCenter?.name, effectiveCityCenter?.uf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePositionChange = (newPosition) => {
     userMovedRef.current = true;

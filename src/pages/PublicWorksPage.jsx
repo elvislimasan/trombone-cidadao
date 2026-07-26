@@ -78,6 +78,13 @@ const PublicWorksPage = () => {
   const mapViewRef = useRef();
   const listTopRef = useRef();
 
+  // Ao trocar de cidade, limpa o bairro selecionado (era de outra cidade).
+  const didMountCityRef = useRef(false);
+  useEffect(() => {
+    if (!didMountCityRef.current) { didMountCityRef.current = true; return; }
+    setFilters((prev) => (prev.bairro.length ? { ...prev, bairro: [] } : prev));
+  }, [activeCityId]);
+
   const workStatuses = {
     'planned': 'Prevista',
     'tendered': 'Licitada',
@@ -91,6 +98,17 @@ const PublicWorksPage = () => {
 
   const fetchFilterOptions = useCallback(async () => {
     try {
+      // Bairros filtrados pela cidade ativa. A tabela pode não ter city_id
+      // (schema legado só-Floresta); nesse caso, faz fallback para todos.
+      const fetchBairros = async () => {
+        if (activeCityId) {
+          const scoped = await supabase.from('bairros').select('id, name').eq('city_id', activeCityId);
+          if (!scoped.error) return scoped;
+          // coluna city_id inexistente → cai para lista completa
+        }
+        return supabase.from('bairros').select('id, name');
+      };
+
       const [
         { data: areas, error: areaError },
         { data: contractors, error: conError },
@@ -98,7 +116,7 @@ const PublicWorksPage = () => {
       ] = await Promise.all([
         supabase.from('work_areas').select('id, name'),
         supabase.from('contractors').select('id, name'),
-        supabase.from('bairros').select('id, name'),
+        fetchBairros(),
       ]);
 
       if (areaError) throw areaError;
@@ -117,7 +135,7 @@ const PublicWorksPage = () => {
         variant: 'destructive'
       });
     }
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   const fetchWorks = useCallback(async () => {
     setLoading(true);

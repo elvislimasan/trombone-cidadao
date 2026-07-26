@@ -151,7 +151,11 @@ export const CityProvider = ({ children }) => {
     } catch {}
   }, []);
 
-  const value = { activeCityId, activeCityName, setActiveCity, cities, loadingCities };
+  const activeCity = activeCityId
+    ? cities.find((c) => String(c.id) === String(activeCityId)) || null
+    : null;
+
+  const value = { activeCityId, activeCityName, activeCity, setActiveCity, cities, loadingCities };
 
   return (
     <CityContext.Provider value={value}>
