@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Check, X, MapPin, FileText, Megaphone, Loader2, Users, ShieldCheck, Copy, Link2, Search, Eye } from 'lucide-react';
+import { Check, X, MapPin, FileText, Megaphone, Loader2, Users, ShieldCheck, Copy, Link2, Search, Eye, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 
 const AmbassadorPage = () => {
   const { user } = useAuth();
@@ -31,6 +31,10 @@ const AmbassadorPage = () => {
   // State for "Atualizações pendentes"
   const [pendingUpdates, setPendingUpdates] = useState([]);
   const [loadingUpdates, setLoadingUpdates] = useState(true);
+
+  // State for "Mídias de Obra pendentes"
+  const [pendingWorkMedia, setPendingWorkMedia] = useState([]);
+  const [loadingWorkMedia, setLoadingWorkMedia] = useState(true);
 
   // Access guard
   const canAccess = user && (user.is_ambassador || user.is_master || user.is_admin);
@@ -105,6 +109,35 @@ const AmbassadorPage = () => {
     setLoadingUpdates(false);
   }, [toast]);
 
+  const fetchPendingWorkMedia = useCallback(async (cityIds) => {
+    if (!cityIds || cityIds.length === 0) {
+      setPendingWorkMedia([]);
+      setLoadingWorkMedia(false);
+      return;
+    }
+    setLoadingWorkMedia(true);
+    // Get public_work_media where the parent work is in my cities
+    const { data, error } = await supabase
+      .from('public_work_media')
+      .select(
+        'id, url, type, status, created_at, contributor_id, work_id, ' +
+        'work:public_works(id, title, city_id), ' +
+        'contributor:profiles!contributor_id(name)'
+      )
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      toast({ title: 'Erro ao buscar mídias de obra', description: error.message, variant: 'destructive' });
+    } else {
+      // Filter client-side by city
+      const cityIdSet = new Set(cityIds);
+      const filtered = (data || []).filter(m => cityIdSet.has(m.work?.city_id));
+      setPendingWorkMedia(filtered);
+    }
+    setLoadingWorkMedia(false);
+  }, [toast]);
+
   useEffect(() => {
     fetchMyCities();
   }, [fetchMyCities]);
@@ -114,8 +147,9 @@ const AmbassadorPage = () => {
       const cityIds = myCities.map(c => c.city_id);
       fetchPendingReports(cityIds);
       fetchPendingUpdates(cityIds);
+      fetchPendingWorkMedia(cityIds);
     }
-  }, [myCities, loadingCities, fetchPendingReports, fetchPendingUpdates]);
+  }, [myCities, loadingCities, fetchPendingReports, fetchPendingUpdates, fetchPendingWorkMedia]);
 
   const handleReportAction = async (reportId, newStatus) => {
     setActionLoadingId(`report-${reportId}-${newStatus}`);
@@ -149,6 +183,43 @@ const AmbassadorPage = () => {
       fetchPendingUpdates(cityIds);
     }
     setActionLoadingId(null);
+  };
+
+  const handleWorkMediaAction = async (item, newStatus) => {
+    setActionLoadingId(`wm-${item.id}-${newStatus}`);
+    try {
+      if (newStatus === 'approved') {
+        const { error } = await supabase.from('public_work_media')
+          .update({ status: 'approved', reviewed_by: user.id, reviewed_at: new Date().toISOString(), review_comment: null })
+          .eq('id', item.id);
+        if (error) throw error;
+      } else {
+        if (item.contributor_id) {
+          await supabase.from('notifications').insert({
+            user_id: item.contributor_id,
+            type: 'work_media_rejected',
+            message: `A mídia enviada para a obra "${item.work?.title || 'desconhecida'}" não foi aprovada.`,
+            work_id: item.work_id,
+            is_read: false,
+          });
+        }
+        const { error: delErr } = await supabase.from('public_work_media').delete().eq('id', item.id);
+        if (delErr) throw delErr;
+        try {
+          const url = new URL(item.url);
+          const parts = url.pathname.split('/work-media/');
+          const storagePath = parts[1];
+          if (storagePath) await supabase.storage.from('work-media').remove([decodeURIComponent(storagePath)]);
+        } catch (_) {}
+      }
+      toast({ title: newStatus === 'approved' ? 'Mídia aprovada!' : 'Mídia rejeitada.' });
+      const cityIds = myCities.map((c) => c.city_id);
+      fetchPendingWorkMedia(cityIds);
+    } catch (err) {
+      toast({ title: 'Erro ao moderar mídia', description: err.message, variant: 'destructive' });
+    } finally {
+      setActionLoadingId(null);
+    }
   };
 
   const UPDATE_TYPE_LABELS = {
@@ -185,9 +256,16 @@ const AmbassadorPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <ShieldCheck className="w-8 h-8 text-tc-red" />
-            <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Painel do Embaixador</h1>
+          <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-8 h-8 text-tc-red" />
+              <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Painel do Embaixador</h1>
+            </div>
+            <Button asChild variant="outline" className="gap-2">
+              <Link to="/obras/gerenciar">
+                <ImageIcon className="w-4 h-4" /> Gerenciar obras
+              </Link>
+            </Button>
           </div>
           <p className="text-muted-foreground text-base">
             Modere o conteúdo da sua cidade e mantenha a plataforma de qualidade.
@@ -216,7 +294,7 @@ const AmbassadorPage = () => {
         )}
 
         <Tabs defaultValue="cities" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
+          <TabsList className="grid w-full grid-cols-4 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
             <TabsTrigger value="cities" className="gap-2 text-xs sm:text-sm">
               <MapPin className="w-4 h-4" />
               <span className="hidden sm:inline">Minhas Cidades</span>
@@ -239,6 +317,16 @@ const AmbassadorPage = () => {
               {pendingUpdates.length > 0 && (
                 <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-tc-red text-white text-[10px]">
                   {pendingUpdates.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="work-media" className="gap-2 text-xs sm:text-sm">
+              <ImageIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Mídias de Obra</span>
+              <span className="sm:hidden">Mídias</span>
+              {pendingWorkMedia.length > 0 && (
+                <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-tc-red text-white text-[10px]">
+                  {pendingWorkMedia.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -459,6 +547,51 @@ const AmbassadorPage = () => {
                       </CardContent>
                     </Card>
                   </motion.div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ABA: Mídias de Obra Pendentes */}
+          <TabsContent value="work-media">
+            {loadingWorkMedia ? (
+              <div className="flex items-center justify-center py-16 gap-3">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <span className="text-muted-foreground">Carregando mídias...</span>
+              </div>
+            ) : pendingWorkMedia.length === 0 ? (
+              <Card className="border-dashed border-2 py-16 text-center bg-muted/20">
+                <CardContent className="flex flex-col items-center gap-3">
+                  <ImageIcon className="w-10 h-10 text-muted-foreground" />
+                  <p className="text-lg font-semibold text-green-600">Nenhuma mídia pendente!</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {pendingWorkMedia.map((m) => (
+                  <Card key={m.id} className="overflow-hidden">
+                    <div className="aspect-video bg-black/5">
+                      {m.type === 'video' ? (
+                        <video src={m.url} controls className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={m.url} alt="" className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                    <CardContent className="p-3 space-y-2">
+                      <p className="text-xs font-medium truncate">{m.work?.title || 'Obra'}</p>
+                      <p className="text-[11px] text-muted-foreground">Por {m.contributor?.name || 'Cidadão'}</p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                          disabled={!!actionLoadingId} onClick={() => handleWorkMediaAction(m, 'rejected')}>
+                          {actionLoadingId === `wm-${m.id}-rejected` ? <Loader2 className="w-3 h-3 animate-spin" /> : <><X className="w-3 h-3 mr-1" /> Rejeitar</>}
+                        </Button>
+                        <Button size="sm" className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+                          disabled={!!actionLoadingId} onClick={() => handleWorkMediaAction(m, 'approved')}>
+                          {actionLoadingId === `wm-${m.id}-approved` ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Check className="w-3 h-3 mr-1" /> Aprovar</>}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
