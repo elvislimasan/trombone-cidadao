@@ -13,6 +13,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import WorksMapView from '@/components/WorksMapView';
 import { formatCurrency, formatTimeAgo, cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { useCity } from '@/contexts/CityContext';
+import CitySelector from '@/components/CitySelector';
 
 const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, onSelectionChange, searchPlaceholder }) => {
   const Icon = triggerIcon;
@@ -72,6 +74,7 @@ const PublicWorksPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { activeCityId } = useCity();
   const mapViewRef = useRef();
   const listTopRef = useRef();
 
@@ -119,7 +122,7 @@ const PublicWorksPage = () => {
   const fetchWorks = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('public_works')
         .select(`
           id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update, thumbnail_url, is_complete,
@@ -130,6 +133,9 @@ const PublicWorksPage = () => {
         `)
         .eq('is_complete', true)
         .order('created_at', { ascending: false });
+      if (activeCityId) query = query.eq('city_id', activeCityId);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       const formattedData = data.map(w => ({
@@ -147,7 +153,7 @@ const PublicWorksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   const fetchListWorks = useCallback(async (page = 1) => {
     setLoading(true);
@@ -163,6 +169,7 @@ const PublicWorksPage = () => {
         `, { count: 'exact' })
         .eq('is_complete', true)
         .order('created_at', { ascending: false });
+      if (activeCityId) query = query.eq('city_id', activeCityId);
 
       if (searchTerm && searchTerm.trim()) {
         const term = searchTerm.trim();
@@ -199,7 +206,7 @@ const PublicWorksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize]);
+  }, [toast, searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize, activeCityId]);
 
   useEffect(() => {
     fetchWorks();
@@ -276,6 +283,9 @@ const PublicWorksPage = () => {
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Mapa de Obras Públicas</h1>
         <p className="mt-2 text-lg text-muted-foreground">Acompanhe com transparência o que está sendo construído na sua cidade</p>
+        <div className="mt-4 flex justify-center">
+          <CitySelector />
+        </div>
       </motion.div>
 
       <Card className="mb-6 p-4 relative z-[800]">
