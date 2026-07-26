@@ -195,13 +195,19 @@ const AmbassadorPage = () => {
         if (error) throw error;
       } else {
         if (item.contributor_id) {
-          await supabase.from('notifications').insert({
-            user_id: item.contributor_id,
-            type: 'work_media_rejected',
-            message: `A mídia enviada para a obra "${item.work?.title || 'desconhecida'}" não foi aprovada.`,
-            work_id: item.work_id,
-            is_read: false,
-          });
+          // best-effort: se a RLS de notifications bloquear o embaixador,
+          // não impedir a rejeição da mídia.
+          try {
+            await supabase.from('notifications').insert({
+              user_id: item.contributor_id,
+              type: 'work_media_rejected',
+              message: `A mídia enviada para a obra "${item.work?.title || 'desconhecida'}" não foi aprovada.`,
+              work_id: item.work_id,
+              is_read: false,
+            });
+          } catch (notifErr) {
+            console.error('Falha ao notificar rejeição de mídia:', notifErr);
+          }
         }
         const { error: delErr } = await supabase.from('public_work_media').delete().eq('id', item.id);
         if (delErr) throw delErr;

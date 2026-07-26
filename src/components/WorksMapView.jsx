@@ -25,6 +25,32 @@ const MapScrollLock = ({ mode }) => {
   return null;
 };
 
+// Recentraliza o mapa nas obras carregadas sempre que a lista muda
+// (ex.: ao trocar a cidade no seletor). Sem isso, o mapa fica preso no
+// center inicial (Floresta) mesmo filtrando outra cidade.
+const FitToWorks = ({ works }) => {
+  const map = useMap();
+  const lastKeyRef = useRef('');
+  useEffect(() => {
+    const pts = (works || [])
+      .filter((w) => w.location && Number.isFinite(w.location.lat) && Number.isFinite(w.location.lng))
+      .map((w) => [w.location.lat, w.location.lng]);
+    if (pts.length === 0) return;
+    // evita re-fit desnecessário se o conjunto de pontos não mudou
+    const key = pts.map((p) => p.join(',')).sort().join('|');
+    if (key === lastKeyRef.current) return;
+    lastKeyRef.current = key;
+    try {
+      if (pts.length === 1) {
+        map.setView(pts[0], Math.max(map.getZoom(), 15), { animate: true });
+      } else {
+        map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], animate: true });
+      }
+    } catch (e) { /* noop */ }
+  }, [works, map]);
+  return null;
+};
+
 const WorksMapView = forwardRef(({ works }, ref) => {
   const [selectedWork, setSelectedWork] = useState(null);
   const [workMedia, setWorkMedia] = useState([]);
@@ -235,6 +261,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       <MapContainer center={isSingleWorkView && selectedWork.location ? [selectedWork.location.lat, selectedWork.location.lng] : FLORESTA_COORDS} zoom={isSingleWorkView ? 17 : INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
+        {!isSingleWorkView && <FitToWorks works={works} />}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
