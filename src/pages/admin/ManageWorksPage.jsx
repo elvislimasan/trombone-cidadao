@@ -154,7 +154,7 @@ const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap
 });
 FiltersSection.displayName = 'FiltersSection';
 
-export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', onWorkUpdated }) => {
+export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', onWorkUpdated, fallbackCityCenter = null }) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
@@ -668,7 +668,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                     <CardContent>
                       <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
                         <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                          <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} />
+                          <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
                         </Suspense>
                       </div>
                     </CardContent>
@@ -830,6 +830,7 @@ const ManageWorksPage = () => {
   const { user } = useAuth();
   const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const [myCities, setMyCities] = useState([]); // [{ id, name, uf }]
   const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [works, setWorks] = useState([]);
   const [workOptions, setWorkOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
@@ -868,10 +869,18 @@ const ManageWorksPage = () => {
   }, [toast, isScopedAmbassador, myActiveCityIds]);
   
   const fetchOptions = useCallback(async () => {
+    // Embaixador só vê bairros das cidades dele; admin/master veem todos.
+    const fetchBairros = async () => {
+      if (isScopedAmbassador && myActiveCityIds.length > 0) {
+        const scoped = await supabase.from('bairros').select('*').in('city_id', myActiveCityIds);
+        if (!scoped.error) return scoped;
+      }
+      return supabase.from('bairros').select('*');
+    };
     const [categories, areas, bairros, contractors] = await Promise.all([
       supabase.from('work_categories').select('*'),
       supabase.from('work_areas').select('*'),
-      supabase.from('bairros').select('*'),
+      fetchBairros(),
       supabase.from('contractors').select('*'),
     ]);
     setWorkOptions({
@@ -880,16 +889,24 @@ const ManageWorksPage = () => {
         bairros: bairros.data || [],
         contractors: contractors.data || [],
     });
-  }, []);
+  }, [isScopedAmbassador, myActiveCityIds]);
 
   useEffect(() => {
     if (!isScopedAmbassador || !user?.id) return;
     supabase
       .from('ambassador_cities')
-      .select('city_id')
+      .select('city_id, cities(id, name, states(uf))')
       .eq('user_id', user.id)
       .eq('status', 'active')
-      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+      .then(({ data }) => {
+        const rows = data || [];
+        setMyActiveCityIds(rows.map((r) => r.city_id));
+        setMyCities(rows.map((r) => ({
+          id: r.city_id,
+          name: r.cities?.name || null,
+          uf: r.cities?.states?.uf || null,
+        })).filter((c) => c.name));
+      });
   }, [isScopedAmbassador, user?.id]);
 
   useEffect(() => {
@@ -1237,6 +1254,7 @@ const ManageWorksPage = () => {
         }}
         workOptions={workOptions}
         onWorkUpdated={fetchData}
+        fallbackCityCenter={isScopedAmbassador && myCities.length > 0 ? { name: myCities[0].name, uf: myCities[0].uf } : null}
       />
 
       <Dialog open={!!deletingWork} onOpenChange={(open) => !open && setDeletingWork(null)}>
