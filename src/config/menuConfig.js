@@ -8,6 +8,7 @@ export const defaultMenuSettings = {
     { name: 'Sobre', path: '/sobre', icon: 'Info', isVisible: true },
     { name: 'Estatísticas', path: '/estatisticas', icon: 'BarChart2', isVisible: true },
     { name: 'Obras', path: '/obras-publicas', icon: 'Construction', isVisible: true },
+    { name: 'Imóveis Alugados', path: '/imoveis-alugados', icon: 'Building', isVisible: true },
     { name: 'Pavimentação', path: '/mapa-pavimentacao', icon: 'Route', isVisible: true },
     { name: 'Serviços', path: '/servicos', icon: 'Briefcase', isVisible: true },
     { name: 'Abaixo-Assinados', path: '/abaixo-assinados', icon: 'FileSignature', isVisible: true },
