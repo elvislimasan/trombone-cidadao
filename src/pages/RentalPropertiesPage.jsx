@@ -95,11 +95,11 @@ const RentalPropertiesPage = () => {
 
   const stats = useMemo(() => {
     const active = properties.filter((p) => p.is_active && p.monthly_value != null);
-    const withArea = properties.filter((p) => Number.isFinite(p.area_m2));
-    const mostExpensive = active.length ? active.reduce((a, b) => (b.monthly_value > a.monthly_value ? b : a)) : null;
-    const cheapest = active.length ? active.reduce((a, b) => (b.monthly_value < a.monthly_value ? b : a)) : null;
-    const largest = withArea.length ? withArea.reduce((a, b) => (b.area_m2 > a.area_m2 ? b : a)) : null;
-    const smallest = withArea.length ? withArea.reduce((a, b) => (b.area_m2 < a.area_m2 ? b : a)) : null;
+    const withArea = properties.filter((p) => Number.isFinite(Number(p.area_m2)));
+    const mostExpensive = active.length ? active.reduce((a, b) => (Number(b.monthly_value) > Number(a.monthly_value) ? b : a)) : null;
+    const cheapest = active.length ? active.reduce((a, b) => (Number(b.monthly_value) < Number(a.monthly_value) ? b : a)) : null;
+    const largest = withArea.length ? withArea.reduce((a, b) => (Number(b.area_m2) > Number(a.area_m2) ? b : a)) : null;
+    const smallest = withArea.length ? withArea.reduce((a, b) => (Number(b.area_m2) < Number(a.area_m2) ? b : a)) : null;
     const annualTotal = active.reduce((sum, p) => sum + Number(p.monthly_value || 0), 0) * 12;
     return { mostExpensive, cheapest, largest, smallest, annualTotal };
   }, [properties]);
