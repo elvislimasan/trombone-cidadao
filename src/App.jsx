@@ -31,6 +31,7 @@ import TouristSpotDetailsPage from '@/pages/TouristSpotDetailsPage';
 import ManageServicesPage from '@/pages/admin/ManageServicesPage';
 import ManageNewsPage from '@/pages/admin/ManageNewsPage';
 import ManageWorksPage from '@/pages/admin/ManageWorksPage';
+import ManageRentalPropertiesPage from '@/pages/admin/ManageRentalPropertiesPage';
 import ManagePavementPage from '@/pages/admin/ManagePavementPage';
 import SiteSettingsPage from '@/pages/admin/SiteSettingsPage';
 import ManageUsersPage from '@/pages/admin/ManageUsersPage';
@@ -649,6 +650,8 @@ function AppShell() {
               <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
               <Route path="/admin/obras" element={<AdminRoute><ManageWorksPage /></AdminRoute>} />
               <Route path="/obras/gerenciar" element={<AmbassadorOrAdminRoute><ManageWorksPage /></AmbassadorOrAdminRoute>} />
+              <Route path="/admin/imoveis-alugados" element={<AdminRoute><ManageRentalPropertiesPage /></AdminRoute>} />
+              <Route path="/imoveis-alugados/gerenciar" element={<AmbassadorOrAdminRoute><ManageRentalPropertiesPage /></AmbassadorOrAdminRoute>} />
               <Route path="/admin/obras/opcoes" element={<AdminRoute><ManageWorkOptionsPage /></AdminRoute>} />
               <Route path="/admin/pavimentacao" element={<AdminRoute><ManagePavementPage /></AdminRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
