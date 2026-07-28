@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -175,25 +176,59 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets }
 
 const ManagePavementPage = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const [myCities, setMyCities] = useState([]);
+  const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [streets, setStreets] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [editingStreet, setEditingStreet] = useState(null);
   const [deletingStreet, setDeletingStreet] = useState(null);
 
+  useEffect(() => {
+    if (!isScopedAmbassador || !user?.id) return;
+    supabase
+      .from('ambassador_cities')
+      .select('city_id, cities(id, name, states(uf))')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => {
+        const rows = data || [];
+        setMyActiveCityIds(rows.map((r) => r.city_id));
+        setMyCities(rows.map((r) => ({
+          id: r.city_id,
+          name: r.cities?.name || null,
+          uf: r.cities?.states?.uf || null,
+        })).filter((c) => c.name));
+      });
+  }, [isScopedAmbassador, user?.id]);
+
   const fetchStreets = useCallback(async () => {
-    const { data, error } = await supabase
+    if (isScopedAmbassador && myActiveCityIds.length === 0) {
+      setStreets([]);
+      return;
+    }
+    let query = supabase
       .from('pavement_streets')
       .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)')
       .order('updated_at', { ascending: false });
+    if (isScopedAmbassador) {
+      query = query.in('city_id', myActiveCityIds);
+    }
+    const { data, error } = await query;
     if (error) toast({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     else setStreets(data.map(s => ({...s, bairro_name: s.bairro?.name})));
-  }, [toast]);
-  
+  }, [toast, isScopedAmbassador, myActiveCityIds]);
+
   const fetchBairros = useCallback(async () => {
-    const { data, error } = await supabase.from('bairros').select('*').order('name');
+    let query = supabase.from('bairros').select('*').order('name');
+    if (isScopedAmbassador && myActiveCityIds.length > 0) {
+      query = query.in('city_id', myActiveCityIds);
+    }
+    const { data, error } = await query;
     if (error) toast({ title: "Erro ao buscar bairros", description: error.message, variant: "destructive" });
     else setBairros(data);
-  }, [toast]);
+  }, [toast, isScopedAmbassador, myActiveCityIds]);
 
   useEffect(() => {
     fetchStreets();
@@ -206,6 +241,23 @@ const ManagePavementPage = () => {
     if (!name || name.trim() === '') {
         toast({ title: "Erro ao salvar", description: "O nome da rua é obrigatório.", variant: "destructive" });
         return;
+    }
+
+    if (!data.bairro_id) {
+      toast({ title: "Selecione um bairro", description: "A cidade da rua é definida pelo bairro selecionado.", variant: "destructive" });
+      return;
+    }
+
+    const selectedBairro = bairros.find((b) => b.id === data.bairro_id);
+    const resolvedCityId = selectedBairro?.city_id || null;
+    if (!resolvedCityId) {
+      toast({ title: "Bairro sem cidade definida", description: "Escolha outro bairro ou cadastre o bairro corretamente antes.", variant: "destructive" });
+      return;
+    }
+
+    if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
+      toast({ title: "Fora da sua área", description: "Você só pode gerenciar ruas nas suas cidades.", variant: "destructive" });
+      return;
     }
 
     const trimmedName = name.trim();
@@ -239,6 +291,7 @@ const ManagePavementPage = () => {
       pavement_type: data.pavement_type,
       bairro_id: data.bairro_id,
       location: locationString,
+      city_id: resolvedCityId,
     };
 
     let error;
@@ -298,7 +351,9 @@ const ManagePavementPage = () => {
               <Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
             </Link>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Gerenciar Pavimentação</h1>
+              <h1 className="text-3xl md:text-4xl font-bold text-tc-red">
+                {isScopedAmbassador ? 'Pavimentação da minha cidade' : 'Gerenciar Pavimentação'}
+              </h1>
               <p className="mt-2 text-lg text-muted-foreground">Adicione, edite ou remova ruas do mapa de pavimentação.</p>
             </div>
           </div>

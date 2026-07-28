@@ -654,6 +654,7 @@ function AppShell() {
               <Route path="/imoveis-alugados/gerenciar" element={<AmbassadorOrAdminRoute><ManageRentalPropertiesPage /></AmbassadorOrAdminRoute>} />
               <Route path="/admin/obras/opcoes" element={<AdminRoute><ManageWorkOptionsPage /></AdminRoute>} />
               <Route path="/admin/pavimentacao" element={<AdminRoute><ManagePavementPage /></AdminRoute>} />
+              <Route path="/pavimentacao/gerenciar" element={<AmbassadorOrAdminRoute><ManagePavementPage /></AmbassadorOrAdminRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
               <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
               <Route path="/admin/reports" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
