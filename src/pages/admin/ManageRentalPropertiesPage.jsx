@@ -7,11 +7,224 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import LocationPickerMap from '@/components/LocationPickerMap';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
+
+const RentalContractsManager = ({ propertyId }) => {
+  const { toast } = useToast();
+  const [contracts, setContracts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newContract, setNewContract] = useState({ owner_name: '', monthly_value: '', start_date: '' });
+  const [saving, setSaving] = useState(false);
+
+  const fetchContracts = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('rental_property_contracts')
+      .select('*')
+      .eq('property_id', propertyId)
+      .order('start_date', { ascending: false });
+    if (!error) setContracts(data || []);
+    setLoading(false);
+  }, [propertyId]);
+
+  useEffect(() => { fetchContracts(); }, [fetchContracts]);
+
+  const handleCreateContract = async (e) => {
+    e.preventDefault();
+    if (!newContract.owner_name.trim() || !newContract.monthly_value || !newContract.start_date) {
+      toast({ title: 'Preencha proprietário, valor e data de início', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const current = contracts.find((c) => c.is_current);
+      if (current) {
+        const { error: closeError } = await supabase
+          .from('rental_property_contracts')
+          .update({ is_current: false, end_date: current.end_date || newContract.start_date })
+          .eq('id', current.id);
+        if (closeError) throw closeError;
+      }
+      const { error: insertError } = await supabase.from('rental_property_contracts').insert({
+        property_id: propertyId,
+        owner_name: newContract.owner_name.trim(),
+        monthly_value: Number(newContract.monthly_value),
+        start_date: newContract.start_date,
+        is_current: true,
+      });
+      if (insertError) throw insertError;
+      toast({ title: 'Contrato criado. O contrato anterior foi encerrado automaticamente.' });
+      setNewContract({ owner_name: '', monthly_value: '', start_date: '' });
+      await fetchContracts();
+    } catch (error) {
+      toast({ title: 'Erro ao criar contrato', description: error.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleCreateContract} className="grid grid-cols-1 md:grid-cols-4 gap-2 p-3 border rounded-lg">
+        <Input placeholder="Nome do proprietário" value={newContract.owner_name} onChange={(e) => setNewContract((p) => ({ ...p, owner_name: e.target.value }))} />
+        <Input placeholder="Valor mensal" type="number" step="0.01" value={newContract.monthly_value} onChange={(e) => setNewContract((p) => ({ ...p, monthly_value: e.target.value }))} />
+        <Input placeholder="Data de início" type="date" value={newContract.start_date} onChange={(e) => setNewContract((p) => ({ ...p, start_date: e.target.value }))} />
+        <Button type="submit" disabled={saving}>Novo Contrato</Button>
+      </form>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Carregando histórico...</p>
+      ) : (
+        <div className="space-y-2">
+          {contracts.map((c) => (
+            <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
+              <div>
+                <p className="font-medium">{c.owner_name} {c.is_current && <span className="text-xs text-green-600">(atual)</span>}</p>
+                <p className="text-xs text-muted-foreground">{c.start_date} — {c.end_date || 'em vigor'}</p>
+              </div>
+              <p className="font-semibold">{c.monthly_value}</p>
+            </div>
+          ))}
+          {contracts.length === 0 && <p className="text-sm text-muted-foreground">Nenhum contrato cadastrado ainda.</p>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const RentalMediaManager = ({ propertyId }) => {
+  const { toast } = useToast();
+  const [photos, setPhotos] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [uploadingDocs, setUploadingDocs] = useState(false);
+  const [docType, setDocType] = useState('contrato');
+
+  const fetchMedia = useCallback(async () => {
+    const [photosRes, docsRes] = await Promise.all([
+      supabase.from('rental_property_media').select('*').eq('property_id', propertyId).order('created_at'),
+      supabase.from('rental_property_documents').select('*').eq('property_id', propertyId).order('created_at'),
+    ]);
+    setPhotos(photosRes.data || []);
+    setDocuments(docsRes.data || []);
+  }, [propertyId]);
+
+  useEffect(() => { fetchMedia(); }, [fetchMedia]);
+
+  const handleUploadPhotos = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setUploadingPhotos(true);
+    try {
+      for (const file of files) {
+        const ext = file.name.split('.').pop();
+        const path = `properties/${propertyId}/photos/${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('rental-property-media').upload(path, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('rental-property-media').getPublicUrl(path);
+        const { error: dbError } = await supabase.from('rental_property_media').insert({ property_id: propertyId, url: publicUrl });
+        if (dbError) throw dbError;
+      }
+      toast({ title: 'Fotos adicionadas' });
+      await fetchMedia();
+    } catch (error) {
+      toast({ title: 'Erro ao enviar fotos', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploadingPhotos(false);
+    }
+  };
+
+  const handleUploadDocuments = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setUploadingDocs(true);
+    try {
+      for (const file of files) {
+        const ext = file.name.split('.').pop();
+        const path = `properties/${propertyId}/documents/${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('rental-property-media').upload(path, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('rental-property-media').getPublicUrl(path);
+        const { error: dbError } = await supabase.from('rental_property_documents').insert({ property_id: propertyId, type: docType, url: publicUrl, description: file.name });
+        if (dbError) throw dbError;
+      }
+      toast({ title: 'Documentos adicionados' });
+      await fetchMedia();
+    } catch (error) {
+      toast({ title: 'Erro ao enviar documentos', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploadingDocs(false);
+    }
+  };
+
+  const handleRemovePhoto = async (photo) => {
+    const { error } = await supabase.from('rental_property_media').delete().eq('id', photo.id);
+    if (!error) {
+      try {
+        const filePath = new URL(photo.url).pathname.split('/rental-property-media/')[1];
+        if (filePath) await supabase.storage.from('rental-property-media').remove([decodeURIComponent(filePath)]);
+      } catch {}
+      fetchMedia();
+    }
+  };
+
+  const handleRemoveDocument = async (doc) => {
+    const { error } = await supabase.from('rental_property_documents').delete().eq('id', doc.id);
+    if (!error) {
+      try {
+        const filePath = new URL(doc.url).pathname.split('/rental-property-media/')[1];
+        if (filePath) await supabase.storage.from('rental-property-media').remove([decodeURIComponent(filePath)]);
+      } catch {}
+      fetchMedia();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <Label className="mb-2 block">Fotos do imóvel</Label>
+        <Input type="file" accept="image/*" multiple onChange={handleUploadPhotos} disabled={uploadingPhotos} />
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {photos.map((p) => (
+            <div key={p.id} className="relative group">
+              <img src={p.url} alt="" className="w-full h-20 object-cover rounded-md" />
+              <button type="button" onClick={() => handleRemovePhoto(p)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label className="mb-2 block">Documentos (contrato / aditivos)</Label>
+        <div className="flex gap-2 mb-2">
+          <select value={docType} onChange={(e) => setDocType(e.target.value)} className="border rounded-md px-2 text-sm">
+            <option value="contrato">Contrato</option>
+            <option value="aditivo">Aditivo</option>
+          </select>
+          <Input type="file" accept="application/pdf,image/*" multiple onChange={handleUploadDocuments} disabled={uploadingDocs} />
+        </div>
+        <div className="space-y-2">
+          {documents.map((d) => (
+            <div key={d.id} className="flex items-center justify-between p-2 border rounded-md text-sm">
+              <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-tc-red hover:underline truncate flex-1">
+                {d.type === 'contrato' ? 'Contrato' : 'Aditivo'} — {d.description}
+              </a>
+              <Button size="icon" variant="ghost" onClick={() => handleRemoveDocument(d)}><Trash2 className="w-3 h-3 text-destructive" /></Button>
+            </div>
+          ))}
+          {documents.length === 0 && <p className="text-sm text-muted-foreground">Nenhum documento enviado.</p>}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, defaultCityId, fallbackCityCenter, onBairroCreated }) => {
   const { toast } = useToast();
@@ -142,79 +355,98 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
         <DialogHeader>
           <DialogTitle>{property?.id ? 'Editar Imóvel' : 'Novo Imóvel Alugado'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="h-64 rounded-xl overflow-hidden border">
-            <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="address">Endereço</Label>
-            <Input id="address" name="address" value={formData.address} onChange={(e) => { addressTouchedRef.current = true; handleChange(e); }} required />
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Bairro</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Buscar ou criar bairro..."
-                value={bairroSearch}
-                onChange={(e) => setBairroSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateBairro(bairroSearch); } }}
-              />
-              <Button type="button" variant="outline" disabled={creatingBairro} onClick={() => handleCreateBairro(bairroSearch)}>
-                Criar
-              </Button>
-              <Button type="button" variant="outline" disabled={fetchingMapBairro} onClick={handleUseBairroFromMap}>
-                Usar bairro do mapa
-              </Button>
-            </div>
-            {filteredBairros.length > 0 && (
-              <div className="max-h-32 overflow-y-auto border rounded-md">
-                {filteredBairros.map((b) => (
-                  <button
-                    type="button"
-                    key={b.id}
-                    onClick={() => setFormData((prev) => ({ ...prev, bairro_id: b.id }))}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${formData.bairro_id === b.id ? 'bg-muted font-semibold' : ''}`}
-                  >
-                    {b.name}
-                  </button>
-                ))}
+        <Tabs defaultValue="info" className="w-full">
+          <TabsList className={`grid w-full ${formData.id ? 'grid-cols-3' : 'grid-cols-1'} mb-4`}>
+            <TabsTrigger value="info">Informações</TabsTrigger>
+            {formData.id && <TabsTrigger value="contracts">Contratos</TabsTrigger>}
+            {formData.id && <TabsTrigger value="media">Mídia</TabsTrigger>}
+          </TabsList>
+          <TabsContent value="info">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="h-64 rounded-xl overflow-hidden border">
+                <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
               </div>
-            )}
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="length_m">Comprimento (m)</Label>
-              <Input id="length_m" name="length_m" type="number" step="0.01" value={formData.length_m || ''} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="width_m">Largura (m)</Label>
-              <Input id="width_m" name="width_m" type="number" step="0.01" value={formData.width_m || ''} onChange={handleChange} />
-            </div>
-          </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address">Endereço</Label>
+                <Input id="address" name="address" value={formData.address} onChange={(e) => { addressTouchedRef.current = true; handleChange(e); }} required />
+              </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="characteristics">Características e utilização</Label>
-            <Input id="characteristics" name="characteristics" value={formData.characteristics || ''} onChange={handleChange} placeholder="Ex: prédio de 2 andares, usado como posto de saúde" />
-          </div>
+              <div className="grid gap-2">
+                <Label>Bairro</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Buscar ou criar bairro..."
+                    value={bairroSearch}
+                    onChange={(e) => setBairroSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateBairro(bairroSearch); } }}
+                  />
+                  <Button type="button" variant="outline" disabled={creatingBairro} onClick={() => handleCreateBairro(bairroSearch)}>
+                    Criar
+                  </Button>
+                  <Button type="button" variant="outline" disabled={fetchingMapBairro} onClick={handleUseBairroFromMap}>
+                    Usar bairro do mapa
+                  </Button>
+                </div>
+                {filteredBairros.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto border rounded-md">
+                    {filteredBairros.map((b) => (
+                      <button
+                        type="button"
+                        key={b.id}
+                        onClick={() => setFormData((prev) => ({ ...prev, bairro_id: b.id }))}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${formData.bairro_id === b.id ? 'bg-muted font-semibold' : ''}`}
+                      >
+                        {b.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="department">Secretaria Municipal responsável</Label>
-            <Input id="department" name="department" value={formData.department || ''} onChange={handleChange} placeholder="Ex: Secretaria de Saúde" />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="length_m">Comprimento (m)</Label>
+                  <Input id="length_m" name="length_m" type="number" step="0.01" value={formData.length_m || ''} onChange={handleChange} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="width_m">Largura (m)</Label>
+                  <Input id="width_m" name="width_m" type="number" step="0.01" value={formData.width_m || ''} onChange={handleChange} />
+                </div>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <Switch id="is_active" checked={formData.is_active} onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: checked }))} />
-            <Label htmlFor="is_active">Aluguel ativo</Label>
-          </div>
+              <div className="grid gap-2">
+                <Label htmlFor="characteristics">Características e utilização</Label>
+                <Input id="characteristics" name="characteristics" value={formData.characteristics || ''} onChange={handleChange} placeholder="Ex: prédio de 2 andares, usado como posto de saúde" />
+              </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">Salvar</Button>
-          </div>
-        </form>
+              <div className="grid gap-2">
+                <Label htmlFor="department">Secretaria Municipal responsável</Label>
+                <Input id="department" name="department" value={formData.department || ''} onChange={handleChange} placeholder="Ex: Secretaria de Saúde" />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Switch id="is_active" checked={formData.is_active} onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: checked }))} />
+                <Label htmlFor="is_active">Aluguel ativo</Label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+                <Button type="submit">Salvar</Button>
+              </div>
+            </form>
+          </TabsContent>
+          {formData.id && (
+            <TabsContent value="contracts">
+              <RentalContractsManager propertyId={formData.id} />
+            </TabsContent>
+          )}
+          {formData.id && (
+            <TabsContent value="media">
+              <RentalMediaManager propertyId={formData.id} />
+            </TabsContent>
+          )}
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
