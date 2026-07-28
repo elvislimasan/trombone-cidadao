@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, Building, DollarSign, TrendingUp, TrendingDown, Maximize2, Minimize2, Download, Loader2, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
 const RentalPropertiesPage = () => {
   const { activeCityId, activeCityName } = useCity();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [properties, setProperties] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,15 +95,15 @@ const RentalPropertiesPage = () => {
   }, [properties, searchOwner, selectedBairro]);
 
   const stats = useMemo(() => {
-    const active = properties.filter((p) => p.is_active && p.monthly_value != null);
-    const withArea = properties.filter((p) => Number.isFinite(Number(p.area_m2)));
+    const active = filteredProperties.filter((p) => p.is_active && p.monthly_value != null);
+    const withArea = filteredProperties.filter((p) => Number.isFinite(Number(p.area_m2)));
     const mostExpensive = active.length ? active.reduce((a, b) => (Number(b.monthly_value) > Number(a.monthly_value) ? b : a)) : null;
     const cheapest = active.length ? active.reduce((a, b) => (Number(b.monthly_value) < Number(a.monthly_value) ? b : a)) : null;
     const largest = withArea.length ? withArea.reduce((a, b) => (Number(b.area_m2) > Number(a.area_m2) ? b : a)) : null;
     const smallest = withArea.length ? withArea.reduce((a, b) => (Number(b.area_m2) < Number(a.area_m2) ? b : a)) : null;
     const annualTotal = active.reduce((sum, p) => sum + Number(p.monthly_value || 0), 0) * 12;
     return { mostExpensive, cheapest, largest, smallest, annualTotal };
-  }, [properties]);
+  }, [filteredProperties]);
 
   const handleDownloadReport = () => {
     setDownloading(true);
@@ -186,7 +187,7 @@ const RentalPropertiesPage = () => {
         ) : (
           <>
             <div className="h-[50vh] w-full rounded-xl overflow-hidden shadow-lg border mb-6">
-              <RentalPropertiesMapView properties={filteredProperties} onSelectProperty={(p) => window.location.assign(`/imoveis-alugados/${p.id}`)} />
+              <RentalPropertiesMapView properties={filteredProperties} onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

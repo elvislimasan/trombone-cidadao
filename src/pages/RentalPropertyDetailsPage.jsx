@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Ruler, User, Building2, FileText, Image as ImageIcon, Calendar, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Ruler, User, Building2, FileText, Calendar, CheckCircle2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';

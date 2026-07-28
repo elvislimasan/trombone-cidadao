@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import LocationPickerMap from '@/components/LocationPickerMap';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 const RentalContractsManager = ({ propertyId }) => {
   const { toast } = useToast();
@@ -41,14 +42,16 @@ const RentalContractsManager = ({ propertyId }) => {
       return;
     }
     setSaving(true);
+    const current = contracts.find((c) => c.is_current);
+    let closedCurrent = false;
     try {
-      const current = contracts.find((c) => c.is_current);
       if (current) {
         const { error: closeError } = await supabase
           .from('rental_property_contracts')
           .update({ is_current: false, end_date: current.end_date || newContract.start_date })
           .eq('id', current.id);
         if (closeError) throw closeError;
+        closedCurrent = true;
       }
       const { error: insertError } = await supabase.from('rental_property_contracts').insert({
         property_id: propertyId,
@@ -62,6 +65,16 @@ const RentalContractsManager = ({ propertyId }) => {
       setNewContract({ owner_name: '', monthly_value: '', start_date: '' });
       await fetchContracts();
     } catch (error) {
+      if (closedCurrent && current) {
+        try {
+          await supabase
+            .from('rental_property_contracts')
+            .update({ is_current: true, end_date: current.end_date })
+            .eq('id', current.id);
+        } catch (rollbackError) {
+          console.error('Falha ao reverter encerramento do contrato anterior:', rollbackError);
+        }
+      }
       toast({ title: 'Erro ao criar contrato', description: error.message, variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -85,9 +98,9 @@ const RentalContractsManager = ({ propertyId }) => {
             <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
               <div>
                 <p className="font-medium">{c.owner_name} {c.is_current && <span className="text-xs text-green-600">(atual)</span>}</p>
-                <p className="text-xs text-muted-foreground">{c.start_date} — {c.end_date || 'em vigor'}</p>
+                <p className="text-xs text-muted-foreground">{formatDate(c.start_date)} — {c.end_date ? formatDate(c.end_date) : 'em vigor'}</p>
               </div>
-              <p className="font-semibold">{c.monthly_value}</p>
+              <p className="font-semibold">{formatCurrency(c.monthly_value)}</p>
             </div>
           ))}
           {contracts.length === 0 && <p className="text-sm text-muted-foreground">Nenhum contrato cadastrado ainda.</p>}
@@ -549,6 +562,25 @@ const ManageRentalPropertiesPage = () => {
   };
 
   const handleDeleteProperty = async (propertyId) => {
+    try {
+      const subfolders = ['photos', 'documents'];
+      const filesToRemove = [];
+      for (const subfolder of subfolders) {
+        const prefix = `properties/${propertyId}/${subfolder}`;
+        const { data: files, error: listError } = await supabase.storage
+          .from('rental-property-media')
+          .list(prefix, { limit: 1000 });
+        if (!listError && files) {
+          files.forEach((f) => filesToRemove.push(`${prefix}/${f.name}`));
+        }
+      }
+      if (filesToRemove.length > 0) {
+        await supabase.storage.from('rental-property-media').remove(filesToRemove);
+      }
+    } catch (storageError) {
+      console.error('Falha ao remover arquivos de armazenamento do imóvel:', storageError);
+    }
+
     const { error } = await supabase.from('rental_properties').delete().eq('id', propertyId);
     if (error) {
       toast({ title: 'Erro ao remover imóvel', description: error.message, variant: 'destructive' });
