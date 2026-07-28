@@ -10,20 +10,24 @@ alter table public.rental_property_media enable row level security;
 alter table public.rental_property_documents enable row level security;
 
 -- rental_properties
+drop policy if exists "rental_properties_select_public" on public.rental_properties;
 create policy "rental_properties_select_public" on public.rental_properties for select using (true);
 
+drop policy if exists "rental_properties_gestor_insert" on public.rental_properties;
 create policy "rental_properties_gestor_insert" on public.rental_properties for insert
   with check (
     coalesce((select is_admin or is_master from public.profiles where id = auth.uid()), false)
     or public.is_ambassador_of(auth.uid(), city_id)
   );
 
+drop policy if exists "rental_properties_gestor_update" on public.rental_properties;
 create policy "rental_properties_gestor_update" on public.rental_properties for update
   using (
     coalesce((select is_admin or is_master from public.profiles where id = auth.uid()), false)
     or public.is_ambassador_of(auth.uid(), city_id)
   );
 
+drop policy if exists "rental_properties_gestor_delete" on public.rental_properties;
 create policy "rental_properties_gestor_delete" on public.rental_properties for delete
   using (
     coalesce((select is_admin or is_master from public.profiles where id = auth.uid()), false)
@@ -31,8 +35,10 @@ create policy "rental_properties_gestor_delete" on public.rental_properties for 
   );
 
 -- rental_property_contracts
+drop policy if exists "rental_property_contracts_select_public" on public.rental_property_contracts;
 create policy "rental_property_contracts_select_public" on public.rental_property_contracts for select using (true);
 
+drop policy if exists "rental_property_contracts_gestor_insert" on public.rental_property_contracts;
 create policy "rental_property_contracts_gestor_insert" on public.rental_property_contracts for insert
   with check (
     exists (
@@ -45,6 +51,7 @@ create policy "rental_property_contracts_gestor_insert" on public.rental_propert
     )
   );
 
+drop policy if exists "rental_property_contracts_gestor_update" on public.rental_property_contracts;
 create policy "rental_property_contracts_gestor_update" on public.rental_property_contracts for update
   using (
     exists (
@@ -57,6 +64,7 @@ create policy "rental_property_contracts_gestor_update" on public.rental_propert
     )
   );
 
+drop policy if exists "rental_property_contracts_gestor_delete" on public.rental_property_contracts;
 create policy "rental_property_contracts_gestor_delete" on public.rental_property_contracts for delete
   using (
     exists (
@@ -70,8 +78,10 @@ create policy "rental_property_contracts_gestor_delete" on public.rental_propert
   );
 
 -- rental_property_media
+drop policy if exists "rental_property_media_select_public" on public.rental_property_media;
 create policy "rental_property_media_select_public" on public.rental_property_media for select using (true);
 
+drop policy if exists "rental_property_media_gestor_insert" on public.rental_property_media;
 create policy "rental_property_media_gestor_insert" on public.rental_property_media for insert
   with check (
     exists (
@@ -84,6 +94,7 @@ create policy "rental_property_media_gestor_insert" on public.rental_property_me
     )
   );
 
+drop policy if exists "rental_property_media_gestor_delete" on public.rental_property_media;
 create policy "rental_property_media_gestor_delete" on public.rental_property_media for delete
   using (
     exists (
@@ -97,8 +108,10 @@ create policy "rental_property_media_gestor_delete" on public.rental_property_me
   );
 
 -- rental_property_documents
+drop policy if exists "rental_property_documents_select_public" on public.rental_property_documents;
 create policy "rental_property_documents_select_public" on public.rental_property_documents for select using (true);
 
+drop policy if exists "rental_property_documents_gestor_insert" on public.rental_property_documents;
 create policy "rental_property_documents_gestor_insert" on public.rental_property_documents for insert
   with check (
     exists (
@@ -111,6 +124,7 @@ create policy "rental_property_documents_gestor_insert" on public.rental_propert
     )
   );
 
+drop policy if exists "rental_property_documents_gestor_delete" on public.rental_property_documents;
 create policy "rental_property_documents_gestor_delete" on public.rental_property_documents for delete
   using (
     exists (
@@ -122,3 +136,5 @@ create policy "rental_property_documents_gestor_delete" on public.rental_propert
         )
     )
   );
+
+notify pgrst, 'reload schema';

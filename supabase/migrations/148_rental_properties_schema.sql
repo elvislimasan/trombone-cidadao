@@ -3,7 +3,7 @@
 -- com histórico de contratos, fotos e documentos. Nacional desde o início
 -- (city_id obrigatório), seguindo o padrão de public_works.
 
-create table public.rental_properties (
+create table if not exists public.rental_properties (
   id uuid primary key default gen_random_uuid(),
   city_id bigint not null references public.cities(id),
   bairro_id uuid references public.bairros(id),
@@ -19,10 +19,10 @@ create table public.rental_properties (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index idx_rental_properties_city_id on public.rental_properties (city_id);
-create index idx_rental_properties_bairro_id on public.rental_properties (bairro_id);
+create index if not exists idx_rental_properties_city_id on public.rental_properties (city_id);
+create index if not exists idx_rental_properties_bairro_id on public.rental_properties (bairro_id);
 
-create table public.rental_property_contracts (
+create table if not exists public.rental_property_contracts (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.rental_properties(id) on delete cascade,
   owner_name text not null,
@@ -32,20 +32,20 @@ create table public.rental_property_contracts (
   is_current boolean not null default true,
   created_at timestamptz not null default now()
 );
-create index idx_rental_property_contracts_property_id on public.rental_property_contracts (property_id);
-create unique index uq_rental_contracts_one_current
+create index if not exists idx_rental_property_contracts_property_id on public.rental_property_contracts (property_id);
+create unique index if not exists uq_rental_contracts_one_current
   on public.rental_property_contracts (property_id)
   where is_current;
 
-create table public.rental_property_media (
+create table if not exists public.rental_property_media (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.rental_properties(id) on delete cascade,
   url text not null,
   created_at timestamptz not null default now()
 );
-create index idx_rental_property_media_property_id on public.rental_property_media (property_id);
+create index if not exists idx_rental_property_media_property_id on public.rental_property_media (property_id);
 
-create table public.rental_property_documents (
+create table if not exists public.rental_property_documents (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.rental_properties(id) on delete cascade,
   contract_id uuid references public.rental_property_contracts(id) on delete cascade,
@@ -54,4 +54,6 @@ create table public.rental_property_documents (
   description text,
   created_at timestamptz not null default now()
 );
-create index idx_rental_property_documents_property_id on public.rental_property_documents (property_id);
+create index if not exists idx_rental_property_documents_property_id on public.rental_property_documents (property_id);
+
+notify pgrst, 'reload schema';
