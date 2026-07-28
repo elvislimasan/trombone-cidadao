@@ -25,6 +25,8 @@ import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { useCity } from '@/contexts/CityContext';
+import CitySelector from '@/components/CitySelector';
 
 const PavementMapPage = () => {
   const [streetData, setStreetData] = useState([]);
@@ -36,13 +38,16 @@ const PavementMapPage = () => {
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
   const { toast } = useToast();
+  const { activeCityId, activeCityName } = useCity();
   const [downloading, setDownloading] = useState(false);
   const [reportScope, setReportScope] = useState('streets');
 
   const fetchStreets = useCallback(async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from('pavement_streets')
       .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)');
+    if (activeCityId) query = query.eq('city_id', activeCityId);
+    const { data, error } = await query;
     if (error) {
       toast({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     } else {
@@ -59,10 +64,12 @@ const PavementMapPage = () => {
         if (mostRecent.getTime() > 0) setLastUpdate(mostRecent.toISOString());
       }
     }
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   const fetchWorks = useCallback(async () => {
-    const { data, error } = await supabase.from('public_works').select('id, title, description, status, location');
+    let query = supabase.from('public_works').select('id, title, description, status, location, city_id');
+    if (activeCityId) query = query.eq('city_id', activeCityId);
+    const { data, error } = await query;
     if (error) toast({ title: "Erro ao buscar obras", description: error.message, variant: "destructive" });
     else {
         const formattedWorks = data.map(w => ({
@@ -71,7 +78,7 @@ const PavementMapPage = () => {
         }));
         setAllWorks(formattedWorks);
     }
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   useEffect(() => {
     fetchStreets();
@@ -149,7 +156,7 @@ const PavementMapPage = () => {
 
   const generatePdf = (scope) => {
     const doc = new jsPDF();
-    const title = 'Relatório de Pavimentação';
+    const title = `Relatório de Pavimentação${activeCityName ? ` — ${activeCityName}` : ''}`;
     doc.setFontSize(16);
     doc.text(title, 14, 18);
     if (lastUpdate) {
@@ -346,6 +353,9 @@ const PavementMapPage = () => {
                   Última atualização: {new Date(lastUpdate).toLocaleString('pt-BR')}
                 </p>
               )}
+              <div className="mt-3">
+                <CitySelector />
+              </div>
             </div>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4">
               <div className="flex flex-wrap items-center gap-2">

@@ -1,4 +1,4 @@
-import React, { useState, useImperativeHandle, forwardRef, useRef } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction, Info } from 'lucide-react';
@@ -9,6 +9,8 @@ import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useCity } from '@/contexts/CityContext';
+import { geocodeCity } from '@/lib/geocodeCity';
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
@@ -21,6 +23,47 @@ const MapScrollLock = ({ mode }) => {
   return null;
 };
 
+// Recentraliza o mapa nas ruas carregadas sempre que a lista muda
+// (ex.: ao trocar a cidade no seletor). Se não houver ruas na cidade,
+// centraliza na própria cidade selecionada (forward geocode). Sem isso,
+// o mapa fica preso no center inicial (Floresta).
+const FitToStreets = ({ streets, activeCity }) => {
+  const map = useMap();
+  const lastKeyRef = useRef('');
+  useEffect(() => {
+    let cancelled = false;
+    const pts = (streets || [])
+      .filter((s) => s.location && Number.isFinite(s.location.lat) && Number.isFinite(s.location.lng))
+      .map((s) => [s.location.lat, s.location.lng]);
+
+    if (pts.length > 0) {
+      const key = 'streets:' + pts.map((p) => p.join(',')).sort().join('|');
+      if (key === lastKeyRef.current) return;
+      lastKeyRef.current = key;
+      try {
+        if (pts.length === 1) {
+          map.setView(pts[0], Math.max(map.getZoom(), 15), { animate: true });
+        } else {
+          map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], animate: true });
+        }
+      } catch (e) { /* noop */ }
+      return;
+    }
+
+    if (activeCity?.name) {
+      const key = 'city:' + activeCity.name + '|' + (activeCity.state?.uf || '');
+      if (key === lastKeyRef.current) return;
+      lastKeyRef.current = key;
+      geocodeCity(activeCity.name, activeCity.state?.uf).then((coord) => {
+        if (cancelled || !coord) return;
+        try { map.setView([coord.lat, coord.lng], 13, { animate: true }); } catch {}
+      });
+    }
+    return () => { cancelled = true; };
+  }, [streets, activeCity, map]);
+  return null;
+};
+
 const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const [selectedStreet, setSelectedStreet] = useState(null);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
@@ -28,6 +71,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const mapRef = useRef();
   const markerRefs = useRef({});
   const { mode } = useMapModeToggle();
+  const { activeCity } = useCity();
 
   useImperativeHandle(ref, () => ({
     goToLocation: (location) => {
@@ -100,6 +144,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
       <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
+        <FitToStreets streets={streets} activeCity={activeCity} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
