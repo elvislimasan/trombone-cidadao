@@ -18,6 +18,7 @@ import AboutPage from '@/pages/AboutPage';
 import StatsPage from '@/pages/StatsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import PublicWorksPage from '@/pages/PublicWorksPage';
+import RentalPropertyDetailsPage from '@/pages/RentalPropertyDetailsPage';
 import PavementMapPage from '@/pages/PavementMapPage';
 import ServicesPage from '@/pages/ServicesPage';
 import NewsPage from '@/pages/NewsPage';
@@ -621,6 +622,7 @@ function AppShell() {
               <Route path="/estatisticas" element={<StatsPage />} />
               <Route path="/obras-publicas" element={<PublicWorksPage />} />
               <Route path="/obras-publicas/:workId" element={<WorkDetailsPageProject />} />
+              <Route path="/imoveis-alugados/:id" element={<RentalPropertyDetailsPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/servicos" element={<ServicesPage />} />
               <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />
