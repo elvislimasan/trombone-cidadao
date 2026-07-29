@@ -178,7 +178,6 @@ const ManagePavementPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
-  const [myCities, setMyCities] = useState([]);
   const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [streets, setStreets] = useState([]);
   const [bairros, setBairros] = useState([]);
@@ -189,17 +188,12 @@ const ManagePavementPage = () => {
     if (!isScopedAmbassador || !user?.id) return;
     supabase
       .from('ambassador_cities')
-      .select('city_id, cities(id, name, states(uf))')
+      .select('city_id')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .then(({ data }) => {
         const rows = data || [];
         setMyActiveCityIds(rows.map((r) => r.city_id));
-        setMyCities(rows.map((r) => ({
-          id: r.city_id,
-          name: r.cities?.name || null,
-          uf: r.cities?.states?.uf || null,
-        })).filter((c) => c.name));
       });
   }, [isScopedAmbassador, user?.id]);
 

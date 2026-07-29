@@ -35,6 +35,7 @@ const PavementMapPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkId, setSelectedWorkId] = useState(null);
+  const [resolvedWork, setResolvedWork] = useState(null);
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
   const { toast } = useToast();
@@ -89,6 +90,42 @@ const PavementMapPage = () => {
     setSelectedWorkId(workId);
   };
 
+  // Resolve a obra selecionada mesmo quando ela não está na lista `allWorks`
+  // (que é filtrada pela cidade ativa). Isso evita que o modal "ver obra"
+  // fique vazio quando a rua aponta para uma obra de outra cidade (ou sem
+  // cidade), já que work_id não é necessariamente coberto pelo filtro atual.
+  useEffect(() => {
+    if (!selectedWorkId) {
+      setResolvedWork(null);
+      return;
+    }
+    const fromList = allWorks.find(w => w.id === selectedWorkId);
+    if (fromList) {
+      setResolvedWork(fromList);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('public_works')
+        .select('id, title, description, status, location, city_id')
+        .eq('id', selectedWorkId)
+        .single();
+      if (cancelled) return;
+      if (error) {
+        toast({ title: "Erro ao buscar obra", description: error.message, variant: "destructive" });
+        setResolvedWork(null);
+        return;
+      }
+      const formatted = {
+        ...data,
+        location: data.location ? { lat: data.location.coordinates[1], lng: data.location.coordinates[0] } : null,
+      };
+      setResolvedWork(formatted);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedWorkId, allWorks, toast]);
+
   const handleStreetListClick = (statusType, title) => {
     const streets = streetData.filter(s => s.status === statusType);
     setStreetListModal({ isOpen: true, title, streets });
@@ -131,7 +168,7 @@ const PavementMapPage = () => {
     visible: { y: 0, opacity: 1 }
   };
 
-  const selectedWork = allWorks.find(w => w.id === selectedWorkId);
+  const selectedWork = resolvedWork;
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
