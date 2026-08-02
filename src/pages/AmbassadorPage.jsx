@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Check, X, MapPin, FileText, Megaphone, Loader2, Users, ShieldCheck, Copy, Link2, Search, Eye, Image as ImageIcon, Route, Building, Briefcase } from 'lucide-react';
+import { Check, X, MapPin, FileText, Megaphone, Loader2, Users, ShieldCheck, Copy, Link2, Search, Eye, Image as ImageIcon, Route, Building, Briefcase, Settings, ChevronDown, Inbox, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -241,6 +242,8 @@ const AmbassadorPage = () => {
     return city ? `${city.name} - ${city.states?.uf || ''}` : '';
   };
 
+  const totalPending = pendingReports.length + pendingUpdates.length + pendingWorkMedia.length;
+
   const handleDismissOnboarding = async () => {
     setShowOnboardingBanner(false);
     await supabase
@@ -260,37 +263,68 @@ const AmbassadorPage = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6"
         >
-          <div className="flex items-center gap-3 mb-3">
-            <ShieldCheck className="w-8 h-8 text-tc-red shrink-0" />
-            <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Painel do Embaixador</h1>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-tc-red/10 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-6 h-6 text-tc-red" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl md:text-3xl font-bold text-tc-red leading-tight">Painel do Embaixador</h1>
+                <p className="text-muted-foreground text-sm truncate">
+                  Modere o conteúdo da sua cidade
+                </p>
+              </div>
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Gerenciar</span>
+                  <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link to="/obras/gerenciar" className="gap-2 cursor-pointer">
+                    <ImageIcon className="w-4 h-4" /> Obras públicas
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/pavimentacao/gerenciar" className="gap-2 cursor-pointer">
+                    <Route className="w-4 h-4" /> Pavimentação
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/imoveis-alugados/gerenciar" className="gap-2 cursor-pointer">
+                    <Building className="w-4 h-4" /> Imóveis alugados
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/servicos/gerenciar" className="gap-2 cursor-pointer">
+                    <Briefcase className="w-4 h-4" /> Serviços
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <p className="text-muted-foreground text-base mb-4">
-            Modere o conteúdo da sua cidade e mantenha a plataforma de qualidade.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link to="/obras/gerenciar">
-                <ImageIcon className="w-4 h-4" /> Gerenciar obras
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link to="/pavimentacao/gerenciar">
-                <Route className="w-4 h-4" /> Gerenciar pavimentação
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link to="/imoveis-alugados/gerenciar">
-                <Building className="w-4 h-4" /> Gerenciar imóveis alugados
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link to="/servicos/gerenciar">
-                <Briefcase className="w-4 h-4" /> Gerenciar serviços
-              </Link>
-            </Button>
-          </div>
+
+          {totalPending > 0 ? (
+            <div className="flex items-center gap-2.5 mt-4 px-4 py-3 rounded-2xl bg-tc-red/5 border border-tc-red/15">
+              <Inbox className="w-4 h-4 text-tc-red shrink-0" />
+              <p className="text-sm text-foreground">
+                <strong className="text-tc-red">{totalPending}</strong>{' '}
+                {totalPending === 1 ? 'item aguardando' : 'itens aguardando'} sua moderação
+              </p>
+            </div>
+          ) : !loadingReports && !loadingUpdates && !loadingWorkMedia && (
+            <div className="flex items-center gap-2.5 mt-4 px-4 py-3 rounded-2xl bg-green-50 border border-green-200">
+              <PartyPopper className="w-4 h-4 text-green-600 shrink-0" />
+              <p className="text-sm text-green-700">Tudo em dia — nenhuma pendência na sua cidade.</p>
+            </div>
+          )}
         </motion.div>
 
         {showOnboardingBanner && (
@@ -300,7 +334,8 @@ const AmbassadorPage = () => {
               <p className="flex-1 text-sm text-foreground">
                 Bem-vindo ao seu painel! Em <strong>Minhas Cidades</strong> você vê onde atua;
                 em <strong>Broncas Pendentes</strong> e <strong>Atualizações Pendentes</strong> você
-                aprova ou rejeita o que chega da sua cidade.
+                aprova ou rejeita o que chega da sua cidade. Ações de cadastro (obras, pavimentação,
+                imóveis, serviços) ficam no menu <strong>Gerenciar</strong>, no topo.
               </p>
               <button
                 type="button"
