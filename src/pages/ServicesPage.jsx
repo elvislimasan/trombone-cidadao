@@ -144,8 +144,8 @@ const ServicesPage = () => {
             <CitySelector />
             {canManageServices && (
               <Link to="/servicos/gerenciar">
-                <Button size="sm" className="gap-2">
-                  <PlusCircle className="w-4 h-4" /> Adicionar item
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                  <PlusCircle className="w-3.5 h-3.5" /> Adicionar item
                 </Button>
               </Link>
             )}

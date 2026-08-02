@@ -413,12 +413,12 @@ const PavementMapPage = () => {
                   Última atualização: {new Date(lastUpdate).toLocaleString('pt-BR')}
                 </p>
               )}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <CitySelector />
                 {canManageStreets && (
                   <Link to="/pavimentacao/gerenciar">
-                    <Button size="sm" className="gap-2">
-                      <PlusCircle className="w-4 h-4" /> Adicionar rua
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                      <PlusCircle className="w-3.5 h-3.5" /> Adicionar rua
                     </Button>
                   </Link>
                 )}
