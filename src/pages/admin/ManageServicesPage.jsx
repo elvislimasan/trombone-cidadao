@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Combobox } from '@/components/ui/combobox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
   const [formData, setFormData] = useState(null);
@@ -373,9 +374,13 @@ const ManageServicesPage = () => {
     setDeletingItem(null);
   };
 
-  const handleAddNew = () => {
+  // Aceita um tipo explícito (usado pelo menu "Adicionar Novo" quando a aba
+  // ativa é "Moderação", que não tem um tipo de conteúdo próprio) ou usa a
+  // aba ativa quando ela já é um tipo de conteúdo (transport, tourist_spots, etc).
+  const handleAddNew = (explicitTab) => {
+    const targetTab = explicitTab || activeTab;
     let newItem, type;
-    switch (activeTab) {
+    switch (targetTab) {
       case 'transport': newItem = { name: '', destination: '', phone: '', instagram: '', schedule: '', details: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'transport'; break;
       case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'tourist_spots'; break;
       case 'directory_public': newItem = { name: '', address: '', phone: '', image_url: '', type: 'public', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
@@ -383,6 +388,7 @@ const ManageServicesPage = () => {
       case 'pavement_streets': newItem = { name: '', bairro: '', cep: '' }; type = 'pavement_streets'; break;
       default: return;
     }
+    if (explicitTab) setActiveTab(explicitTab);
     setEditingItem({ item: newItem, type });
   };
 
@@ -427,9 +433,33 @@ const ManageServicesPage = () => {
               <p className="mt-2 text-lg text-muted-foreground">Adicione, edite ou remova itens e modere as colaborações.</p>
             </div>
           </div>
-          <Button onClick={handleAddNew} className="gap-2">
-            <PlusCircle className="w-4 h-4" /> Adicionar Novo
-          </Button>
+          {activeTab === 'moderation' ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2">
+                  <PlusCircle className="w-4 h-4" /> Adicionar Novo
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('transport')}>
+                  <Bus className="w-4 h-4" /> Transporte
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('tourist_spots')}>
+                  <Landmark className="w-4 h-4" /> Ponto Turístico
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('directory_public')}>
+                  <Building className="w-4 h-4" /> Serviço Público
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('directory_commerce')}>
+                  <ShoppingCart className="w-4 h-4" /> Comércio Local
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button onClick={() => handleAddNew()} className="gap-2">
+              <PlusCircle className="w-4 h-4" /> Adicionar Novo
+            </Button>
+          )}
         </motion.div>
 
         <Tabs defaultValue="moderation" className="w-full" onValueChange={setActiveTab}>
@@ -483,7 +513,7 @@ const ManageServicesPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Building className="w-5 h-5 text-primary" /> Serviços Públicos</CardTitle>
                 <CardDescription>
-                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => { setActiveTab('directory_public'); handleAddNew(); }}>
+                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => handleAddNew('directory_public')}>
                     <PlusCircle className="w-4 h-4" /> Adicionar
                   </Button>
                 </CardDescription>
@@ -494,7 +524,7 @@ const ManageServicesPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><ShoppingCart className="w-5 h-5 text-secondary" /> Comércio Local</CardTitle>
                 <CardDescription>
-                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => { setActiveTab('directory_commerce'); handleAddNew(); }}>
+                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => handleAddNew('directory_commerce')}>
                     <PlusCircle className="w-4 h-4" /> Adicionar
                   </Button>
                 </CardDescription>
