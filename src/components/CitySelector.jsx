@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCity } from '@/contexts/CityContext';
 import { MapPin, Check, Globe, Search, Loader2 } from 'lucide-react';
 
@@ -7,6 +7,19 @@ export default function CitySelector() {
   const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const containerRef = useRef(null);
+
+  // Fecha ao clicar fora do container
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
 
   const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
   const filtered = cities
@@ -18,11 +31,10 @@ export default function CitySelector() {
     .slice(0, search.trim() ? undefined : 50);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
         className="flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted transition-colors"
       >
         <MapPin className="w-4 h-4 text-tc-red shrink-0" />

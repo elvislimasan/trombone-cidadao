@@ -1109,12 +1109,15 @@ const ReportsStats = () => {
 const PublicWorksStats = () => {
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { activeCityId } = useCity();
   const { toast } = useToast();
 
   const fetchWorks = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('public_works').select('*, work_category:work_categories(name)');
+      let query = supabase.from('public_works').select('*, work_category:work_categories(name)');
+      if (activeCityId) query = query.eq('city_id', activeCityId);
+      const { data, error } = await query;
       if (error) throw error;
       setWorks(data);
     } catch (error) {
@@ -1122,7 +1125,7 @@ const PublicWorksStats = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [activeCityId, toast]);
 
   useEffect(() => {
     fetchWorks();
@@ -1285,10 +1288,10 @@ const StatsPage = () => {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="reports" className="mt-6">
-              <ReportsStats />
+              <ReportsStats key={activeCityId ?? 'all'} />
             </TabsContent>
             <TabsContent value="works" className="mt-6">
-              <PublicWorksStats />
+              <PublicWorksStats key={activeCityId ?? 'all'} />
             </TabsContent>
           </Tabs>
         </div>

@@ -85,6 +85,7 @@
     "clsx": "^2.0.0",
     "cmdk": "^0.2.0",
     "date-fns": "^4.1.0",
+    "dompurify": "^3.4.12",
     "embla-carousel-react": "^8.1.5",
     "framer-motion": "^10.16.4",
     "html-to-image": "^1.11.13",

@@ -46,10 +46,55 @@ class Pix {
   }
 }
 
+// Valida a assinatura HMAC-SHA256 do webhook do Mercado Pago.
+// Doc: manifest = `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`
+async function verifyMercadoPagoSignature(req: Request, dataId: string, secret: string): Promise<boolean> {
+  try {
+    const signatureHeader = req.headers.get('x-signature');
+    const requestId = req.headers.get('x-request-id') ?? '';
+    if (!signatureHeader) return false;
+
+    // Parse "ts=1699999999,v1=abcdef..."
+    const parts: Record<string, string> = {};
+    for (const seg of signatureHeader.split(',')) {
+      const [k, v] = seg.split('=').map((s) => s.trim());
+      if (k && v) parts[k] = v;
+    }
+    const ts = parts['ts'];
+    const v1 = parts['v1'];
+    if (!ts || !v1) return false;
+
+    // MP normaliza o id: se alfanumérico, minúsculo.
+    const normalizedId = /^[a-zA-Z0-9]+$/.test(String(dataId)) ? String(dataId).toLowerCase() : String(dataId);
+    const manifest = `id:${normalizedId};request-id:${requestId};ts:${ts};`;
+
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(manifest));
+    const computed = Array.from(new Uint8Array(sigBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Comparação em tempo constante.
+    if (computed.length !== v1.length) return false;
+    let diff = 0;
+    for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ v1.charCodeAt(i);
+    return diff === 0;
+  } catch (e) {
+    console.error('[create-payment-intent] Erro ao verificar assinatura MP:', e);
+    return false;
+  }
+}
+
 serve(async (req) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-signature, x-request-id',
   }
 
   if (req.method === 'OPTIONS') {
@@ -57,13 +102,33 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json()
+    const rawBody = await req.text()
+    const body = rawBody ? JSON.parse(rawBody) : {}
     console.log("Function Version: 2.1 (Finalize on success)")
     let { amount, report_id, petition_id, pix_key, pix_name, pix_city, provider = 'pix_manual', action = 'init', payment_intent_id, payment_id, guest_info } = body
 
     // Detect Mercado Pago Webhook
     if (body.type === 'payment' && body.data && body.data.id) {
         console.log("Detected Mercado Pago Webhook for Payment:", body.data.id);
+
+        // 🔒 Validar assinatura HMAC do webhook do Mercado Pago.
+        // MP envia header x-signature: "ts=<ts>,v1=<hmac>" e x-request-id.
+        // manifest = id:<data.id>;request-id:<x-request-id>;ts:<ts>;
+        // Rollout seguro: só exige se MERCADO_PAGO_WEBHOOK_SECRET estiver setado.
+        const webhookSecret = Deno.env.get('MERCADO_PAGO_WEBHOOK_SECRET');
+        if (webhookSecret) {
+            const ok = await verifyMercadoPagoSignature(req, body.data.id, webhookSecret);
+            if (!ok) {
+                console.warn('[create-payment-intent] Assinatura de webhook MP inválida');
+                return new Response(
+                    JSON.stringify({ error: 'invalid_signature' }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 },
+                );
+            }
+        } else {
+            console.warn('[create-payment-intent] MERCADO_PAGO_WEBHOOK_SECRET não configurado — webhook não verificado');
+        }
+
         provider = 'mercadopago';
         action = 'finalize';
         payment_id = body.data.id;

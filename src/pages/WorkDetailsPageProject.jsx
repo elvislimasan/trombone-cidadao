@@ -279,6 +279,10 @@ export default function WorkDetailsPageProject() {
     useMobileHeader();
   const { isInteractive } = useNativeUIMode();
 
+  const [loading, setLoading] = useState(true);
+  const [work, setWork] = useState(null);
+  const [isAmbassadorOfWork, setIsAmbassadorOfWork] = useState(false);
+
   // Pode gerir esta obra? Admin/master OU embaixador ativo da cidade da obra.
   const canManageWork = Boolean(
     user?.is_admin || user?.is_master || isAmbassadorOfWork
@@ -304,10 +308,6 @@ export default function WorkDetailsPageProject() {
       });
     return () => { cancelled = true; };
   }, [user?.id, user?.is_ambassador, user?.is_admin, user?.is_master, work?.city_id]);
-
-  const [loading, setLoading] = useState(true);
-  const [work, setWork] = useState(null);
-  const [isAmbassadorOfWork, setIsAmbassadorOfWork] = useState(false);
   const [measurements, setMeasurements] = useState([]);
   const [media, setMedia] = useState([]);
   const [isFavorited, setIsFavorited] = useState(false);

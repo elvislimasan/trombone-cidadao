@@ -552,14 +552,14 @@ export default function FeedPage() {
 
                 <button
                   type="button"
-                  onClick={() => navigate('/seja-embaixador')}
+                  onClick={() => navigate(user?.is_ambassador ? '/embaixador' : '/seja-embaixador')}
                   className="rounded-2xl border-2 border-orange-200 bg-white px-2.5 py-2.5 text-center shadow-sm hover:border-orange-300 transition-colors"
                 >
                   <div className="mx-auto w-9 h-9 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <p className="mt-2 text-[11px] font-bold leading-snug text-foreground">
-                    Se torne embaixador
+                    {user?.is_ambassador ? 'Painel do Embaixador' : 'Se torne embaixador'}
                   </p>
                 </button>
 

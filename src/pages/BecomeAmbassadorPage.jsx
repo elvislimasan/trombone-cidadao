@@ -131,6 +131,25 @@ const BecomeAmbassadorPage = () => {
     }
   };
 
+  // Embaixador já aprovado: não pode se candidatar novamente em outra cidade
+  if (user?.is_ambassador) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 text-center">
+        <div className="w-20 h-20 rounded-full bg-orange-100 flex items-center justify-center mb-6">
+          <ShieldCheck className="w-10 h-10 text-orange-600" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Você já é um Embaixador</h1>
+        <p className="text-muted-foreground max-w-sm mb-8">
+          Você já foi aprovado como embaixador do Trombone Cidadão. Acesse seu painel para moderar o conteúdo da sua cidade.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button onClick={() => navigate('/embaixador')}>Ir para o Painel do Embaixador</Button>
+          <Button variant="outline" onClick={() => navigate('/')}>Voltar ao início</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (done) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 text-center">
