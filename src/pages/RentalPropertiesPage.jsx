@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Building, DollarSign, TrendingUp, TrendingDown, Maximize2, Minimize2, Download, Loader2, User } from 'lucide-react';
+import { Search, Building, DollarSign, TrendingUp, TrendingDown, Maximize2, Minimize2, Download, Loader2, User, PlusCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Combobox } from '@/components/ui/combobox';
 import RentalPropertiesMapView from '@/components/RentalPropertiesMapView';
 import CitySelector from '@/components/CitySelector';
 import { useCity } from '@/contexts/CityContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCurrency } from '@/lib/utils';
@@ -32,8 +33,10 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
 
 const RentalPropertiesPage = () => {
   const { activeCityId, activeCityName } = useCity();
+  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const canManageProperties = Boolean(user?.is_admin || user?.is_master || user?.is_ambassador);
   const [properties, setProperties] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -149,8 +152,15 @@ const RentalPropertiesPage = () => {
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Imóveis Alugados pela Prefeitura</h1>
           <p className="mt-2 text-muted-foreground">Acompanhe os gastos e o uso de cada imóvel alugado</p>
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
             <CitySelector />
+            {canManageProperties && (
+              <Link to="/imoveis-alugados/gerenciar">
+                <Button className="gap-2">
+                  <PlusCircle className="w-4 h-4" /> Adicionar imóvel
+                </Button>
+              </Link>
+            )}
           </div>
         </motion.div>
 
