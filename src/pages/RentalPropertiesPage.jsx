@@ -153,12 +153,13 @@ const RentalPropertiesPage = () => {
       const rows = filteredProperties.map((p) => [
         p.address,
         p.bairro?.name || '-',
+        p.department || '-',
         p.owner_name || '-',
         p.monthly_value != null ? formatCurrency(p.monthly_value) : '-',
         p.is_active ? 'Ativo' : 'Encerrado',
       ]);
       doc.autoTable({
-        head: [['Endereço', 'Bairro', 'Proprietário', 'Valor mensal', 'Status']],
+        head: [['Endereço', 'Bairro', 'Secretaria', 'Proprietário', 'Valor mensal', 'Status']],
         body: rows,
         startY: 42,
         styles: { fontSize: 9 },

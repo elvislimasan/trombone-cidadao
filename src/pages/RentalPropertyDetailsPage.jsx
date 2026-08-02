@@ -9,8 +9,8 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 
 const SectionBlock = ({ icon: Icon, title, children }) => (
   <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b] mb-3">
-      <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
+    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#92400e] mb-3">
+      <span className="inline-block w-1 h-3.5 rounded bg-[#b45309]" />
       {Icon && <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />}
       {title}
     </div>
@@ -20,7 +20,7 @@ const SectionBlock = ({ icon: Icon, title, children }) => (
 
 const InfoRow = ({ icon: Icon, label, value }) => (
   <div className="flex items-center gap-3 bg-white px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
-    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b61722] shrink-0">
+    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b45309] shrink-0">
       <Icon className="w-4 h-4" strokeWidth={1.5} />
     </div>
     <div className="min-w-0">
@@ -105,9 +105,9 @@ const RentalPropertyDetailsPage = () => {
         </div>
         <div className="hidden lg:block bg-[#f7f9fc]">
           <div className="max-w-5xl mx-auto px-4 py-2 text-[11px] text-[#6b7280] flex items-center gap-1">
-            <Link to="/" className="hover:text-[#b61722] transition-colors">Início</Link>
+            <Link to="/" className="hover:text-[#b45309] transition-colors">Início</Link>
             <span className="opacity-50">›</span>
-            <Link to="/imoveis-alugados" className="hover:text-[#b61722] transition-colors">Imóveis Alugados</Link>
+            <Link to="/imoveis-alugados" className="hover:text-[#b45309] transition-colors">Imóveis Alugados</Link>
             <span className="opacity-50">›</span>
             <span className="text-[#191c1e] truncate">{title}</span>
           </div>
@@ -119,13 +119,13 @@ const RentalPropertyDetailsPage = () => {
         <div className="max-w-5xl mx-auto px-4 py-4 lg:py-8">
           <div className="bg-white shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] rounded-2xl overflow-hidden">
             <div className="relative overflow-hidden">
-              <div className="w-full h-48 sm:h-64 lg:h-72 bg-slate-900 relative overflow-hidden">
-                <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
+              <div className="w-full h-48 sm:h-64 lg:h-72 bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10 bg-[repeating-linear-gradient(135deg,#fff_0,#fff_1px,transparent_1px,transparent_12px)]" />
                 {coverImage ? (
                   <img src={coverImage} alt={title} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Building2 className="w-16 h-16 text-white/20" strokeWidth={1} />
+                    <Building2 className="w-16 h-16 text-white/25" strokeWidth={1} />
                   </div>
                 )}
               </div>
@@ -163,7 +163,7 @@ const RentalPropertyDetailsPage = () => {
                 {media.length > 1 && (
                   <div>
                     <div className="flex items-center gap-1.5 text-xs font-bold text-[#191c1e] mb-2">
-                      <ImageIcon className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
+                      <ImageIcon className="w-3.5 h-3.5 text-[#92400e]" strokeWidth={1.5} />
                       Fotos ({media.length})
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -246,7 +246,7 @@ const RentalPropertyDetailsPage = () => {
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 bg-white px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)] hover:shadow-[0_4px_12px_-2px_rgba(25,28,30,0.1)] transition-shadow"
                         >
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b61722] shrink-0">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b45309] shrink-0">
                             <FileText className="w-4 h-4" strokeWidth={1.5} />
                           </div>
                           <span className="text-xs font-semibold text-[#191c1e] flex-1 truncate">
