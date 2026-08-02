@@ -353,9 +353,28 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const [saving, setSaving] = useState(false);
+  // Fixo pela identidade original do imóvel ao abrir o modal — não muda depois
+  // que "Salvar e continuar" atribui um id ao formData, para o footer de
+  // Informações continuar mostrando "Salvar e continuar" durante toda a
+  // sessão de cadastro (até o usuário clicar "Concluir" nas outras abas).
+  const isNewProperty = !property?.id;
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave(formData);
+    setSaving(true);
+    try {
+      const saved = await onSave(formData);
+      if (!saved) return; // erro já mostrado via toast pelo onSave
+      if (isNewProperty) {
+        // Continua no mesmo modal: libera as abas Contratos/Mídia sem fechar.
+        setFormData((prev) => ({ ...prev, id: saved.id }));
+      } else {
+        onClose();
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!formData) return null;
@@ -401,7 +420,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
                     Usar bairro do mapa
                   </Button>
                 </div>
-                {filteredBairros.length > 0 && (
+                {bairroSearch.trim() && filteredBairros.length > 0 && (
                   <div className="max-h-32 overflow-y-auto border rounded-md">
                     {filteredBairros.map((b) => (
                       <button
@@ -445,18 +464,30 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-                <Button type="submit">Salvar</Button>
+                <Button type="submit" disabled={saving}>
+                  {isNewProperty ? 'Salvar e continuar' : 'Salvar'}
+                </Button>
               </div>
             </form>
           </TabsContent>
           {formData.id && (
-            <TabsContent value="contracts">
+            <TabsContent value="contracts" className="space-y-4">
               <RentalContractsManager propertyId={formData.id} />
+              {isNewProperty && (
+                <div className="flex justify-end pt-2 border-t">
+                  <Button type="button" onClick={onClose}>Concluir</Button>
+                </div>
+              )}
             </TabsContent>
           )}
           {formData.id && (
-            <TabsContent value="media">
+            <TabsContent value="media" className="space-y-4">
               <RentalMediaManager propertyId={formData.id} />
+              {isNewProperty && (
+                <div className="flex justify-end pt-2 border-t">
+                  <Button type="button" onClick={onClose}>Concluir</Button>
+                </div>
+              )}
             </TabsContent>
           )}
         </Tabs>
@@ -524,6 +555,9 @@ const ManageRentalPropertiesPage = () => {
 
   useEffect(() => { fetchData(); fetchBairros(); }, [fetchData, fetchBairros]);
 
+  // Retorna o registro salvo (para o modal poder continuar editando, sem
+  // fechar, no fluxo "Salvar e continuar" de um imóvel novo) ou null em erro.
+  // Quem decide fechar o modal é o chamador (RentalPropertyEditModal).
   const handleSaveProperty = async (propertyToSave) => {
     const { id, location, bairro, contracts, ...data } = propertyToSave;
 
@@ -533,11 +567,11 @@ const ManageRentalPropertiesPage = () => {
     }
     if (resolvedCityId == null) {
       toast({ title: 'Não foi possível identificar a cidade', description: 'Confira se o marcador no mapa está sobre a localização correta.', variant: 'destructive' });
-      return;
+      return null;
     }
     if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
       toast({ title: 'Fora da sua área', description: 'Você só pode gerenciar imóveis nas suas cidades.', variant: 'destructive' });
-      return;
+      return null;
     }
 
     const locationString = location ? `POINT(${location.lng} ${location.lat})` : null;
@@ -554,11 +588,11 @@ const ManageRentalPropertiesPage = () => {
 
     if (result.error) {
       toast({ title: 'Erro ao salvar imóvel', description: result.error.message, variant: 'destructive' });
-    } else {
-      toast({ title: `Imóvel ${id ? 'atualizado' : 'criado'} com sucesso!` });
-      await fetchData();
-      setEditingProperty(null);
+      return null;
     }
+    toast({ title: `Imóvel ${id ? 'atualizado' : 'criado'} com sucesso!` });
+    await fetchData();
+    return result.data;
   };
 
   const handleDeleteProperty = async (propertyId) => {
