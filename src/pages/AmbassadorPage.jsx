@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Check, X, MapPin, FileText, Megaphone, Loader2, Users, ShieldCheck, Copy, Link2, Search, Eye, Image as ImageIcon, Route } from 'lucide-react';
+import { Check, X, MapPin, FileText, Megaphone, Loader2, Users, ShieldCheck, Copy, Link2, Search, Eye, Image as ImageIcon, Route, Building } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -275,6 +275,11 @@ const AmbassadorPage = () => {
             <Button asChild variant="outline" className="gap-2">
               <Link to="/pavimentacao/gerenciar">
                 <Route className="w-4 h-4" /> Gerenciar pavimentação
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="gap-2">
+              <Link to="/imoveis-alugados/gerenciar">
+                <Building className="w-4 h-4" /> Gerenciar imóveis alugados
               </Link>
             </Button>
           </div>
