@@ -387,9 +387,11 @@ const ManageServicesPage = () => {
   };
 
   const handleModeration = async (entry, status) => {
-    const { error } = await supabase.from('directory').update({ status }).eq('id', entry.id);
+    const { data, error } = await supabase.from('directory').update({ status }).eq('id', entry.id).select();
     if (error) {
       toast({ title: "Erro na moderação", description: error.message, variant: "destructive" });
+    } else if (!data || data.length === 0) {
+      toast({ title: "Fora da sua área", description: "Esta sugestão pertence a uma cidade fora do seu escopo de gestão.", variant: "destructive" });
     } else {
       toast({ title: `Sugestão ${status === 'approved' ? 'aprovada' : 'rejeitada'}!` });
       fetchData();

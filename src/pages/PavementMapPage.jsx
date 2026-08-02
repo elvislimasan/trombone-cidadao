@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Route as Road, ThumbsDown, Filter, Search, X, Mail, Circle, Square, Map, List, LocateFixed, RefreshCw, HardHat, Construction, Download, Loader2 } from 'lucide-react';
+import { Route as Road, ThumbsDown, Filter, Search, X, Mail, Circle, Square, Map, List, LocateFixed, RefreshCw, HardHat, Construction, Download, Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -27,6 +27,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { useCity } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const PavementMapPage = () => {
   const [streetData, setStreetData] = useState([]);
@@ -40,8 +41,29 @@ const PavementMapPage = () => {
   const mapViewRef = useRef();
   const { toast } = useToast();
   const { activeCityId, activeCityName } = useCity();
+  const { user } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [reportScope, setReportScope] = useState('streets');
+
+  // Mesma regra de imóveis alugados: admin/master gerenciam qualquer cidade;
+  // embaixador puro só faz sentido clicar "Adicionar" com uma cidade sua
+  // selecionada (senão não saberíamos em qual das suas cidades cadastrar).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const canManageStreets = Boolean(
+    user?.is_admin || user?.is_master ||
+    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
+  );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
 
   const fetchStreets = useCallback(async () => {
     let query = supabase
@@ -390,8 +412,15 @@ const PavementMapPage = () => {
                   Última atualização: {new Date(lastUpdate).toLocaleString('pt-BR')}
                 </p>
               )}
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <CitySelector />
+                {canManageStreets && (
+                  <Link to="/pavimentacao/gerenciar">
+                    <Button size="sm" className="gap-2">
+                      <PlusCircle className="w-4 h-4" /> Adicionar rua
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4">

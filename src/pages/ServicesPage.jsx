@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, Bus, Landmark, Building, ShoppingCart, Mail, Search, ArrowRight } from 'lucide-react';
+import { MapPin, Phone, Bus, Landmark, Building, ShoppingCart, Mail, Search, ArrowRight, PlusCircle } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useCity } from '@/contexts/CityContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import CitySelector from '@/components/CitySelector';
 
 const ServicesPage = () => {
@@ -18,7 +19,17 @@ const ServicesPage = () => {
   const [selectedBairro, setSelectedBairro] = useState('all');
   const [selectedDestination, setSelectedDestination] = useState('all');
   const { toast } = useToast();
-  const { activeCityId } = useCity();
+  const { activeCityId, activeCityName } = useCity();
+  const { user } = useAuth();
+
+  // Mesma regra de imóveis alugados/pavimentação: admin/master gerenciam
+  // qualquer cidade; embaixador puro só com uma cidade sua selecionada.
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const canManageServices = Boolean(
+    user?.is_admin || user?.is_master ||
+    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
+  );
 
   const [transportOptions, setTransportOptions] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
@@ -60,6 +71,16 @@ const ServicesPage = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
 
   const transportDestinations = useMemo(() => {
     return [...new Set(transportOptions.map(item => item.destination).filter(Boolean))].sort();
@@ -104,7 +125,7 @@ const ServicesPage = () => {
     <>
       <Helmet>
         <title>Serviços - Trobone Cidadão</title>
-        <meta name="description" content="Encontre informações úteis sobre Floresta-PE: pontos turísticos, transportes e guia comercial." />
+        <meta name="description" content={`Encontre informações úteis sobre ${activeCityName || 'sua cidade'}: pontos turísticos, transportes e guia comercial.`} />
       </Helmet>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -114,13 +135,20 @@ const ServicesPage = () => {
       >
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl gradient-text">
-            Guia de Serviços de Floresta
+            Guia de Serviços{activeCityName ? ` de ${activeCityName}` : ''}
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">
             Tudo o que você precisa saber sobre a cidade em um só lugar.
           </p>
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             <CitySelector />
+            {canManageServices && (
+              <Link to="/servicos/gerenciar">
+                <Button size="sm" className="gap-2">
+                  <PlusCircle className="w-4 h-4" /> Adicionar item
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 

@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useCity } from '@/contexts/CityContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +20,7 @@ import { useUpvote } from '../hooks/useUpvotes';
 
 const UserDashboardPage = () => {
   const { user } = useAuth();
+  const { activeCityId } = useCity();
   const { toast } = useToast();
   const location = useLocation();
   const [reports, setReports] = useState([]);
@@ -282,7 +284,11 @@ const UserDashboardPage = () => {
       toast({ title: "Campos obrigatórios", description: "Por favor, preencha nome, endereço e telefone.", variant: "destructive" });
       return;
     }
-    
+    if (!activeCityId) {
+      toast({ title: "Selecione uma cidade", description: "Escolha a cidade no topo da página antes de enviar sua sugestão.", variant: "destructive" });
+      return;
+    }
+
     const { error } = await supabase
       .from('directory')
       .insert({
@@ -290,6 +296,7 @@ const UserDashboardPage = () => {
         address: newEntry.address,
         phone: newEntry.phone,
         type: newEntry.type,
+        city_id: activeCityId,
         submitted_by: user.id,
         status: 'pending'
       });

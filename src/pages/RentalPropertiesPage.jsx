@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Building, DollarSign, TrendingUp, TrendingDown, Maximize2, Minimize2, Download, Loader2, User, PlusCircle } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, TrendingDown, Maximize2, Minimize2, Download, Loader2, PlusCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
