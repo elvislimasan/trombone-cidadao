@@ -68,7 +68,8 @@ const RentalPropertyDetailsPage = () => {
 
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">{property.address}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">{property.department || property.address}</h1>
+            <p className="text-muted-foreground mt-1">{property.address}</p>
             <p className="text-muted-foreground flex items-center gap-1.5 mt-1">
               <MapPin className="w-4 h-4" /> {property.bairro?.name || 'Bairro não informado'}
             </p>

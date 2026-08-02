@@ -69,7 +69,7 @@ const RentalPropertiesPage = () => {
       let query = supabase
         .from('rental_properties')
         .select(`
-          id, address, location, is_active, area_m2, bairro_id,
+          id, address, department, thumbnail_url, location, is_active, area_m2, bairro_id,
           bairro:bairro_id(id, name),
           contracts:rental_property_contracts(id, owner_name, monthly_value, is_current, start_date, end_date)
         `)
@@ -241,7 +241,8 @@ const RentalPropertiesPage = () => {
                     )}
                   </div>
                   <CardContent className="p-4 flex flex-col flex-1">
-                    <h3 className="font-bold mb-1 line-clamp-1">{property.address}</h3>
+                    <h3 className="font-bold mb-1 line-clamp-1">{property.department || property.address}</h3>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{property.address}</p>
                     <p className="text-xs text-muted-foreground mb-2">{property.bairro?.name || 'Bairro não informado'}</p>
                     {property.owner_name && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1"><User className="w-3 h-3" /> {property.owner_name}</p>
