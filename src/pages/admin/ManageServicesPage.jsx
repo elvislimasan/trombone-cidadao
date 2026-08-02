@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Mail, Save, X, Upload, Instagram, Clock, MapPin, Info, Building, ShoppingCart, Check, Hourglass } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Save, X, Upload, Instagram, Clock, MapPin, Info, Building, ShoppingCart, Check, Hourglass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -183,23 +183,6 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
             </div>
           </>
         );
-      case 'pavement_streets':
-        return (
-          <>
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome da Rua</Label>
-              <Input id="name" name="name" value={formData.name} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bairro">Bairro</Label>
-              <Input id="bairro" name="bairro" value={formData.bairro} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cep">CEP</Label>
-              <Input id="cep" name="cep" value={formData.cep} onChange={handleChange} />
-            </div>
-          </>
-        );
       default:
         return null;
     }
@@ -232,7 +215,6 @@ const ManageServicesPage = () => {
   const [transport, setTransport] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
   const [directoryData, setDirectoryData] = useState({ public: [], commerce: [] });
-  const [streets, setStreets] = useState([]);
   const [pendingEntries, setPendingEntries] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
@@ -269,10 +251,6 @@ const ManageServicesPage = () => {
       setTouristSpots([]);
       setDirectoryData({ public: [], commerce: [] });
       setPendingEntries([]);
-      // pavement_streets (legado, fora de escopo desta fase) continua sem filtro:
-      const { data: streetsData, error: streetsError } = await supabase.from('pavement_streets').select('*');
-      if (streetsError) toast({ title: "Erro ao buscar pavement_streets", description: streetsError.message, variant: "destructive" });
-      else setStreets(streetsData);
       return;
     }
 
@@ -296,11 +274,6 @@ const ManageServicesPage = () => {
         setters[table](data);
       }
     }
-
-    // pavement_streets: aba legada, fora de escopo — sempre busca tudo, sem filtro de cidade.
-    const { data: streetsData, error: streetsError } = await supabase.from('pavement_streets').select('*');
-    if (streetsError) toast({ title: "Erro ao buscar pavement_streets", description: streetsError.message, variant: "destructive" });
-    else setStreets(streetsData);
 
     let pendingQuery = supabase.from('directory').select('*').eq('status', 'pending');
     if (isScopedAmbassador) pendingQuery = pendingQuery.in('city_id', myActiveCityIds);
@@ -385,7 +358,6 @@ const ManageServicesPage = () => {
       case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'tourist_spots'; break;
       case 'directory_public': newItem = { name: '', address: '', phone: '', image_url: '', type: 'public', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
       case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: 'commerce', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
-      case 'pavement_streets': newItem = { name: '', bairro: '', cep: '' }; type = 'pavement_streets'; break;
       default: return;
     }
     if (explicitTab) setActiveTab(explicitTab);
@@ -463,12 +435,11 @@ const ManageServicesPage = () => {
         </motion.div>
 
         <Tabs defaultValue="moderation" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 bg-muted/50 rounded-lg h-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-muted/50 rounded-lg h-auto">
             <TabsTrigger value="moderation" className="gap-2 py-2"><Hourglass className="w-4 h-4" /> Moderação ({pendingEntries.length})</TabsTrigger>
             <TabsTrigger value="transport" className="gap-2 py-2"><Bus className="w-4 h-4" /> Transportes</TabsTrigger>
             <TabsTrigger value="tourist_spots" className="gap-2 py-2"><Landmark className="w-4 h-4" /> Pontos Turísticos</TabsTrigger>
             <TabsTrigger value="directory" className="gap-2 py-2"><Phone className="w-4 h-4" /> Guia Comercial</TabsTrigger>
-            <TabsTrigger value="pavement_streets" className="gap-2 py-2"><Mail className="w-4 h-4" /> Ruas e CEPs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="moderation" className="mt-8">
@@ -531,10 +502,6 @@ const ManageServicesPage = () => {
               </CardHeader>
               <CardContent>{renderList(directoryData.commerce, 'directory')}</CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="pavement_streets" className="mt-8">
-            <Card><CardHeader><CardTitle>Gerenciar Ruas e CEPs</CardTitle></CardHeader><CardContent>{renderList(streets, 'pavement_streets')}</CardContent></Card>
           </TabsContent>
         </Tabs>
       </div>

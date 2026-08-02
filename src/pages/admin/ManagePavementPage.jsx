@@ -157,6 +157,11 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
             <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" required />
           </div>
 
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="cep" className="text-right">CEP</Label>
+            <Input id="cep" name="cep" value={formData.cep || ''} onChange={handleChange} className="col-span-3" placeholder="Ex: 56400-000" />
+          </div>
+
           <div className="grid grid-cols-4 items-start gap-4">
             <Label className="text-right pt-2">Bairro</Label>
             <div className="col-span-3 space-y-2">
@@ -378,8 +383,9 @@ const ManagePavementPage = () => {
 
     const locationString = location ? `POINT(${location.lng} ${location.lat})` : null;
     
-    const payload = { 
+    const payload = {
       name: trimmedName,
+      cep: cep || null,
       status: data.status,
       paving_date: data.paving_date,
       pavement_type: data.pavement_type,
@@ -405,7 +411,7 @@ const ManagePavementPage = () => {
   };
 
   const handleAddNewStreet = () => {
-    setEditingStreet({ id: null, name: '', status: 'unpaved', pavement_type: 'asphalt', bairro_id: null, location: null, paving_date: '' });
+    setEditingStreet({ id: null, name: '', cep: '', status: 'unpaved', pavement_type: 'asphalt', bairro_id: null, location: null, paving_date: '' });
   };
 
   const handleDeleteStreet = async (streetId) => {
@@ -466,6 +472,7 @@ const ManagePavementPage = () => {
                     <p className="font-semibold">{street.name}</p>
                     <p className="text-sm text-muted-foreground">Status: {getStatusText(street.status)}</p>
                     {street.bairro_name && <p className="text-sm text-muted-foreground">Bairro: {street.bairro_name}</p>}
+                    {street.cep && <p className="text-sm text-muted-foreground">CEP: {street.cep}</p>}
                     <p className="text-xs text-muted-foreground mt-1">Última atualização: {new Date(street.updated_at).toLocaleString('pt-BR')}</p>
                   </div>
                   <div className="flex-shrink-0 flex gap-2">
