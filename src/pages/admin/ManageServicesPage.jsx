@@ -12,8 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Combobox } from '@/components/ui/combobox';
 
-const EditModal = ({ item, type, onSave, onClose }) => {
+const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
   const [formData, setFormData] = useState(null);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
@@ -87,6 +89,17 @@ const EditModal = ({ item, type, onSave, onClose }) => {
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="city_id">Cidade</Label>
+              <Combobox
+                options={cityOptions}
+                value={formData.city_id}
+                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
+                placeholder="Selecione a cidade"
+                searchPlaceholder="Buscar cidade..."
+                notFoundText="Nenhuma cidade encontrada."
+              />
+            </div>
           </>
         );
       case 'tourist_spots':
@@ -120,6 +133,17 @@ const EditModal = ({ item, type, onSave, onClose }) => {
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="city_id">Cidade</Label>
+              <Combobox
+                options={cityOptions}
+                value={formData.city_id}
+                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
+                placeholder="Selecione a cidade"
+                searchPlaceholder="Buscar cidade..."
+                notFoundText="Nenhuma cidade encontrada."
+              />
+            </div>
           </>
         );
       case 'directory':
@@ -144,6 +168,17 @@ const EditModal = ({ item, type, onSave, onClose }) => {
                 <Button type="button" variant="outline" onClick={() => fileInputRef.current.click()}><Upload className="w-4 h-4 mr-2" />Trocar Imagem</Button>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="city_id">Cidade</Label>
+              <Combobox
+                options={cityOptions}
+                value={formData.city_id}
+                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
+                placeholder="Selecione a cidade"
+                searchPlaceholder="Buscar cidade..."
+                notFoundText="Nenhuma cidade encontrada."
+              />
             </div>
           </>
         );
@@ -189,6 +224,10 @@ const EditModal = ({ item, type, onSave, onClose }) => {
 
 const ManageServicesPage = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+  const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [transport, setTransport] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
   const [directoryData, setDirectoryData] = useState({ public: [], commerce: [] });
@@ -198,8 +237,45 @@ const ManageServicesPage = () => {
   const [deletingItem, setDeletingItem] = useState(null);
   const [activeTab, setActiveTab] = useState('moderation');
 
+  useEffect(() => {
+    if (!isScopedAmbassador || !user?.id) {
+      // admin/master: todas as cidades disponíveis no dropdown
+      if (user?.is_admin || user?.is_master) {
+        supabase.from('cities').select('id, name, states(uf)').then(({ data }) => {
+          setCityOptions((data || []).map((c) => ({ value: c.id, label: `${c.name}${c.states?.uf ? ` - ${c.states.uf}` : ''}` })));
+        });
+      }
+      return;
+    }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id, cities(id, name, states(uf))')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => {
+        const rows = data || [];
+        setMyActiveCityIds(rows.map((r) => r.city_id));
+        setCityOptions(rows.map((r) => ({
+          value: r.city_id,
+          label: `${r.cities?.name || ''}${r.cities?.states?.uf ? ` - ${r.cities.states.uf}` : ''}`,
+        })).filter((c) => c.label.trim()));
+      });
+  }, [isScopedAmbassador, user?.id, user?.is_admin, user?.is_master]);
+
   const fetchData = useCallback(async () => {
-    const tables = ['transport', 'tourist_spots', 'directory', 'pavement_streets'];
+    if (isScopedAmbassador && myActiveCityIds.length === 0) {
+      setTransport([]);
+      setTouristSpots([]);
+      setDirectoryData({ public: [], commerce: [] });
+      setPendingEntries([]);
+      // pavement_streets (legado, fora de escopo desta fase) continua sem filtro:
+      const { data: streetsData, error: streetsError } = await supabase.from('pavement_streets').select('*');
+      if (streetsError) toast({ title: "Erro ao buscar pavement_streets", description: streetsError.message, variant: "destructive" });
+      else setStreets(streetsData);
+      return;
+    }
+
+    const scopedTables = ['transport', 'tourist_spots', 'directory'];
     const setters = {
       transport: setTransport,
       tourist_spots: setTouristSpots,
@@ -207,11 +283,12 @@ const ManageServicesPage = () => {
         public: data.filter(d => d.type === 'public' && d.status === 'approved'),
         commerce: data.filter(d => d.type === 'commerce' && d.status === 'approved'),
       }),
-      pavement_streets: setStreets,
     };
 
-    for (const table of tables) {
-      const { data, error } = await supabase.from(table).select('*');
+    for (const table of scopedTables) {
+      let query = supabase.from(table).select('*');
+      if (isScopedAmbassador) query = query.in('city_id', myActiveCityIds);
+      const { data, error } = await query;
       if (error) {
         toast({ title: `Erro ao buscar ${table}`, description: error.message, variant: "destructive" });
       } else {
@@ -219,13 +296,20 @@ const ManageServicesPage = () => {
       }
     }
 
-    const { data: pending, error: pendingError } = await supabase.from('directory').select('*').eq('status', 'pending');
+    // pavement_streets: aba legada, fora de escopo — sempre busca tudo, sem filtro de cidade.
+    const { data: streetsData, error: streetsError } = await supabase.from('pavement_streets').select('*');
+    if (streetsError) toast({ title: "Erro ao buscar pavement_streets", description: streetsError.message, variant: "destructive" });
+    else setStreets(streetsData);
+
+    let pendingQuery = supabase.from('directory').select('*').eq('status', 'pending');
+    if (isScopedAmbassador) pendingQuery = pendingQuery.in('city_id', myActiveCityIds);
+    const { data: pending, error: pendingError } = await pendingQuery;
     if (pendingError) {
       toast({ title: "Erro ao buscar sugestões pendentes", description: pendingError.message, variant: "destructive" });
     } else {
       setPendingEntries(pending);
     }
-  }, [toast]);
+  }, [toast, isScopedAmbassador, myActiveCityIds]);
 
   useEffect(() => {
     fetchData();
@@ -235,6 +319,18 @@ const ManageServicesPage = () => {
     const { image_file, ...dbData } = itemToSave;
     let tableName = type;
     if (type.startsWith('directory')) tableName = 'directory';
+
+    const isScopedTable = tableName === 'transport' || tableName === 'tourist_spots' || tableName === 'directory';
+    if (isScopedTable) {
+      if (!dbData.city_id) {
+        toast({ title: "Selecione uma cidade", variant: "destructive" });
+        return;
+      }
+      if (isScopedAmbassador && !myActiveCityIds.includes(dbData.city_id)) {
+        toast({ title: "Fora da sua área", description: "Você só pode gerenciar itens nas suas cidades.", variant: "destructive" });
+        return;
+      }
+    }
 
     if (image_file) {
       const filePath = `${tableName}/${Date.now()}-${image_file.name}`;
@@ -280,10 +376,10 @@ const ManageServicesPage = () => {
   const handleAddNew = () => {
     let newItem, type;
     switch (activeTab) {
-      case 'transport': newItem = { name: '', destination: '', phone: '', instagram: '', schedule: '', details: '', image_url: '' }; type = 'transport'; break;
-      case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '' }; type = 'tourist_spots'; break;
-      case 'directory_public': newItem = { name: '', address: '', phone: '', image_url: '', type: 'public', status: 'approved' }; type = 'directory'; break;
-      case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: 'commerce', status: 'approved' }; type = 'directory'; break;
+      case 'transport': newItem = { name: '', destination: '', phone: '', instagram: '', schedule: '', details: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'transport'; break;
+      case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'tourist_spots'; break;
+      case 'directory_public': newItem = { name: '', address: '', phone: '', image_url: '', type: 'public', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
+      case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: 'commerce', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
       case 'pavement_streets': newItem = { name: '', bairro: '', cep: '' }; type = 'pavement_streets'; break;
       default: return;
     }
@@ -411,7 +507,7 @@ const ManageServicesPage = () => {
         </Tabs>
       </div>
 
-      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} />}
+      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} cityOptions={cityOptions} />}
 
       <Dialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
         <DialogContent className="sm:max-w-md bg-card border-border">

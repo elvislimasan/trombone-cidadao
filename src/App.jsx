@@ -647,6 +647,7 @@ function AppShell() {
               <Route path="/admin/moderacao/:type" element={<AdminRoute><ModerationPage /></AdminRoute>} />
               <Route path="/admin/usuarios" element={<AdminRoute><ManageUsersPage /></AdminRoute>} />
               <Route path="/admin/servicos" element={<AdminRoute><ManageServicesPage /></AdminRoute>} />
+              <Route path="/servicos/gerenciar" element={<AmbassadorOrAdminRoute><ManageServicesPage /></AmbassadorOrAdminRoute>} />
               <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
               <Route path="/admin/obras" element={<AdminRoute><ManageWorksPage /></AdminRoute>} />
               <Route path="/obras/gerenciar" element={<AmbassadorOrAdminRoute><ManageWorksPage /></AmbassadorOrAdminRoute>} />
