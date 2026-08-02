@@ -10,12 +10,15 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Bus, Landmark, Building, ShoppingCart, Mail, Search, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { useCity } from '@/contexts/CityContext';
+import CitySelector from '@/components/CitySelector';
 
 const ServicesPage = () => {
   const [streetSearch, setStreetSearch] = useState('');
   const [selectedBairro, setSelectedBairro] = useState('all');
   const [selectedDestination, setSelectedDestination] = useState('all');
   const { toast } = useToast();
+  const { activeCityId } = useCity();
 
   const [transportOptions, setTransportOptions] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
@@ -23,15 +26,21 @@ const ServicesPage = () => {
   const [streetsData, setStreetsData] = useState([]);
 
   const fetchData = useCallback(async () => {
-    const { data: transportData, error: transportError } = await supabase.from('transport').select('*');
+    let transportQuery = supabase.from('transport').select('*');
+    if (activeCityId) transportQuery = transportQuery.eq('city_id', activeCityId);
+    const { data: transportData, error: transportError } = await transportQuery;
     if (transportError) toast({ title: "Erro ao buscar transportes", description: transportError.message, variant: "destructive" });
     else setTransportOptions(transportData);
 
-    const { data: spotsData, error: spotsError } = await supabase.from('tourist_spots').select('*');
+    let spotsQuery = supabase.from('tourist_spots').select('*');
+    if (activeCityId) spotsQuery = spotsQuery.eq('city_id', activeCityId);
+    const { data: spotsData, error: spotsError } = await spotsQuery;
     if (spotsError) toast({ title: "Erro ao buscar pontos turísticos", description: spotsError.message, variant: "destructive" });
     else setTouristSpots(spotsData);
 
-    const { data: directoryData, error: directoryError } = await supabase.from('directory').select('*').eq('status', 'approved');
+    let directoryQuery = supabase.from('directory').select('*').eq('status', 'approved');
+    if (activeCityId) directoryQuery = directoryQuery.eq('city_id', activeCityId);
+    const { data: directoryData, error: directoryError } = await directoryQuery;
     if (directoryError) toast({ title: "Erro ao buscar guia comercial", description: directoryError.message, variant: "destructive" });
     else {
       setDirectory({
@@ -40,11 +49,13 @@ const ServicesPage = () => {
       });
     }
 
-    const { data: streets, error: streetsError } = await supabase.from('pavement_streets').select('*');
+    let streetsQuery = supabase.from('pavement_streets').select('*');
+    if (activeCityId) streetsQuery = streetsQuery.eq('city_id', activeCityId);
+    const { data: streets, error: streetsError } = await streetsQuery;
     if (streetsError) toast({ title: "Erro ao buscar ruas", description: streetsError.message, variant: "destructive" });
     else setStreetsData(streets);
 
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   useEffect(() => {
     fetchData();
@@ -108,6 +119,9 @@ const ServicesPage = () => {
           <p className="mt-3 text-lg text-muted-foreground">
             Tudo o que você precisa saber sobre a cidade em um só lugar.
           </p>
+          <div className="mt-4 flex justify-center">
+            <CitySelector />
+          </div>
         </div>
 
         <Tabs defaultValue="tourist" className="w-full">
