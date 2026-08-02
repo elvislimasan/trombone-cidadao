@@ -262,35 +262,35 @@ const AmbassadorPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="w-8 h-8 text-tc-red" />
-              <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Painel do Embaixador</h1>
-            </div>
-            <Button asChild variant="outline" className="gap-2">
+          <div className="flex items-center gap-3 mb-3">
+            <ShieldCheck className="w-8 h-8 text-tc-red shrink-0" />
+            <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Painel do Embaixador</h1>
+          </div>
+          <p className="text-muted-foreground text-base mb-4">
+            Modere o conteúdo da sua cidade e mantenha a plataforma de qualidade.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
               <Link to="/obras/gerenciar">
                 <ImageIcon className="w-4 h-4" /> Gerenciar obras
               </Link>
             </Button>
-            <Button asChild variant="outline" className="gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
               <Link to="/pavimentacao/gerenciar">
                 <Route className="w-4 h-4" /> Gerenciar pavimentação
               </Link>
             </Button>
-            <Button asChild variant="outline" className="gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
               <Link to="/imoveis-alugados/gerenciar">
                 <Building className="w-4 h-4" /> Gerenciar imóveis alugados
               </Link>
             </Button>
-            <Button asChild variant="outline" className="gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
               <Link to="/servicos/gerenciar">
                 <Briefcase className="w-4 h-4" /> Gerenciar serviços
               </Link>
             </Button>
           </div>
-          <p className="text-muted-foreground text-base">
-            Modere o conteúdo da sua cidade e mantenha a plataforma de qualidade.
-          </p>
         </motion.div>
 
         {showOnboardingBanner && (

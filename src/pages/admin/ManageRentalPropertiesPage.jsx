@@ -266,6 +266,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
       } : {
         id: null,
         address: '',
+        street_number: '',
         location: null,
         bairro_id: '',
         length_m: '',
@@ -399,9 +400,15 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
                 <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="address">Endereço</Label>
-                <Input id="address" name="address" value={formData.address} onChange={(e) => { addressTouchedRef.current = true; handleChange(e); }} required />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="grid gap-2 col-span-2">
+                  <Label htmlFor="address">Endereço</Label>
+                  <Input id="address" name="address" value={formData.address} onChange={(e) => { addressTouchedRef.current = true; handleChange(e); }} required />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="street_number">Número</Label>
+                  <Input id="street_number" name="street_number" value={formData.street_number || ''} onChange={handleChange} placeholder="Ex: 123" />
+                </div>
               </div>
 
               <div className="grid gap-2">

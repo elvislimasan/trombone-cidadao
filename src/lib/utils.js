@@ -5,6 +5,12 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs))
 }
 
+// Endereço + número (número vem de campo próprio, já que o reverse-geocode
+// do pin não traz número — ajuda na localização física do imóvel).
+export function formatAddressWithNumber(address, streetNumber) {
+  return streetNumber ? `${address}, ${streetNumber}` : address;
+}
+
 export function formatCurrency(value, currencySymbol = true) {
   if (value === null || value === undefined) {
     return null;

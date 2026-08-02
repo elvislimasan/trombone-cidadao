@@ -5,7 +5,7 @@ import { ArrowLeft, MapPin, Ruler, User, Building2, FileText, Calendar, CheckCir
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, formatAddressWithNumber } from '@/lib/utils';
 
 const SectionBlock = ({ icon: Icon, title, children }) => (
   <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
@@ -81,7 +81,7 @@ const RentalPropertyDetailsPage = () => {
   }
 
   const currentContract = contracts.find((c) => c.is_current) || contracts[0] || null;
-  const title = property.department || property.address;
+  const title = property.department || formatAddressWithNumber(property.address, property.street_number);
   const coverImage = property.thumbnail_url || media[0]?.url || null;
 
   return (
@@ -152,7 +152,7 @@ const RentalPropertyDetailsPage = () => {
                   <div className="flex flex-wrap items-center gap-3 text-xs text-[#6b7280]">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5" strokeWidth={1.5} />
-                      <span>{property.address}</span>
+                      <span>{formatAddressWithNumber(property.address, property.street_number)}</span>
                     </div>
                     <span className="bg-[#e0e3e6] px-3 py-1 rounded-full font-semibold text-[10px] text-[#191c1e]">
                       {property.bairro?.name || 'Bairro não informado'}

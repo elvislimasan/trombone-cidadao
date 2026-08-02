@@ -13,7 +13,7 @@ import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -69,7 +69,7 @@ const RentalPropertiesPage = () => {
       let query = supabase
         .from('rental_properties')
         .select(`
-          id, address, department, thumbnail_url, location, is_active, area_m2, bairro_id,
+          id, address, street_number, department, thumbnail_url, location, is_active, area_m2, bairro_id,
           bairro:bairro_id(id, name),
           contracts:rental_property_contracts(id, owner_name, monthly_value, is_current, start_date, end_date)
         `)
@@ -151,7 +151,7 @@ const RentalPropertiesPage = () => {
       doc.text(`Gasto anual total (contratos ativos): ${formatCurrency(stats.annualTotal)}`, 14, 34);
 
       const rows = filteredProperties.map((p) => [
-        p.address,
+        formatAddressWithNumber(p.address, p.street_number),
         p.bairro?.name || '-',
         p.department || '-',
         p.owner_name || '-',
@@ -225,44 +225,14 @@ const RentalPropertiesPage = () => {
 
         {loading ? (
           <div className="text-center p-8">Carregando imóveis...</div>
+        ) : filteredProperties.length > 0 ? (
+          <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
+            <RentalPropertiesMapView properties={filteredProperties} onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)} />
+          </div>
         ) : (
-          <>
-            <div className="h-[50vh] w-full rounded-xl overflow-hidden shadow-lg border mb-6">
-              <RentalPropertiesMapView properties={filteredProperties} onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredProperties.length > 0 ? filteredProperties.map((property) => (
-                <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full">
-                  <div className="relative h-32 w-full bg-muted">
-                    {property.thumbnail_url ? (
-                      <img src={property.thumbnail_url} alt={property.address} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Building className="w-8 h-8" /></div>
-                    )}
-                  </div>
-                  <CardContent className="p-4 flex flex-col flex-1">
-                    <h3 className="font-bold mb-1 line-clamp-1">{property.department || property.address}</h3>
-                    <p className="text-xs text-muted-foreground line-clamp-1">{property.address}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{property.bairro?.name || 'Bairro não informado'}</p>
-                    {property.owner_name && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1"><User className="w-3 h-3" /> {property.owner_name}</p>
-                    )}
-                    {property.monthly_value != null && (
-                      <p className="text-sm font-semibold text-tc-red mt-auto">{formatCurrency(property.monthly_value)}/mês</p>
-                    )}
-                    <Link to={`/imoveis-alugados/${property.id}`} className="mt-3">
-                      <Button className="w-full" size="sm">Ver Detalhes</Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              )) : (
-                <div className="col-span-full text-center py-10">
-                  <p className="text-muted-foreground">Nenhum imóvel encontrado com os filtros selecionados.</p>
-                </div>
-              )}
-            </div>
-          </>
+          <div className="text-center py-10">
+            <p className="text-muted-foreground">Nenhum imóvel encontrado com os filtros selecionados.</p>
+          </div>
         )}
       </div>
     </>

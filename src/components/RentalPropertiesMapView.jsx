@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { geocodeCity } from '@/lib/geocodeCity';
 import { useCity } from '@/contexts/CityContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
 
 const createPropertyMarkerIcon = (isActive) => {
   const color = isActive ? '#16A34A' : '#6B7280';
@@ -92,16 +92,23 @@ export default function RentalPropertiesMapView({ properties, onSelectProperty }
               key={property.id}
               position={[property.location.lat, property.location.lng]}
               icon={createPropertyMarkerIcon(property.is_active)}
-              eventHandlers={{
-                click: () => onSelectProperty?.(property),
-              }}
             >
               <Popup>
-                <div className="text-sm">
-                  <p className="font-semibold">{property.address}</p>
-                  {property.monthly_value != null && (
-                    <p className="text-muted-foreground">{formatCurrency(property.monthly_value)}/mês</p>
-                  )}
+                <div className="text-sm space-y-2 min-w-[160px]">
+                  <div>
+                    <p className="font-semibold">{property.department || formatAddressWithNumber(property.address, property.street_number)}</p>
+                    <p className="text-xs text-muted-foreground">{formatAddressWithNumber(property.address, property.street_number)}</p>
+                    {property.monthly_value != null && (
+                      <p className="text-muted-foreground">{formatCurrency(property.monthly_value)}/mês</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectProperty?.(property)}
+                    className="w-full rounded-md bg-tc-red text-white text-xs font-semibold py-1.5 hover:bg-tc-red/90 transition-colors"
+                  >
+                    Ver detalhes
+                  </button>
                 </div>
               </Popup>
             </Marker>
