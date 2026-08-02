@@ -36,7 +36,13 @@ const RentalPropertiesPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const canManageProperties = Boolean(user?.is_admin || user?.is_master || user?.is_ambassador);
+  // Admin/master gerenciam qualquer cidade. Embaixador puro só faz sentido
+  // clicar "Adicionar" quando já tem uma cidade específica selecionada no
+  // CitySelector (sem isso, não saberíamos em qual das suas cidades criar).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const canManageProperties = Boolean(
+    user?.is_admin || user?.is_master || (isPureAmbassador && activeCityId)
+  );
   const [properties, setProperties] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [loading, setLoading] = useState(true);
