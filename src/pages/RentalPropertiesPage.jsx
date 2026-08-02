@@ -36,13 +36,26 @@ const RentalPropertiesPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  // Admin/master gerenciam qualquer cidade. Embaixador puro só faz sentido
-  // clicar "Adicionar" quando já tem uma cidade específica selecionada no
-  // CitySelector (sem isso, não saberíamos em qual das suas cidades criar).
+  // Admin/master gerenciam qualquer cidade. Embaixador puro só pode gerenciar
+  // a(s) própria(s) cidade(s) — precisamos saber quais são, não basta checar
+  // se ALGUMA cidade está selecionada (poderia ser a cidade de outro embaixador).
   const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
   const canManageProperties = Boolean(
-    user?.is_admin || user?.is_master || (isPureAmbassador && activeCityId)
+    user?.is_admin || user?.is_master ||
+    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
   );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
+
   const [properties, setProperties] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,11 +77,22 @@ const RentalPropertiesPage = () => {
       if (activeCityId) query = query.eq('city_id', activeCityId);
       const { data, error } = await query;
       if (error) throw error;
+      const parseLocation = (loc) => {
+        if (!loc) return null;
+        if (typeof loc === 'object' && Array.isArray(loc.coordinates)) {
+          return { lat: loc.coordinates[1], lng: loc.coordinates[0] };
+        }
+        if (typeof loc === 'string') {
+          const match = loc.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+          if (match) return { lat: parseFloat(match[2]), lng: parseFloat(match[1]) };
+        }
+        return null;
+      };
       const formatted = (data || []).map((p) => {
         const currentContract = (p.contracts || []).find((c) => c.is_current) || null;
         return {
           ...p,
-          location: p.location ? { lat: p.location.coordinates[1], lng: p.location.coordinates[0] } : null,
+          location: parseLocation(p.location),
           currentContract,
           monthly_value: currentContract?.monthly_value ?? null,
           owner_name: currentContract?.owner_name ?? null,
