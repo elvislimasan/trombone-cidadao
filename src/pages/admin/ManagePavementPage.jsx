@@ -13,28 +13,97 @@ import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
-const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets }) => {
+const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, defaultCityId, fallbackCityCenter, onBairroCreated }) => {
+  const { toast } = useToast();
+  const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const [formData, setFormData] = useState(null);
+  const [bairroSearch, setBairroSearch] = useState('');
+  const [creatingBairro, setCreatingBairro] = useState(false);
+  const [fetchingMapBairro, setFetchingMapBairro] = useState(false);
 
   useEffect(() => {
     if (street) {
       const initialStatus = street.status || 'unpaved';
       const initialPavementType = street.pavement_type || 'asphalt';
 
-      setFormData({ 
-        ...street, 
+      setFormData({
+        ...street,
         location: street.location && street.location.coordinates ? { lat: street.location.coordinates[1], lng: street.location.coordinates[0] } : null,
         paving_date: street.paving_date ? new Date(street.paving_date).getUTCFullYear().toString() : '',
         status: initialStatus,
         pavement_type: initialPavementType,
       });
+      setBairroSearch('');
     } else {
       setFormData(null);
     }
   }, [street]);
+
+  // Resolve o city_id alvo para criar bairro: cidade padrão (embaixador) ou,
+  // se não houver, a cidade do marcador atual (mesmo padrão de obras/imóveis).
+  const resolveTargetCityId = async () => {
+    if (defaultCityId) return defaultCityId;
+    if (formData?.location) return await resolveCityIdFromLocation(formData.location);
+    return null;
+  };
+
+  const handleCreateBairro = async (rawName) => {
+    const name = (rawName || '').trim();
+    if (!name) return;
+    const cityId = await resolveTargetCityId();
+    if (!cityId) {
+      toast({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
+      return;
+    }
+    const existing = (bairros || []).find(
+      (b) => (b.name || '').trim().toLowerCase() === name.toLowerCase()
+    );
+    if (existing) {
+      handleSelectChange('bairro_id', existing.id);
+      setBairroSearch('');
+      return;
+    }
+    setCreatingBairro(true);
+    const { data, error } = await supabase
+      .from('bairros')
+      .insert({ name, city_id: cityId })
+      .select('id, name')
+      .single();
+    setCreatingBairro(false);
+    if (error) {
+      toast({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
+      return;
+    }
+    onBairroCreated?.(data);
+    handleSelectChange('bairro_id', data.id);
+    setBairroSearch('');
+    toast({ title: `Bairro "${data.name}" criado.` });
+  };
+
+  const handleUseBairroFromMap = async () => {
+    if (!formData?.location) {
+      toast({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
+      return;
+    }
+    setFetchingMapBairro(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+        body: { lat: formData.location.lat, lng: formData.location.lng, zoom: 18 },
+      });
+      const suburb = !error ? (data?.suburb || null) : null;
+      if (!suburb) {
+        toast({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
+        return;
+      }
+      await handleCreateBairro(suburb);
+    } finally {
+      setFetchingMapBairro(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -44,7 +113,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets }
   const handleSelectChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   const handleLocationChange = (newLocation) => {
     setFormData(prev => ({ ...prev, location: newLocation }));
   };
@@ -73,7 +142,8 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets }
       location: s.location.coordinates ? { lat: s.location.coordinates[1], lng: s.location.coordinates[0] } : null,
     }));
 
-  const bairroOptions = bairros.map(b => ({ value: b.id, label: b.name }));
+  const filteredBairros = (bairros || []).filter((b) => bairroSearch.trim() && (b.name || '').toLowerCase().includes(bairroSearch.toLowerCase()));
+  const selectedBairroName = bairros.find((b) => b.id === formData.bairro_id)?.name || '';
 
   return (
     <Dialog open={!!street} onOpenChange={(open) => !open && onClose()}>
@@ -87,17 +157,40 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets }
             <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" required />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="bairro_id" className="text-right">Bairro</Label>
-            <div className="col-span-3">
-              <Combobox
-                options={bairroOptions}
-                value={formData.bairro_id}
-                onChange={(value) => handleSelectChange('bairro_id', value)}
-                placeholder="Selecione um bairro"
-                searchPlaceholder="Buscar bairro..."
-                notFoundText="Nenhum bairro encontrado."
-              />
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">Bairro</Label>
+            <div className="col-span-3 space-y-2">
+              {selectedBairroName && (
+                <p className="text-sm text-muted-foreground">Selecionado: <span className="font-medium text-foreground">{selectedBairroName}</span></p>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Buscar ou criar bairro..."
+                  value={bairroSearch}
+                  onChange={(e) => setBairroSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateBairro(bairroSearch); } }}
+                />
+                <Button type="button" variant="outline" disabled={creatingBairro} onClick={() => handleCreateBairro(bairroSearch)}>
+                  Criar
+                </Button>
+                <Button type="button" variant="outline" disabled={fetchingMapBairro} onClick={handleUseBairroFromMap}>
+                  Usar bairro do mapa
+                </Button>
+              </div>
+              {filteredBairros.length > 0 && (
+                <div className="max-h-32 overflow-y-auto border rounded-md">
+                  {filteredBairros.map((b) => (
+                    <button
+                      type="button"
+                      key={b.id}
+                      onClick={() => { handleSelectChange('bairro_id', b.id); setBairroSearch(''); }}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${formData.bairro_id === b.id ? 'bg-muted font-semibold' : ''}`}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -156,10 +249,11 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets }
             <Label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2"><MapPin className="w-4 h-4" /> Localização</Label>
             <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
               <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                <LocationPickerMap 
-                  onLocationChange={handleLocationChange} 
+                <LocationPickerMap
+                  onLocationChange={handleLocationChange}
                   initialPosition={formData.location}
                   existingMarkers={otherStreets}
+                  fallbackCityCenter={fallbackCityCenter}
                 />
               </Suspense>
             </div>
@@ -178,6 +272,7 @@ const ManagePavementPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const [myCities, setMyCities] = useState([]); // [{ id, name, uf }]
   const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [streets, setStreets] = useState([]);
   const [bairros, setBairros] = useState([]);
@@ -188,12 +283,17 @@ const ManagePavementPage = () => {
     if (!isScopedAmbassador || !user?.id) return;
     supabase
       .from('ambassador_cities')
-      .select('city_id')
+      .select('city_id, cities(id, name, states(uf))')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .then(({ data }) => {
         const rows = data || [];
         setMyActiveCityIds(rows.map((r) => r.city_id));
+        setMyCities(rows.map((r) => ({
+          id: r.city_id,
+          name: r.cities?.name || null,
+          uf: r.cities?.states?.uf || null,
+        })).filter((c) => c.name));
       });
   }, [isScopedAmbassador, user?.id]);
 
@@ -385,6 +485,9 @@ const ManagePavementPage = () => {
         onClose={() => setEditingStreet(null)}
         bairros={bairros}
         existingStreets={streets}
+        defaultCityId={isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null}
+        fallbackCityCenter={isScopedAmbassador && myCities.length > 0 ? { name: myCities[0].name, uf: myCities[0].uf } : null}
+        onBairroCreated={(newBairro) => setBairros((prev) => [...prev, newBairro])}
       />
 
       <Dialog open={!!deletingStreet} onOpenChange={(open) => !open && setDeletingStreet(null)}>
