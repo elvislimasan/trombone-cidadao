@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Copy, Check, X, Search,
-  MapPin, Loader2, Link2, Users, PlusCircle, AlertCircle, Clock, RotateCw, Eye
+  MapPin, Loader2, Link2, Users, PlusCircle, AlertCircle, Clock, Eye, Mail, MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -21,6 +21,27 @@ import { Navigate } from 'react-router-dom';
 // ────────────────────────────────────────────────────────────────────────────────
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
 const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || '').trim());
+
+// Dispara o e-mail de convite via Edge Function. Não bloqueia o fluxo principal:
+// o link continua disponível para copiar/compartilhar mesmo se o e-mail falhar.
+const sendInviteEmail = async ({ email, token, cityName, cityUf, invitedByName }) => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/send-ambassador-invite-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ email, token, cityName, cityUf, invitedByName }),
+  });
+  if (!response.ok) {
+    const json = await response.json().catch(() => ({}));
+    throw new Error(json?.error || 'Falha ao enviar e-mail');
+  }
+};
+
+const buildWhatsAppLink = (link) =>
+  `https://wa.me/?text=${encodeURIComponent(`Você foi convidado para ser embaixador do Trombone Cidadão! Acesse: ${link}`)}`;
 
 const CreateInviteSection = ({ user }) => {
   const { toast } = useToast();
@@ -120,11 +141,29 @@ const CreateInviteSection = ({ user }) => {
     } else {
       const link = `${window.location.origin}/convite/${token}`;
       setGeneratedLink(link);
+      const emailToSend = inviteEmail.trim();
+      const cityLabelSent = selectedCityLabel;
       setSelectedCityId('');
       setSelectedCityLabel('');
       setInviteEmail('');
       setExistingPendingInvite(null);
-      toast({ title: 'Convite gerado com sucesso!' });
+      try {
+        const city = cities.find((c) => String(c.id) === String(selectedCityId));
+        await sendInviteEmail({
+          email: emailToSend,
+          token,
+          cityName: city?.name || cityLabelSent,
+          cityUf: city?.state?.uf,
+          invitedByName: user?.name,
+        });
+        toast({ title: 'Convite gerado e e-mail enviado!' });
+      } catch (emailError) {
+        toast({
+          title: 'Convite gerado, mas o e-mail não pôde ser enviado',
+          description: 'Copie o link abaixo e envie manualmente.',
+          variant: 'destructive',
+        });
+      }
     }
     setSubmitting(false);
   };
@@ -296,8 +335,20 @@ const CreateInviteSection = ({ user }) => {
               >
                 {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
               </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                asChild
+                className="shrink-0 border-green-300 hover:bg-green-100"
+              >
+                <a href={buildWhatsAppLink(generatedLink)} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="w-4 h-4" />
+                </a>
+              </Button>
             </div>
-            <p className="text-xs text-green-700">Este link expira em 7 dias.</p>
+            <p className="text-xs text-green-700">
+              Já enviamos por e-mail. Este link expira em 7 dias — você também pode copiá-lo ou compartilhar por WhatsApp.
+            </p>
           </motion.div>
         )}
       </CardContent>
@@ -308,18 +359,19 @@ const CreateInviteSection = ({ user }) => {
 // ────────────────────────────────────────────────────────────────────────────────
 // Sub-component: Convites pendentes
 // ────────────────────────────────────────────────────────────────────────────────
-const PendingInvitesSection = () => {
+const PendingInvitesSection = ({ user }) => {
   const { toast } = useToast();
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [revokingId, setRevokingId] = useState(null);
   const [resendingId, setResendingId] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
   const fetchInvites = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('ambassador_invites')
-      .select('id, city_id, invited_email, created_at, expires_at, cities(name, states(uf))')
+      .select('id, city_id, token, invited_email, created_at, expires_at, cities(name, states(uf))')
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
@@ -351,21 +403,50 @@ const PendingInvitesSection = () => {
     setRevokingId(null);
   };
 
-  const handleResend = async (inviteId) => {
-    setResendingId(inviteId);
+  const handleResend = async (invite) => {
+    setResendingId(invite.id);
     const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const { error } = await supabase
       .from('ambassador_invites')
       .update({ expires_at: newExpiresAt })
-      .eq('id', inviteId);
+      .eq('id', invite.id);
 
     if (error) {
       toast({ title: 'Erro ao reenviar convite', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Validade do convite estendida por mais 7 dias.' });
-      fetchInvites();
+      setResendingId(null);
+      return;
     }
+
+    try {
+      await sendInviteEmail({
+        email: invite.invited_email,
+        token: invite.token,
+        cityName: invite.cities?.name,
+        cityUf: invite.cities?.states?.uf,
+        invitedByName: user?.name,
+      });
+      toast({ title: 'E-mail reenviado e validade estendida por mais 7 dias.' });
+    } catch (emailError) {
+      toast({
+        title: 'Validade estendida, mas o e-mail não pôde ser reenviado',
+        description: 'Copie o link e envie manualmente.',
+        variant: 'destructive',
+      });
+    }
+    fetchInvites();
     setResendingId(null);
+  };
+
+  const handleCopyInviteLink = async (invite) => {
+    const link = `${window.location.origin}/convite/${invite.token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedId(invite.id);
+      setTimeout(() => setCopiedId(null), 2000);
+      toast({ title: 'Link copiado!' });
+    } catch {
+      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+    }
   };
 
   if (loading) {
@@ -408,18 +489,44 @@ const PendingInvitesSection = () => {
                   <span>Expira em: {new Date(inv.expires_at).toLocaleDateString('pt-BR')}</span>
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={() => handleCopyInviteLink(inv)}
+                >
+                  {copiedId === inv.id ? (
+                    <><Check className="w-3 h-3 mr-1 text-green-600" /> Copiado</>
+                  ) : (
+                    <><Copy className="w-3 h-3 mr-1" /> Copiar link</>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  asChild
+                >
+                  <a
+                    href={buildWhatsAppLink(`${window.location.origin}/convite/${inv.token}`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MessageCircle className="w-3 h-3 mr-1" /> WhatsApp
+                  </a>
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-8 px-3 text-xs"
                   disabled={resendingId === inv.id}
-                  onClick={() => handleResend(inv.id)}
+                  onClick={() => handleResend(inv)}
                 >
                   {resendingId === inv.id ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
                   ) : (
-                    <><RotateCw className="w-3 h-3 mr-1" /> Reenviar</>
+                    <><Mail className="w-3 h-3 mr-1" /> Reenviar e-mail</>
                   )}
                 </Button>
                 <Button
@@ -782,7 +889,7 @@ const ManageMastersPage = () => {
           </TabsContent>
 
           <TabsContent value="pending-invites">
-            <PendingInvitesSection />
+            <PendingInvitesSection user={user} />
           </TabsContent>
 
           <TabsContent value="applications">
