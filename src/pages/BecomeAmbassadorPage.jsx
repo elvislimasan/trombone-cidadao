@@ -170,67 +170,75 @@ const BecomeAmbassadorPage = () => {
       <Helmet><title>Seja um Embaixador - Trombone Cidadão</title></Helmet>
 
       {/* HERO / BANNER */}
-      <div className="relative text-white overflow-hidden">
-        <picture>
-          <source media="(min-width: 768px)" srcSet="/embaixador-desktop.png" />
-          <img
-            src="/embaixador-mobile.png"
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        </picture>
-        <div className="absolute inset-0 bg-gradient-to-br from-tc-red/90 via-tc-red/75 to-tc-red/60" />
-        <div className="relative max-w-4xl mx-auto px-6 py-16 md:py-24 text-center">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 text-sm font-semibold mb-5">
-            <ShieldCheck className="w-4 h-4" /> Programa de Embaixadores
-          </span>
-          <h1 className="text-3xl md:text-5xl font-extrabold mb-4">Seja um Embaixador do Trombone Cidadão</h1>
-          <p className="text-white/90 text-base md:text-lg max-w-2xl mx-auto mb-8">
-            Ajude a manter sua cidade com informação de qualidade: modere broncas, valide atualizações e faça a diferença perto de você.
-          </p>
-          <Button
-            size="lg"
-            className="bg-white text-tc-red hover:bg-white/90"
-            onClick={() => document.getElementById('form-candidatura')?.scrollIntoView({ behavior: 'smooth' })}
-          >
-            Quero participar <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+      <div className="relative text-white overflow-hidden min-h-[420px] md:min-h-[560px] flex items-center">
+        <img
+          src="/embaixador-desktop.png"
+          alt="Equipe de embaixadores do Trombone Cidadão"
+          className="absolute inset-0 w-full h-full object-cover object-[25%_center] md:object-center"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent md:from-black/70 md:via-black/20 md:to-transparent" />
+        <div className="relative w-full max-w-6xl mx-auto px-6 py-10">
+          <div className="max-w-md md:max-w-lg">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-sm font-semibold mb-5">
+              <ShieldCheck className="w-4 h-4" /> Programa de Embaixadores
+            </span>
+            <h1 className="text-3xl md:text-5xl font-extrabold mb-4 leading-tight drop-shadow-sm">
+              Seja um Embaixador do Trombone Cidadão
+            </h1>
+            <p className="text-white/90 text-base md:text-lg mb-8 drop-shadow-sm">
+              Ajude a manter sua cidade com informação de qualidade: modere broncas, valide atualizações e faça a diferença perto de você.
+            </p>
+            <Button
+              size="lg"
+              className="bg-tc-red text-white hover:bg-tc-red/90"
+              onClick={() => document.getElementById('form-candidatura')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              Quero participar <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* BENEFÍCIOS */}
-      <div className="max-w-4xl mx-auto px-6 py-12 grid gap-4 sm:grid-cols-3">
-        {[
-          ['Aprove broncas', 'Você revisa e aprova as broncas da sua cidade.'],
-          ['Modere atualizações', 'Garante que as atualizações dos moradores sejam confiáveis.'],
-          ['Fortaleça sua cidade', 'Mais qualidade e engajamento onde você vive.'],
-        ].map(([t, d]) => (
-          <div key={t} className="rounded-2xl border border-border p-5 bg-card">
-            <CheckCircle2 className="w-6 h-6 text-tc-red mb-2" />
-            <p className="font-bold mb-1">{t}</p>
-            <p className="text-sm text-muted-foreground">{d}</p>
-          </div>
-        ))}
-      </div>
+      {/* BENEFÍCIOS + FORM */}
+      <div id="form-candidatura" className="max-w-6xl mx-auto px-6 py-12 md:py-16 grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-start">
+        {/* Benefícios */}
+        <div className="space-y-4 lg:sticky lg:top-8">
+          <h2 className="text-2xl font-bold mb-1">Por que ser embaixador?</h2>
+          <p className="text-muted-foreground mb-6">Você se torna o ponto de confiança da sua cidade dentro da plataforma.</p>
+          {[
+            ['Aprove broncas', 'Você revisa e aprova as broncas da sua cidade.'],
+            ['Modere atualizações', 'Garante que as atualizações dos moradores sejam confiáveis.'],
+            ['Fortaleça sua cidade', 'Mais qualidade e engajamento onde você vive.'],
+          ].map(([t, d]) => (
+            <div key={t} className="flex gap-3 rounded-2xl border border-border p-4 bg-card">
+              <CheckCircle2 className="w-5 h-5 text-tc-red mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold mb-0.5">{t}</p>
+                <p className="text-sm text-muted-foreground">{d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
 
-      {/* FORM */}
-      <div id="form-candidatura" className="max-w-xl mx-auto px-6 pb-20">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+        {/* Formulário */}
+        <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-4">
           <h2 className="text-xl font-bold">Candidate-se</h2>
 
           {!user && (
             <>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Nome <span className="text-red-500">*</span></label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">E-mail <span className="text-red-500">*</span></label>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Senha <span className="text-red-500">*</span></label>
-                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="mín. 6 caracteres" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium mb-1.5">Nome <span className="text-red-500">*</span></label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">E-mail <span className="text-red-500">*</span></label>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Senha <span className="text-red-500">*</span></label>
+                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="mín. 6 caracteres" />
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
                 Já tem conta?{' '}
