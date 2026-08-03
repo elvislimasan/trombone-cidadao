@@ -24,20 +24,14 @@ const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || '').trim());
 
 // Dispara o e-mail de convite via Edge Function. Não bloqueia o fluxo principal:
 // o link continua disponível para copiar/compartilhar mesmo se o e-mail falhar.
+// Usa supabase.functions.invoke (não fetch cru) para o client anexar o
+// Authorization exigido pelo gateway de Edge Functions — mesmo padrão já usado
+// em send-report-status-email/send-ambassador-application-email no projeto.
 const sendInviteEmail = async ({ email, token, cityName, cityUf, invitedByName }) => {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const response = await fetch(`${supabaseUrl}/functions/v1/send-ambassador-invite-email`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-    },
-    body: JSON.stringify({ email, token, cityName, cityUf, invitedByName }),
+  const { error } = await supabase.functions.invoke('send-ambassador-invite-email', {
+    body: { email, token, cityName, cityUf, invitedByName },
   });
-  if (!response.ok) {
-    const json = await response.json().catch(() => ({}));
-    throw new Error(json?.error || 'Falha ao enviar e-mail');
-  }
+  if (error) throw error;
 };
 
 const buildWhatsAppLink = (link) =>
