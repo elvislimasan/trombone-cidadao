@@ -170,14 +170,17 @@ const BecomeAmbassadorPage = () => {
       <Helmet><title>Seja um Embaixador - Trombone Cidadão</title></Helmet>
 
       {/* HERO / BANNER */}
-      <div
-        className="relative text-white"
-        style={{
-          background:
-            'linear-gradient(135deg, rgba(182,23,34,0.92), rgba(182,23,34,0.75)), url(/images/embaixador-hero.jpg) center/cover',
-        }}
-      >
-        <div className="max-w-4xl mx-auto px-6 py-16 md:py-24 text-center">
+      <div className="relative text-white overflow-hidden">
+        <picture>
+          <source media="(min-width: 768px)" srcSet="/embaixador-desktop.png" />
+          <img
+            src="/embaixador-mobile.png"
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        </picture>
+        <div className="absolute inset-0 bg-gradient-to-br from-tc-red/90 via-tc-red/75 to-tc-red/60" />
+        <div className="relative max-w-4xl mx-auto px-6 py-16 md:py-24 text-center">
           <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 text-sm font-semibold mb-5">
             <ShieldCheck className="w-4 h-4" /> Programa de Embaixadores
           </span>
