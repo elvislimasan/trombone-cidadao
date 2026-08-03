@@ -180,10 +180,10 @@ const AcceptInvitePage = () => {
         <span className="font-bold text-base">Trombone Cidadão</span>
       </div>
 
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
+      <div className="flex-1 flex items-start justify-center px-4 py-6 md:py-10">
         <div className="w-full max-w-md">
           {/* Badge */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-3">
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-tc-red/10 text-tc-red text-sm font-semibold border border-tc-red/20">
               <ShieldCheck className="w-4 h-4" />
               Convite de Embaixador
@@ -193,25 +193,33 @@ const AcceptInvitePage = () => {
           {/* Card principal */}
           <div className="bg-card border border-border rounded-2xl shadow-lg overflow-hidden">
             {/* Destaque da cidade */}
-            <div className="bg-gradient-to-br from-tc-red to-tc-red/80 px-6 py-8 text-white text-center">
-              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
-                <MapPin className="w-8 h-8 text-white" />
+            <div className="relative text-white text-center overflow-hidden min-h-[220px] flex flex-col items-center justify-center px-6 py-8">
+              <img
+                src="/embaixador-desktop.png"
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover object-[25%_center]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/70" />
+              <div className="relative">
+                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-8 h-8 text-white" />
+                </div>
+                <p className="text-white/80 text-sm font-medium mb-1">Você foi convidado para ser embaixador de</p>
+                <h1 className="text-3xl font-extrabold drop-shadow-sm">
+                  {preview?.city_name || '—'}
+                  {preview?.city_uf && <span className="text-xl font-semibold opacity-80 ml-2">· {preview.city_uf}</span>}
+                </h1>
+                {preview?.invited_by_name && (
+                  <p className="text-white/70 text-sm mt-3">
+                    Convidado por <span className="font-semibold text-white">{preview.invited_by_name}</span>
+                  </p>
+                )}
+                {preview?.invited_email_masked && (
+                  <p className="text-white/70 text-xs mt-1">
+                    Convite para {preview.invited_email_masked}
+                  </p>
+                )}
               </div>
-              <p className="text-white/80 text-sm font-medium mb-1">Você foi convidado para ser embaixador de</p>
-              <h1 className="text-3xl font-extrabold">
-                {preview?.city_name || '—'}
-                {preview?.city_uf && <span className="text-xl font-semibold opacity-80 ml-2">· {preview.city_uf}</span>}
-              </h1>
-              {preview?.invited_by_name && (
-                <p className="text-white/70 text-sm mt-3">
-                  Convidado por <span className="font-semibold text-white">{preview.invited_by_name}</span>
-                </p>
-              )}
-              {preview?.invited_email_masked && (
-                <p className="text-white/70 text-xs mt-1">
-                  Convite para {preview.invited_email_masked}
-                </p>
-              )}
             </div>
 
             {/* O que significa */}
