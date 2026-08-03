@@ -1,16 +1,17 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, MapPin, CheckCircle2, Loader2, Search, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { formatPhone, validateEmail } from '@/lib/utils';
 
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
-const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || '').trim());
 
 const BecomeAmbassadorPage = () => {
   const { user, signUp, signIn, refreshUserProfile } = useAuth();
@@ -20,7 +21,9 @@ const BecomeAmbassadorPage = () => {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [motivation, setMotivation] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
   const [selectedCityLabel, setSelectedCityLabel] = useState('');
@@ -95,14 +98,36 @@ const BecomeAmbassadorPage = () => {
         const ok = await insertApplication(user.id, user.name || null, user.email || null);
         if (ok) setDone(true);
       } else {
-        // valida campos de cadastro
-        if (!name.trim() || !isValidEmail(email) || password.length < 6) {
-          toast({ title: 'Preencha nome, e-mail válido e senha (mín. 6).', variant: 'destructive' });
+        // valida campos de cadastro (mesmas exigências do cadastro completo)
+        const phoneDigits = phone.replace(/\D/g, '');
+        if (!name.trim() || !validateEmail(email) || phoneDigits.length < 10 || password.length < 6) {
+          toast({ title: 'Preencha nome, e-mail válido, telefone e senha (mín. 6).', variant: 'destructive' });
           setSubmitting(false);
           return;
         }
+        if (!agreedToTerms) {
+          toast({ title: 'Termos de Uso', description: 'Você precisa aceitar os termos de uso para continuar.', variant: 'destructive' });
+          setSubmitting(false);
+          return;
+        }
+        const selectedCity = cities.find((c) => String(c.id) === String(selectedCityId));
+        const { data: cityRow } = await supabase
+          .from('cities')
+          .select('state_id')
+          .eq('id', Number(selectedCityId))
+          .maybeSingle();
+        const stateId = cityRow?.state_id ?? null;
+
         const { error } = await signUp(email.trim(), password, {
-          data: { name: name.trim(), avatar_type: 'generated', avatar_url: null },
+          data: {
+            name: name.trim(),
+            phone: phoneDigits,
+            city: selectedCity?.name || null,
+            state_id: stateId,
+            city_id: Number(selectedCityId),
+            avatar_type: 'generated',
+            avatar_url: null,
+          },
         });
         if (error) {
           toast({ title: 'Erro ao criar conta', description: error.message, variant: 'destructive' });
@@ -122,6 +147,18 @@ const BecomeAmbassadorPage = () => {
           setSubmitting(false);
           return;
         }
+        // Grava direto nas colunas de profiles (mesmo padrão do RegisterPage) —
+        // o trigger pode não copiar tudo do metadata.
+        try {
+          await supabase.from('profiles').update({
+            name: name.trim(),
+            phone: phoneDigits || null,
+            state_id: stateId,
+            city_id: Number(selectedCityId),
+            city: selectedCity?.name || null,
+            terms_accepted_at: new Date().toISOString(),
+          }).eq('id', uid);
+        } catch (e) { console.error('Falha ao completar profile na candidatura de embaixador:', e); }
         if (refreshUserProfile) await refreshUserProfile();
         const ok = await insertApplication(uid, name.trim(), email.trim());
         if (ok) setDone(true);
@@ -236,9 +273,25 @@ const BecomeAmbassadorPage = () => {
                   <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium mb-1.5">Telefone <span className="text-red-500">*</span></label>
+                  <Input
+                    type="tel"
+                    value={formatPhone(phone)}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="(87) 99999-9999"
+                    maxLength={15}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium mb-1.5">Senha <span className="text-red-500">*</span></label>
                   <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="mín. 6 caracteres" />
                 </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <Checkbox id="terms-ambassador" checked={agreedToTerms} onCheckedChange={setAgreedToTerms} className="mt-0.5" />
+                <label htmlFor="terms-ambassador" className="text-sm leading-snug">
+                  Eu li e concordo com os <Link to="/termos-de-uso" className="underline text-tc-red">Termos de Uso</Link>.
+                </label>
               </div>
               <p className="text-xs text-muted-foreground">
                 Já tem conta?{' '}
