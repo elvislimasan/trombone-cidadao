@@ -79,6 +79,7 @@ import AmbassadorProfilePage from '@/pages/admin/AmbassadorProfilePage';
 import CompleteProfilePage from '@/pages/CompleteProfilePage';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
+import PendingInviteBanner from '@/components/PendingInviteBanner';
 
 const SEO = () => {
   const location = useLocation();
@@ -601,6 +602,7 @@ function AppShell() {
             }}
           >
             <div className="flex-1 min-h-0 flex flex-col">
+              <PendingInviteBanner />
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
