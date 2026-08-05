@@ -566,7 +566,9 @@ const ManageRentalPropertiesPage = () => {
   // fechar, no fluxo "Salvar e continuar" de um imóvel novo) ou null em erro.
   // Quem decide fechar o modal é o chamador (RentalPropertyEditModal).
   const handleSaveProperty = async (propertyToSave) => {
-    const { id, location, bairro, contracts, ...data } = propertyToSave;
+    // area_m2 é coluna gerada (length_m * width_m) — Postgres rejeita update
+    // direto nela. created_at/updated_at também não devem ser reenviados.
+    const { id, location, bairro, contracts, area_m2, created_at, updated_at, ...data } = propertyToSave;
 
     let resolvedCityId = null;
     if (location) {

@@ -119,10 +119,17 @@ serve(async (req) => {
     const cityData = resCity.ok ? await resCity.json() : data
     const { city, state_uf } = extractCityUF(cityData as Record<string, unknown>)
 
-    // Bairro (do resultado detalhado, zoom alto): suburb/neighbourhood/quarter
+    // Bairro (do resultado detalhado, zoom alto): suburb/neighbourhood/quarter.
+    // city_district só é um bairro de fato quando não coincide com o nome do
+    // município — em zonas rurais o Nominatim às vezes repete lá o nome da
+    // própria cidade, o que criaria um "bairro" enganoso com nome de cidade.
     const addrDetail = ((data as Record<string, unknown>)?.address ?? {}) as Record<string, unknown>
+    const rawCityDistrict = String(addrDetail.city_district ?? "").trim()
+    const cityDistrict = rawCityDistrict && rawCityDistrict.toLowerCase() !== (city ?? "").trim().toLowerCase()
+      ? rawCityDistrict
+      : ""
     const suburb =
-      String(addrDetail.suburb ?? addrDetail.neighbourhood ?? addrDetail.quarter ?? addrDetail.city_district ?? "").trim() || null
+      String(addrDetail.suburb ?? addrDetail.neighbourhood ?? addrDetail.quarter ?? cityDistrict ?? "").trim() || null
 
     return new Response(
       JSON.stringify({ address, city, state_uf, suburb, raw: data }),
