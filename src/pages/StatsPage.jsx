@@ -6,7 +6,9 @@ import { toPng } from 'html-to-image';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2, LineChart as LineChartIcon, Layers, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2, LineChart as LineChartIcon, Layers, RefreshCw, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
@@ -1111,6 +1113,26 @@ const PublicWorksStats = () => {
   const [loading, setLoading] = useState(true);
   const { activeCityId } = useCity();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Admin/master gerenciam qualquer cidade. Embaixador puro só pode cadastrar
+  // a primeira obra da(s) própria(s) cidade(s) ativa(s).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const canManageWorks = Boolean(
+    user?.is_admin || user?.is_master ||
+    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
+  );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
 
   const fetchWorks = useCallback(async () => {
     setLoading(true);
@@ -1133,6 +1155,25 @@ const PublicWorksStats = () => {
 
   if (loading) {
     return <div className="flex justify-center items-center h-96">Carregando estatísticas das obras...</div>;
+  }
+
+  if (works.length === 0) {
+    return (
+      <Card className="p-10 text-center border-dashed">
+        <HardHat className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+        <p className="text-lg font-semibold text-foreground mb-1">Nenhuma obra cadastrada</p>
+        <p className="text-sm text-muted-foreground mb-4">
+          Ainda não há obras públicas cadastradas {activeCityId ? 'para esta cidade' : ''}.
+        </p>
+        {canManageWorks && (
+          <Link to="/obras/gerenciar">
+            <Button className="gap-2">
+              <PlusCircle className="w-4 h-4" /> Cadastrar primeira obra
+            </Button>
+          </Link>
+        )}
+      </Card>
+    );
   }
 
   return <WorksStatsReports works={works} />;
