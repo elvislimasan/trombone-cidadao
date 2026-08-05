@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { ArrowLeft, MapPin, Ruler, User, Building2, FileText, Calendar, CheckCircle2, XCircle, Image as ImageIcon, DollarSign, History } from 'lucide-react';
+import { ArrowLeft, MapPin, Ruler, User, Building2, FileText, Calendar, CheckCircle2, XCircle, Image as ImageIcon, DollarSign, History, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { formatCurrency, formatDate, formatAddressWithNumber } from '@/lib/utils';
 
 const SectionBlock = ({ icon: Icon, title, children }) => (
@@ -34,11 +35,31 @@ const RentalPropertyDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [property, setProperty] = useState(null);
   const [contracts, setContracts] = useState([]);
   const [media, setMedia] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+
+  // Admin/master editam qualquer imóvel. Embaixador puro só edita imóveis da
+  // cidade do PRÓPRIO imóvel (não da cidade ativa selecionada no seletor).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const canEditProperty = Boolean(
+    user?.is_admin || user?.is_master ||
+    (isPureAmbassador && property?.city_id && myActiveCityIds.some((cid) => String(cid) === String(property.city_id)))
+  );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -101,7 +122,14 @@ const RentalPropertyDetailsPage = () => {
           >
             <ArrowLeft className="w-4 h-4 text-[#191c1e]" strokeWidth={1.5} />
           </Button>
-          <span className="text-sm font-bold tracking-tight text-[#191c1e]">Voltar para Imóveis Alugados</span>
+          <span className="text-sm font-bold tracking-tight text-[#191c1e] flex-1">Voltar para Imóveis Alugados</span>
+          {canEditProperty && (
+            <Link to={`/imoveis-alugados/gerenciar?edit=${property.id}`}>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                <Pencil className="w-3.5 h-3.5" /> Editar imóvel
+              </Button>
+            </Link>
+          )}
         </div>
         <div className="hidden lg:block bg-[#f7f9fc]">
           <div className="max-w-5xl mx-auto px-4 py-2 text-[11px] text-[#6b7280] flex items-center gap-1">
@@ -196,6 +224,13 @@ const RentalPropertyDetailsPage = () => {
                       label="Fim do contrato"
                       value={currentContract?.end_date ? formatDate(currentContract.end_date) : 'Em vigor'}
                     />
+                    {currentContract?.expected_end_date && (
+                      <InfoRow
+                        icon={Calendar}
+                        label="Previsão de encerramento"
+                        value={formatDate(currentContract.expected_end_date)}
+                      />
+                    )}
                   </div>
                 </SectionBlock>
 

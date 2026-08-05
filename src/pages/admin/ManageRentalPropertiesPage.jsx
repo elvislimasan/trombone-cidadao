@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
+import { useSearchParams } from 'react-router-dom';
 import { PlusCircle, Edit, Trash2, MapPin, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,12 +16,17 @@ import LocationPickerMap from '@/components/LocationPickerMap';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
+const emptyContractForm = { owner_name: '', monthly_value: '', start_date: '', expected_end_date: '' };
+
 const RentalContractsManager = ({ propertyId }) => {
   const { toast } = useToast();
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newContract, setNewContract] = useState({ owner_name: '', monthly_value: '', start_date: '' });
+  const [newContract, setNewContract] = useState(emptyContractForm);
   const [saving, setSaving] = useState(false);
+  const [editingContractId, setEditingContractId] = useState(null);
+  const [editForm, setEditForm] = useState(emptyContractForm);
+  const [deletingContract, setDeletingContract] = useState(null);
 
   const fetchContracts = useCallback(async () => {
     setLoading(true);
@@ -58,11 +64,12 @@ const RentalContractsManager = ({ propertyId }) => {
         owner_name: newContract.owner_name.trim(),
         monthly_value: Number(newContract.monthly_value),
         start_date: newContract.start_date,
+        expected_end_date: newContract.expected_end_date || null,
         is_current: true,
       });
       if (insertError) throw insertError;
       toast({ title: 'Contrato criado. O contrato anterior foi encerrado automaticamente.' });
-      setNewContract({ owner_name: '', monthly_value: '', start_date: '' });
+      setNewContract(emptyContractForm);
       await fetchContracts();
     } catch (error) {
       if (closedCurrent && current) {
@@ -81,13 +88,67 @@ const RentalContractsManager = ({ propertyId }) => {
     }
   };
 
+  const startEditingContract = (contract) => {
+    setEditingContractId(contract.id);
+    setEditForm({
+      owner_name: contract.owner_name || '',
+      monthly_value: contract.monthly_value ?? '',
+      start_date: contract.start_date || '',
+      end_date: contract.end_date || '',
+      expected_end_date: contract.expected_end_date || '',
+    });
+  };
+
+  const handleSaveEditContract = async (e) => {
+    e.preventDefault();
+    if (!editForm.owner_name.trim() || !editForm.monthly_value || !editForm.start_date) {
+      toast({ title: 'Preencha proprietário, valor e data de início', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from('rental_property_contracts')
+      .update({
+        owner_name: editForm.owner_name.trim(),
+        monthly_value: Number(editForm.monthly_value),
+        start_date: editForm.start_date,
+        end_date: editForm.end_date || null,
+        expected_end_date: editForm.expected_end_date || null,
+      })
+      .eq('id', editingContractId);
+    setSaving(false);
+    if (error) {
+      toast({ title: 'Erro ao salvar contrato', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Contrato atualizado.' });
+    setEditingContractId(null);
+    await fetchContracts();
+  };
+
+  const handleDeleteContract = async () => {
+    if (!deletingContract) return;
+    const { error } = await supabase.from('rental_property_contracts').delete().eq('id', deletingContract.id);
+    if (error) {
+      toast({ title: 'Erro ao remover contrato', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Contrato removido.' });
+      await fetchContracts();
+    }
+    setDeletingContract(null);
+  };
+
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreateContract} className="grid grid-cols-1 md:grid-cols-4 gap-2 p-3 border rounded-lg">
+      <form onSubmit={handleCreateContract} className="grid grid-cols-1 md:grid-cols-5 gap-2 p-3 border rounded-lg">
         <Input placeholder="Nome do proprietário" value={newContract.owner_name} onChange={(e) => setNewContract((p) => ({ ...p, owner_name: e.target.value }))} />
         <Input placeholder="Valor mensal" type="number" step="0.01" value={newContract.monthly_value} onChange={(e) => setNewContract((p) => ({ ...p, monthly_value: e.target.value }))} />
         <Input placeholder="Data de início" type="date" value={newContract.start_date} onChange={(e) => setNewContract((p) => ({ ...p, start_date: e.target.value }))} />
-        <Button type="submit" disabled={saving}>Novo Contrato</Button>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Previsão de encerramento</Label>
+          <Input type="date" value={newContract.expected_end_date} onChange={(e) => setNewContract((p) => ({ ...p, expected_end_date: e.target.value }))} />
+        </div>
+        <Button type="submit" disabled={saving} className="self-end">Novo Contrato</Button>
       </form>
 
       {loading ? (
@@ -95,17 +156,66 @@ const RentalContractsManager = ({ propertyId }) => {
       ) : (
         <div className="space-y-2">
           {contracts.map((c) => (
-            <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
-              <div>
-                <p className="font-medium">{c.owner_name} {c.is_current && <span className="text-xs text-green-600">(atual)</span>}</p>
-                <p className="text-xs text-muted-foreground">{formatDate(c.start_date)} — {c.end_date ? formatDate(c.end_date) : 'em vigor'}</p>
+            editingContractId === c.id ? (
+              <form key={c.id} onSubmit={handleSaveEditContract} className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/30">
+                <Input placeholder="Nome do proprietário" value={editForm.owner_name} onChange={(e) => setEditForm((p) => ({ ...p, owner_name: e.target.value }))} />
+                <Input placeholder="Valor mensal" type="number" step="0.01" value={editForm.monthly_value} onChange={(e) => setEditForm((p) => ({ ...p, monthly_value: e.target.value }))} />
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Início</Label>
+                  <Input type="date" value={editForm.start_date} onChange={(e) => setEditForm((p) => ({ ...p, start_date: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Fim real {c.is_current && '(deixe vazio se ainda em vigor)'}</Label>
+                  <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm((p) => ({ ...p, end_date: e.target.value }))} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-[11px] text-muted-foreground">Previsão de encerramento</Label>
+                  <Input type="date" value={editForm.expected_end_date} onChange={(e) => setEditForm((p) => ({ ...p, expected_end_date: e.target.value }))} />
+                </div>
+                <div className="md:col-span-2 flex gap-2 justify-end">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setEditingContractId(null)}>Cancelar</Button>
+                  <Button type="submit" size="sm" disabled={saving}>Salvar</Button>
+                </div>
+              </form>
+            ) : (
+              <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg text-sm gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{c.owner_name} {c.is_current && <span className="text-xs text-green-600">(atual)</span>}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(c.start_date)} — {c.end_date ? formatDate(c.end_date) : 'em vigor'}</p>
+                  {c.expected_end_date && (
+                    <p className="text-xs text-amber-600">Previsão de encerramento: {formatDate(c.expected_end_date)}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <p className="font-semibold">{formatCurrency(c.monthly_value)}</p>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEditingContract(c)}>
+                    <Edit className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600" onClick={() => setDeletingContract(c)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
-              <p className="font-semibold">{formatCurrency(c.monthly_value)}</p>
-            </div>
+            )
           ))}
           {contracts.length === 0 && <p className="text-sm text-muted-foreground">Nenhum contrato cadastrado ainda.</p>}
         </div>
       )}
+
+      <Dialog open={!!deletingContract} onOpenChange={(open) => !open && setDeletingContract(null)}>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader><DialogTitle className="text-xl font-bold text-foreground">Remover contrato</DialogTitle></DialogHeader>
+          <p className="text-muted-foreground">
+            Tem certeza que deseja remover o contrato de "{deletingContract?.owner_name}"? Esta ação não pode ser desfeita.
+          </p>
+          <DialogFooter className="sm:justify-end gap-2">
+            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+            <Button type="button" variant="destructive" onClick={handleDeleteContract}>
+              <Trash2 className="w-4 h-4 mr-2" /> Remover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -506,6 +616,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
 const ManageRentalPropertiesPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [properties, setProperties] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -561,6 +672,23 @@ const ManageRentalPropertiesPage = () => {
   }, [isScopedAmbassador, myActiveCityIds]);
 
   useEffect(() => { fetchData(); fetchBairros(); }, [fetchData, fetchBairros]);
+
+  // Abre o modal de edição automaticamente quando chega via ?edit=ID (link
+  // "Editar imóvel" na página de detalhes) — some do URL depois de abrir para
+  // não reabrir se o usuário atualizar a página com o modal já fechado.
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (!editId || properties.length === 0) return;
+    const target = properties.find((p) => String(p.id) === String(editId));
+    if (target) {
+      setEditingProperty(target);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('edit');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, properties, setSearchParams]);
 
   // Retorna o registro salvo (para o modal poder continuar editando, sem
   // fechar, no fluxo "Salvar e continuar" de um imóvel novo) ou null em erro.
