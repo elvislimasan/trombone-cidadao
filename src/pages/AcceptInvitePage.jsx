@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 
 const AcceptInvitePage = () => {
   const { token } = useParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
 
   const [phase, setPhase] = useState('loading_preview');
@@ -100,6 +100,10 @@ const AcceptInvitePage = () => {
         }
 
         setPreview(prev => ({ ...prev, city_name: json.city_name || prev?.city_name }));
+        // Atualiza o user do AuthContext (is_ambassador) — sem isso o banner de
+        // convite pendente e outras checagens continuam vendo o estado antigo
+        // até um refresh manual da página.
+        if (refreshUserProfile) await refreshUserProfile();
         setPhase('success');
       } catch (err) {
         setErrorMessage(err.message ?? 'Erro de conexão. Tente novamente.');
