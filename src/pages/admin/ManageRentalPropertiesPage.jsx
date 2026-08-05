@@ -375,6 +375,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
         bairro_id: property.bairro_id || '',
       } : {
         id: null,
+        title: '',
         address: '',
         street_number: '',
         location: null,
@@ -508,6 +509,11 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="h-64 rounded-xl overflow-hidden border">
                 <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="title">Título</Label>
+                <Input id="title" name="title" value={formData.title || ''} onChange={handleChange} placeholder="Ex: Sede da Secretaria de Saúde" required />
               </div>
 
               <div className="grid grid-cols-3 gap-4">

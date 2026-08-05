@@ -96,7 +96,7 @@ export default function RentalPropertiesMapView({ properties, onSelectProperty }
               <Popup>
                 <div className="text-sm space-y-2 min-w-[160px]">
                   <div>
-                    <p className="font-semibold">{property.department || formatAddressWithNumber(property.address, property.street_number)}</p>
+                    <p className="font-semibold">{property.title || property.department || formatAddressWithNumber(property.address, property.street_number)}</p>
                     <p className="text-xs text-muted-foreground">{formatAddressWithNumber(property.address, property.street_number)}</p>
                     {property.monthly_value != null && (
                       <p className="text-muted-foreground">{formatCurrency(property.monthly_value)}/mês</p>

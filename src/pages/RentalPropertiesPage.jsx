@@ -69,7 +69,7 @@ const RentalPropertiesPage = () => {
       let query = supabase
         .from('rental_properties')
         .select(`
-          id, address, street_number, department, thumbnail_url, location, is_active, area_m2, bairro_id,
+          id, title, address, street_number, department, thumbnail_url, location, is_active, area_m2, bairro_id,
           bairro:bairro_id(id, name),
           contracts:rental_property_contracts(id, owner_name, monthly_value, is_current, start_date, end_date)
         `)
@@ -151,6 +151,7 @@ const RentalPropertiesPage = () => {
       doc.text(`Gasto anual total (contratos ativos): ${formatCurrency(stats.annualTotal)}`, 14, 34);
 
       const rows = filteredProperties.map((p) => [
+        p.title || '-',
         formatAddressWithNumber(p.address, p.street_number),
         p.bairro?.name || '-',
         p.department || '-',
@@ -159,7 +160,7 @@ const RentalPropertiesPage = () => {
         p.is_active ? 'Ativo' : 'Encerrado',
       ]);
       doc.autoTable({
-        head: [['Endereço', 'Bairro', 'Secretaria', 'Proprietário', 'Valor mensal', 'Status']],
+        head: [['Título', 'Endereço', 'Bairro', 'Secretaria', 'Proprietário', 'Valor mensal', 'Status']],
         body: rows,
         startY: 42,
         styles: { fontSize: 9 },

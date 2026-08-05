@@ -102,7 +102,7 @@ const RentalPropertyDetailsPage = () => {
   }
 
   const currentContract = contracts.find((c) => c.is_current) || contracts[0] || null;
-  const title = property.department || formatAddressWithNumber(property.address, property.street_number);
+  const title = property.title || property.department || formatAddressWithNumber(property.address, property.street_number);
   const coverImage = property.thumbnail_url || media[0]?.url || null;
 
   return (
