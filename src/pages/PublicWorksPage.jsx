@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, Check } from 'lucide-react';
+import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, Check, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { formatCurrency, formatTimeAgo, cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useCity } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, onSelectionChange, searchPlaceholder }) => {
   const Icon = triggerIcon;
@@ -75,8 +76,28 @@ const PublicWorksPage = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { activeCityId } = useCity();
+  const { user } = useAuth();
   const mapViewRef = useRef();
   const listTopRef = useRef();
+
+  // Admin/master gerenciam qualquer cidade. Embaixador puro só pode cadastrar
+  // a primeira obra da(s) própria(s) cidade(s) ativa(s).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const canManageWorks = Boolean(
+    user?.is_admin || user?.is_master ||
+    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
+  );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
 
   // Ao trocar de cidade, limpa o bairro selecionado (era de outra cidade).
   const didMountCityRef = useRef(false);
@@ -356,7 +377,22 @@ const PublicWorksPage = () => {
         </div>
       </Card>
 
-      {loading ? <div className="text-center p-8">Carregando obras...</div> : <AnimatePresence mode="wait">
+      {!loading && works.length === 0 ? (
+        <Card className="p-10 text-center border-dashed">
+          <HardHat className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-lg font-semibold text-foreground mb-1">Nenhuma obra cadastrada</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Ainda não há obras públicas cadastradas {activeCityId ? 'para esta cidade' : ''}.
+          </p>
+          {canManageWorks && (
+            <Link to="/obras/gerenciar">
+              <Button className="gap-2">
+                <PlusCircle className="w-4 h-4" /> Cadastrar primeira obra
+              </Button>
+            </Link>
+          )}
+        </Card>
+      ) : loading ? <div className="text-center p-8">Carregando obras...</div> : <AnimatePresence mode="wait">
         <motion.div key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
           {view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">

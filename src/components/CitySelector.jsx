@@ -31,7 +31,7 @@ export default function CitySelector() {
     .slice(0, search.trim() ? undefined : 50);
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative z-[900]" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -42,7 +42,7 @@ export default function CitySelector() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-64 max-h-80 overflow-y-auto rounded-xl border border-border bg-popover shadow-lg">
+        <div className="absolute right-0 z-[900] mt-1 w-64 max-h-80 overflow-y-auto rounded-xl border border-border bg-popover shadow-lg">
           <div className="sticky top-0 bg-popover p-2 border-b border-border/50">
             <div className="flex items-center gap-2 rounded-lg border border-input px-2 py-1.5">
               <Search className="w-4 h-4 text-muted-foreground shrink-0" />
