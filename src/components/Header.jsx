@@ -115,7 +115,7 @@ const Header = () => {
   const getAvatarComponent = (user) => {
     if (!user) return <Avatar className="w-full h-full" />;
 
-    if (user.avatar_type === 'url' && user.avatar_url) {
+    if ((user.avatar_type === 'url' || user.avatar_type === 'upload') && user.avatar_url) {
       return <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" />;
     }
     
