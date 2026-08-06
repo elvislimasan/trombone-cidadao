@@ -327,56 +327,6 @@ const PublicWorksPage = () => {
         </div>
       </motion.div>
 
-      <Card className="mb-6 p-4 relative z-[800]">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="relative md:col-span-2 lg:col-span-5">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input placeholder="Buscar obra por nome ou descrição..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
-
-          <MultiSelectFilter
-            triggerIcon={Activity}
-            triggerLabel="Filtrar por Status"
-            items={workStatusesAsArray}
-            selectedItems={filters.status}
-            onSelectionChange={(id) => handleMultiSelectFilterChange('status', id)}
-            searchPlaceholder="Buscar status..."
-          />
-          
-          <MultiSelectFilter
-            triggerIcon={MapPin}
-            triggerLabel="Filtrar por Bairro"
-            items={filterOptions.bairros}
-            selectedItems={filters.bairro}
-            onSelectionChange={(id) => handleMultiSelectFilterChange('bairro', id)}
-            searchPlaceholder="Buscar bairro..."
-          />
-
-          <MultiSelectFilter
-            triggerIcon={SlidersHorizontal}
-            triggerLabel="Filtrar por Área"
-            items={filterOptions.areas}
-            selectedItems={filters.area}
-            onSelectionChange={(id) => handleMultiSelectFilterChange('area', id)}
-            searchPlaceholder="Buscar área..."
-          />
-
-          <MultiSelectFilter
-            triggerIcon={Building}
-            triggerLabel="Filtrar por Construtora"
-            items={filterOptions.contractors}
-            selectedItems={filters.contractor}
-            onSelectionChange={(id) => handleMultiSelectFilterChange('contractor', id)}
-            searchPlaceholder="Buscar construtora..."
-          />
-
-          <ToggleGroup type="single" value={view} onValueChange={value => value && setView(value)} className="border rounded-md justify-center">
-            <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
-            <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </Card>
-
       {!loading && works.length === 0 ? (
         <Card className="p-10 text-center border-dashed">
           <HardHat className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
@@ -392,7 +342,59 @@ const PublicWorksPage = () => {
             </Link>
           )}
         </Card>
-      ) : loading ? <div className="text-center p-8">Carregando obras...</div> : <AnimatePresence mode="wait">
+      ) : (
+        <>
+          <Card className="mb-6 p-4 relative z-[800]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="relative md:col-span-2 lg:col-span-5">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input placeholder="Buscar obra por nome ou descrição..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              </div>
+
+              <MultiSelectFilter
+                triggerIcon={Activity}
+                triggerLabel="Filtrar por Status"
+                items={workStatusesAsArray}
+                selectedItems={filters.status}
+                onSelectionChange={(id) => handleMultiSelectFilterChange('status', id)}
+                searchPlaceholder="Buscar status..."
+              />
+
+              <MultiSelectFilter
+                triggerIcon={MapPin}
+                triggerLabel="Filtrar por Bairro"
+                items={filterOptions.bairros}
+                selectedItems={filters.bairro}
+                onSelectionChange={(id) => handleMultiSelectFilterChange('bairro', id)}
+                searchPlaceholder="Buscar bairro..."
+              />
+
+              <MultiSelectFilter
+                triggerIcon={SlidersHorizontal}
+                triggerLabel="Filtrar por Área"
+                items={filterOptions.areas}
+                selectedItems={filters.area}
+                onSelectionChange={(id) => handleMultiSelectFilterChange('area', id)}
+                searchPlaceholder="Buscar área..."
+              />
+
+              <MultiSelectFilter
+                triggerIcon={Building}
+                triggerLabel="Filtrar por Construtora"
+                items={filterOptions.contractors}
+                selectedItems={filters.contractor}
+                onSelectionChange={(id) => handleMultiSelectFilterChange('contractor', id)}
+                searchPlaceholder="Buscar construtora..."
+              />
+
+              <ToggleGroup type="single" value={view} onValueChange={value => value && setView(value)} className="border rounded-md justify-center">
+                <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          </Card>
+
+          {loading ? <div className="text-center p-8">Carregando obras...</div> : <AnimatePresence mode="wait">
         <motion.div key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
           {view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
@@ -479,6 +481,8 @@ const PublicWorksPage = () => {
           )}
         </motion.div>
       </AnimatePresence>}
+        </>
+      )}
     </div>
   </>;
 };
