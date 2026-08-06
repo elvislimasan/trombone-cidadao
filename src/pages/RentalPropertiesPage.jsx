@@ -73,7 +73,8 @@ const RentalPropertiesPage = () => {
         .select(`
           id, title, address, street_number, department, thumbnail_url, location, is_active, area_m2, bairro_id,
           bairro:bairro_id(id, name),
-          contracts:rental_property_contracts(id, owner_name, monthly_value, is_current, start_date, end_date)
+          contracts:rental_property_contracts(id, owner_name, monthly_value, is_current, start_date, end_date),
+          media:rental_property_media(url)
         `)
         .order('created_at', { ascending: false });
       if (activeCityId) query = query.eq('city_id', activeCityId);
@@ -98,6 +99,10 @@ const RentalPropertiesPage = () => {
           currentContract,
           monthly_value: currentContract?.monthly_value ?? null,
           owner_name: currentContract?.owner_name ?? null,
+          // Nem todo imóvel tem thumbnail_url definido — cai para a primeira
+          // foto da galeria (rental_property_media), mesmo padrão já usado na
+          // página de detalhes (property.thumbnail_url || media[0]?.url).
+          coverImage: p.thumbnail_url || p.media?.[0]?.url || null,
         };
       });
       setProperties(formatted);
@@ -128,6 +133,17 @@ const RentalPropertiesPage = () => {
       return ownerMatch && bairroMatch;
     });
   }, [properties, searchOwner, selectedBairro]);
+
+  const LIST_PAGE_SIZE = 9;
+  const [currentPage, setCurrentPage] = useState(1);
+  // Volta para a página 1 sempre que o conjunto filtrado muda — evita ficar
+  // numa página vazia depois de trocar cidade/bairro/busca.
+  useEffect(() => { setCurrentPage(1); }, [filteredProperties]);
+  const totalPages = Math.max(1, Math.ceil(filteredProperties.length / LIST_PAGE_SIZE));
+  const paginatedProperties = useMemo(() => {
+    const start = (currentPage - 1) * LIST_PAGE_SIZE;
+    return filteredProperties.slice(start, start + LIST_PAGE_SIZE);
+  }, [filteredProperties, currentPage]);
 
   const stats = useMemo(() => {
     const active = filteredProperties.filter((p) => p.is_active && p.monthly_value != null);
@@ -238,16 +254,17 @@ const RentalPropertiesPage = () => {
               <RentalPropertiesMapView properties={filteredProperties} onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)} />
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredProperties.map((p) => (
+              {paginatedProperties.map((p) => (
                 <Card
                   key={p.id}
                   className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full"
                   onClick={() => navigate(`/imoveis-alugados/${p.id}`)}
                 >
                   <div className="relative h-36 w-full bg-muted">
-                    {p.thumbnail_url ? (
-                      <img src={p.thumbnail_url} alt={p.title} className="w-full h-full object-cover" />
+                    {p.coverImage ? (
+                      <img src={p.coverImage} alt={p.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                         <Building2 className="w-8 h-8" />
@@ -276,6 +293,18 @@ const RentalPropertiesPage = () => {
                 </Card>
               ))}
             </div>
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+                  Anterior
+                </Button>
+                <span className="text-sm text-muted-foreground px-2">Página {currentPage} de {totalPages}</span>
+                <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
+                  Próxima
+                </Button>
+              </div>
+            )}
+            </>
           )
         ) : (
           <div className="text-center py-10">
