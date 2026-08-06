@@ -140,15 +140,31 @@ const RentalContractsManager = ({ propertyId }) => {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreateContract} className="grid grid-cols-1 md:grid-cols-5 gap-2 p-3 border rounded-lg">
-        <Input placeholder="Nome do proprietário" value={newContract.owner_name} onChange={(e) => setNewContract((p) => ({ ...p, owner_name: e.target.value }))} />
-        <Input placeholder="Valor mensal" type="number" step="0.01" value={newContract.monthly_value} onChange={(e) => setNewContract((p) => ({ ...p, monthly_value: e.target.value }))} />
-        <Input placeholder="Data de início" type="date" value={newContract.start_date} onChange={(e) => setNewContract((p) => ({ ...p, start_date: e.target.value }))} />
-        <div>
-          <Label className="text-[11px] text-muted-foreground">Previsão de encerramento</Label>
-          <Input type="date" value={newContract.expected_end_date} onChange={(e) => setNewContract((p) => ({ ...p, expected_end_date: e.target.value }))} />
+      <form onSubmit={handleCreateContract} className="p-4 border rounded-xl bg-muted/20 space-y-3">
+        <p className="text-sm font-semibold text-foreground">Novo contrato</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Nome do proprietário</Label>
+            <Input value={newContract.owner_name} onChange={(e) => setNewContract((p) => ({ ...p, owner_name: e.target.value }))} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Valor mensal</Label>
+            <Input type="number" step="0.01" value={newContract.monthly_value} onChange={(e) => setNewContract((p) => ({ ...p, monthly_value: e.target.value }))} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Data de início</Label>
+            <Input type="date" value={newContract.start_date} onChange={(e) => setNewContract((p) => ({ ...p, start_date: e.target.value }))} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Previsão de encerramento</Label>
+            <Input type="date" value={newContract.expected_end_date} onChange={(e) => setNewContract((p) => ({ ...p, expected_end_date: e.target.value }))} />
+          </div>
         </div>
-        <Button type="submit" disabled={saving} className="self-end">Novo Contrato</Button>
+        <div className="flex justify-end">
+          <Button type="submit" disabled={saving} className="gap-2">
+            <PlusCircle className="w-4 h-4" /> Novo Contrato
+          </Button>
+        </div>
       </form>
 
       {loading ? (
@@ -157,22 +173,31 @@ const RentalContractsManager = ({ propertyId }) => {
         <div className="space-y-2">
           {contracts.map((c) => (
             editingContractId === c.id ? (
-              <form key={c.id} onSubmit={handleSaveEditContract} className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/30">
-                <Input placeholder="Nome do proprietário" value={editForm.owner_name} onChange={(e) => setEditForm((p) => ({ ...p, owner_name: e.target.value }))} />
-                <Input placeholder="Valor mensal" type="number" step="0.01" value={editForm.monthly_value} onChange={(e) => setEditForm((p) => ({ ...p, monthly_value: e.target.value }))} />
-                <div>
-                  <Label className="text-[11px] text-muted-foreground">Início</Label>
-                  <Input type="date" value={editForm.start_date} onChange={(e) => setEditForm((p) => ({ ...p, start_date: e.target.value }))} />
+              <form key={c.id} onSubmit={handleSaveEditContract} className="p-4 border rounded-xl bg-muted/20 space-y-3">
+                <p className="text-sm font-semibold text-foreground">Editar contrato</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Nome do proprietário</Label>
+                    <Input value={editForm.owner_name} onChange={(e) => setEditForm((p) => ({ ...p, owner_name: e.target.value }))} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Valor mensal</Label>
+                    <Input type="number" step="0.01" value={editForm.monthly_value} onChange={(e) => setEditForm((p) => ({ ...p, monthly_value: e.target.value }))} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Início</Label>
+                    <Input type="date" value={editForm.start_date} onChange={(e) => setEditForm((p) => ({ ...p, start_date: e.target.value }))} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Previsão de encerramento</Label>
+                    <Input type="date" value={editForm.expected_end_date} onChange={(e) => setEditForm((p) => ({ ...p, expected_end_date: e.target.value }))} />
+                  </div>
+                  <div className="grid gap-1.5 sm:col-span-2">
+                    <Label className="text-xs text-muted-foreground">Fim real {c.is_current && '(deixe vazio se ainda em vigor)'}</Label>
+                    <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm((p) => ({ ...p, end_date: e.target.value }))} />
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-[11px] text-muted-foreground">Fim real {c.is_current && '(deixe vazio se ainda em vigor)'}</Label>
-                  <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm((p) => ({ ...p, end_date: e.target.value }))} />
-                </div>
-                <div className="md:col-span-2">
-                  <Label className="text-[11px] text-muted-foreground">Previsão de encerramento</Label>
-                  <Input type="date" value={editForm.expected_end_date} onChange={(e) => setEditForm((p) => ({ ...p, expected_end_date: e.target.value }))} />
-                </div>
-                <div className="md:col-span-2 flex gap-2 justify-end">
+                <div className="flex gap-2 justify-end">
                   <Button type="button" variant="outline" size="sm" onClick={() => setEditingContractId(null)}>Cancelar</Button>
                   <Button type="submit" size="sm" disabled={saving}>Salvar</Button>
                 </div>

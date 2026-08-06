@@ -129,7 +129,7 @@ const RentalPropertiesPage = () => {
 
   const stats = useMemo(() => {
     const active = filteredProperties.filter((p) => p.is_active && p.monthly_value != null);
-    const withArea = filteredProperties.filter((p) => Number.isFinite(Number(p.area_m2)));
+    const withArea = filteredProperties.filter((p) => p.area_m2 !== null && p.area_m2 !== '' && Number.isFinite(Number(p.area_m2)));
     const mostExpensive = active.length ? active.reduce((a, b) => (Number(b.monthly_value) > Number(a.monthly_value) ? b : a)) : null;
     const cheapest = active.length ? active.reduce((a, b) => (Number(b.monthly_value) < Number(a.monthly_value) ? b : a)) : null;
     const largest = withArea.length ? withArea.reduce((a, b) => (Number(b.area_m2) > Number(a.area_m2) ? b : a)) : null;

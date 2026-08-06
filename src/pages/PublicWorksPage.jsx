@@ -319,7 +319,7 @@ const PublicWorksPage = () => {
       <meta name="description" content="Acompanhe o andamento das obras públicas da sua cidade em um mapa interativo." />
     </Helmet>
     <div className="container max-w-[88rem] mx-auto w-full px-4 py-8">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-[900] text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Mapa de Obras Públicas</h1>
         <p className="mt-2 text-lg text-muted-foreground">Acompanhe com transparência o que está sendo construído na sua cidade</p>
         <div className="mt-4 flex justify-center">

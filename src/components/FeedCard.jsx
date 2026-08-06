@@ -9,6 +9,7 @@ import TimeAgo from '@/components/TimeAgo';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { getReportShareUrl } from '@/lib/shareUtils';
 
 const videoThumbCache = new Map();
 const videoThumbPending = new Map();
@@ -347,7 +348,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   }, [navigate, report.id]);
 
   const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/bronca/${report.id}`;
+    const url = getReportShareUrl(report.id);
     try {
       if (Capacitor.isNativePlatform()) {
         await Share.share({
