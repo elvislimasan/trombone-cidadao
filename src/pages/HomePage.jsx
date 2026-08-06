@@ -535,7 +535,7 @@ function HomePage() {
     
     const toastMessage = user?.is_admin
       ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
-      : { title: "Bronca enviada para moderação! 📬", description: "Sua solicitação será analisada antes de ser publicada." };
+      : { title: "Bronca enviada para moderação! 📬", description: "Após aprovada, estará disponível no feed." };
 
     toast(toastMessage);
     setShowReportModal(false);

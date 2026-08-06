@@ -315,7 +315,7 @@ export default function FeedPage() {
         title: 'Você acabou de ajudar sua cidade 🔥',
         description: (
           <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>{isPublishedDirectly ? 'Bronca publicada.' : 'Bronca enviada para moderação — será analisada antes de ficar visível no app.'}</span>
+            <span>{isPublishedDirectly ? 'Bronca publicada.' : 'Bronca enviada para moderação — após aprovada, estará disponível no feed.'}</span>
             <span className="text-muted-foreground">
               Total: <AnimatedNumber value={nextSubmitted} className="font-semibold text-foreground" />
             </span>
