@@ -310,17 +310,18 @@ export default function FeedPage() {
         });
       } catch {}
 
+      const isPublishedDirectly = user?.is_admin || user?.is_master;
       toast({
         title: 'Você acabou de ajudar sua cidade 🔥',
         description: (
           <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>Bronca enviada.</span>
+            <span>{isPublishedDirectly ? 'Bronca publicada.' : 'Bronca enviada para moderação — será analisada antes de ficar visível no app.'}</span>
             <span className="text-muted-foreground">
               Total: <AnimatedNumber value={nextSubmitted} className="font-semibold text-foreground" />
             </span>
           </span>
         ),
-        duration: 4500,
+        duration: 5500,
       });
       setShowReportModal(false);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));

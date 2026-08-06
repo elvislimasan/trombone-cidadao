@@ -525,8 +525,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
   useEffect(() => {
     let cancelled = false;
     // Para categorias não-iluminação: sempre atualiza via reverse geocode (a menos que usuário tenha editado manualmente)
-    // Para iluminação: só atualiza se endereço estiver vazio
-    if (formData.category === "iluminacao" && formData.address?.trim()) return;
+    // Para iluminação: normalmente só atualiza se endereço estiver vazio, PORQUE o
+    // endereço costuma vir do poste selecionado (dataset de postes, hoje só em
+    // Floresta). Mas sem postes cadastrados na região (nearbyPoles vazio, já
+    // terminou de buscar), não há de onde vir esse endereço — cai para o mesmo
+    // reverse-geocode do pin usado pelas demais categorias.
+    const hasNoPolesNearby = !nearbyPolesLoading && nearbyPoles.length === 0;
+    if (formData.category === "iluminacao" && formData.address?.trim() && !hasNoPolesNearby) return;
     if (addressTouchedRef.current) return;
 
     const target = reverseGeocodeTargetRef.current || formData.location;
@@ -586,6 +591,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
     formData.pole_id,
     formData.address,
     formData.category,
+    nearbyPoles,
+    nearbyPolesLoading,
   ]);
 
   // Cleanup de previews de imagens e vídeos quando o componente desmontar
