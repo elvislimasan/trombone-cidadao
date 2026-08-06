@@ -322,8 +322,15 @@ const PublicWorksPage = () => {
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-[900] text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Mapa de Obras Públicas</h1>
         <p className="mt-2 text-lg text-muted-foreground">Acompanhe com transparência o que está sendo construído na sua cidade</p>
-        <div className="mt-4 flex justify-center">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <CitySelector />
+          {canManageWorks && (
+            <Link to="/obras/gerenciar">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                <PlusCircle className="w-3.5 h-3.5" /> Adicionar obra
+              </Button>
+            </Link>
+          )}
         </div>
       </motion.div>
 

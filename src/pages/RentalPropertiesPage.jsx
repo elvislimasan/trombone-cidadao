@@ -199,7 +199,7 @@ const RentalPropertiesPage = () => {
         <meta name="description" content="Acompanhe os imóveis alugados pela prefeitura, valores e contratos." />
       </Helmet>
       <div className="container max-w-[88rem] mx-auto w-full px-4 py-8">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-[900] text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Imóveis Alugados pela Prefeitura</h1>
           <p className="mt-2 text-muted-foreground">Acompanhe os gastos e o uso de cada imóvel alugado</p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">

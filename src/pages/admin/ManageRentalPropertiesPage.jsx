@@ -793,7 +793,11 @@ const ManageRentalPropertiesPage = () => {
     setDeletingProperty(null);
   };
 
-  const filteredProperties = properties.filter((p) => !searchTerm || p.address.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredProperties = properties.filter((p) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return p.address.toLowerCase().includes(term) || (p.title || '').toLowerCase().includes(term);
+  });
 
   const fallbackCityCenter = isScopedAmbassador && myCities.length > 0 ? { name: myCities[0].name, uf: myCities[0].uf } : null;
   const defaultCityId = isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null;
@@ -813,7 +817,7 @@ const ManageRentalPropertiesPage = () => {
 
         <div className="relative mb-6 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar por endereço..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <Input placeholder="Buscar por título ou endereço..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
 
         {loading ? (
@@ -826,12 +830,13 @@ const ManageRentalPropertiesPage = () => {
                 <Card key={property.id}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-bold line-clamp-1">{property.address}</h3>
+                      <h3 className="font-bold line-clamp-1">{property.title || property.address}</h3>
                       <div className="flex gap-1">
                         <Button size="icon" variant="ghost" onClick={() => setEditingProperty(property)}><Edit className="w-4 h-4" /></Button>
                         <Button size="icon" variant="ghost" onClick={() => setDeletingProperty(property)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground line-clamp-1 mb-1">{property.address}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1"><MapPin className="w-3 h-3" /> {property.bairro?.name || 'Sem bairro'}</p>
                     {currentContract && <p className="text-sm font-semibold text-tc-red">{currentContract.owner_name}</p>}
                   </CardContent>

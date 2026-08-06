@@ -7,6 +7,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { formatCurrency, formatDate, formatAddressWithNumber } from '@/lib/utils';
+import MediaViewer from '@/components/MediaViewer';
 
 const SectionBlock = ({ icon: Icon, title, children }) => (
   <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
@@ -42,6 +43,7 @@ const RentalPropertyDetailsPage = () => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const [mediaViewerIndex, setMediaViewerIndex] = useState(null);
 
   // Admin/master editam qualquer imóvel. Embaixador puro só edita imóveis da
   // cidade do PRÓPRIO imóvel (não da cidade ativa selecionada no seletor).
@@ -195,16 +197,15 @@ const RentalPropertyDetailsPage = () => {
                       Fotos ({media.length})
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {media.map((m) => (
-                        <a
+                      {media.map((m, index) => (
+                        <button
                           key={m.id}
-                          href={m.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          type="button"
+                          onClick={() => setMediaViewerIndex(index)}
                           className="relative aspect-square rounded-xl overflow-hidden bg-[#f2f4f7] hover:opacity-90 transition-opacity"
                         >
                           <img src={m.url} alt={title} className="w-full h-full object-cover" loading="lazy" />
-                        </a>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -300,6 +301,14 @@ const RentalPropertyDetailsPage = () => {
           </div>
         </div>
       </div>
+
+      {mediaViewerIndex !== null && (
+        <MediaViewer
+          media={media.map((m) => ({ url: m.url, type: 'photo' }))}
+          startIndex={mediaViewerIndex}
+          onClose={() => setMediaViewerIndex(null)}
+        />
+      )}
     </>
   );
 };
