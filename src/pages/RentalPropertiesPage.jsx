@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, DollarSign, TrendingUp, TrendingDown, Maximize2, Minimize2, Download, Loader2, PlusCircle } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, TrendingDown, Maximize2, Minimize2, Download, Loader2, PlusCircle, Map, List, Building2, MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import RentalPropertiesMapView from '@/components/RentalPropertiesMapView';
 import CitySelector from '@/components/CitySelector';
 import { useCity } from '@/contexts/CityContext';
@@ -62,6 +63,7 @@ const RentalPropertiesPage = () => {
   const [downloading, setDownloading] = useState(false);
   const [searchOwner, setSearchOwner] = useState('');
   const [selectedBairro, setSelectedBairro] = useState('all');
+  const [view, setView] = useState('map');
 
   const fetchProperties = useCallback(async () => {
     setLoading(true);
@@ -205,8 +207,8 @@ const RentalPropertiesPage = () => {
         </div>
 
         <Card className="mb-6 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-            <div className="relative md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
+            <div className="relative md:col-span-2 lg:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Buscar por nome do proprietário..." className="pl-9" value={searchOwner} onChange={(e) => setSearchOwner(e.target.value)} />
             </div>
@@ -221,15 +223,60 @@ const RentalPropertiesPage = () => {
               {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
               Baixar Relatório
             </Button>
+            <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v)} className="border rounded-md justify-center">
+              <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </Card>
 
         {loading ? (
           <div className="text-center p-8">Carregando imóveis...</div>
         ) : filteredProperties.length > 0 ? (
-          <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
-            <RentalPropertiesMapView properties={filteredProperties} onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)} />
-          </div>
+          view === 'map' ? (
+            <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
+              <RentalPropertiesMapView properties={filteredProperties} onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProperties.map((p) => (
+                <Card
+                  key={p.id}
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full"
+                  onClick={() => navigate(`/imoveis-alugados/${p.id}`)}
+                >
+                  <div className="relative h-36 w-full bg-muted">
+                    {p.thumbnail_url ? (
+                      <img src={p.thumbnail_url} alt={p.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <Building2 className="w-8 h-8" />
+                      </div>
+                    )}
+                    <span
+                      className={`absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-semibold ${
+                        p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {p.is_active ? 'Ativo' : 'Encerrado'}
+                    </span>
+                  </div>
+                  <CardContent className="p-4 flex flex-col flex-1">
+                    <h3 className="font-bold mb-1 line-clamp-2">{p.title}</h3>
+                    <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      {formatAddressWithNumber(p.address, p.street_number)}
+                    </p>
+                    <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2 mt-auto">
+                      {p.owner_name && <p className="col-span-2"><strong>Proprietário:</strong> {p.owner_name}</p>}
+                      {p.monthly_value != null && <p className="col-span-2"><strong>Valor mensal:</strong> {formatCurrency(p.monthly_value)}</p>}
+                      {p.bairro?.name && <p className="col-span-2"><strong>Bairro:</strong> {p.bairro.name}</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
         ) : (
           <div className="text-center py-10">
             <p className="text-muted-foreground">Nenhum imóvel encontrado com os filtros selecionados.</p>
