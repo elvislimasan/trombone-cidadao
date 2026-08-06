@@ -287,16 +287,6 @@ const BecomeAmbassadorPage = () => {
                   <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="mín. 6 caracteres" />
                 </div>
               </div>
-              <div className="flex items-start gap-2">
-                <Checkbox id="terms-ambassador" checked={agreedToTerms} onCheckedChange={setAgreedToTerms} className="mt-0.5" />
-                <label htmlFor="terms-ambassador" className="text-sm leading-snug">
-                  Eu li e concordo com os <Link to="/termos-de-uso" className="underline text-tc-red">Termos de Uso</Link>.
-                </label>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Já tem conta?{' '}
-                <button type="button" className="text-tc-red font-semibold" onClick={() => navigate('/login')}>Entrar</button>
-              </p>
             </>
           )}
 
@@ -360,6 +350,21 @@ const BecomeAmbassadorPage = () => {
               placeholder="Conte por que você quer ajudar sua cidade..."
             />
           </div>
+
+          {!user && (
+            <>
+              <div className="flex items-start gap-2">
+                <Checkbox id="terms-ambassador" checked={agreedToTerms} onCheckedChange={setAgreedToTerms} className="mt-0.5" />
+                <label htmlFor="terms-ambassador" className="text-sm leading-snug">
+                  Eu li e concordo com os <Link to="/termos-de-uso" className="underline text-tc-red">Termos de Uso</Link>.
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Já tem conta?{' '}
+                <button type="button" className="text-tc-red font-semibold" onClick={() => navigate('/login')}>Entrar</button>
+              </p>
+            </>
+          )}
 
           <Button className="w-full" disabled={submitting} onClick={handleSubmit}>
             {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</> : 'Enviar candidatura'}
