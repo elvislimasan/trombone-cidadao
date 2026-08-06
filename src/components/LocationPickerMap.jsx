@@ -139,6 +139,7 @@ const LocationPickerMap = ({
   showSatelliteToggle = false,
   showLocateButton = false,
   fallbackCityCenter = null, // { name, uf } — centraliza aqui quando não há initialPosition
+  flyToCity = null, // { name, uf, nonce } — força o mapa a voar para a cidade mesmo com view já definida (ex: admin trocando a cidade manualmente)
 }) => {
   const [position, setPosition] = useState(initialPosition || FLORESTA_COORDS);
   const [mapLayer, setMapLayer] = useState("osm");
@@ -193,6 +194,19 @@ const LocationPickerMap = ({
     });
     return () => { cancelled = true; };
   }, [effectiveCityCenter?.name, effectiveCityCenter?.uf]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Voo forçado ao trocar a cidade manualmente (admin) — independe de
+  // hasSetInitialView/userMovedRef, que só protegem a centralização automática
+  // inicial contra sobrescritas indesejadas.
+  useEffect(() => {
+    if (!flyToCity?.name || !flyToCity?.nonce) return;
+    let cancelled = false;
+    geocodeCity(flyToCity.name, flyToCity.uf).then((coord) => {
+      if (cancelled || !coord || !mapRef.current) return;
+      try { mapRef.current.flyTo([coord.lat, coord.lng], 13, { animate: true, duration: 0.8 }); } catch {}
+    });
+    return () => { cancelled = true; };
+  }, [flyToCity?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePositionChange = (newPosition) => {
     userMovedRef.current = true;

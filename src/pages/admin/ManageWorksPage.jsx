@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
+import { useCity } from '@/contexts/CityContext';
 import { Progress } from '@/components/ui/progress';
 import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
 import { WorkFinancialTab } from '@/components/admin/WorkFinancialTab';
@@ -154,9 +155,10 @@ const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap
 });
 FiltersSection.displayName = 'FiltersSection';
 
-export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', onWorkUpdated, fallbackCityCenter = null, defaultCityId = null, onBairroCreated }) => {
+export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', onWorkUpdated, fallbackCityCenter = null, defaultCityId = null, onBairroCreated, canSelectCity = false }) => {
   const { toast } = useToast();
   const { resolveCityIdFromLocation } = useCityIdFromLocation();
+  const { cities, loadingCities } = useCity();
   const [formData, setFormData] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState(null);
@@ -164,10 +166,22 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
   const [bairroSearch, setBairroSearch] = useState('');
   const [creatingBairro, setCreatingBairro] = useState(false);
   const [fetchingMapBairro, setFetchingMapBairro] = useState(false);
+  // Admin/master podem escolher a cidade manualmente (canSelectCity); embaixador
+  // não vê esse seletor — a cidade dele já é fixa (defaultCityId) ou detectada
+  // pelo pin no mapa, como antes.
+  const [manualCityId, setManualCityId] = useState(null);
+  const [flyToCity, setFlyToCity] = useState(null);
 
-  // Resolve o city_id alvo para criar bairro: cidade padrão (embaixador) ou,
-  // se não houver, a cidade do marcador atual.
+  const handleSelectManualCity = (cityId) => {
+    setManualCityId(cityId);
+    const city = (cities || []).find((c) => String(c.id) === String(cityId));
+    if (city) setFlyToCity({ name: city.name, uf: city.state?.uf, nonce: Date.now() });
+  };
+
+  // Resolve o city_id alvo para criar bairro: cidade escolhida manualmente
+  // (admin) > cidade padrão (embaixador) > cidade do marcador atual.
   const resolveTargetCityId = async () => {
+    if (canSelectCity && manualCityId) return manualCityId;
     if (defaultCityId) return defaultCityId;
     if (formData?.location) return await resolveCityIdFromLocation(formData.location);
     return null;
@@ -389,6 +403,10 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
         parliamentary_amendment: { has: false, author: '', value: null },
       };
       setFormData(initialData);
+      // Pré-popula com a cidade já salva (edição) ou limpa (nova obra) —
+      // sem isso o seletor ficaria com o valor da obra anterior aberta no modal.
+      setManualCityId(work.id ? (work.city_id || null) : null);
+      setFlyToCity(null);
       // Se a obra já tem endereço, preserva-o (não deixa o mapa sobrescrever).
       addressTouchedRef.current = !!(initialData.address && initialData.address.trim());
 
@@ -523,7 +541,11 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
     }
     
     clearDraft();
-    await onSave({ ...formData, thumbnail_url: currentThumbnailUrl });
+    await onSave({
+      ...formData,
+      thumbnail_url: currentThumbnailUrl,
+      manual_city_id: canSelectCity ? manualCityId : null,
+    });
   };
 
   const canProceed = () => {
@@ -649,11 +671,30 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                       <Label htmlFor="long_description">Descrição Longa (Detalhada)</Label>
                       <Textarea id="long_description" name="long_description" value={formData.long_description || ''} onChange={handleChange} rows={6} />
                     </div>
+                    {canSelectCity && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="manual_city_id">Cidade</Label>
+                        <Combobox
+                          value={manualCityId}
+                          onChange={handleSelectManualCity}
+                          options={(cities || []).map((c) => ({ value: c.id, label: `${c.name}${c.state?.uf ? ` (${c.state.uf})` : ''}` }))}
+                          placeholder={loadingCities ? 'Carregando cidades...' : 'Selecione a cidade...'}
+                          searchPlaceholder="Buscar cidade..."
+                          modal
+                        />
+                        <p className="text-xs text-muted-foreground">Ao escolher, o mapa abaixo voa até a cidade para você marcar a localização exata.</p>
+                      </div>
+                    )}
                     <div className="grid gap-2">
                       <Label className="flex items-center gap-2"><MapPin className="w-4 h-4" /> Localização no Mapa</Label>
                       <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
                         <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                          <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
+                          <LocationPickerMap
+                            onLocationChange={handleLocationChange}
+                            initialPosition={formData.location}
+                            fallbackCityCenter={fallbackCityCenter}
+                            flyToCity={flyToCity}
+                          />
                         </Suspense>
                       </div>
                     </div>
@@ -1051,10 +1092,12 @@ const ManageWorksPage = () => {
   }, [location.state, works, editingWork]);
 
   const handleSaveWork = async (workToSave) => {
-    const { id, location, ...data } = workToSave;
+    const { id, location, manual_city_id, ...data } = workToSave;
 
-    // city_id SEMPRE do marcador (nunca nulo). Reusa a mesma lógica das broncas.
-    const resolvedCityId = await resolveCityIdFromLocation(location);
+    // city_id: admin/master podem escolher manualmente no modal (manual_city_id);
+    // sem escolha manual, cai no comportamento original — SEMPRE do marcador
+    // (nunca nulo), mesma lógica das broncas.
+    const resolvedCityId = manual_city_id || await resolveCityIdFromLocation(location);
     if (resolvedCityId == null) {
       toast({
         title: 'Não foi possível identificar a cidade',
@@ -1381,6 +1424,7 @@ const ManageWorksPage = () => {
         onWorkUpdated={fetchData}
         fallbackCityCenter={isScopedAmbassador && myCities.length > 0 ? { name: myCities[0].name, uf: myCities[0].uf } : null}
         defaultCityId={isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null}
+        canSelectCity={!isScopedAmbassador}
         onBairroCreated={(b) => setWorkOptions((prev) => ({ ...prev, bairros: [...(prev.bairros || []), b] }))}
       />
 
