@@ -199,7 +199,9 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   // proporção real do vídeo, mas limitada entre 4:5 (mais alto permitido, para
   // o card não virar uma tela cheia) e 1.91:1 (mais largo). Sem isso, vídeo
   // vertical 9:16 ficava muito cortado no 4:3 fixo.
-  const [videoAspect, setVideoAspect] = useState(4 / 3);
+  // Começa em 4:5 (mesmo padrão da imagem) para o card não "pular" de largo
+  // para alto quando os metadados do vídeo chegarem.
+  const [videoAspect, setVideoAspect] = useState(4 / 5);
 
   const handleVideoMetadata = (e) => {
     const v = e.currentTarget;
@@ -539,7 +541,9 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
             )}
           </div>
         ) : imgSrc ? (
-          <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
+          <div className="relative w-full aspect-[4/5] bg-muted overflow-hidden">
+            {/* 4:5 (retrato) em vez de 4:3: a maioria das fotos de bronca vem
+                do celular, na vertical, e o formato mais largo cortava demais. */}
             <img
               src={imgSrc}
               alt={report.title}
@@ -576,7 +580,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
             )}
           </div>
         ) : (
-          <div className="relative w-full aspect-[4/3] bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center">
+          <div className="relative w-full aspect-[4/5] bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center">
             <span className="text-7xl select-none" aria-hidden="true">
               {emoji}
             </span>
