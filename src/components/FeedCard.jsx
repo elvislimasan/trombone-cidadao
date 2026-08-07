@@ -7,7 +7,6 @@ import FeedCardMedia from '@/components/feed/FeedCardMedia';
 import { computeSignals } from '@/components/feed/FeedCardSignals';
 import FeedCardSupport from '@/components/feed/FeedCardSupport';
 import StatusBadge from '@/design-system/primitives/StatusBadge';
-import SignalChip from '@/design-system/primitives/SignalChip';
 import Icon, { categoryIconName } from '@/design-system/icons';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -120,9 +119,6 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
     }
   }, [user, report, navigate, toast]);
 
-  const chip = signals.chips[0];
-  // Bronca com video (e sem foto de capa) toca em largura cheia.
-  const hasVideo = !!report.coverVideo && !report.coverImage;
 
   const isActive = report.status !== 'resolved' && report.status !== 'duplicate';
 
@@ -134,61 +130,46 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
       }`}
       style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
     >
-      {/* Bronca com video usa a midia em largura cheia, para o video tocar na
-          proporcao real (miniatura seria pequena demais). Com foto, o layout
-          horizontal: miniatura a esquerda, conteudo a direita. */}
-      {hasVideo && (
-        <FeedCardMedia
-          report={report}
-          index={index}
-          isInView={isInView}
-          status={report.status}
-          chips={signals.chips}
+      {/* Cabecalho: titulo e status antes da midia. */}
+      <div className="flex items-start gap-3 px-3.5 pt-3.5 pb-2.5">
+        <button
           onClick={goToReport}
-        />
-      )}
-
-      {/* items-stretch: a foto acompanha a altura da coluna de texto. */}
-      <div className={`flex items-stretch gap-3 p-3 ${hasVideo ? 'pt-3' : ''}`}>
-        {!hasVideo && (
-          <div className="w-32 sm:w-40 flex-shrink-0">
-            <FeedCardMedia
-              report={report}
-              index={index}
-              isInView={isInView}
-              square
-              onClick={goToReport}
+          className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+        >
+          <h3 className="font-display text-base font-bold leading-tight line-clamp-2 text-content-primary">
+            {report.title}
+          </h3>
+          <span className="flex items-center gap-1 mt-1 text-2xs text-content-tertiary min-w-0">
+            <Icon
+              name={categoryIconName(report.category_id)}
+              size={12}
+              className="flex-shrink-0"
             />
-          </div>
-        )}
+            <span className="truncate">{report.categoryName || report.category_id}</span>
+            <span aria-hidden="true">·</span>
+            <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
+          </span>
+        </button>
+        <StatusBadge status={report.status} />
+      </div>
 
+      {/* Midia em largura cheia: a foto e a prova do problema. */}
+      <FeedCardMedia
+        report={report}
+        index={index}
+        isInView={isInView}
+        chips={signals.chips}
+        onClick={goToReport}
+      />
+
+      <div className="flex flex-col p-3">
         <div className="flex-1 min-w-0 flex flex-col">
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* No modo video o status ja aparece sobre a midia. */}
-            {!hasVideo && <StatusBadge status={report.status} />}
-            <span className="flex items-center gap-1 text-2xs text-content-tertiary min-w-0">
-              <Icon
-                name={categoryIconName(report.category_id)}
-                size={12}
-                className="flex-shrink-0"
-              />
-              <span className="truncate">{report.categoryName || report.category_id}</span>
-              <span aria-hidden="true">·</span>
-              <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
-            </span>
-            {!hasVideo && chip && <SignalChip variant={chip.variant} label={chip.label} />}
-          </div>
-
           <button
             onClick={goToReport}
-            className="w-full text-left mt-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+            className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
           >
-            <h3 className="font-display text-base font-bold leading-tight line-clamp-2 text-content-primary">
-              {report.title}
-            </h3>
-
             {report.address && (
-              <div className="flex items-start gap-1 text-2xs text-content-secondary mt-2">
+              <div className="flex items-start gap-1 text-2xs text-content-secondary">
                 <Icon name="location" size={12} className="flex-shrink-0 mt-0.5 text-brand" />
                 <span className="line-clamp-2">{report.address}</span>
               </div>

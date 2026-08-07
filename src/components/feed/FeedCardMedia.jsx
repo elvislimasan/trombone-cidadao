@@ -151,7 +151,9 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
     ? ''
     : square
       ? 'h-full aspect-square rounded-xl'
-      : 'aspect-[4/3]';
+      // 4:5 (retrato) em vez de 4:3: a maioria das fotos de bronca vem do
+      // celular, na vertical, e o formato mais largo cortava demais.
+      : 'aspect-[4/5]';
 
   return (
     // div + role=button (nao <button>) porque o controle de som e um <button>

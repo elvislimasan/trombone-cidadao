@@ -122,6 +122,14 @@ export const CityProvider = ({ children }) => {
     // Escolheu "Todas as cidades": respeita e nao cai nos fallbacks.
     if (storedId === ALL_CITIES) { setActiveCityIdState(null); return; }
 
+    // Defensivo: city_id e bigint no banco. Qualquer lixo no storage (sentinela
+    // de versao antiga, valor editado a mao) iria parar no .eq() e o Postgres
+    // rejeitaria a query inteira com "invalid input syntax for type bigint".
+    if (storedId && !/^\d+$/.test(storedId)) {
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      storedId = null;
+    }
+
     // Se já tem escolha persistida ou cidade do perfil, usa direto
     if (storedId) { setActiveCityIdState(storedId); return; }
     if (user?.city_id) { setActiveCityIdState(user.city_id); return; }
