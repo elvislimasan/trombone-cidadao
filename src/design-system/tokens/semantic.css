@@ -94,7 +94,10 @@
      6.30:1 como texto sobre card. */
   --brand:            var(--tc-red-400);
   --brand-hover:      var(--tc-red-300);
-  --brand-subtle-bg:  var(--tc-red-950);
+  /* Fundo sutil no escuro e NEUTRO elevado, nao vermelho: red-950 preenchendo
+     blocos grandes vira um vinho saturado que domina a tela. O vinculo com a
+     marca fica no texto e na borda. */
+  --brand-subtle-bg:  var(--tc-neutral-850);
   --brand-subtle-fg:  var(--tc-red-300);
 
   --danger:           var(--tc-red-300);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Icon, { categoryIconName } from '@/design-system/icons';
 import SignalChip from '@/design-system/primitives/SignalChip';
+import StatusBadge from '@/design-system/primitives/StatusBadge';
 import { useVideoThumbnail } from '@/hooks/useVideoThumbnail';
 
 const MAX_THUMBNAIL_RETRIES = 3;
@@ -13,7 +14,7 @@ const PlayBadge = () => (
   </div>
 );
 
-const FeedCardMedia = ({ report, index = 0, isInView = false, chips = [], onClick }) => {
+const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = [], onClick }) => {
   const [imgSrc, setImgSrc] = useState(report.coverImage || null);
   const retryRef = useRef(0);
   const retryTimerRef = useRef(null);
@@ -122,8 +123,15 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, chips = [], onClic
 
         {!report.coverImage && report.coverVideo && <PlayBadge />}
 
-        {chip && (
+        {/* Status a esquerda, sinal a direita — ambos sobre a midia. */}
+        {status && (
           <div className="absolute top-2 left-2">
+            <StatusBadge status={status} />
+          </div>
+        )}
+
+        {chip && (
+          <div className="absolute top-2 right-2">
             <SignalChip variant={chip.variant} label={chip.label} />
           </div>
         )}

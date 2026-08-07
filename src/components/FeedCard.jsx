@@ -7,7 +7,6 @@ import TimeAgo from '@/components/TimeAgo';
 import FeedCardMedia from '@/components/feed/FeedCardMedia';
 import { computeSignals } from '@/components/feed/FeedCardSignals';
 import Icon, { categoryIconName } from '@/design-system/icons';
-import StatusBadge from '@/design-system/primitives/StatusBadge';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -129,28 +128,45 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
       }`}
       style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
     >
-      <div className="flex items-start gap-3 p-3.5">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-display text-base font-bold leading-snug line-clamp-2 text-content-primary">
-            {report.title}
-          </h3>
-          <div className="flex items-center gap-1.5 mt-1 text-2xs text-content-secondary">
-            <Icon name={categoryIconName(report.category_id)} size={13} />
-            <span className="truncate">{report.categoryName || report.category_id}</span>
-            <span aria-hidden="true">·</span>
-            <TimeAgo date={report.created_at} className="text-2xs text-content-secondary" />
-          </div>
-        </div>
-        <StatusBadge status={report.status} />
-      </div>
-
+      {/* Midia primeiro, com status e sinal sobrepostos; o texto vem abaixo. */}
       <FeedCardMedia
         report={report}
         index={index}
         isInView={isInView}
+        status={report.status}
         chips={signals.chips}
         onClick={goToReport}
       />
+
+      <button onClick={goToReport} className="w-full text-left px-4 pt-3.5 pb-3 focus:outline-none">
+        <h3 className="font-display text-base font-bold leading-snug line-clamp-2 text-content-primary">
+          {report.title}
+        </h3>
+        <div className="flex items-center gap-1.5 mt-1 text-2xs text-content-secondary">
+          <Icon name={categoryIconName(report.category_id)} size={13} />
+          <span className="truncate">{report.categoryName || report.category_id}</span>
+          <span aria-hidden="true">·</span>
+          <TimeAgo date={report.created_at} className="text-2xs text-content-secondary" />
+        </div>
+
+        {report.description && (
+          <p className="text-xs text-content-secondary line-clamp-2 mt-2">{report.description}</p>
+        )}
+        {report.address && (
+          <div className="flex items-center gap-1 text-xs text-content-secondary mt-2">
+            <Icon name="location" size={12} className="flex-shrink-0" />
+            <span className="truncate">{report.address}</span>
+          </div>
+        )}
+        {(report.authorName || report.authorAvatar) && (
+          <div className="flex items-center gap-2 mt-2.5">
+            <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
+            <p className="text-2xs text-content-secondary">
+              por <span className="font-semibold text-content-primary">{report.authorName || 'Cidadão'}</span>
+            </p>
+          </div>
+        )}
+      </button>
 
       <EngagementBar
         upvotes={report.upvotes}
@@ -162,26 +178,6 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
         onShare={handleShare}
         onBookmark={handleBookmark}
       />
-
-      <button onClick={goToReport} className="w-full text-left px-4 pb-3.5 pt-2 focus:outline-none">
-        {(report.authorName || report.authorAvatar) && (
-          <div className="flex items-center gap-2 mb-2">
-            <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
-            <p className="text-2xs text-content-secondary">
-              por <span className="font-semibold text-content-primary">{report.authorName || 'Cidadão'}</span>
-            </p>
-          </div>
-        )}
-        {report.description && (
-          <p className="text-xs text-content-secondary line-clamp-2 mb-2">{report.description}</p>
-        )}
-        {report.address && (
-          <div className="flex items-center gap-1 text-xs text-content-secondary">
-            <Icon name="location" size={12} className="flex-shrink-0" />
-            <span className="truncate">{report.address}</span>
-          </div>
-        )}
-      </button>
 
       {isActive && (
         <button
