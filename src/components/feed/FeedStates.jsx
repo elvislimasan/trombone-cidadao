@@ -13,7 +13,9 @@ export const FeedStates = ({ isOffline, isSlow, error, hasReports, onRetry }) =>
           <AlertTitle>Sem conexão</AlertTitle>
           <AlertDescription>Conecte-se à internet para carregar o feed.</AlertDescription>
           <div className="mt-3 flex gap-2">
-            <Button variant="outline" onClick={() => onRetry({ preserve: true })}>
+            {/* preserve derivado de hasReports, nao literal: se a guarda de render
+                acima mudar, o valor continua correto. */}
+            <Button variant="outline" onClick={() => onRetry({ preserve: hasReports })}>
               Tentar novamente
             </Button>
           </div>
