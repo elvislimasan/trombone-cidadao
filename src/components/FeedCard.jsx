@@ -181,56 +181,58 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
                 {report.description}
               </p>
             )}
+
+            {(report.authorName || report.authorAvatar) && (
+              <div className="flex items-center gap-1.5 mt-2 min-w-0">
+                <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
+                <span className="text-2xs text-content-tertiary truncate">
+                  por {report.authorName || 'Cidadão'}
+                </span>
+              </div>
+            )}
           </button>
 
-          <FeedCardSupport upvotes={report.upvotes} className="mt-auto pt-2.5" />
-        </div>
-      </div>
+          {/* Confirmacoes e acoes na MESMA linha: antes eram dois blocos
+              empilhados, o que fatiava demais o card. */}
+          <div className="mt-auto pt-2.5 flex items-end justify-between gap-2">
+            <FeedCardSupport upvotes={report.upvotes} />
 
-      {/* Apoiar, comentar e compartilhar em linha discreta, com o autor a direita. */}
-      <div className="flex items-center gap-0.5 px-3 pb-2">
-        <button
-          type="button"
-          onClick={() => onToggleUpvote?.(report.id)}
-          aria-label="Apoiar bronca"
-          aria-pressed={report.user_has_upvoted}
-          className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-2xs font-semibold transition-colors ${
-            report.user_has_upvoted
-              ? 'text-brand bg-brand/10'
-              : 'text-content-tertiary hover:text-content-primary'
-          }`}
-        >
-          <Icon name="support" size={15} />
-          {report.upvotes > 0 && <span className="tabular-nums">{report.upvotes}</span>}
-        </button>
-        <button
-          type="button"
-          onClick={goToReport}
-          aria-label="Ver comentários"
-          className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-2xs font-semibold text-content-tertiary hover:text-content-primary transition-colors"
-        >
-          <Icon name="comment" size={15} />
-          {report.comments_count > 0 && (
-            <span className="tabular-nums">{report.comments_count}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={handleShare}
-          aria-label="Compartilhar"
-          className="flex items-center px-2 py-1 rounded-lg text-content-tertiary hover:text-content-primary transition-colors"
-        >
-          <Icon name="share" size={15} />
-        </button>
-
-        {(report.authorName || report.authorAvatar) && (
-          <div className="flex items-center gap-1.5 ml-auto min-w-0">
-            <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
-            <span className="text-2xs text-content-tertiary truncate">
-              {report.authorName || 'Cidadão'}
-            </span>
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => onToggleUpvote?.(report.id)}
+                aria-label="Apoiar bronca"
+                aria-pressed={report.user_has_upvoted}
+                className={`flex items-center gap-1 px-1.5 py-1 rounded-lg text-2xs font-semibold transition-colors ${
+                  report.user_has_upvoted
+                    ? 'text-brand'
+                    : 'text-content-tertiary hover:text-content-primary'
+                }`}
+              >
+                <Icon name="support" size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={goToReport}
+                aria-label="Ver comentários"
+                className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-2xs font-semibold text-content-tertiary hover:text-content-primary transition-colors"
+              >
+                <Icon name="comment" size={15} />
+                {report.comments_count > 0 && (
+                  <span className="tabular-nums">{report.comments_count}</span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                aria-label="Compartilhar"
+                className="flex items-center px-1.5 py-1 rounded-lg text-content-tertiary hover:text-content-primary transition-colors"
+              >
+                <Icon name="share" size={15} />
+              </button>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Rodape neutro: so divisorias. O vermelho fica reservado para acao. */}

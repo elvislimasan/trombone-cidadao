@@ -162,20 +162,20 @@ export default function FeedPage() {
       )}
 
       {/* ── Cabecalho da secao ── */}
-      <div className="container mx-auto max-w-2xl px-3 pt-1 pb-3">
-        <div className="flex items-start justify-between gap-3">
+      <div className="container mx-auto max-w-2xl px-3 pt-1 pb-2">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-display text-2xl font-extrabold tracking-tight text-content-primary">
+            <h1 className="font-display text-2xl font-extrabold tracking-tight text-content-primary leading-none">
               Feed
             </h1>
-            <p className="text-xs text-content-secondary mt-0.5">
+            <p className="text-xs text-content-secondary mt-1">
               Problemas próximos de você
             </p>
           </div>
           <button
             type="button"
             onClick={handleOpenCreate}
-            className="flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2.5 text-sm font-semibold text-content-onBrand shadow-elevation-2 hover:bg-brand-hover transition-colors flex-shrink-0"
+            className="flex items-center gap-1.5 rounded-xl bg-brand h-12 px-4 text-sm font-semibold text-content-onBrand shadow-elevation-2 hover:bg-brand-hover transition-colors flex-shrink-0"
           >
             <Icon name="newreport" size={16} />
             Nova denúncia

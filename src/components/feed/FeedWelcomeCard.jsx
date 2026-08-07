@@ -9,7 +9,8 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
 
   return (
     <div className="mb-4 p-3">
-      <div className="rounded-2xl border border-edge-subtle bg-surface-raised px-4 py-4 shadow-elevation-1">
+      {/* Sem borda: so sombra. A borda criava efeito de caixa dentro de caixa. */}
+      <div className="rounded-2xl bg-surface-raised px-4 py-4 shadow-elevation-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -27,19 +28,19 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
           </div>
         </div>
 
-        {/* Borda unica e neutra nos tres atalhos. Vermelho/laranja/azul lado a lado
-            pareciam semaforo — e essas cores significam status de bronca no
-            sistema, entao usa-las como decoracao aqui confundiria. */}
+        {/* Atalhos sem caixa: so icone e rotulo. Antes tinham bordas vermelha,
+            laranja e azul — pareciam semaforo, e essas cores significam status
+            de bronca no sistema. */}
         <div className="mt-4 grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={onCreateReport}
-            className="rounded-2xl border border-edge-subtle bg-surface-subtle px-2.5 py-3 text-center hover:bg-surface-subtleHover transition-colors"
+            className="rounded-xl px-2 py-2.5 text-center hover:bg-surface-subtle transition-colors"
           >
-            <div className="mx-auto w-9 h-9 rounded-2xl bg-brand/10 text-brand flex items-center justify-center">
+            <div className="mx-auto w-10 h-10 rounded-full bg-surface-subtle text-brand flex items-center justify-center">
               <Icon name="trombone" size={20} />
             </div>
-            <p className="mt-2 text-2xs font-bold leading-snug text-content-primary">
+            <p className="mt-2 text-2xs font-semibold leading-snug text-content-secondary">
               Cadastre sua bronca
             </p>
           </button>
@@ -47,12 +48,12 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
           <button
             type="button"
             onClick={() => navigate(user?.is_ambassador ? '/embaixador' : '/seja-embaixador')}
-            className="rounded-2xl border border-edge-subtle bg-surface-subtle px-2.5 py-3 text-center hover:bg-surface-subtleHover transition-colors"
+            className="rounded-xl px-2 py-2.5 text-center hover:bg-surface-subtle transition-colors"
           >
-            <div className="mx-auto w-9 h-9 rounded-2xl bg-brand/10 text-brand flex items-center justify-center">
+            <div className="mx-auto w-10 h-10 rounded-full bg-surface-subtle text-brand flex items-center justify-center">
               <Icon name="ambassador" size={20} />
             </div>
-            <p className="mt-2 text-2xs font-bold leading-snug text-content-primary">
+            <p className="mt-2 text-2xs font-semibold leading-snug text-content-secondary">
               {user?.is_ambassador ? 'Painel do Embaixador' : 'Se torne embaixador'}
             </p>
           </button>
@@ -60,12 +61,12 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
           <button
             type="button"
             onClick={onInvite}
-            className="rounded-2xl border border-edge-subtle bg-surface-subtle px-2.5 py-3 text-center hover:bg-surface-subtleHover transition-colors"
+            className="rounded-xl px-2 py-2.5 text-center hover:bg-surface-subtle transition-colors"
           >
-            <div className="mx-auto w-9 h-9 rounded-2xl bg-brand/10 text-brand flex items-center justify-center">
+            <div className="mx-auto w-10 h-10 rounded-full bg-surface-subtle text-brand flex items-center justify-center">
               <Icon name="profile" size={20} />
             </div>
-            <p className="mt-2 text-2xs font-bold leading-snug text-content-primary">
+            <p className="mt-2 text-2xs font-semibold leading-snug text-content-secondary">
               Convide alguém
             </p>
           </button>

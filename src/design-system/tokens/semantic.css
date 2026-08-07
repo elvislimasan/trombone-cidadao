@@ -78,9 +78,9 @@
   --skeleton-sheen: var(--tc-neutral-100);
 
   /* --- Elevacao --- */
-  --elevation-1: 0 1px 2px rgb(var(--tc-neutral-950) / 0.06);
-  --elevation-2: 0 2px 8px rgb(var(--tc-neutral-950) / 0.08);
-  --elevation-3: 0 8px 24px rgb(var(--tc-neutral-950) / 0.12);
+  --elevation-1: 0 1px 3px rgb(var(--tc-neutral-950) / 0.05);
+  --elevation-2: 0 4px 14px rgb(var(--tc-neutral-950) / 0.06);
+  --elevation-3: 0 8px 24px rgb(var(--tc-neutral-950) / 0.06);
 }
 
 .dark {
@@ -152,9 +152,12 @@
   --skeleton-base:  var(--tc-neutral-800);
   --skeleton-sheen: var(--tc-neutral-700);
 
-  --elevation-1: 0 1px 2px rgb(0 0 0 / 0.4);
-  --elevation-2: 0 2px 8px rgb(0 0 0 / 0.5);
-  --elevation-3: 0 8px 24px rgb(0 0 0 / 0.6);
+  /* No escuro a profundidade vem da BORDA CLARA + sombra difusa, nao do
+     contraste de fundo (card vs fundo rende so ~1.1 de razao). E o que
+     separa o card do fundo em apps como o Linear. */
+  --elevation-1: 0 1px 2px rgb(0 0 0 / 0.3), inset 0 0 0 1px rgb(255 255 255 / 0.04);
+  --elevation-2: 0 4px 12px rgb(0 0 0 / 0.35), inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  --elevation-3: 0 12px 30px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.06);
 }
 
 /* ============================================================
@@ -165,19 +168,19 @@
    ============================================================ */
 :root {
   --background: 220 20% 97.1%;    /* = --surface-base (neutral-100) */
-  --foreground: 223.6 19.3% 11.2%; /* = --text-primary (neutral-900) */
+  --foreground: 218.2 18% 12%; /* = --text-primary (neutral-900) */
   --card: 0 0% 100%;              /* = --surface-raised */
-  --card-foreground: 223.6 19.3% 11.2%;
+  --card-foreground: 218.2 18% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 223.6 19.3% 11.2%;
+  --popover-foreground: 218.2 18% 12%;
   --primary: 4.2 74.3% 48.8%;     /* = --brand (red-600) */
   --primary-foreground: 0 0% 100%;
   --secondary: 45.4 93.4% 47.5%;  /* = amarelo da marca */
-  --secondary-foreground: 223.6 19.3% 11.2%;
+  --secondary-foreground: 218.2 18% 12%;
   --muted: 220 20% 97.1%;
   --muted-foreground: 215 13.8% 34.1%;  /* = --text-secondary (neutral-600) */
   --accent: 220 20% 97.1%;
-  --accent-foreground: 223.6 19.3% 11.2%;
+  --accent-foreground: 218.2 18% 12%;
   --destructive: 4 71.6% 33.1%;   /* = --danger (red-800) - distinto de primary */
   --destructive-foreground: 0 0% 100%;
   --border: 220 13% 91%;          /* = --border-subtle */
@@ -187,23 +190,23 @@
 }
 
 .dark {
-  --background: 225 20% 7.8%;     /* = --surface-base (neutral-950) */
+  --background: 216 13.5% 7.3%;     /* = --surface-base (neutral-950) */
   --foreground: 210 25% 98.4%;
-  --card: 223.6 19.3% 11.2%;      /* = --surface-raised (neutral-900) */
+  --card: 218.2 18% 12%;      /* = --surface-raised (neutral-900) */
   --card-foreground: 210 25% 98.4%;
-  --popover: 222.9 21.2% 12.9%;   /* = --surface-overlay dark (neutral-850) */
+  --popover: 216.9 17.3% 14.7%;   /* = --surface-overlay dark (neutral-850) */
   --popover-foreground: 210 25% 98.4%;
   --primary: 356.3 90.7% 58%;     /* = --brand dark (red-450) */
-  --primary-foreground: 225 20% 7.8%;  /* = --text-on-brand dark (neutral-950) */
+  --primary-foreground: 216 13.5% 7.3%;  /* = --text-on-brand dark */
   --secondary: 47.9 95.8% 53.1%;
-  --secondary-foreground: 223.6 19.3% 11.2%;
-  --muted: 221.3 19.5% 16.1%;
+  --secondary-foreground: 218.2 18% 12%;
+  --muted: 220 17.2% 17.1%;
   --muted-foreground: 217.9 10.6% 64.9%;
-  --accent: 221.3 19.5% 16.1%;
+  --accent: 220 17.2% 17.1%;
   --accent-foreground: 210 25% 98.4%;
   --destructive: 4.3 96.1% 80%;   /* = --danger dark (red-300) */
-  --destructive-foreground: 223.6 19.3% 11.2%;
-  --border: 221.3 19.5% 16.1%;
-  --input: 221.3 19.5% 16.1%;
+  --destructive-foreground: 218.2 18% 12%;
+  --border: 220 17.2% 17.1%;
+  --input: 220 17.2% 17.1%;
   --ring: 356.3 90.7% 58%;        /* = --brand dark (red-450) */
 }
