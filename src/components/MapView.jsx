@@ -12,6 +12,7 @@ import {
   Calendar,
   LocateFixed,
   Megaphone,
+  CheckCircle2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -400,7 +401,7 @@ const MapView = ({
                         <Calendar className="w-3 h-3 mr-1" />
                         {formatDate(report.created_at)}
                       </div>
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <Button
                           variant="outline"
                           size="sm"
@@ -430,6 +431,22 @@ const MapView = ({
                           >
                             <Megaphone className="w-3 h-3" />
                             Atualizar
+                          </Button>
+                        )}
+                        {report.status !== "resolved" && report.status !== "duplicate" &&
+                          (user?.is_admin || user?.user_type === "public_official") && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/bronca/${report.id}`, { state: { openMarkResolvedModal: true } });
+                            }}
+                            className="flex items-center gap-1 border-green-600/30 text-green-700 hover:bg-green-50 text-xs"
+                            style={{ pointerEvents: "auto", touchAction: "auto" }}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Resolvida
                           </Button>
                         )}
                         <Button

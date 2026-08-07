@@ -1346,6 +1346,23 @@ const ReportPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.openUpdateModal, user, loading]);
 
+  // Auto-open mark-resolved modal quando navegado direto do popup do mapa
+  // (botão "Marcar resolvida" para admin/embaixador) — mesmo padrão do
+  // openUpdateModal acima, respeitando o mesmo gate de permissão.
+  useEffect(() => {
+    if (
+      location.state?.openMarkResolvedModal &&
+      user &&
+      !loading &&
+      report &&
+      (user.is_admin || user.user_type === "public_official")
+    ) {
+      setShowMarkResolvedModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.openMarkResolvedModal, user, loading, report]);
+
   useEffect(() => {
     if (Capacitor.isNativePlatform() || !reportId) return;
     const ua = navigator.userAgent || navigator.vendor || window.opera;
