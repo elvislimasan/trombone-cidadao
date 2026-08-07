@@ -1,0 +1,174 @@
+/* Papeis semanticos. Componentes consomem SOMENTE esta camada.
+   Bloco 1: tokens novos (RGB).
+   Bloco 2: ponte para os tokens shadcn legados (HSL) - mantem telas nao
+   migradas funcionando sem alteracao. */
+
+:root {
+  /* --- Superficies --- */
+  --surface-base:     var(--tc-neutral-100);
+  --surface-raised:   var(--tc-neutral-0);
+  --surface-sunken:   var(--tc-neutral-200);
+  --surface-overlay:  var(--tc-neutral-0);
+
+  /* --- Texto --- */
+  --text-primary:     var(--tc-neutral-900);
+  --text-secondary:   var(--tc-neutral-600);
+  --text-tertiary:    var(--tc-neutral-500);
+  --text-on-brand:    var(--tc-neutral-0);
+
+  /* --- Bordas --- */
+  --border-subtle:    var(--tc-neutral-200);
+  --border-default:   var(--tc-neutral-300);
+  --border-strong:    var(--tc-neutral-400);
+
+  /* --- Marca (CTA, tab ativa, links) --- */
+  --brand:            var(--tc-red-600);
+  --brand-hover:      var(--tc-red-700);
+  --brand-subtle-bg:  var(--tc-red-50);
+  --brand-subtle-fg:  var(--tc-red-700);
+
+  /* --- Perigo (destrutivo/erro) - distinto de brand --- */
+  --danger:           var(--tc-red-800);
+  --danger-subtle-bg: var(--tc-red-50);
+  --danger-subtle-fg: var(--tc-red-800);
+
+  /* --- Status de bronca --- */
+  --status-pending-bg:     var(--tc-amber-100);
+  --status-pending-fg:     var(--tc-amber-700);
+  --status-pending-border: var(--tc-amber-200);
+
+  --status-progress-bg:     var(--tc-blue-100);
+  --status-progress-fg:     var(--tc-blue-700);
+  --status-progress-border: var(--tc-blue-200);
+
+  --status-resolved-bg:     var(--tc-green-100);
+  --status-resolved-fg:     var(--tc-green-700);
+  --status-resolved-border: var(--tc-green-200);
+
+  --status-duplicate-bg:     var(--tc-neutral-100);
+  --status-duplicate-fg:     var(--tc-neutral-600);
+  --status-duplicate-border: var(--tc-neutral-200);
+
+  /* --- Sinais do feed --- */
+  --signal-hot-bg:     var(--tc-red-600);
+  --signal-hot-fg:     var(--tc-neutral-0);
+  --signal-rising-bg:  var(--tc-amber-600);
+  --signal-rising-fg:  var(--tc-neutral-0);
+  --signal-fresh-bg:   var(--tc-violet-600);
+  --signal-fresh-fg:   var(--tc-neutral-0);
+
+  /* --- Destaque secundario --- */
+  --accent-highlight: var(--tc-yellow-500);
+
+  /* --- Elevacao --- */
+  --elevation-1: 0 1px 2px rgb(var(--tc-neutral-950) / 0.06);
+  --elevation-2: 0 2px 8px rgb(var(--tc-neutral-950) / 0.08);
+  --elevation-3: 0 8px 24px rgb(var(--tc-neutral-950) / 0.12);
+}
+
+.dark {
+  --surface-base:     var(--tc-neutral-950);
+  --surface-raised:   var(--tc-neutral-900);
+  --surface-sunken:   var(--tc-neutral-950);
+  --surface-overlay:  var(--tc-neutral-850);
+
+  --text-primary:     var(--tc-neutral-50);
+  --text-secondary:   var(--tc-neutral-400);
+  --text-tertiary:    var(--tc-neutral-500);
+  --text-on-brand:    var(--tc-neutral-0);
+
+  --border-subtle:    var(--tc-neutral-800);
+  --border-default:   var(--tc-neutral-700);
+  --border-strong:    var(--tc-neutral-600);
+
+  /* No dark o vermelho sobe em luminosidade e desce em saturacao:
+     vermelho saturado sobre preto puro vibra em OLED. */
+  --brand:            var(--tc-red-400);
+  --brand-hover:      var(--tc-red-300);
+  --brand-subtle-bg:  var(--tc-red-950);
+  --brand-subtle-fg:  var(--tc-red-300);
+
+  --danger:           var(--tc-red-300);
+  --danger-subtle-bg: var(--tc-red-950);
+  --danger-subtle-fg: var(--tc-red-300);
+
+  --status-pending-bg:     var(--tc-amber-950);
+  --status-pending-fg:     var(--tc-amber-300);
+  --status-pending-border: var(--tc-amber-900);
+
+  --status-progress-bg:     var(--tc-blue-950);
+  --status-progress-fg:     var(--tc-blue-300);
+  --status-progress-border: var(--tc-blue-900);
+
+  --status-resolved-bg:     var(--tc-green-950);
+  --status-resolved-fg:     var(--tc-green-300);
+  --status-resolved-border: var(--tc-green-900);
+
+  --status-duplicate-bg:     var(--tc-neutral-850);
+  --status-duplicate-fg:     var(--tc-neutral-400);
+  --status-duplicate-border: var(--tc-neutral-800);
+
+  --signal-hot-bg:     var(--tc-red-500);
+  --signal-hot-fg:     var(--tc-neutral-0);
+  --signal-rising-bg:  var(--tc-amber-600);
+  --signal-rising-fg:  var(--tc-neutral-0);
+  --signal-fresh-bg:   var(--tc-violet-600);
+  --signal-fresh-fg:   var(--tc-neutral-0);
+
+  --accent-highlight: var(--tc-yellow-400);
+
+  --elevation-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --elevation-2: 0 2px 8px rgb(0 0 0 / 0.5);
+  --elevation-3: 0 8px 24px rgb(0 0 0 / 0.6);
+}
+
+/* ============================================================
+   PONTE PARA OS TOKENS SHADCN LEGADOS (HSL)
+   Consumidos por hsl(var(--x)) no tailwind.config.js.
+   Equivalentes aos semanticos acima. Ao alterar um semantico,
+   atualizar o par correspondente aqui.
+   ============================================================ */
+:root {
+  --background: 60 9% 96%;        /* = --surface-base  (neutral-100) */
+  --foreground: 30 4% 10%;        /* = --text-primary  (neutral-900) */
+  --card: 0 0% 100%;              /* = --surface-raised */
+  --card-foreground: 30 4% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 30 4% 10%;
+  --primary: 4 74% 49%;           /* = --brand (red-600) */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45 93% 47%;        /* amarelo da marca */
+  --secondary-foreground: 30 4% 10%;
+  --muted: 60 9% 96%;
+  --muted-foreground: 30 3% 46%;  /* = --text-secondary */
+  --accent: 60 9% 96%;
+  --accent-foreground: 30 4% 10%;
+  --destructive: 4 64% 33%;       /* = --danger (red-800) - distinto de primary */
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 6% 90%;            /* = --border-subtle */
+  --input: 30 6% 90%;
+  --ring: 4 74% 49%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 240 6% 6%;        /* = --surface-base (neutral-950) */
+  --foreground: 60 9% 98%;
+  --card: 30 4% 10%;              /* = --surface-raised (neutral-900) */
+  --card-foreground: 60 9% 98%;
+  --popover: 30 3% 12%;
+  --popover-foreground: 60 9% 98%;
+  --primary: 4 91% 69%;           /* = --brand dark (red-400) */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45 93% 53%;
+  --secondary-foreground: 30 4% 10%;
+  --muted: 30 4% 16%;
+  --muted-foreground: 30 5% 64%;
+  --accent: 30 4% 16%;
+  --accent-foreground: 60 9% 98%;
+  --destructive: 3 96% 81%;       /* = --danger dark (red-300) */
+  --destructive-foreground: 30 4% 10%;
+  --border: 30 4% 16%;
+  --input: 30 4% 16%;
+  --ring: 4 91% 69%;
+}

@@ -1,0 +1,68 @@
+/* Paleta bruta do Trombone Cidadao.
+   Valores em canal RGB separado por espaco, para permitir rgb(var(--x) / alpha).
+   Esta camada NAO muda entre temas. */
+:root {
+  /* Vermelho da marca */
+  --tc-red-50:  254 243 242;
+  --tc-red-100: 254 228 226;
+  --tc-red-200: 254 205 202;
+  --tc-red-300: 253 162 155;
+  --tc-red-400: 249 112 102;
+  --tc-red-500: 240 72 62;
+  --tc-red-600: 217 45 32;
+  --tc-red-700: 180 35 24;
+  --tc-red-800: 145 32 24;
+  --tc-red-900: 122 32 26;
+  --tc-red-950: 85 15 12;
+
+  /* Neutros com leve tom quente */
+  --tc-neutral-0:   255 255 255;
+  --tc-neutral-50:  250 250 249;
+  --tc-neutral-100: 245 245 244;
+  --tc-neutral-200: 231 230 228;
+  --tc-neutral-300: 214 212 209;
+  --tc-neutral-400: 168 165 161;
+  --tc-neutral-500: 120 117 113;
+  --tc-neutral-600: 87 84 81;
+  --tc-neutral-700: 68 65 63;
+  --tc-neutral-800: 41 39 38;
+  --tc-neutral-850: 32 31 30;
+  --tc-neutral-900: 26 25 24;
+  --tc-neutral-950: 15 15 17;
+
+  /* Ambar - status pendente */
+  --tc-amber-100: 254 243 199;
+  --tc-amber-200: 253 230 138;
+  --tc-amber-300: 252 211 77;
+  --tc-amber-600: 217 119 6;
+  --tc-amber-700: 180 83 9;
+  --tc-amber-900: 120 53 15;
+  --tc-amber-950: 69 26 3;
+
+  /* Azul - status em andamento */
+  --tc-blue-100: 219 234 254;
+  --tc-blue-200: 191 219 254;
+  --tc-blue-300: 147 197 253;
+  --tc-blue-600: 37 99 235;
+  --tc-blue-700: 29 78 216;
+  --tc-blue-900: 30 58 138;
+  --tc-blue-950: 23 37 84;
+
+  /* Verde - status resolvido */
+  --tc-green-100: 220 252 231;
+  --tc-green-200: 187 247 208;
+  --tc-green-300: 134 239 172;
+  --tc-green-600: 22 163 74;
+  --tc-green-700: 21 128 61;
+  --tc-green-900: 20 83 45;
+  --tc-green-950: 5 46 22;
+
+  /* Violeta - sinal "agora" */
+  --tc-violet-300: 196 181 253;
+  --tc-violet-600: 124 58 237;
+  --tc-violet-950: 46 16 101;
+
+  /* Amarelo da marca - destaque secundario */
+  --tc-yellow-400: 250 204 21;
+  --tc-yellow-500: 234 179 8;
+}
