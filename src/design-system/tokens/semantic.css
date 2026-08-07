@@ -170,7 +170,7 @@
   --foreground: 60 9.1% 97.8%;
   --card: 30 4% 9.8%;             /* = --surface-raised (neutral-900) */
   --card-foreground: 60 9.1% 97.8%;
-  --popover: 20 3.8% 15.5%;
+  --popover: 30 3.2% 12.2%;       /* = --surface-overlay dark (neutral-850) */
   --popover-foreground: 60 9.1% 97.8%;
   --primary: 4.1 92.5% 68.8%;     /* = --brand dark (red-400) */
   --primary-foreground: 240 6.3% 6.3%;  /* = --text-on-brand dark (neutral-950) */
@@ -184,5 +184,5 @@
   --destructive-foreground: 30 4% 9.8%;
   --border: 20 3.8% 15.5%;
   --input: 20 3.8% 15.5%;
-  --ring: 4.2 74.3% 48.8%;
+  --ring: 4.1 92.5% 68.8%;        /* = --brand dark (red-400) */
 }

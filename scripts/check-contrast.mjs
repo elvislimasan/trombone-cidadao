@@ -110,5 +110,87 @@ for (const [themeName, scope] of [['claro', semanticLight], ['escuro', semanticD
   }
 }
 
-console.log(`\n${checked} pares verificados, ${failures} reprovados.`);
+// ============================================================
+// Sincronia da ponte HSL x tokens semanticos RGB.
+// Os tokens shadcn legados sao consumidos por hsl(var(--x)) e por isso
+// duplicam, em HSL, valores que os semanticos definem em RGB. Essa
+// duplicacao ja dessincronizou duas vezes neste projeto (--muted-foreground
+// e --ring), com efeito visivel e sem erro de build. Aqui isso e verificado.
+// ============================================================
+
+function rgbToHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b);
+  const mn = Math.min(r, g, b);
+  const l = (mx + mn) / 2;
+  let h = 0;
+  let s = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+  }
+  return [h, s * 100, l * 100];
+}
+
+function parseHsl(value) {
+  if (!value) return null;
+  const nums = value.trim().replace(/%/g, '').split(/\s+/).map(Number);
+  if (nums.length === 3 && nums.every((n) => Number.isFinite(n))) return nums;
+  return null;
+}
+
+// [tokenLegadoHSL, tokenSemanticoRGB]
+const BRIDGE = [
+  ['--background', '--surface-base'],
+  ['--foreground', '--text-primary'],
+  ['--card', '--surface-raised'],
+  ['--card-foreground', '--text-primary'],
+  ['--popover', '--surface-overlay'],
+  ['--popover-foreground', '--text-primary'],
+  ['--primary', '--brand'],
+  ['--primary-foreground', '--text-on-brand'],
+  ['--muted-foreground', '--text-secondary'],
+  ['--destructive', '--danger'],
+  ['--border', '--border-subtle'],
+  ['--input', '--border-subtle'],
+  ['--ring', '--brand'],
+];
+
+// Tolerancia por canal: hue 1.5 grau, saturacao e lightness 1.5 ponto.
+const TOL = [1.5, 1.5, 1.5];
+
+console.log('\nSincronia da ponte HSL');
+let bridgeChecked = 0;
+
+for (const [themeName, scope] of [['claro', semanticLight], ['escuro', semanticDark]]) {
+  for (const [legacyToken, semanticToken] of BRIDGE) {
+    const declared = parseHsl(scope[legacyToken]);
+    const rgb = resolveRgb(scope[semanticToken] ?? semanticLight[semanticToken], scope);
+    if (!declared || !rgb) {
+      console.log(`  ?  [${themeName}] ${legacyToken}: nao foi possivel comparar com ${semanticToken}`);
+      failures += 1;
+      continue;
+    }
+    bridgeChecked += 1;
+    const expected = rgbToHsl(rgb);
+    // Hue e circular e irrelevante quando a cor e quase acromatica.
+    const isAchromatic = expected[1] < 5 && declared[1] < 5;
+    const delta = expected.map((v, i) => Math.abs(v - declared[i]));
+    if (isAchromatic) delta[0] = 0;
+    const ok = delta.every((d, i) => d <= TOL[i]);
+    if (!ok) failures += 1;
+    if (!ok) {
+      console.log(
+        `  FAIL [${themeName}] ${legacyToken} nao espelha ${semanticToken}: ` +
+        `declarado ${declared.map((n) => +n.toFixed(1)).join(' ')} vs esperado ${expected.map((n) => +n.toFixed(1)).join(' ')}`
+      );
+    }
+  }
+}
+
+console.log(`  ${bridgeChecked} pares de ponte verificados.`);
+
+console.log(`\n${checked} pares de contraste verificados, ${failures} reprovados.`);
 process.exit(failures > 0 ? 1 : 0);

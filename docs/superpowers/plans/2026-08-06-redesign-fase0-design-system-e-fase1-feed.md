@@ -340,7 +340,7 @@ Ponto crítico: os tokens shadcn legados são consumidos por `hsl(var(--x))` no 
   --foreground: 60 9.1% 97.8%;
   --card: 30 4% 9.8%;             /* = --surface-raised (neutral-900) */
   --card-foreground: 60 9.1% 97.8%;
-  --popover: 20 3.8% 15.5%;
+  --popover: 30 3.2% 12.2%;       /* = --surface-overlay dark (neutral-850) */
   --popover-foreground: 60 9.1% 97.8%;
   --primary: 4.1 92.5% 68.8%;     /* = --brand dark (red-400) */
   --primary-foreground: 240 6.3% 6.3%;  /* = --text-on-brand dark (neutral-950) */
@@ -354,11 +354,13 @@ Ponto crítico: os tokens shadcn legados são consumidos por `hsl(var(--x))` no 
   --destructive-foreground: 30 4% 9.8%;
   --border: 20 3.8% 15.5%;
   --input: 20 3.8% 15.5%;
-  --ring: 4.1 92.5% 68.8%;
+  --ring: 4.1 92.5% 68.8%;        /* = --brand dark (red-400) */
 }
 ```
 
 Estes valores HSL foram derivados programaticamente dos primitivos RGB. **Nunca calcule um valor da ponte à mão** — uma divergência silenciosa faz telas migradas e não migradas exibirem cores diferentes lado a lado. Para recalcular após alterar um primitivo, converta o triplete RGB para HSL por script.
+
+O `scripts/check-contrast.mjs` (Task 7) verifica essa sincronia automaticamente: ele converte cada token semântico RGB para HSL e compara com o valor declarado na ponte, falhando se divergirem. Essa duplicação já dessincronizou três vezes durante a implementação (`--muted-foreground`, `--ring`, `--popover`), sempre sem erro de build — por isso a verificação é automatizada e não confiada à memória.
 
 - [ ] **Step 3: Importar os tokens e remover os blocos antigos do index.css**
 
