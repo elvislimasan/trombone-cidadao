@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Play, Repeat, Megaphone } from 'lucide-react';
+import { MapPin, Play, Repeat, Megaphone, Volume2, VolumeX } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -190,6 +190,32 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   const [useVideoCover, setUseVideoCover] = useState(false);
   const imgRetryRef = useRef(0);
   const imgRetryTimerRef = useRef(null);
+
+  // ── Autoplay do vídeo no feed (estilo Instagram) ──
+  // Toca sem som quando o card está visível, pausa ao sair. O som é opt-in
+  // pelo botão no canto (autoplay com áudio é bloqueado pelos navegadores).
+  const videoRef = useRef(null);
+  const [videoMuted, setVideoMuted] = useState(true);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          el.play?.().catch(() => {});
+        } else {
+          el.pause?.();
+          // Volta a ficar mudo ao sair da tela: evita dois cards com áudio
+          // tocando juntos quando o usuário continua rolando o feed.
+          setVideoMuted(true);
+        }
+      },
+      { threshold: 0.6 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [useVideoCover, report.coverVideo]);
 
   useEffect(() => {
     setImgSrc(report.coverImage || null);
@@ -488,27 +514,32 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
         ) : useVideoCover && report.coverVideo ? (
           <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
             <video
+              ref={videoRef}
               src={report.coverVideo}
-              muted
+              muted={videoMuted}
+              loop
               playsInline
               preload="metadata"
               className="w-full h-full object-cover"
-              onLoadedMetadata={(e) => {
-                const v = e.currentTarget;
-                try {
-                  v.currentTime = 0.15;
-                } catch {}
-              }}
-              onCanPlay={(e) => {
-                const v = e.currentTarget;
-                try {
-                  v.pause();
-                } catch {}
-              }}
             />
-            <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center">
-              <Play className="w-4 h-4 text-white" />
-            </div>
+            <button
+              type="button"
+              aria-label={videoMuted ? 'Ativar som' : 'Desativar som'}
+              onClick={(e) => {
+                e.stopPropagation();
+                const v = videoRef.current;
+                const next = !videoMuted;
+                setVideoMuted(next);
+                // Ao ativar o som, garante que está tocando (o gesto do
+                // usuário libera o autoplay com áudio).
+                if (v && !next) v.play?.().catch(() => {});
+              }}
+              className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center hover:bg-black/60 transition-colors"
+            >
+              {videoMuted
+                ? <VolumeX className="w-4 h-4 text-white" />
+                : <Volume2 className="w-4 h-4 text-white" />}
+            </button>
             {signals.chips.length > 0 && (
               <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
                 {signals.chips.slice(0, 2).map((chip, idx) => (
