@@ -90,6 +90,15 @@ module.exports = {
           fg:     "rgb(var(--success-fg) / <alpha-value>)",
           border: "rgb(var(--success-border) / <alpha-value>)",
         },
+        cta: {
+          bg:     "rgb(var(--cta-bg) / <alpha-value>)",
+          fg:     "rgb(var(--cta-fg) / <alpha-value>)",
+          border: "rgb(var(--cta-border) / <alpha-value>)",
+        },
+        header: {
+          bg: "rgb(var(--header-bg) / <alpha-value>)",
+          fg: "rgb(var(--header-fg) / <alpha-value>)",
+        },
         content: {
           primary:   "rgb(var(--text-primary) / <alpha-value>)",
           secondary: "rgb(var(--text-secondary) / <alpha-value>)",

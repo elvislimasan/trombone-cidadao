@@ -175,7 +175,7 @@ export default function FeedPage() {
           <button
             type="button"
             onClick={handleOpenCreate}
-            className="flex items-center gap-1.5 rounded-xl bg-brand h-12 px-4 text-sm font-semibold text-content-onBrand shadow-elevation-2 hover:bg-brand-hover transition-colors flex-shrink-0"
+            className="flex items-center gap-1.5 rounded-xl bg-cta-bg border border-cta-border h-12 px-4 text-sm font-semibold text-cta-fg shadow-elevation-1 hover:brightness-110 active:scale-95 transition-all flex-shrink-0"
           >
             <Icon name="newreport" size={16} />
             Nova denúncia

@@ -62,6 +62,14 @@
   --header-bg: var(--tc-neutral-0);
   --header-fg: var(--tc-neutral-900);
 
+  /* --- CTA principal ---
+     No claro e preenchido; no escuro vira contorno, porque um bloco vermelho
+     solido sobre fundo escuro domina a tela. O contraste do texto e o mesmo
+     (4.85:1) nos dois casos. */
+  --cta-bg: var(--tc-red-600);
+  --cta-fg: var(--tc-neutral-0);
+  --cta-border: var(--tc-red-600);
+
   /* --- Superficie sutil NEUTRA ---
      Fundo de faixas e rodapes dentro do card. Substitui os fundos rosados:
      o vermelho fica reservado para acao (botoes, links, estados ativos). */
@@ -136,15 +144,22 @@
   --status-duplicate-fg:     var(--tc-neutral-400);
   --status-duplicate-border: var(--tc-neutral-800);
 
-  --signal-hot-bg:     var(--tc-red-500);
-  --signal-hot-fg:     var(--tc-neutral-0);
-  --signal-rising-bg:  var(--tc-amber-600);
-  --signal-rising-fg:  var(--tc-neutral-0);
-  --signal-fresh-bg:   var(--tc-violet-600);
-  --signal-fresh-fg:   var(--tc-neutral-0);
+  /* Sobre foto, no escuro, chip solido saturado pesa. Fundo escuro com texto
+     colorido le igual e nao briga com a imagem. */
+  --signal-hot-bg:     var(--tc-neutral-950);
+  --signal-hot-fg:     var(--tc-red-300);
+  --signal-rising-bg:  var(--tc-neutral-950);
+  --signal-rising-fg:  var(--tc-amber-300);
+  --signal-fresh-bg:   var(--tc-neutral-950);
+  --signal-fresh-fg:   var(--tc-violet-300);
 
   --header-bg: var(--tc-neutral-950);
   --header-fg: var(--tc-neutral-50);
+
+  /* Contorno em vez de preenchido: o vermelho solido pesava demais. */
+  --cta-bg: var(--tc-neutral-950);
+  --cta-fg: var(--tc-red-450);
+  --cta-border: var(--tc-red-450);
 
   --surface-subtle: var(--tc-neutral-850);
   --surface-subtle-hover: var(--tc-neutral-800);

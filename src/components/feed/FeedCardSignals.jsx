@@ -6,7 +6,6 @@ export function computeSignals(report, { ageDays, ageHours }) {
   const support = Number(report.upvotes || 0);
   const comments = Number(report.comments_count || 0);
   const score = support * 2 + comments;
-  const isFresh = ageHours <= 6;
   const isLighting = report.category_id === 'iluminacao';
   const isOld = ageDays >= 7;
   const isVeryOld = ageDays >= 14;
@@ -17,9 +16,9 @@ export function computeSignals(report, { ageDays, ageHours }) {
     chips.push({ key: 'exploding', variant: 'hot', label: 'Explodindo agora' });
   } else if (!isResolved && (support >= 12 || score >= 28)) {
     chips.push({ key: 'rising', variant: 'rising', label: 'Subindo' });
-  } else if (!isResolved && isFresh) {
-    chips.push({ key: 'fresh', variant: 'fresh', label: 'Agora' });
   }
+  // Sem chip para bronca recente: o tempo ja aparece no cabecalho do card
+  // ("ha 3h"), entao o chip "Agora" era informacao repetida.
 
   if (!isResolved && (report.is_recurrent || isVeryOld || support >= 20)) {
     chips.push({ key: 'urgent', variant: 'urgent', label: 'Urgente' });

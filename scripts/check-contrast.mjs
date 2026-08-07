@@ -82,6 +82,7 @@ const PAIRS = [
   ['status em andamento',              '--status-progress-fg','--status-progress-bg',4.5],
   ['status resolvido',                 '--status-resolved-fg','--status-resolved-bg',4.5],
   ['status duplicado',                 '--status-duplicate-fg','--status-duplicate-bg',4.5],
+  ['cta principal',                    '--cta-fg',            '--cta-bg',            4.5],
   ['sinal quente',                     '--signal-hot-fg',     '--signal-hot-bg',     3.0],
   ['sinal subindo',                    '--signal-rising-fg',  '--signal-rising-bg',  3.0],
   ['sinal recente',                    '--signal-fresh-fg',   '--signal-fresh-bg',   3.0],
