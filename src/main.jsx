@@ -9,6 +9,7 @@ import { CityProvider } from '@/contexts/CityContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { MapModeProvider } from './contexts/MapModeContext';
 import { HelmetProvider } from 'react-helmet-async';
+import { ThemeProvider } from '@/design-system/theme/ThemeProvider';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
@@ -240,17 +241,19 @@ if ('serviceWorker' in navigator) {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <>
     <BrowserRouter>
-      <AuthProvider>
-        <CityProvider>
-          <NotificationProvider>
-            <MapModeProvider>
-            <HelmetProvider>
-              <App />
-            </HelmetProvider>
-            </MapModeProvider>
-          </NotificationProvider>
-        </CityProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <CityProvider>
+            <NotificationProvider>
+              <MapModeProvider>
+              <HelmetProvider>
+                <App />
+              </HelmetProvider>
+              </MapModeProvider>
+            </NotificationProvider>
+          </CityProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   </>
 );

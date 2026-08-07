@@ -2,7 +2,21 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  
+  <!-- Script anti-flash: aplica classe dark antes do primeiro paint, evitando flash de tema claro. -->
+  <script>
+    (function () {
+      try {
+        var p = localStorage.getItem('tc_theme_preference') || 'system';
+        var isDark =
+          p === 'dark' ||
+          (p === 'system' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+      } catch (e) {}
+    })();
+  </script>
+
   <!-- SEO Meta Tags com valores dinâmicos -->
   <title>Trombone Cidadão - Sua bronca tem voz!</title>
   <meta name="description" content="Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE." />
