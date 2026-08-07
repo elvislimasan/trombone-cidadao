@@ -7,7 +7,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { defaultMenuSettings } from '@/config/menuConfig';
-import { useTheme } from '@/design-system/theme/ThemeProvider';
 import Avatar from 'react-nice-avatar';
 import Notifications from '@/components/Notifications';
 import { Switch } from './ui/switch';
@@ -16,7 +15,6 @@ import { useNotifications } from '../contexts/NotificationContext';
 
 const Header = () => {
   const { user, signOut } = useAuth();
-  const { resolved: resolvedTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [siteName, setSiteName] = useState('Trombone Cidadão');
   const [logoUrl, setLogoUrl] = useState('/logo.png');
@@ -109,18 +107,12 @@ const Header = () => {
     `block py-3 text-2xl font-semibold transition-colors duration-300 ${isActive ? 'text-tc-red' : 'hover:text-tc-red'}`;
 
   const visibleMenuItems = menuSettings.items.filter(item => item.isVisible);
-  // No tema claro vale a cor configurada pelo admin (site_config.menu_settings).
-  // No escuro ela e clara demais, entao usa os tokens --header-* do design
-  // system, que ja acompanham o tema.
-  const headerStyle = resolvedTheme === 'dark'
-    ? {
-        backgroundColor: 'rgb(var(--header-bg))',
-        color: 'rgb(var(--header-fg))',
-      }
-    : {
-        backgroundColor: menuSettings.colors.background,
-        color: menuSettings.colors.text,
-      };
+  // Header neutro: branco no claro, preto no escuro. A cor da marca fica no
+  // logo e nos icones, nao no fundo. Os tokens --header-* ja acompanham o tema.
+  const headerStyle = {
+    backgroundColor: 'rgb(var(--header-bg))',
+    color: 'rgb(var(--header-fg))',
+  };
 
   const getAvatarComponent = (user) => {
     if (!user) return <Avatar className="w-full h-full" />;

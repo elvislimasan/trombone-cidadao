@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import Notifications from '@/components/Notifications';
 import { Capacitor } from '@capacitor/core';
-import { defaultMenuSettings } from '@/config/menuConfig';
-import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
@@ -15,11 +13,9 @@ const MobileHeader = () => {
   const location = useLocation();
   const { title: ctxTitle, actions: ctxActions, showBack: ctxShowBack, onBack: ctxOnBack } = useMobileHeader();
   const { isInteractive } = useNativeUIMode();
-  const { resolved: resolvedTheme } = useTheme();
   const [siteName, setSiteName] = useState('Trombone Cidadão');
   const [logoUrl, setLogoUrl] = useState('/logo.png');
   const [pageTitle, setPageTitle] = useState('');
-  const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
 
   // Rotas que são consideradas "raízes" (mostram logo em vez de botão voltar)
   const rootRoutes = ['/', '/estatisticas', '/favoritos', '/perfil', '/buscar'];
@@ -52,41 +48,23 @@ const MobileHeader = () => {
     return ctxTitle || pageTitle || siteName;
   })();
 
-  // No tema claro vale a cor configurada pelo admin (site_config.menu_settings).
-  // No escuro ela e clara demais, entao usa os tokens --header-* do design
-  // system, que ja acompanham o tema.
-  const headerStyle = resolvedTheme === 'dark'
-    ? {
-        backgroundColor: 'rgb(var(--header-bg))',
-        color: 'rgb(var(--header-fg))',
-      }
-    : {
-        backgroundColor: menuSettings?.colors?.background || defaultMenuSettings.colors.background,
-        color: menuSettings?.colors?.text || defaultMenuSettings.colors.text,
-      };
+  // Header neutro: branco no claro, preto no escuro. A cor da marca fica no
+  // logo e nos icones, nao no fundo. Os tokens --header-* ja acompanham o tema.
+  const headerStyle = {
+    backgroundColor: 'rgb(var(--header-bg))',
+    color: 'rgb(var(--header-fg))',
+  };
 
   const fetchSiteSettings = useCallback(async () => {
     const { data } = await supabase
       .from('site_config')
-      .select('site_name, logo_url, menu_settings')
+      .select('site_name, logo_url')
       .eq('id', 1)
       .single();
 
     if (data) {
       setSiteName(data.site_name || 'Trombone Cidadão');
       setLogoUrl(data.logo_url || '/logo.png');
-      if (data.menu_settings) {
-        setMenuSettings({
-          ...defaultMenuSettings,
-          ...data.menu_settings,
-          colors: {
-            ...defaultMenuSettings.colors,
-            ...(data.menu_settings.colors || {}),
-          },
-        });
-      } else {
-        setMenuSettings(defaultMenuSettings);
-      }
     }
   }, []);
 

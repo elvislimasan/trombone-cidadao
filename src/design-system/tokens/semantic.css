@@ -58,10 +58,9 @@
   --signal-fresh-fg:   var(--tc-neutral-0);
 
   /* --- Header ---
-     No tema claro o header usa a cor configurada pelo admin em
-     site_config.menu_settings; estes tokens sao o fallback e o valor do dark. */
-  --header-bg: 91 21 21;
-  --header-fg: 255 255 255;
+     Neutro nos dois temas: a cor fica no logo e nos icones, nao no fundo. */
+  --header-bg: var(--tc-neutral-0);
+  --header-fg: var(--tc-neutral-900);
 
   /* --- Superficie sutil NEUTRA ---
      Fundo de faixas e rodapes dentro do card. Substitui os fundos rosados:
@@ -144,8 +143,7 @@
   --signal-fresh-bg:   var(--tc-violet-600);
   --signal-fresh-fg:   var(--tc-neutral-0);
 
-  /* Vinho profundo: a cor do admin e clara demais para o tema escuro. */
-  --header-bg: 46 22 24;
+  --header-bg: var(--tc-neutral-950);
   --header-fg: var(--tc-neutral-50);
 
   --surface-subtle: var(--tc-neutral-850);
