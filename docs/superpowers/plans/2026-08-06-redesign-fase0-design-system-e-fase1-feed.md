@@ -300,50 +300,52 @@ Ponto crítico: os tokens shadcn legados são consumidos por `hsl(var(--x))` no 
    atualizar o par correspondente aqui.
    ============================================================ */
 :root {
-  --background: 60 9% 96%;        /* = --surface-base  (neutral-100) */
-  --foreground: 30 4% 10%;        /* = --text-primary  (neutral-900) */
+  --background: 60 4.8% 95.9%;    /* = --surface-base (neutral-100) */
+  --foreground: 30 4% 9.8%;       /* = --text-primary (neutral-900) */
   --card: 0 0% 100%;              /* = --surface-raised */
-  --card-foreground: 30 4% 10%;
+  --card-foreground: 30 4% 9.8%;
   --popover: 0 0% 100%;
-  --popover-foreground: 30 4% 10%;
-  --primary: 4 74% 49%;           /* = --brand (red-600) */
+  --popover-foreground: 30 4% 9.8%;
+  --primary: 4.2 74.3% 48.8%;     /* = --brand (red-600) */
   --primary-foreground: 0 0% 100%;
-  --secondary: 45 93% 47%;        /* amarelo da marca */
-  --secondary-foreground: 30 4% 10%;
-  --muted: 60 9% 96%;
-  --muted-foreground: 30 3% 46%;  /* = --text-secondary */
-  --accent: 60 9% 96%;
-  --accent-foreground: 30 4% 10%;
-  --destructive: 4 64% 33%;       /* = --danger (red-800) - distinto de primary */
+  --secondary: 45.4 93.4% 47.5%;  /* = amarelo da marca */
+  --secondary-foreground: 30 4% 9.8%;
+  --muted: 60 4.8% 95.9%;
+  --muted-foreground: 30 3.6% 32.9%;  /* = --text-secondary (neutral-600) */
+  --accent: 60 4.8% 95.9%;
+  --accent-foreground: 30 4% 9.8%;
+  --destructive: 4 71.6% 33.1%;   /* = --danger (red-800) - distinto de primary */
   --destructive-foreground: 0 0% 100%;
-  --border: 30 6% 90%;            /* = --border-subtle */
-  --input: 30 6% 90%;
-  --ring: 4 74% 49%;
+  --border: 40 5.9% 90%;          /* = --border-subtle */
+  --input: 40 5.9% 90%;
+  --ring: 4.2 74.3% 48.8%;
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: 240 6% 6%;        /* = --surface-base (neutral-950) */
-  --foreground: 60 9% 98%;
-  --card: 30 4% 10%;              /* = --surface-raised (neutral-900) */
-  --card-foreground: 60 9% 98%;
-  --popover: 30 3% 12%;
-  --popover-foreground: 60 9% 98%;
-  --primary: 4 91% 69%;           /* = --brand dark (red-400) */
+  --background: 240 6.3% 6.3%;    /* = --surface-base (neutral-950) */
+  --foreground: 60 9.1% 97.8%;
+  --card: 30 4% 9.8%;             /* = --surface-raised (neutral-900) */
+  --card-foreground: 60 9.1% 97.8%;
+  --popover: 20 3.8% 15.5%;
+  --popover-foreground: 60 9.1% 97.8%;
+  --primary: 4.1 92.5% 68.8%;     /* = --brand dark (red-400) */
   --primary-foreground: 0 0% 100%;
-  --secondary: 45 93% 53%;
-  --secondary-foreground: 30 4% 10%;
-  --muted: 30 4% 16%;
-  --muted-foreground: 30 5% 64%;
-  --accent: 30 4% 16%;
-  --accent-foreground: 60 9% 98%;
-  --destructive: 3 96% 81%;       /* = --danger dark (red-300) */
-  --destructive-foreground: 30 4% 10%;
-  --border: 30 4% 16%;
-  --input: 30 4% 16%;
-  --ring: 4 91% 69%;
+  --secondary: 47.9 95.8% 53.1%;
+  --secondary-foreground: 30 4% 9.8%;
+  --muted: 20 3.8% 15.5%;
+  --muted-foreground: 34.3 3.9% 64.5%;  /* = --text-secondary dark (neutral-400) */
+  --accent: 20 3.8% 15.5%;
+  --accent-foreground: 60 9.1% 97.8%;
+  --destructive: 4.3 96.1% 80%;   /* = --danger dark (red-300) */
+  --destructive-foreground: 30 4% 9.8%;
+  --border: 20 3.8% 15.5%;
+  --input: 20 3.8% 15.5%;
+  --ring: 4.1 92.5% 68.8%;
 }
 ```
+
+Estes valores HSL foram derivados programaticamente dos primitivos RGB. **Nunca calcule um valor da ponte à mão** — uma divergência silenciosa faz telas migradas e não migradas exibirem cores diferentes lado a lado. Para recalcular após alterar um primitivo, converta o triplete RGB para HSL por script.
 
 - [ ] **Step 3: Importar os tokens e remover os blocos antigos do index.css**
 
@@ -4291,6 +4293,6 @@ git commit -m "fix(feed): ajustes finais do redesign da fase 1"
 
 **Se as fontes não baixarem:** prosseguir sem `font-display`. O fallback `system-ui` mantém a UI legível, e a fonte pode ser adicionada depois sem retrabalho — só o arquivo em `public/fonts/` muda.
 
-**Se o contraste reprovar:** ajustar o token em `semantic.css` trocando o degrau da paleta (ex: `--tc-neutral-500` → `--tc-neutral-600`). Após qualquer ajuste, atualizar o par HSL correspondente no bloco de ponte shadcn, senão os dois sistemas divergem.
+**Se o contraste reprovar:** ajustar o token em `semantic.css` trocando o degrau da paleta (ex: `--tc-neutral-500` → `--tc-neutral-600`). Após qualquer ajuste, recalcular o par HSL correspondente no bloco de ponte shadcn **por script**, nunca à mão — converter o triplete RGB do primitivo para HSL e usar o resultado verbatim. Valores da ponte calculados à mão já produziram um erro de 13 pontos percentuais de lightness em `--muted-foreground`, que teria feito telas migradas e não migradas exibirem cinzas diferentes lado a lado.
 
 **Nunca reintroduzir `--primary` igual a `--destructive`.** Essa separação é a razão de o CTA e o botão destrutivo serem distinguíveis.
