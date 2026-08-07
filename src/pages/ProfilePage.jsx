@@ -12,10 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Avatar from 'react-nice-avatar';
 import { Capacitor } from '@capacitor/core';
+import { useTheme } from '@/design-system/theme/ThemeProvider';
 
 const ProfilePage = () => {
   const { toast } = useToast();
   const { user, signOut, refreshUserProfile } = useAuth();
+  const { preference, setPreference } = useTheme();
   const navigate = useNavigate();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [rankings, setRankings] = useState({ reports: [], upvotes: [], comments: [] });
@@ -238,6 +240,40 @@ const ProfilePage = () => {
                     </Button>
                   </Link>
                 )}
+              </div>
+
+              {/* Aparencia */}
+              <div className="bg-surface-raised border border-edge-subtle rounded-2xl p-4 w-full mt-6">
+                <h3 className="font-display font-bold text-base text-content-primary mb-1">
+                  Aparência
+                </h3>
+                <p className="text-xs text-content-secondary mb-3">
+                  Escolha como o app deve ser exibido.
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: 'light', label: 'Claro' },
+                    { key: 'dark', label: 'Escuro' },
+                    { key: 'system', label: 'Automático' },
+                  ].map((opt) => {
+                    const active = preference === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setPreference(opt.key)}
+                        aria-pressed={active}
+                        className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${
+                          active
+                            ? 'border-brand bg-brand-subtleBg text-brand-subtleFg'
+                            : 'border-edge-subtle bg-surface-base text-content-secondary hover:text-content-primary'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2 mt-8 w-full">
