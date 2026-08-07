@@ -11,6 +11,12 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { getReportShareUrl } from '@/lib/shareUtils';
 
+// O som é uma preferência do feed inteiro, não de cada card: ao ativar num
+// vídeo, os próximos já vêm com som; ao desativar, os próximos vêm mudos.
+// Guardado fora do React para valer também nos cards montados depois.
+const FEED_AUDIO_EVENT = 'feed-video-audio-pref';
+let feedAudioEnabled = false;
+
 const videoThumbCache = new Map();
 const videoThumbPending = new Map();
 
@@ -191,10 +197,13 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   const imgRetryTimerRef = useRef(null);
 
   // ── Autoplay do vídeo no feed (estilo Instagram) ──
-  // Toca sem som quando o card está visível, pausa ao sair. O som é opt-in
-  // pelo botão no canto (autoplay com áudio é bloqueado pelos navegadores).
+  // Toca quando o card fica visível e pausa ao sair. Começa mudo (autoplay com
+  // áudio é bloqueado pelos navegadores); o botão no canto liga o som e essa
+  // escolha passa a valer para os próximos vídeos do feed.
   const videoRef = useRef(null);
-  const [videoMuted, setVideoMuted] = useState(true);
+  // Inicia com a preferência atual do feed (e não sempre mudo), para um card
+  // que monta depois já entrar com som se o usuário já ativou antes.
+  const [videoMuted, setVideoMuted] = useState(!feedAudioEnabled);
   // Proporção do card de vídeo, no estilo do feed do Instagram: respeita a
   // proporção real do vídeo, mas limitada entre 4:5 (mais alto permitido, para
   // o card não virar uma tela cheia) e 1.91:1 (mais largo). Sem isso, vídeo
@@ -215,13 +224,18 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
     if (!el) return;
     const obs = new IntersectionObserver(
       ([entry]) => {
+        // O mudo NÃO é resetado aqui: o som é preferência do feed e segue
+        // valendo para os próximos vídeos.
         if (entry?.isIntersecting) {
+          // Pausa qualquer outro vídeo do feed antes de tocar este — em telas
+          // altas dois cards podem passar do threshold juntos e, com o som
+          // ligado, tocariam dois áudios ao mesmo tempo.
+          document.querySelectorAll('video[data-feed-video]').forEach((other) => {
+            if (other !== el) other.pause?.();
+          });
           el.play?.().catch(() => {});
         } else {
           el.pause?.();
-          // Volta a ficar mudo ao sair da tela: evita dois cards com áudio
-          // tocando juntos quando o usuário continua rolando o feed.
-          setVideoMuted(true);
         }
       },
       { threshold: 0.6 }
@@ -229,6 +243,13 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
     obs.observe(el);
     return () => obs.disconnect();
   }, [report.coverVideo]);
+
+  // A preferência de som mudou em algum card: todos acompanham.
+  useEffect(() => {
+    const onAudioPrefChange = (e) => setVideoMuted(!e.detail);
+    window.addEventListener(FEED_AUDIO_EVENT, onAudioPrefChange);
+    return () => window.removeEventListener(FEED_AUDIO_EVENT, onAudioPrefChange);
+  }, []);
 
   useEffect(() => {
     setImgSrc(report.coverImage || null);
@@ -496,6 +517,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
           >
             <video
               ref={videoRef}
+              data-feed-video=""
               src={report.coverVideo}
               // A thumbnail extraída do vídeo (ou a capa da bronca) vira poster:
               // evita o retângulo cinza enquanto o vídeo carrega.
@@ -513,11 +535,16 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
               onClick={(e) => {
                 e.stopPropagation();
                 const v = videoRef.current;
-                const next = !videoMuted;
-                setVideoMuted(next);
+                const audioOn = videoMuted; // vai ligar o som?
+                feedAudioEnabled = audioOn;
+                setVideoMuted(!audioOn);
+                // Propaga para os outros cards já montados.
+                window.dispatchEvent(
+                  new CustomEvent(FEED_AUDIO_EVENT, { detail: audioOn })
+                );
                 // Ao ativar o som, garante que está tocando (o gesto do
                 // usuário libera o autoplay com áudio).
-                if (v && !next) v.play?.().catch(() => {});
+                if (audioOn) v?.play?.().catch(() => {});
               }}
               className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center hover:bg-black/60 transition-colors"
             >
