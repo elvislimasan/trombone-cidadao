@@ -46,8 +46,11 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, chips = [], onClic
     if (thumbnailRetryTimerRef.current) clearTimeout(thumbnailRetryTimerRef.current);
   }, []);
 
+  // attempt reenfileira de fato o video a cada tentativa; sem isso o retry apenas
+  // atrasaria o fallback sem nunca tentar de novo.
   const { thumbnailUrl, failed } = useVideoThumbnail(report.coverVideo, {
     enabled: wantsThumbnail,
+    attempt: thumbnailRetry,
   });
 
   useEffect(() => {

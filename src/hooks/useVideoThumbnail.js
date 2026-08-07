@@ -118,7 +118,10 @@ function enqueue(url) {
   return p;
 }
 
-export function useVideoThumbnail(videoUrl, { enabled = true } = {}) {
+// attempt: incrementar este valor reenfileira o mesmo video. Sem ele o consumidor
+// consegue esperar entre tentativas, mas nunca dispara uma nova — o efeito abaixo
+// so reage a videoUrl/enabled.
+export function useVideoThumbnail(videoUrl, { enabled = true, attempt = 0 } = {}) {
   const [thumbnailUrl, setThumbnailUrl] = useState(() =>
     videoUrl && cache.has(videoUrl) ? cache.get(videoUrl) : null
   );
@@ -132,12 +135,13 @@ export function useVideoThumbnail(videoUrl, { enabled = true } = {}) {
     }
 
     let canceled = false;
+    setFailed(false);
     enqueue(videoUrl)
       .then((url) => { if (!canceled) setThumbnailUrl(url); })
       .catch(() => { if (!canceled) setFailed(true); });
 
     return () => { canceled = true; };
-  }, [videoUrl, enabled]);
+  }, [videoUrl, enabled, attempt]);
 
   return { thumbnailUrl, failed };
 }
