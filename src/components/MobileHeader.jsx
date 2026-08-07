@@ -6,6 +6,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import Notifications from '@/components/Notifications';
 import { Capacitor } from '@capacitor/core';
 import { defaultMenuSettings } from '@/config/menuConfig';
+import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
@@ -14,6 +15,7 @@ const MobileHeader = () => {
   const location = useLocation();
   const { title: ctxTitle, actions: ctxActions, showBack: ctxShowBack, onBack: ctxOnBack } = useMobileHeader();
   const { isInteractive } = useNativeUIMode();
+  const { resolved: resolvedTheme } = useTheme();
   const [siteName, setSiteName] = useState('Trombone Cidadão');
   const [logoUrl, setLogoUrl] = useState('/logo.png');
   const [pageTitle, setPageTitle] = useState('');
@@ -50,10 +52,18 @@ const MobileHeader = () => {
     return ctxTitle || pageTitle || siteName;
   })();
 
-  const headerStyle = {
-    backgroundColor: menuSettings?.colors?.background || defaultMenuSettings.colors.background,
-    color: menuSettings?.colors?.text || defaultMenuSettings.colors.text,
-  };
+  // No tema claro vale a cor configurada pelo admin (site_config.menu_settings).
+  // No escuro ela e clara demais, entao usa os tokens --header-* do design
+  // system, que ja acompanham o tema.
+  const headerStyle = resolvedTheme === 'dark'
+    ? {
+        backgroundColor: 'rgb(var(--header-bg))',
+        color: 'rgb(var(--header-fg))',
+      }
+    : {
+        backgroundColor: menuSettings?.colors?.background || defaultMenuSettings.colors.background,
+        color: menuSettings?.colors?.text || defaultMenuSettings.colors.text,
+      };
 
   const fetchSiteSettings = useCallback(async () => {
     const { data } = await supabase

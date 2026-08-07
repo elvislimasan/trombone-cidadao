@@ -151,8 +151,8 @@ const BottomNav = () => {
           : location.pathname.startsWith(path);
       return `flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
         isActive
-          ? 'text-primary scale-105 font-bold'
-          : 'text-muted-foreground hover:text-foreground'
+          ? 'text-brand scale-105 font-bold'
+          : 'text-content-tertiary hover:text-content-primary'
       }`;
     },
     [location.pathname]
@@ -161,7 +161,7 @@ const BottomNav = () => {
   return (
     <>
       <div
-        className="fixed left-0 right-0 bg-white border-t border-border z-[1000] lg:hidden"
+        className="fixed left-0 right-0 bg-surface-raised border-t border-edge-subtle z-[1000] lg:hidden"
         style={{
           bottom: 0,
           paddingBottom: 'max(env(safe-area-inset-bottom), 0px)',
@@ -181,7 +181,9 @@ const BottomNav = () => {
                     className="justify-self-center flex flex-col items-center justify-center gap-1 -mt-8"
                     aria-label="Reportar nova bronca"
                   >
-                    <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-xl ring-4 ring-background">
+                    {/* O anel usa a cor da propria barra para o FAB parecer
+                        recortado nela, e nao colado por cima. */}
+                    <div className="w-14 h-14 rounded-full bg-brand flex items-center justify-center text-content-onBrand shadow-elevation-3 ring-4 ring-surface-raised active:scale-95 transition-transform">
                       <PlusCircle size={32} />
                     </div>
                   </button>
