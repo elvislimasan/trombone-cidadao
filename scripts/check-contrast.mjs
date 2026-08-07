@@ -2,7 +2,7 @@
 // Valida os pares texto/fundo dos tokens semanticos contra WCAG AA,
 // nos temas claro e escuro. Sem dependencias externas.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -191,6 +191,45 @@ for (const [themeName, scope] of [['claro', semanticLight], ['escuro', semanticD
 }
 
 console.log(`  ${bridgeChecked} pares de ponte verificados.`);
+
+// ============================================================
+// Os tokens chegaram ao CSS compilado?
+// Se os @import de tokens ficarem depois das diretivas @tailwind em
+// src/index.css, o PostCSS os descarta EM SILENCIO — o build passa, as
+// classes existem, mas rgb(var(--token)) vira cor invalida e os elementos
+// ficam transparentes. Foi assim que o tema escuro deixou de funcionar uma vez.
+// ============================================================
+
+const distDir = resolve(__dirname, '../dist/assets');
+let bundle = null;
+try {
+  const files = readdirSync(distDir).filter((f) => f.endsWith('.css'));
+  if (files.length > 0) {
+    const newest = files
+      .map((f) => ({ f, t: statSync(resolve(distDir, f)).mtimeMs }))
+      .sort((a, b) => b.t - a.t)[0].f;
+    bundle = readFileSync(resolve(distDir, newest), 'utf8');
+  }
+} catch {}
+
+if (!bundle) {
+  console.log('\nBundle CSS ausente (rode npm run build para verificar a compilacao dos tokens).');
+} else {
+  console.log('\nTokens no CSS compilado');
+  const required = ['--tc-red-600', '--surface-base', '--brand', '--text-primary'];
+  const missing = required.filter((t) => !bundle.includes(`${t}:`));
+  const hasDark = /\.dark\s*\{/.test(bundle);
+  if (missing.length > 0) {
+    console.log(`  FAIL tokens ausentes no bundle: ${missing.join(', ')}`);
+    console.log('       Verifique se os @import de tokens estao ANTES das diretivas @tailwind em src/index.css.');
+    failures += missing.length;
+  } else if (!hasDark) {
+    console.log('  FAIL bundle sem regras .dark — o tema escuro nao vai funcionar.');
+    failures += 1;
+  } else {
+    console.log('  OK  tokens e bloco .dark presentes no bundle.');
+  }
+}
 
 console.log(`\n${checked} pares de contraste verificados, ${failures} reprovados.`);
 process.exit(failures > 0 ? 1 : 0);
