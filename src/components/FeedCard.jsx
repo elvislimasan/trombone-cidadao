@@ -134,7 +134,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
     >
       {/* Layout horizontal: miniatura quadrada a esquerda, conteudo a direita. */}
       <div className="flex gap-3 p-3">
-        <div className="w-28 sm:w-32 flex-shrink-0">
+        <div className="w-36 sm:w-44 flex-shrink-0">
           <FeedCardMedia
             report={report}
             index={index}
@@ -171,8 +171,10 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
               </div>
             )}
 
+            {/* Com a miniatura maior a coluna encurta; a descricao completa
+                fica na tela de detalhe. */}
             {report.description && (
-              <p className="text-2xs text-content-secondary line-clamp-2 mt-1.5">
+              <p className="text-2xs text-content-secondary line-clamp-1 mt-1.5">
                 {report.description}
               </p>
             )}
