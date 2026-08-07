@@ -127,6 +127,7 @@ module.exports = {
           freshBg:  "rgb(var(--signal-fresh-bg) / <alpha-value>)",
           freshFg:  "rgb(var(--signal-fresh-fg) / <alpha-value>)",
         },
+        accentHighlight: "rgb(var(--accent-highlight) / <alpha-value>)",
       },
       borderRadius: {
         lg: "var(--radius)",
