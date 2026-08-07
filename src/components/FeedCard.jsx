@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Play, Repeat, Megaphone, Volume2, VolumeX } from 'lucide-react';
+import { MapPin, Repeat, Megaphone, Volume2, VolumeX } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -187,7 +187,6 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   const [isInView, setIsInView] = useState(false);
 
   const [imgSrc, setImgSrc] = useState(report.coverImage || null);
-  const [useVideoCover, setUseVideoCover] = useState(false);
   const imgRetryRef = useRef(0);
   const imgRetryTimerRef = useRef(null);
 
@@ -196,6 +195,18 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   // pelo botão no canto (autoplay com áudio é bloqueado pelos navegadores).
   const videoRef = useRef(null);
   const [videoMuted, setVideoMuted] = useState(true);
+  // Proporção do card de vídeo, no estilo do feed do Instagram: respeita a
+  // proporção real do vídeo, mas limitada entre 4:5 (mais alto permitido, para
+  // o card não virar uma tela cheia) e 1.91:1 (mais largo). Sem isso, vídeo
+  // vertical 9:16 ficava muito cortado no 4:3 fixo.
+  const [videoAspect, setVideoAspect] = useState(4 / 3);
+
+  const handleVideoMetadata = (e) => {
+    const v = e.currentTarget;
+    if (!v?.videoWidth || !v?.videoHeight) return;
+    const raw = v.videoWidth / v.videoHeight;
+    setVideoAspect(Math.min(1.91, Math.max(0.8, raw)));
+  };
 
   useEffect(() => {
     const el = videoRef.current;
@@ -215,11 +226,10 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [useVideoCover, report.coverVideo]);
+  }, [report.coverVideo]);
 
   useEffect(() => {
     setImgSrc(report.coverImage || null);
-    setUseVideoCover(false);
     imgRetryRef.current = 0;
     if (imgRetryTimerRef.current) clearTimeout(imgRetryTimerRef.current);
   }, [report.coverImage]);
@@ -261,15 +271,13 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
       try {
         const thumb = await getVideoThumbnailUrl(report.coverVideo);
         if (canceled) return;
+        // Serve de poster do <video>; se falhar, o vídeo carrega sem poster.
         if (thumb) setImgSrc(thumb);
-        else setUseVideoCover(true);
       } catch {
         if (canceled) return;
         tries += 1;
         if (tries <= 3) {
           setTimeout(run, 900 * tries);
-        } else {
-          setUseVideoCover(true);
         }
       }
     };
@@ -464,12 +472,73 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
       </div>
 
       {/* ── Cover image / placeholder ── */}
-      <button
+      {/* div + role=button (nao <button>) porque o controle de som do video e
+          um <button> aninhado, o que e HTML invalido dentro de <button>. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={goToReport}
-        className="w-full block text-left focus:outline-none"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            goToReport();
+          }
+        }}
+        className="w-full block text-left focus:outline-none cursor-pointer"
         aria-label={`Ver detalhes: ${report.title}`}
       >
-        {imgSrc ? (
+        {report.coverVideo ? (
+          <div
+            className="relative w-full bg-black overflow-hidden"
+            style={{ aspectRatio: videoAspect }}
+          >
+            <video
+              ref={videoRef}
+              src={report.coverVideo}
+              // A thumbnail extraída do vídeo (ou a capa da bronca) vira poster:
+              // evita o retângulo cinza enquanto o vídeo carrega.
+              poster={imgSrc || undefined}
+              muted={videoMuted}
+              loop
+              playsInline
+              preload="metadata"
+              onLoadedMetadata={handleVideoMetadata}
+              className="w-full h-full object-cover"
+            />
+            <button
+              type="button"
+              aria-label={videoMuted ? 'Ativar som' : 'Desativar som'}
+              onClick={(e) => {
+                e.stopPropagation();
+                const v = videoRef.current;
+                const next = !videoMuted;
+                setVideoMuted(next);
+                // Ao ativar o som, garante que está tocando (o gesto do
+                // usuário libera o autoplay com áudio).
+                if (v && !next) v.play?.().catch(() => {});
+              }}
+              className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center hover:bg-black/60 transition-colors"
+            >
+              {videoMuted
+                ? <VolumeX className="w-4 h-4 text-white" />
+                : <Volume2 className="w-4 h-4 text-white" />}
+            </button>
+            {signals.chips.length > 0 && (
+              <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
+                {signals.chips.slice(0, 2).map((chip, idx) => (
+                  <span
+                    key={chip.key}
+                    className={`text-[10px] font-extrabold tracking-tight px-2 py-1 rounded-full border shadow-sm ${
+                      chip.className
+                    } ${idx === 0 ? '-rotate-2' : 'rotate-1'}`}
+                  >
+                    {chip.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : imgSrc ? (
           <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
             <img
               src={imgSrc}
@@ -491,55 +560,6 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
                 }, delay);
               }}
             />
-            {!report.coverImage && report.coverVideo && (
-              <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center">
-                <Play className="w-4 h-4 text-white" />
-              </div>
-            )}
-            {signals.chips.length > 0 && (
-              <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
-                {signals.chips.slice(0, 2).map((chip, idx) => (
-                  <span
-                    key={chip.key}
-                    className={`text-[10px] font-extrabold tracking-tight px-2 py-1 rounded-full border shadow-sm ${
-                      chip.className
-                    } ${idx === 0 ? '-rotate-2' : 'rotate-1'}`}
-                  >
-                    {chip.label}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : useVideoCover && report.coverVideo ? (
-          <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
-            <video
-              ref={videoRef}
-              src={report.coverVideo}
-              muted={videoMuted}
-              loop
-              playsInline
-              preload="metadata"
-              className="w-full h-full object-cover"
-            />
-            <button
-              type="button"
-              aria-label={videoMuted ? 'Ativar som' : 'Desativar som'}
-              onClick={(e) => {
-                e.stopPropagation();
-                const v = videoRef.current;
-                const next = !videoMuted;
-                setVideoMuted(next);
-                // Ao ativar o som, garante que está tocando (o gesto do
-                // usuário libera o autoplay com áudio).
-                if (v && !next) v.play?.().catch(() => {});
-              }}
-              className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center hover:bg-black/60 transition-colors"
-            >
-              {videoMuted
-                ? <VolumeX className="w-4 h-4 text-white" />
-                : <Volume2 className="w-4 h-4 text-white" />}
-            </button>
             {signals.chips.length > 0 && (
               <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
                 {signals.chips.slice(0, 2).map((chip, idx) => (
@@ -576,7 +596,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
             )}
           </div>
         )}
-      </button>
+      </div>
 
       {/* ── Engagement bar ── */}
       <EngagementBar

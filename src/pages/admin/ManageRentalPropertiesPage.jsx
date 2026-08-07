@@ -204,7 +204,7 @@ const RentalContractsManager = ({ propertyId }) => {
               </form>
             ) : (
               <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg text-sm gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-medium truncate">{c.owner_name} {c.is_current && <span className="text-xs text-green-600">(atual)</span>}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(c.start_date)} — {c.end_date ? formatDate(c.end_date) : 'em vigor'}</p>
                   {c.expected_end_date && (
