@@ -8,6 +8,7 @@
     "build": "node tools/generate-llms.js 2>nul || echo. & npx vite build",
     "build:clean": "npm run clean:dist && npm run build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "check:contrast": "node scripts/check-contrast.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 3002",
     "clean": "npm run clean:dist && npm run clean:android && npm run clean:cache",
     "clean:dist": "rm -rf dist || rmdir /s /q dist 2>nul || echo.",
