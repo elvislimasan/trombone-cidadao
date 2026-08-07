@@ -954,9 +954,10 @@ const Icon = ({ name, size = 24, className = '', title, strokeWidth = 1.75, ...r
       className={className}
       role={title ? 'img' : undefined}
       aria-hidden={title ? undefined : true}
-      aria-label={title || undefined}
       {...rest}
     >
+      {/* Sem title o icone e decorativo (aria-hidden). Com title, o <title>
+          nomeia o svg — sem aria-label junto, que duplicaria o texto acessivel. */}
       {title ? <title>{title}</title> : null}
       <Component />
     </svg>
