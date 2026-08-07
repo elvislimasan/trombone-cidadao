@@ -150,6 +150,10 @@ const MapView = ({
   interactive = true,
   onBoundsChange,
   onRecenter,
+  // Quando fornecido, "Atualizar" abre o modal no proprio container (sem sair
+  // do mapa). Sem essa prop, mantem o comportamento antigo de navegar para a
+  // pagina da bronca com o modal aberto.
+  onUpdateClick,
 }) => {
   const { mode } = useMapModeToggle();
   const navigate = useNavigate();
@@ -420,10 +424,14 @@ const MapView = ({
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!user) {
-                              navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
-                              return;
-                            }
-                            navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
+                                navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
+                                return;
+                              }
+                              if (onUpdateClick) {
+                                onUpdateClick(report);
+                                return;
+                              }
+                              navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
                             }}
                             className="flex items-center gap-1 border-[#b61722]/30 text-[#b61722] hover:bg-[#fff7f7] text-xs"
                             style={{ pointerEvents: "auto", touchAction: "auto" }}
