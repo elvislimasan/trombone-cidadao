@@ -47,3 +47,68 @@
     transform: none !important;
   }
 }
+
+/* TromboneSpinner - cascata de arcos concentricos */
+@keyframes tc-arc-pulse {
+  0%, 100% { opacity: 0.15; }
+  40%      { opacity: 1; }
+}
+
+.tc-spin-arc,
+.tc-spin-dot {
+  animation: tc-arc-pulse 1.1s var(--ease-in-out) infinite;
+  transform-origin: 7px 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-spin-arc,
+  .tc-spin-dot {
+    animation: none !important;
+    opacity: 0.6 !important;
+  }
+}
+
+/* TromboneSplash - desenho do trombone + ondas de propagacao */
+.tc-splash-draw {
+  stroke-dasharray: var(--tc-draw-length, 70);
+  stroke-dashoffset: var(--tc-draw-length, 70);
+  animation: tc-draw 900ms var(--ease-out) forwards;
+}
+
+.tc-splash-wave {
+  transform-origin: 14px 12px;
+  animation: tc-wave 1.6s var(--ease-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-splash-draw {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+  .tc-splash-wave {
+    animation: none !important;
+    opacity: 0.6 !important;
+  }
+}
+
+/* Skeleton shimmer - superficie de carregamento */
+.tc-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    rgb(var(--surface-sunken)) 0%,
+    rgb(var(--surface-sunken)) 40%,
+    rgb(var(--border-subtle)) 50%,
+    rgb(var(--surface-sunken)) 60%,
+    rgb(var(--surface-sunken)) 100%
+  );
+  background-size: 200% 100%;
+  animation: tc-shimmer 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-shimmer {
+    animation: none !important;
+    background-image: none;
+    background-color: rgb(var(--surface-sunken));
+  }
+}
