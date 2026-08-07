@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Save, X, Upload, Instagram, Clock, MapPin, Info, Building, ShoppingCart, Check, Hourglass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -219,6 +219,7 @@ const ManageServicesPage = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
   const [activeTab, setActiveTab] = useState('moderation');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     if (!isScopedAmbassador || !user?.id) {
@@ -288,6 +289,32 @@ const ManageServicesPage = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Abre a edição automaticamente quando chega via ?edit=ID&type=transport
+  // (botão "Editar" nas páginas de detalhes de serviço). Limpa os params
+  // depois para não reabrir o modal ao atualizar a página.
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    const editType = searchParams.get('type');
+    if (!editId || !editType) return;
+
+    const source = editType === 'transport' ? transport
+      : editType === 'tourist_spots' ? touristSpots
+      : null;
+    if (!source || source.length === 0) return;
+
+    const target = source.find((i) => String(i.id) === String(editId));
+    if (target) {
+      setActiveTab(editType);
+      setEditingItem({ item: target, type: editType });
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('edit');
+        next.delete('type');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, transport, touristSpots, setSearchParams]);
 
   const handleSave = async (itemToSave, type) => {
     const { image_file, ...dbData } = itemToSave;
@@ -434,7 +461,7 @@ const ManageServicesPage = () => {
           )}
         </motion.div>
 
-        <Tabs defaultValue="moderation" className="w-full" onValueChange={setActiveTab}>
+        <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-muted/50 rounded-lg h-auto">
             <TabsTrigger value="moderation" className="gap-2 py-2"><Hourglass className="w-4 h-4" /> Moderação ({pendingEntries.length})</TabsTrigger>
             <TabsTrigger value="transport" className="gap-2 py-2"><Bus className="w-4 h-4" /> Transportes</TabsTrigger>

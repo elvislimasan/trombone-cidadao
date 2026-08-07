@@ -121,6 +121,8 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   }, [user, report, navigate, toast]);
 
   const chip = signals.chips[0];
+  // Bronca com video (e sem foto de capa) toca em largura cheia.
+  const hasVideo = !!report.coverVideo && !report.coverImage;
 
   const isActive = report.status !== 'resolved' && report.status !== 'duplicate';
 
@@ -132,22 +134,38 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
       }`}
       style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
     >
-      {/* Layout horizontal: miniatura quadrada a esquerda, conteudo a direita. */}
+      {/* Bronca com video usa a midia em largura cheia, para o video tocar na
+          proporcao real (miniatura seria pequena demais). Com foto, o layout
+          horizontal: miniatura a esquerda, conteudo a direita. */}
+      {hasVideo && (
+        <FeedCardMedia
+          report={report}
+          index={index}
+          isInView={isInView}
+          status={report.status}
+          chips={signals.chips}
+          onClick={goToReport}
+        />
+      )}
+
       {/* items-stretch: a foto acompanha a altura da coluna de texto. */}
-      <div className="flex items-stretch gap-3 p-3">
-        <div className="w-32 sm:w-40 flex-shrink-0">
-          <FeedCardMedia
-            report={report}
-            index={index}
-            isInView={isInView}
-            square
-            onClick={goToReport}
-          />
-        </div>
+      <div className={`flex items-stretch gap-3 p-3 ${hasVideo ? 'pt-3' : ''}`}>
+        {!hasVideo && (
+          <div className="w-32 sm:w-40 flex-shrink-0">
+            <FeedCardMedia
+              report={report}
+              index={index}
+              isInView={isInView}
+              square
+              onClick={goToReport}
+            />
+          </div>
+        )}
 
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center gap-2 flex-wrap">
-            <StatusBadge status={report.status} />
+            {/* No modo video o status ja aparece sobre a midia. */}
+            {!hasVideo && <StatusBadge status={report.status} />}
             <span className="flex items-center gap-1 text-2xs text-content-tertiary min-w-0">
               <Icon
                 name={categoryIconName(report.category_id)}
@@ -158,7 +176,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
               <span aria-hidden="true">·</span>
               <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
             </span>
-            {chip && <SignalChip variant={chip.variant} label={chip.label} />}
+            {!hasVideo && chip && <SignalChip variant={chip.variant} label={chip.label} />}
           </div>
 
           <button
@@ -311,6 +329,8 @@ export default React.memo(FeedCard, (prev, next) =>
   prev.report.user_has_upvoted === next.report.user_has_upvoted &&
   prev.report.is_favorited === next.report.is_favorited &&
   prev.report.coverImage === next.report.coverImage &&
+  // coverVideo decide entre o layout de video e o horizontal.
+  prev.report.coverVideo === next.report.coverVideo &&
   prev.isNew === next.isNew &&
   prev.index === next.index
 );

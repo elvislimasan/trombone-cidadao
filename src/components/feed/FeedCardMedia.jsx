@@ -6,6 +6,19 @@ import { useVideoThumbnail } from '@/hooks/useVideoThumbnail';
 
 const MAX_THUMBNAIL_RETRIES = 3;
 
+// O som e preferencia do FEED inteiro, nao de cada card: ao ativar num video,
+// os proximos ja vem com som. Vive fora do React para valer tambem nos cards
+// montados depois.
+const FEED_AUDIO_EVENT = 'feed-video-audio-pref';
+let feedAudioEnabled = false;
+
+// Proporcao do video limitada entre 4:5 (mais alto) e 1.91:1 (mais largo),
+// como no feed do Instagram: respeita o formato real sem deixar o card virar
+// tela cheia. Video vertical 9:16 num 4:3 fixo ficava muito cortado.
+const MIN_VIDEO_ASPECT = 0.8;
+const MAX_VIDEO_ASPECT = 1.91;
+const DEFAULT_VIDEO_ASPECT = 4 / 5;
+
 const PlayBadge = () => (
   <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/50 border border-white/10 flex items-center justify-center">
     <svg viewBox="0 0 24 24" width="16" height="16" fill="white" aria-hidden="true">
@@ -30,6 +43,62 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
   useEffect(() => () => {
     if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
   }, []);
+
+  // ── Autoplay do video (estilo Instagram) ──
+  // So no card grande: na miniatura quadrada do feed horizontal o video fica
+  // pequeno demais para tocar, e varios players simultaneos pesariam.
+  const videoRef = useRef(null);
+  const wantsAutoplay = !square && !!report.coverVideo;
+  const [videoMuted, setVideoMuted] = useState(!feedAudioEnabled);
+  const [videoAspect, setVideoAspect] = useState(DEFAULT_VIDEO_ASPECT);
+
+  const handleVideoMetadata = (e) => {
+    const v = e.currentTarget;
+    if (!v?.videoWidth || !v?.videoHeight) return;
+    const raw = v.videoWidth / v.videoHeight;
+    setVideoAspect(Math.min(MAX_VIDEO_ASPECT, Math.max(MIN_VIDEO_ASPECT, raw)));
+  };
+
+  useEffect(() => {
+    if (!wantsAutoplay) return undefined;
+    const el = videoRef.current;
+    if (!el) return undefined;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        // O mudo NAO e resetado aqui: o som e preferencia do feed.
+        if (entry?.isIntersecting) {
+          // Pausa os outros videos antes de tocar: em telas altas dois cards
+          // passam do threshold juntos e tocariam dois audios ao mesmo tempo.
+          document.querySelectorAll('video[data-feed-video]').forEach((other) => {
+            if (other !== el) other.pause?.();
+          });
+          el.play?.().catch(() => {});
+        } else {
+          el.pause?.();
+        }
+      },
+      { threshold: 0.6 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [wantsAutoplay, report.coverVideo]);
+
+  // A preferencia de som mudou em algum card: todos acompanham.
+  useEffect(() => {
+    const onAudioPrefChange = (e) => setVideoMuted(!e.detail);
+    window.addEventListener(FEED_AUDIO_EVENT, onAudioPrefChange);
+    return () => window.removeEventListener(FEED_AUDIO_EVENT, onAudioPrefChange);
+  }, []);
+
+  const toggleAudio = (e) => {
+    e.stopPropagation();
+    const audioOn = videoMuted; // vai ligar o som?
+    feedAudioEnabled = audioOn;
+    setVideoMuted(!audioOn);
+    window.dispatchEvent(new CustomEvent(FEED_AUDIO_EVENT, { detail: audioOn }));
+    // O gesto do usuario libera o autoplay com audio.
+    if (audioOn) videoRef.current?.play?.().catch(() => {});
+  };
 
   const wantsThumbnail = !report.coverImage && !!report.coverVideo && isInView && index <= 12;
 
@@ -75,21 +144,65 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
 
   const chip = chips[0];
 
+  // Video com autoplay: respeita a proporcao real. Nos demais casos o
+  // aspect-ratio e fixo, o que evita layout shift.
+  const mediaStyle = wantsAutoplay ? { aspectRatio: videoAspect } : undefined;
+  const mediaAspectClass = wantsAutoplay
+    ? ''
+    : square
+      ? 'h-full aspect-square rounded-xl'
+      : 'aspect-[4/3]';
+
   return (
-    <button
+    // div + role=button (nao <button>) porque o controle de som e um <button>
+    // aninhado, o que seria HTML invalido dentro de <button>.
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`block text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      className={`block text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-xl ${
         square ? 'h-full w-full' : 'w-full'
       }`}
       aria-label={`Ver detalhes: ${report.title}`}
     >
-      {/* aspect-ratio fixo em todos os ramos: evita layout shift */}
       <div
-        className={`relative w-full bg-surface-sunken overflow-hidden ${
-          square ? 'h-full aspect-square rounded-xl' : 'aspect-[4/3]'
-        }`}
+        className={`relative w-full overflow-hidden ${
+          wantsAutoplay ? 'bg-black' : 'bg-surface-sunken'
+        } ${mediaAspectClass}`}
+        style={mediaStyle}
       >
-        {src ? (
+        {wantsAutoplay ? (
+          <>
+            <video
+              ref={videoRef}
+              data-feed-video=""
+              src={report.coverVideo}
+              // A thumbnail extraida (ou a capa) vira poster: evita o retangulo
+              // cinza enquanto o video carrega.
+              poster={src || undefined}
+              muted={videoMuted}
+              loop
+              playsInline
+              preload="metadata"
+              onLoadedMetadata={handleVideoMetadata}
+              className="w-full h-full object-cover"
+            />
+            <button
+              type="button"
+              aria-label={videoMuted ? 'Ativar som' : 'Desativar som'}
+              onClick={toggleAudio}
+              className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/50 border border-white/10 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+            >
+              <Icon name={videoMuted ? 'soundoff' : 'soundon'} size={16} />
+            </button>
+          </>
+        ) : src ? (
           <img
             src={src}
             alt={report.title}
@@ -129,7 +242,8 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
           </div>
         )}
 
-        {!report.coverImage && report.coverVideo && <PlayBadge />}
+        {/* Nao no video com autoplay: la o canto tem o controle de som. */}
+        {!wantsAutoplay && !report.coverImage && report.coverVideo && <PlayBadge />}
 
         {/* No modo quadrado o status e o sinal vivem ao lado do titulo. */}
         {!square && status && (
@@ -144,7 +258,7 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
           </div>
         )}
       </div>
-    </button>
+    </div>
   );
 };
 

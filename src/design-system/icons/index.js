@@ -29,6 +29,8 @@ import Ambassador from './system/Ambassador';
 import Bell from './system/Bell';
 import Flag from './system/Flag';
 import ChevronRight from './system/ChevronRight';
+import SoundOn from './system/SoundOn';
+import SoundOff from './system/SoundOff';
 
 registerIcons({
   pothole: Pothole,
@@ -60,6 +62,8 @@ registerIcons({
   bell: Bell,
   flag: Flag,
   chevronright: ChevronRight,
+  soundon: SoundOn,
+  soundoff: SoundOff,
 });
 
 // Mapeia category_id do banco para nome de icone.

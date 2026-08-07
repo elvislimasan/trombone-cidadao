@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Combobox } from '@/components/ui/combobox';
+import { useCity } from '@/contexts/CityContext';
 import { formatCnpj } from '@/lib/utils';
 
 const GenericOptionEditModal = ({ option, onSave, onClose, typeLabel }) => {
@@ -100,6 +102,67 @@ const ContractorEditModal = ({ option, onSave, onClose }) => {
   );
 };
 
+const BairroEditModal = ({ option, onSave, onClose }) => {
+  const { cities, loadingCities } = useCity();
+  const [name, setName] = useState('');
+  const [cityId, setCityId] = useState('');
+
+  useEffect(() => {
+    if (option) {
+      setName(option.name || '');
+      setCityId(option.city_id ? String(option.city_id) : '');
+    }
+  }, [option]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!cityId) return;
+    const { city, ...rest } = option;
+    onSave({ ...rest, name, city_id: Number(cityId) });
+  };
+
+  if (!option) return null;
+
+  const cityOptions = (cities || []).map((c) => ({
+    value: String(c.id),
+    label: `${c.name}${c.state?.uf ? ` (${c.state.uf})` : ''}`,
+  }));
+
+  return (
+    <Dialog open={!!option} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md bg-card border-border">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-foreground">{option.id ? 'Editar' : 'Adicionar'} Bairro</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div className="grid gap-2">
+              <Label>Cidade</Label>
+              <Combobox
+                value={cityId}
+                onChange={setCityId}
+                options={cityOptions}
+                placeholder={loadingCities ? 'Carregando cidades...' : 'Selecione a cidade...'}
+                searchPlaceholder="Buscar cidade..."
+                modal
+              />
+              {!cityId && <p className="text-xs text-destructive">Selecione a cidade do bairro.</p>}
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+            <Button type="submit" disabled={!cityId}><Save className="w-4 h-4 mr-2" /> Salvar</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 
 const ManageWorkOptionsPage = () => {
   const { toast } = useToast();
@@ -118,12 +181,23 @@ const ManageWorkOptionsPage = () => {
     else setter(data);
   }, [toast]);
 
+  // Bairros precisa da cidade para poder agrupar — join extra, mantendo a
+  // mesma ordenação alfabética por nome que fetchData usa para as outras.
+  const fetchBairros = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('bairros')
+      .select('*, city:city_id(id, name, states(uf))')
+      .order('name');
+    if (error) toast({ title: 'Erro ao buscar bairros', description: error.message, variant: 'destructive' });
+    else setBairros(data);
+  }, [toast]);
+
   useEffect(() => {
     fetchData('work_categories', setCategories);
     fetchData('work_areas', setAreas);
-    fetchData('bairros', setBairros);
+    fetchBairros();
     fetchData('contractors', setContractors);
-  }, [fetchData]);
+  }, [fetchData, fetchBairros]);
 
   const handleSave = async (option, type) => {
     const { id, ...dataToSave } = option;
@@ -139,13 +213,16 @@ const ManageWorkOptionsPage = () => {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Salvo com sucesso!" });
-      const setterMap = {
-        'work_categories': setCategories,
-        'work_areas': setAreas,
-        'bairros': setBairros,
-        'contractors': setContractors,
-      };
-      fetchData(type, setterMap[type]);
+      if (type === 'bairros') {
+        fetchBairros();
+      } else {
+        const setterMap = {
+          'work_categories': setCategories,
+          'work_areas': setAreas,
+          'contractors': setContractors,
+        };
+        fetchData(type, setterMap[type]);
+      }
     }
     setEditingOption(null);
   };
@@ -158,13 +235,16 @@ const ManageWorkOptionsPage = () => {
       toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Removido com sucesso!", variant: "destructive" });
-      const setterMap = {
-        'work_categories': setCategories,
-        'work_areas': setAreas,
-        'bairros': setBairros,
-        'contractors': setContractors,
-      };
-      fetchData(type, setterMap[type]);
+      if (type === 'bairros') {
+        fetchBairros();
+      } else {
+        const setterMap = {
+          'work_categories': setCategories,
+          'work_areas': setAreas,
+          'contractors': setContractors,
+        };
+        fetchData(type, setterMap[type]);
+      }
     }
     setDeletingOption(null);
   };
@@ -178,25 +258,71 @@ const ManageWorkOptionsPage = () => {
     if (activeTab === 'contractors') {
       emptyOption.cnpj = '';
     }
+    if (activeTab === 'bairros') {
+      emptyOption.city_id = null;
+    }
     openEditModal({ option: emptyOption, type: activeTab });
   };
-  
-  const renderList = (data, type, typeLabel) => (
-    <div className="space-y-2">
-      {data.map(item => (
-        <div key={item.id} className="flex justify-between items-center p-3 bg-background rounded-lg border">
-          <div>
-            <span className="font-medium">{item.name}</span>
-            {item.cnpj && <p className="text-sm text-muted-foreground">{formatCnpj(item.cnpj)}</p>}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="icon" onClick={() => openEditModal({ option: item, type, typeLabel })}><Edit className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingOption({ option: item, type })}><Trash2 className="w-4 h-4" /></Button>
-          </div>
-        </div>
-      ))}
+
+  const renderItem = (item, type, typeLabel) => (
+    <div key={item.id} className="flex justify-between items-center p-3 bg-background rounded-lg border">
+      <div>
+        <span className="font-medium">{item.name}</span>
+        {item.cnpj && <p className="text-sm text-muted-foreground">{formatCnpj(item.cnpj)}</p>}
+      </div>
+      <div className="flex gap-2">
+        <Button variant="ghost" size="icon" onClick={() => openEditModal({ option: item, type, typeLabel })}><Edit className="w-4 h-4" /></Button>
+        <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingOption({ option: item, type })}><Trash2 className="w-4 h-4" /></Button>
+      </div>
     </div>
   );
+
+  const renderList = (data, type, typeLabel) => (
+    <div className="space-y-2">
+      {data.map(item => renderItem(item, type, typeLabel))}
+    </div>
+  );
+
+  // Bairros agrupados por cidade — sem isso, bairros de todas as cidades
+  // apareciam juntos ordenados só pelo nome, sem indicar de qual cidade cada
+  // um é (confuso desde que o app deixou de ser só-Floresta).
+  const renderBairrosGrouped = (data, type, typeLabel) => {
+    const groups = new Map();
+    const noCityGroup = [];
+    data.forEach((item) => {
+      if (!item.city) {
+        noCityGroup.push(item);
+        return;
+      }
+      const key = String(item.city.id);
+      if (!groups.has(key)) {
+        groups.set(key, { label: `${item.city.name}${item.city.states?.uf ? ` (${item.city.states.uf})` : ''}`, items: [] });
+      }
+      groups.get(key).items.push(item);
+    });
+    const sortedGroups = Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label));
+
+    return (
+      <div className="space-y-6">
+        {sortedGroups.map((group) => (
+          <div key={group.label}>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">{group.label}</p>
+            <div className="space-y-2">
+              {group.items.map((item) => renderItem(item, type, typeLabel))}
+            </div>
+          </div>
+        ))}
+        {noCityGroup.length > 0 && (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-destructive mb-2">Sem cidade definida</p>
+            <div className="space-y-2">
+              {noCityGroup.map((item) => renderItem(item, type, typeLabel))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -232,7 +358,7 @@ const ManageWorkOptionsPage = () => {
             <Card><CardHeader><CardTitle>Áreas de Implementação</CardTitle></CardHeader><CardContent>{renderList(areas, 'work_areas', 'Área')}</CardContent></Card>
           </TabsContent>
           <TabsContent value="bairros" className="mt-6">
-            <Card><CardHeader><CardTitle>Bairros</CardTitle></CardHeader><CardContent>{renderList(bairros, 'bairros', 'Bairro')}</CardContent></Card>
+            <Card><CardHeader><CardTitle>Bairros</CardTitle></CardHeader><CardContent>{renderBairrosGrouped(bairros, 'bairros', 'Bairro')}</CardContent></Card>
           </TabsContent>
           <TabsContent value="contractors" className="mt-6">
             <Card><CardHeader><CardTitle>Construtoras</CardTitle></CardHeader><CardContent>{renderList(contractors, 'contractors', 'Construtora')}</CardContent></Card>
@@ -241,9 +367,15 @@ const ManageWorkOptionsPage = () => {
       </div>
       
       {editingOption && editingOption.type === 'contractors' ? (
-        <ContractorEditModal 
+        <ContractorEditModal
           option={editingOption.option}
           onSave={(option) => handleSave(option, 'contractors')}
+          onClose={() => setEditingOption(null)}
+        />
+      ) : editingOption && editingOption.type === 'bairros' ? (
+        <BairroEditModal
+          option={editingOption.option}
+          onSave={(option) => handleSave(option, 'bairros')}
           onClose={() => setEditingOption(null)}
         />
       ) : editingOption ? (

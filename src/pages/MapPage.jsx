@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
+import { useToast } from '@/components/ui/use-toast';
+import { useReportUpdate } from '@/hooks/useReportUpdate';
+import ReportUpdateModal from '@/components/report/ReportUpdateModal';
 
 const MapView = lazy(() => import('@/components/MapView'));
 
@@ -133,6 +136,11 @@ export default function MapPage() {
   const [mapBounds,   setMapBounds]   = useState(null); // { minLat, maxLat, minLng, maxLng }
   const [mapZoom,     setMapZoom]     = useState(13);
   const cancelRef = useRef(false);
+
+  // ── Atualização de bronca direto no mapa (sem sair da tela) ──
+  const { toast } = useToast();
+  const [updatingReport, setUpdatingReport] = useState(null);
+  const [updatingReportUpdates, setUpdatingReportUpdates] = useState([]);
 
   // Open filter sheet: seed pending state from committed state
   const openFilterSheet = () => {
@@ -321,6 +329,47 @@ export default function MapPage() {
     return () => clearTimeout(fetchClustersTimerRef.current);
   }, [mapBounds, mapZoom, fetchClusters]);
 
+  // Abre o modal de atualização sobre o mapa. Busca as atualizações já
+  // existentes da bronca porque o rate limit (1 envio por tipo a cada 7 dias)
+  // é calculado a partir delas.
+  const handleOpenUpdate = useCallback(async (report) => {
+    setUpdatingReport(report);
+    setUpdatingReportUpdates([]);
+    const { data } = await supabase
+      .from('report_updates')
+      .select('id, author_id, update_type, created_at')
+      .eq('report_id', report.id);
+    setUpdatingReportUpdates(data || []);
+  }, []);
+
+  const STATUS_LABELS = {
+    pending: 'Pendente',
+    'in-progress': 'Em Andamento',
+    pending_resolution: 'Aguardando confirmação de resolução',
+    resolved: 'Resolvida',
+  };
+
+  const reportUpdate = useReportUpdate(updatingReport, updatingReportUpdates, {
+    onSuccess: ({ isAuthorOrAdmin, newStatus }) => {
+      setUpdatingReport(null);
+      toast(
+        isAuthorOrAdmin
+          ? {
+              title: 'Atualização confirmada! ✅',
+              description: newStatus
+                ? `Status da bronca atualizado para "${STATUS_LABELS[newStatus] || newStatus}".`
+                : undefined,
+            }
+          : {
+              title: 'Atualização enviada! 📢',
+              description: 'Sua atualização será revisada antes de aparecer para todos.',
+            }
+      );
+      // Recarrega os pins para refletir a eventual mudança de status
+      if (mapBounds) fetchClusters(mapBounds, mapZoom);
+    },
+  });
+
   // Reajusta a cidade do filtro sem mover o mapa (usado após pan/zoom manual e após recentralização por GPS)
   const syncCityFromCoords = useCallback(async (coords) => {
     try {
@@ -500,6 +549,7 @@ export default function MapPage() {
               flyToTarget={flyToTarget}
               onBoundsChange={handleBoundsChange}
               onRecenter={syncCityFromCoords}
+              onUpdateClick={handleOpenUpdate}
             />
           </div>
         </Suspense>
@@ -673,6 +723,20 @@ export default function MapPage() {
           )}
         </div>
       </BottomSheet>
+
+      {updatingReport && (
+        <ReportUpdateModal
+          onClose={() => { setUpdatingReport(null); reportUpdate.reset(); }}
+          onSubmit={reportUpdate.submit}
+          submitting={reportUpdate.submitting}
+          disabledTypes={reportUpdate.disabledTypes}
+          cam={reportUpdate.cam}
+          selectedType={reportUpdate.updateType}
+          onSelectType={reportUpdate.setUpdateType}
+          message={reportUpdate.message}
+          onMessageChange={reportUpdate.setMessage}
+        />
+      )}
     </div>
   );
 }
