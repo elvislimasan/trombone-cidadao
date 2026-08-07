@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import EngagementBar from '@/components/EngagementBar';
 import TimeAgo from '@/components/TimeAgo';
 import FeedCardMedia from '@/components/feed/FeedCardMedia';
 import { computeSignals } from '@/components/feed/FeedCardSignals';
+import FeedCardSupport from '@/components/feed/FeedCardSupport';
+import StatusBadge from '@/design-system/primitives/StatusBadge';
+import SignalChip from '@/design-system/primitives/SignalChip';
 import Icon, { categoryIconName } from '@/design-system/icons';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -118,6 +120,8 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
     }
   }, [user, report, navigate, toast]);
 
+  const chip = signals.chips[0];
+
   const isActive = report.status !== 'resolved' && report.status !== 'duplicate';
 
   return (
@@ -128,56 +132,131 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
       }`}
       style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
     >
-      {/* Midia primeiro, com status e sinal sobrepostos; o texto vem abaixo. */}
-      <FeedCardMedia
-        report={report}
-        index={index}
-        isInView={isInView}
-        status={report.status}
-        chips={signals.chips}
-        onClick={goToReport}
-      />
-
-      <button onClick={goToReport} className="w-full text-left px-4 pt-3.5 pb-3 focus:outline-none">
-        <h3 className="font-display text-base font-bold leading-snug line-clamp-2 text-content-primary">
-          {report.title}
-        </h3>
-        <div className="flex items-center gap-1.5 mt-1 text-2xs text-content-secondary">
-          <Icon name={categoryIconName(report.category_id)} size={13} />
-          <span className="truncate">{report.categoryName || report.category_id}</span>
-          <span aria-hidden="true">·</span>
-          <TimeAgo date={report.created_at} className="text-2xs text-content-secondary" />
+      {/* Layout horizontal: miniatura quadrada a esquerda, conteudo a direita. */}
+      <div className="flex gap-3 p-3">
+        <div className="w-28 sm:w-32 flex-shrink-0">
+          <FeedCardMedia
+            report={report}
+            index={index}
+            isInView={isInView}
+            square
+            onClick={goToReport}
+          />
         </div>
 
-        {report.description && (
-          <p className="text-xs text-content-secondary line-clamp-2 mt-2">{report.description}</p>
-        )}
-        {report.address && (
-          <div className="flex items-center gap-1 text-xs text-content-secondary mt-2">
-            <Icon name="location" size={12} className="flex-shrink-0" />
-            <span className="truncate">{report.address}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatusBadge status={report.status} />
+            <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
+            {chip && <SignalChip variant={chip.variant} label={chip.label} />}
           </div>
-        )}
-        {(report.authorName || report.authorAvatar) && (
-          <div className="flex items-center gap-2 mt-2.5">
-            <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
-            <p className="text-2xs text-content-secondary">
-              por <span className="font-semibold text-content-primary">{report.authorName || 'Cidadão'}</span>
-            </p>
-          </div>
-        )}
-      </button>
 
-      <EngagementBar
-        upvotes={report.upvotes}
-        commentsCount={report.comments_count}
-        isUpvoted={report.user_has_upvoted}
-        isFavorited={report.is_favorited}
-        onUpvote={() => onToggleUpvote?.(report.id)}
-        onComment={goToReport}
-        onShare={handleShare}
-        onBookmark={handleBookmark}
-      />
+          <div className="flex items-center gap-1.5 mt-1.5 text-2xs text-content-tertiary">
+            <Icon name={categoryIconName(report.category_id)} size={12} className="flex-shrink-0" />
+            <span className="truncate">{report.categoryName || report.category_id}</span>
+          </div>
+
+          <button
+            onClick={goToReport}
+            className="w-full text-left mt-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+          >
+            <h3 className="font-display text-base font-bold leading-snug line-clamp-2 text-content-primary">
+              {report.title}
+            </h3>
+
+            {report.address && (
+              <div className="flex items-start gap-1 text-2xs text-content-secondary mt-1.5">
+                <Icon name="location" size={12} className="flex-shrink-0 mt-0.5 text-brand" />
+                <span className="line-clamp-2">{report.address}</span>
+              </div>
+            )}
+
+            {report.description && (
+              <p className="text-2xs text-content-secondary line-clamp-2 mt-1.5">
+                {report.description}
+              </p>
+            )}
+          </button>
+
+          <FeedCardSupport upvotes={report.upvotes} className="mt-2.5" />
+        </div>
+      </div>
+
+      {/* Comentar e compartilhar em linha discreta: nao somem do card, mas nao
+          competem com as duas acoes principais do rodape. */}
+      <div className="flex items-center gap-1 px-3 pb-2">
+        <button
+          type="button"
+          onClick={() => onToggleUpvote?.(report.id)}
+          aria-label="Apoiar bronca"
+          aria-pressed={report.user_has_upvoted}
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-2xs font-semibold transition-colors ${
+            report.user_has_upvoted
+              ? 'text-brand bg-brand/10'
+              : 'text-content-tertiary hover:text-content-primary'
+          }`}
+        >
+          <Icon name="support" size={15} />
+          {report.upvotes > 0 && <span className="tabular-nums">{report.upvotes}</span>}
+        </button>
+        <button
+          type="button"
+          onClick={goToReport}
+          aria-label="Ver comentários"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-2xs font-semibold text-content-tertiary hover:text-content-primary transition-colors"
+        >
+          <Icon name="comment" size={15} />
+          {report.comments_count > 0 && (
+            <span className="tabular-nums">{report.comments_count}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={handleShare}
+          aria-label="Compartilhar"
+          className="flex items-center px-2 py-1 rounded-lg text-content-tertiary hover:text-content-primary transition-colors"
+        >
+          <Icon name="share" size={15} />
+        </button>
+        {(report.authorName || report.authorAvatar) && (
+          <div className="flex items-center gap-1.5 ml-auto min-w-0">
+            <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
+            <span className="text-2xs text-content-tertiary truncate">
+              {report.authorName || 'Cidadão'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Rodape: acompanhar (favoritar) e ver detalhes. */}
+      <div className="grid grid-cols-2 border-t border-edge-subtle">
+        <button
+          type="button"
+          onClick={handleBookmark}
+          aria-pressed={report.is_favorited}
+          className={`flex items-center justify-center gap-2 py-3 text-xs font-semibold border-r border-edge-subtle transition-colors ${
+            report.is_favorited
+              ? 'text-brand bg-brand/10'
+              : 'text-brand hover:bg-brand/5'
+          }`}
+        >
+          <Icon name="save" size={14} />
+          {report.is_favorited ? 'Acompanhando' : 'Acompanhar'}
+        </button>
+        <button
+          type="button"
+          onClick={goToReport}
+          className="flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-content-primary hover:bg-surface-sunken transition-colors group"
+        >
+          Ver detalhes
+          <span
+            className="text-brand group-hover:translate-x-0.5 transition-transform"
+            aria-hidden="true"
+          >
+            ›
+          </span>
+        </button>
+      </div>
 
       {isActive && (
         <button
@@ -190,16 +269,21 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
             }
             navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
           }}
-          className="w-full flex items-center gap-2.5 px-4 py-3 bg-brand-subtleBg hover:brightness-95 border-t border-edge-subtle transition-all rounded-b-2xl group"
+          className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-brand-subtleBg hover:brightness-110 border-t border-edge-subtle transition-all rounded-b-2xl group"
         >
-          <div className="w-7 h-7 rounded-full bg-brand/10 flex items-center justify-center flex-shrink-0 text-brand">
-            <Icon name="trombone" size={15} />
+          <div className="w-6 h-6 rounded-full bg-brand/10 flex items-center justify-center flex-shrink-0 text-brand">
+            <Icon name="trombone" size={13} />
           </div>
           <div className="flex-1 text-left min-w-0">
-            <span className="text-xs font-semibold text-brand-subtleFg">Esteve no local?</span>
-            <span className="text-xs text-content-secondary"> Informe o que viu</span>
+            <span className="text-2xs font-semibold text-brand-subtleFg">Esteve no local?</span>
+            <span className="text-2xs text-content-secondary"> Informe o que viu</span>
           </div>
-          <span className="text-xs font-bold text-brand-subtleFg group-hover:translate-x-0.5 transition-transform" aria-hidden="true">→</span>
+          <span
+            className="text-2xs font-bold text-brand-subtleFg group-hover:translate-x-0.5 transition-transform"
+            aria-hidden="true"
+          >
+            →
+          </span>
         </button>
       )}
     </article>

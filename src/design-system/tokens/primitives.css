@@ -8,6 +8,10 @@
   --tc-red-200: 254 205 202;
   --tc-red-300: 253 162 155;
   --tc-red-400: 249 112 102;
+  /* Vermelho vivo da marca no tema escuro: mais saturado que o 400, ainda com
+     4.54:1 como texto sobre o card. Nao usar como fundo com texto branco
+     (3.87:1) — sobre ele o texto e escuro. */
+  --tc-red-450: 245 51 63;
   --tc-red-500: 240 72 62;
   --tc-red-600: 217 45 32;
   --tc-red-700: 180 35 24;

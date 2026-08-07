@@ -14,7 +14,9 @@ const PlayBadge = () => (
   </div>
 );
 
-const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = [], onClick }) => {
+// square: miniatura quadrada do card horizontal. Nesse modo o status e o chip
+// ficam fora da midia (ao lado do titulo), entao nao sao renderizados aqui.
+const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = [], square = false, onClick }) => {
   const [imgSrc, setImgSrc] = useState(report.coverImage || null);
   const retryRef = useRef(0);
   const retryTimerRef = useRef(null);
@@ -76,11 +78,17 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
   return (
     <button
       onClick={onClick}
-      className="w-full block text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      className={`block text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+        square ? 'h-full w-full' : 'w-full'
+      }`}
       aria-label={`Ver detalhes: ${report.title}`}
     >
       {/* aspect-ratio fixo em todos os ramos: evita layout shift */}
-      <div className="relative w-full aspect-[4/3] bg-surface-sunken overflow-hidden">
+      <div
+        className={`relative w-full bg-surface-sunken overflow-hidden ${
+          square ? 'h-full aspect-square rounded-xl' : 'aspect-[4/3]'
+        }`}
+      >
         {src ? (
           <img
             src={src}
@@ -123,14 +131,14 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
 
         {!report.coverImage && report.coverVideo && <PlayBadge />}
 
-        {/* Status a esquerda, sinal a direita — ambos sobre a midia. */}
-        {status && (
+        {/* No modo quadrado o status e o sinal vivem ao lado do titulo. */}
+        {!square && status && (
           <div className="absolute top-2 left-2">
             <StatusBadge status={status} />
           </div>
         )}
 
-        {chip && (
+        {!square && chip && (
           <div className="absolute top-2 right-2">
             <SignalChip variant={chip.variant} label={chip.label} />
           </div>
