@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import Icon from '@/design-system/icons';
+import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { useFeed } from '@/hooks/useFeed';
@@ -150,7 +151,7 @@ export default function FeedPage() {
   const hasReports = reports.length > 0;
 
   return (
-    <div className="min-h-full bg-[#F3F4F6]">
+    <div className="min-h-full bg-surface-base">
       {/* ── Seletor de cidade ── */}
       <div className="container mx-auto max-w-2xl px-3">
         <FeedCitySelector />
@@ -160,8 +161,30 @@ export default function FeedPage() {
         <FeedWelcomeCard onCreateReport={handleOpenCreate} onInvite={handleInvite} />
       )}
 
+      {/* ── Cabecalho da secao ── */}
+      <div className="container mx-auto max-w-2xl px-3 pt-1 pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-display text-xl font-extrabold tracking-tight text-content-primary">
+              Feed de denúncias
+            </h1>
+            <p className="text-xs text-content-secondary mt-0.5">
+              Acompanhe os problemas da sua cidade
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className="flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2.5 text-sm font-semibold text-content-onBrand shadow-elevation-2 hover:bg-brand-hover transition-colors flex-shrink-0"
+          >
+            <Icon name="newreport" size={16} />
+            Nova denúncia
+          </button>
+        </div>
+      </div>
+
       {/* ── Sticky Tab Bar ── */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+      <div className="sticky top-0 z-10 bg-surface-base/90 backdrop-blur-md border-b border-edge-subtle">
         <div className="container mx-auto max-w-2xl px-3">
           <FeedTabs tabs={FEED_TABS} activeTab={activeTab} onChange={handleTabChange} />
         </div>
@@ -193,8 +216,8 @@ export default function FeedPage() {
         ) : (
           <div className="space-y-4">
             {loading && (
-              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Loader2 size={14} className="animate-spin" />
+              <div className="flex items-center justify-center gap-2 text-xs text-content-secondary">
+                <TromboneSpinner size={14} />
                 Atualizando…
               </div>
             )}
@@ -214,20 +237,20 @@ export default function FeedPage() {
             {!isOffline && <FeedLoadMoreError error={loadMoreError} onRetry={loadMore} />}
 
             {isSlowMore && (
-              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
-                <Loader2 size={14} className="animate-spin" />
+              <div className="flex items-center justify-center gap-2 text-xs text-content-secondary py-2">
+                <TromboneSpinner size={14} />
                 Carregando mais… (conexão lenta)
               </div>
             )}
 
             {loadingMore && (
               <div className="flex justify-center py-4">
-                <Loader2 size={24} className="animate-spin text-muted-foreground" />
+                <TromboneSpinner size={24} className="text-content-secondary" />
               </div>
             )}
 
             {!hasMore && hasReports && (
-              <p className="text-center text-xs text-muted-foreground py-4">
+              <p className="text-center text-xs text-content-secondary py-4">
                 Você viu todas as broncas desta categoria.
               </p>
             )}

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, MapPin, ChevronDown, LocateFixed, Globe, Check, X } from 'lucide-react';
+import { ChevronDown, LocateFixed, Globe, Check, X } from 'lucide-react';
+import Icon from '@/design-system/icons';
+import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -82,9 +84,9 @@ const FeedCitySelector = () => {
       <button
         type="button"
         onClick={() => { setCityPickerOpen(v => !v); setCitySearch(''); }}
-        className="flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+        className="flex items-center gap-1.5 rounded-full border border-edge-subtle bg-surface-sunken px-3 py-1 text-xs font-semibold text-content-primary hover:bg-surface-sunken transition-colors"
       >
-        <MapPin className="h-3 w-3 shrink-0 text-primary" />
+        <Icon name="location" size={12} className="shrink-0 text-brand" />
         <span className="max-w-[180px] truncate">
           {activeCityName ?? 'Todas as cidades'}
         </span>
@@ -92,19 +94,19 @@ const FeedCitySelector = () => {
       </button>
 
       {cityPickerOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xl border border-border bg-background shadow-xl overflow-hidden">
+        <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xl border border-edge-subtle bg-surface-overlay shadow-xl overflow-hidden">
           {/* Busca */}
-          <div className="flex items-center gap-2 p-2 border-b border-border">
+          <div className="flex items-center gap-2 p-2 border-b border-edge-subtle">
             <input
               autoFocus
               type="text"
               placeholder="Buscar cidade..."
               value={citySearch}
               onChange={e => setCitySearch(e.target.value)}
-              className="flex-1 rounded-lg bg-muted px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+              className="flex-1 rounded-lg bg-surface-sunken px-3 py-1.5 text-sm text-content-primary placeholder:text-content-secondary focus:outline-none"
             />
             {citySearch && (
-              <button type="button" onClick={() => setCitySearch('')} className="text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={() => setCitySearch('')} className="text-content-secondary hover:text-content-primary">
                 <X className="h-4 w-4" />
               </button>
             )}
@@ -116,10 +118,10 @@ const FeedCitySelector = () => {
               type="button"
               disabled={gpsLoading}
               onClick={handleGps}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-muted transition-colors"
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-brand hover:bg-surface-sunken transition-colors"
             >
               {gpsLoading
-                ? <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                ? <TromboneSpinner size={16} />
                 : <LocateFixed className="h-4 w-4 shrink-0" />
               }
               {gpsLoading ? 'Detectando...' : 'Usar minha localização'}
@@ -129,16 +131,16 @@ const FeedCitySelector = () => {
             <button
               type="button"
               onClick={() => { setActiveCity(null); setCityPickerOpen(false); setCitySearch(''); }}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted border-t border-border/50 transition-colors"
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-content-primary hover:bg-surface-sunken border-t border-edge-subtle transition-colors"
             >
-              <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Globe className="h-4 w-4 shrink-0 text-content-secondary" />
               Todas as cidades
-              {!activeCityId && <Check className="ml-auto h-4 w-4 text-primary" />}
+              {!activeCityId && <Check className="ml-auto h-4 w-4 text-brand" />}
             </button>
 
             {/* Lista de cidades */}
             {loadingCities ? (
-              <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              <div className="flex justify-center py-4"><TromboneSpinner size={20} /></div>
             ) : (
               cities
                 .filter(c => {
@@ -155,13 +157,13 @@ const FeedCitySelector = () => {
                       key={city.id}
                       type="button"
                       onClick={() => { setActiveCity(city.id); setCityPickerOpen(false); setCitySearch(''); }}
-                      className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-muted border-t border-border/50 transition-colors ${isActive ? 'font-semibold text-primary' : 'text-foreground'}`}
+                      className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-surface-sunken border-t border-edge-subtle transition-colors ${isActive ? 'font-semibold text-brand' : 'text-content-primary'}`}
                     >
                       <span className="flex-1 truncate">
                         {city.name}
-                        {city.state?.uf && <span className="ml-1 text-xs text-muted-foreground">{city.state.uf}</span>}
+                        {city.state?.uf && <span className="ml-1 text-xs text-content-secondary">{city.state.uf}</span>}
                       </span>
-                      {isActive && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {isActive && <Check className="h-4 w-4 shrink-0 text-brand" />}
                     </button>
                   );
                 })
