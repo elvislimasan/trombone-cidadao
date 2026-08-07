@@ -5,15 +5,37 @@ import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { ArrowLeft, Phone, MapPin, Info, Maximize, Video, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Phone, MapPin, Info, Maximize, Video, Image as ImageIcon, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const TouristSpotDetailsPage = () => {
   const { id } = useParams();
   const [spot, setSpot] = useState(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+
+  // Admin/master editam qualquer serviço; embaixador puro só os da própria
+  // cidade (a cidade DO ITEM, não a do seletor).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const canEdit = Boolean(
+    user?.is_admin || user?.is_master ||
+    (isPureAmbassador && spot?.city_id &&
+      myActiveCityIds.some((cid) => String(cid) === String(spot.city_id)))
+  );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
 
   const fetchSpot = useCallback(async () => {
     const { data, error } = await supabase
@@ -57,13 +79,20 @@ const TouristSpotDetailsPage = () => {
         transition={{ duration: 0.5 }}
         className="container max-w-[88rem] mx-auto w-full px-4 py-12"
       >
-        <div className="mb-8">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <Link to="/servicos">
             <Button variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar para o Guia de Serviços
             </Button>
           </Link>
+          {canEdit && (
+            <Link to={`/servicos/gerenciar?edit=${spot.id}&type=tourist_spots`}>
+              <Button variant="outline" className="gap-2 border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                <Pencil className="w-4 h-4" /> Editar serviço
+              </Button>
+            </Link>
+          )}
         </div>
 
         <Card className="overflow-hidden border-border shadow-lg">

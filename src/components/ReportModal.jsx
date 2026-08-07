@@ -133,6 +133,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const uploadAbortControllerRef = useRef(null);
   const photoWorkerRef = useRef(null);
   const wizardBodyRef = useRef(null);
+  const issueTypeFieldRef = useRef(null);
+  // Ao selecionar "Iluminação", o campo Tipo do problema aparece condicionalmente
+  // ABAIXO da área visível do wizard, sem rolagem automática — usuário via só o
+  // grid de categorias, sem saber que precisava rolar para preencher o campo
+  // obrigatório seguinte. Espera o re-render (campo passa a existir no DOM) e
+  // rola até ele.
+  // block: "nearest" em vez de "center" porque em telas de altura pequena o
+  // container mal cabe o campo — "center" tenta centralizar, nao consegue, e
+  // deixa o campo colado na barra fixa de botoes.
+  const scrollToIssueTypeField = () => {
+    setTimeout(() => {
+      issueTypeFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  };
   const wizardStepTitles = ["Info", "Local", "Mídia"];
   const wizardStepTitle = wizardStepTitles[wizardStep] || "Nova Bronca";
   const wizardProgressPct = Math.round(
@@ -3445,7 +3459,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             <div
               ref={wizardBodyRef}
               className={`flex-1 overflow-y-auto ${
-                wizardStep === 1 ? "p-0" : "p-4"
+                wizardStep === 1 ? "p-0" : "p-4 pb-24"
               } space-y-6`}
             >
               {wizardStep === 0 && (
@@ -3512,6 +3526,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                                 ...prev,
                                 category: undefined,
                               }));
+                            if (c.id === "iluminacao") scrollToIssueTypeField();
                           }}
                           className={`p-3 rounded-xl border-2 transition-all text-center ${
                             formData.category === c.id
@@ -3560,7 +3575,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   )}
 
                   {formData.category === "iluminacao" && (
-                    <div>
+                    <div ref={issueTypeFieldRef}>
                       <div>
                         <label className="block text-sm font-medium text-foreground mb-2">
                           Tipo do problema{" "}
@@ -4401,6 +4416,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             ...prev,
                             category: undefined,
                           }));
+                        if (c.id === "iluminacao") scrollToIssueTypeField();
                       }}
                       className={`p-3 rounded-lg border-2 transition-all text-center ${
                         formData.category === c.id
@@ -4448,7 +4464,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
               )}
 
               {formData.category === "iluminacao" && (
-                <div className="space-y-4">
+                <div className="space-y-4" ref={issueTypeFieldRef}>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Tipo do problema{" "}
