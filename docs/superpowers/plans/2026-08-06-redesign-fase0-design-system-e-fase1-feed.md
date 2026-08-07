@@ -252,7 +252,9 @@ Ponto crítico: os tokens shadcn legados são consumidos por `hsl(var(--x))` no 
   --text-primary:     var(--tc-neutral-50);
   --text-secondary:   var(--tc-neutral-400);
   --text-tertiary:    var(--tc-neutral-500);
-  --text-on-brand:    var(--tc-neutral-0);
+  /* No escuro a marca e vermelho claro, entao o texto sobre ela e ESCURO.
+     Branco sobre red-400 daria 2.79:1; neutral-950 da 6.87:1. */
+  --text-on-brand:    var(--tc-neutral-950);
 
   --border-subtle:    var(--tc-neutral-800);
   --border-default:   var(--tc-neutral-700);
@@ -341,7 +343,7 @@ Ponto crítico: os tokens shadcn legados são consumidos por `hsl(var(--x))` no 
   --popover: 20 3.8% 15.5%;
   --popover-foreground: 60 9.1% 97.8%;
   --primary: 4.1 92.5% 68.8%;     /* = --brand dark (red-400) */
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 240 6.3% 6.3%;  /* = --text-on-brand dark (neutral-950) */
   --secondary: 47.9 95.8% 53.1%;
   --secondary-foreground: 30 4% 9.8%;
   --muted: 20 3.8% 15.5%;

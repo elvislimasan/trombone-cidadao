@@ -81,18 +81,18 @@
   --text-primary:     var(--tc-neutral-50);
   --text-secondary:   var(--tc-neutral-400);
   --text-tertiary:    var(--tc-neutral-500);
-  --text-on-brand:    var(--tc-neutral-0);
+  /* No escuro a marca e um vermelho claro, entao o texto sobre ela e ESCURO.
+     Branco sobre red-400 daria 2.79:1; neutral-950 da 6.87:1. */
+  --text-on-brand:    var(--tc-neutral-950);
 
   --border-subtle:    var(--tc-neutral-800);
   --border-default:   var(--tc-neutral-700);
   --border-strong:    var(--tc-neutral-600);
 
-  /* No dark, red-400 rende so 2.79:1 contra --text-on-brand (branco),
-     abaixo do minimo AA de 4.5:1 para texto de corpo (ver
-     scripts/check-contrast.mjs). red-600 mantem o mesmo tom usado no tema
-     claro e passa nos dois pares (4.83:1 com texto branco, 3.63:1 sobre
-     surface-raised escuro). */
-  --brand:            var(--tc-red-600);
+  /* Vermelho mais claro e menos saturado: vermelho saturado sobre preto puro
+     vibra em OLED. Com --text-on-brand escuro da 6.87:1 como fundo de botao e
+     6.30:1 como texto sobre card. */
+  --brand:            var(--tc-red-400);
   --brand-hover:      var(--tc-red-300);
   --brand-subtle-bg:  var(--tc-red-950);
   --brand-subtle-fg:  var(--tc-red-300);
@@ -172,8 +172,8 @@
   --card-foreground: 60 9.1% 97.8%;
   --popover: 20 3.8% 15.5%;
   --popover-foreground: 60 9.1% 97.8%;
-  --primary: 4.2 74.3% 48.8%;     /* = --brand dark (red-600, ajustado p/ contraste AA) */
-  --primary-foreground: 0 0% 100%;
+  --primary: 4.1 92.5% 68.8%;     /* = --brand dark (red-400) */
+  --primary-foreground: 240 6.3% 6.3%;  /* = --text-on-brand dark (neutral-950) */
   --secondary: 47.9 95.8% 53.1%;
   --secondary-foreground: 30 4% 9.8%;
   --muted: 20 3.8% 15.5%;
