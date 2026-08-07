@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup - Feed - Trombone Cidadao</title>
+<style>
+  /* fontes do projeto (caminho relativo para abrir o arquivo direto do disco) */
+  @font-face {
+    font-family: 'Bricolage Grotesque';
+    src: url('../../public/fonts/BricolageGrotesque.woff2') format('woff2');
+    font-weight: 400 800;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Inter';
+    src: url('../../public/fonts/Inter.woff2') format('woff2');
+    font-weight: 400 800;
+    font-display: swap;
+  }
+
+  /* ================= TOKENS (copiados de semantic.css como literais) ================= */
+  :root {
+    --surface-base: 245 245 244;
+    --surface-raised: 255 255 255;
+    --surface-sunken: 231 230 228;
+    --text-primary: 26 25 24;
+    --text-secondary: 87 84 81;
+    --text-tertiary: 120 117 113;
+    --text-on-brand: 255 255 255;
+    --border-subtle: 231 230 228;
+    --brand: 217 45 32;
+    --brand-subtle-bg: 254 243 242;
+    --brand-subtle-fg: 180 35 24;
+    --status-pending-bg: 254 243 199;
+    --status-pending-fg: 180 83 9;
+    --status-pending-border: 253 230 138;
+    --status-resolved-bg: 220 252 231;
+    --status-resolved-fg: 21 128 61;
+    --status-resolved-border: 187 247 208;
+    --signal-hot-bg: 217 45 32;
+    --signal-hot-fg: 255 255 255;
+    --skeleton-base: 231 230 228;
+    --skeleton-sheen: 245 245 244;
+    --elevation-1: 0 1px 2px rgb(15 15 17 / .06);
+    --elevation-2: 0 2px 8px rgb(15 15 17 / .08);
+  }
+  .dark {
+    --surface-base: 15 15 17;
+    --surface-raised: 26 25 24;
+    --surface-sunken: 15 15 17;
+    --text-primary: 250 250 249;
+    --text-secondary: 168 165 161;
+    --text-tertiary: 120 117 113;
+    --text-on-brand: 15 15 17;
+    --border-subtle: 41 39 38;
+    --brand: 249 112 102;
+    --brand-subtle-bg: 85 15 12;
+    --brand-subtle-fg: 253 162 155;
+    --status-pending-bg: 69 26 3;
+    --status-pending-fg: 252 211 77;
+    --status-pending-border: 120 53 15;
+    --status-resolved-bg: 5 46 22;
+    --status-resolved-fg: 134 239 172;
+    --status-resolved-border: 20 83 45;
+    --signal-hot-bg: 240 72 62;
+    --signal-hot-fg: 255 255 255;
+    --skeleton-base: 41 39 38;
+    --skeleton-sheen: 68 65 63;
+    --elevation-1: 0 1px 2px rgb(0 0 0 / .4);
+    --elevation-2: 0 2px 8px rgb(0 0 0 / .5);
+  }
+
+  /* ================= BASE ================= */
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: rgb(var(--surface-sunken));
+    color: rgb(var(--text-primary));
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  h1, h2, h3, .brand-name, .section-title {
+    font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  }
+
+  .page-title {
+    /* titulo geral da pagina de mockup, fora dos paineis simulados */
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 24px 0;
+  }
+  .page-title h1 {
+    font-size: 22px;
+    margin: 0 0 4px;
+  }
+  .page-title p {
+    margin: 0;
+    color: rgb(var(--text-secondary));
+    font-size: 14px;
+  }
+
+  /* ================= LAYOUT DE COMPARACAO ================= */
+  .compare-wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .theme-col {
+    flex: 1 1 420px;
+    max-width: 420px;
+    min-width: 320px;
+  }
+
+  .theme-label {
+    text-align: center;
+    font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: .08em;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: rgb(var(--text-tertiary));
+    margin-bottom: 10px;
+  }
+
+  /* moldura tipo "celular" */
+  .phone-frame {
+    background: rgb(var(--surface-base));
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--elevation-2);
+    border: 1px solid rgb(var(--border-subtle));
+  }
+
+  /* ================= HEADER ================= */
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    background: rgb(var(--surface-raised));
+    border-bottom: 1px solid rgb(var(--border-subtle));
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .brand-icon {
+    width: 26px;
+    height: 26px;
+    color: rgb(var(--brand));
+    flex-shrink: 0;
+  }
+  .brand-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: rgb(var(--text-primary));
+    line-height: 1.1;
+  }
+  .city-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgb(var(--surface-sunken));
+    border: 1px solid rgb(var(--border-subtle));
+    color: rgb(var(--text-secondary));
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .city-picker .icon-sm {
+    width: 14px;
+    height: 14px;
+    color: rgb(var(--brand));
+    flex-shrink: 0;
+  }
+  .city-picker .chevron {
+    width: 12px;
+    height: 12px;
+    color: rgb(var(--text-tertiary));
+    flex-shrink: 0;
+  }
+
+  /* ================= BODY DO FEED ================= */
+  .feed-body {
+    padding: 18px 16px 28px;
+  }
+  .feed-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .feed-heading h2 {
+    font-size: 19px;
+    margin: 0 0 4px;
+    color: rgb(var(--text-primary));
+  }
+  .feed-heading p {
+    margin: 0;
+    font-size: 13px;
+    color: rgb(var(--text-secondary));
+  }
+  .btn-new {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgb(var(--brand));
+    color: rgb(var(--text-on-brand));
+    border: none;
+    border-radius: 10px;
+    padding: 9px 13px;
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: var(--elevation-1);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .btn-new .icon-sm {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* ================= TABS ================= */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid rgb(var(--border-subtle));
+    margin-bottom: 18px;
+  }
+  .tab {
+    padding: 10px 4px;
+    margin-right: 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: rgb(var(--text-tertiary));
+    border-bottom: 2px solid transparent;
+    cursor: default;
+  }
+  .tab.active {
+    color: rgb(var(--brand));
+    border-bottom-color: rgb(var(--brand));
+  }
+
+  /* ================= SECAO LABEL (dentro do feed, indica densidade) ================= */
+  .density-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: rgb(var(--brand-subtle-fg));
+    background: rgb(var(--brand-subtle-bg));
+    border: 1px solid rgb(var(--brand));
+    padding: 4px 9px;
+    border-radius: 999px;
+    margin: 0 0 10px;
+  }
+  .density-label.secondary {
+    color: rgb(var(--text-secondary));
+    background: rgb(var(--surface-sunken));
+    border-color: rgb(var(--border-subtle));
+  }
+
+  /* ================= CARD ================= */
+  .card {
+    background: rgb(var(--surface-raised));
+    border: 1px solid rgb(var(--border-subtle));
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--elevation-1);
+    margin-bottom: 26px;
+  }
+
+  .card-media {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    width: 100%;
+    background: rgb(var(--surface-sunken));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card-media .media-icon {
+    width: 40px;
+    height: 40px;
+    color: rgb(var(--text-tertiary));
+    opacity: .55;
+  }
+
+  .status-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .status-badge.pending {
+    background: rgb(var(--status-pending-bg));
+    color: rgb(var(--status-pending-fg));
+    border-color: rgb(var(--status-pending-border));
+  }
+  .status-badge.resolved {
+    background: rgb(var(--status-resolved-bg));
+    color: rgb(var(--status-resolved-fg));
+    border-color: rgb(var(--status-resolved-border));
+  }
+
+  .signal-chips {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+  }
+  .signal-chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgb(var(--signal-hot-bg));
+    color: rgb(var(--signal-hot-fg));
+    white-space: nowrap;
+  }
+  .signal-chip.alt {
+    background: rgb(var(--surface-raised));
+    color: rgb(var(--text-secondary));
+    border: 1px solid rgb(var(--border-subtle));
+  }
+
+  .card-content {
+    padding: 14px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: rgb(var(--text-primary));
+    margin: 0 0 6px;
+    line-height: 1.3;
+  }
+  .card-meta {
+    font-size: 12px;
+    color: rgb(var(--text-tertiary));
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-meta .dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgb(var(--text-tertiary));
+    flex-shrink: 0;
+  }
+  .card-desc {
+    font-size: 13px;
+    color: rgb(var(--text-secondary));
+    margin: 0 0 8px;
+    line-height: 1.45;
+  }
+  .card-story {
+    font-size: 12.5px;
+    color: rgb(var(--brand-subtle-fg));
+    background: rgb(var(--brand-subtle-bg));
+    border-radius: 8px;
+    padding: 7px 10px;
+    margin: 0 0 8px;
+    line-height: 1.4;
+  }
+  .card-address {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: rgb(var(--text-tertiary));
+    margin: 0 0 10px;
+  }
+  .card-address .icon-sm {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+  }
+  .card-community {
+    font-size: 12px;
+    color: rgb(var(--text-secondary));
+    margin: 0 0 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgb(var(--border-subtle));
+  }
+
+  .engagement-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgb(var(--border-subtle));
+  }
+  .engagement-action {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--text-secondary));
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .engagement-action .icon-sm {
+    width: 17px;
+    height: 17px;
+  }
+  .engagement-action.support {
+    color: rgb(var(--brand));
+  }
+
+  .witness-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: rgb(var(--surface-sunken));
+    padding: 10px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgb(var(--text-secondary));
+    border-top: 1px solid rgb(var(--border-subtle));
+  }
+  .witness-strip .link {
+    color: rgb(var(--brand));
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ================= SKELETON ================= */
+  .skeleton-card {
+    background: rgb(var(--surface-raised));
+    border: 1px solid rgb(var(--border-subtle));
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--elevation-1);
+    margin-bottom: 10px;
+  }
+  .skeleton-media {
+    aspect-ratio: 4 / 3;
+    width: 100%;
+    background: linear-gradient(
+      100deg,
+      rgb(var(--skeleton-base)) 30%,
+      rgb(var(--skeleton-sheen)) 50%,
+      rgb(var(--skeleton-base)) 70%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+  .skeleton-content {
+    padding: 14px;
+  }
+  .skeleton-line {
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(
+      100deg,
+      rgb(var(--skeleton-base)) 30%,
+      rgb(var(--skeleton-sheen)) 50%,
+      rgb(var(--skeleton-base)) 70%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    margin-bottom: 9px;
+  }
+  .skeleton-line.w-70 { width: 70%; }
+  .skeleton-line.w-40 { width: 40%; }
+  .skeleton-line.w-90 { width: 90%; }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgb(var(--text-tertiary));
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin: 22px 0 10px;
+  }
+
+  @media (max-width: 900px) {
+    .compare-wrap { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="page-title">
+    <h1>Mockup - Feed de denuncias</h1>
+    <p>Task 9 do redesign. Comparacao lado a lado: tema claro vs escuro, densidade enxuta (proposta) vs densidade completa (atual).</p>
+  </div>
+
+  <div class="compare-wrap">
+
+    <!-- ===================== PAINEL CLARO ===================== -->
+    <div class="theme-col">
+      <div class="theme-label">Tema claro</div>
+      <div class="phone-frame">
+
+        <!-- Header -->
+        <header class="app-header">
+          <div class="brand">
+            <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 10.2v3.6a1.4 1.4 0 0 0 1.4 1.4h2.1l6.6 3.9a.9.9 0 0 0 1.4-.78V5.68a.9.9 0 0 0-1.4-.78L6.5 8.8H4.4A1.4 1.4 0 0 0 3 10.2Z" />
+              <path d="M6.5 15.2v3.1a1.6 1.6 0 0 0 1.6 1.6h.6a1.6 1.6 0 0 0 1.6-1.6v-1.2" />
+              <path d="M17.6 9.4a3.6 3.6 0 0 1 0 5.2" />
+              <path d="M20.1 7.2a7 7 0 0 1 0 9.6" opacity=".55" />
+            </svg>
+            <span class="brand-name">Trombone Cidad&atilde;o</span>
+          </div>
+          <div class="city-picker">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+              <circle cx="12" cy="10" r="2.6" />
+            </svg>
+            <span>Floresta, PE</span>
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+        </header>
+
+        <div class="feed-body">
+          <div class="feed-heading">
+            <div>
+              <h2>Feed de den&uacute;ncias</h2>
+              <p>Acompanhe os problemas da sua cidade</p>
+            </div>
+            <button class="btn-new">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M12 8v8" />
+                <path d="M8 12h8" />
+              </svg>
+              Nova den&uacute;ncia
+            </button>
+          </div>
+
+          <div class="tabs">
+            <div class="tab active">Recentes</div>
+            <div class="tab">Em alta</div>
+            <div class="tab">Resolvidas</div>
+          </div>
+
+          <!-- Card densidade enxuta -->
+          <div class="density-label">Densidade enxuta (proposta)</div>
+          <div class="card">
+            <div class="card-media">
+              <span class="status-badge pending">Pendente</span>
+              <div class="signal-chips">
+                <span class="signal-chip">Em alta</span>
+              </div>
+              <svg class="media-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 17.5c0-1.2 1.6-2.2 3.2-2.6 1-.25 1.4-1 1.9-1.9.6-1.1 1.9-1.8 3.6-1.8 2 0 3.1.9 3.9 2 .6.85 1.2 1.4 2.2 1.6 1.9.4 3.2 1.4 3.2 2.7 0 1.9-3.9 3.5-9 3.5s-9-1.6-9-3.5Z" />
+                <path d="M8.5 11 7 7.5" />
+                <path d="M12 10.5V6" />
+                <path d="M15.5 11.3 17.5 8" />
+              </svg>
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Buraco grande na Rua das Flores</h3>
+              <p class="card-meta">Buraco na via <span class="dot"></span> h&aacute; 2 dias</p>
+              <p class="card-desc">Buraco profundo tomando quase metade da pista, dif&iacute;cil de desviar &agrave; noite.</p>
+              <p class="card-address">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                  <circle cx="12" cy="10" r="2.6" />
+                </svg>
+                Rua das Flores, 120 - Centro
+              </p>
+              <div class="engagement-bar">
+                <button class="engagement-action support">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7.5 13.5V6.2a1.6 1.6 0 0 1 3.2 0v5.1" />
+                    <path d="M10.7 11.3V9.4a1.5 1.5 0 0 1 3 0v1.9" />
+                    <path d="M13.7 11.6v-1a1.5 1.5 0 0 1 3 0v5.3c0 2.7-2 4.9-4.8 4.9-2.4 0-3.7-1-4.7-2.6l-1.9-3a1.4 1.4 0 0 1 2.2-1.7l.7.9" />
+                  </svg>
+                  32
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 12.5c0 4-3.6 7.2-8 7.2-1 0-2-.17-2.9-.48L4 21l1.5-3.7A6.9 6.9 0 0 1 4 12.5c0-4 3.6-7.2 8-7.2s8 3.2 8 7.2Z" />
+                    <path d="M9 11.5h6" />
+                    <path d="M9 14.5h4" />
+                  </svg>
+                  8
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="17.5" cy="6" r="2.6" />
+                    <circle cx="6.5" cy="12" r="2.6" />
+                    <circle cx="17.5" cy="18" r="2.6" />
+                    <path d="m8.9 10.8 6.3-3.5" />
+                    <path d="m8.9 13.2 6.3 3.5" />
+                  </svg>
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4-6.5 4V5.5a1 1 0 0 1 1-1Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="witness-strip">
+              <span>Esteve no local? Informe o que viu</span>
+              <span class="link">Contribuir</span>
+            </div>
+          </div>
+
+          <!-- Card densidade completa -->
+          <div class="density-label secondary">Densidade completa (atual)</div>
+          <div class="card">
+            <div class="card-media">
+              <span class="status-badge pending">Pendente</span>
+              <div class="signal-chips">
+                <span class="signal-chip">Em alta</span>
+                <span class="signal-chip alt">Cr&iacute;tico</span>
+              </div>
+              <svg class="media-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 17.5c0-1.2 1.6-2.2 3.2-2.6 1-.25 1.4-1 1.9-1.9.6-1.1 1.9-1.8 3.6-1.8 2 0 3.1.9 3.9 2 .6.85 1.2 1.4 2.2 1.6 1.9.4 3.2 1.4 3.2 2.7 0 1.9-3.9 3.5-9 3.5s-9-1.6-9-3.5Z" />
+                <path d="M8.5 11 7 7.5" />
+                <path d="M12 10.5V6" />
+                <path d="M15.5 11.3 17.5 8" />
+              </svg>
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Buraco grande na Rua das Flores</h3>
+              <p class="card-meta">Buraco na via <span class="dot"></span> h&aacute; 12 dias</p>
+              <p class="card-desc">Buraco profundo tomando quase metade da pista, dif&iacute;cil de desviar &agrave; noite.</p>
+              <p class="card-story">Esse problema est&aacute; h&aacute; 12 dias sem solu&ccedil;&atilde;o.</p>
+              <p class="card-address">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                  <circle cx="12" cy="10" r="2.6" />
+                </svg>
+                Rua das Flores, 120 - Centro
+              </p>
+              <p class="card-community">48 pessoas j&aacute; apoiaram</p>
+              <div class="engagement-bar">
+                <button class="engagement-action support">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7.5 13.5V6.2a1.6 1.6 0 0 1 3.2 0v5.1" />
+                    <path d="M10.7 11.3V9.4a1.5 1.5 0 0 1 3 0v1.9" />
+                    <path d="M13.7 11.6v-1a1.5 1.5 0 0 1 3 0v5.3c0 2.7-2 4.9-4.8 4.9-2.4 0-3.7-1-4.7-2.6l-1.9-3a1.4 1.4 0 0 1 2.2-1.7l.7.9" />
+                  </svg>
+                  48
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 12.5c0 4-3.6 7.2-8 7.2-1 0-2-.17-2.9-.48L4 21l1.5-3.7A6.9 6.9 0 0 1 4 12.5c0-4 3.6-7.2 8-7.2s8 3.2 8 7.2Z" />
+                    <path d="M9 11.5h6" />
+                    <path d="M9 14.5h4" />
+                  </svg>
+                  15
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="17.5" cy="6" r="2.6" />
+                    <circle cx="6.5" cy="12" r="2.6" />
+                    <circle cx="17.5" cy="18" r="2.6" />
+                    <path d="m8.9 10.8 6.3-3.5" />
+                    <path d="m8.9 13.2 6.3 3.5" />
+                  </svg>
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4-6.5 4V5.5a1 1 0 0 1 1-1Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="witness-strip">
+              <span>Esteve no local? Informe o que viu</span>
+              <span class="link">Contribuir</span>
+            </div>
+          </div>
+
+          <!-- Card resolvida -->
+          <div class="section-title">Exemplo com status resolvida</div>
+          <div class="card">
+            <div class="card-media">
+              <span class="status-badge resolved">Resolvida</span>
+              <svg class="media-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 17.5c0-1.2 1.6-2.2 3.2-2.6 1-.25 1.4-1 1.9-1.9.6-1.1 1.9-1.8 3.6-1.8 2 0 3.1.9 3.9 2 .6.85 1.2 1.4 2.2 1.6 1.9.4 3.2 1.4 3.2 2.7 0 1.9-3.9 3.5-9 3.5s-9-1.6-9-3.5Z" />
+                <path d="M8.5 11 7 7.5" />
+                <path d="M12 10.5V6" />
+                <path d="M15.5 11.3 17.5 8" />
+              </svg>
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Vazamento de &aacute;gua na Av. Central</h3>
+              <p class="card-meta">Vazamento <span class="dot"></span> resolvido h&aacute; 1 dia</p>
+              <p class="card-desc">Equipe da concession&aacute;ria consertou o cano rompido na cal&ccedil;ada.</p>
+              <p class="card-address">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                  <circle cx="12" cy="10" r="2.6" />
+                </svg>
+                Av. Central, 450
+              </p>
+              <div class="engagement-bar">
+                <button class="engagement-action support">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7.5 13.5V6.2a1.6 1.6 0 0 1 3.2 0v5.1" />
+                    <path d="M10.7 11.3V9.4a1.5 1.5 0 0 1 3 0v1.9" />
+                    <path d="M13.7 11.6v-1a1.5 1.5 0 0 1 3 0v5.3c0 2.7-2 4.9-4.8 4.9-2.4 0-3.7-1-4.7-2.6l-1.9-3a1.4 1.4 0 0 1 2.2-1.7l.7.9" />
+                  </svg>
+                  61
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 12.5c0 4-3.6 7.2-8 7.2-1 0-2-.17-2.9-.48L4 21l1.5-3.7A6.9 6.9 0 0 1 4 12.5c0-4 3.6-7.2 8-7.2s8 3.2 8 7.2Z" />
+                    <path d="M9 11.5h6" />
+                    <path d="M9 14.5h4" />
+                  </svg>
+                  22
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="17.5" cy="6" r="2.6" />
+                    <circle cx="6.5" cy="12" r="2.6" />
+                    <circle cx="17.5" cy="18" r="2.6" />
+                    <path d="m8.9 10.8 6.3-3.5" />
+                    <path d="m8.9 13.2 6.3 3.5" />
+                  </svg>
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4-6.5 4V5.5a1 1 0 0 1 1-1Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Skeleton -->
+          <div class="section-title">Skeleton (carregando)</div>
+          <div class="skeleton-card">
+            <div class="skeleton-media"></div>
+            <div class="skeleton-content">
+              <div class="skeleton-line w-90"></div>
+              <div class="skeleton-line w-40"></div>
+              <div class="skeleton-line w-70"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== PAINEL ESCURO ===================== -->
+    <div class="theme-col">
+      <div class="theme-label">Tema escuro</div>
+      <div class="phone-frame dark">
+
+        <!-- Header -->
+        <header class="app-header">
+          <div class="brand">
+            <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 10.2v3.6a1.4 1.4 0 0 0 1.4 1.4h2.1l6.6 3.9a.9.9 0 0 0 1.4-.78V5.68a.9.9 0 0 0-1.4-.78L6.5 8.8H4.4A1.4 1.4 0 0 0 3 10.2Z" />
+              <path d="M6.5 15.2v3.1a1.6 1.6 0 0 0 1.6 1.6h.6a1.6 1.6 0 0 0 1.6-1.6v-1.2" />
+              <path d="M17.6 9.4a3.6 3.6 0 0 1 0 5.2" />
+              <path d="M20.1 7.2a7 7 0 0 1 0 9.6" opacity=".55" />
+            </svg>
+            <span class="brand-name">Trombone Cidad&atilde;o</span>
+          </div>
+          <div class="city-picker">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+              <circle cx="12" cy="10" r="2.6" />
+            </svg>
+            <span>Floresta, PE</span>
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+        </header>
+
+        <div class="feed-body">
+          <div class="feed-heading">
+            <div>
+              <h2>Feed de den&uacute;ncias</h2>
+              <p>Acompanhe os problemas da sua cidade</p>
+            </div>
+            <button class="btn-new">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M12 8v8" />
+                <path d="M8 12h8" />
+              </svg>
+              Nova den&uacute;ncia
+            </button>
+          </div>
+
+          <div class="tabs">
+            <div class="tab active">Recentes</div>
+            <div class="tab">Em alta</div>
+            <div class="tab">Resolvidas</div>
+          </div>
+
+          <!-- Card densidade enxuta -->
+          <div class="density-label">Densidade enxuta (proposta)</div>
+          <div class="card">
+            <div class="card-media">
+              <span class="status-badge pending">Pendente</span>
+              <div class="signal-chips">
+                <span class="signal-chip">Em alta</span>
+              </div>
+              <svg class="media-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 17.5c0-1.2 1.6-2.2 3.2-2.6 1-.25 1.4-1 1.9-1.9.6-1.1 1.9-1.8 3.6-1.8 2 0 3.1.9 3.9 2 .6.85 1.2 1.4 2.2 1.6 1.9.4 3.2 1.4 3.2 2.7 0 1.9-3.9 3.5-9 3.5s-9-1.6-9-3.5Z" />
+                <path d="M8.5 11 7 7.5" />
+                <path d="M12 10.5V6" />
+                <path d="M15.5 11.3 17.5 8" />
+              </svg>
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Buraco grande na Rua das Flores</h3>
+              <p class="card-meta">Buraco na via <span class="dot"></span> h&aacute; 2 dias</p>
+              <p class="card-desc">Buraco profundo tomando quase metade da pista, dif&iacute;cil de desviar &agrave; noite.</p>
+              <p class="card-address">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                  <circle cx="12" cy="10" r="2.6" />
+                </svg>
+                Rua das Flores, 120 - Centro
+              </p>
+              <div class="engagement-bar">
+                <button class="engagement-action support">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7.5 13.5V6.2a1.6 1.6 0 0 1 3.2 0v5.1" />
+                    <path d="M10.7 11.3V9.4a1.5 1.5 0 0 1 3 0v1.9" />
+                    <path d="M13.7 11.6v-1a1.5 1.5 0 0 1 3 0v5.3c0 2.7-2 4.9-4.8 4.9-2.4 0-3.7-1-4.7-2.6l-1.9-3a1.4 1.4 0 0 1 2.2-1.7l.7.9" />
+                  </svg>
+                  32
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 12.5c0 4-3.6 7.2-8 7.2-1 0-2-.17-2.9-.48L4 21l1.5-3.7A6.9 6.9 0 0 1 4 12.5c0-4 3.6-7.2 8-7.2s8 3.2 8 7.2Z" />
+                    <path d="M9 11.5h6" />
+                    <path d="M9 14.5h4" />
+                  </svg>
+                  8
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="17.5" cy="6" r="2.6" />
+                    <circle cx="6.5" cy="12" r="2.6" />
+                    <circle cx="17.5" cy="18" r="2.6" />
+                    <path d="m8.9 10.8 6.3-3.5" />
+                    <path d="m8.9 13.2 6.3 3.5" />
+                  </svg>
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4-6.5 4V5.5a1 1 0 0 1 1-1Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="witness-strip">
+              <span>Esteve no local? Informe o que viu</span>
+              <span class="link">Contribuir</span>
+            </div>
+          </div>
+
+          <!-- Card densidade completa -->
+          <div class="density-label secondary">Densidade completa (atual)</div>
+          <div class="card">
+            <div class="card-media">
+              <span class="status-badge pending">Pendente</span>
+              <div class="signal-chips">
+                <span class="signal-chip">Em alta</span>
+                <span class="signal-chip alt">Cr&iacute;tico</span>
+              </div>
+              <svg class="media-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 17.5c0-1.2 1.6-2.2 3.2-2.6 1-.25 1.4-1 1.9-1.9.6-1.1 1.9-1.8 3.6-1.8 2 0 3.1.9 3.9 2 .6.85 1.2 1.4 2.2 1.6 1.9.4 3.2 1.4 3.2 2.7 0 1.9-3.9 3.5-9 3.5s-9-1.6-9-3.5Z" />
+                <path d="M8.5 11 7 7.5" />
+                <path d="M12 10.5V6" />
+                <path d="M15.5 11.3 17.5 8" />
+              </svg>
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Buraco grande na Rua das Flores</h3>
+              <p class="card-meta">Buraco na via <span class="dot"></span> h&aacute; 12 dias</p>
+              <p class="card-desc">Buraco profundo tomando quase metade da pista, dif&iacute;cil de desviar &agrave; noite.</p>
+              <p class="card-story">Esse problema est&aacute; h&aacute; 12 dias sem solu&ccedil;&atilde;o.</p>
+              <p class="card-address">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                  <circle cx="12" cy="10" r="2.6" />
+                </svg>
+                Rua das Flores, 120 - Centro
+              </p>
+              <p class="card-community">48 pessoas j&aacute; apoiaram</p>
+              <div class="engagement-bar">
+                <button class="engagement-action support">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7.5 13.5V6.2a1.6 1.6 0 0 1 3.2 0v5.1" />
+                    <path d="M10.7 11.3V9.4a1.5 1.5 0 0 1 3 0v1.9" />
+                    <path d="M13.7 11.6v-1a1.5 1.5 0 0 1 3 0v5.3c0 2.7-2 4.9-4.8 4.9-2.4 0-3.7-1-4.7-2.6l-1.9-3a1.4 1.4 0 0 1 2.2-1.7l.7.9" />
+                  </svg>
+                  48
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 12.5c0 4-3.6 7.2-8 7.2-1 0-2-.17-2.9-.48L4 21l1.5-3.7A6.9 6.9 0 0 1 4 12.5c0-4 3.6-7.2 8-7.2s8 3.2 8 7.2Z" />
+                    <path d="M9 11.5h6" />
+                    <path d="M9 14.5h4" />
+                  </svg>
+                  15
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="17.5" cy="6" r="2.6" />
+                    <circle cx="6.5" cy="12" r="2.6" />
+                    <circle cx="17.5" cy="18" r="2.6" />
+                    <path d="m8.9 10.8 6.3-3.5" />
+                    <path d="m8.9 13.2 6.3 3.5" />
+                  </svg>
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4-6.5 4V5.5a1 1 0 0 1 1-1Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="witness-strip">
+              <span>Esteve no local? Informe o que viu</span>
+              <span class="link">Contribuir</span>
+            </div>
+          </div>
+
+          <!-- Card resolvida -->
+          <div class="section-title">Exemplo com status resolvida</div>
+          <div class="card">
+            <div class="card-media">
+              <span class="status-badge resolved">Resolvida</span>
+              <svg class="media-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 17.5c0-1.2 1.6-2.2 3.2-2.6 1-.25 1.4-1 1.9-1.9.6-1.1 1.9-1.8 3.6-1.8 2 0 3.1.9 3.9 2 .6.85 1.2 1.4 2.2 1.6 1.9.4 3.2 1.4 3.2 2.7 0 1.9-3.9 3.5-9 3.5s-9-1.6-9-3.5Z" />
+                <path d="M8.5 11 7 7.5" />
+                <path d="M12 10.5V6" />
+                <path d="M15.5 11.3 17.5 8" />
+              </svg>
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Vazamento de &aacute;gua na Av. Central</h3>
+              <p class="card-meta">Vazamento <span class="dot"></span> resolvido h&aacute; 1 dia</p>
+              <p class="card-desc">Equipe da concession&aacute;ria consertou o cano rompido na cal&ccedil;ada.</p>
+              <p class="card-address">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                  <circle cx="12" cy="10" r="2.6" />
+                </svg>
+                Av. Central, 450
+              </p>
+              <div class="engagement-bar">
+                <button class="engagement-action support">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7.5 13.5V6.2a1.6 1.6 0 0 1 3.2 0v5.1" />
+                    <path d="M10.7 11.3V9.4a1.5 1.5 0 0 1 3 0v1.9" />
+                    <path d="M13.7 11.6v-1a1.5 1.5 0 0 1 3 0v5.3c0 2.7-2 4.9-4.8 4.9-2.4 0-3.7-1-4.7-2.6l-1.9-3a1.4 1.4 0 0 1 2.2-1.7l.7.9" />
+                  </svg>
+                  61
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 12.5c0 4-3.6 7.2-8 7.2-1 0-2-.17-2.9-.48L4 21l1.5-3.7A6.9 6.9 0 0 1 4 12.5c0-4 3.6-7.2 8-7.2s8 3.2 8 7.2Z" />
+                    <path d="M9 11.5h6" />
+                    <path d="M9 14.5h4" />
+                  </svg>
+                  22
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="17.5" cy="6" r="2.6" />
+                    <circle cx="6.5" cy="12" r="2.6" />
+                    <circle cx="17.5" cy="18" r="2.6" />
+                    <path d="m8.9 10.8 6.3-3.5" />
+                    <path d="m8.9 13.2 6.3 3.5" />
+                  </svg>
+                </button>
+                <button class="engagement-action">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4-6.5 4V5.5a1 1 0 0 1 1-1Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Skeleton -->
+          <div class="section-title">Skeleton (carregando)</div>
+          <div class="skeleton-card">
+            <div class="skeleton-media"></div>
+            <div class="skeleton-content">
+              <div class="skeleton-line w-90"></div>
+              <div class="skeleton-line w-40"></div>
+              <div class="skeleton-line w-70"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
