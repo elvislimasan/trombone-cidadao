@@ -27,7 +27,7 @@ const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-5 h-5', textClassNam
   }
   const initial = (name || 'C')[0].toUpperCase();
   return (
-    <div className={`${sizeClassName} rounded-full bg-brand-subtleBg text-brand-subtleFg flex items-center justify-center ${textClassName} font-bold flex-shrink-0 select-none`}>
+    <div className={`${sizeClassName} rounded-full bg-surface-sunken text-content-secondary flex items-center justify-center ${textClassName} font-bold flex-shrink-0 select-none`}>
       {initial}
     </div>
   );
@@ -233,21 +233,30 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
         )}
       </div>
 
-      {/* Rodape com fundo proprio: acompanhar (favoritar) e ver detalhes. */}
-      <div className="grid grid-cols-2 bg-brand-subtleBg border-t border-edge-subtle">
+      {/* Rodape neutro: so divisorias. O vermelho fica reservado para acao. */}
+      <div className="grid grid-cols-2 border-t border-edge-subtle">
         <button
           type="button"
           onClick={handleBookmark}
           aria-pressed={report.is_favorited}
-          className="flex items-center justify-center gap-2 py-2.5 text-xs font-semibold text-brand border-r border-edge-subtle hover:brightness-110 transition-all"
+          className="flex items-center justify-center gap-2 py-3 text-xs font-semibold border-r border-edge-subtle hover:bg-surface-subtle transition-colors"
         >
-          <Icon name="flag" size={14} />
-          {report.is_favorited ? 'Acompanhando' : 'Acompanhar'}
+          {report.is_favorited ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-bg text-success-fg px-2.5 py-1">
+              <Icon name="resolved" size={13} />
+              Acompanhando
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-content-secondary">
+              <Icon name="flag" size={14} />
+              Acompanhar
+            </span>
+          )}
         </button>
         <button
           type="button"
           onClick={goToReport}
-          className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-brand hover:brightness-110 transition-all group"
+          className="flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-brand hover:bg-surface-subtle transition-colors group"
         >
           Ver detalhes
           <Icon
@@ -269,21 +278,22 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
             }
             navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
           }}
-          className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-brand-subtleBg hover:brightness-110 border-t border-edge-subtle transition-all rounded-b-2xl group"
+          className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-surface-subtle hover:bg-surface-subtleHover border-t border-edge-subtle transition-colors rounded-b-2xl group"
         >
-          <div className="w-6 h-6 rounded-full bg-brand/10 flex items-center justify-center flex-shrink-0 text-brand">
-            <Icon name="trombone" size={13} />
+          <div className="w-7 h-7 rounded-full bg-surface-sunken flex items-center justify-center flex-shrink-0 text-content-secondary">
+            <Icon name="trombone" size={14} />
           </div>
           <div className="flex-1 text-left min-w-0">
-            <span className="text-2xs font-semibold text-brand-subtleFg">Esteve no local?</span>
-            <span className="text-2xs text-content-secondary"> Informe o que viu</span>
+            <p className="text-2xs font-semibold text-content-primary">Esteve no local?</p>
+            <p className="text-2xs text-content-tertiary">
+              Ajude a comunidade compartilhando o que você viu.
+            </p>
           </div>
-          <span
-            className="text-2xs font-bold text-brand-subtleFg group-hover:translate-x-0.5 transition-transform"
-            aria-hidden="true"
-          >
-            →
-          </span>
+          <Icon
+            name="chevronright"
+            size={14}
+            className="flex-shrink-0 text-content-tertiary group-hover:translate-x-0.5 transition-transform"
+          />
         </button>
       )}
     </article>

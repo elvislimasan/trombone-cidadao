@@ -57,6 +57,17 @@
   --signal-fresh-bg:   var(--tc-violet-600);
   --signal-fresh-fg:   var(--tc-neutral-0);
 
+  /* --- Superficie sutil NEUTRA ---
+     Fundo de faixas e rodapes dentro do card. Substitui os fundos rosados:
+     o vermelho fica reservado para acao (botoes, links, estados ativos). */
+  --surface-subtle: var(--tc-neutral-50);
+  --surface-subtle-hover: var(--tc-neutral-100);
+
+  /* --- Sucesso (estado ativo de acompanhar) --- */
+  --success-bg: 236 253 243;
+  --success-fg: var(--tc-green-600);
+  --success-border: var(--tc-green-200);
+
   /* --- Destaque secundario --- */
   --accent-highlight: var(--tc-yellow-500);
 
@@ -127,6 +138,13 @@
   --signal-fresh-bg:   var(--tc-violet-600);
   --signal-fresh-fg:   var(--tc-neutral-0);
 
+  --surface-subtle: var(--tc-neutral-850);
+  --surface-subtle-hover: var(--tc-neutral-800);
+
+  --success-bg: var(--tc-green-950);
+  --success-fg: var(--tc-green-300);
+  --success-border: var(--tc-green-900);
+
   --accent-highlight: var(--tc-yellow-400);
 
   /* No escuro a base e neutral-800: --surface-sunken e neutral-950, igual ao
@@ -146,46 +164,46 @@
    atualizar o par correspondente aqui.
    ============================================================ */
 :root {
-  --background: 60 4.8% 95.9%;    /* = --surface-base (neutral-100) */
-  --foreground: 30 4% 9.8%;       /* = --text-primary (neutral-900) */
+  --background: 220 20% 97.1%;    /* = --surface-base (neutral-100) */
+  --foreground: 223.6 19.3% 11.2%; /* = --text-primary (neutral-900) */
   --card: 0 0% 100%;              /* = --surface-raised */
-  --card-foreground: 30 4% 9.8%;
+  --card-foreground: 223.6 19.3% 11.2%;
   --popover: 0 0% 100%;
-  --popover-foreground: 30 4% 9.8%;
+  --popover-foreground: 223.6 19.3% 11.2%;
   --primary: 4.2 74.3% 48.8%;     /* = --brand (red-600) */
   --primary-foreground: 0 0% 100%;
   --secondary: 45.4 93.4% 47.5%;  /* = amarelo da marca */
-  --secondary-foreground: 30 4% 9.8%;
-  --muted: 60 4.8% 95.9%;
-  --muted-foreground: 30 3.6% 32.9%;  /* = --text-secondary (neutral-600) */
-  --accent: 60 4.8% 95.9%;
-  --accent-foreground: 30 4% 9.8%;
+  --secondary-foreground: 223.6 19.3% 11.2%;
+  --muted: 220 20% 97.1%;
+  --muted-foreground: 215 13.8% 34.1%;  /* = --text-secondary (neutral-600) */
+  --accent: 220 20% 97.1%;
+  --accent-foreground: 223.6 19.3% 11.2%;
   --destructive: 4 71.6% 33.1%;   /* = --danger (red-800) - distinto de primary */
   --destructive-foreground: 0 0% 100%;
-  --border: 40 5.9% 90%;          /* = --border-subtle */
-  --input: 40 5.9% 90%;
+  --border: 220 13% 91%;          /* = --border-subtle */
+  --input: 220 13% 91%;
   --ring: 4.2 74.3% 48.8%;
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: 240 6.3% 6.3%;    /* = --surface-base (neutral-950) */
-  --foreground: 60 9.1% 97.8%;
-  --card: 30 4% 9.8%;             /* = --surface-raised (neutral-900) */
-  --card-foreground: 60 9.1% 97.8%;
-  --popover: 30 3.2% 12.2%;       /* = --surface-overlay dark (neutral-850) */
-  --popover-foreground: 60 9.1% 97.8%;
+  --background: 225 20% 7.8%;     /* = --surface-base (neutral-950) */
+  --foreground: 210 25% 98.4%;
+  --card: 223.6 19.3% 11.2%;      /* = --surface-raised (neutral-900) */
+  --card-foreground: 210 25% 98.4%;
+  --popover: 222.9 21.2% 12.9%;   /* = --surface-overlay dark (neutral-850) */
+  --popover-foreground: 210 25% 98.4%;
   --primary: 356.3 90.7% 58%;     /* = --brand dark (red-450) */
-  --primary-foreground: 240 6.3% 6.3%;  /* = --text-on-brand dark (neutral-950) */
+  --primary-foreground: 225 20% 7.8%;  /* = --text-on-brand dark (neutral-950) */
   --secondary: 47.9 95.8% 53.1%;
-  --secondary-foreground: 30 4% 9.8%;
-  --muted: 20 3.8% 15.5%;
-  --muted-foreground: 34.3 3.9% 64.5%;
-  --accent: 20 3.8% 15.5%;
-  --accent-foreground: 60 9.1% 97.8%;
+  --secondary-foreground: 223.6 19.3% 11.2%;
+  --muted: 221.3 19.5% 16.1%;
+  --muted-foreground: 217.9 10.6% 64.9%;
+  --accent: 221.3 19.5% 16.1%;
+  --accent-foreground: 210 25% 98.4%;
   --destructive: 4.3 96.1% 80%;   /* = --danger dark (red-300) */
-  --destructive-foreground: 30 4% 9.8%;
-  --border: 20 3.8% 15.5%;
-  --input: 20 3.8% 15.5%;
+  --destructive-foreground: 223.6 19.3% 11.2%;
+  --border: 221.3 19.5% 16.1%;
+  --input: 221.3 19.5% 16.1%;
   --ring: 356.3 90.7% 58%;        /* = --brand dark (red-450) */
 }

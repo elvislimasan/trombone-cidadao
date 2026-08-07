@@ -165,11 +165,11 @@ export default function FeedPage() {
       <div className="container mx-auto max-w-2xl px-3 pt-1 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-display text-xl font-extrabold tracking-tight text-content-primary">
-              Feed de denúncias
+            <h1 className="font-display text-2xl font-extrabold tracking-tight text-content-primary">
+              Feed
             </h1>
             <p className="text-xs text-content-secondary mt-0.5">
-              Acompanhe os problemas da sua cidade
+              Problemas próximos de você
             </p>
           </div>
           <button

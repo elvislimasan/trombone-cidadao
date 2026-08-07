@@ -265,7 +265,7 @@ const ProfilePage = () => {
                         aria-pressed={active}
                         className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${
                           active
-                            ? 'border-brand bg-brand-subtleBg text-brand-subtleFg'
+                            ? 'border-brand bg-brand/10 text-brand'
                             : 'border-edge-subtle bg-surface-base text-content-secondary hover:text-content-primary'
                         }`}
                       >

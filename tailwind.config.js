@@ -82,6 +82,13 @@ module.exports = {
           raised:  "rgb(var(--surface-raised) / <alpha-value>)",
           sunken:  "rgb(var(--surface-sunken) / <alpha-value>)",
           overlay: "rgb(var(--surface-overlay) / <alpha-value>)",
+          subtle:  "rgb(var(--surface-subtle) / <alpha-value>)",
+          subtleHover: "rgb(var(--surface-subtle-hover) / <alpha-value>)",
+        },
+        success: {
+          bg:     "rgb(var(--success-bg) / <alpha-value>)",
+          fg:     "rgb(var(--success-fg) / <alpha-value>)",
+          border: "rgb(var(--success-border) / <alpha-value>)",
         },
         content: {
           primary:   "rgb(var(--text-primary) / <alpha-value>)",

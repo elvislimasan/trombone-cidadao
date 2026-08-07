@@ -19,20 +19,21 @@
   --tc-red-900: 122 32 26;
   --tc-red-950: 85 15 12;
 
-  /* Neutros com leve tom quente */
+  /* Neutros levemente frios (leitura mais sobria; o tom quente puxava para
+     bege e competia com o vermelho da marca). */
   --tc-neutral-0:   255 255 255;
-  --tc-neutral-50:  250 250 249;
-  --tc-neutral-100: 245 245 244;
-  --tc-neutral-200: 231 230 228;
-  --tc-neutral-300: 214 212 209;
-  --tc-neutral-400: 168 165 161;
-  --tc-neutral-500: 120 117 113;
-  --tc-neutral-600: 87 84 81;
-  --tc-neutral-700: 68 65 63;
-  --tc-neutral-800: 41 39 38;
-  --tc-neutral-850: 32 31 30;
-  --tc-neutral-900: 26 25 24;
-  --tc-neutral-950: 15 15 17;
+  --tc-neutral-50:  250 251 252;
+  --tc-neutral-100: 246 247 249;
+  --tc-neutral-200: 229 231 235;
+  --tc-neutral-300: 209 213 219;
+  --tc-neutral-400: 156 163 175;
+  --tc-neutral-500: 107 114 128;
+  --tc-neutral-600: 75 85 99;
+  --tc-neutral-700: 55 65 81;
+  --tc-neutral-800: 33 38 49;
+  --tc-neutral-850: 26 30 40;
+  --tc-neutral-900: 23 26 34;
+  --tc-neutral-950: 16 18 24;
 
   /* Ambar - status pendente */
   --tc-amber-100: 254 243 199;

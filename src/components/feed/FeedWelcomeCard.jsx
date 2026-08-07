@@ -9,7 +9,7 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
 
   return (
     <div className="mb-4 p-3">
-      <div className="rounded-2xl border border-brand/20 bg-brand-subtleBg px-4 py-4 shadow-elevation-1">
+      <div className="rounded-2xl border border-edge-subtle bg-surface-raised px-4 py-4 shadow-elevation-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -34,7 +34,7 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
           <button
             type="button"
             onClick={onCreateReport}
-            className="rounded-2xl border border-edge-subtle bg-surface-raised px-2.5 py-3 text-center shadow-elevation-1 hover:border-brand/40 transition-colors"
+            className="rounded-2xl border border-edge-subtle bg-surface-subtle px-2.5 py-3 text-center hover:bg-surface-subtleHover transition-colors"
           >
             <div className="mx-auto w-9 h-9 rounded-2xl bg-brand/10 text-brand flex items-center justify-center">
               <Icon name="trombone" size={20} />
@@ -47,7 +47,7 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
           <button
             type="button"
             onClick={() => navigate(user?.is_ambassador ? '/embaixador' : '/seja-embaixador')}
-            className="rounded-2xl border border-edge-subtle bg-surface-raised px-2.5 py-3 text-center shadow-elevation-1 hover:border-brand/40 transition-colors"
+            className="rounded-2xl border border-edge-subtle bg-surface-subtle px-2.5 py-3 text-center hover:bg-surface-subtleHover transition-colors"
           >
             <div className="mx-auto w-9 h-9 rounded-2xl bg-brand/10 text-brand flex items-center justify-center">
               <Icon name="ambassador" size={20} />
@@ -60,7 +60,7 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
           <button
             type="button"
             onClick={onInvite}
-            className="rounded-2xl border border-edge-subtle bg-surface-raised px-2.5 py-3 text-center shadow-elevation-1 hover:border-brand/40 transition-colors"
+            className="rounded-2xl border border-edge-subtle bg-surface-subtle px-2.5 py-3 text-center hover:bg-surface-subtleHover transition-colors"
           >
             <div className="mx-auto w-9 h-9 rounded-2xl bg-brand/10 text-brand flex items-center justify-center">
               <Icon name="profile" size={20} />
