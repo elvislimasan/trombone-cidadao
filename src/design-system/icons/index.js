@@ -27,6 +27,8 @@ import SaveIcon from './system/Save';
 import LocationIcon from './system/Location';
 import Ambassador from './system/Ambassador';
 import Bell from './system/Bell';
+import Flag from './system/Flag';
+import ChevronRight from './system/ChevronRight';
 
 registerIcons({
   pothole: Pothole,
@@ -56,6 +58,8 @@ registerIcons({
   location: LocationIcon,
   ambassador: Ambassador,
   bell: Bell,
+  flag: Flag,
+  chevronright: ChevronRight,
 });
 
 // Mapeia category_id do banco para nome de icone.

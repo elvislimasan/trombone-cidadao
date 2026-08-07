@@ -133,8 +133,9 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
       style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
     >
       {/* Layout horizontal: miniatura quadrada a esquerda, conteudo a direita. */}
-      <div className="flex gap-3 p-3">
-        <div className="w-36 sm:w-44 flex-shrink-0">
+      {/* items-stretch: a foto acompanha a altura da coluna de texto. */}
+      <div className="flex items-stretch gap-3 p-3">
+        <div className="w-32 sm:w-40 flex-shrink-0">
           <FeedCardMedia
             report={report}
             index={index}
@@ -144,49 +145,50 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
           />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={report.status} />
-            <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
+            <span className="flex items-center gap-1 text-2xs text-content-tertiary min-w-0">
+              <Icon
+                name={categoryIconName(report.category_id)}
+                size={12}
+                className="flex-shrink-0"
+              />
+              <span className="truncate">{report.categoryName || report.category_id}</span>
+              <span aria-hidden="true">·</span>
+              <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
+            </span>
             {chip && <SignalChip variant={chip.variant} label={chip.label} />}
-          </div>
-
-          <div className="flex items-center gap-1.5 mt-1.5 text-2xs text-content-tertiary">
-            <Icon name={categoryIconName(report.category_id)} size={12} className="flex-shrink-0" />
-            <span className="truncate">{report.categoryName || report.category_id}</span>
           </div>
 
           <button
             onClick={goToReport}
-            className="w-full text-left mt-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+            className="w-full text-left mt-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
           >
-            <h3 className="font-display text-base font-bold leading-snug line-clamp-2 text-content-primary">
+            <h3 className="font-display text-base font-bold leading-tight line-clamp-2 text-content-primary">
               {report.title}
             </h3>
 
             {report.address && (
-              <div className="flex items-start gap-1 text-2xs text-content-secondary mt-1.5">
+              <div className="flex items-start gap-1 text-2xs text-content-secondary mt-2">
                 <Icon name="location" size={12} className="flex-shrink-0 mt-0.5 text-brand" />
                 <span className="line-clamp-2">{report.address}</span>
               </div>
             )}
 
-            {/* Com a miniatura maior a coluna encurta; a descricao completa
-                fica na tela de detalhe. */}
             {report.description && (
-              <p className="text-2xs text-content-secondary line-clamp-1 mt-1.5">
+              <p className="text-2xs text-content-secondary line-clamp-2 mt-2 leading-relaxed">
                 {report.description}
               </p>
             )}
           </button>
 
-          <FeedCardSupport upvotes={report.upvotes} className="mt-2.5" />
+          <FeedCardSupport upvotes={report.upvotes} className="mt-auto pt-2.5" />
         </div>
       </div>
 
-      {/* Comentar e compartilhar em linha discreta: nao somem do card, mas nao
-          competem com as duas acoes principais do rodape. */}
-      <div className="flex items-center gap-1 px-3 pb-2">
+      {/* Apoiar, comentar e compartilhar em linha discreta, com o autor a direita. */}
+      <div className="flex items-center gap-0.5 px-3 pb-2">
         <button
           type="button"
           onClick={() => onToggleUpvote?.(report.id)}
@@ -220,6 +222,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
         >
           <Icon name="share" size={15} />
         </button>
+
         {(report.authorName || report.authorAvatar) && (
           <div className="flex items-center gap-1.5 ml-auto min-w-0">
             <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
@@ -230,33 +233,28 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
         )}
       </div>
 
-      {/* Rodape: acompanhar (favoritar) e ver detalhes. */}
-      <div className="grid grid-cols-2 border-t border-edge-subtle">
+      {/* Rodape com fundo proprio: acompanhar (favoritar) e ver detalhes. */}
+      <div className="grid grid-cols-2 bg-brand-subtleBg border-t border-edge-subtle">
         <button
           type="button"
           onClick={handleBookmark}
           aria-pressed={report.is_favorited}
-          className={`flex items-center justify-center gap-2 py-3 text-xs font-semibold border-r border-edge-subtle transition-colors ${
-            report.is_favorited
-              ? 'text-brand bg-brand/10'
-              : 'text-brand hover:bg-brand/5'
-          }`}
+          className="flex items-center justify-center gap-2 py-2.5 text-xs font-semibold text-brand border-r border-edge-subtle hover:brightness-110 transition-all"
         >
-          <Icon name="save" size={14} />
+          <Icon name="flag" size={14} />
           {report.is_favorited ? 'Acompanhando' : 'Acompanhar'}
         </button>
         <button
           type="button"
           onClick={goToReport}
-          className="flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-content-primary hover:bg-surface-sunken transition-colors group"
+          className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-brand hover:brightness-110 transition-all group"
         >
           Ver detalhes
-          <span
-            className="text-brand group-hover:translate-x-0.5 transition-transform"
-            aria-hidden="true"
-          >
-            ›
-          </span>
+          <Icon
+            name="chevronright"
+            size={13}
+            className="group-hover:translate-x-0.5 transition-transform"
+          />
         </button>
       </div>
 
