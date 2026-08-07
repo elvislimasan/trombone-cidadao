@@ -33,7 +33,7 @@
 }
 
 @keyframes tc-draw {
-  from { stroke-dashoffset: var(--tc-draw-length, 200); }
+  from { stroke-dashoffset: var(--tc-draw-length, 46); }
   to   { stroke-dashoffset: 0; }
 }
 
@@ -70,8 +70,8 @@
 
 /* TromboneSplash - desenho do trombone + ondas de propagacao */
 .tc-splash-draw {
-  stroke-dasharray: var(--tc-draw-length, 70);
-  stroke-dashoffset: var(--tc-draw-length, 70);
+  stroke-dasharray: var(--tc-draw-length, 46);
+  stroke-dashoffset: var(--tc-draw-length, 46);
   animation: tc-draw 900ms var(--ease-out) forwards;
 }
 
@@ -92,14 +92,17 @@
 }
 
 /* Skeleton shimmer - superficie de carregamento */
+/* A faixa de brilho usa --skeleton-* (definidos em semantic.css por tema).
+   Nao usar --surface-sunken/--border-subtle aqui: no tema claro os dois
+   apontam para o mesmo primitivo e o gradiente ficaria de cor unica. */
 .tc-shimmer {
   background-image: linear-gradient(
     100deg,
-    rgb(var(--surface-sunken)) 0%,
-    rgb(var(--surface-sunken)) 40%,
-    rgb(var(--border-subtle)) 50%,
-    rgb(var(--surface-sunken)) 60%,
-    rgb(var(--surface-sunken)) 100%
+    rgb(var(--skeleton-base)) 0%,
+    rgb(var(--skeleton-base)) 40%,
+    rgb(var(--skeleton-sheen)) 50%,
+    rgb(var(--skeleton-base)) 60%,
+    rgb(var(--skeleton-base)) 100%
   );
   background-size: 200% 100%;
   animation: tc-shimmer 1.5s linear infinite;
@@ -109,6 +112,6 @@
   .tc-shimmer {
     animation: none !important;
     background-image: none;
-    background-color: rgb(var(--surface-sunken));
+    background-color: rgb(var(--skeleton-base));
   }
 }

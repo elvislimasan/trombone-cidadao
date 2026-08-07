@@ -60,6 +60,12 @@
   /* --- Destaque secundario --- */
   --accent-highlight: var(--tc-yellow-500);
 
+  /* --- Skeleton (shimmer) ---
+     Par proprio para garantir contraste da faixa de brilho. Nao derivar de
+     --surface-sunken/--border-subtle: no claro os dois sao neutral-200. */
+  --skeleton-base:  var(--tc-neutral-200);
+  --skeleton-sheen: var(--tc-neutral-100);
+
   /* --- Elevacao --- */
   --elevation-1: 0 1px 2px rgb(var(--tc-neutral-950) / 0.06);
   --elevation-2: 0 2px 8px rgb(var(--tc-neutral-950) / 0.08);
@@ -116,6 +122,11 @@
   --signal-fresh-fg:   var(--tc-neutral-0);
 
   --accent-highlight: var(--tc-yellow-400);
+
+  /* No escuro a base e neutral-800: --surface-sunken e neutral-950, igual ao
+     fundo da pagina, e o skeleton sumiria contra ele. */
+  --skeleton-base:  var(--tc-neutral-800);
+  --skeleton-sheen: var(--tc-neutral-700);
 
   --elevation-1: 0 1px 2px rgb(0 0 0 / 0.4);
   --elevation-2: 0 2px 8px rgb(0 0 0 / 0.5);

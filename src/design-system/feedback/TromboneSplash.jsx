@@ -13,7 +13,7 @@ const TromboneSplash = ({ message = 'Carregando...' }) => (
         strokeWidth="1.5"
         strokeLinejoin="round"
         className="tc-splash-draw"
-        style={{ '--tc-draw-length': 70 }}
+        style={{ '--tc-draw-length': 46 }}
       />
       <path
         d="M6.5 15.2v3.1a1.6 1.6 0 0 0 1.6 1.6h.6a1.6 1.6 0 0 0 1.6-1.6v-1.2"
@@ -22,7 +22,7 @@ const TromboneSplash = ({ message = 'Carregando...' }) => (
         strokeLinecap="round"
         strokeLinejoin="round"
         className="tc-splash-draw"
-        style={{ '--tc-draw-length': 20, animationDelay: '260ms' }}
+        style={{ '--tc-draw-length': 11, animationDelay: '260ms' }}
       />
       <path
         d="M17.6 9.4a3.6 3.6 0 0 1 0 5.2"

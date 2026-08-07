@@ -231,6 +231,12 @@ Ponto crítico: os tokens shadcn legados são consumidos por `hsl(var(--x))` no 
   /* --- Destaque secundario --- */
   --accent-highlight: var(--tc-yellow-500);
 
+  /* --- Skeleton (shimmer) ---
+     Par proprio para garantir contraste da faixa de brilho. Nao derivar de
+     --surface-sunken/--border-subtle: no claro os dois sao neutral-200. */
+  --skeleton-base:  var(--tc-neutral-200);
+  --skeleton-sheen: var(--tc-neutral-100);
+
   /* --- Elevacao --- */
   --elevation-1: 0 1px 2px rgb(var(--tc-neutral-950) / 0.06);
   --elevation-2: 0 2px 8px rgb(var(--tc-neutral-950) / 0.08);
@@ -287,6 +293,11 @@ Ponto crítico: os tokens shadcn legados são consumidos por `hsl(var(--x))` no 
   --signal-fresh-fg:   var(--tc-neutral-0);
 
   --accent-highlight: var(--tc-yellow-400);
+
+  /* No escuro a base e neutral-800: --surface-sunken e neutral-950, igual ao
+     fundo da pagina, e o skeleton sumiria contra ele. */
+  --skeleton-base:  var(--tc-neutral-800);
+  --skeleton-sheen: var(--tc-neutral-700);
 
   --elevation-1: 0 1px 2px rgb(0 0 0 / 0.4);
   --elevation-2: 0 2px 8px rgb(0 0 0 / 0.5);
@@ -484,7 +495,7 @@ Criar `src/design-system/tokens/typography.css`:
 }
 
 @keyframes tc-draw {
-  from { stroke-dashoffset: var(--tc-draw-length, 200); }
+  from { stroke-dashoffset: var(--tc-draw-length, 46); }
   to   { stroke-dashoffset: 0; }
 }
 
@@ -1555,7 +1566,7 @@ const TromboneSplash = ({ message = 'Carregando...' }) => (
         strokeWidth="1.5"
         strokeLinejoin="round"
         className="tc-splash-draw"
-        style={{ '--tc-draw-length': 70 }}
+        style={{ '--tc-draw-length': 46 }}
       />
       <path
         d="M6.5 15.2v3.1a1.6 1.6 0 0 0 1.6 1.6h.6a1.6 1.6 0 0 0 1.6-1.6v-1.2"
@@ -1564,7 +1575,7 @@ const TromboneSplash = ({ message = 'Carregando...' }) => (
         strokeLinecap="round"
         strokeLinejoin="round"
         className="tc-splash-draw"
-        style={{ '--tc-draw-length': 20, animationDelay: '260ms' }}
+        style={{ '--tc-draw-length': 11, animationDelay: '260ms' }}
       />
       <path
         d="M17.6 9.4a3.6 3.6 0 0 1 0 5.2"
@@ -1594,8 +1605,8 @@ Adicionar ao final de `motion.css`:
 
 ```css
 .tc-splash-draw {
-  stroke-dasharray: var(--tc-draw-length, 70);
-  stroke-dashoffset: var(--tc-draw-length, 70);
+  stroke-dasharray: var(--tc-draw-length, 46);
+  stroke-dashoffset: var(--tc-draw-length, 46);
   animation: tc-draw 900ms var(--ease-out) forwards;
 }
 
@@ -1652,11 +1663,11 @@ Adicionar ao final de `motion.css`:
 .tc-shimmer {
   background-image: linear-gradient(
     100deg,
-    rgb(var(--surface-sunken)) 0%,
-    rgb(var(--surface-sunken)) 40%,
-    rgb(var(--border-subtle)) 50%,
-    rgb(var(--surface-sunken)) 60%,
-    rgb(var(--surface-sunken)) 100%
+    rgb(var(--skeleton-base)) 0%,
+    rgb(var(--skeleton-base)) 40%,
+    rgb(var(--skeleton-sheen)) 50%,
+    rgb(var(--skeleton-base)) 60%,
+    rgb(var(--skeleton-base)) 100%
   );
   background-size: 200% 100%;
   animation: tc-shimmer 1.5s linear infinite;
@@ -1666,7 +1677,7 @@ Adicionar ao final de `motion.css`:
   .tc-shimmer {
     animation: none !important;
     background-image: none;
-    background-color: rgb(var(--surface-sunken));
+    background-color: rgb(var(--skeleton-base));
   }
 }
 ```
