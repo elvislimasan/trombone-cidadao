@@ -3,6 +3,10 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const STORAGE_KEY = 'tc_active_city_id';
+// "Todas as cidades" e uma ESCOLHA do usuario, nao ausencia de escolha. Sem um
+// valor proprio, remover a chave fazia o app cair nos fallbacks (cidade do
+// perfil / GPS) no proximo carregamento e trocar de cidade sozinho.
+const ALL_CITIES = '__all__';
 
 const CityContext = createContext(undefined);
 
@@ -115,6 +119,9 @@ export const CityProvider = ({ children }) => {
     let storedId = null;
     try { storedId = localStorage.getItem(STORAGE_KEY); } catch {}
 
+    // Escolheu "Todas as cidades": respeita e nao cai nos fallbacks.
+    if (storedId === ALL_CITIES) { setActiveCityIdState(null); return; }
+
     // Se já tem escolha persistida ou cidade do perfil, usa direto
     if (storedId) { setActiveCityIdState(storedId); return; }
     if (user?.city_id) { setActiveCityIdState(user.city_id); return; }
@@ -144,7 +151,9 @@ export const CityProvider = ({ children }) => {
     setActiveCityIdState(cityId);
     try {
       if (cityId === null || cityId === undefined) {
-        localStorage.removeItem(STORAGE_KEY);
+        // Grava o sentinela em vez de apagar: apagar faria o proximo
+        // carregamento cair no fallback e trocar de cidade sozinho.
+        localStorage.setItem(STORAGE_KEY, ALL_CITIES);
       } else {
         localStorage.setItem(STORAGE_KEY, String(cityId));
       }
