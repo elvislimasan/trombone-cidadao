@@ -11,136 +11,6 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { getReportShareUrl } from '@/lib/shareUtils';
 
-const videoThumbCache = new Map();
-const videoThumbPending = new Map();
-
-const trimVideoThumbCache = (max = 40) => {
-  while (videoThumbCache.size > max) {
-    const firstKey = videoThumbCache.keys().next().value;
-    const url = videoThumbCache.get(firstKey);
-    videoThumbCache.delete(firstKey);
-    if (typeof url === 'string' && url.startsWith('blob:')) {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {}
-    }
-  }
-};
-
-const waitForEvent = (el, event, timeoutMs = 8000) =>
-  new Promise((resolve, reject) => {
-    const t = setTimeout(() => {
-      cleanup();
-      reject(new Error(`timeout:${event}`));
-    }, timeoutMs);
-    const onOk = () => {
-      cleanup();
-      resolve();
-    };
-    const onErr = () => {
-      cleanup();
-      reject(new Error(`error:${event}`));
-    };
-    const cleanup = () => {
-      clearTimeout(t);
-      el.removeEventListener(event, onOk);
-      el.removeEventListener('error', onErr);
-    };
-    el.addEventListener(event, onOk, { once: true });
-    el.addEventListener('error', onErr, { once: true });
-  });
-
-const getVideoThumbnailUrl = async (videoUrl) => {
-  if (!videoUrl) return null;
-  if (videoThumbCache.has(videoUrl)) return videoThumbCache.get(videoUrl);
-  if (videoThumbPending.has(videoUrl)) return videoThumbPending.get(videoUrl);
-
-  const p = (async () => {
-    const video = document.createElement('video');
-    const host = document.createElement('div');
-    host.style.position = 'fixed';
-    host.style.left = '-99999px';
-    host.style.top = '0';
-    host.style.width = '1px';
-    host.style.height = '1px';
-    host.style.overflow = 'hidden';
-    host.appendChild(video);
-    document.body.appendChild(host);
-
-    try {
-      video.crossOrigin = 'anonymous';
-      video.muted = true;
-      video.setAttribute('muted', '');
-      video.playsInline = true;
-      video.setAttribute('playsinline', '');
-      video.preload = 'metadata';
-      video.src = videoUrl;
-      try {
-        video.load?.();
-      } catch {}
-
-      await waitForEvent(video, 'loadedmetadata', 8000);
-      try {
-        await waitForEvent(video, 'loadeddata', 8000);
-      } catch {}
-
-      const seekTo = Math.min(
-        0.2,
-        Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.05) : 0.2
-      );
-      try {
-        video.currentTime = seekTo;
-      } catch {}
-      await Promise.race([waitForEvent(video, 'seeked', 8000), waitForEvent(video, 'timeupdate', 8000)]);
-
-      const w = Math.max(1, video.videoWidth || 0);
-      const h = Math.max(1, video.videoHeight || 0);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      try {
-        ctx.drawImage(video, 0, 0, w, h);
-      } catch (e) {
-        throw e;
-      }
-
-      const blobUrl = await new Promise((resolve, reject) => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error('thumbnail:empty'));
-              return;
-            }
-            resolve(URL.createObjectURL(blob));
-          },
-          'image/jpeg',
-          0.82
-        );
-      });
-
-      videoThumbCache.set(videoUrl, blobUrl);
-      trimVideoThumbCache();
-      return blobUrl;
-    } finally {
-      try {
-        video.removeAttribute('src');
-        video.load?.();
-      } catch {}
-      try {
-        host.remove();
-      } catch {}
-    }
-  })();
-
-  videoThumbPending.set(videoUrl, p);
-  try {
-    return await p;
-  } finally {
-    videoThumbPending.delete(videoUrl);
-  }
-};
-
 const STATUS_CONFIG = {
   pending: {
     label: 'Pendente',
@@ -184,16 +54,13 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const cardRef = useRef(null);
-  const [isInView, setIsInView] = useState(false);
 
   const [imgSrc, setImgSrc] = useState(report.coverImage || null);
-  const [useVideoCover, setUseVideoCover] = useState(false);
   const imgRetryRef = useRef(0);
   const imgRetryTimerRef = useRef(null);
 
   useEffect(() => {
     setImgSrc(report.coverImage || null);
-    setUseVideoCover(false);
     imgRetryRef.current = 0;
     if (imgRetryTimerRef.current) clearTimeout(imgRetryTimerRef.current);
   }, [report.coverImage]);
@@ -204,55 +71,9 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
     };
   }, []);
 
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (entry?.isIntersecting) {
-          setIsInView(true);
-          obs.disconnect();
-        }
-      },
-      { threshold: 0.15 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (imgSrc) return;
-    if (!isInView) return;
-    if (index > 12) return;
-    if (!report.coverVideo) return;
-    if (report.coverImage) return;
-
-    let canceled = false;
-    let tries = 0;
-
-    const run = async () => {
-      try {
-        const thumb = await getVideoThumbnailUrl(report.coverVideo);
-        if (canceled) return;
-        if (thumb) setImgSrc(thumb);
-        else setUseVideoCover(true);
-      } catch {
-        if (canceled) return;
-        tries += 1;
-        if (tries <= 3) {
-          setTimeout(run, 900 * tries);
-        } else {
-          setUseVideoCover(true);
-        }
-      }
-    };
-
-    run();
-    return () => {
-      canceled = true;
-    };
-  }, [imgSrc, index, isInView, report.coverImage, report.coverVideo]);
+  // Thumbnail de video passa a ser responsabilidade de FeedCardMedia (Task 13).
+  // Ate la, broncas sem imagem de capa caem no player de video direto.
+  const useVideoCover = !imgSrc && !!report.coverVideo;
 
   const statusCfg = STATUS_CONFIG[report.status] || STATUS_CONFIG.pending;
   const emoji = report.categoryEmoji || '📍';
