@@ -1,0 +1,49 @@
+:root {
+  --duration-instant: 100ms;
+  --duration-fast:    160ms;
+  --duration-normal:  240ms;
+  --duration-slow:    400ms;
+
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring:cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Entrada de card do feed - substitui o whileInView do framer-motion */
+@keyframes tc-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tc-animate-in {
+  animation: tc-fade-up var(--duration-normal) var(--ease-out) both;
+}
+
+/* Shimmer do skeleton */
+@keyframes tc-shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* Ondas do loading do Trombone */
+@keyframes tc-wave {
+  0%   { opacity: 0; transform: scale(0.6); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+@keyframes tc-draw {
+  from { stroke-dashoffset: var(--tc-draw-length, 200); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-animate-in,
+  .tc-shimmer,
+  .tc-wave,
+  .tc-draw {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

@@ -34,7 +34,8 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "Noto Sans", "sans-serif"]
+        sans: ["InterVar", "Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "Noto Sans", "sans-serif"],
+        display: ["Bricolage Grotesque", "InterVar", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -75,11 +76,70 @@ module.exports = {
         'tc-red': '#E53935',
         'tc-yellow': '#FFD700',
         'tc-white': '#FFFFFF',
+        // === Design system (canal RGB) ===
+        surface: {
+          base:    "rgb(var(--surface-base) / <alpha-value>)",
+          raised:  "rgb(var(--surface-raised) / <alpha-value>)",
+          sunken:  "rgb(var(--surface-sunken) / <alpha-value>)",
+          overlay: "rgb(var(--surface-overlay) / <alpha-value>)",
+        },
+        content: {
+          primary:   "rgb(var(--text-primary) / <alpha-value>)",
+          secondary: "rgb(var(--text-secondary) / <alpha-value>)",
+          tertiary:  "rgb(var(--text-tertiary) / <alpha-value>)",
+          onBrand:   "rgb(var(--text-on-brand) / <alpha-value>)",
+        },
+        edge: {
+          subtle:  "rgb(var(--border-subtle) / <alpha-value>)",
+          default: "rgb(var(--border-default) / <alpha-value>)",
+          strong:  "rgb(var(--border-strong) / <alpha-value>)",
+        },
+        brand: {
+          DEFAULT:   "rgb(var(--brand) / <alpha-value>)",
+          hover:     "rgb(var(--brand-hover) / <alpha-value>)",
+          subtleBg:  "rgb(var(--brand-subtle-bg) / <alpha-value>)",
+          subtleFg:  "rgb(var(--brand-subtle-fg) / <alpha-value>)",
+        },
+        danger: {
+          DEFAULT:  "rgb(var(--danger) / <alpha-value>)",
+          subtleBg: "rgb(var(--danger-subtle-bg) / <alpha-value>)",
+          subtleFg: "rgb(var(--danger-subtle-fg) / <alpha-value>)",
+        },
+        status: {
+          pendingBg:      "rgb(var(--status-pending-bg) / <alpha-value>)",
+          pendingFg:      "rgb(var(--status-pending-fg) / <alpha-value>)",
+          pendingBorder:  "rgb(var(--status-pending-border) / <alpha-value>)",
+          progressBg:     "rgb(var(--status-progress-bg) / <alpha-value>)",
+          progressFg:     "rgb(var(--status-progress-fg) / <alpha-value>)",
+          progressBorder: "rgb(var(--status-progress-border) / <alpha-value>)",
+          resolvedBg:     "rgb(var(--status-resolved-bg) / <alpha-value>)",
+          resolvedFg:     "rgb(var(--status-resolved-fg) / <alpha-value>)",
+          resolvedBorder: "rgb(var(--status-resolved-border) / <alpha-value>)",
+          duplicateBg:     "rgb(var(--status-duplicate-bg) / <alpha-value>)",
+          duplicateFg:     "rgb(var(--status-duplicate-fg) / <alpha-value>)",
+          duplicateBorder: "rgb(var(--status-duplicate-border) / <alpha-value>)",
+        },
+        signal: {
+          hotBg:    "rgb(var(--signal-hot-bg) / <alpha-value>)",
+          hotFg:    "rgb(var(--signal-hot-fg) / <alpha-value>)",
+          risingBg: "rgb(var(--signal-rising-bg) / <alpha-value>)",
+          risingFg: "rgb(var(--signal-rising-fg) / <alpha-value>)",
+          freshBg:  "rgb(var(--signal-fresh-bg) / <alpha-value>)",
+          freshFg:  "rgb(var(--signal-fresh-fg) / <alpha-value>)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        'elevation-1': 'var(--elevation-1)',
+        'elevation-2': 'var(--elevation-2)',
+        'elevation-3': 'var(--elevation-3)',
+      },
+      fontSize: {
+        '2xs': 'var(--text-2xs)',
       },
       keyframes: {
         "accordion-down": {
