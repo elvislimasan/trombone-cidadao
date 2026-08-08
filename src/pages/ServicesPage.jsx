@@ -12,6 +12,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import CitySelector from '@/components/CitySelector';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -23,14 +24,16 @@ const ServicesPage = () => {
   const { toast } = useToast();
   const { activeCityId, activeCityName } = useCity();
   const { user } = useAuth();
+  const { canWrite } = usePermissions();
 
   // Mesma regra de imóveis alugados/pavimentação: admin/master gerenciam
   // qualquer cidade; embaixador puro só com uma cidade sua selecionada.
   const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
   const canManageServices = Boolean(
-    user?.is_admin || user?.is_master ||
-    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
+    (user?.is_admin || user?.is_master ||
+      (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId))))
+    && canWrite('services')
   );
 
   const [transportOptions, setTransportOptions] = useState([]);
