@@ -1543,229 +1543,235 @@ const ReportPage = () => {
                 {managementPanel && (
                   <div className="mb-4 lg:hidden">{managementPanel}</div>
                 )}
-                <div className="bg-surface-raised shadow-elevation-1 rounded-2xl overflow-hidden">
-                  <ReportMediaHero
-                    viewerMedia={viewerMedia}
-                    getCategoryName={getCategoryName}
-                    category={report.category}
-                    status={report.status}
-                    mediaViewerState={mediaViewerState}
-                    setMediaViewerState={setMediaViewerState}
-                  />
+                <div className="space-y-4">
+                  <div className="bg-surface-raised shadow-elevation-1 rounded-2xl overflow-hidden">
+                    <ReportMediaHero
+                      viewerMedia={viewerMedia}
+                      getCategoryName={getCategoryName}
+                      category={report.category}
+                      status={report.status}
+                      mediaViewerState={mediaViewerState}
+                      setMediaViewerState={setMediaViewerState}
+                    />
+                  </div>
 
-                  <div className="relative -mt-5 px-3 pb-4 lg:-mt-10 lg:px-4">
-                    <div className="bg-surface-raised rounded-2xl p-4 space-y-4 shadow-elevation-2 lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-elevation-3">
+                  {/* summary */}
+                  <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4">
+                    <ReportSummary
+                      title={report.title}
+                      address={report.address}
+                      createdAt={report.created_at}
+                      protocol={report.protocol}
+                      isAnonymous={report.is_anonymous}
+                      authorName={report.authorName}
+                      authorAvatar={report.authorAvatar}
+                    />
+                  </div>
 
-                      <ReportSummary
-                        title={report.title}
-                        address={report.address}
-                        createdAt={report.created_at}
-                        protocol={report.protocol}
-                        isAnonymous={report.is_anonymous}
-                        authorName={report.authorName}
-                        authorAvatar={report.authorAvatar}
-                      />
-
+                  {/* gallery */}
+                  {viewerMedia.length > 1 && (
+                    <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4">
                       <ReportMediaGallery
                         viewerMedia={viewerMedia}
                         setMediaViewerState={setMediaViewerState}
                       />
-                    {/* description */}
-                    <ReportProblemDescription description={report.description} />
+                    </div>
+                  )}
 
-                    {/* Map Section (Mobile Only) */}
-                    <ReportLocation
-                      location={report.location}
-                      address={report.address}
-                      onNavigate={handleNavigateToReport}
-                      variant="mobile"
-                    />
+                  {/* description */}
+                  <ReportProblemDescription description={report.description} />
 
-                    {/* details */}
-                    <ReportProblemDetails
-                      category={report.category}
-                      createdAt={report.created_at}
-                      waterUtilityName={waterUtilityName}
-                      isFromWaterUtility={isFromWaterUtility}
-                      issueType={report.issue_type}
-                      pole={report.pole}
-                      poleNumber={report.pole_number}
-                      reportedPlate={report.reported_plate}
-                      reportedPostIdentifier={report.reported_post_identifier}
-                      formatDateTime={formatDateTime}
-                      getLightingIssueTypeLabel={getLightingIssueTypeLabel}
-                      formatPoleLabel={formatPoleLabel}
-                    />
+                  {/* details */}
+                  <ReportProblemDetails
+                    category={report.category}
+                    createdAt={report.created_at}
+                    waterUtilityName={waterUtilityName}
+                    isFromWaterUtility={isFromWaterUtility}
+                    issueType={report.issue_type}
+                    pole={report.pole}
+                    poleNumber={report.pole_number}
+                    reportedPlate={report.reported_plate}
+                    reportedPostIdentifier={report.reported_post_identifier}
+                    formatDateTime={formatDateTime}
+                    getLightingIssueTypeLabel={getLightingIssueTypeLabel}
+                    formatPoleLabel={formatPoleLabel}
+                  />
 
-                    {/* timeline */}
-                    <ReportProgress
-                      status={report.status}
-                      timeline={report.timeline}
-                      formatDateTime={formatDateTime}
-                    />
+                  {/* timeline */}
+                  <ReportProgress
+                    status={report.status}
+                    timeline={report.timeline}
+                    formatDateTime={formatDateTime}
+                  />
 
-                    {/* mobile upvote */}
-                    <div className="bg-surface-subtle rounded-2xl px-4 py-4 lg:hidden">
-                      <div className="text-2xs font-bold uppercase tracking-[0.15em] text-content-tertiary mb-1 text-center">
-                        Apoios da comunidade
-                      </div>
-                      <div className="text-3xl font-extrabold text-content-primary tracking-[-0.02em] text-center">
-                        {report.upvotes || 0}
-                      </div>
-                      <div className="text-xs text-content-tertiary mt-1 mb-4 text-center">
-                        pessoas já apoiaram
-                      </div>
+                  {/* mobile upvote */}
+                  <div className="bg-surface-subtle rounded-2xl px-4 py-4 lg:hidden">
+                    <div className="text-2xs font-bold uppercase tracking-[0.15em] text-content-tertiary mb-1 text-center">
+                      Apoios da comunidade
+                    </div>
+                    <div className="text-3xl font-extrabold text-content-primary tracking-[-0.02em] text-center">
+                      {report.upvotes || 0}
+                    </div>
+                    <div className="text-xs text-content-tertiary mt-1 mb-4 text-center">
+                      pessoas já apoiaram
+                    </div>
+                    <Button
+                      className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-brand hover:bg-brand/90 text-content-onBrand shadow-elevation-2"
+                      onClick={handleUpvoteClick}
+                    >
+                      <ThumbsUp
+                        className={`w-4 h-4 ${report.user_has_upvoted ? "fill-content-onBrand" : ""}`}
+                        strokeWidth={1.5}
+                      />
+                      {report.user_has_upvoted ? "Apoiada" : "Apoiar"}
+                    </Button>
+                    <Button
+                      className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-content-primary shadow-elevation-1"
+                      onClick={handleShare}
+                    >
+                      <Share2 className="w-4 h-4" strokeWidth={1.5} />
+                      Compartilhar
+                    </Button>
+                    {user && canSendAnyUpdate && (
                       <Button
-                        className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-brand hover:bg-brand/90 text-content-onBrand shadow-elevation-2"
-                        onClick={handleUpvoteClick}
+                        className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-brand shadow-elevation-1"
+                        onClick={() => setShowUpdateModal(true)}
                       >
-                        <ThumbsUp
-                          className={`w-4 h-4 ${report.user_has_upvoted ? "fill-content-onBrand" : ""}`}
-                          strokeWidth={1.5}
-                        />
-                        {report.user_has_upvoted ? "Apoiada" : "Apoiar"}
+                        <Megaphone className="w-4 h-4" strokeWidth={1.5} />
+                        Enviar Atualização
                       </Button>
+                    )}
+                    <Button
+                      className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-raised hover:bg-surface-subtleHover shadow-elevation-1"
+                      onClick={() =>
+                        handleFavoriteToggle(report.id, report.is_favorited)
+                      }
+                    >
+                      <Star
+                        className={`w-4 h-4 ${
+                          report.is_favorited
+                            ? "fill-amber-400 text-amber-400"
+                            : ""
+                        }`}
+                        strokeWidth={1.5}
+                      />
+                      {report.is_favorited ? "Favoritada" : "Favoritar"}
+                    </Button>
+                    {report.petitionId && (
                       <Button
-                        className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-content-primary shadow-elevation-1"
-                        onClick={handleShare}
+                        asChild
+                        className="w-full mt-2 justify-center gap-2 text-sm bg-surface-raised text-content-primary"
                       >
-                        <Share2 className="w-4 h-4" strokeWidth={1.5} />
-                        Compartilhar
+                        <Link to={`/abaixo-assinado/${report.petitionId}`}>
+                          <FileSignature className="w-4 h-4" />
+                          Ver abaixo-assinado ligado
+                        </Link>
                       </Button>
-                      {user && canSendAnyUpdate && (
+                    )}
+                  </div>
+
+                  {/* ── COMMUNITY UPDATES ── */}
+                  <ReportUpdates
+                    user={user}
+                    isAdmin={isAdmin}
+                    visibleUpdates={visibleUpdates}
+                    showAllUpdates={showAllUpdates}
+                    setShowAllUpdates={setShowAllUpdates}
+                    canSendAnyUpdate={canSendAnyUpdate}
+                    nextAvailableLabel={nextAvailableLabel}
+                    setShowUpdateModal={setShowUpdateModal}
+                    UPDATES_VISIBLE_COUNT={UPDATES_VISIBLE_COUNT}
+                    confirmingUpdateId={confirmingUpdateId}
+                    setConfirmingUpdateId={setConfirmingUpdateId}
+                    deletingUpdateId={deletingUpdateId}
+                    setDeletingUpdateId={setDeletingUpdateId}
+                    canConfirmUpdate={canConfirmUpdate}
+                    canDeleteUpdate={canDeleteUpdate}
+                    handleConfirmUpdate={handleConfirmUpdate}
+                    handleDeleteUpdate={handleDeleteUpdate}
+                    getUpdateTypeInfo={getUpdateTypeInfo}
+                    getStatusInfo={getStatusInfo}
+                    formatRelativeDate={formatRelativeDate}
+                    formatDateTime={formatDateTime}
+                    setUpdateMediaViewer={setUpdateMediaViewer}
+                  />
+
+                  {/* Map Section (Mobile Only) */}
+                  <ReportLocation
+                    location={report.location}
+                    address={report.address}
+                    onNavigate={handleNavigateToReport}
+                    variant="mobile"
+                  />
+
+                  {/* comments */}
+                  <ReportComments
+                    comments={comments}
+                    user={user}
+                    newComment={newComment}
+                    setNewComment={setNewComment}
+                    handleSubmitComment={handleSubmitComment}
+                    formatDateTime={formatDateTime}
+                  />
+
+                  {/* ── REPUBLICAR ── */}
+                  <section className="bg-surface-subtle rounded-2xl px-4 py-4 sm:px-6 sm:py-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                    <div className="flex-1 space-y-2 text-center sm:text-left">
+                      <h3 className="text-sm font-bold text-content-primary">
+                        Republicar esta denúncia
+                      </h3>
+                      <p className="text-xs text-content-secondary max-w-xl">
+                        Use o QR Code ou o link da bronca para convidar mais
+                        pessoas a apoiar. Quanto mais gente ver esta página,
+                        maior a pressão por mudança.
+                      </p>
+                      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-1 justify-center sm:justify-start">
                         <Button
-                          className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-brand shadow-elevation-1"
-                          onClick={() => setShowUpdateModal(true)}
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCopyShareLink}
+                          className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
                         >
-                          <Megaphone className="w-4 h-4" strokeWidth={1.5} />
-                          Enviar Atualização
+                          <Icon name="share" size={14} />
+                          Copiar link da bronca
                         </Button>
-                      )}
-                      <Button
-                        className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-raised hover:bg-surface-subtleHover shadow-elevation-1"
-                        onClick={() =>
-                          handleFavoriteToggle(report.id, report.is_favorited)
-                        }
-                      >
-                        <Star
-                          className={`w-4 h-4 ${
-                            report.is_favorited
-                              ? "fill-amber-400 text-amber-400"
-                              : ""
-                          }`}
-                          strokeWidth={1.5}
-                        />
-                        {report.is_favorited ? "Favoritada" : "Favoritar"}
-                      </Button>
-                      {report.petitionId && (
                         <Button
-                          asChild
-                          className="w-full mt-2 justify-center gap-2 text-sm bg-surface-raised text-content-primary"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowFlyerModal(true)}
+                          className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
                         >
-                          <Link to={`/abaixo-assinado/${report.petitionId}`}>
-                            <FileSignature className="w-4 h-4" />
-                            Ver abaixo-assinado ligado
-                          </Link>
+                          <FileText className="w-4 h-4" />
+                          Baixar QR Code / Panfleto
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowStoryModal(true)}
+                          className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
+                        >
+                          <Instagram className="w-4 h-4" />
+                          Baixar card de stories
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0 flex items-center justify-center rounded-2xl bg-surface-raised border border-edge-subtle p-3">
+                      {qrCodeUrl ? (
+                        <img
+                          src={qrCodeUrl}
+                          alt="QR Code da bronca"
+                          className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl bg-surface-subtle flex items-center justify-center">
+                          <span className="text-2xs text-content-tertiary">
+                            QR Code
+                          </span>
+                        </div>
                       )}
                     </div>
-
-                    {/* ── REPUBLICAR ── */}
-                    <section className="bg-surface-subtle rounded-2xl px-4 py-4 sm:px-6 sm:py-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                      <div className="flex-1 space-y-2 text-center sm:text-left">
-                        <h3 className="text-sm font-bold text-content-primary">
-                          Republicar esta denúncia
-                        </h3>
-                        <p className="text-xs text-content-secondary max-w-xl">
-                          Use o QR Code ou o link da bronca para convidar mais
-                          pessoas a apoiar. Quanto mais gente ver esta página,
-                          maior a pressão por mudança.
-                        </p>
-                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-1 justify-center sm:justify-start">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCopyShareLink}
-                            className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
-                          >
-                            <Icon name="share" size={14} />
-                            Copiar link da bronca
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowFlyerModal(true)}
-                            className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
-                          >
-                            <FileText className="w-4 h-4" />
-                            Baixar QR Code / Panfleto
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowStoryModal(true)}
-                            className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
-                          >
-                            <Instagram className="w-4 h-4" />
-                            Baixar card de stories
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0 flex items-center justify-center rounded-2xl bg-surface-raised border border-edge-subtle p-3">
-                        {qrCodeUrl ? (
-                          <img
-                            src={qrCodeUrl}
-                            alt="QR Code da bronca"
-                            className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl bg-surface-subtle flex items-center justify-center">
-                            <span className="text-2xs text-content-tertiary">
-                              QR Code
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </section>
-
-                    {/* ── COMMUNITY UPDATES ── */}
-                    <ReportUpdates
-                      user={user}
-                      isAdmin={isAdmin}
-                      visibleUpdates={visibleUpdates}
-                      showAllUpdates={showAllUpdates}
-                      setShowAllUpdates={setShowAllUpdates}
-                      canSendAnyUpdate={canSendAnyUpdate}
-                      nextAvailableLabel={nextAvailableLabel}
-                      setShowUpdateModal={setShowUpdateModal}
-                      UPDATES_VISIBLE_COUNT={UPDATES_VISIBLE_COUNT}
-                      confirmingUpdateId={confirmingUpdateId}
-                      setConfirmingUpdateId={setConfirmingUpdateId}
-                      deletingUpdateId={deletingUpdateId}
-                      setDeletingUpdateId={setDeletingUpdateId}
-                      canConfirmUpdate={canConfirmUpdate}
-                      canDeleteUpdate={canDeleteUpdate}
-                      handleConfirmUpdate={handleConfirmUpdate}
-                      handleDeleteUpdate={handleDeleteUpdate}
-                      getUpdateTypeInfo={getUpdateTypeInfo}
-                      getStatusInfo={getStatusInfo}
-                      formatRelativeDate={formatRelativeDate}
-                      formatDateTime={formatDateTime}
-                      setUpdateMediaViewer={setUpdateMediaViewer}
-                    />
-
-                    {/* comments */}
-                    <ReportComments
-                      comments={comments}
-                      user={user}
-                      newComment={newComment}
-                      setNewComment={setNewComment}
-                      handleSubmitComment={handleSubmitComment}
-                      formatDateTime={formatDateTime}
-                    />
-                  </div>
-                </div>
+                  </section>
                 </div>
               </div>
 
