@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
@@ -12,6 +13,7 @@ import android.util.Log
 import android.media.MediaMetadataRetriever
 import android.provider.OpenableColumns
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import com.otaliastudios.transcoder.Transcoder
 import com.otaliastudios.transcoder.TranscoderListener
 import com.otaliastudios.transcoder.resize.AtMostResizer
@@ -71,7 +73,23 @@ class UploadService : Service() {
         val headers = intent.getSerializableExtra("headers") as? HashMap<String, String>
         val skipCompression = intent.getBooleanExtra("skipCompression", false)
 
-        startForeground(notificationId, createNotification("Iniciando processo...", 0))
+        // API 34+ exige que o tipo aqui bata com o declarado no manifesto (dataSync).
+        // API 36 pode negar o start vindo de background — falhar aqui não pode crashar o app.
+        try {
+            ServiceCompat.startForeground(
+                this,
+                notificationId,
+                createNotification("Iniciando processo...", 0),
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                else 0
+            )
+        } catch (e: Exception) {
+            Log.e("UploadService", "startForeground negado", e)
+            notifyProgress(uploadId, 0, "error")
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         val job = serviceScope.launch {
             try {
