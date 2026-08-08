@@ -131,13 +131,17 @@ select count(*) from public.permission_rules;
 ## Passo 3 — Edge Functions
 
 Funções criadas ou alteradas nesta leva:
+`send-ambassador-invite-email`, `accept-ambassador-invite`, `reverse-geocode`
+e `backfill-public-works-city`.
 
 ```bash
-npx supabase functions deploy send-ambassador-invite-email --project-ref mrejgpcxaevooofyenzq
-npx supabase functions deploy accept-ambassador-invite     --project-ref mrejgpcxaevooofyenzq
-npx supabase functions deploy reverse-geocode              --project-ref mrejgpcxaevooofyenzq
-npx supabase functions deploy backfill-public-works-city   --project-ref mrejgpcxaevooofyenzq
+yarn deploy:functions:nacionalizacao
 ```
+
+> **Não use o `deploy:functions:prod` para isso.** Aquele script publica
+> outro conjunto (push, pagamentos e compartilhamento) e não tem nenhuma
+> função em comum com as desta leva — rodá-lo sozinho não publicaria nada
+> do que a nacionalização precisa.
 
 ### Secrets necessários
 
@@ -256,8 +260,33 @@ com o banco novo, porque todas as mudanças são aditivas.
 ## Resumo da ordem
 
 1. Backup de produção
-2. `supabase db push` (migrações 141→165)
-3. Deploy das 4 Edge Functions + conferir secrets do Resend
+2. `npx supabase db push` (migrações 141→165)
+3. `yarn deploy:functions:nacionalizacao` + conferir secrets do Resend
 4. Merge da branch em `main` (Vercel publica sozinho)
 5. Rodar a checklist de verificação
 6. Opcional: gerar APK/AAB com `yarn build:prod`
+
+---
+
+## Referência rápida dos scripts
+
+| Comando | Quando usar |
+|---|---|
+| `npx supabase db push` | Aplicar as migrações (Passo 2) |
+| `yarn deploy:functions:nacionalizacao` | Publicar as 4 functions desta leva |
+| `yarn build:prod` | APK release apontando para produção |
+| `yarn build:prod:aab` | AAB para a Play Store (incrementa versionCode) |
+| `yarn build:standalone:dev` | APK de teste apontando para o banco de dev |
+| `yarn build` | Só o bundle web (produção) — o Vercel faz isso sozinho |
+| `yarn build:dev` | Só o bundle web apontando para dev |
+
+**Não precisa rodar:**
+
+- `yarn build` / `yarn build:clean` — o Vercel roda no servidor ao detectar o
+  merge. Só use localmente para conferir que o build passa.
+- `deploy:functions:prod` — publica outro conjunto de funções (push,
+  pagamentos, compartilhamento), nenhuma delas alterada nesta leva.
+- `import:poles` — importação pontual de postes por KMZ, não faz parte deste
+  deploy.
+- Qualquer `build:standalone*` — só se for publicar uma nova versão do app
+  Android. O site não depende disso.

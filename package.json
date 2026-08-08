@@ -29,6 +29,7 @@
     "deploy:edge_function": "npx supabase functions deploy send-push-notification",
     "deploy:functions": "npx supabase functions deploy send-push-notification create-payment-intent share-report og-image share-preview share-petition --no-verify-jwt",
     "deploy:functions:prod": "npx supabase functions deploy send-push-notification create-payment-intent share-report og-image share-preview share-petition --project-ref mrejgpcxaevooofyenzq",
+    "deploy:functions:nacionalizacao": "npx supabase functions deploy send-ambassador-invite-email accept-ambassador-invite reverse-geocode backfill-public-works-city --project-ref mrejgpcxaevooofyenzq",
     "deploy:edge_function:prod": "npx supabase functions deploy send-push-notification --project-ref mrejgpcxaevooofyenzq",
     "build:prod": "npm run clean:dist && npm run clean:android && npm run build && timeout /t 2 /nobreak >nul 2>&1 & npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
     "build:prod:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && node tools/bump-android-version-code.js && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
