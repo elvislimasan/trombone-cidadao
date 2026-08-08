@@ -1515,10 +1515,7 @@ const ReportPage = () => {
               <ReportHeader
                 onBack={() => navigate(-1)}
                 protocol={report.protocol}
-                canMarkResolved={canMarkResolved}
                 showAdminActions={isAdmin || isPublicOfficial}
-                handleMarkResolvedClick={handleMarkResolvedClick}
-                handleDownloadStoryCard={handleDownloadStoryCard}
                 handleOpenLinkModal={() => handleOpenLinkModal(report)}
                 handleEditClick={handleEditClick}
                 handleReportError={handleReportError}

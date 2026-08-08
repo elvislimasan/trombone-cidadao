@@ -15,22 +15,15 @@ import Icon from "@/design-system/icons";
 //
 // O menu "..." nao decide permissao: recebe os booleanos de
 // useReportPermissions e os handlers como props, igual ReportActionsMenu.
-// Cada item so aparece se sua permissao for verdadeira. Ao popular o menu,
-// esta task religa handleMarkResolvedClick e handleDownloadStoryCard, que
-// ate entao eram definidos em ReportPage.jsx mas nunca chamados por nenhum
-// elemento -- "marcar como resolvida" e "baixar card" estavam inacessiveis.
+// Cada item so aparece se sua permissao for verdadeira.
 //
-// canMarkResolved gate especificamente "marcar como resolvida" (igual ao
-// ReportManagementPanel). showAdminActions (isAdmin || isPublicOfficial)
-// gate vincular/editar/whatsapp -- mesma condicao usada antes em
-// ReportActionsAdminButtons, so movida para dentro do menu.
+// showAdminActions (isAdmin || isPublicOfficial) gate vincular/editar/whatsapp
+// -- mesma condicao usada antes em ReportActionsAdminButtons, so movida para
+// dentro do menu.
 const ReportHeader = ({
   onBack,
   protocol,
-  canMarkResolved,
   showAdminActions,
-  handleMarkResolvedClick,
-  handleDownloadStoryCard,
   handleOpenLinkModal,
   handleEditClick,
   handleReportError,
@@ -92,24 +85,6 @@ const ReportHeader = ({
               >
                 <Icon name="share" size={14} />
                 Compartilhar
-              </DropdownMenuItem>
-
-              {canMarkResolved && (
-                <DropdownMenuItem
-                  className="gap-2 cursor-pointer"
-                  onClick={handleMarkResolvedClick}
-                >
-                  <Icon name="resolved" size={14} />
-                  Marcar como resolvida
-                </DropdownMenuItem>
-              )}
-
-              <DropdownMenuItem
-                className="gap-2 cursor-pointer"
-                onClick={handleDownloadStoryCard}
-              >
-                <Icon name="save" size={14} />
-                Baixar card
               </DropdownMenuItem>
 
               {showAdminActions && (
