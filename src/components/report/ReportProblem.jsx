@@ -95,14 +95,3 @@ export const ReportProblemDetails = ({
     </div>
   );
 };
-
-// Renderiza descricao + detalhes em sequencia (uso quando nao ha nada
-// intercalado entre os dois cards).
-const ReportProblem = (props) => (
-  <>
-    <ReportProblemDescription description={props.description} />
-    <ReportProblemDetails {...props} />
-  </>
-);
-
-export default ReportProblem;
