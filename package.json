@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3002",
     "build": "node tools/generate-llms.js 2>nul || echo. & npx vite build",
+    "build:dev": "node tools/generate-llms.js 2>nul || echo. & npx vite build --mode development",
     "build:clean": "npm run clean:dist && npm run build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview --host 0.0.0.0 --port 3002",
@@ -33,6 +34,8 @@
     "build:prod:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && node tools/bump-android-version-code.js && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
     "build:standalone": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
     "build:standalone:aab": "npm run clean:dist && npm run clean:android && npm run build && npx cap sync && node tools/bump-android-version-code.js && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
+    "build:standalone:dev": "npm run clean:dist && npm run clean:android && npm run build:dev && npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
+    "build:standalone:dev:aab": "npm run clean:dist && npm run clean:android && npm run build:dev && npx cap sync && node tools/bump-android-version-code.js && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
     "import:poles": "node scripts/import_poles_from_kmz.js"
   },
   "dependencies": {
