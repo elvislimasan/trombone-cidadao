@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, Check } from 'lucide-react';
+import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, Check, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +13,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import WorksMapView from '@/components/WorksMapView';
 import { formatCurrency, formatTimeAgo, cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { useCity } from '@/contexts/CityContext';
+import CitySelector from '@/components/CitySelector';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, onSelectionChange, searchPlaceholder }) => {
   const Icon = triggerIcon;
@@ -72,8 +76,38 @@ const PublicWorksPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { activeCityId } = useCity();
+  const { user } = useAuth();
+  const { canWrite } = usePermissions();
   const mapViewRef = useRef();
   const listTopRef = useRef();
+
+  // Admin/master gerenciam qualquer cidade. Embaixador puro só pode cadastrar
+  // a primeira obra da(s) própria(s) cidade(s) ativa(s).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const canManageWorks = Boolean(
+    (user?.is_admin || user?.is_master ||
+      (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId))))
+    && canWrite('works')
+  );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
+
+  // Ao trocar de cidade, limpa o bairro selecionado (era de outra cidade).
+  const didMountCityRef = useRef(false);
+  useEffect(() => {
+    if (!didMountCityRef.current) { didMountCityRef.current = true; return; }
+    setFilters((prev) => (prev.bairro.length ? { ...prev, bairro: [] } : prev));
+  }, [activeCityId]);
 
   const workStatuses = {
     'planned': 'Prevista',
@@ -88,6 +122,17 @@ const PublicWorksPage = () => {
 
   const fetchFilterOptions = useCallback(async () => {
     try {
+      // Bairros filtrados pela cidade ativa. A tabela pode não ter city_id
+      // (schema legado só-Floresta); nesse caso, faz fallback para todos.
+      const fetchBairros = async () => {
+        if (activeCityId) {
+          const scoped = await supabase.from('bairros').select('id, name').eq('city_id', activeCityId);
+          if (!scoped.error) return scoped;
+          // coluna city_id inexistente → cai para lista completa
+        }
+        return supabase.from('bairros').select('id, name');
+      };
+
       const [
         { data: areas, error: areaError },
         { data: contractors, error: conError },
@@ -95,7 +140,7 @@ const PublicWorksPage = () => {
       ] = await Promise.all([
         supabase.from('work_areas').select('id, name'),
         supabase.from('contractors').select('id, name'),
-        supabase.from('bairros').select('id, name'),
+        fetchBairros(),
       ]);
 
       if (areaError) throw areaError;
@@ -114,12 +159,12 @@ const PublicWorksPage = () => {
         variant: 'destructive'
       });
     }
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   const fetchWorks = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('public_works')
         .select(`
           id, title, description, status, location, start_date, expected_end_date, total_value, amount_spent, execution_percentage, last_update, thumbnail_url, is_complete,
@@ -130,6 +175,9 @@ const PublicWorksPage = () => {
         `)
         .eq('is_complete', true)
         .order('created_at', { ascending: false });
+      if (activeCityId) query = query.eq('city_id', activeCityId);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       const formattedData = data.map(w => ({
@@ -147,7 +195,7 @@ const PublicWorksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   const fetchListWorks = useCallback(async (page = 1) => {
     setLoading(true);
@@ -163,6 +211,7 @@ const PublicWorksPage = () => {
         `, { count: 'exact' })
         .eq('is_complete', true)
         .order('created_at', { ascending: false });
+      if (activeCityId) query = query.eq('city_id', activeCityId);
 
       if (searchTerm && searchTerm.trim()) {
         const term = searchTerm.trim();
@@ -199,7 +248,7 @@ const PublicWorksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize]);
+  }, [toast, searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize, activeCityId]);
 
   useEffect(() => {
     fetchWorks();
@@ -270,65 +319,92 @@ const PublicWorksPage = () => {
   return <>
     <Helmet>
       <title>Mapa de Obras Públicas - Trombone Cidadão</title>
-      <meta name="description" content="Acompanhe o andamento das obras públicas em Floresta-PE em um mapa interativo." />
+      <meta name="description" content="Acompanhe o andamento das obras públicas da sua cidade em um mapa interativo." />
     </Helmet>
     <div className="container max-w-[88rem] mx-auto w-full px-4 py-8">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-[900] text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Mapa de Obras Públicas</h1>
-        <p className="mt-2 text-lg text-muted-foreground">Acompanhe com transparência o que está sendo construído na cidade de Floresta-PE</p>
+        <p className="mt-2 text-lg text-muted-foreground">Acompanhe com transparência o que está sendo construído na sua cidade</p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <CitySelector />
+          {canManageWorks && (
+            <Link to="/obras/gerenciar">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                <PlusCircle className="w-3.5 h-3.5" /> Adicionar obra
+              </Button>
+            </Link>
+          )}
+        </div>
       </motion.div>
 
-      <Card className="mb-6 p-4 relative z-[800]">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="relative md:col-span-2 lg:col-span-5">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input placeholder="Buscar obra por nome ou descrição..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
+      {!loading && works.length === 0 ? (
+        <Card className="p-10 text-center border-dashed">
+          <HardHat className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-lg font-semibold text-foreground mb-1">Nenhuma obra cadastrada</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Ainda não há obras públicas cadastradas {activeCityId ? 'para esta cidade' : ''}.
+          </p>
+          {canManageWorks && (
+            <Link to="/obras/gerenciar">
+              <Button className="gap-2">
+                <PlusCircle className="w-4 h-4" /> Cadastrar primeira obra
+              </Button>
+            </Link>
+          )}
+        </Card>
+      ) : (
+        <>
+          <Card className="mb-6 p-4 relative z-[800]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="relative md:col-span-2 lg:col-span-5">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input placeholder="Buscar obra por nome ou descrição..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              </div>
 
-          <MultiSelectFilter
-            triggerIcon={Activity}
-            triggerLabel="Filtrar por Status"
-            items={workStatusesAsArray}
-            selectedItems={filters.status}
-            onSelectionChange={(id) => handleMultiSelectFilterChange('status', id)}
-            searchPlaceholder="Buscar status..."
-          />
-          
-          <MultiSelectFilter
-            triggerIcon={MapPin}
-            triggerLabel="Filtrar por Bairro"
-            items={filterOptions.bairros}
-            selectedItems={filters.bairro}
-            onSelectionChange={(id) => handleMultiSelectFilterChange('bairro', id)}
-            searchPlaceholder="Buscar bairro..."
-          />
+              <MultiSelectFilter
+                triggerIcon={Activity}
+                triggerLabel="Filtrar por Status"
+                items={workStatusesAsArray}
+                selectedItems={filters.status}
+                onSelectionChange={(id) => handleMultiSelectFilterChange('status', id)}
+                searchPlaceholder="Buscar status..."
+              />
 
-          <MultiSelectFilter
-            triggerIcon={SlidersHorizontal}
-            triggerLabel="Filtrar por Área"
-            items={filterOptions.areas}
-            selectedItems={filters.area}
-            onSelectionChange={(id) => handleMultiSelectFilterChange('area', id)}
-            searchPlaceholder="Buscar área..."
-          />
+              <MultiSelectFilter
+                triggerIcon={MapPin}
+                triggerLabel="Filtrar por Bairro"
+                items={filterOptions.bairros}
+                selectedItems={filters.bairro}
+                onSelectionChange={(id) => handleMultiSelectFilterChange('bairro', id)}
+                searchPlaceholder="Buscar bairro..."
+              />
 
-          <MultiSelectFilter
-            triggerIcon={Building}
-            triggerLabel="Filtrar por Construtora"
-            items={filterOptions.contractors}
-            selectedItems={filters.contractor}
-            onSelectionChange={(id) => handleMultiSelectFilterChange('contractor', id)}
-            searchPlaceholder="Buscar construtora..."
-          />
+              <MultiSelectFilter
+                triggerIcon={SlidersHorizontal}
+                triggerLabel="Filtrar por Área"
+                items={filterOptions.areas}
+                selectedItems={filters.area}
+                onSelectionChange={(id) => handleMultiSelectFilterChange('area', id)}
+                searchPlaceholder="Buscar área..."
+              />
 
-          <ToggleGroup type="single" value={view} onValueChange={value => value && setView(value)} className="border rounded-md justify-center">
-            <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
-            <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </Card>
+              <MultiSelectFilter
+                triggerIcon={Building}
+                triggerLabel="Filtrar por Construtora"
+                items={filterOptions.contractors}
+                selectedItems={filters.contractor}
+                onSelectionChange={(id) => handleMultiSelectFilterChange('contractor', id)}
+                searchPlaceholder="Buscar construtora..."
+              />
 
-      {loading ? <div className="text-center p-8">Carregando obras...</div> : <AnimatePresence mode="wait">
+              <ToggleGroup type="single" value={view} onValueChange={value => value && setView(value)} className="border rounded-md justify-center">
+                <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          </Card>
+
+          {loading ? <div className="text-center p-8">Carregando obras...</div> : <AnimatePresence mode="wait">
         <motion.div key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
           {view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
@@ -415,6 +491,8 @@ const PublicWorksPage = () => {
           )}
         </motion.div>
       </AnimatePresence>}
+        </>
+      )}
     </div>
   </>;
 };

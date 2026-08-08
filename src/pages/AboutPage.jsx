@@ -43,7 +43,7 @@ const AboutPage = () => {
           Sobre o Trombone Cidadão
         </h1>
         <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-          Uma plataforma colaborativa para transformar a gestão de serviços públicos em Floresta-PE, conectando cidadãos e a prefeitura de forma transparente e eficiente.
+          Uma plataforma colaborativa para transformar a gestão de serviços públicos na sua cidade, conectando cidadãos e a prefeitura de forma transparente e eficiente.
         </p>
       </motion.div>
 
@@ -58,7 +58,7 @@ const AboutPage = () => {
         <motion.div className="space-y-6" variants={itemVariants}>
           <h2 className="text-3xl font-bold text-foreground">Nossa Missão</h2>
           <p className="text-muted-foreground">
-            Empoderar os cidadãos de Floresta, dando-lhes uma voz ativa na identificação e solução de problemas urbanos. Acreditamos que a colaboração é a chave para uma cidade melhor, mais justa e bem cuidada para todos.
+            Empoderar os cidadãos, dando-lhes uma voz ativa na identificação e solução de problemas urbanos. Acreditamos que a colaboração é a chave para uma cidade melhor, mais justa e bem cuidada para todos.
           </p>
           <p className="text-muted-foreground">
             O Trombone Cidadão serve como uma ponte digital, agilizando a comunicação de demandas como buracos nas ruas, problemas de iluminação e esgoto, e permitindo que a gestão municipal responda de forma mais ágil e organizada.

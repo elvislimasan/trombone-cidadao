@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { sanitizeHtml } from '@/lib/sanitizeHtml';
 
 const BlockRenderer = ({ block, readOnly = false, onAction }) => {
   const { type, content, styles } = block;
@@ -29,7 +30,7 @@ const BlockRenderer = ({ block, readOnly = false, onAction }) => {
 
     case 'text':
       return (
-        <div style={styleProps} dangerouslySetInnerHTML={{ __html: content.html }} />
+        <div style={styleProps} dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.html) }} />
       );
 
     case 'image':

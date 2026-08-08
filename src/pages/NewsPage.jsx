@@ -8,26 +8,36 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 
+const PAGE_SIZE = 12;
+
 const NewsPage = () => {
   const [newsItems, setNewsItems] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const { toast } = useToast();
 
-  const fetchNews = useCallback(async () => {
-    const { data, error } = await supabase
+  const fetchNews = useCallback(async (page) => {
+    const offset = (page - 1) * PAGE_SIZE;
+    const { data, error, count } = await supabase
       .from('news')
-      .select('*')
-      .order('date', { ascending: false });
-    
+      .select('*', { count: 'exact' })
+      .order('date', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
     if (error) {
       toast({ title: "Erro ao buscar notícias", description: error.message, variant: "destructive" });
     } else {
       setNewsItems(data);
+      setTotalCount(count || 0);
     }
   }, [toast]);
 
   useEffect(() => {
-    fetchNews();
-  }, [fetchNews]);
+    fetchNews(currentPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [fetchNews, currentPage]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -97,6 +107,30 @@ const NewsPage = () => {
             </motion.div>
           ))}
         </motion.div>
+
+        {totalPages > 1 && (
+          <div className="mt-10 flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Próxima
+            </Button>
+          </div>
+        )}
       </div>
     </>
   );

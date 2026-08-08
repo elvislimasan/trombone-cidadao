@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Lightbulb, Users, Building2, Eye, CheckCircle2, AlertCircle, Heart, FileText } from "lucide-react";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 
 const ICON_MAP = {
   Users,
@@ -32,7 +33,7 @@ const cleanHtmlContent = (html) => {
 
 const PetitionContent = ({ content, description, children, importanceList, hero }) => {
   const itemsToRender = importanceList && importanceList.length > 0 ? importanceList : defaultImportanceItems;
-  const finalContent = cleanHtmlContent(content || description);
+  const finalContent = sanitizeHtml(cleanHtmlContent(content || description));
 
   return (
     <Card className="border-0 shadow-md">

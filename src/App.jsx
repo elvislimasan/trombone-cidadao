@@ -18,6 +18,8 @@ import AboutPage from '@/pages/AboutPage';
 import StatsPage from '@/pages/StatsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import PublicWorksPage from '@/pages/PublicWorksPage';
+import RentalPropertyDetailsPage from '@/pages/RentalPropertyDetailsPage';
+import RentalPropertiesPage from '@/pages/RentalPropertiesPage';
 import PavementMapPage from '@/pages/PavementMapPage';
 import ServicesPage from '@/pages/ServicesPage';
 import NewsPage from '@/pages/NewsPage';
@@ -29,6 +31,7 @@ import TouristSpotDetailsPage from '@/pages/TouristSpotDetailsPage';
 import ManageServicesPage from '@/pages/admin/ManageServicesPage';
 import ManageNewsPage from '@/pages/admin/ManageNewsPage';
 import ManageWorksPage from '@/pages/admin/ManageWorksPage';
+import ManageRentalPropertiesPage from '@/pages/admin/ManageRentalPropertiesPage';
 import ManagePavementPage from '@/pages/admin/ManagePavementPage';
 import SiteSettingsPage from '@/pages/admin/SiteSettingsPage';
 import ManageUsersPage from '@/pages/admin/ManageUsersPage';
@@ -70,11 +73,20 @@ import MobileHeader from '@/components/MobileHeader';
 import { MobileHeaderProvider } from '@/contexts/MobileHeaderContext';
 import { NativeUIModeProvider, useNativeUIMode } from '@/contexts/NativeUIModeContext';
 import NativePreferencesPage from '@/pages/NativePreferencesPage';
+import AmbassadorPage from '@/pages/AmbassadorPage';
+import ManageMastersPage from '@/pages/admin/ManageMastersPage';
+import AmbassadorProfilePage from '@/pages/admin/AmbassadorProfilePage';
+import CompleteProfilePage from '@/pages/CompleteProfilePage';
+import AcceptInvitePage from '@/pages/AcceptInvitePage';
+import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
+import PendingInviteBanner from '@/components/PendingInviteBanner';
+import { usePermissions } from '@/hooks/usePermissions';
+import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
 
 const SEO = () => {
   const location = useLocation();
   const siteName = import.meta.env.VITE_APP_NAME || "Trombone Cidadão";
-  const defaultDescription = "Plataforma colaborativa para solicitação de serviços públicos em Floresta-PE. Registre, acompanhe e resolva as broncas da sua cidade.";
+  const defaultDescription = "Plataforma colaborativa para solicitação de serviços públicos. Registre, acompanhe e resolva as broncas da sua cidade.";
   
   // Base URL automática - detecta automaticamente o ambiente
   const getBaseUrl = () => {
@@ -127,19 +139,19 @@ const SEO = () => {
       break;
     case '/estatisticas':
       pageTitle = `Estatísticas - ${siteName}`;
-      pageDescription = "Acompanhe em tempo real as estatísticas de solicitações, resoluções e o engajamento cívico em Floresta-PE.";
+      pageDescription = "Acompanhe em tempo real as estatísticas de solicitações, resoluções e o engajamento cívico na sua cidade.";
       break;
     case '/obras-publicas':
       pageTitle = `Mapa de Obras Públicas - ${siteName}`;
-      pageDescription = "Mapa interativo e informações sobre as obras públicas em Floresta-PE.";
+      pageDescription = "Mapa interativo e informações sobre as obras públicas na sua cidade.";
       break;
     case '/mapa-pavimentacao':
       pageTitle = `Mapa de Pavimentação - ${siteName}`;
-      pageDescription = "Consulte o status da pavimentação das ruas de Floresta-PE e acompanhe o progresso.";
+      pageDescription = "Consulte o status da pavimentação das ruas da sua cidade e acompanhe o progresso.";
       break;
     case '/noticias':
       pageTitle = `Notícias - ${siteName}`;
-      pageDescription = "Fique por dentro das últimas notícias e atualizações relevantes para a cidade de Floresta-PE.";
+      pageDescription = "Fique por dentro das últimas notícias e atualizações relevantes para a sua cidade.";
       break;
     case '/favoritos':
       pageTitle = `Meus Favoritos - ${siteName}`;
@@ -195,19 +207,22 @@ const SEO = () => {
   );
 };
 
+// Profile obrigatório: quem entrou (inclusive via Google) sem telefone, cidade
+// ou sem aceitar os termos precisa completar o cadastro antes de usar o app.
+const isProfileIncomplete = (user) =>
+  !!user && (!user.phone || !user.city_id || !user.terms_accepted_at);
+
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
-  return user
-    ? children
-    : (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location }}
-      />
-    );
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+  if (isProfileIncomplete(user) && location.pathname !== '/completar-cadastro') {
+    return <Navigate to="/completar-cadastro" replace state={{ from: location }} />;
+  }
+  return children;
 };
 
 const AdminRoute = ({ children }) => {
@@ -223,6 +238,36 @@ const AdminRoute = ({ children }) => {
         state={!user ? { from: location } : undefined}
       />
     );
+};
+
+const AmbassadorOrAdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
+  const allowed = user && (user.is_admin || user.is_master || user.is_ambassador);
+  return allowed
+    ? children
+    : <Navigate to={user ? '/' : '/login'} replace state={!user ? { from: location } : undefined} />;
+};
+
+const MasterRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
+  return user?.is_master
+    ? children
+    : <Navigate to={user ? '/' : '/login'} replace state={!user ? { from: location } : undefined} />;
+};
+
+// Camada de permissão por módulo sobre o guard de papel: o papel continua
+// sendo pré-requisito, e a permissão (painel /admin/permissoes) pode revogar
+// o acesso de escrita mesmo de quem tem o papel.
+const ModuleRoute = ({ module, adminOnly = false, children }) => {
+  const { canWrite, loading } = usePermissions();
+  const Guard = adminOnly ? AdminRoute : AmbassadorOrAdminRoute;
+  if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
+  if (!canWrite(module)) return <Navigate to="/" replace />;
+  return <Guard>{children}</Guard>;
 };
 
 function AppShell() {
@@ -579,12 +624,16 @@ function AppShell() {
             }}
           >
             <div className="flex-1 min-h-0 flex flex-col">
+              <PendingInviteBanner />
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
+              <Route path="/completar-cadastro" element={<CompleteProfilePage />} />
+              <Route path="/seja-embaixador" element={<BecomeAmbassadorPage />} />
               <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
               <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
               <Route path="/app" element={<AppLandingPage />} />
+              <Route path="/convite/:token" element={<AcceptInvitePage />} />
               
               <Route path="/" element={<HomeRouter />} />
               <Route path="/mapa" element={<MapPage />} />
@@ -599,6 +648,8 @@ function AppShell() {
               <Route path="/estatisticas" element={<StatsPage />} />
               <Route path="/obras-publicas" element={<PublicWorksPage />} />
               <Route path="/obras-publicas/:workId" element={<WorkDetailsPageProject />} />
+              <Route path="/imoveis-alugados" element={<RentalPropertiesPage />} />
+              <Route path="/imoveis-alugados/:id" element={<RentalPropertyDetailsPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/servicos" element={<ServicesPage />} />
               <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />
@@ -617,22 +668,31 @@ function AppShell() {
               <Route path="/excluir-conta" element={<PrivateRoute><DeleteAccountPage /></PrivateRoute>} />
               
               <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
-              <Route path="/admin/moderacao/:type" element={<AdminRoute><ModerationPage /></AdminRoute>} />
+              <Route path="/admin/moderacao/:type" element={<ModuleRoute module="moderation" adminOnly><ModerationPage /></ModuleRoute>} />
               <Route path="/admin/usuarios" element={<AdminRoute><ManageUsersPage /></AdminRoute>} />
-              <Route path="/admin/servicos" element={<AdminRoute><ManageServicesPage /></AdminRoute>} />
+              <Route path="/admin/permissoes" element={<MasterRoute><ManagePermissionsPage /></MasterRoute>} />
+              <Route path="/admin/servicos" element={<ModuleRoute module="services" adminOnly><ManageServicesPage /></ModuleRoute>} />
+              <Route path="/servicos/gerenciar" element={<ModuleRoute module="services"><ManageServicesPage /></ModuleRoute>} />
               <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
-              <Route path="/admin/obras" element={<AdminRoute><ManageWorksPage /></AdminRoute>} />
-              <Route path="/admin/obras/opcoes" element={<AdminRoute><ManageWorkOptionsPage /></AdminRoute>} />
-              <Route path="/admin/pavimentacao" element={<AdminRoute><ManagePavementPage /></AdminRoute>} />
+              <Route path="/admin/obras" element={<ModuleRoute module="works" adminOnly><ManageWorksPage /></ModuleRoute>} />
+              <Route path="/obras/gerenciar" element={<ModuleRoute module="works"><ManageWorksPage /></ModuleRoute>} />
+              <Route path="/admin/imoveis-alugados" element={<ModuleRoute module="rentals" adminOnly><ManageRentalPropertiesPage /></ModuleRoute>} />
+              <Route path="/imoveis-alugados/gerenciar" element={<ModuleRoute module="rentals"><ManageRentalPropertiesPage /></ModuleRoute>} />
+              <Route path="/admin/obras/opcoes" element={<ModuleRoute module="works" adminOnly><ManageWorkOptionsPage /></ModuleRoute>} />
+              <Route path="/admin/pavimentacao" element={<ModuleRoute module="pavement" adminOnly><ManagePavementPage /></ModuleRoute>} />
+              <Route path="/pavimentacao/gerenciar" element={<ModuleRoute module="pavement"><ManagePavementPage /></ModuleRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
               <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
-              <Route path="/admin/reports" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
-              <Route path="/admin/broncas" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
+              <Route path="/admin/reports" element={<ModuleRoute module="moderation" adminOnly><ManageReportsPage /></ModuleRoute>} />
+              <Route path="/admin/broncas" element={<ModuleRoute module="moderation" adminOnly><ManageReportsPage /></ModuleRoute>} />
               <Route path="/admin/petitions" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
               <Route path="/admin/assinaturas" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
               <Route path="/admin/signatures" element={<Navigate to="/admin/petitions" replace />} />
               <Route path="/admin/trash" element={<AdminRoute><TrashPage /></AdminRoute>} />
               <Route path="/admin/lixeira" element={<AdminRoute><TrashPage /></AdminRoute>} />
+              <Route path="/admin/embaixadores" element={<AdminRoute><ManageMastersPage /></AdminRoute>} />
+              <Route path="/admin/embaixador/:id" element={<AdminRoute><AmbassadorProfilePage /></AdminRoute>} />
+              <Route path="/embaixador" element={<PrivateRoute><AmbassadorPage /></PrivateRoute>} />
               <Route path="/settings/notifications" element={<NotificationPreferences />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

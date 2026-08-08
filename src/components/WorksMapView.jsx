@@ -13,6 +13,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
 import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
+import { useCity } from '@/contexts/CityContext';
+import { geocodeCity } from '@/lib/geocodeCity';
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
@@ -22,6 +24,48 @@ const MapController = ({ mapRef }) => {
 
 const MapScrollLock = ({ mode }) => {
   useMapScrollLock(mode);
+  return null;
+};
+
+// Recentraliza o mapa nas obras carregadas sempre que a lista muda
+// (ex.: ao trocar a cidade no seletor). Se não houver obras na cidade,
+// centraliza na própria cidade selecionada (forward geocode). Sem isso,
+// o mapa fica preso no center inicial (Floresta).
+const FitToWorks = ({ works, activeCity }) => {
+  const map = useMap();
+  const lastKeyRef = useRef('');
+  useEffect(() => {
+    let cancelled = false;
+    const pts = (works || [])
+      .filter((w) => w.location && Number.isFinite(w.location.lat) && Number.isFinite(w.location.lng))
+      .map((w) => [w.location.lat, w.location.lng]);
+
+    if (pts.length > 0) {
+      const key = 'works:' + pts.map((p) => p.join(',')).sort().join('|');
+      if (key === lastKeyRef.current) return;
+      lastKeyRef.current = key;
+      try {
+        if (pts.length === 1) {
+          map.setView(pts[0], Math.max(map.getZoom(), 15), { animate: true });
+        } else {
+          map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], animate: true });
+        }
+      } catch (e) { /* noop */ }
+      return;
+    }
+
+    // Sem obras: centraliza na cidade ativa (se houver).
+    if (activeCity?.name) {
+      const key = 'city:' + activeCity.name + '|' + (activeCity.state?.uf || '');
+      if (key === lastKeyRef.current) return;
+      lastKeyRef.current = key;
+      geocodeCity(activeCity.name, activeCity.state?.uf).then((coord) => {
+        if (cancelled || !coord) return;
+        try { map.setView([coord.lat, coord.lng], 13, { animate: true }); } catch {}
+      });
+    }
+    return () => { cancelled = true; };
+  }, [works, activeCity, map]);
   return null;
 };
 
@@ -37,6 +81,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { mode } = useMapModeToggle();
+  const { activeCity } = useCity();
 
   const fetchWorkModalData = useCallback(async (workId) => {
     if (!workId) return;
@@ -235,6 +280,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       <MapContainer center={isSingleWorkView && selectedWork.location ? [selectedWork.location.lat, selectedWork.location.lng] : FLORESTA_COORDS} zoom={isSingleWorkView ? 17 : INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
+        {!isSingleWorkView && <FitToWorks works={works} activeCity={activeCity} />}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

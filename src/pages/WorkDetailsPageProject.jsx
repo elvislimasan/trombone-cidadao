@@ -279,13 +279,35 @@ export default function WorkDetailsPageProject() {
     useMobileHeader();
   const { isInteractive } = useNativeUIMode();
 
+  const [loading, setLoading] = useState(true);
+  const [work, setWork] = useState(null);
+  const [isAmbassadorOfWork, setIsAmbassadorOfWork] = useState(false);
+
+  // Pode gerir esta obra? Admin/master OU embaixador ativo da cidade da obra.
+  const canManageWork = Boolean(
+    user?.is_admin || user?.is_master || isAmbassadorOfWork
+  );
+
   const commitmentTypeOptions = useMemo(
     () => ["Estimativo", "Extra Orçamentário", "Global", "Ordinário"],
     []
   );
 
-  const [loading, setLoading] = useState(true);
-  const [work, setWork] = useState(null);
+  // Verifica se o usuário é embaixador ativo da cidade desta obra.
+  useEffect(() => {
+    let cancelled = false;
+    const cityId = work?.city_id;
+    if (!user?.id || !user?.is_ambassador || !cityId || user?.is_admin || user?.is_master) {
+      setIsAmbassadorOfWork(false);
+      return;
+    }
+    supabase
+      .rpc("is_ambassador_of", { p_user: user.id, p_city_id: cityId })
+      .then(({ data, error }) => {
+        if (!cancelled) setIsAmbassadorOfWork(!error && data === true);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, user?.is_ambassador, user?.is_admin, user?.is_master, work?.city_id]);
   const [measurements, setMeasurements] = useState([]);
   const [media, setMedia] = useState([]);
   const [isFavorited, setIsFavorited] = useState(false);
@@ -728,7 +750,7 @@ export default function WorkDetailsPageProject() {
   }, [navigate, workId]);
 
   const handleSaveCurrentPhaseSelection = useCallback(async () => {
-    if (!user?.is_admin) return;
+    if (!canManageWork) return;
     if (!work?.id) return;
 
     const nextId = currentPhaseSelection || null;
@@ -768,7 +790,7 @@ export default function WorkDetailsPageProject() {
     loadData,
     measurements,
     touchPageUpdatedAt,
-    user?.is_admin,
+    canManageWork,
     work?.id,
   ]);
 
@@ -810,7 +832,7 @@ export default function WorkDetailsPageProject() {
     }
 
     const headerActions = [];
-    if (user?.is_admin) {
+    if (canManageWork) {
       headerActions.push({
         key: "manage",
         icon: Pencil,
@@ -849,7 +871,7 @@ export default function WorkDetailsPageProject() {
     setOnBack,
     setShowBack,
     setTitle,
-    user?.is_admin,
+    canManageWork,
     work,
   ]);
 
@@ -968,7 +990,7 @@ export default function WorkDetailsPageProject() {
 
   const handleRenameGallery = useCallback(
     async (oldName, newName) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       if (!work?.id || !currentMeasurement?.id) return;
       const fromName = String(oldName || "").trim();
       const toName = String(newName || "").trim();
@@ -996,14 +1018,14 @@ export default function WorkDetailsPageProject() {
       currentMeasurement?.id,
       loadData,
       touchPageUpdatedAt,
-      user?.is_admin,
+      canManageWork,
       work?.id,
     ]
   );
 
   const handleUpdateMediaItem = useCallback(
     async (mediaId, patch) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       const id = String(mediaId || "").trim();
       if (!id) return;
 
@@ -1026,12 +1048,12 @@ export default function WorkDetailsPageProject() {
           : prev
       );
     },
-    [toast, touchPageUpdatedAt, user?.is_admin]
+    [toast, touchPageUpdatedAt, canManageWork]
   );
 
   const handleDeleteMediaItem = useCallback(
     async (mediaId, mediaUrl) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       const id = String(mediaId || "").trim();
       if (!id) return;
 
@@ -1062,12 +1084,12 @@ export default function WorkDetailsPageProject() {
         Array.isArray(prev) ? prev.filter((m) => m?.id !== id) : prev
       );
     },
-    [toast, touchPageUpdatedAt, user?.is_admin]
+    [toast, touchPageUpdatedAt, canManageWork]
   );
 
   const handleBulkUpdateMediaItems = useCallback(
     async (mediaIds, patch) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       const ids = Array.isArray(mediaIds)
         ? mediaIds.map((x) => String(x).trim()).filter(Boolean)
         : [];
@@ -1095,12 +1117,12 @@ export default function WorkDetailsPageProject() {
           : prev
       );
     },
-    [toast, touchPageUpdatedAt, user?.is_admin]
+    [toast, touchPageUpdatedAt, canManageWork]
   );
 
   const handleBulkDeleteMediaItems = useCallback(
     async (items) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       const list = Array.isArray(items) ? items : [];
       const ids = list.map((i) => i?.id).filter(Boolean);
       if (ids.length === 0) return;
@@ -1143,12 +1165,12 @@ export default function WorkDetailsPageProject() {
         Array.isArray(prev) ? prev.filter((m) => !setIds.has(m?.id)) : prev
       );
     },
-    [toast, touchPageUpdatedAt, user?.is_admin]
+    [toast, touchPageUpdatedAt, canManageWork]
   );
 
   const handleDeleteGallery = useCallback(
     async (galleryName, items) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       const name = String(galleryName || "").trim();
       if (!name) return;
       const list = Array.isArray(items) ? items : [];
@@ -1193,12 +1215,12 @@ export default function WorkDetailsPageProject() {
         Array.isArray(prev) ? prev.filter((m) => !ids.includes(m?.id)) : prev
       );
     },
-    [toast, touchPageUpdatedAt, user?.is_admin]
+    [toast, touchPageUpdatedAt, canManageWork]
   );
 
   const handleUploadGalleryFiles = useCallback(
     async (galleryName, files) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       if (!work?.id || !currentMeasurement?.id) return;
       const list = Array.isArray(files) ? files : [];
       const images = list.filter((f) => f?.type?.startsWith("image/"));
@@ -1268,14 +1290,14 @@ export default function WorkDetailsPageProject() {
       toast,
       touchPageUpdatedAt,
       user?.id,
-      user?.is_admin,
+      canManageWork,
       work?.id,
     ]
   );
 
   const handleUploadDocuments = useCallback(
     async (files) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       if (!work?.id || !currentMeasurement?.id) return;
       const list = Array.isArray(files) ? files : [];
       if (list.length === 0) return;
@@ -1338,7 +1360,7 @@ export default function WorkDetailsPageProject() {
       toast,
       touchPageUpdatedAt,
       user?.id,
-      user?.is_admin,
+      canManageWork,
       work?.id,
     ]
   );
@@ -1442,7 +1464,7 @@ export default function WorkDetailsPageProject() {
 
   const openPhaseEditDialog = useCallback(
     async (measurementId) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       const m = measurements.find((x) => x.id === measurementId) || null;
       if (!m) {
         toast("Fase não encontrada", { variant: "destructive" });
@@ -1501,17 +1523,17 @@ export default function WorkDetailsPageProject() {
         });
       }
     },
-    [ensureContractorsLoaded, measurements, toast, user?.is_admin]
+    [ensureContractorsLoaded, measurements, toast, canManageWork]
   );
 
   const openCurrentPhaseEditDialog = useCallback(() => {
-    if (!user?.is_admin) return;
+    if (!canManageWork) return;
     if (!currentMeasurement?.id) return;
     openPhaseEditDialog(currentMeasurement.id);
-  }, [currentMeasurement?.id, openPhaseEditDialog, user?.is_admin]);
+  }, [currentMeasurement?.id, openPhaseEditDialog, canManageWork]);
 
   const handleSaveCurrentPhase = useCallback(async () => {
-    if (!user?.is_admin) return;
+    if (!canManageWork) return;
     const targetMeasurementId = editingMeasurementId || currentMeasurement?.id;
     if (!targetMeasurementId) return;
 
@@ -1624,7 +1646,7 @@ export default function WorkDetailsPageProject() {
     loadData,
     syncWorkFromLatestMeasurement,
     touchPageUpdatedAt,
-    user?.is_admin,
+    canManageWork,
     validateCurrentPhaseDates,
   ]);
 
@@ -1725,7 +1747,7 @@ export default function WorkDetailsPageProject() {
 
   const openEditPaymentDialog = useCallback(
     (payment) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       const id = payment?.id || null;
       if (!id) return;
       const raw = currentPhasePayments.find((p) => p.id === id) || null;
@@ -1761,7 +1783,7 @@ export default function WorkDetailsPageProject() {
       currentMeasurement?.id,
       currentPhasePayments,
       phase?.contractor?.name,
-      user?.is_admin,
+      canManageWork,
     ]
   );
 
@@ -1836,7 +1858,7 @@ export default function WorkDetailsPageProject() {
   ]);
 
   const handleSavePayment = useCallback(async () => {
-    if (!user?.is_admin) return;
+    if (!canManageWork) return;
     if (!paymentForm.measurement_id) {
       toast("Selecione uma fase", { variant: "destructive" });
       return;
@@ -1950,14 +1972,14 @@ export default function WorkDetailsPageProject() {
     loadData,
     paymentForm,
     touchPageUpdatedAt,
-    user?.is_admin,
+    canManageWork,
     workId,
     allPayments,
   ]);
 
   const handleDeletePayment = useCallback(
     async (payment) => {
-      if (!user?.is_admin) return;
+      if (!canManageWork) return;
       const id = payment?.id || null;
       if (!id) return;
       if (!window.confirm("Excluir este pagamento?")) return;
@@ -1980,7 +2002,7 @@ export default function WorkDetailsPageProject() {
         });
       }
     },
-    [loadData, touchPageUpdatedAt, user?.is_admin]
+    [loadData, touchPageUpdatedAt, canManageWork]
   );
 
   const openMeasurementDetails = useCallback(
@@ -2178,7 +2200,7 @@ export default function WorkDetailsPageProject() {
           subtitle={work.work_category?.name || ""}
           status={normalizeStatus(currentMeasurement?.status || work.status)}
           category={work.work_category?.name || ""}
-          isAdmin={Boolean(user?.is_admin)}
+          isAdmin={Boolean(canManageWork)}
           onManage={() => setShowAdminEditModal(true)}
           onShare={handleShareWork}
           isFavorited={isFavorited}
@@ -2265,7 +2287,7 @@ export default function WorkDetailsPageProject() {
                   as informações importantes sobre a execução desta fase da
                   obra.
                 </p>
-                {user?.is_admin && (measurements || []).length > 0 ? (
+                {canManageWork && (measurements || []).length > 0 ? (
                   <div className="mt-4 flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-muted-foreground">
@@ -2332,7 +2354,7 @@ export default function WorkDetailsPageProject() {
                       phase={phase}
                       category={work.work_category?.name || ""}
                       onEdit={openCurrentPhaseEditDialog}
-                      isAdmin={Boolean(user?.is_admin)}
+                      isAdmin={Boolean(canManageWork)}
                       embedded
                       showBody={false}
                     />
@@ -2341,7 +2363,7 @@ export default function WorkDetailsPageProject() {
                         phase={phase}
                         category={work.work_category?.name || ""}
                         onEdit={openCurrentPhaseEditDialog}
-                        isAdmin={Boolean(user?.is_admin)}
+                        isAdmin={Boolean(canManageWork)}
                         embedded
                         showHeader={false}
                       />
@@ -2400,7 +2422,7 @@ export default function WorkDetailsPageProject() {
                         onOpenViewer={(items, index) =>
                           openViewer(items, index)
                         }
-                        canEdit={Boolean(user?.is_admin)}
+                        canEdit={Boolean(canManageWork)}
                         onRenameGallery={handleRenameGallery}
                         onDeleteGallery={handleDeleteGallery}
                         onUpdateMediaItem={handleUpdateMediaItem}
@@ -2429,7 +2451,7 @@ export default function WorkDetailsPageProject() {
                           </div>
                         </div>
 
-                        {user?.is_admin ? (
+                        {canManageWork ? (
                           <Button
                             type="button"
                             size="sm"
@@ -2522,7 +2544,7 @@ export default function WorkDetailsPageProject() {
                                 </div>
                               </a>
 
-                              {user?.is_admin ? (
+                              {canManageWork ? (
                                 <div className="flex items-center gap-2 shrink-0">
                                   <Button
                                     type="button"
@@ -2680,7 +2702,7 @@ export default function WorkDetailsPageProject() {
                                 currentMeasurement?.id)
                           )?.contractor?.name || ""
                         }
-                        canAdd={Boolean(user?.is_admin)}
+                        canAdd={Boolean(canManageWork)}
                         onAddPayment={openNewPaymentDialog}
                         onEditPayment={openEditPaymentDialog}
                         onDeletePayment={handleDeletePayment}
@@ -2697,7 +2719,7 @@ export default function WorkDetailsPageProject() {
               phases={phases}
               currentPhaseId={currentPhaseId}
               onOpenDetails={openMeasurementDetails}
-              isAdmin={Boolean(user?.is_admin)}
+              isAdmin={Boolean(canManageWork)}
               onEdit={(measurementId) => openPhaseEditDialog(measurementId)}
             />
           </div>

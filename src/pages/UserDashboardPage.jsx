@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useCity } from '@/contexts/CityContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +20,7 @@ import { useUpvote } from '../hooks/useUpvotes';
 
 const UserDashboardPage = () => {
   const { user } = useAuth();
+  const { activeCityId } = useCity();
   const { toast } = useToast();
   const location = useLocation();
   const [reports, setReports] = useState([]);
@@ -282,7 +284,11 @@ const UserDashboardPage = () => {
       toast({ title: "Campos obrigatórios", description: "Por favor, preencha nome, endereço e telefone.", variant: "destructive" });
       return;
     }
-    
+    if (!activeCityId) {
+      toast({ title: "Selecione uma cidade", description: "Escolha a cidade no topo da página antes de enviar sua sugestão.", variant: "destructive" });
+      return;
+    }
+
     const { error } = await supabase
       .from('directory')
       .insert({
@@ -290,6 +296,7 @@ const UserDashboardPage = () => {
         address: newEntry.address,
         phone: newEntry.phone,
         type: newEntry.type,
+        city_id: activeCityId,
         submitted_by: user.id,
         status: 'pending'
       });
@@ -331,7 +338,7 @@ const UserDashboardPage = () => {
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
     if (!user) return;
 
-    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility } = newReportData;
+    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility, city_id: geocodedCityId } = newReportData;
     const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
     const normalizedPole = normalizePoleLabel(pole_number);
     const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
@@ -354,8 +361,9 @@ const UserDashboardPage = () => {
         reported_pole_distance_m: category === 'iluminacao' ? reported_pole_distance_m : null,
         issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
+        city_id: geocodedCityId ?? null,
         status: 'pending',
-        moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
+        moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
       })
       .select('id, title')
       .single();
@@ -371,7 +379,7 @@ const UserDashboardPage = () => {
 
     const toastMessage = user?.is_admin
       ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
-      : { title: "Bronca enviada para moderação! 📬", description: "Sua solicitação será analisada antes de ser publicada." };
+      : { title: "Bronca enviada para moderação! 📬", description: "Após aprovada, estará disponível no feed." };
 
     toast(toastMessage);
     setIsReportModalOpen(false);

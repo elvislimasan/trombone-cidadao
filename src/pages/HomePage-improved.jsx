@@ -33,6 +33,9 @@ import {
 } from "@/components/ui/dialog";
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { useCity } from '@/contexts/CityContext';
+import CitySelector from '@/components/CitySelector';
+import { geocodeCity } from '@/lib/geocodeCity';
 const ReportList = React.lazy(() => import('@/components/ReportList'));
 const RankingSidebar = React.lazy(() => import('@/components/RankingSidebar'));
 
@@ -45,6 +48,7 @@ function HomePageImproved() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { activeCityId, activeCityName, activeCity } = useCity();
   const { toast } = useToast();
   const { handleUpvote, loading: upvoteLoading } = useUpvote();
   const [showPetitionsUpdate, setShowPetitionsUpdate] = useState(false);
@@ -72,6 +76,19 @@ function HomePageImproved() {
   const [viewMode, setViewMode] = useState('map');
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [cityFlyTarget, setCityFlyTarget] = useState(null);
+
+  // Centraliza o mapa na cidade ativa (não há lat/lng na tabela cities —
+  // mesmo padrão de geocode usado em WorksMapView/PavementMapView).
+  useEffect(() => {
+    if (!activeCity?.name) { setCityFlyTarget(null); return; }
+    let cancelled = false;
+    geocodeCity(activeCity.name, activeCity.state?.uf).then((coord) => {
+      if (cancelled || !coord) return;
+      setCityFlyTarget({ lat: coord.lat, lng: coord.lng, zoom: 13, nonce: Date.now() });
+    });
+    return () => { cancelled = true; };
+  }, [activeCity?.name, activeCity?.state?.uf]);
 
   const explorerRef = useRef(null);
   const cancelledRef = useRef(false);
@@ -190,12 +207,15 @@ function HomePageImproved() {
   const fetchStats = useCallback(async (retryCount = 0) => {
     setLoadingStats(true);
     try {
-      const buildBase = () =>
-        supabase
+      const buildBase = () => {
+        let q = supabase
           .from('reports')
           .select('id', { count: 'exact', head: true })
           .eq('moderation_status', 'approved')
           .neq('status', 'duplicate');
+        if (activeCityId) q = q.eq('city_id', activeCityId);
+        return q;
+      };
 
       const [pendingRes, inProgressRes, resolvedRes, myResolvedRes] = await Promise.all([
         buildBase().eq('status', 'pending'),
@@ -228,7 +248,7 @@ function HomePageImproved() {
     } finally {
       if (!cancelledRef.current) setLoadingStats(false);
     }
-  }, [user]);
+  }, [user, activeCityId]);
 
   const fetchTopPetitions = useCallback(async (retryCount = 0) => {
     setLoadingPetitions(true);
@@ -344,6 +364,8 @@ function HomePageImproved() {
         .eq('moderation_status', 'approved')
         .order('created_at', { ascending: sortOrder === 'oldest' });
 
+      if (activeCityId) query = query.eq('city_id', activeCityId);
+
       if (wanted !== 'all' && wanted !== 'active' && wanted) {
         query = query.eq('status', wanted);
       }
@@ -399,7 +421,7 @@ function HomePageImproved() {
     } finally {
       if (!cancelledRef.current) setLoadingReports(false);
     }
-  }, [user, sortOrder, filter.status, normalizeReportStatus]);
+  }, [user, sortOrder, filter.status, normalizeReportStatus, activeCityId]);
 
   const fetchCategories = useCallback(async (retryCount = 0) => {
     try {
@@ -519,6 +541,19 @@ function HomePageImproved() {
 
     return tempReports;
   }, [debouncedSearchTerm, filter.category, statusFilteredReports, viewMode]);
+
+  // MapView consome itens no formato { isCluster, lat, lng, count, report } — sem clustering aqui, cada report vira um pin individual.
+  const mapItems = useMemo(() => (
+    filteredReports
+      .filter(r => r.location)
+      .map(r => ({
+        isCluster: false,
+        lat: r.location.lat,
+        lng: r.location.lng,
+        count: 1,
+        report: r,
+      }))
+  ), [filteredReports]);
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -678,7 +713,7 @@ function HomePageImproved() {
   const handleCreateReport = async (newReportData, uploadMediaCallback) => {
     if (!user) return;
 
-    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility } = newReportData;
+    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility, city_id } = newReportData;
     const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
     const normalizedPole = normalizePoleLabel(pole_number);
     const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
@@ -692,6 +727,7 @@ function HomePageImproved() {
         category_id: category,
         address,
         location: `POINT(${location.lng} ${location.lat})`,
+        city_id,
         author_id: user.id,
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
@@ -718,7 +754,7 @@ function HomePageImproved() {
 
     const toastMessage = user?.is_admin
       ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
-      : { title: "Bronca enviada para moderação! 📬", description: "Sua solicitação será analisada antes de ser publicada." };
+      : { title: "Bronca enviada para moderação! 📬", description: "Após aprovada, estará disponível no feed." };
 
     toast(toastMessage);
     setShowReportModal(false);
@@ -782,9 +818,10 @@ function HomePageImproved() {
            <div className="lg:pt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827] mb-2">Broncas da Sua Cidade</h1>
-              <p className="text-xs lg:text-sm text-[#6B7280]">
+              <p className="text-xs lg:text-sm text-[#6B7280] mb-3">
                 Veja os problemas reportados pela comunidade e acompanhe as soluções em tempo real.
               </p>
+              <CitySelector />
             </div>
             <div className="hidden md:flex items-center gap-3">
               <Button
@@ -888,8 +925,9 @@ function HomePageImproved() {
                     <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                     Explorar
                   </p>
-                  <h2 className="text-sm md:text-base lg:text-md font-semibold text-[#111827]">Broncas em Floresta</h2>
-                  
+                  <h2 className="text-sm md:text-base lg:text-md font-semibold text-[#111827]">
+                    Broncas{activeCityName ? ` em ${activeCityName}` : ''}
+                  </h2>
                 </div>
                 <div className="inline-flex items-center rounded-full bg-white border border-[#E5E7EB] p-1 ml-auto">
                   <button
@@ -1249,11 +1287,12 @@ function HomePageImproved() {
                         >
                           <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-white">Carregando mapa...</div>}>
                             <MapView
-                              reports={filteredReports}
+                              clusters={mapItems}
                               onReportClick={handleReportClick}
                               onUpvote={() => {}}
                               showLegend
                               interactive
+                              flyToTarget={cityFlyTarget}
                             />
                           </Suspense>
                         </div>
@@ -1268,11 +1307,12 @@ function HomePageImproved() {
                       >
                         <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-white">Carregando mapa...</div>}>
                           <MapView
-                            reports={filteredReports}
+                            clusters={mapItems}
                             onReportClick={handleReportClick}
                             onUpvote={() => {}}
                             showLegend
                             interactive
+                            flyToTarget={cityFlyTarget}
                           />
                         </Suspense>
                       </div>

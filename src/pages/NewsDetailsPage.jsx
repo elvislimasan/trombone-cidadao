@@ -19,6 +19,7 @@ import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
+import { sanitizeHtml } from '@/lib/sanitizeHtml';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
@@ -381,7 +382,7 @@ const NewsDetailsPage = () => {
       });
     }
     html = html.replace(/\n/g, '<br />');
-    return html;
+    return sanitizeHtml(html);
   }, [newsItem?.body]);
 
   useEffect(() => {

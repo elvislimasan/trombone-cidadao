@@ -493,6 +493,15 @@ async function sendPushNotification(
   }
 }
 
+// 🔒 Segredo compartilhado com o Database Webhook que invoca esta função.
+// Como a função roda com service role e é deployada com --no-verify-jwt,
+// sem este gate qualquer um poderia disparar push arbitrário para qualquer
+// userId. O Database Webhook deve enviar o header x-push-secret com este valor.
+// Rollout seguro: enquanto PUSH_FUNCTION_SECRET não estiver configurado, apenas
+// registra aviso e segue (não quebra produção). Depois de configurar o secret
+// no Supabase E adicionar o header no webhook, o gate passa a ser obrigatório.
+const PUSH_FUNCTION_SECRET = Deno.env.get("PUSH_FUNCTION_SECRET");
+
 serve(async (req) => {
   try {
     // Verificar método
@@ -500,6 +509,23 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Método não permitido" }),
         { status: 405, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 🔒 Autenticação por segredo compartilhado (webhook-only)
+    if (PUSH_FUNCTION_SECRET) {
+      const provided = req.headers.get("x-push-secret");
+      if (provided !== PUSH_FUNCTION_SECRET) {
+        console.warn("[EDGE FUNCTION] Chamada rejeitada: x-push-secret ausente/inválido");
+        return new Response(
+          JSON.stringify({ error: "Não autorizado" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      console.warn(
+        "[EDGE FUNCTION] PUSH_FUNCTION_SECRET não configurado — função aberta. " +
+        "Configure o secret e o header x-push-secret no Database Webhook para fechar o acesso."
       );
     }
 

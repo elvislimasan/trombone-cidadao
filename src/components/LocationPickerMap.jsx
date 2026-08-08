@@ -10,6 +10,8 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { FLORESTA_COORDS, INITIAL_ZOOM } from "@/config/mapConfig";
+import { geocodeCity } from "@/lib/geocodeCity";
+import { useCity } from "@/contexts/CityContext";
 import "leaflet/dist/leaflet.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -136,15 +138,25 @@ const LocationPickerMap = ({
   focusOverlayOnSelect = true,
   showSatelliteToggle = false,
   showLocateButton = false,
+  fallbackCityCenter = null, // { name, uf } — centraliza aqui quando não há initialPosition
+  flyToCity = null, // { name, uf, nonce } — força o mapa a voar para a cidade mesmo com view já definida (ex: admin trocando a cidade manualmente)
 }) => {
   const [position, setPosition] = useState(initialPosition || FLORESTA_COORDS);
   const [mapLayer, setMapLayer] = useState("osm");
   const mapRef = useRef();
+  const { activeCity } = useCity();
+  // Cidade para centralizar quando não há posição inicial: a prop explícita
+  // tem prioridade; senão usa a cidade ativa do app (feed/estatísticas/obras).
+  const effectiveCityCenter =
+    fallbackCityCenter || (activeCity ? { name: activeCity.name, uf: activeCity.state?.uf } : null);
 
   // Controla se a view inicial já foi definida.
   // Impede que o useEffect re-center o mapa toda vez que o usuário
   // move o marcador (o que forçava zoom 19 no Esri e quebrava o satélite).
   const hasSetInitialView = useRef(false);
+  // Após o usuário mover/clicar no mapa, ignorar atualizações externas de initialPosition
+  // (evita GPS tardio sobrescrever a posição escolhida pelo usuário)
+  const userMovedRef = useRef(false);
 
   const activeMaxZoom =
     mapLayer === "satellite" ? SATELLITE_MAX_ZOOM : OSM_MAX_ZOOM;
@@ -155,11 +167,10 @@ const LocationPickerMap = ({
     : INITIAL_ZOOM;
 
   useEffect(() => {
-    if (initialPosition) {
-      // Sempre atualiza a posição do marcador quando initialPosition muda
+    if (initialPosition && !userMovedRef.current) {
       setPosition(initialPosition);
 
-      // Mas só centraliza o mapa UMA VEZ (carga inicial), nunca ao mover o marcador
+      // Centraliza o mapa UMA VEZ (carga inicial)
       if (mapRef.current && !hasSetInitialView.current) {
         hasSetInitialView.current = true;
         const zoom = Math.min(19, activeMaxZoom);
@@ -168,7 +179,37 @@ const LocationPickerMap = ({
     }
   }, [initialPosition]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sem posição inicial: centraliza na cidade informada (ex.: cadastro de obra
+  // pelo embaixador). Não move o marcador — só reposiciona a vista do mapa.
+  useEffect(() => {
+    if (initialPosition || userMovedRef.current || hasSetInitialView.current) return;
+    if (!effectiveCityCenter?.name) return;
+    let cancelled = false;
+    geocodeCity(effectiveCityCenter.name, effectiveCityCenter.uf).then((coord) => {
+      if (cancelled || !coord || userMovedRef.current || hasSetInitialView.current) return;
+      if (mapRef.current) {
+        hasSetInitialView.current = true;
+        try { mapRef.current.setView([coord.lat, coord.lng], 13, { animate: false }); } catch {}
+      }
+    });
+    return () => { cancelled = true; };
+  }, [effectiveCityCenter?.name, effectiveCityCenter?.uf]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Voo forçado ao trocar a cidade manualmente (admin) — independe de
+  // hasSetInitialView/userMovedRef, que só protegem a centralização automática
+  // inicial contra sobrescritas indesejadas.
+  useEffect(() => {
+    if (!flyToCity?.name || !flyToCity?.nonce) return;
+    let cancelled = false;
+    geocodeCity(flyToCity.name, flyToCity.uf).then((coord) => {
+      if (cancelled || !coord || !mapRef.current) return;
+      try { mapRef.current.flyTo([coord.lat, coord.lng], 13, { animate: true, duration: 0.8 }); } catch {}
+    });
+    return () => { cancelled = true; };
+  }, [flyToCity?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handlePositionChange = (newPosition) => {
+    userMovedRef.current = true;
     setPosition(newPosition);
     onLocationChange(newPosition);
   };
@@ -193,6 +234,8 @@ const LocationPickerMap = ({
             duration: 0.5,
           });
         } catch {}
+        // Botão explícito do usuário — trata como movimento intencional
+        userMovedRef.current = true;
         handlePositionChange(next);
       },
       () => {},

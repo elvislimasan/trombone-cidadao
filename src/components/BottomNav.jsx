@@ -56,6 +56,7 @@ const BottomNav = () => {
         issue_type, reported_post_identifier, reported_plate,
         is_from_water_utility,
         is_anonymous,
+        city_id,
       } = newReportData;
 
       const normPole = (raw) =>
@@ -89,8 +90,9 @@ const BottomNav = () => {
           is_from_water_utility:
             category === 'buracos' ? !!is_from_water_utility : null,
           is_anonymous: !!is_anonymous,
+          city_id: city_id ?? null,
           status: 'pending',
-          moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
+          moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
         })
         .select('id')
         .single();

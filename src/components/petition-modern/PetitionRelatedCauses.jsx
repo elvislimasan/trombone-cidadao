@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ArrowRight, MapPin, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { getNextSignatureGoal } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 
 const PetitionRelatedCauses = ({ causes = [] }) => {
   if (!causes || causes.length === 0) {
@@ -66,7 +67,7 @@ const PetitionRelatedCauses = ({ causes = [] }) => {
                 </h3>
                 <div 
                     className="line-clamp-2 text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 flex-1"
-                    dangerouslySetInnerHTML={{ __html: cause.description || '' }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(cause.description || '') }}
                 />
 
                 <div className="mt-auto space-y-3 md:space-y-4">

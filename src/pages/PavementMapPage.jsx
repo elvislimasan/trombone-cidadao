@@ -2,7 +2,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Route as Road, ThumbsDown, Filter, Search, X, Mail, Circle, Square, Map, List, LocateFixed, RefreshCw, HardHat, Construction, Download, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Route as Road, ThumbsDown, Filter, Search, X, Mail, Circle, Square, Map, List, LocateFixed, RefreshCw, HardHat, Construction, Download, Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -25,6 +26,10 @@ import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { useCity } from '@/contexts/CityContext';
+import CitySelector from '@/components/CitySelector';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const PavementMapPage = () => {
   const [streetData, setStreetData] = useState([]);
@@ -33,16 +38,43 @@ const PavementMapPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkId, setSelectedWorkId] = useState(null);
+  const [resolvedWork, setResolvedWork] = useState(null);
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
   const { toast } = useToast();
+  const { activeCityId, activeCityName } = useCity();
+  const { user } = useAuth();
+  const { canWrite } = usePermissions();
   const [downloading, setDownloading] = useState(false);
   const [reportScope, setReportScope] = useState('streets');
 
+  // Mesma regra de imóveis alugados: admin/master gerenciam qualquer cidade;
+  // embaixador puro só faz sentido clicar "Adicionar" com uma cidade sua
+  // selecionada (senão não saberíamos em qual das suas cidades cadastrar).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const canManageStreets = Boolean(
+    (user?.is_admin || user?.is_master ||
+      (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId))))
+    && canWrite('pavement')
+  );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
+
   const fetchStreets = useCallback(async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from('pavement_streets')
       .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)');
+    if (activeCityId) query = query.eq('city_id', activeCityId);
+    const { data, error } = await query;
     if (error) {
       toast({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     } else {
@@ -59,10 +91,12 @@ const PavementMapPage = () => {
         if (mostRecent.getTime() > 0) setLastUpdate(mostRecent.toISOString());
       }
     }
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   const fetchWorks = useCallback(async () => {
-    const { data, error } = await supabase.from('public_works').select('id, title, description, status, location');
+    let query = supabase.from('public_works').select('id, title, description, status, location, city_id');
+    if (activeCityId) query = query.eq('city_id', activeCityId);
+    const { data, error } = await query;
     if (error) toast({ title: "Erro ao buscar obras", description: error.message, variant: "destructive" });
     else {
         const formattedWorks = data.map(w => ({
@@ -71,7 +105,7 @@ const PavementMapPage = () => {
         }));
         setAllWorks(formattedWorks);
     }
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   useEffect(() => {
     fetchStreets();
@@ -81,6 +115,42 @@ const PavementMapPage = () => {
   const handleWorkClick = (workId) => {
     setSelectedWorkId(workId);
   };
+
+  // Resolve a obra selecionada mesmo quando ela não está na lista `allWorks`
+  // (que é filtrada pela cidade ativa). Isso evita que o modal "ver obra"
+  // fique vazio quando a rua aponta para uma obra de outra cidade (ou sem
+  // cidade), já que work_id não é necessariamente coberto pelo filtro atual.
+  useEffect(() => {
+    if (!selectedWorkId) {
+      setResolvedWork(null);
+      return;
+    }
+    const fromList = allWorks.find(w => w.id === selectedWorkId);
+    if (fromList) {
+      setResolvedWork(fromList);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('public_works')
+        .select('id, title, description, status, location, city_id')
+        .eq('id', selectedWorkId)
+        .single();
+      if (cancelled) return;
+      if (error) {
+        toast({ title: "Erro ao buscar obra", description: error.message, variant: "destructive" });
+        setResolvedWork(null);
+        return;
+      }
+      const formatted = {
+        ...data,
+        location: data.location ? { lat: data.location.coordinates[1], lng: data.location.coordinates[0] } : null,
+      };
+      setResolvedWork(formatted);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedWorkId, allWorks, toast]);
 
   const handleStreetListClick = (statusType, title) => {
     const streets = streetData.filter(s => s.status === statusType);
@@ -124,7 +194,7 @@ const PavementMapPage = () => {
     visible: { y: 0, opacity: 1 }
   };
 
-  const selectedWork = allWorks.find(w => w.id === selectedWorkId);
+  const selectedWork = resolvedWork;
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -149,7 +219,7 @@ const PavementMapPage = () => {
 
   const generatePdf = (scope) => {
     const doc = new jsPDF();
-    const title = 'Relatório de Pavimentação';
+    const title = `Relatório de Pavimentação${activeCityName ? ` — ${activeCityName}` : ''}`;
     doc.setFontSize(16);
     doc.text(title, 14, 18);
     if (lastUpdate) {
@@ -346,6 +416,16 @@ const PavementMapPage = () => {
                   Última atualização: {new Date(lastUpdate).toLocaleString('pt-BR')}
                 </p>
               )}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <CitySelector />
+                {canManageStreets && (
+                  <Link to="/pavimentacao/gerenciar">
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                      <PlusCircle className="w-3.5 h-3.5" /> Adicionar rua
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </div>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4">
               <div className="flex flex-wrap items-center gap-2">

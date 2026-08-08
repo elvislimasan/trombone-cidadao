@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Mail, Save, X, Upload, Instagram, Clock, MapPin, Info, Building, ShoppingCart, Check, Hourglass } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Save, X, Upload, Instagram, Clock, MapPin, Info, Building, ShoppingCart, Check, Hourglass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,8 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Combobox } from '@/components/ui/combobox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-const EditModal = ({ item, type, onSave, onClose }) => {
+const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
   const [formData, setFormData] = useState(null);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
@@ -87,6 +90,17 @@ const EditModal = ({ item, type, onSave, onClose }) => {
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="city_id">Cidade</Label>
+              <Combobox
+                options={cityOptions}
+                value={formData.city_id}
+                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
+                placeholder="Selecione a cidade"
+                searchPlaceholder="Buscar cidade..."
+                notFoundText="Nenhuma cidade encontrada."
+              />
+            </div>
           </>
         );
       case 'tourist_spots':
@@ -120,6 +134,17 @@ const EditModal = ({ item, type, onSave, onClose }) => {
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="city_id">Cidade</Label>
+              <Combobox
+                options={cityOptions}
+                value={formData.city_id}
+                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
+                placeholder="Selecione a cidade"
+                searchPlaceholder="Buscar cidade..."
+                notFoundText="Nenhuma cidade encontrada."
+              />
+            </div>
           </>
         );
       case 'directory':
@@ -145,22 +170,16 @@ const EditModal = ({ item, type, onSave, onClose }) => {
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
             </div>
-          </>
-        );
-      case 'pavement_streets':
-        return (
-          <>
             <div className="grid gap-2">
-              <Label htmlFor="name">Nome da Rua</Label>
-              <Input id="name" name="name" value={formData.name} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bairro">Bairro</Label>
-              <Input id="bairro" name="bairro" value={formData.bairro} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cep">CEP</Label>
-              <Input id="cep" name="cep" value={formData.cep} onChange={handleChange} />
+              <Label htmlFor="city_id">Cidade</Label>
+              <Combobox
+                options={cityOptions}
+                value={formData.city_id}
+                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
+                placeholder="Selecione a cidade"
+                searchPlaceholder="Buscar cidade..."
+                notFoundText="Nenhuma cidade encontrada."
+              />
             </div>
           </>
         );
@@ -189,17 +208,54 @@ const EditModal = ({ item, type, onSave, onClose }) => {
 
 const ManageServicesPage = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+  const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [transport, setTransport] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
   const [directoryData, setDirectoryData] = useState({ public: [], commerce: [] });
-  const [streets, setStreets] = useState([]);
   const [pendingEntries, setPendingEntries] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
   const [activeTab, setActiveTab] = useState('moderation');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (!isScopedAmbassador || !user?.id) {
+      // admin/master: todas as cidades disponíveis no dropdown
+      if (user?.is_admin || user?.is_master) {
+        supabase.from('cities').select('id, name, states(uf)').then(({ data }) => {
+          setCityOptions((data || []).map((c) => ({ value: c.id, label: `${c.name}${c.states?.uf ? ` - ${c.states.uf}` : ''}` })));
+        });
+      }
+      return;
+    }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id, cities(id, name, states(uf))')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => {
+        const rows = data || [];
+        setMyActiveCityIds(rows.map((r) => r.city_id));
+        setCityOptions(rows.map((r) => ({
+          value: r.city_id,
+          label: `${r.cities?.name || ''}${r.cities?.states?.uf ? ` - ${r.cities.states.uf}` : ''}`,
+        })).filter((c) => c.label.trim()));
+      });
+  }, [isScopedAmbassador, user?.id, user?.is_admin, user?.is_master]);
 
   const fetchData = useCallback(async () => {
-    const tables = ['transport', 'tourist_spots', 'directory', 'pavement_streets'];
+    if (isScopedAmbassador && myActiveCityIds.length === 0) {
+      setTransport([]);
+      setTouristSpots([]);
+      setDirectoryData({ public: [], commerce: [] });
+      setPendingEntries([]);
+      return;
+    }
+
+    const scopedTables = ['transport', 'tourist_spots', 'directory'];
     const setters = {
       transport: setTransport,
       tourist_spots: setTouristSpots,
@@ -207,11 +263,12 @@ const ManageServicesPage = () => {
         public: data.filter(d => d.type === 'public' && d.status === 'approved'),
         commerce: data.filter(d => d.type === 'commerce' && d.status === 'approved'),
       }),
-      pavement_streets: setStreets,
     };
 
-    for (const table of tables) {
-      const { data, error } = await supabase.from(table).select('*');
+    for (const table of scopedTables) {
+      let query = supabase.from(table).select('*');
+      if (isScopedAmbassador) query = query.in('city_id', myActiveCityIds);
+      const { data, error } = await query;
       if (error) {
         toast({ title: `Erro ao buscar ${table}`, description: error.message, variant: "destructive" });
       } else {
@@ -219,22 +276,62 @@ const ManageServicesPage = () => {
       }
     }
 
-    const { data: pending, error: pendingError } = await supabase.from('directory').select('*').eq('status', 'pending');
+    let pendingQuery = supabase.from('directory').select('*').eq('status', 'pending');
+    if (isScopedAmbassador) pendingQuery = pendingQuery.in('city_id', myActiveCityIds);
+    const { data: pending, error: pendingError } = await pendingQuery;
     if (pendingError) {
       toast({ title: "Erro ao buscar sugestões pendentes", description: pendingError.message, variant: "destructive" });
     } else {
       setPendingEntries(pending);
     }
-  }, [toast]);
+  }, [toast, isScopedAmbassador, myActiveCityIds]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  // Abre a edição automaticamente quando chega via ?edit=ID&type=transport
+  // (botão "Editar" nas páginas de detalhes de serviço). Limpa os params
+  // depois para não reabrir o modal ao atualizar a página.
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    const editType = searchParams.get('type');
+    if (!editId || !editType) return;
+
+    const source = editType === 'transport' ? transport
+      : editType === 'tourist_spots' ? touristSpots
+      : null;
+    if (!source || source.length === 0) return;
+
+    const target = source.find((i) => String(i.id) === String(editId));
+    if (target) {
+      setActiveTab(editType);
+      setEditingItem({ item: target, type: editType });
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('edit');
+        next.delete('type');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, transport, touristSpots, setSearchParams]);
+
   const handleSave = async (itemToSave, type) => {
     const { image_file, ...dbData } = itemToSave;
     let tableName = type;
     if (type.startsWith('directory')) tableName = 'directory';
+
+    const isScopedTable = tableName === 'transport' || tableName === 'tourist_spots' || tableName === 'directory';
+    if (isScopedTable) {
+      if (!dbData.city_id) {
+        toast({ title: "Selecione uma cidade", variant: "destructive" });
+        return;
+      }
+      if (isScopedAmbassador && !myActiveCityIds.includes(dbData.city_id)) {
+        toast({ title: "Fora da sua área", description: "Você só pode gerenciar itens nas suas cidades.", variant: "destructive" });
+        return;
+      }
+    }
 
     if (image_file) {
       const filePath = `${tableName}/${Date.now()}-${image_file.name}`;
@@ -277,23 +374,29 @@ const ManageServicesPage = () => {
     setDeletingItem(null);
   };
 
-  const handleAddNew = () => {
+  // Aceita um tipo explícito (usado pelo menu "Adicionar Novo" quando a aba
+  // ativa é "Moderação", que não tem um tipo de conteúdo próprio) ou usa a
+  // aba ativa quando ela já é um tipo de conteúdo (transport, tourist_spots, etc).
+  const handleAddNew = (explicitTab) => {
+    const targetTab = explicitTab || activeTab;
     let newItem, type;
-    switch (activeTab) {
-      case 'transport': newItem = { name: '', destination: '', phone: '', instagram: '', schedule: '', details: '', image_url: '' }; type = 'transport'; break;
-      case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '' }; type = 'tourist_spots'; break;
-      case 'directory_public': newItem = { name: '', address: '', phone: '', image_url: '', type: 'public', status: 'approved' }; type = 'directory'; break;
-      case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: 'commerce', status: 'approved' }; type = 'directory'; break;
-      case 'pavement_streets': newItem = { name: '', bairro: '', cep: '' }; type = 'pavement_streets'; break;
+    switch (targetTab) {
+      case 'transport': newItem = { name: '', destination: '', phone: '', instagram: '', schedule: '', details: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'transport'; break;
+      case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'tourist_spots'; break;
+      case 'directory_public': newItem = { name: '', address: '', phone: '', image_url: '', type: 'public', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
+      case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: 'commerce', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
       default: return;
     }
+    if (explicitTab) setActiveTab(explicitTab);
     setEditingItem({ item: newItem, type });
   };
 
   const handleModeration = async (entry, status) => {
-    const { error } = await supabase.from('directory').update({ status }).eq('id', entry.id);
+    const { data, error } = await supabase.from('directory').update({ status }).eq('id', entry.id).select();
     if (error) {
       toast({ title: "Erro na moderação", description: error.message, variant: "destructive" });
+    } else if (!data || data.length === 0) {
+      toast({ title: "Fora da sua área", description: "Esta sugestão pertence a uma cidade fora do seu escopo de gestão.", variant: "destructive" });
     } else {
       toast({ title: `Sugestão ${status === 'approved' ? 'aprovada' : 'rejeitada'}!` });
       fetchData();
@@ -329,18 +432,41 @@ const ManageServicesPage = () => {
               <p className="mt-2 text-lg text-muted-foreground">Adicione, edite ou remova itens e modere as colaborações.</p>
             </div>
           </div>
-          <Button onClick={handleAddNew} className="gap-2">
-            <PlusCircle className="w-4 h-4" /> Adicionar Novo
-          </Button>
+          {activeTab === 'moderation' ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2">
+                  <PlusCircle className="w-4 h-4" /> Adicionar Novo
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('transport')}>
+                  <Bus className="w-4 h-4" /> Transporte
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('tourist_spots')}>
+                  <Landmark className="w-4 h-4" /> Ponto Turístico
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('directory_public')}>
+                  <Building className="w-4 h-4" /> Serviço Público
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('directory_commerce')}>
+                  <ShoppingCart className="w-4 h-4" /> Comércio Local
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button onClick={() => handleAddNew()} className="gap-2">
+              <PlusCircle className="w-4 h-4" /> Adicionar Novo
+            </Button>
+          )}
         </motion.div>
 
-        <Tabs defaultValue="moderation" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 bg-muted/50 rounded-lg h-auto">
+        <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-muted/50 rounded-lg h-auto">
             <TabsTrigger value="moderation" className="gap-2 py-2"><Hourglass className="w-4 h-4" /> Moderação ({pendingEntries.length})</TabsTrigger>
             <TabsTrigger value="transport" className="gap-2 py-2"><Bus className="w-4 h-4" /> Transportes</TabsTrigger>
             <TabsTrigger value="tourist_spots" className="gap-2 py-2"><Landmark className="w-4 h-4" /> Pontos Turísticos</TabsTrigger>
             <TabsTrigger value="directory" className="gap-2 py-2"><Phone className="w-4 h-4" /> Guia Comercial</TabsTrigger>
-            <TabsTrigger value="pavement_streets" className="gap-2 py-2"><Mail className="w-4 h-4" /> Ruas e CEPs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="moderation" className="mt-8">
@@ -385,7 +511,7 @@ const ManageServicesPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Building className="w-5 h-5 text-primary" /> Serviços Públicos</CardTitle>
                 <CardDescription>
-                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => { setActiveTab('directory_public'); handleAddNew(); }}>
+                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => handleAddNew('directory_public')}>
                     <PlusCircle className="w-4 h-4" /> Adicionar
                   </Button>
                 </CardDescription>
@@ -396,7 +522,7 @@ const ManageServicesPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><ShoppingCart className="w-5 h-5 text-secondary" /> Comércio Local</CardTitle>
                 <CardDescription>
-                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => { setActiveTab('directory_commerce'); handleAddNew(); }}>
+                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => handleAddNew('directory_commerce')}>
                     <PlusCircle className="w-4 h-4" /> Adicionar
                   </Button>
                 </CardDescription>
@@ -404,14 +530,10 @@ const ManageServicesPage = () => {
               <CardContent>{renderList(directoryData.commerce, 'directory')}</CardContent>
             </Card>
           </TabsContent>
-
-          <TabsContent value="pavement_streets" className="mt-8">
-            <Card><CardHeader><CardTitle>Gerenciar Ruas e CEPs</CardTitle></CardHeader><CardContent>{renderList(streets, 'pavement_streets')}</CardContent></Card>
-          </TabsContent>
         </Tabs>
       </div>
 
-      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} />}
+      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} cityOptions={cityOptions} />}
 
       <Dialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
         <DialogContent className="sm:max-w-md bg-card border-border">

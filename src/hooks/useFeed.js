@@ -42,7 +42,7 @@ const normalizeError = (err) => ({
   code: err?.code ?? null,
 });
 
-export function useFeed(tab = 'recent') {
+export function useFeed(tab = 'recent', cityId = null) {
   const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +78,10 @@ export function useFeed(tab = 'recent') {
         .eq('moderation_status', 'approved')
         .neq('status', 'duplicate')
         .range(from, to);
+
+      if (cityId !== null && cityId !== undefined) {
+        q = q.eq('city_id', cityId);
+      }
 
       if (tab === 'resolved') {
         q = q.eq('status', 'resolved').order('created_at', { ascending: false });
@@ -148,7 +152,7 @@ export function useFeed(tab = 'recent') {
         };
       });
     },
-    [tab, user]
+    [tab, cityId, user]
   );
 
   const loadInitial = useCallback(({ preserve = false } = {}) => {
@@ -209,7 +213,7 @@ export function useFeed(tab = 'recent') {
       if (slowMoreTimerRef.current) clearTimeout(slowMoreTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, user?.id]);
+  }, [tab, cityId, user?.id]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;

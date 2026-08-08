@@ -18,6 +18,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+const norm = (s) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
+
+const accentFilter = (value, search) =>
+  norm(value).includes(norm(search)) ? 1 : 0;
+
 export function Combobox({ options, value, onChange, placeholder, searchPlaceholder, notFoundText, disabled, className, modal = false }) {
   const [open, setOpen] = useState(false);
 
@@ -42,7 +48,7 @@ export function Combobox({ options, value, onChange, placeholder, searchPlacehol
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
+        <Command filter={accentFilter}>
           <CommandInput placeholder={searchPlaceholder || "Buscar opção..."} />
           <CommandList>
             <CommandEmpty>{notFoundText || "Nenhuma opção encontrada."}</CommandEmpty>

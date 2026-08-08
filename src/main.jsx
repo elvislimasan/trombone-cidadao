@@ -5,6 +5,7 @@ import App from '@/App';
 import '@/index.css';
 import 'leaflet/dist/leaflet.css';
 import { AuthProvider } from '@/contexts/SupabaseAuthContext';
+import { CityProvider } from '@/contexts/CityContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { MapModeProvider } from './contexts/MapModeContext';
 import { HelmetProvider } from 'react-helmet-async';
@@ -240,13 +241,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <>
     <BrowserRouter>
       <AuthProvider>
-        <NotificationProvider>
-          <MapModeProvider>
-          <HelmetProvider>
-            <App /> 
-          </HelmetProvider>
-          </MapModeProvider>
-        </NotificationProvider>
+        <CityProvider>
+          <NotificationProvider>
+            <MapModeProvider>
+            <HelmetProvider>
+              <App />
+            </HelmetProvider>
+            </MapModeProvider>
+          </NotificationProvider>
+        </CityProvider>
       </AuthProvider>
     </BrowserRouter>
   </>

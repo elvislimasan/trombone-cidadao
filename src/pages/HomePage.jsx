@@ -455,12 +455,25 @@ function HomePage() {
 
   useEffect(() => {
     let tempReports = statusFilteredReports;
-    
+
     if (filter.category !== 'all') {
       tempReports = tempReports.filter(r => r.category_id === filter.category);
     }
     setFilteredReports(tempReports);
   }, [statusFilteredReports, filter.category]);
+
+  // MapView consome itens no formato { isCluster, lat, lng, count, report } — sem clustering aqui, cada report vira um pin individual.
+  const mapItems = useMemo(() => (
+    filteredReports
+      .filter(r => r.location)
+      .map(r => ({
+        isCluster: false,
+        lat: r.location.lat,
+        lng: r.location.lng,
+        count: 1,
+        report: r,
+      }))
+  ), [filteredReports]);
 
   useEffect(() => {
     const activeReports = reports.filter(r => r.status !== 'duplicate');
@@ -522,7 +535,7 @@ function HomePage() {
     
     const toastMessage = user?.is_admin
       ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
-      : { title: "Bronca enviada para moderação! 📬", description: "Sua solicitação será analisada antes de ser publicada." };
+      : { title: "Bronca enviada para moderação! 📬", description: "Após aprovada, estará disponível no feed." };
 
     toast(toastMessage);
     setShowReportModal(false);
@@ -1140,10 +1153,10 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
           <div className="lg:col-span-2 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden">
             {viewMode === 'map' ? (
               <div className="h-[600px] relative">
-                <MapView 
-                  reports={filteredReports} 
-                  onReportClick={handleSelectReport} 
-                  onUpvote={handleUpvoteWithRefresh} 
+                <MapView
+                  clusters={mapItems}
+                  onReportClick={handleSelectReport}
+                  onUpvote={handleUpvoteWithRefresh}
                 />
               </div>
             ) : (

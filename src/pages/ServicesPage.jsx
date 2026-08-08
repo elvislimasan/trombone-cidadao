@@ -7,15 +7,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, Bus, Landmark, Building, ShoppingCart, Mail, Search, ArrowRight } from 'lucide-react';
+import { MapPin, Phone, Bus, Landmark, Building, ShoppingCart, Mail, Search, ArrowRight, PlusCircle, Download, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { useCity } from '@/contexts/CityContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
+import CitySelector from '@/components/CitySelector';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const ServicesPage = () => {
   const [streetSearch, setStreetSearch] = useState('');
   const [selectedBairro, setSelectedBairro] = useState('all');
   const [selectedDestination, setSelectedDestination] = useState('all');
   const { toast } = useToast();
+  const { activeCityId, activeCityName } = useCity();
+  const { user } = useAuth();
+  const { canWrite } = usePermissions();
+
+  // Mesma regra de imóveis alugados/pavimentação: admin/master gerenciam
+  // qualquer cidade; embaixador puro só com uma cidade sua selecionada.
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const canManageServices = Boolean(
+    (user?.is_admin || user?.is_master ||
+      (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId))))
+    && canWrite('services')
+  );
 
   const [transportOptions, setTransportOptions] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
@@ -23,15 +42,21 @@ const ServicesPage = () => {
   const [streetsData, setStreetsData] = useState([]);
 
   const fetchData = useCallback(async () => {
-    const { data: transportData, error: transportError } = await supabase.from('transport').select('*');
+    let transportQuery = supabase.from('transport').select('*');
+    if (activeCityId) transportQuery = transportQuery.eq('city_id', activeCityId);
+    const { data: transportData, error: transportError } = await transportQuery;
     if (transportError) toast({ title: "Erro ao buscar transportes", description: transportError.message, variant: "destructive" });
     else setTransportOptions(transportData);
 
-    const { data: spotsData, error: spotsError } = await supabase.from('tourist_spots').select('*');
+    let spotsQuery = supabase.from('tourist_spots').select('*');
+    if (activeCityId) spotsQuery = spotsQuery.eq('city_id', activeCityId);
+    const { data: spotsData, error: spotsError } = await spotsQuery;
     if (spotsError) toast({ title: "Erro ao buscar pontos turísticos", description: spotsError.message, variant: "destructive" });
     else setTouristSpots(spotsData);
 
-    const { data: directoryData, error: directoryError } = await supabase.from('directory').select('*').eq('status', 'approved');
+    let directoryQuery = supabase.from('directory').select('*').eq('status', 'approved');
+    if (activeCityId) directoryQuery = directoryQuery.eq('city_id', activeCityId);
+    const { data: directoryData, error: directoryError } = await directoryQuery;
     if (directoryError) toast({ title: "Erro ao buscar guia comercial", description: directoryError.message, variant: "destructive" });
     else {
       setDirectory({
@@ -40,15 +65,27 @@ const ServicesPage = () => {
       });
     }
 
-    const { data: streets, error: streetsError } = await supabase.from('pavement_streets').select('*');
+    let streetsQuery = supabase.from('pavement_streets').select('*');
+    if (activeCityId) streetsQuery = streetsQuery.eq('city_id', activeCityId);
+    const { data: streets, error: streetsError } = await streetsQuery;
     if (streetsError) toast({ title: "Erro ao buscar ruas", description: streetsError.message, variant: "destructive" });
     else setStreetsData(streets);
 
-  }, [toast]);
+  }, [toast, activeCityId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
 
   const transportDestinations = useMemo(() => {
     return [...new Set(transportOptions.map(item => item.destination).filter(Boolean))].sort();
@@ -74,6 +111,56 @@ const ServicesPage = () => {
     return transportOptions.filter(option => option.destination === selectedDestination);
   }, [selectedDestination, transportOptions]);
 
+  const [downloadingTransport, setDownloadingTransport] = useState(false);
+
+  const handleDownloadTransportPdf = () => {
+    setDownloadingTransport(true);
+    try {
+      const doc = new jsPDF();
+      const title = `Transportes e Lotações${activeCityName ? ` — ${activeCityName}` : ''}`;
+      doc.setFontSize(16);
+      doc.text(title, 14, 18);
+      doc.setFontSize(10);
+      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 26);
+      if (selectedDestination !== 'all') {
+        doc.text(`Destino: ${selectedDestination}`, 14, 32);
+      }
+
+      const rows = filteredTransport.map((t) => [
+        t.name || '-',
+        t.destination || '-',
+        t.schedule || '-',
+        t.phone || '-',
+      ]);
+
+      doc.autoTable({
+        head: [['Transporte', 'Destino', 'Horários', 'Contato']],
+        body: rows,
+        startY: selectedDestination !== 'all' ? 38 : 32,
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [182, 23, 34] },
+        columnStyles: { 2: { cellWidth: 60 } },
+      });
+
+      // Observação pedida: direciona o público para a lista sempre atualizada.
+      const afterTableY = (doc.lastAutoTable?.finalY || 40) + 10;
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      const note = doc.splitTextToSize(
+        'Observação: os horários podem mudar sem aviso prévio. Para conferir a lista de lotações sempre atualizada, acesse o site do Trombone Cidadão: trombonecidadao.com.br',
+        180
+      );
+      doc.text(note, 14, afterTableY);
+
+      doc.save(`transportes_lotacoes_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast({ title: 'Download concluído!' });
+    } catch (error) {
+      toast({ title: 'Erro ao gerar PDF', description: error.message, variant: 'destructive' });
+    } finally {
+      setTimeout(() => setDownloadingTransport(false), 500);
+    }
+  };
+
   const DirectoryCard = ({ item }) => (
     <Card className="overflow-hidden">
       <div className="flex">
@@ -93,7 +180,7 @@ const ServicesPage = () => {
     <>
       <Helmet>
         <title>Serviços - Trobone Cidadão</title>
-        <meta name="description" content="Encontre informações úteis sobre Floresta-PE: pontos turísticos, transportes e guia comercial." />
+        <meta name="description" content={`Encontre informações úteis sobre ${activeCityName || 'sua cidade'}: pontos turísticos, transportes e guia comercial.`} />
       </Helmet>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -103,11 +190,21 @@ const ServicesPage = () => {
       >
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl gradient-text">
-            Guia de Serviços de Floresta
+            Guia de Serviços{activeCityName ? ` de ${activeCityName}` : ''}
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">
             Tudo o que você precisa saber sobre a cidade em um só lugar.
           </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <CitySelector />
+            {canManageServices && (
+              <Link to="/servicos/gerenciar">
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                  <PlusCircle className="w-3.5 h-3.5" /> Adicionar item
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue="tourist" className="w-full">
@@ -150,9 +247,9 @@ const ServicesPage = () => {
                 <p className="text-muted-foreground text-sm">Filtre por destino para encontrar sua viagem.</p>
               </CardHeader>
               <CardContent>
-                <div className="mb-6">
-                  <Combobox 
-                    value={selectedDestination} 
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <Combobox
+                    value={selectedDestination}
                     onChange={setSelectedDestination}
                     options={[
                       { value: "all", label: "Todos os Destinos" },
@@ -162,6 +259,19 @@ const ServicesPage = () => {
                     searchPlaceholder="Buscar destino..."
                     className="w-full sm:w-[280px]"
                   />
+                  {filteredTransport.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={handleDownloadTransportPdf}
+                      disabled={downloadingTransport}
+                      className="gap-2 w-full sm:w-auto"
+                    >
+                      {downloadingTransport
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Download className="w-4 h-4" />}
+                      Baixar lista em PDF
+                    </Button>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   {filteredTransport.map((option) => (

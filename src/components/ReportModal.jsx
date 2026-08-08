@@ -34,6 +34,7 @@ import { App } from "@capacitor/app";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { VideoProcessor } from "@/plugins/VideoProcessor";
 import { useBackgroundUpload } from "@/hooks/useBackgroundUpload";
+import { useCityIdFromLocation } from "@/hooks/useCityIdFromLocation";
 import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { FLORESTA_COORDS } from "@/config/mapConfig";
@@ -107,6 +108,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const videoCameraInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [wizardStep, setWizardStep] = useState(0);
+  // 'unknown' | 'requesting' | 'granted' | 'denied'
+  const [locationPermission, setLocationPermission] = useState("unknown");
   const [nearbyPoles, setNearbyPoles] = useState([]);
   const [localPendingPoles, setLocalPendingPoles] = useState([]);
   const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
@@ -130,6 +133,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const uploadAbortControllerRef = useRef(null);
   const photoWorkerRef = useRef(null);
   const wizardBodyRef = useRef(null);
+  const issueTypeFieldRef = useRef(null);
+  // Ao selecionar "Iluminação", o campo Tipo do problema aparece condicionalmente
+  // ABAIXO da área visível do wizard, sem rolagem automática — usuário via só o
+  // grid de categorias, sem saber que precisava rolar para preencher o campo
+  // obrigatório seguinte. Espera o re-render (campo passa a existir no DOM) e
+  // rola até ele.
+  // block: "nearest" em vez de "center" porque em telas de altura pequena o
+  // container mal cabe o campo — "center" tenta centralizar, nao consegue, e
+  // deixa o campo colado na barra fixa de botoes.
+  const scrollToIssueTypeField = () => {
+    setTimeout(() => {
+      issueTypeFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  };
   const wizardStepTitles = ["Info", "Local", "Mídia"];
   const wizardStepTitle = wizardStepTitles[wizardStep] || "Nova Bronca";
   const wizardProgressPct = Math.round(
@@ -312,6 +329,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const addressTouchedRef = useRef(false);
   const lastReverseGeocodeKeyRef = useRef(null);
   const reverseGeocodeTargetRef = useRef(null);
+  // Após o usuário mover o marcador manualmente, não sobrescrever location com o GPS
+  const userPickedLocationRef = useRef(false);
+
+  // Resolve o city_id SEMPRE a partir das coordenadas do marcador (não do usuário).
+  // Chamado no submit para garantir um valor confiável e não-nulo, sem depender
+  // do useEffect assíncrono com debounce (que sofre de race conditions).
+  const { resolveCityIdFromLocation, resetCityCache } = useCityIdFromLocation();
 
   // Atualizar flag de montagem
   useEffect(() => {
@@ -342,45 +366,50 @@ const ReportModal = ({ onClose, onSubmit }) => {
   }, []);
 
   useEffect(() => {
-    // Solicita a geolocalização ao montar o componente
     if (!navigator.geolocation) {
-      const defaultLocation = {
-        lat: FLORESTA_COORDS[0],
-        lng: FLORESTA_COORDS[1],
-      };
-      setFormData((prev) => ({
-        ...prev,
-        location: prev.location || defaultLocation,
-      }));
+      setLocationPermission("denied");
       return;
     }
 
-    const geoOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
+    const doGetPosition = () => {
+      setLocationPermission("requesting");
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocationPermission("granted");
+          // Não sobrescrever se o usuário já escolheu uma localização no mapa
+          if (!userPickedLocationRef.current) {
+            setFormData((prev) => ({
+              ...prev,
+              location: { lat: latitude, lng: longitude },
+            }));
+          }
+        },
+        () => {
+          setLocationPermission("denied");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     };
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setFormData((prev) => ({
-          ...prev,
-          location: { lat: latitude, lng: longitude },
-        }));
-      },
-      (error) => {
-        const defaultLocation = {
-          lat: FLORESTA_COORDS[0],
-          lng: FLORESTA_COORDS[1],
+    doGetPosition();
+
+    // Quando o usuário desbloquear a localização no browser e voltar à aba,
+    // o estado da permissão muda — reagir automaticamente.
+    let permStatus = null;
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" }).then((status) => {
+        permStatus = status;
+        status.onchange = () => {
+          if (status.state === "granted") doGetPosition();
+          else if (status.state === "denied") setLocationPermission("denied");
         };
-        setFormData((prev) => ({
-          ...prev,
-          location: prev.location || defaultLocation,
-        }));
-      },
-      geoOptions
-    );
+      }).catch(() => {});
+    }
+
+    return () => {
+      if (permStatus) permStatus.onchange = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -510,8 +539,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
   useEffect(() => {
     let cancelled = false;
     // Para categorias não-iluminação: sempre atualiza via reverse geocode (a menos que usuário tenha editado manualmente)
-    // Para iluminação: só atualiza se endereço estiver vazio
-    if (formData.category === "iluminacao" && formData.address?.trim()) return;
+    // Para iluminação: normalmente só atualiza se endereço estiver vazio, PORQUE o
+    // endereço costuma vir do poste selecionado (dataset de postes, hoje só em
+    // Floresta). Mas sem postes cadastrados na região (nearbyPoles vazio, já
+    // terminou de buscar), não há de onde vir esse endereço — cai para o mesmo
+    // reverse-geocode do pin usado pelas demais categorias.
+    const hasNoPolesNearby = !nearbyPolesLoading && nearbyPoles.length === 0;
+    if (formData.category === "iluminacao" && formData.address?.trim() && !hasNoPolesNearby) return;
     if (addressTouchedRef.current) return;
 
     const target = reverseGeocodeTargetRef.current || formData.location;
@@ -543,6 +577,22 @@ const ReportModal = ({ onClose, onSubmit }) => {
           addressTouchedRef.current ? prev : { ...prev, address }
         );
       }
+
+      // Resolve city_id a partir do geocode (sem bloquear o submit se falhar).
+      // O RPC pode devolver o bigint como number OU string ("159") — normaliza.
+      const city = data?.city;
+      const state_uf = data?.state_uf;
+      if (city && state_uf) {
+        const { data: cityIdRaw } = await supabase.rpc("match_city", {
+          p_name: city,
+          p_uf: state_uf,
+        });
+        const cityId =
+          cityIdRaw == null ? null : Number(cityIdRaw);
+        if (!cancelled && Number.isFinite(cityId) && cityId > 0) {
+          setFormData((prev) => ({ ...prev, city_id: cityId }));
+        }
+      }
     }, 450);
 
     return () => {
@@ -555,6 +605,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
     formData.pole_id,
     formData.address,
     formData.category,
+    nearbyPoles,
+    nearbyPolesLoading,
   ]);
 
   // Cleanup de previews de imagens e vídeos quando o componente desmontar
@@ -2686,6 +2738,48 @@ const ReportModal = ({ onClose, onSubmit }) => {
     return true;
   };
 
+  const requestLocation = async () => {
+    if (!navigator.geolocation) return;
+
+    // Checar estado real da permissão antes de chamar getCurrentPosition.
+    // Se já está 'denied', o browser não mostrará o popup — orientar o usuário.
+    if (navigator.permissions) {
+      try {
+        const status = await navigator.permissions.query({ name: "geolocation" });
+        if (status.state === "denied") {
+          setLocationPermission("denied");
+          const description = isNative
+            ? "Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
+            : "Localização bloqueada no seu navegador. Toque no ícone de cadeado/info na barra de endereço e permita a localização, depois tente novamente.";
+          toast({ title: "Localização bloqueada", description, duration: 8000 });
+          return;
+        }
+      } catch {
+        // Permissions API não suportada — segue tentando getCurrentPosition
+      }
+    }
+
+    setLocationPermission("requesting");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocationPermission("granted");
+        setFormData((prev) => ({
+          ...prev,
+          location: { lat: latitude, lng: longitude },
+        }));
+      },
+      () => {
+        setLocationPermission("denied");
+        const description = isNative
+          ? "Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
+          : "Localização bloqueada no seu navegador. Toque no ícone de cadeado/info na barra de endereço e permita a localização, depois tente novamente.";
+        toast({ title: "Localização bloqueada", description, duration: 8000 });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -2840,7 +2934,22 @@ const ReportModal = ({ onClose, onSubmit }) => {
         // Toast removed as per user request
       }
 
-      await onSubmit(formData, uploadMediaWrapper);
+      // Resolve o city_id SEMPRE a partir do marcador, aguardando se necessário.
+      // Isso garante que a bronca vá para a cidade do marcador (não a do usuário/filtro).
+      const resolvedCityId = await resolveCityIdFromLocation(formData.location);
+      if (resolvedCityId == null) {
+        // Nunca salvar city_id nulo — bloqueia o envio e orienta o usuário.
+        toast({
+          title: "Não foi possível identificar a cidade",
+          description:
+            "Confira se o marcador no mapa está sobre a localização correta e tente novamente. Se persistir, ajuste levemente o marcador.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      const finalFormData = { ...formData, city_id: resolvedCityId };
+      await onSubmit(finalFormData, uploadMediaWrapper);
       clearReportDraft();
 
       // Limpar previews de forma segura
@@ -2914,13 +3023,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
   };
 
   const handleLocationChange = (newLocation) => {
-    // Se a categoria não for iluminação, atualiza o target para reverse geocode
-    // assim o endereço será atualizado conforme o marcador se move
-    if (formData.category !== "iluminacao") {
-      reverseGeocodeTargetRef.current = newLocation;
-      lastReverseGeocodeKeyRef.current = null;
-    }
-    setFormData((prev) => ({ ...prev, location: newLocation }));
+    userPickedLocationRef.current = true;
+    // Marcador mudou → invalida qualquer city_id resolvido anteriormente
+    reverseGeocodeTargetRef.current = newLocation;
+    lastReverseGeocodeKeyRef.current = null;
+    resetCityCache();
+    setFormData((prev) => ({ ...prev, location: newLocation, city_id: undefined }));
   };
 
   const handleClose = () => {
@@ -3057,6 +3165,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
     setIsSubmitting(true);
     setUploadProgress(0);
     try {
+      // city_id SEMPRE a partir do marcador — igual ao fluxo autenticado.
+      // Nunca enviar null: bloqueia se não conseguir resolver a cidade.
+      const anonCityId = await resolveCityIdFromLocation(formData.location);
+      if (anonCityId == null) {
+        toast({
+          title: "Não foi possível identificar a cidade",
+          description:
+            "Confira se o marcador no mapa está sobre a localização correta e tente novamente. Se persistir, ajuste levemente o marcador.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -3070,6 +3192,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         reported_pole_distance_m: formData.reported_pole_distance_m,
         issue_type: formData.issue_type,
         is_from_water_utility: formData.is_from_water_utility,
+        city_id: anonCityId,
       };
 
       // Detectar plataforma nativa com plugin disponível
@@ -3160,9 +3283,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
       });
 
       if (error || !data?.id || !Array.isArray(data?.uploads)) {
+        const isCityError = data?.error === "city_unresolved";
         toast({
-          title: "Erro ao enviar bronca",
-          description: error?.message || data?.error || "Não foi possível enviar anonimamente.",
+          title: isCityError
+            ? "Não foi possível identificar a cidade"
+            : "Erro ao enviar bronca",
+          description: isCityError
+            ? "Confira se o marcador no mapa está sobre a localização correta e tente novamente."
+            : error?.message || data?.error || "Não foi possível enviar anonimamente.",
           variant: "destructive",
         });
         return;
@@ -3331,7 +3459,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             <div
               ref={wizardBodyRef}
               className={`flex-1 overflow-y-auto ${
-                wizardStep === 1 ? "p-0" : "p-4"
+                wizardStep === 1 ? "p-0" : "p-4 pb-24"
               } space-y-6`}
             >
               {wizardStep === 0 && (
@@ -3398,6 +3526,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                                 ...prev,
                                 category: undefined,
                               }));
+                            if (c.id === "iluminacao") scrollToIssueTypeField();
                           }}
                           className={`p-3 rounded-xl border-2 transition-all text-center ${
                             formData.category === c.id
@@ -3446,7 +3575,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   )}
 
                   {formData.category === "iluminacao" && (
-                    <div>
+                    <div ref={issueTypeFieldRef}>
                       <div>
                         <label className="block text-sm font-medium text-foreground mb-2">
                           Tipo do problema{" "}
@@ -3517,6 +3646,41 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
               {wizardStep === 1 && (
                 <div className="w-full">
+                  {locationPermission !== "granted" && (
+                    <div className="mx-4 mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-destructive shrink-0" />
+                        <p className="text-sm font-medium text-destructive">
+                          {locationPermission === "denied"
+                            ? "Localização desativada"
+                            : "Obtendo sua localização…"}
+                        </p>
+                      </div>
+                      {locationPermission === "denied" && (
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            {isNative
+                              ? "A localização é obrigatória. Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
+                              : "A localização está bloqueada no navegador. Toque no ícone de cadeado ou ⓘ na barra de endereço, permita a localização e toque em \"Tentar novamente\"."}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={requestLocation}
+                            className="self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
+                          >
+                            {isNative ? "Ativar localização" : "Tentar novamente"}
+                          </button>
+                        </>
+                      )}
+                      {(locationPermission === "requesting" || locationPermission === "unknown") && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Aguardando permissão…
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="px-4 pt-4">
                     <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-1">
                       <MapPin className="w-4 h-4" />
@@ -4116,12 +4280,17 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   <Button
                     type="button"
                     className="flex-1 bg-primary hover:bg-primary/90"
+                    disabled={
+                      wizardStep === 1 && locationPermission !== "granted"
+                    }
                     onClick={() => {
                       if (!validateStep(wizardStep)) return;
                       setWizardStep((s) => Math.min(2, s + 1));
                     }}
                   >
-                    Continuar
+                    {wizardStep === 1 && locationPermission !== "granted"
+                      ? "Aguardando localização…"
+                      : "Continuar"}
                   </Button>
                 )}
 
@@ -4181,7 +4350,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 </button>
               </div>
               <p className="text-muted-foreground mt-1">
-                Cadastre um problema em Floresta-PE
+                Cadastre um problema na sua cidade
               </p>
             </div>
 
@@ -4247,6 +4416,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             ...prev,
                             category: undefined,
                           }));
+                        if (c.id === "iluminacao") scrollToIssueTypeField();
                       }}
                       className={`p-3 rounded-lg border-2 transition-all text-center ${
                         formData.category === c.id
@@ -4294,7 +4464,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
               )}
 
               {formData.category === "iluminacao" && (
-                <div className="space-y-4">
+                <div className="space-y-4" ref={issueTypeFieldRef}>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Tipo do problema{" "}

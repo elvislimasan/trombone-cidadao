@@ -6,12 +6,17 @@ import { toPng } from 'html-to-image';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2, LineChart as LineChartIcon, Layers, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2, LineChart as LineChartIcon, Layers, RefreshCw, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import WorksStatsReports from '@/components/WorksStatsReports';
+import { useCity } from '@/contexts/CityContext';
+import { MapPin, Check, Globe, Search } from 'lucide-react';
+import CitySelector from '@/components/CitySelector';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
@@ -137,11 +142,12 @@ const buildTimelineData = (reports, view, selectedYear) => {
 };
 
 const ReportsStats = () => {
-  const [stats, setStats] = useState({ 
-    total: 0, 
-    pending: 0, 
-    inProgress: 0, 
-    resolved: 0, 
+  const { activeCityId } = useCity();
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    resolved: 0,
     reports: [],
     compesa: {
       totalBuracos: 0,
@@ -169,12 +175,13 @@ const ReportsStats = () => {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: reports, error } = await supabase
+      let query = supabase
         .from('reports')
         .select('*, category:categories(id, name)')
         .eq('moderation_status', 'approved')
-        .neq('status', 'duplicate')
-        .order('created_at', { ascending: false });
+        .neq('status', 'duplicate');
+      if (activeCityId) query = query.eq('city_id', activeCityId);
+      const { data: reports, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -241,7 +248,7 @@ const ReportsStats = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, categoryFilter]);
+  }, [toast, categoryFilter, activeCityId]);
 
   // Recalcular distribuições quando mudar o filtro sem reconsultar o backend
   useEffect(() => {
@@ -1104,12 +1111,35 @@ const ReportsStats = () => {
 const PublicWorksStats = () => {
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { activeCityId } = useCity();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Admin/master gerenciam qualquer cidade. Embaixador puro só pode cadastrar
+  // a primeira obra da(s) própria(s) cidade(s) ativa(s).
+  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
+  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const canManageWorks = Boolean(
+    user?.is_admin || user?.is_master ||
+    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
+  );
+
+  useEffect(() => {
+    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
+    supabase
+      .from('ambassador_cities')
+      .select('city_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
+  }, [isPureAmbassador, user?.id]);
 
   const fetchWorks = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('public_works').select('*, work_category:work_categories(name)');
+      let query = supabase.from('public_works').select('*, work_category:work_categories(name)');
+      if (activeCityId) query = query.eq('city_id', activeCityId);
+      const { data, error } = await query;
       if (error) throw error;
       setWorks(data);
     } catch (error) {
@@ -1117,7 +1147,7 @@ const PublicWorksStats = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [activeCityId, toast]);
 
   useEffect(() => {
     fetchWorks();
@@ -1127,10 +1157,30 @@ const PublicWorksStats = () => {
     return <div className="flex justify-center items-center h-96">Carregando estatísticas das obras...</div>;
   }
 
+  if (works.length === 0) {
+    return (
+      <Card className="p-10 text-center border-dashed">
+        <HardHat className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+        <p className="text-lg font-semibold text-foreground mb-1">Nenhuma obra cadastrada</p>
+        <p className="text-sm text-muted-foreground mb-4">
+          Ainda não há obras públicas cadastradas {activeCityId ? 'para esta cidade' : ''}.
+        </p>
+        {canManageWorks && (
+          <Link to="/obras/gerenciar">
+            <Button className="gap-2">
+              <PlusCircle className="w-4 h-4" /> Cadastrar primeira obra
+            </Button>
+          </Link>
+        )}
+      </Card>
+    );
+  }
+
   return <WorksStatsReports works={works} />;
 };
 
 const StatsPage = () => {
+  const { activeCityId } = useCity();
   const [summary, setSummary] = useState({
     total: 0,
     pending: 0,
@@ -1142,12 +1192,15 @@ const StatsPage = () => {
 
   useEffect(() => {
     const fetchSummary = async () => {
+      setSummaryLoading(true);
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('reports')
           .select('status')
           .eq('moderation_status', 'approved')
           .neq('status', 'duplicate');
+        if (activeCityId) query = query.eq('city_id', activeCityId);
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -1165,7 +1218,7 @@ const StatsPage = () => {
     };
 
     fetchSummary();
-  }, []);
+  }, [activeCityId]);
 
   const summaryCards = [
     {
@@ -1209,56 +1262,25 @@ const StatsPage = () => {
             transition={{ duration: 0.5 }}
             className="space-y-2"
           >
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
-              <span className="inline-block w-1 h-3 rounded-full bg-tc-red" />
-              Panorama
-            </p>
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827]">
-              Estatísticas da Cidade
-            </h1>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                  <span className="inline-block w-1 h-3 rounded-full bg-tc-red" />
+                  Panorama
+                </p>
+                <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827]">
+                  Estatísticas da Cidade
+                </h1>
+              </div>
+              <CitySelector />
+            </div>
             <p className="text-xs lg:text-sm text-[#6B7280] max-w-2xl">
               Acompanhe em tempo real o andamento das solicitações e obras e veja os dados que movem a cidade.
             </p>
           </motion.div>
-    {/* Exibir quando tiver na tab de reports */}
-          {activeTab === 'reports' && (
-  <motion.div
-    className="grid grid-cols-2 sm:grid-cols-4 gap-2"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ delay: 0.15, duration: 0.4 }}
-  >
-    {summaryCards.map((card, index) => (
-      <Card
-        key={index}
-        className="border border-[#E5E7EB] bg-white shadow-sm hover:shadow-md transition-shadow duration-300 rounded-xl"
-      >
-        <div className="flex items-center justify-between px-3 py-3 lg:px-6 lg:py-6">
-          <div>
-            <div className={`text-[11px] md:text-xs ${card.valueColor}`}>
-              {card.title}
-            </div>
-            <div
-              className={`text-xl md:text-2xl font-extrabold leading-tight ${card.valueColor}`}
-            >
-              {summaryLoading ? '–' : card.value}
-            </div>
-          </div>
-          <div
-            className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl ${card.accentBg} text-white`}
-          >
-            {index === 0 && <BarChart3 className="w-4 h-4" />}
-            {index === 1 && <AlertTriangle className="w-4 h-4" />}
-            {index === 2 && <Clock className="w-4 h-4" />}
-            {index === 3 && <CheckCircle className="w-4 h-4" />}
-          </div>
-        </div>
-      </Card>
-    ))}
-  </motion.div>
-)}
-          
-
+          {/* O seletor Broncas/Obras vem logo apos o cabecalho: os cards de
+              resumo sao especificos de Broncas e passaram para dentro da aba,
+              em vez de empurrarem o seletor para baixo da dobra. */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2 bg-white/80 border border-[#E5E7EB] rounded-xl">
               <TabsTrigger value="reports" className="gap-2 text-xs md:text-sm">
@@ -1270,11 +1292,45 @@ const StatsPage = () => {
                 Obras Públicas
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="reports" className="mt-6">
-              <ReportsStats />
+            <TabsContent value="reports" className="mt-6 space-y-8">
+              <motion.div
+                className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.15, duration: 0.4 }}
+              >
+                {summaryCards.map((card, index) => (
+                  <Card
+                    key={index}
+                    className="border border-[#E5E7EB] bg-white shadow-sm hover:shadow-md transition-shadow duration-300 rounded-xl"
+                  >
+                    <div className="flex items-center justify-between px-3 py-3 lg:px-6 lg:py-6">
+                      <div>
+                        <div className={`text-[11px] md:text-xs ${card.valueColor}`}>
+                          {card.title}
+                        </div>
+                        <div
+                          className={`text-xl md:text-2xl font-extrabold leading-tight ${card.valueColor}`}
+                        >
+                          {summaryLoading ? '–' : card.value}
+                        </div>
+                      </div>
+                      <div
+                        className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl ${card.accentBg} text-white`}
+                      >
+                        {index === 0 && <BarChart3 className="w-4 h-4" />}
+                        {index === 1 && <AlertTriangle className="w-4 h-4" />}
+                        {index === 2 && <Clock className="w-4 h-4" />}
+                        {index === 3 && <CheckCircle className="w-4 h-4" />}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </motion.div>
+              <ReportsStats key={activeCityId ?? 'all'} />
             </TabsContent>
             <TabsContent value="works" className="mt-6">
-              <PublicWorksStats />
+              <PublicWorksStats key={activeCityId ?? 'all'} />
             </TabsContent>
           </Tabs>
         </div>

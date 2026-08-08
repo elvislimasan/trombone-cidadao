@@ -12,6 +12,7 @@ import Notifications from '@/components/Notifications';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
+
 const Header = () => {
   const { user, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -20,8 +21,8 @@ const Header = () => {
   const [logoError, setLogoError] = useState(false);
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
   const location = useLocation();
-  const { 
-    notificationsEnabled, 
+  const {
+    notificationsEnabled,
     toggleNotifications,
     pushEnabled,
     loading
@@ -114,7 +115,7 @@ const Header = () => {
   const getAvatarComponent = (user) => {
     if (!user) return <Avatar className="w-full h-full" />;
 
-    if (user.avatar_type === 'url' && user.avatar_url) {
+    if ((user.avatar_type === 'url' || user.avatar_type === 'upload') && user.avatar_url) {
       return <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" />;
     }
     
@@ -217,6 +218,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/obras-favoritas" className="flex items-center"><LucideIcons.HardHat className="mr-2 h-4 w-4" /><span>Obras Favoritas</span></Link>
                   </DropdownMenuItem>
+                  {(user.is_ambassador || user.is_master) && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/embaixador" className="flex items-center"><LucideIcons.ShieldCheck className="mr-2 h-4 w-4" /><span>Painel Embaixador</span></Link>
+                    </DropdownMenuItem>
+                  )}
                   {user.is_admin && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center"><LucideIcons.Shield className="mr-2 h-4 w-4" /><span>Admin</span></Link>
@@ -308,26 +314,7 @@ const Header = () => {
                         <span className="text-xs text-muted-foreground truncate">{user.email}</span>
                       </div>
                     </div>
-                    
-                    {/* <div className="h-px w-full bg-white/10 my-1" /> */}
-                    
-                    {/* <Button asChild variant="ghost" className="w-full justify-start hover:bg-white/10">
-                      <Link to="/settings/notifications" className="flex items-center gap-3">
-                        <div className="p-1.5 bg-white/10 rounded-md">
-                          <LucideIcons.Settings className="h-4 w-4" />
-                        </div>
-                        <span>Configurar Notificações</span>
-                      </Link>
-                    </Button> */}
-                    
-                    {/* <div className="flex items-center justify-between w-full px-4 py-2 rounded-md bg-black/20">
-                      <span className="text-sm font-medium">Notificações do Site</span>
-                      <Switch
-                        checked={notificationsEnabled}
-                        onCheckedChange={handleToggleNotifications}
-                        disabled={loading}
-                      />
-                    </div> */}
+
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3 w-full max-w-sm mx-auto p-4 rounded-xl -blur-sm">
