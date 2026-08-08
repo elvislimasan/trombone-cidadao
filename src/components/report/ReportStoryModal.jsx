@@ -922,24 +922,25 @@ const ReportStoryModal = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl w-[95vw] h-[95vh] sm:h-[90vh] lg:h-[85vh] p-0 flex flex-col overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-4 sm:p-6 border-b bg-white flex-shrink-0">
+        {/* Interface do modal (cabecalho) - acompanha o tema */}
+        <DialogHeader className="p-4 sm:p-6 border-b border-edge-subtle bg-surface-raised flex-shrink-0">
           <div className="flex items-center gap-2">
             <Instagram className="text-pink-600" size={24} />
-            <DialogTitle className="text-xl sm:text-2xl font-black">
+            <DialogTitle className="text-xl sm:text-2xl font-black text-content-primary">
               Criar Story para Instagram
             </DialogTitle>
           </div>
 
-          <DialogDescription className="text-xs sm:text-sm hidden xs:block">
+          <DialogDescription className="text-xs sm:text-sm hidden xs:block text-content-secondary">
             Escolha um estilo visual e baixe o card otimizado para os stories.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-4 bg-gray-50/30 no-scrollbar">
+        <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-4 bg-surface-base no-scrollbar">
           <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 sm:gap-8 lg:gap-4 h-full">
             <div className="space-y-4 sm:space-y-6 lg:space-y-4">
               <div>
-                <h3 className="text-[10px] sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-4 lg:mb-2">
+                <h3 className="text-[10px] sm:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-2 sm:mb-4 lg:mb-2">
                   Modelo de Layout
                 </h3>
 
@@ -953,15 +954,15 @@ const ReportStoryModal = ({
                         onClick={() => setLayout(item.value)}
                         className={`flex items-center sm:items-start flex-row gap-1.5 sm:gap-4 lg:gap-2 p-1.5 sm:p-4 lg:p-2 rounded-xl text-left transition-all border-2 flex-1 sm:flex-none ${
                           active
-                            ? 'border-tc-red bg-tc-red/10 shadow-sm ring-1 ring-tc-red/20'
-                            : 'border-transparent hover:bg-muted bg-white'
+                            ? 'border-brand bg-brand/10 shadow-sm ring-1 ring-brand/20'
+                            : 'border-transparent hover:bg-surface-subtleHover bg-surface-subtle'
                         }`}
                       >
                         <div
                           className={`p-1 sm:p-2 rounded-lg transition-colors ${
                             active
-                              ? 'bg-tc-red text-white'
-                              : 'bg-muted text-muted-foreground'
+                              ? 'bg-brand text-content-onBrand'
+                              : 'bg-surface-sunken text-content-tertiary'
                           }`}
                         >
                           <LayoutTemplate
@@ -973,19 +974,19 @@ const ReportStoryModal = ({
                         <div className="flex flex-col min-w-0">
                           <div
                             className={`font-bold text-[10px] sm:text-sm lg:text-xs flex items-center gap-1 sm:gap-2 lg:gap-1 truncate ${
-                              active ? 'text-tc-red' : 'text-foreground'
+                              active ? 'text-brand' : 'text-content-primary'
                             }`}
                           >
                             {item.label}
                             {active && (
                               <Check
                                 size={10}
-                                className="text-tc-red sm:w-3.5 sm:h-3.5 lg:w-3 lg:h-3 flex-shrink-0"
+                                className="text-brand sm:w-3.5 sm:h-3.5 lg:w-3 lg:h-3 flex-shrink-0"
                               />
                             )}
                           </div>
 
-                          <p className="text-[10px] hidden sm:block text-muted-foreground mt-1 leading-relaxed lg:line-clamp-1">
+                          <p className="text-[10px] hidden sm:block text-content-tertiary mt-1 leading-relaxed lg:line-clamp-1">
                             {item.description}
                           </p>
                         </div>
@@ -996,9 +997,9 @@ const ReportStoryModal = ({
               </div>
 
               {layout === 'instagram' && (
-                <div className="pt-2 border-t border-gray-100 space-y-4">
+                <div className="pt-2 border-t border-edge-subtle space-y-4">
                   <div>
-                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-3">
                       Fundo do Story
                     </h3>
 
@@ -1007,8 +1008,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('auto')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'auto'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         Automático
@@ -1018,8 +1019,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('pending')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'pending'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         Vermelho
@@ -1029,8 +1030,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('in_progress')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'in_progress'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         Azul
@@ -1040,8 +1041,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('resolved')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'resolved'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         Verde
@@ -1051,8 +1052,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('color')}
                         className={`col-span-2 p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold flex items-center justify-between ${
                           bgType === 'color'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         <span>Cor personalizada</span>
@@ -1070,7 +1071,7 @@ const ReportStoryModal = ({
                   </div>
 
                   <div>
-                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-3">
                       Efeitos
                     </h3>
 
@@ -1078,17 +1079,18 @@ const ReportStoryModal = ({
                       onClick={() => setEnableImageEffect(!enableImageEffect)}
                       className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all ${
                         enableImageEffect
-                          ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold'
-                          : 'border-gray-200 bg-white text-gray-600'
+                          ? 'border-brand bg-brand/5 text-brand font-bold'
+                          : 'border-edge-default bg-surface-subtle text-content-secondary'
                       }`}
                     >
                       <span className="text-[10px]">
                         Suavizar imagem da bronca
                       </span>
 
+                      {/* Trilho/bolinha do toggle: sempre branco sobre fundo colorido/cinza, funciona igual nos dois temas */}
                       <div
                         className={`w-8 h-4 rounded-full relative transition-colors ${
-                          enableImageEffect ? 'bg-tc-red' : 'bg-gray-200'
+                          enableImageEffect ? 'bg-brand' : 'bg-surface-sunken'
                         }`}
                       >
                         <div
@@ -1103,8 +1105,8 @@ const ReportStoryModal = ({
                       onClick={() => setEnableHoleEffect(!enableHoleEffect)}
                       className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all mt-2 ${
                         enableHoleEffect
-                          ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold'
-                          : 'border-gray-200 bg-white text-gray-600'
+                          ? 'border-brand bg-brand/5 text-brand font-bold'
+                          : 'border-edge-default bg-surface-subtle text-content-secondary'
                       }`}
                     >
                       <span className="text-[10px]">
@@ -1113,7 +1115,7 @@ const ReportStoryModal = ({
 
                       <div
                         className={`w-8 h-4 rounded-full relative transition-colors ${
-                          enableHoleEffect ? 'bg-tc-red' : 'bg-gray-200'
+                          enableHoleEffect ? 'bg-brand' : 'bg-surface-sunken'
                         }`}
                       >
                         <div
@@ -1130,6 +1132,7 @@ const ReportStoryModal = ({
 
             <div className="flex flex-col gap-3 sm:gap-4 lg:gap-2 h-full min-w-0">
               <div className="bg-muted/30 rounded-2xl p-2 sm:p-4 lg:p-2 flex items-center justify-center border border-dashed border-muted-foreground/20 overflow-hidden h-[360px] xs:h-[400px] sm:h-[480px] lg:h-[350px] xl:h-[480px] flex-shrink-0 relative group">
+                {/* Chip flutuante sobre a preview, sempre escuro/texto branco de proposito - overlay padrao sobre imagem, nao segue o tema */}
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/80 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
                   <Instagram size={12} className="text-pink-500" />
                   Visualização 1080x1920
@@ -1140,6 +1143,7 @@ const ReportStoryModal = ({
                     className="absolute top-0 left-0 w-[1080px] h-[1920px] origin-top-left !scale-[0.159] sm:!scale-[0.20] md:!scale-[0.22] lg:!scale-[0.15] xl:!scale-[0.20]"
                     style={{ transform: 'scale(0.159)' }}
                   >
+                    {/* Fundo do card do story em si (conteudo/artefato), fixo de proposito */}
                     <div className="w-full h-full relative overflow-hidden bg-black">
                       <StoryRenderer
                         report={report}
@@ -1163,11 +1167,13 @@ const ReportStoryModal = ({
           </div>
         </div>
 
-        <DialogFooter className="p-4 sm:p-6 lg:p-4 border-t bg-white flex flex-row items-center justify-between gap-3 flex-shrink-0">
+        {/* Interface do modal (rodape) - acompanha o tema */}
+        <DialogFooter className="p-4 sm:p-6 lg:p-4 border-t border-edge-subtle bg-surface-raised flex flex-row items-center justify-between gap-3 flex-shrink-0">
+          {/* variant ghost nao define cor de texto propria; sem token explicito o texto fica invisivel no tema escuro */}
           <Button
             variant="ghost"
             onClick={onClose}
-            className="h-10 sm:h-12 lg:h-10 px-4 sm:px-8 lg:px-4 font-bold"
+            className="h-10 sm:h-12 lg:h-10 px-4 sm:px-8 lg:px-4 font-bold text-content-primary"
           >
             Cancelar
           </Button>
@@ -1175,10 +1181,10 @@ const ReportStoryModal = ({
           <Button
             onClick={handleDownload}
             disabled={downloading}
-            className="bg-tc-red hover:bg-tc-red/90 text-white gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-tc-red/20 flex-1 sm:flex-none"
+            className="bg-cta-bg hover:bg-cta-bg/90 text-cta-fg border border-cta-border gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-brand/20 flex-1 sm:flex-none"
           >
             {downloading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cta-fg" />
             ) : (
               <Download size={18} />
             )}

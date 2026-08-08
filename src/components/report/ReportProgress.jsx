@@ -90,9 +90,11 @@ const ReportProgress = ({ status, timeline, formatDateTime }) => {
                 )}
               </div>
 
-              <div className="mt-1.5 text-center w-16">
+              {/* w-20 + whitespace-nowrap: em w-16 o rotulo "Em execucao"
+                  quebrava em duas linhas e desalinhava a fileira. */}
+              <div className="mt-1.5 text-center w-20">
                 <span
-                  className={`text-2xs font-semibold leading-tight block ${
+                  className={`text-2xs font-semibold leading-tight block whitespace-nowrap ${
                     isActive ? "text-brand" : "text-content-tertiary"
                   }`}
                 >

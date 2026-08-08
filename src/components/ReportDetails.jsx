@@ -87,9 +87,9 @@ const VideoThumbnail = React.memo(({ videoUrl, alt, className, hidePlaceholder =
 
   if (error || !thumbnail) {
     return (
-      <div className={`${className} bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center border border-gray-200 dark:border-gray-700`}>
-        <Video className="h-10 w-10 text-gray-400 mb-1" />
-        <span className="text-[10px] text-gray-500 font-medium">Vídeo</span>
+      <div className={`${className} bg-surface-sunken flex flex-col items-center justify-center border border-edge-default`}>
+        <Video className="h-10 w-10 text-content-tertiary mb-1" />
+        <span className="text-[10px] text-content-tertiary font-medium">Vídeo</span>
       </div>
     );
   }
@@ -225,9 +225,9 @@ const ReportDetails = ({
       'pending': { icon: AlertTriangle, text: 'Pendente', color: 'text-primary bg-primary/10', description: 'Aguardando análise da prefeitura' },
       'in-progress': { icon: Clock, text: 'Em Andamento', color: 'text-secondary bg-secondary/10', description: 'Equipe trabalhando na resolução' },
       'resolved': { icon: CheckCircle, text: 'Resolvido', color: 'text-green-500 bg-green-500/10', description: 'Problema solucionado' },
-      'duplicate': { icon: LinkIcon, text: 'Duplicada', color: 'text-gray-500 bg-gray-500/10', description: 'Esta solicitação é uma duplicata' },
+      'duplicate': { icon: LinkIcon, text: 'Duplicada', color: 'text-content-tertiary bg-surface-sunken', description: 'Esta solicitação é uma duplicata' },
       'pending_resolution': { icon: Hourglass, text: 'Verificando Resolução', color: 'text-blue-500 bg-blue-500/10', description: 'Aguardando aprovação da foto de resolução.' },
-      'pending_approval': { icon: Hourglass, text: 'Aguardando Aprovação', color: 'text-yellow-500 bg-yellow-500/10', description: 'Aguardando moderação.' }
+      'pending_approval': { icon: Hourglass, text: 'Aguardando Aprovação', color: 'text-status-pendingFg bg-status-pendingBg', description: 'Aguardando moderação.' }
     };
     return info[status] || info.pending;
   };
@@ -1566,7 +1566,7 @@ const ReportDetails = ({
                 <StatusIcon className="w-4 h-4 mr-2" />
                 {statusInfo.text}
                 {report.moderation_status === 'pending_approval' && !isResolutionModeration && (
-                  <span className="ml-2 text-xs bg-yellow-500 text-white px-2 py-1 rounded-full">
+                  <span className="ml-2 text-xs bg-status-pendingBg text-status-pendingFg px-2 py-1 rounded-full">
                     Aguardando Moderação
                   </span>
                 )}
@@ -1578,8 +1578,8 @@ const ReportDetails = ({
             </div>
             
             {report.status === 'duplicate' && (
-              <div className="p-4 bg-gray-500/10 rounded-lg text-center">
-                <h3 className="font-semibold text-gray-400 mb-2">Esta bronca foi marcada como duplicada.</h3>
+              <div className="p-4 bg-surface-sunken rounded-lg text-center">
+                <h3 className="font-semibold text-content-secondary mb-2">Esta bronca foi marcada como duplicada.</h3>
                 <p className="text-sm text-muted-foreground">Todas as atualizações serão concentradas na solicitação principal.</p>
               </div>
             )}

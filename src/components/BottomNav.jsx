@@ -162,10 +162,12 @@ const BottomNav = () => {
     <>
       <div
         className="fixed left-0 right-0 bg-surface-raised border-t border-edge-subtle z-[1000] lg:hidden"
+        /* Sem minHeight: a altura vem do conteudo (h-16) mais a safe area. O
+           4.5rem antigo deixava meia rem de fundo sobrando abaixo dos itens,
+           que aparecia como uma faixa clara acima da barra. */
         style={{
           bottom: 0,
           paddingBottom: 'max(env(safe-area-inset-bottom), 0px)',
-          minHeight: '4.5rem',
           marginBottom: 0,
         }}
       >

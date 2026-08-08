@@ -77,7 +77,9 @@ export const ReportMediaHero = ({
   return (
     <>
       <div className="relative overflow-hidden">
-        <div className="w-full max-w-full h-[64vw] sm:h-64 lg:h-80 bg-slate-900 relative overflow-hidden">
+        {/* aspect-[4/5] igual ao card do feed: a maioria das fotos de bronca
+            vem do celular na vertical, e o h-[64vw] achatava demais. */}
+        <div className="w-full max-w-full aspect-[4/5] sm:aspect-[4/3] lg:aspect-[16/10] bg-surface-sunken relative overflow-hidden">
           <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] bg-[length:20px_20px]" />
           {hasMedia ? (
             <button
