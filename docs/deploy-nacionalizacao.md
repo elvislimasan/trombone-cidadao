@@ -7,6 +7,11 @@
 > Tudo que está descrito aqui já foi aplicado e testado no banco de **dev**.
 > Este guia cobre a subida para **produção**.
 
+> **Atenção — o escopo é maior que a nacionalização.** Produção está na
+> migração **114**, então o `db push` vai aplicar da **115 até a 165**. Isso
+> inclui o seed nacional de cidades (115) e as migrações 116–140, que são de
+> outras entregas. Revise a lista antes de rodar.
+
 ---
 
 ## Antes de começar
@@ -42,15 +47,44 @@ Abra o Pull Request de `feat/nacionalizacao` para `main` e faça o merge.
 
 ## Passo 2 — Migrações do banco
 
-### 2.1 Verificar o que já está aplicado
+### 2.1 Situação verificada em produção (08/08/2026)
+
+| | Dev | Produção |
+|---|---|---|
+| Última migração aplicada | 165 | **114** |
+| Cidades cadastradas | 5.572 | **185** |
+| `rental_properties` | existe | **não existe** |
+| `permission_rules` | existe | **não existe** |
+
+Ou seja: produção precisa das migrações **115 até 165** — não apenas as da
+nacionalização. Confirme antes de aplicar:
 
 ```bash
 npx supabase migration list --project-ref mrejgpcxaevooofyenzq
 ```
 
-Compare com a lista abaixo e aplique só o que faltar.
+### 2.2 A migração 115 traz as cidades
 
-### 2.2 Migrações da nacionalização
+**`115_cities_states_reference.sql`** contém o seed nacional inline: 5.572
+cidades, 27 UFs + DF. Hoje produção tem só 185 cidades — as demais entram com
+essa migração.
+
+A migração é idempotente (usa `where not exists`), então rodar de novo não
+duplica nada. Ela também consolida cidades duplicadas por
+`(nome sem acento, estado)`, mantendo o menor id.
+
+Depois de aplicar, confira:
+
+```sql
+select (select count(*) from public.states) as estados,   -- esperado: 27
+       (select count(*) from public.cities) as cidades;   -- esperado: 5.572
+```
+
+> As migrações entre 116 e 140 não fazem parte da nacionalização, mas também
+> estão pendentes em produção e serão aplicadas na mesma passada do
+> `db push`. Vale revisar a lista antes de rodar.
+
+### 2.3 Migrações da nacionalização
 
 | # | Arquivo | O que faz |
 |---|---|---|
@@ -80,14 +114,14 @@ Compare com a lista abaixo e aplique só o que faltar.
 | 164 | `permission_rules` | Tabela + função `can_write()` |
 | 165 | `permission_rules_policies` | `can_write()` em 24 policies |
 
-### 2.3 Aplicar
+### 2.4 Aplicar
 
 ```bash
 npx supabase link --project-ref mrejgpcxaevooofyenzq
 npx supabase db push
 ```
 
-### 2.4 Atenção especial
+### 2.5 Atenção especial
 
 **Migração 158** (`directory_city_id_not_null`) falha se houver registros com
 `city_id` nulo. Verifique antes:
@@ -113,7 +147,7 @@ select lower(name), city_id, count(*)
 having count(*) > 1;
 ```
 
-### 2.5 Conferir depois de aplicar
+### 2.6 Conferir depois de aplicar
 
 ```sql
 -- deve retornar 24
@@ -234,7 +268,7 @@ yarn build:standalone:dev:aab    # AAB
 
 **Uma migração falhou no meio.** O `db push` para na migração com erro; as
 anteriores já foram aplicadas. Corrija a causa (normalmente dados
-inconsistentes, veja 2.4) e rode `db push` de novo — ele retoma de onde parou.
+inconsistentes, veja 2.5) e rode `db push` de novo — ele retoma de onde parou.
 
 **Gravações começaram a falhar após a 165.** Verifique se a função existe:
 
@@ -260,7 +294,7 @@ com o banco novo, porque todas as mudanças são aditivas.
 ## Resumo da ordem
 
 1. Backup de produção
-2. `npx supabase db push` (migrações 141→165)
+2. `npx supabase db push` (migrações 115→165, inclui o seed de cidades)
 3. `yarn deploy:functions:nacionalizacao` + conferir secrets do Resend
 4. Merge da branch em `main` (Vercel publica sozinho)
 5. Rodar a checklist de verificação
