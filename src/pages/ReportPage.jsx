@@ -21,7 +21,6 @@ import DonationModal from "@/components/DonationModal";
 import MarkResolvedModal from "@/components/MarkResolvedModal";
 import MediaViewer from "@/components/MediaViewer";
 import {
-  ArrowLeft,
   ThumbsUp,
   Star,
   Share2,
@@ -42,6 +41,7 @@ import { toPng } from "html-to-image";
 import ReportFlyerModal from "@/components/report/ReportFlyerModal";
 import ReportStoryModal from "@/components/report/ReportStoryModal";
 import ReportUpdateModal from "@/components/report/ReportUpdateModal";
+import ReportHeader from "@/components/report/ReportHeader";
 import ReportLocation from "@/components/report/ReportLocation";
 import {
   ReportProblemDescription,
@@ -399,24 +399,6 @@ const ReportPage = () => {
         .filter(Boolean),
     [mediaItems]
   );
-
-  const reportAgeStory = useMemo(() => {
-    if (!report?.created_at || report?.status === "resolved") return null;
-
-    const createdAt = new Date(report.created_at);
-    if (Number.isNaN(createdAt.getTime())) return null;
-
-    const ageDays = Math.max(
-      0,
-      Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
-    );
-
-    if (ageDays < 7) return null;
-
-    return report.category === "iluminacao"
-      ? `Essa rua está há ${ageDays} dias no escuro.`
-      : `Esse problema está há ${ageDays} dias sem solução.`;
-  }, [report?.category, report?.created_at, report?.status]);
 
   const waterUtilityName = useMemo(() => {
     if (!report || !report.is_from_water_utility) return null;
@@ -1529,65 +1511,33 @@ const ReportPage = () => {
         <>
           {/* ── TOP NAV ── */}
           {!isInteractive && (
-            <div className="bg-white/90 backdrop-blur-sm sticky top-0 z-30 shadow-[0_1px_0_0_rgba(25,28,30,0.06)]">
-              <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-14 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-9 w-9 rounded-xl bg-[#f2f4f7] hover:bg-[#e8eaed]"
-                    onClick={() => navigate(-1)}
-                  >
-                    <ArrowLeft className="w-4 h-4 text-[#191c1e]" strokeWidth={1.5} />
-                  </Button>
-                  <span className="text-sm font-bold tracking-tight text-[#191c1e]">
-                    Voltar para página inicial
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className={`h-9 w-9 rounded-xl ${
-                      report.is_favorited
-                        ? "bg-red-50 hover:bg-red-100"
-                        : "bg-[#f2f4f7] hover:bg-[#e8eaed]"
-                    }`}
-                    onClick={() =>
-                      handleFavoriteToggle(report.id, report.is_favorited)
-                    }
-                  >
-                    <Star
-                      className={`w-4 h-4 ${
-                        report.is_favorited
-                          ? "fill-[#b61722] text-[#b61722]"
-                          : "text-[#191c1e]"
-                      }`}
-                      strokeWidth={1.5}
-                    />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-9 w-9 rounded-xl bg-[#f2f4f7] hover:bg-[#e8eaed]"
-                    onClick={handleShare}
-                  >
-                    <Share2 className="w-4 h-4 text-[#191c1e]" strokeWidth={1.5} />
-                  </Button>
-                </div>
-              </div>
-              <div className="hidden lg:block bg-[#f7f9fc]">
-                <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-[#6b7280] flex items-center gap-1">
-                  <Link to="/" className="hover:text-[#b61722] transition-colors">
+            <>
+              <ReportHeader
+                onBack={() => navigate(-1)}
+                protocol={report.protocol}
+                canMarkResolved={canMarkResolved}
+                showAdminActions={isAdmin || isPublicOfficial}
+                handleMarkResolvedClick={handleMarkResolvedClick}
+                handleDownloadStoryCard={handleDownloadStoryCard}
+                handleOpenLinkModal={() => handleOpenLinkModal(report)}
+                handleEditClick={handleEditClick}
+                handleReportError={handleReportError}
+                handleWhatsAppShare={handleWhatsAppShare}
+                handleCopyShareLink={handleCopyShareLink}
+                handleShare={handleShare}
+              />
+              <div className="hidden lg:block bg-surface-subtle">
+                <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-2xs text-content-tertiary flex items-center gap-1">
+                  <Link to="/" className="hover:text-brand transition-colors">
                     Início
                   </Link>
                   <span className="opacity-50">›</span>
                   <span>Broncas</span>
                   <span className="opacity-50">›</span>
-                  <span className="text-[#191c1e] truncate">{report.title}</span>
+                  <span className="text-content-primary truncate">{report.title}</span>
                 </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* ── PAGE ── */}
@@ -1601,7 +1551,6 @@ const ReportPage = () => {
                   <ReportMediaHero
                     viewerMedia={viewerMedia}
                     getCategoryName={getCategoryName}
-                    getStatusInfo={getStatusInfo}
                     category={report.category}
                     status={report.status}
                     mediaViewerState={mediaViewerState}
@@ -1613,12 +1562,12 @@ const ReportPage = () => {
 
                       <ReportSummary
                         title={report.title}
-                        status={report.status}
+                        address={report.address}
                         createdAt={report.created_at}
                         protocol={report.protocol}
-                        reportAgeStory={reportAgeStory}
-                        getStatusInfo={getStatusInfo}
-                        formatDateTime={formatDateTime}
+                        isAnonymous={report.is_anonymous}
+                        authorName={report.authorName}
+                        authorAvatar={report.authorAvatar}
                       />
 
                       <ReportMediaGallery

@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 import { MapPin, Play, Image } from "lucide-react";
 import MediaViewer from "@/components/MediaViewer";
+import StatusBadge from "@/design-system/primitives/StatusBadge";
 
 // Extraido de src/pages/ReportPage.jsx (refatoracao pura, task 3 da fase 2).
+// Redesenhado na task 4 da fase 2: badge de status (StatusBadge do design
+// system) sobreposto no canto superior esquerdo da midia, e contador de fotos
+// no canto inferior direito. bg-black/50 do contador e a unica cor fixa
+// aceitavel aqui -- e um overlay sobre imagem/video, igual PlayBadge do
+// FeedCardMedia.
 // Bloco de midia da bronca: hero (capa) e galeria em grade ficam em posicoes
 // diferentes da arvore (hero fora do card branco, galeria depois do resumo),
 // por isso viram dois componentes -- igual ReportProblemDescription/Details
@@ -13,7 +19,6 @@ import MediaViewer from "@/components/MediaViewer";
 export const ReportMediaHero = ({
   viewerMedia,
   getCategoryName,
-  getStatusInfo,
   category,
   status,
   mediaViewerState,
@@ -73,7 +78,7 @@ export const ReportMediaHero = ({
     <>
       <div className="relative overflow-hidden">
         <div className="w-full max-w-full h-[64vw] sm:h-64 lg:h-80 bg-slate-900 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
+          <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] bg-[length:20px_20px]" />
           {hasMedia ? (
             <button
               type="button"
@@ -112,25 +117,24 @@ export const ReportMediaHero = ({
             </button>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-black/20 bg-black/20 flex items-center justify-center">
                 <MapPin className="w-7 h-7 text-white/60" />
               </div>
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
           <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2 pointer-events-none">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] bg-white/90 backdrop-blur-md text-[#191c1e] shadow-sm">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-2xs font-bold uppercase tracking-[0.15em] bg-surface-raised/90 backdrop-blur-md text-content-primary shadow-elevation-1">
               {getCategoryName(category)}
             </span>
-            <span
-              className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] shadow-sm ${
-                getStatusInfo(status).colorClasses
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-current mr-2 animate-pulse" />
-              {getStatusInfo(status).text}
-            </span>
+            <StatusBadge status={status} size="md" withIcon />
           </div>
+          {hasMedia && viewerMedia.length > 1 && (
+            <div className="absolute bottom-4 right-4 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white bg-black/50 pointer-events-none">
+              <Image className="w-3.5 h-3.5" strokeWidth={1.75} />
+              {viewerMedia.length}
+            </div>
+          )}
         </div>
       </div>
 
@@ -152,8 +156,8 @@ export const ReportMediaGallery = ({ viewerMedia, setMediaViewerState }) => {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-bold text-[#191c1e] flex items-center gap-1.5">
-          <Image className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
+        <p className="text-xs font-bold text-content-primary flex items-center gap-1.5">
+          <Image className="w-3.5 h-3.5 text-brand" strokeWidth={1.5} />
           Galeria
         </p>
         <button
@@ -161,7 +165,7 @@ export const ReportMediaGallery = ({ viewerMedia, setMediaViewerState }) => {
           onClick={() =>
             setMediaViewerState({ isOpen: true, startIndex: 0 })
           }
-          className="text-xs font-semibold text-[#b61722] hover:underline"
+          className="text-xs font-semibold text-brand hover:underline"
         >
           Ver todas ({viewerMedia.length})
         </button>
@@ -177,7 +181,7 @@ export const ReportMediaGallery = ({ viewerMedia, setMediaViewerState }) => {
                 startIndex: idx + 1,
               })
             }
-            className="relative aspect-square rounded-xl overflow-hidden bg-[#f2f4f7] hover:opacity-90 transition-opacity"
+            className="relative aspect-square rounded-xl overflow-hidden bg-surface-subtle hover:opacity-90 transition-opacity"
           >
             {m.type === "image" ? (
               <img
