@@ -1734,7 +1734,7 @@ const ReportPage = () => {
                         variant="outline"
                         onClick={() => setShowRepublishOptions((v) => !v)}
                         aria-expanded={showRepublishOptions}
-                        className="flex-shrink-0 justify-center gap-2 rounded-xl border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
+                        className="flex-shrink-0 justify-center gap-2 rounded-xl border-cta-border text-brand bg-transparent hover:bg-surface-subtleHover"
                       >
                         <Icon name="share" size={14} />
                         Republicar

@@ -981,7 +981,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
           style={{
             backgroundColor: '#F05045',
             paddingTop: 'calc(var(--safe-area-top))',
-            top: 'calc(4rem + var(--safe-area-top))'
+            top: 'calc(var(--header-bar-height) + var(--safe-area-top))'
           }}
         >
           <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 relative">

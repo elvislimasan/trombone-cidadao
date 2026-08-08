@@ -106,7 +106,7 @@ const MobileHeader = () => {
       style={{
         ...headerStyle,
         paddingTop: 'var(--header-safe-top)',
-        height: 'calc(4rem + var(--header-safe-top))'
+        height: 'calc(var(--header-bar-height) + var(--header-safe-top))'
       }}
     >
       {/* Preenche o vão acima do header durante o overscroll (rubber-band) do iOS,
@@ -116,7 +116,10 @@ const MobileHeader = () => {
         className="absolute left-0 right-0 bottom-full h-screen pointer-events-none"
         style={{ backgroundColor: headerStyle.backgroundColor }}
       />
-      <div className="container h-16 px-4 flex items-center justify-between">
+      <div
+        className="container px-4 flex items-center justify-between"
+        style={{ height: 'var(--header-bar-height)' }}
+      >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {shouldShowBack ? (
             <Button 
@@ -143,7 +146,7 @@ const MobileHeader = () => {
             </Button>
           ) : (
             <Link to="/" className="flex items-center">
-              <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
+              <img src={logoUrl} alt="Logo" className="h-7 w-auto" />
             </Link>
           )}
           {showCitySelector ? (

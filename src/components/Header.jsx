@@ -143,7 +143,7 @@ const Header = () => {
         ...headerStyle, 
         top: 0,
         paddingTop: 'var(--header-safe-top)',
-        height: 'calc(4rem + var(--header-safe-top))',
+        height: 'calc(var(--header-bar-height) + var(--header-safe-top))',
         marginTop: 0
       }} 
       className="fixed left-0 right-0 z-[1001] border-b"
@@ -155,7 +155,10 @@ const Header = () => {
         className="absolute left-0 right-0 bottom-full h-screen pointer-events-none"
         style={{ backgroundColor: headerStyle.backgroundColor }}
       />
-      <div className="container mx-auto px-4 h-16 flex justify-between items-center" style={{ marginTop: 0 }}>
+      <div
+        className="container mx-auto px-4 flex justify-between items-center"
+        style={{ marginTop: 0, height: 'var(--header-bar-height)' }}
+      >
         {/* O nome do site saiu daqui: o logo ja identifica a marca, e o espaco
             passa a mostrar a cidade ativa — o filtro que define o conteudo do
             feed e das demais telas. */}

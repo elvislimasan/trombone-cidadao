@@ -9,42 +9,42 @@ import { useToast } from '@/components/ui/use-toast';
 import MediaViewer from '@/components/MediaViewer';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
+// Cores vindas dos tokens de status do design system (--status-*): eles ja
+// acompanham o tema, entao o modal funciona no claro e no escuro sem duplicar
+// paleta.
 const UPDATE_TYPES = [
   {
     id: 'still_here',
     label: 'O problema ainda está aqui',
     description: 'O problema persiste no local',
     icon: AlertCircle,
-    color: 'text-red-600',
-    selectedText: 'text-red-700',
-    bg: 'bg-red-50',
-    border: 'border-red-400',
-    dot: 'bg-red-500',
-    glow: 'shadow-red-100',
+    color: 'text-status-pendingFg',
+    selectedText: 'text-status-pendingFg',
+    bg: 'bg-status-pendingBg',
+    border: 'border-status-pendingBorder',
+    dot: 'bg-status-pendingFg',
   },
   {
     id: 'being_solved',
     label: 'Está sendo resolvido',
     description: 'Já iniciaram o processo de resolução',
     icon: Clock,
-    color: 'text-amber-600',
-    selectedText: 'text-amber-700',
-    bg: 'bg-amber-50',
-    border: 'border-amber-400',
-    dot: 'bg-amber-500',
-    glow: 'shadow-amber-100',
+    color: 'text-status-progressFg',
+    selectedText: 'text-status-progressFg',
+    bg: 'bg-status-progressBg',
+    border: 'border-status-progressBorder',
+    dot: 'bg-status-progressFg',
   },
   {
     id: 'solved',
     label: 'O problema foi resolvido',
     description: 'O problema foi completamente solucionado',
     icon: CheckCircle2,
-    color: 'text-emerald-600',
-    selectedText: 'text-emerald-700',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-400',
-    dot: 'bg-emerald-500',
-    glow: 'shadow-emerald-100',
+    color: 'text-status-resolvedFg',
+    selectedText: 'text-status-resolvedFg',
+    bg: 'bg-status-resolvedBg',
+    border: 'border-status-resolvedBorder',
+    dot: 'bg-status-resolvedFg',
   },
 ];
 
@@ -114,21 +114,21 @@ const ReportUpdateModal = ({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0 }}
         transition={{ type: 'spring', damping: 30, stiffness: 380 }}
-        className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg flex flex-col overflow-hidden"
         style={{ maxHeight: '94vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0">
           <div>
-            <h2 className="text-[17px] font-extrabold text-[#111827] tracking-tight">
+            <h2 className="text-[17px] font-extrabold text-content-primary tracking-tight">
               Enviar Atualização
             </h2>
-            <p className="text-xs text-[#9ca3af] mt-0.5">O que você encontrou no local?</p>
+            <p className="text-xs text-content-tertiary mt-0.5">O que você encontrou no local?</p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb] transition-colors active:scale-90"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-sunken text-content-secondary hover:bg-surface-subtleHover transition-colors active:scale-90"
           >
             <X className="w-4 h-4" />
           </button>
@@ -137,11 +137,11 @@ const ReportUpdateModal = ({
         {/* ── Fotos — sempre visível ── */}
         <div className="px-5 pb-4 flex-shrink-0">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-[#6b7280] uppercase tracking-widest">
+            <span className="text-[11px] font-bold text-content-secondary uppercase tracking-widest">
               Fotos
             </span>
             {cam.photoItems.length > 0 && (
-              <span className="text-[11px] text-[#9ca3af]">
+              <span className="text-[11px] text-content-tertiary">
                 {cam.photoItems.length}/5
               </span>
             )}
@@ -156,7 +156,7 @@ const ReportUpdateModal = ({
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.7, opacity: 0 }}
                   transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                  className="relative w-[72px] h-[72px] rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0"
+                  className="relative w-[72px] h-[72px] rounded-2xl overflow-hidden bg-surface-sunken flex-shrink-0"
                 >
                   {/* Clique na imagem abre preview fullscreen */}
                   <button
@@ -187,9 +187,9 @@ const ReportUpdateModal = ({
               <motion.div
                 initial={{ scale: 0.7, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="w-[72px] h-[72px] rounded-2xl bg-gray-100 flex items-center justify-center flex-shrink-0"
+                className="w-[72px] h-[72px] rounded-2xl bg-surface-sunken flex items-center justify-center flex-shrink-0"
               >
-                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                <Loader2 className="w-5 h-5 text-content-tertiary animate-spin" />
               </motion.div>
             )}
 
@@ -199,32 +199,32 @@ const ReportUpdateModal = ({
                 <button
                   type="button"
                   onClick={cam.handleCamera}
-                  className="w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center gap-1 border-2 border-dashed border-[#b61722]/30 bg-[#fff7f7] hover:bg-[#ffe8e8] hover:border-[#b61722]/60 transition-colors active:scale-90 flex-shrink-0"
+                  className="w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center gap-1 border-2 border-dashed border-brand/30 bg-brand-subtleBg hover:border-brand/60 transition-colors active:scale-90 flex-shrink-0"
                 >
-                  <Camera className="w-5 h-5 text-[#b61722]" />
-                  <span className="text-[9px] font-semibold text-[#b61722]">Câmera</span>
+                  <Camera className="w-5 h-5 text-brand-subtleFg" />
+                  <span className="text-[9px] font-semibold text-brand-subtleFg">Câmera</span>
                 </button>
                 <button
                   type="button"
                   onClick={cam.handleGallery}
-                  className="w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors active:scale-90 flex-shrink-0"
+                  className="w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center gap-1 border-2 border-dashed border-edge-default bg-surface-sunken hover:border-edge-strong transition-colors active:scale-90 flex-shrink-0"
                 >
-                  <GalleryIcon className="w-5 h-5 text-gray-400" />
-                  <span className="text-[9px] font-semibold text-gray-500">Galeria</span>
+                  <GalleryIcon className="w-5 h-5 text-content-tertiary" />
+                  <span className="text-[9px] font-semibold text-content-secondary">Galeria</span>
                 </button>
               </>
             )}
           </div>
         </div>
 
-        <div className="h-px bg-gray-100 mx-5 flex-shrink-0" />
+        <div className="h-px bg-edge-subtle mx-5 flex-shrink-0" />
 
         {/* Scrollable */}
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="px-5 pt-4 pb-2 space-y-3">
             {/* Tipo */}
             <div>
-              <p className="text-[11px] font-bold text-[#6b7280] uppercase tracking-widest mb-2">
+              <p className="text-[11px] font-bold text-content-secondary uppercase tracking-widest mb-2">
                 Qual é a situação?
               </p>
               <div className="space-y-2">
@@ -240,16 +240,16 @@ const ReportUpdateModal = ({
                     return (
                       <div
                         key={type.id}
-                        className="flex items-center gap-3 p-3 rounded-2xl border border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                        className="flex items-center gap-3 p-3 rounded-2xl border border-edge-subtle bg-surface-sunken opacity-50 cursor-not-allowed"
                       >
-                        <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          <Icon className="w-4 h-4 text-gray-300" strokeWidth={2} />
+                        <div className="w-9 h-9 rounded-xl bg-surface-subtle flex items-center justify-center flex-shrink-0">
+                          <Icon className="w-4 h-4 text-content-tertiary" strokeWidth={2} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-400 leading-tight">
+                          <p className="text-sm font-semibold text-content-secondary leading-tight">
                             {type.label}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">
+                          <p className="text-[10px] text-content-tertiary mt-0.5">
                             Disponível {days <= 1 ? 'amanhã' : `em ${days} dias`}
                           </p>
                         </div>
@@ -265,29 +265,29 @@ const ReportUpdateModal = ({
                       whileTap={{ scale: 0.98 }}
                       className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 transition-all text-left ${
                         isSelected
-                          ? `${type.bg} ${type.border} shadow-md ${type.glow}`
-                          : 'bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                          ? `${type.bg} ${type.border} shadow-md`
+                          : 'bg-surface-raised border-edge-subtle hover:border-edge-default hover:bg-surface-subtle'
                       }`}
                     >
                       <div
                         className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          isSelected ? type.bg : 'bg-gray-50'
+                          isSelected ? type.bg : 'bg-surface-sunken'
                         }`}
                       >
                         <Icon
-                          className={`w-4 h-4 ${isSelected ? type.color : 'text-gray-400'}`}
+                          className={`w-4 h-4 ${isSelected ? type.color : 'text-content-tertiary'}`}
                           strokeWidth={2}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p
                           className={`text-sm font-bold leading-tight ${
-                            isSelected ? type.selectedText : 'text-[#111827]'
+                            isSelected ? type.selectedText : 'text-content-primary'
                           }`}
                         >
                           {type.label}
                         </p>
-                        <p className="text-[11px] text-[#9ca3af] mt-0.5">
+                        <p className="text-[11px] text-content-tertiary mt-0.5">
                           {type.description}
                         </p>
                       </div>
@@ -298,7 +298,7 @@ const ReportUpdateModal = ({
                           <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                         </div>
                       ) : (
-                        <div className="w-6 h-6 rounded-full border-2 border-gray-200 flex-shrink-0" />
+                        <div className="w-6 h-6 rounded-full border-2 border-edge-default flex-shrink-0" />
                       )}
                     </motion.button>
                   );
@@ -308,16 +308,16 @@ const ReportUpdateModal = ({
 
             {/* Descrição */}
             <div className="pb-2">
-              <label className="text-[11px] font-bold text-[#6b7280] uppercase tracking-widest mb-2 block">
+              <label className="text-[11px] font-bold text-content-secondary uppercase tracking-widest mb-2 block">
                 Descrição{' '}
-                <span className="normal-case font-normal text-gray-400">(opcional)</span>
+                <span className="normal-case font-normal text-content-tertiary">(opcional)</span>
               </label>
               <textarea
                 value={message}
                 onChange={(e) => onMessageChange(e.target.value)}
                 placeholder="Descreva o que você observou no local..."
                 rows={3}
-                className="w-full px-3.5 py-3 rounded-2xl border border-gray-200 text-sm text-[#111827] placeholder-gray-300 resize-none focus:outline-none focus:border-[#b61722] focus:ring-2 focus:ring-[#b61722]/10 transition-all"
+                className="w-full px-3.5 py-3 rounded-2xl border border-edge-default bg-surface-raised text-sm text-content-primary placeholder-content-tertiary resize-none focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
               />
             </div>
           </div>
@@ -325,7 +325,7 @@ const ReportUpdateModal = ({
 
         {/* Footer */}
         <div
-          className="flex-shrink-0 bg-white border-t border-gray-100"
+          className="flex-shrink-0 bg-surface-raised border-t border-edge-subtle"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
         >
           {/* Banner do tipo selecionado */}
@@ -360,7 +360,7 @@ const ReportUpdateModal = ({
               type="button"
               variant="outline"
               onClick={onClose}
-              className="flex-1 rounded-2xl h-12 text-sm font-semibold border-gray-200"
+              className="flex-1 rounded-2xl h-12 text-sm font-semibold border-edge-default"
               disabled={submitting}
             >
               Cancelar
@@ -368,10 +368,10 @@ const ReportUpdateModal = ({
             <Button
               onClick={handleSubmit}
               disabled={!selectedType || submitting}
-              className={`flex-[2] rounded-2xl h-12 gap-2 text-sm font-bold text-white transition-all ${
+              className={`flex-[2] rounded-2xl h-12 gap-2 text-sm font-bold transition-all ${
                 selectedType
-                  ? 'bg-[#b61722] hover:bg-[#9f1520] shadow-lg shadow-red-200 active:scale-[0.98]'
-                  : 'bg-gray-200 cursor-not-allowed'
+                  ? 'bg-cta-bg border border-cta-border text-cta-fg hover:brightness-110 shadow-elevation-2 active:scale-[0.98]'
+                  : 'bg-surface-sunken text-content-tertiary cursor-not-allowed'
               }`}
             >
               {submitting ? (

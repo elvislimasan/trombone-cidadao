@@ -42,6 +42,11 @@
        quando já está abaixo da status bar. Com contentInset:'never' no iOS, este é
        o único inset aplicado (sem duplicação). */
     --header-safe-top: env(safe-area-inset-top, 0px);
+
+    /* Altura da barra do header, sem a safe area. Estava repetida como 4rem
+       literal no MobileHeader, no Header e no padding-top do <main> em App.jsx:
+       mudar a altura em um so lugar deixava um vao morto abaixo do header. */
+    --header-bar-height: 3.5rem;
   }
 
   /* Garantir que as variáveis sejam aplicadas mesmo em produção */
