@@ -42,7 +42,7 @@ const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-5 h-5', textClassNam
   );
 };
 
-const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
+const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, index = 0 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -52,6 +52,13 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   // A contagem vem do feed, mas a folha traz o numero atualizado ao abrir —
   // moderacao pode ter aprovado comentarios desde que o feed carregou.
   const [commentsCount, setCommentsCount] = useState(report.comments_count);
+  // Status local: o modal de atualizacao pode mudar o status da bronca, e o
+  // card precisa refletir isso sem esperar um refresh do feed inteiro.
+  const [localStatus, setLocalStatus] = useState(report.status);
+
+  useEffect(() => {
+    setLocalStatus(report.status);
+  }, [report.status]);
 
   useEffect(() => {
     setCommentsCount(report.comments_count);
@@ -138,7 +145,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   }, [user, report, navigate, toast]);
 
 
-  const isActive = report.status !== 'resolved' && report.status !== 'duplicate';
+  const isActive = localStatus !== 'resolved' && localStatus !== 'duplicate';
 
   return (
     <article
@@ -168,7 +175,7 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
             <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
           </span>
         </button>
-        <StatusBadge status={report.status} />
+        <StatusBadge status={localStatus} />
       </div>
 
       {/* Midia em largura cheia: a foto e a prova do problema. */}
@@ -307,7 +314,10 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
               navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
               return;
             }
-            navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
+            // Quem hospeda o modal e o FeedPage: um so modal para a lista
+            // inteira, e fora da arvore do card (que tem transform e prenderia
+            // o position:fixed do modal ao proprio card).
+            onRequestUpdate?.(report);
           }}
           className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-surface-subtle hover:bg-surface-subtleHover border-t border-edge-subtle transition-colors rounded-b-2xl group"
         >

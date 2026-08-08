@@ -609,7 +609,10 @@ function AppShell() {
     <UploadProvider>
       <SEO />
       <MobileHeaderProvider>
-        <div className="min-h-screen bg-[#F9FAFB] text-foreground flex flex-col">
+        {/* bg-surface-base em vez do #F9FAFB fixo: o padding inferior do <main>
+            (que reserva o espaco da bottom nav) deixava esse cinza claro
+            aparecer como uma faixa no tema escuro ao chegar no fim da pagina. */}
+        <div className="min-h-screen bg-surface-base text-content-primary flex flex-col">
           {(!isNative || !isInteractive) && <Header />}
           {isNative && isInteractive && <MobileHeader />}
           {!isNative && <AppDownloadBanner />}
@@ -617,8 +620,8 @@ function AppShell() {
             className="flex-grow pb-20 lg:pb-0 flex flex-col min-h-0"
             style={{
               paddingTop: (isNative && isInteractive)
-                ? 'calc(4rem + var(--header-safe-top))'
-                : 'calc(4rem + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+                ? 'calc(var(--header-bar-height) + var(--header-safe-top))'
+                : 'calc(var(--header-bar-height) + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
               paddingBottom: (isNative && isInteractive)
                 ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
                 : 'calc(5rem + env(safe-area-inset-bottom, 0px))',

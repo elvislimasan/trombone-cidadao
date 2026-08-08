@@ -1537,7 +1537,7 @@ const ReportPage = () => {
           )}
 
           {/* ── PAGE ── */}
-          <div className="bg-surface-sunken min-h-screen overflow-x-hidden">
+          <div className="bg-surface-base min-h-screen overflow-x-hidden">
             <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-4 lg:py-8 grid gap-6 grid-cols-1 lg:grid-cols-3">
               <div className="lg:col-span-2">
                 {managementPanel && (

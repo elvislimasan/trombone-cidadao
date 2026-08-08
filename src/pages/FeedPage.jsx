@@ -13,6 +13,7 @@ import FeedCard from '@/components/FeedCard';
 import FeedSkeleton from '@/components/FeedSkeleton';
 import FeedEmptyState from '@/components/FeedEmptyState';
 import ReportModal from '@/components/ReportModal';
+import FeedUpdateModal from '@/components/feed/FeedUpdateModal';
 import FeedTabs, { FEED_TABS } from '@/components/feed/FeedTabs';
 import FeedStates, { FeedFatalState, FeedLoadMoreError } from '@/components/feed/FeedStates';
 import FeedWelcomeCard from '@/components/feed/FeedWelcomeCard';
@@ -44,6 +45,10 @@ export default function FeedPage() {
 
   const [activeTab, setActiveTab] = useState('recent');
   const [showReportModal, setShowReportModal] = useState(false);
+  // O modal de atualizacao vive AQUI, nao no card: um so para a lista inteira, e
+  // fora da arvore do card — que tem transform (tc-animate-in) e prenderia o
+  // position:fixed do modal ao proprio card em vez da janela.
+  const [updateTarget, setUpdateTarget] = useState(null);
   const [recentCreatedId, setRecentCreatedId] = useState(null);
   const recentCreatedTimerRef = useRef(null);
   const preloadedImagesRef = useRef(new Set());
@@ -226,6 +231,7 @@ export default function FeedPage() {
                 key={report.id}
                 report={report}
                 onToggleUpvote={toggleUpvote}
+                onRequestUpdate={setUpdateTarget}
                 isNew={report.id === recentCreatedId}
                 index={index}
               />
@@ -256,6 +262,13 @@ export default function FeedPage() {
           </div>
         )}
       </div>
+
+      <FeedUpdateModal
+        open={!!updateTarget}
+        onClose={() => setUpdateTarget(null)}
+        report={updateTarget}
+        onStatusChange={() => refresh({ preserve: true })}
+      />
 
       {/* ── Report Modal ── */}
       {showReportModal && (

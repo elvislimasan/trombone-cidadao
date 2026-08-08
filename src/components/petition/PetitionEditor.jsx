@@ -28,6 +28,7 @@ import { PetitionTour } from './PetitionTour';
 import PetitionHero from '../petition-modern/PetitionHero';
 import PetitionContent from '../petition-modern/PetitionContent';
 import PetitionSignatureCard from '../petition-modern/PetitionSignatureCard';
+import PetitionUpdatesManager from './PetitionUpdatesManager';
 
 const ICON_MAP = {
   Users,
