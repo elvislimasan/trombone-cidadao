@@ -1,4 +1,3 @@
-import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, {
   useState,
   useEffect,
@@ -31,7 +30,6 @@ import { Combobox } from "@/components/ui/combobox";
 import {
   ArrowLeft,
   MapPin,
-  Calendar,
   ThumbsUp,
   Star,
   Share2,
@@ -39,8 +37,6 @@ import {
   MessageSquare,
   Send,
   FileSignature,
-  Hash,
-  Droplet,
   Shield,
   Edit,
   CheckCircle,
@@ -56,7 +52,6 @@ import {
   User2Icon,
   Megaphone,
   Clock,
-  Trash2,
   Loader2,
 } from "lucide-react";
 import { Share } from "@capacitor/share";
@@ -64,61 +59,23 @@ import { toPng } from "html-to-image";
 import ReportFlyerModal from "@/components/report/ReportFlyerModal";
 import ReportStoryModal from "@/components/report/ReportStoryModal";
 import ReportUpdateModal from "@/components/report/ReportUpdateModal";
+import ReportLocation from "@/components/report/ReportLocation";
+import {
+  ReportProblemDescription,
+  ReportProblemDetails,
+} from "@/components/report/ReportProblem";
+import ReportSummary from "@/components/report/ReportSummary";
+import ReportProgress from "@/components/report/ReportProgress";
+import ReportUpdates from "@/components/report/ReportUpdates";
 import { useNativeCamera } from "@/hooks/useNativeCamera";
 import {
   AlertCircle,
   Layout as LayoutIcon,
   Grid as GridIcon,
   Home,
-  Navigation,
 } from "lucide-react";
-import { MapContainer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { FLORESTA_COORDS } from "@/config/mapConfig";
 import { useMobileHeader } from "@/contexts/MobileHeaderContext";
 import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
-
-// Fix for Leaflet default icon
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
-
-const ReportMap = ({ location, address }) => {
-  const position = useMemo(() => {
-    if (
-      location &&
-      typeof location.lat === "number" &&
-      typeof location.lng === "number"
-    ) {
-      return [location.lat, location.lng];
-    }
-    return FLORESTA_COORDS;
-  }, [location]);
-
-  return (
-    <div className="h-48 w-full rounded-2xl overflow-hidden relative z-0 shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
-      <MapContainer
-        center={position}
-        zoom={15}
-        style={{ height: "100%", width: "100%" }}
-        scrollWheelZoom={false}
-      >
-        <ThemedTileLayer />
-        <Marker position={position}>
-          <Popup>{address || "Localização da Bronca"}</Popup>
-        </Marker>
-      </MapContainer>
-    </div>
-  );
-};
 
 // ─────────────────────────────────────────────
 // Main ReportPage
@@ -1848,42 +1805,15 @@ const ReportPage = () => {
                   <div className="relative -mt-5 px-3 pb-4 lg:-mt-10 lg:px-4">
                     <div className="bg-white rounded-2xl p-4 space-y-4 shadow-[0_4px_16px_-4px_rgba(25,28,30,0.08)] lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-[0_12px_32px_-4px_rgba(25,28,30,0.10)]">
 
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-[-0.02em] text-[#191c1e] leading-tight">
-                            {report.title}
-                          </h1>
-                          <span
-                            className={`hidden lg:inline-flex items-center px-3 py-1 rounded-full text-xs font-bold flex-shrink-0 ${
-                              getStatusInfo(report.status).colorClasses
-                            }`}
-                          >
-                            {getStatusInfo(report.status).text}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#6b7280]">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />
-                            <span>
-                              {formatDateTime(report.created_at).replace(",", " às")}
-                            </span>
-                          </div>
-                          {report.protocol && (
-                            <span className="bg-[#e0e3e6] px-3 py-1 rounded-full font-mono text-[10px] font-semibold text-[#191c1e] tabular-nums">
-                              #{report.protocol}
-                            </span>
-                          )}
-                        </div>
-
-                        {reportAgeStory && (
-                          <div>
-                            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg bg-muted/70 text-foreground border border-border/60">
-                              {reportAgeStory}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      <ReportSummary
+                        title={report.title}
+                        status={report.status}
+                        createdAt={report.created_at}
+                        protocol={report.protocol}
+                        reportAgeStory={reportAgeStory}
+                        getStatusInfo={getStatusInfo}
+                        formatDateTime={formatDateTime}
+                      />
 
                       {viewerMedia.length > 1 && (
                         <div>
@@ -1940,145 +1870,37 @@ const ReportPage = () => {
                         </div>
                       )}
                     {/* description */}
-                    {report.description && (
-                      <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b] mb-2">
-                          <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
-                          Descrição
-                        </div>
-                        <p className="text-sm leading-relaxed text-[#191c1e] whitespace-pre-line break-words [overflow-wrap:anywhere]">
-                          {report.description}
-                        </p>
-                      </div>
-                    )}
+                    <ReportProblemDescription description={report.description} />
 
                     {/* Map Section (Mobile Only) */}
-                    <div className="lg:hidden">
-                      <div className="bg-[#f2f4f7] rounded-2xl overflow-hidden">
-                        <div className="px-4 pt-4 pb-3 flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]">
-                            <MapPin className="w-4 h-4" strokeWidth={1.5} />
-                          </div>
-                          <h3 className="font-bold text-[#191c1e] text-sm">Localização</h3>
-                        </div>
-                        <div className="h-48 mx-3 rounded-xl overflow-hidden">
-                          <ReportMap
-                            location={report.location}
-                            address={report.address}
-                          />
-                        </div>
-                        {report.address && (
-                          <div className="mt-3 flex items-start gap-2 px-4">
-                            <MapPin className="w-4 h-4 text-[#b61722] mt-0.5 shrink-0" strokeWidth={1.5} />
-                            <p className="text-sm font-medium text-[#191c1e] leading-tight">
-                              {report.address}
-                            </p>
-                          </div>
-                        )}
-                        {report?.location?.lat && report?.location?.lng && (
-                          <div className="px-3 py-3">
-                            <button
-                              onClick={handleNavigateToReport}
-                              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white text-sm font-semibold transition-colors active:scale-[0.98]"
-                            >
-                              <Navigation className="w-4 h-4" strokeWidth={1.5} />
-                              Traçar Rota
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <ReportLocation
+                      location={report.location}
+                      address={report.address}
+                      onNavigate={handleNavigateToReport}
+                      variant="mobile"
+                    />
 
                     {/* details */}
-                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4 space-y-3">
-                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
-                        <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
-                        Informações
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {[
-                          {
-                            icon: <Calendar className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
-                            label: "Cadastrado",
-                            value: formatDateTime(report.created_at).replace(",", " às"),
-                          },
-                          report.category === "buracos" && {
-                            icon: <Droplet className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
-                            label: `Abertura ${waterUtilityName || "COMPESA"}`,
-                            value: isFromWaterUtility ? "Sim" : "Não",
-                          },
-                          report.category === "iluminacao" && {
-                            icon: <AlertCircle className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
-                            label: "Tipo",
-                            value: report.issue_type
-                              ? getLightingIssueTypeLabel(report.issue_type)
-                              : "—",
-                          },
-                          report.category === "iluminacao" && {
-                            icon: <Hash className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
-                            label: "Poste / plaqueta",
-                            value:
-                              formatPoleLabel(
-                                report?.pole?.plate ||
-                                  report?.pole?.identifier ||
-                                  report?.pole_number ||
-                                  report?.reported_plate ||
-                                  report?.reported_post_identifier
-                              ) || "—",
-                          },
-                        ]
-                          .filter(Boolean)
-                          .map((item, i) => (
-                            <div
-                              key={i}
-                              className="flex items-center gap-3 bg-white px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]"
-                            >
-                              <div className="w-8 h-8 rounded-lg bg-[#b61722]/10 flex items-center justify-center flex-shrink-0">
-                                {item.icon}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-semibold text-[#6b7280] leading-tight">
-                                  {item.label}
-                                </div>
-                                <div className="text-xs text-[#191c1e] break-words leading-tight">
-                                  {item.value}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
+                    <ReportProblemDetails
+                      category={report.category}
+                      createdAt={report.created_at}
+                      waterUtilityName={waterUtilityName}
+                      isFromWaterUtility={isFromWaterUtility}
+                      issueType={report.issue_type}
+                      pole={report.pole}
+                      poleNumber={report.pole_number}
+                      reportedPlate={report.reported_plate}
+                      reportedPostIdentifier={report.reported_post_identifier}
+                      formatDateTime={formatDateTime}
+                      getLightingIssueTypeLabel={getLightingIssueTypeLabel}
+                      formatPoleLabel={formatPoleLabel}
+                    />
 
                     {/* timeline */}
-                    {report.timeline && report.timeline.length > 0 && (
-                      <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b] mb-3">
-                          <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
-                          Atualizações
-                        </div>
-                        <div className="relative pl-4">
-                          <div className="absolute left-1 top-1 bottom-1 w-px bg-[#b61722]/20" />
-                          <div className="space-y-4">
-                            {report.timeline.map((item) => (
-                              <div
-                                key={item.id}
-                                className="relative flex gap-3"
-                              >
-                                <div className="mt-1 w-3 h-3 rounded-full bg-[#b61722] border-2 border-white shadow-sm ring-2 ring-[#b61722]/30" />
-                                <div>
-                                  <div className="text-[11px] text-[#6b7280]">
-                                    {formatDateTime(item.date)}
-                                  </div>
-                                  <div className="text-sm font-medium text-[#191c1e] leading-snug">
-                                    {item.description}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <ReportProgress
+                      timeline={report.timeline}
+                      formatDateTime={formatDateTime}
+                    />
 
                     {/* admin actions */}
                     {(isAdmin || isPublicOfficial) && (
@@ -2280,275 +2102,30 @@ const ReportPage = () => {
                     </section>
 
                     {/* ── COMMUNITY UPDATES ── */}
-                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-1.5">
-                          <Megaphone className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
-                          <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
-                            Atualizações
-                          </h2>
-                          {visibleUpdates.length > 0 && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-white font-semibold text-[#6b7280]">
-                              {visibleUpdates.length}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Send button or rate-limit info */}
-                        {user ? (
-                          canSendAnyUpdate ? (
-                            <button
-                              type="button"
-                              onClick={() => setShowUpdateModal(true)}
-                              className="text-[11px] font-semibold text-[#b61722] hover:underline"
-                            >
-                              + Enviar atualização
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-[#9b9fa3]">
-                              disponível {nextAvailableLabel}
-                            </span>
-                          )
-                        ) : null}
-                      </div>
-
-                      {/* Update list */}
-                      {visibleUpdates.length === 0 ? (
-                        <div className="py-3 flex items-center gap-3">
-                          <p className="text-xs text-[#9b9fa3] flex-1">
-                            Esteve no local? Informe o status atual.
-                          </p>
-                          {/* Usuário logado já tem o botão "+ Enviar atualização" no header acima;
-                              aqui mostramos apenas o atalho de login para quem está deslogado. */}
-                          {!user && (
-                            <Link
-                              to="/login"
-                              className="text-[11px] font-semibold text-[#b61722] hover:underline whitespace-nowrap"
-                            >
-                              Fazer login
-                            </Link>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="space-y-2">
-                            {(showAllUpdates
-                              ? visibleUpdates
-                              : visibleUpdates.slice(0, UPDATES_VISIBLE_COUNT)
-                            ).map((upd) => {
-                              const typeInfo = getUpdateTypeInfo(upd.update_type);
-                              const TypeIcon = typeInfo.Icon;
-                              const isOwnPending =
-                                upd.status === "pending" && upd.author_id === user?.id;
-                              const isPendingModeration = upd.status === "pending_moderation";
-                              const isRejected = upd.status === "rejected";
-                              const canConfirm = canConfirmUpdate(upd);
-                              const isConfirming = confirmingUpdateId === upd.id;
-                              const isDeleting = deletingUpdateId === upd.id;
-                              const canDelete = canDeleteUpdate(upd);
-                              const confirmStatusText = getStatusInfo(
-                                upd.update_type === "solved" && isAdmin
-                                  ? "resolved"
-                                  : typeInfo.reportStatus
-                              ).text;
-                              return (
-                                <div key={upd.id} className={`rounded-2xl border overflow-hidden ${typeInfo.cardBorder} ${typeInfo.cardBg}`}>
-
-                                  {/* Main row */}
-                                  <div className="flex items-start gap-3 px-3.5 pt-3 pb-3">
-                                    {/* Icon */}
-                                    <div className={`w-9 h-9 rounded-xl ${typeInfo.iconBg} flex items-center justify-center flex-shrink-0`}>
-                                      <TypeIcon className={`w-4.5 h-4.5 ${typeInfo.color}`} strokeWidth={2.5} />
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-start justify-between gap-2">
-                                        <span className={`text-[13px] font-bold leading-tight ${typeInfo.color}`}>
-                                          {typeInfo.label}
-                                        </span>
-                                        {upd.status === "confirmed" && (
-                                          <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                            <CheckCircle className="w-3 h-3" strokeWidth={2.5} />
-                                            Confirmada
-                                          </span>
-                                        )}
-                                        {isPendingModeration && (
-                                          <span className="flex-shrink-0 text-[10px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
-                                            Em moderação
-                                          </span>
-                                        )}
-                                        {isOwnPending && (
-                                          <span className="flex-shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                                            Aguardando
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      {upd.message && (
-                                        <p className="text-xs text-[#374151] mt-1 leading-relaxed">
-                                          {upd.message}
-                                        </p>
-                                      )}
-
-                                      {/* Inline photo thumbnails — click to expand */}
-                                      {upd.media && upd.media.length > 0 && (
-                                        <div className="flex gap-2 mt-2 flex-wrap">
-                                          {upd.media.slice(0, 4).map((m, idx) => (
-                                            <button
-                                              key={m.id}
-                                              type="button"
-                                              onClick={() =>
-                                                setUpdateMediaViewer({
-                                                  isOpen: true,
-                                                  media: upd.media.map((mm) => ({ ...mm, url: mm.url, type: 'image' })),
-                                                  startIndex: idx,
-                                                })
-                                              }
-                                              className="relative flex-shrink-0 hover:opacity-90 transition-opacity"
-                                            >
-                                              <img
-                                                src={m.url}
-                                                alt=""
-                                                className="w-20 h-20 rounded-xl object-cover"
-                                                loading="lazy"
-                                              />
-                                              {idx === 3 && upd.media.length > 4 && (
-                                                <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
-                                                  <span className="text-white text-xs font-bold">+{upd.media.length - 4}</span>
-                                                </div>
-                                              )}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      )}
-
-                                      {/* Autor + data */}
-                                      <div className="mt-2 flex items-start justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <span className="text-[10px] text-[#6b7280]">
-                                            {upd.author?.name || "Usuário"}
-                                          </span>
-                                          <span className="text-[10px] text-[#9b9fa3] ml-1">
-                                            · {formatRelativeDate(upd.created_at)}
-                                          </span>
-                                          <span className="text-[10px] text-[#b0b5bc] ml-1 hidden sm:inline">
-                                            · {formatDateTime(upd.created_at).replace(",", " às")}
-                                          </span>
-                                          {/* data completa em linha própria no mobile */}
-                                          <div className="text-[10px] text-[#b0b5bc] sm:hidden">
-                                            {formatDateTime(upd.created_at).replace(",", " às")}
-                                          </div>
-                                        </div>
-
-                                        {/* Ações: confirmar ou excluir — nunca os dois ao mesmo tempo */}
-                                        {!isDeleting && canConfirm && !isConfirming && (
-                                          <div className="flex items-center gap-2 flex-shrink-0">
-                                            {canDelete && (
-                                              <button
-                                                type="button"
-                                                onClick={() => { setConfirmingUpdateId(null); setDeletingUpdateId(upd.id); }}
-                                                className="p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                                                title="Excluir atualização"
-                                              >
-                                                <Trash2 className="w-3 h-3" />
-                                              </button>
-                                            )}
-                                            <button
-                                              type="button"
-                                              onClick={() => setConfirmingUpdateId(upd.id)}
-                                              className={`text-[11px] font-bold ${typeInfo.color} underline underline-offset-2 hover:opacity-70 transition-opacity`}
-                                            >
-                                              Confirmar →
-                                            </button>
-                                          </div>
-                                        )}
-                                        {!isDeleting && canDelete && !canConfirm && !isConfirming && (
-                                          <button
-                                            type="button"
-                                            onClick={() => setDeletingUpdateId(upd.id)}
-                                            className="flex-shrink-0 p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                                            title="Excluir atualização"
-                                          >
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        )}
-
-                                        {/* Confirmação de exclusão inline */}
-                                        {isDeleting && (
-                                          <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                                            <span className="text-[10px] text-[#6b7280] text-right">Excluir esta atualização?</span>
-                                            <div className="flex items-center gap-2">
-                                              <button type="button" onClick={() => setDeletingUpdateId(null)} className="text-[10px] text-[#9b9fa3]">
-                                                Cancelar
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => { setDeletingUpdateId(null); handleDeleteUpdate(upd); }}
-                                                className="text-[10px] font-bold text-white bg-red-500 px-2.5 py-1 rounded-full"
-                                              >
-                                                Excluir
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {/* Confirmação de confirmação inline */}
-                                        {canConfirm && isConfirming && (
-                                          <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                                            <span className="text-[10px] text-[#6b7280] text-right">
-                                              Muda para <strong>"{confirmStatusText}"</strong>
-                                            </span>
-                                            <div className="flex items-center gap-2">
-                                              <button type="button" onClick={() => setConfirmingUpdateId(null)} className="text-[10px] text-[#9b9fa3]">
-                                                Cancelar
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => { setConfirmingUpdateId(null); handleConfirmUpdate(upd); }}
-                                                className="text-[10px] font-bold text-white bg-[#b61722] px-2.5 py-1 rounded-full"
-                                              >
-                                                Confirmar
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Expand / collapse */}
-                          {visibleUpdates.length > UPDATES_VISIBLE_COUNT && (
-                            <button
-                              type="button"
-                              onClick={() => setShowAllUpdates((v) => !v)}
-                              className="mt-2 w-full text-center text-[11px] font-semibold text-[#6b7280] hover:text-[#191c1e] py-1.5 border-t border-gray-200 transition-colors"
-                            >
-                              {showAllUpdates
-                                ? "Ver menos"
-                                : `Ver mais ${visibleUpdates.length - UPDATES_VISIBLE_COUNT} atualização${
-                                    visibleUpdates.length - UPDATES_VISIBLE_COUNT > 1 ? "s" : ""
-                                  }`}
-                            </button>
-                          )}
-
-                          {/* Login prompt for guests */}
-                          {!user && (
-                            <p className="mt-3 pt-3 border-t border-gray-200 text-center text-[11px] text-[#9b9fa3]">
-                              <Link to="/login" className="font-semibold text-[#b61722] hover:underline">
-                                Faça login
-                              </Link>{" "}
-                              para enviar uma atualização
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
+                    <ReportUpdates
+                      user={user}
+                      isAdmin={isAdmin}
+                      visibleUpdates={visibleUpdates}
+                      showAllUpdates={showAllUpdates}
+                      setShowAllUpdates={setShowAllUpdates}
+                      canSendAnyUpdate={canSendAnyUpdate}
+                      nextAvailableLabel={nextAvailableLabel}
+                      setShowUpdateModal={setShowUpdateModal}
+                      UPDATES_VISIBLE_COUNT={UPDATES_VISIBLE_COUNT}
+                      confirmingUpdateId={confirmingUpdateId}
+                      setConfirmingUpdateId={setConfirmingUpdateId}
+                      deletingUpdateId={deletingUpdateId}
+                      setDeletingUpdateId={setDeletingUpdateId}
+                      canConfirmUpdate={canConfirmUpdate}
+                      canDeleteUpdate={canDeleteUpdate}
+                      handleConfirmUpdate={handleConfirmUpdate}
+                      handleDeleteUpdate={handleDeleteUpdate}
+                      getUpdateTypeInfo={getUpdateTypeInfo}
+                      getStatusInfo={getStatusInfo}
+                      formatRelativeDate={formatRelativeDate}
+                      formatDateTime={formatDateTime}
+                      setUpdateMediaViewer={setUpdateMediaViewer}
+                    />
 
                     {/* comments */}
                     <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
@@ -2706,42 +2283,12 @@ const ReportPage = () => {
                 </div>
 
                 {/* Map Card (Desktop Only) */}
-                <div className="hidden lg:block bg-white rounded-2xl shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] overflow-hidden">
-                  <div className="px-4 pt-4 pb-3 flex items-center gap-3">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#f2f4f7] text-[#b61722]">
-                      <MapPin className="w-4 h-4" strokeWidth={1.5} />
-                    </div>
-                    <h3 className="font-bold text-[#191c1e] text-sm">Localização</h3>
-                  </div>
-                  <div className="h-48 mx-3 rounded-xl overflow-hidden">
-                    <ReportMap
-                      location={report.location}
-                      address={report.address}
-                    />
-                  </div>
-                  <div className="px-4 py-4 bg-[#f7f9fc] space-y-3">
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-4 h-4 text-[#b61722] mt-0.5 shrink-0" strokeWidth={1.5} />
-                      <div>
-                        <span className="text-[10px] font-bold text-[#6b7280] uppercase tracking-wider block">
-                          Endereço
-                        </span>
-                        <p className="text-sm font-medium text-[#191c1e] leading-tight">
-                          {report.address || "Não informado"}
-                        </p>
-                      </div>
-                    </div>
-                    {report?.location?.lat && report?.location?.lng && (
-                      <button
-                        onClick={handleNavigateToReport}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white text-sm font-semibold transition-colors"
-                      >
-                        <Navigation className="w-4 h-4" strokeWidth={1.5} />
-                        Traçar Rota
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <ReportLocation
+                  location={report.location}
+                  address={report.address}
+                  onNavigate={handleNavigateToReport}
+                  variant="desktop"
+                />
 
                 {managementPanel && (
                   <div className="hidden lg:block">{managementPanel}</div>
