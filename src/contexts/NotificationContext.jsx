@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useAuth } from './SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { uniqueChannelTopic } from '@/lib/utils';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 
@@ -170,7 +171,7 @@ export const NotificationProvider = ({ children }) => {
 
     // Criar novo canal real-time
     const channel = supabase
-      .channel(`context-notifications:${user.id}`)
+      .channel(uniqueChannelTopic(`context-notifications:${user.id}`))
       .on(
         'postgres_changes',
         {

@@ -11,6 +11,7 @@ import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { uniqueChannelTopic } from '@/lib/utils';
 import FeedCard from '@/components/FeedCard';
 import FeedSkeleton from '@/components/FeedSkeleton';
 import FeedEmptyState from '@/components/FeedEmptyState';
@@ -131,7 +132,7 @@ export default function FeedPage() {
   const loadedAtRef = useRef(new Date().toISOString());
   useEffect(() => {
     const channel = supabase
-      .channel('feed-new-reports')
+      .channel(uniqueChannelTopic('feed-new-reports'))
       .on(
         'postgres_changes',
         {

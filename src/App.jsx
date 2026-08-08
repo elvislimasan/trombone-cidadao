@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Toaster } from '@/components/ui/toaster';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import {Toaster as SonnerToast} from 'sonner'
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -625,6 +626,9 @@ function AppShell() {
           >
             <div className="flex-1 min-h-0 flex flex-col">
               <PendingInviteBanner />
+              {/* key={pathname}: remonta o boundary a cada navegação, senão a tela
+                  de erro persistiria mesmo depois de sair da rota que quebrou. */}
+              <ErrorBoundary key={location.pathname}>
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
@@ -696,6 +700,7 @@ function AppShell() {
               <Route path="/settings/notifications" element={<NotificationPreferences />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+              </ErrorBoundary>
             </div>
           </main>
           {(!isNative || !isInteractive) && <Footer />}
