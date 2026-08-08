@@ -34,8 +34,8 @@ export function useReportPermissions(report) {
     !!report && report.category === 'buracos' && canEditCategory;
   const canMarkResolved = canChangeStatus;
 
-  // Confirmar uma atualizacao (equivalente a "editar" o status que ela propoe).
-  const canEditUpdate = (upd) =>
+  // Confirmar uma atualizacao pendente. Nao existe "editar atualizacao" no app.
+  const canConfirmUpdate = (upd) =>
     !!upd &&
     upd.status === 'pending' &&
     !!user &&
@@ -93,7 +93,7 @@ export function useReportPermissions(report) {
     canEditCategory,
     canEditWaterUtility,
     canMarkResolved,
-    canEditUpdate,
+    canConfirmUpdate,
     canDeleteUpdate,
   };
 }

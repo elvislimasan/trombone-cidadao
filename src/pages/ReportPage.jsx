@@ -169,7 +169,7 @@ const ReportPage = () => {
     canEditCategory,
     canEditWaterUtility,
     canMarkResolved,
-    canEditUpdate,
+    canConfirmUpdate,
     canDeleteUpdate,
   } = useReportPermissions(report);
 
@@ -2343,7 +2343,7 @@ const ReportPage = () => {
                                 upd.status === "pending" && upd.author_id === user?.id;
                               const isPendingModeration = upd.status === "pending_moderation";
                               const isRejected = upd.status === "rejected";
-                              const canConfirm = canEditUpdate(upd);
+                              const canConfirm = canConfirmUpdate(upd);
                               const isConfirming = confirmingUpdateId === upd.id;
                               const isDeleting = deletingUpdateId === upd.id;
                               const canDelete = canDeleteUpdate(upd);
