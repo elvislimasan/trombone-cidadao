@@ -9,11 +9,22 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 
 const AmbassadorPage = () => {
   const { user } = useAuth();
+  const { canWrite } = usePermissions();
+
+  // Menu "Gerenciar": só os módulos que o usuário pode alterar. Sem nenhum,
+  // o menu inteiro some.
+  const manageLinks = [
+    { module: 'works',    to: '/obras/gerenciar',            Icon: ImageIcon, label: 'Obras públicas' },
+    { module: 'pavement', to: '/pavimentacao/gerenciar',     Icon: Route,     label: 'Pavimentação' },
+    { module: 'rentals',  to: '/imoveis-alugados/gerenciar', Icon: Building,  label: 'Imóveis alugados' },
+    { module: 'services', to: '/servicos/gerenciar',         Icon: Briefcase, label: 'Serviços' },
+  ].filter((l) => canWrite(l.module));
   const { toast } = useToast();
   const navigate = useNavigate();
   const [showOnboardingBanner, setShowOnboardingBanner] = useState(
@@ -278,37 +289,26 @@ const AmbassadorPage = () => {
               </div>
             </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
-                  <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Gerenciar</span>
-                  <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem asChild>
-                  <Link to="/obras/gerenciar" className="gap-2 cursor-pointer">
-                    <ImageIcon className="w-4 h-4" /> Obras públicas
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/pavimentacao/gerenciar" className="gap-2 cursor-pointer">
-                    <Route className="w-4 h-4" /> Pavimentação
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/imoveis-alugados/gerenciar" className="gap-2 cursor-pointer">
-                    <Building className="w-4 h-4" /> Imóveis alugados
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/servicos/gerenciar" className="gap-2 cursor-pointer">
-                    <Briefcase className="w-4 h-4" /> Serviços
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {manageLinks.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                    <Settings className="w-4 h-4" />
+                    <span className="hidden sm:inline">Gerenciar</span>
+                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {manageLinks.map(({ to, Icon, label }) => (
+                    <DropdownMenuItem asChild key={to}>
+                      <Link to={to} className="gap-2 cursor-pointer">
+                        <Icon className="w-4 h-4" /> {label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {totalPending > 0 ? (

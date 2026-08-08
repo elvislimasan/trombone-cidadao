@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { uniqueChannelTopic } from '@/lib/utils';
 
 export function useFeedRealtime() {
   const [newCount, setNewCount] = useState(0);
@@ -7,7 +8,9 @@ export function useFeedRealtime() {
 
   useEffect(() => {
     const channel = supabase
-      .channel('feed-new-reports')
+      // Topico unico por instancia: canal com nome fixo colide entre abas
+      // e entre montagens, e o Supabase descarta a inscricao duplicada.
+      .channel(uniqueChannelTopic('feed-new-reports'))
       .on(
         'postgres_changes',
         {

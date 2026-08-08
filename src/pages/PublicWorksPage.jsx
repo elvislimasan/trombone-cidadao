@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import { useCity } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, onSelectionChange, searchPlaceholder }) => {
   const Icon = triggerIcon;
@@ -77,6 +78,7 @@ const PublicWorksPage = () => {
   const { toast } = useToast();
   const { activeCityId } = useCity();
   const { user } = useAuth();
+  const { canWrite } = usePermissions();
   const mapViewRef = useRef();
   const listTopRef = useRef();
 
@@ -85,8 +87,9 @@ const PublicWorksPage = () => {
   const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
   const canManageWorks = Boolean(
-    user?.is_admin || user?.is_master ||
-    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
+    (user?.is_admin || user?.is_master ||
+      (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId))))
+    && canWrite('works')
   );
 
   useEffect(() => {

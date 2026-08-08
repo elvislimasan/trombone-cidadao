@@ -4,28 +4,44 @@ import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import * as LucideIcons from 'lucide-react';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 
+// `module`: quando presente, o card só aparece se o usuário puder alterar
+// aquele módulo (painel /admin/permissoes). Sem `module`, aparece sempre.
+// `masterOnly`: restrito a master.
 const adminLinks = [
-  { to: '/admin/moderacao/broncas', icon: 'ShieldCheck', title: 'Moderação de Broncas', description: 'Aprove ou rejeite novas broncas.' },
-  { to: '/admin/moderacao/atualizacoes', icon: 'Megaphone', title: 'Moderar Atualizações', description: 'Revise atualizações de bronca antes de publicar.' },
-  { to: '/admin/moderacao/resolucoes', icon: 'ShieldCheck', title: 'Moderar resoluções', description: 'Aprove ou rejeite provas de resolução' },
+  { to: '/admin/moderacao/broncas', icon: 'ShieldCheck', title: 'Moderação de Broncas', description: 'Aprove ou rejeite novas broncas.', module: 'moderation' },
+  { to: '/admin/moderacao/atualizacoes', icon: 'Megaphone', title: 'Moderar Atualizações', description: 'Revise atualizações de bronca antes de publicar.', module: 'moderation' },
+  { to: '/admin/moderacao/resolucoes', icon: 'ShieldCheck', title: 'Moderar resoluções', description: 'Aprove ou rejeite provas de resolução', module: 'moderation' },
   { to: '/admin/usuarios', icon: 'Users', title: 'Gerenciar Usuários', description: 'Adicione, edite e remova usuários.' },
-  { to: '/admin/moderacao/peticoes', icon: 'ShieldCheck', title: 'Moderar Petições', description: 'Aprove ou rejeite petições pendentes.' },
+  { to: '/admin/moderacao/peticoes', icon: 'ShieldCheck', title: 'Moderar Petições', description: 'Aprove ou rejeite petições pendentes.', module: 'moderation' },
   { to: '/admin/assinaturas', icon: 'FileSignature', title: 'Gerenciar Petições', description: 'Acompanhe abaixo-assinados publicados.' },
-  { to: '/admin/broncas', icon: 'Megaphone', title: 'Gerenciar Broncas', description: 'Edite ou remova broncas publicadas.' },
+  { to: '/admin/broncas', icon: 'Megaphone', title: 'Gerenciar Broncas', description: 'Edite ou remova broncas publicadas.', module: 'moderation' },
   { to: '/admin/categorias', icon: 'BookMarked', title: 'Categorias (Broncas)', description: 'Gerencie as categorias das broncas.' },
-  { to: '/admin/obras', icon: 'Construction', title: 'Gerenciar Obras', description: 'Adicione e atualize obras públicas.' },
-  { to: '/admin/moderacao/obras-midias', icon: 'ShieldCheck', title: 'Moderar Mídias de Obras', description: 'Aprove ou rejeite fotos e vídeos enviados.' },
-  { to: '/admin/obras/opcoes', icon: 'ListChecks', title: 'Opções de Obras', description: 'Gerencie categorias e áreas das obras.' },
-  { to: '/admin/pavimentacao', icon: 'Route', title: 'Gerenciar Pavimentação', description: 'Atualize o status das ruas.' },
-  { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Serviços', description: 'Adicione e edite serviços e diretórios.' },
+  { to: '/admin/obras', icon: 'Construction', title: 'Gerenciar Obras', description: 'Adicione e atualize obras públicas.', module: 'works' },
+  { to: '/admin/moderacao/obras-midias', icon: 'ShieldCheck', title: 'Moderar Mídias de Obras', description: 'Aprove ou rejeite fotos e vídeos enviados.', module: 'moderation' },
+  { to: '/admin/obras/opcoes', icon: 'ListChecks', title: 'Opções de Obras', description: 'Gerencie categorias e áreas das obras.', module: 'works' },
+  { to: '/admin/pavimentacao', icon: 'Route', title: 'Gerenciar Pavimentação', description: 'Atualize o status das ruas.', module: 'pavement' },
+  { to: '/admin/imoveis-alugados', icon: 'Building', title: 'Gerenciar Imóveis Alugados', description: 'Cadastre imóveis e contratos de aluguel.', module: 'rentals' },
+  { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Serviços', description: 'Adicione e edite serviços e diretórios.', module: 'services' },
   { to: '/admin/noticias', icon: 'Newspaper', title: 'Gerenciar Notícias', description: 'Publique e edite notícias.' },
   { to: '/admin/embaixadores', icon: 'ShieldCheck', title: 'Gestão de Embaixadores', description: 'Convites, embaixadores ativos e promoções de masters.' },
+  { to: '/admin/permissoes', icon: 'ShieldCheck', title: 'Permissões', description: 'Defina quem pode alterar cada módulo.', masterOnly: true },
   { to: '/admin/configuracoes', icon: 'Settings', title: 'Configurações do Site', description: 'Personalize a aparência do site.' },
   { to: '/admin/lixeira', icon: 'Trash2', title: 'Lixeira', description: 'Gerencie broncas rejeitadas.' },
 ];
 
 const AdminPage = () => {
+  const { user } = useAuth();
+  const { canWrite } = usePermissions();
+
+  const visibleLinks = adminLinks.filter((link) => {
+    if (link.masterOnly && !user?.is_master) return false;
+    if (link.module && !canWrite(link.module)) return false;
+    return true;
+  });
+
   return (
     <>
       <Helmet>
@@ -43,7 +59,7 @@ const AdminPage = () => {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {adminLinks.map((link, index) => {
+          {visibleLinks.map((link, index) => {
             const Icon = LucideIcons[link.icon] || LucideIcons.HelpCircle;
             return (
               <motion.div

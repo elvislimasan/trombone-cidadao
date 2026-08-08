@@ -12,6 +12,7 @@ import RentalPropertiesMapView from '@/components/RentalPropertiesMapView';
 import CitySelector from '@/components/CitySelector';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
@@ -35,6 +36,7 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
 const RentalPropertiesPage = () => {
   const { activeCityId, activeCityName } = useCity();
   const { user } = useAuth();
+  const { canWrite } = usePermissions();
   const { toast } = useToast();
   const navigate = useNavigate();
   // Admin/master gerenciam qualquer cidade. Embaixador puro só pode gerenciar
@@ -43,8 +45,9 @@ const RentalPropertiesPage = () => {
   const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
   const canManageProperties = Boolean(
-    user?.is_admin || user?.is_master ||
-    (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId)))
+    (user?.is_admin || user?.is_master ||
+      (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId))))
+    && canWrite('rentals')
   );
 
   useEffect(() => {

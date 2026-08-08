@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Toaster } from '@/components/ui/toaster';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import {Toaster as SonnerToast} from 'sonner'
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -80,6 +81,8 @@ import CompleteProfilePage from '@/pages/CompleteProfilePage';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 import PendingInviteBanner from '@/components/PendingInviteBanner';
+import { usePermissions } from '@/hooks/usePermissions';
+import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
 
 const SEO = () => {
   const location = useLocation();
@@ -246,6 +249,26 @@ const AmbassadorOrAdminRoute = ({ children }) => {
   return allowed
     ? children
     : <Navigate to={user ? '/' : '/login'} replace state={!user ? { from: location } : undefined} />;
+};
+
+const MasterRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
+  return user?.is_master
+    ? children
+    : <Navigate to={user ? '/' : '/login'} replace state={!user ? { from: location } : undefined} />;
+};
+
+// Camada de permissão por módulo sobre o guard de papel: o papel continua
+// sendo pré-requisito, e a permissão (painel /admin/permissoes) pode revogar
+// o acesso de escrita mesmo de quem tem o papel.
+const ModuleRoute = ({ module, adminOnly = false, children }) => {
+  const { canWrite, loading } = usePermissions();
+  const Guard = adminOnly ? AdminRoute : AmbassadorOrAdminRoute;
+  if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
+  if (!canWrite(module)) return <Navigate to="/" replace />;
+  return <Guard>{children}</Guard>;
 };
 
 function AppShell() {
@@ -603,6 +626,9 @@ function AppShell() {
           >
             <div className="flex-1 min-h-0 flex flex-col">
               <PendingInviteBanner />
+              {/* key={pathname}: remonta o boundary a cada navegação, senão a tela
+                  de erro persistiria mesmo depois de sair da rota que quebrou. */}
+              <ErrorBoundary key={location.pathname}>
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
@@ -646,22 +672,23 @@ function AppShell() {
               <Route path="/excluir-conta" element={<PrivateRoute><DeleteAccountPage /></PrivateRoute>} />
               
               <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
-              <Route path="/admin/moderacao/:type" element={<AdminRoute><ModerationPage /></AdminRoute>} />
+              <Route path="/admin/moderacao/:type" element={<ModuleRoute module="moderation" adminOnly><ModerationPage /></ModuleRoute>} />
               <Route path="/admin/usuarios" element={<AdminRoute><ManageUsersPage /></AdminRoute>} />
-              <Route path="/admin/servicos" element={<AdminRoute><ManageServicesPage /></AdminRoute>} />
-              <Route path="/servicos/gerenciar" element={<AmbassadorOrAdminRoute><ManageServicesPage /></AmbassadorOrAdminRoute>} />
+              <Route path="/admin/permissoes" element={<MasterRoute><ManagePermissionsPage /></MasterRoute>} />
+              <Route path="/admin/servicos" element={<ModuleRoute module="services" adminOnly><ManageServicesPage /></ModuleRoute>} />
+              <Route path="/servicos/gerenciar" element={<ModuleRoute module="services"><ManageServicesPage /></ModuleRoute>} />
               <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
-              <Route path="/admin/obras" element={<AdminRoute><ManageWorksPage /></AdminRoute>} />
-              <Route path="/obras/gerenciar" element={<AmbassadorOrAdminRoute><ManageWorksPage /></AmbassadorOrAdminRoute>} />
-              <Route path="/admin/imoveis-alugados" element={<AdminRoute><ManageRentalPropertiesPage /></AdminRoute>} />
-              <Route path="/imoveis-alugados/gerenciar" element={<AmbassadorOrAdminRoute><ManageRentalPropertiesPage /></AmbassadorOrAdminRoute>} />
-              <Route path="/admin/obras/opcoes" element={<AdminRoute><ManageWorkOptionsPage /></AdminRoute>} />
-              <Route path="/admin/pavimentacao" element={<AdminRoute><ManagePavementPage /></AdminRoute>} />
-              <Route path="/pavimentacao/gerenciar" element={<AmbassadorOrAdminRoute><ManagePavementPage /></AmbassadorOrAdminRoute>} />
+              <Route path="/admin/obras" element={<ModuleRoute module="works" adminOnly><ManageWorksPage /></ModuleRoute>} />
+              <Route path="/obras/gerenciar" element={<ModuleRoute module="works"><ManageWorksPage /></ModuleRoute>} />
+              <Route path="/admin/imoveis-alugados" element={<ModuleRoute module="rentals" adminOnly><ManageRentalPropertiesPage /></ModuleRoute>} />
+              <Route path="/imoveis-alugados/gerenciar" element={<ModuleRoute module="rentals"><ManageRentalPropertiesPage /></ModuleRoute>} />
+              <Route path="/admin/obras/opcoes" element={<ModuleRoute module="works" adminOnly><ManageWorkOptionsPage /></ModuleRoute>} />
+              <Route path="/admin/pavimentacao" element={<ModuleRoute module="pavement" adminOnly><ManagePavementPage /></ModuleRoute>} />
+              <Route path="/pavimentacao/gerenciar" element={<ModuleRoute module="pavement"><ManagePavementPage /></ModuleRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
               <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
-              <Route path="/admin/reports" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
-              <Route path="/admin/broncas" element={<AdminRoute><ManageReportsPage /></AdminRoute>} />
+              <Route path="/admin/reports" element={<ModuleRoute module="moderation" adminOnly><ManageReportsPage /></ModuleRoute>} />
+              <Route path="/admin/broncas" element={<ModuleRoute module="moderation" adminOnly><ManageReportsPage /></ModuleRoute>} />
               <Route path="/admin/petitions" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
               <Route path="/admin/assinaturas" element={<AdminRoute><ManagePetitionsPage /></AdminRoute>} />
               <Route path="/admin/signatures" element={<Navigate to="/admin/petitions" replace />} />
@@ -673,6 +700,7 @@ function AppShell() {
               <Route path="/settings/notifications" element={<NotificationPreferences />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+              </ErrorBoundary>
             </div>
           </main>
           {(!isNative || !isInteractive) && <Footer />}
