@@ -48,10 +48,9 @@ import java.net.URL
             strings = [Manifest.permission.CAMERA],
             alias = "camera"
         ),
-        Permission(
-            strings = [Manifest.permission.READ_MEDIA_VIDEO],
-            alias = "storage_video"
-        ),
+        // Sem READ_MEDIA_VIDEO: no Android 13+ o pickVideo() usa o Photo Picker
+        // (ACTION_PICK_IMAGES), que não exige permissão. Declarar a permissão aqui
+        // faria o Gradle reintroduzi-la no manifesto e violaria a política do Play.
         Permission(
             strings = [Manifest.permission.READ_EXTERNAL_STORAGE],
             alias = "storage"

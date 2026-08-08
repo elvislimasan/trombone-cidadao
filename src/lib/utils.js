@@ -156,3 +156,19 @@ export function getNextSignatureGoal(currentSignatures, baseGoal = 100) {
   }
   return goal;
 }
+
+/**
+ * Gera um topic único para canais Realtime do Supabase.
+ *
+ * `supabase.channel(topic)` REUTILIZA um canal já registrado quando o topic é
+ * igual, e `removeChannel()` é assíncrono. Se um efeito re-executar antes do
+ * unsubscribe anterior terminar, o canal devolvido ainda está em `joining` —
+ * e chamar `.on('postgres_changes', ...)` nesse estado lança
+ * "cannot add `postgres_changes` callbacks ... after `subscribe()`",
+ * derrubando a árvore React inteira (tela branca).
+ *
+ * Sufixar o topic garante que cada montagem tenha seu próprio canal.
+ */
+export function uniqueChannelTopic(prefix) {
+  return `${prefix}:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}

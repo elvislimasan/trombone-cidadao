@@ -15,7 +15,7 @@ import RankingSidebar from '@/components/RankingSidebar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Progress } from '@/components/ui/progress';
-import { getNextSignatureGoal } from '@/lib/utils';
+import { getNextSignatureGoal, uniqueChannelTopic } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -284,7 +284,7 @@ function HomePage() {
     
     // Configurar realtime subscription
     try {
-      channel = supabase.channel('realtime reports')
+      channel = supabase.channel(uniqueChannelTopic('realtime reports'))
         .on('postgres_changes', 
           { 
             event: '*', 

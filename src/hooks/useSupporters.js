@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { uniqueChannelTopic } from '@/lib/utils';
 
 export const useSupporters = (reportId) => {
   const [supporters, setSupporters] = useState([]);
@@ -88,7 +89,7 @@ export const useSupporters = (reportId) => {
 
     // Realtime subscription
     const channel = supabase
-      .channel(`supporters-${reportId}`)
+      .channel(uniqueChannelTopic(`supporters-${reportId}`))
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'donations', filter: `report_id=eq.${reportId}` }, () => {
         fetchSupporters();
       })

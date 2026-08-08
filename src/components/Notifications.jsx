@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
-import { formatTimeAgo } from '@/lib/utils';
+import { formatTimeAgo, uniqueChannelTopic } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../contexts/NotificationContext';
 
@@ -134,7 +134,7 @@ const Notifications = () => {
     }
 
     const channel = supabase
-      .channel(`notifications-component:${user.id}`)
+      .channel(uniqueChannelTopic(`notifications-component:${user.id}`))
       .on(
         'postgres_changes',
         {
