@@ -11,12 +11,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import LinkReportModal from "@/components/LinkReportModal";
 import ReportDetails from "@/components/ReportDetails";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { useReportPermissions } from "@/hooks/useReportPermissions";
 import { supabase } from "@/lib/customSupabaseClient";
@@ -26,33 +20,22 @@ import DynamicSEO from "../components/DynamicSeo";
 import DonationModal from "@/components/DonationModal";
 import MarkResolvedModal from "@/components/MarkResolvedModal";
 import MediaViewer from "@/components/MediaViewer";
-import { Combobox } from "@/components/ui/combobox";
 import {
   ArrowLeft,
-  MapPin,
   ThumbsUp,
   Star,
   Share2,
-  Flag,
-  MessageSquare,
-  Send,
   FileSignature,
-  Shield,
-  Edit,
   CheckCircle,
-  Link as LinkIcon,
-  Play,
   Image,
   Instagram,
   Sparkles,
   Heart,
   FileText,
-  X,
   Download,
   User2Icon,
   Megaphone,
   Clock,
-  Loader2,
 } from "lucide-react";
 import { Share } from "@capacitor/share";
 import { toPng } from "html-to-image";
@@ -67,6 +50,13 @@ import {
 import ReportSummary from "@/components/report/ReportSummary";
 import ReportProgress from "@/components/report/ReportProgress";
 import ReportUpdates from "@/components/report/ReportUpdates";
+import { ReportMediaHero, ReportMediaGallery } from "@/components/report/ReportMedia";
+import {
+  ReportActionsAdminButtons,
+  ReportManagementPanel,
+  ReportModerationBar,
+} from "@/components/report/ReportActionsMenu";
+import ReportComments from "@/components/report/ReportComments";
 import { useNativeCamera } from "@/hooks/useNativeCamera";
 import {
   AlertCircle,
@@ -1038,82 +1028,24 @@ const ReportPage = () => {
     navigate(-1);
   };
 
-  const managementPanel =
-    canMarkResolved && report?.moderation_status === "approved" ? (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-        <Accordion type="single" collapsible defaultValue="">
-          <AccordionItem value="management" className="border-b-0">
-            <AccordionTrigger className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2 hover:no-underline">
-              <span className="inline-flex items-center gap-2">
-                <Shield className="w-3.5 h-3.5 text-blue-600" />
-                <span className="tracking-[0.18em]">Painel de Gestão</span>
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-5 py-4 space-y-4">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
-                  Alterar Status
-                </div>
-                <Combobox
-                  options={[
-                    { value: "pending", label: "Pendente" },
-                    { value: "in-progress", label: "Em Andamento" },
-                    {
-                      value: "pending_resolution",
-                      label: "Verificando Resolução",
-                    },
-                    ...(user?.is_admin
-                      ? [{ value: "resolved", label: "Resolvido" }]
-                      : []),
-                  ]}
-                  value={report.status}
-                  onChange={handleAdminStatusChange}
-                  placeholder="Selecione o status"
-                  searchPlaceholder="Buscar status..."
-                  notFoundText="Status não encontrado"
-                />
-              </div>
-              {canEditCategory && (
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
-                    Alterar Categoria
-                  </div>
-                  <Combobox
-                    options={Object.entries(categories).map(([key, value]) => ({
-                      value: key,
-                      label: value,
-                    }))}
-                    value={report.category}
-                    onChange={handleAdminCategoryChange}
-                    placeholder="Selecione a categoria"
-                    searchPlaceholder="Buscar categoria..."
-                    notFoundText="Categoria não encontrada"
-                  />
-                </div>
-              )}
-              {canEditWaterUtility && (
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
-                    Aberto pela COMPESA?
-                  </div>
-                  <Combobox
-                    options={[
-                      { value: "yes", label: "Sim" },
-                      { value: "no", label: "Não" },
-                    ]}
-                    value={isFromWaterUtility ? "yes" : "no"}
-                    onChange={handleAdminWaterUtilityChange}
-                    placeholder="Selecione"
-                    searchPlaceholder="Buscar..."
-                    notFoundText="Opção não encontrada"
-                  />
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </div>
-    ) : null;
+  const showManagementPanel =
+    canMarkResolved && report?.moderation_status === "approved";
+  const managementPanel = showManagementPanel ? (
+    <ReportManagementPanel
+      canMarkResolved={canMarkResolved}
+      moderationStatus={report?.moderation_status}
+      reportStatus={report?.status}
+      reportCategory={report?.category}
+      isFromWaterUtility={isFromWaterUtility}
+      isUserAdmin={!!user?.is_admin}
+      canEditCategory={canEditCategory}
+      canEditWaterUtility={canEditWaterUtility}
+      categories={categories}
+      handleAdminStatusChange={handleAdminStatusChange}
+      handleAdminCategoryChange={handleAdminCategoryChange}
+      handleAdminWaterUtilityChange={handleAdminWaterUtilityChange}
+    />
+  ) : null;
 
   useEffect(() => {
     const imageToUse = seoImage || `${baseUrl}/images/thumbnail.jpg`;
@@ -1513,56 +1445,6 @@ const ReportPage = () => {
     setReportToLink(null);
   };
 
-  const hasMedia = viewerMedia.length > 0;
-  const firstMedia = hasMedia ? viewerMedia[0] : null;
-  const firstIsVideo =
-    firstMedia &&
-    (firstMedia.type === "video" || firstMedia.type === "video_url");
-  const [firstVideoThumb, setFirstVideoThumb] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setFirstVideoThumb(null);
-    if (!firstIsVideo || !firstMedia?.url) return;
-    try {
-      const video = document.createElement("video");
-      Object.assign(video, {
-        crossOrigin: "anonymous",
-        muted: true,
-        playsInline: true,
-        preload: "metadata",
-      });
-      video.addEventListener(
-        "loadedmetadata",
-        () => {
-          const t = Math.min(0.2, Math.max(0.05, (video.duration || 1) * 0.1));
-          video.addEventListener(
-            "seeked",
-            () => {
-              try {
-                const c = document.createElement("canvas");
-                c.width = video.videoWidth || 1280;
-                c.height = video.videoHeight || 720;
-                c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
-                if (!cancelled)
-                  setFirstVideoThumb(c.toDataURL("image/jpeg", 0.7));
-              } catch {}
-            },
-            { once: true }
-          );
-          try {
-            video.currentTime = t;
-          } catch {}
-        },
-        { once: true }
-      );
-      video.src = firstMedia.url;
-    } catch {}
-    return () => {
-      cancelled = true;
-    };
-  }, [firstIsVideo, firstMedia?.url]);
-
   useEffect(() => {
     if (!isInteractive) return;
 
@@ -1716,91 +1598,15 @@ const ReportPage = () => {
                   <div className="mb-4 lg:hidden">{managementPanel}</div>
                 )}
                 <div className="bg-white shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] rounded-2xl overflow-hidden">
-                  <div className="relative overflow-hidden">
-                    <div className="w-full max-w-full h-[64vw] sm:h-64 lg:h-80 bg-slate-900 relative overflow-hidden">
-                      <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
-                      {hasMedia ? (
-                        <button
-                          type="button"
-                          className="absolute inset-0 w-full h-full "
-                          onClick={() =>
-                            setMediaViewerState({ isOpen: true, startIndex: 0 })
-                          }
-                        >
-                          {firstIsVideo ? (
-                            firstVideoThumb ? (
-                              <div className="w-full h-full relative">
-                                <img
-                                  src={firstVideoThumb}
-                                  alt="Thumbnail do vídeo"
-                                  className="w-full h-full max-w-full object-cover rounded-2xl"
-                                />
-                                <div className="absolute inset-0 bg-black/10" />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="w-12 h-12 rounded-full bg-black/30 border border-white/20 flex items-center justify-center">
-                                    <Play className="w-6 h-6 text-white drop-shadow" />
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                                <Play className="w-10 h-10 text-white drop-shadow" />
-                              </div>
-                            )
-                          ) : (
-                            <img
-                              src={firstMedia.url}
-                              alt="Mídia da bronca"
-                              className="w-full h-full max-w-full object-cover"
-                            />
-                          )}
-                        </button>
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center">
-                            <MapPin className="w-7 h-7 text-white/60" />
-                          </div>
-                        </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                      <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2 pointer-events-none">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] bg-white/90 backdrop-blur-md text-[#191c1e] shadow-sm">
-                          {getCategoryName(report.category)}
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] shadow-sm ${
-                            getStatusInfo(report.status).colorClasses
-                          }`}
-                        >
-                          <span className="w-2 h-2 rounded-full bg-current mr-2 animate-pulse" />
-                          {getStatusInfo(report.status).text}
-                        </span>
-                      </div>
-                      {/* <div className="absolute left-4 right-4 bottom-4 flex flex-wrap items-center gap-3 pointer-events-none">
-                        {hasMedia && viewerMedia.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMediaViewerState({
-                                isOpen: true,
-                                startIndex: 0,
-                              });
-                            }}
-                            className="ml-auto px-2.5 py-1.5 rounded-full bg-black/50 border border-white/15 text-[11px] text-white/90 flex items-center gap-1.5 backdrop-blur-sm hover:bg-black/60 transition-colors cursor-pointer pointer-events-auto z-20"
-                          >
-                            <Image className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">
-                              Ver todas as mídias ({viewerMedia.length})
-                            </span>
-                            <span className="sm:hidden">
-                              Ver todas ({viewerMedia.length})
-                            </span>
-                          </button>
-                        )}
-                      </div> */}
-                    </div>
-                  </div>
+                  <ReportMediaHero
+                    viewerMedia={viewerMedia}
+                    getCategoryName={getCategoryName}
+                    getStatusInfo={getStatusInfo}
+                    category={report.category}
+                    status={report.status}
+                    mediaViewerState={mediaViewerState}
+                    setMediaViewerState={setMediaViewerState}
+                  />
 
                   <div className="relative -mt-5 px-3 pb-4 lg:-mt-10 lg:px-4">
                     <div className="bg-white rounded-2xl p-4 space-y-4 shadow-[0_4px_16px_-4px_rgba(25,28,30,0.08)] lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-[0_12px_32px_-4px_rgba(25,28,30,0.10)]">
@@ -1815,60 +1621,10 @@ const ReportPage = () => {
                         formatDateTime={formatDateTime}
                       />
 
-                      {viewerMedia.length > 1 && (
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-bold text-[#191c1e] flex items-center gap-1.5">
-                              <Image className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
-                              Galeria
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setMediaViewerState({ isOpen: true, startIndex: 0 })
-                              }
-                              className="text-xs font-semibold text-[#b61722] hover:underline"
-                            >
-                              Ver todas ({viewerMedia.length})
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                            {viewerMedia.slice(1, 8).map((m, idx) => (
-                              <button
-                                key={`${m.type}-${m.url}-${idx}`}
-                                type="button"
-                                onClick={() =>
-                                  setMediaViewerState({
-                                    isOpen: true,
-                                    startIndex: idx + 1,
-                                  })
-                                }
-                                className="relative aspect-square rounded-xl overflow-hidden bg-[#f2f4f7] hover:opacity-90 transition-opacity"
-                              >
-                                {m.type === "image" ? (
-                                  <img
-                                    src={m.url}
-                                    alt="Mídia da bronca"
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center">
-                                    <div className="w-9 h-9 rounded-full bg-black/40 border border-white/15 flex items-center justify-center">
-                                      <Play className="w-5 h-5 text-white" strokeWidth={1.5} />
-                                    </div>
-                                  </div>
-                                )}
-                                {idx === 6 && viewerMedia.length > 8 && (
-                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                    <span className="text-white text-sm font-bold">+{viewerMedia.length - 8}</span>
-                                  </div>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <ReportMediaGallery
+                        viewerMedia={viewerMedia}
+                        setMediaViewerState={setMediaViewerState}
+                      />
                     {/* description */}
                     <ReportProblemDescription description={report.description} />
 
@@ -1903,59 +1659,16 @@ const ReportPage = () => {
                     />
 
                     {/* admin actions */}
-                    {(isAdmin || isPublicOfficial) && (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <Button
-                            variant="outline"
-                            className="hidden sm:flex justify-center gap-2 text-sm border-emerald-500 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                            onClick={handleWhatsAppShare}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              className="w-4 h-4 fill-current"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.347-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                            </svg>
-                            WhatsApp Web
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="justify-center gap-2 text-sm"
-                            onClick={handleShare}
-                          >
-                            <Share2 className="w-4 h-4" />
-                            Compartilhar
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="justify-center gap-2 text-sm"
-                            onClick={handleEditClick}
-                          >
-                            <Edit className="w-4 h-4" />
-                            Editar
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="justify-center gap-2 text-sm"
-                            onClick={() => handleOpenLinkModal(report)}
-                          >
-                            <LinkIcon className="w-4 h-4" />
-                            Vincular
-                          </Button>
-                        </div>
-                       
-                        <button
-                          type="button"
-                          onClick={handleReportError}
-                          className="w-full inline-flex items-center justify-center gap-2 text-[11px] text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <Flag className="w-4 h-4" />
-                          Sugerir correção
-                        </button>
-                      </div>
-                    )}
+                    <ReportActionsAdminButtons
+                      isAdmin={isAdmin}
+                      isPublicOfficial={isPublicOfficial}
+                      handleWhatsAppShare={handleWhatsAppShare}
+                      handleShare={handleShare}
+                      handleEditClick={handleEditClick}
+                      handleOpenLinkModal={handleOpenLinkModal}
+                      handleReportError={handleReportError}
+                      report={report}
+                    />
 
                     {/* mobile upvote */}
                     <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4 lg:hidden">
@@ -2128,88 +1841,14 @@ const ReportPage = () => {
                     />
 
                     {/* comments */}
-                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-                      <div className="flex items-center gap-2 mb-4">
-                        <MessageSquare className="w-4 h-4 text-[#9f3f3b]" strokeWidth={1.5} />
-                        <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
-                          Comentários
-                        </h2>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-white font-semibold text-[#6b7280]">
-                          {comments.length}
-                        </span>
-                      </div>
-                      <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
-                        {comments.length > 0 ? (
-                          comments.map((comment) => (
-                            <div
-                              key={comment.id}
-                              className="flex items-start gap-3"
-                            >
-                              <div className="w-8 h-8 rounded-full bg-[#b61722]/10 flex items-center justify-center text-xs font-bold text-[#b61722] flex-shrink-0">
-                                {(comment.authorName || comment.author?.name || "?")
-                                  .charAt(0)
-                                  .toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0 bg-white rounded-xl px-3 py-2.5 shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
-                                <div className="flex items-center justify-between gap-2 mb-1">
-                                  <p className="text-xs font-semibold text-[#191c1e] truncate">
-                                    {comment.authorName || comment.author?.name || "Anônimo"}
-                                  </p>
-                                  <p className="text-[10px] text-[#6b7280] flex-shrink-0">
-                                    {formatDateTime(comment.created_at)}
-                                  </p>
-                                </div>
-                                <p className="text-xs text-[#191c1e] break-words leading-relaxed">
-                                  {comment.text}
-                                </p>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-[#6b7280] text-center py-4">
-                            Ainda não há comentários.
-                          </p>
-                        )}
-                      </div>
-                      {user ? (
-                        <form
-                          onSubmit={handleSubmitComment}
-                          className="mt-4 flex gap-2 items-center"
-                        >
-                          <input
-                            type="text"
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="Adicione seu comentário..."
-                            className="flex-1 text-xs sm:text-sm bg-white px-4 py-2.5 rounded-full focus:outline-none focus:ring-2 focus:ring-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]"
-                          />
-                          <Button
-                            type="submit"
-                            size="icon"
-                            className="flex-shrink-0 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white"
-                          >
-                            <Send className="w-3.5 h-3.5" strokeWidth={1.5} />
-                          </Button>
-                        </form>
-                      ) : (
-                        <div className="mt-4 text-center px-4 py-3 bg-white rounded-xl text-xs text-[#6b7280]">
-                          <Link
-                            to="/login"
-                            className="font-semibold text-[#b61722] hover:underline"
-                          >
-                            Faça login
-                          </Link>{" "}
-                          ou{" "}
-                          <Link
-                            to="/cadastro"
-                            className="font-semibold text-[#b61722] hover:underline"
-                          >
-                            cadastre-se
-                          </Link>{" "}
-                          para comentar e acompanhar esta bronca.
-                        </div>
-                      )}
-                    </div>
+                    <ReportComments
+                      comments={comments}
+                      user={user}
+                      newComment={newComment}
+                      setNewComment={setNewComment}
+                      handleSubmitComment={handleSubmitComment}
+                      formatDateTime={formatDateTime}
+                    />
                   </div>
                 </div>
                 </div>
@@ -2305,15 +1944,6 @@ const ReportPage = () => {
               onClose={() => setShowDonationModal(false)}
             />
           )}
-          {mediaViewerState.isOpen && viewerMedia.length > 0 && (
-            <MediaViewer
-              media={viewerMedia}
-              startIndex={mediaViewerState.startIndex}
-              onClose={() =>
-                setMediaViewerState({ isOpen: false, startIndex: 0 })
-              }
-            />
-          )}
           {showEditDetails && report && (
             <ReportDetails
               report={report}
@@ -2383,38 +2013,11 @@ const ReportPage = () => {
           />
 
           {/* Barra de moderação do embaixador (aprovar/rejeitar) */}
-          {canModerate && (
-            <div
-              className="fixed left-0 right-0 bottom-0 z-[1100] bg-white border-t border-border shadow-[0_-2px_12px_-4px_rgba(25,28,30,0.15)]"
-              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
-            >
-              <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  className="h-11 px-4 text-red-600 border-red-300 hover:bg-red-50 flex-1"
-                  disabled={moderating}
-                  onClick={() => handleModerate(false)}
-                >
-                  {moderating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <><X className="w-4 h-4 mr-1.5" /> Rejeitar</>
-                  )}
-                </Button>
-                <Button
-                  className="h-11 px-4 bg-green-600 hover:bg-green-700 text-white flex-1"
-                  disabled={moderating}
-                  onClick={() => handleModerate(true)}
-                >
-                  {moderating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <><CheckCircle className="w-4 h-4 mr-1.5" /> Aprovar bronca</>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
+          <ReportModerationBar
+            canModerate={canModerate}
+            moderating={moderating}
+            handleModerate={handleModerate}
+          />
         </>
       )}
     </>
