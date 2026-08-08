@@ -19,6 +19,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
+import { useReportPermissions } from "@/hooks/useReportPermissions";
 import { supabase } from "@/lib/customSupabaseClient";
 import { getReportShareUrl } from "@/lib/shareUtils";
 import { useUpvote } from "../hooks/useUpvotes";
@@ -159,11 +160,18 @@ const ReportPage = () => {
   const [updateType, setUpdateType] = useState(null);
   const [updateMessage, setUpdateMessage] = useState('');
 
-  // ── Moderação (embaixador vindo do painel) ──
-  // Ativa quando navegamos com state.moderation=true a partir do Painel do Embaixador.
-  const cameFromModeration = !!location.state?.moderation;
-  const [canModerate, setCanModerate] = useState(false);
   const [moderating, setModerating] = useState(false);
+  const {
+    isAdmin,
+    isPublicOfficial,
+    isAuthorOrAdmin,
+    canModerate,
+    canEditCategory,
+    canEditWaterUtility,
+    canMarkResolved,
+    canEditUpdate,
+    canDeleteUpdate,
+  } = useReportPermissions(report);
 
   const UPDATES_VISIBLE_COUNT = 3;
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -488,13 +496,6 @@ const ReportPage = () => {
   }, [report]);
 
   const isFromWaterUtility = !!report?.is_from_water_utility;
-  const canChangeStatus =
-    !!user &&
-    !!report &&
-    (user.is_admin || user.user_type === "public_official");
-  const canEditCategory = !!user && !!report && user.is_admin;
-  const canManageWaterUtility =
-    !!report && report.category === "buracos" && canEditCategory;
 
   const handleSubmitComment = async (e) => {
     e.preventDefault();
@@ -611,7 +612,7 @@ const ReportPage = () => {
   };
 
   const handleAdminStatusChange = async (newStatus) => {
-    if (!report || !canChangeStatus) return;
+    if (!report || !canMarkResolved) return;
     const { error } = await supabase
       .from("reports")
       .update({ status: newStatus })
@@ -663,7 +664,7 @@ const ReportPage = () => {
   };
 
   const handleAdminWaterUtilityChange = async (value) => {
-    if (!report || !canManageWaterUtility) return;
+    if (!report || !canEditWaterUtility) return;
     const isYes = value === "yes";
     const { error } = await supabase
       .from("reports")
@@ -713,7 +714,7 @@ const ReportPage = () => {
       navigate("/login");
       return;
     }
-    if (!(user.is_admin || user.user_type === "public_official")) {
+    if (!canMarkResolved) {
       toast({
         title: "Acesso restrito",
         description: "Somente gestores podem editar esta bronca.",
@@ -731,7 +732,7 @@ const ReportPage = () => {
       navigate("/login");
       return;
     }
-    if (!(user.is_admin || user.user_type === "public_official")) {
+    if (!canMarkResolved) {
       toast({ title: "Acesso restrito", variant: "destructive" });
       return;
     }
@@ -788,7 +789,6 @@ const ReportPage = () => {
         .getPublicUrl(filePath);
       publicURLData = data;
     }
-    const isAdmin = user && user.is_admin;
     const updatedReport = {
       status: isAdmin ? "resolved" : "pending_resolution",
       resolution_submission: {
@@ -890,7 +890,6 @@ const ReportPage = () => {
     const photos = await updateCam.resolveForUpload();
     const message = updateMessage;
     setSubmittingUpdate(true);
-    const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
     try {
       const { data: newUpdate, error: insertError } = await supabase
         .from("report_updates")
@@ -953,7 +952,7 @@ const ReportPage = () => {
       if (isAuthorOrAdmin) {
         const typeInfo = getUpdateTypeInfo(updateType);
         const newStatus =
-          updateType === "solved" && user.is_admin
+          updateType === "solved" && isAdmin
             ? "resolved"
             : typeInfo.reportStatus;
 
@@ -1013,7 +1012,7 @@ const ReportPage = () => {
     if (!user || !report) return;
     const typeInfo = getUpdateTypeInfo(update.update_type);
     const newReportStatus =
-      update.update_type === "solved" && user.is_admin
+      update.update_type === "solved" && isAdmin
         ? "resolved"
         : typeInfo.reportStatus;
 
@@ -1059,41 +1058,6 @@ const ReportPage = () => {
     toast({ title: 'Atualização excluída.' });
   };
 
-  // Verifica se o usuário pode moderar esta bronca (admin/master, ou embaixador
-  // ativo da cidade dela). Só roda quando viemos do painel de moderação e a
-  // bronca ainda está aguardando aprovação.
-  useEffect(() => {
-    let cancelled = false;
-    const check = async () => {
-      if (
-        !cameFromModeration ||
-        !user ||
-        !report ||
-        report.moderation_status !== 'pending_approval'
-      ) {
-        if (!cancelled) setCanModerate(false);
-        return;
-      }
-      if (user.is_admin || user.is_master) {
-        if (!cancelled) setCanModerate(true);
-        return;
-      }
-      if (!user.is_ambassador || !report.city_id) {
-        if (!cancelled) setCanModerate(false);
-        return;
-      }
-      const { data, error } = await supabase.rpc('is_ambassador_of', {
-        p_user: user.id,
-        p_city_id: report.city_id,
-      });
-      if (!cancelled) setCanModerate(!error && data === true);
-    };
-    check();
-    return () => {
-      cancelled = true;
-    };
-  }, [cameFromModeration, user, report?.moderation_status, report?.city_id]);
-
   const handleModerate = async (approve) => {
     if (!report) return;
     setModerating(true);
@@ -1118,7 +1082,7 @@ const ReportPage = () => {
   };
 
   const managementPanel =
-    canChangeStatus && report?.moderation_status === "approved" ? (
+    canMarkResolved && report?.moderation_status === "approved" ? (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
         <Accordion type="single" collapsible defaultValue="">
           <AccordionItem value="management" className="border-b-0">
@@ -1170,7 +1134,7 @@ const ReportPage = () => {
                   />
                 </div>
               )}
-              {canManageWaterUtility && (
+              {canEditWaterUtility && (
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
                     Aberto pela COMPESA?
@@ -2117,8 +2081,7 @@ const ReportPage = () => {
                     )}
 
                     {/* admin actions */}
-                    {(user?.is_admin ||
-                      user?.user_type === "public_official") && (
+                    {(isAdmin || isPublicOfficial) && (
                       <div className="space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <Button
@@ -2380,17 +2343,12 @@ const ReportPage = () => {
                                 upd.status === "pending" && upd.author_id === user?.id;
                               const isPendingModeration = upd.status === "pending_moderation";
                               const isRejected = upd.status === "rejected";
-                              const canConfirm =
-                                upd.status === "pending" &&
-                                user &&
-                                (user.is_admin || report?.author_id === user?.id);
+                              const canConfirm = canEditUpdate(upd);
                               const isConfirming = confirmingUpdateId === upd.id;
                               const isDeleting = deletingUpdateId === upd.id;
-                              // Admin: exclui qualquer status. Autor: só se ainda não confirmada.
-                              const canDelete = user?.is_admin ||
-                                (upd.author_id === user?.id && ['pending_moderation', 'pending'].includes(upd.status));
+                              const canDelete = canDeleteUpdate(upd);
                               const confirmStatusText = getStatusInfo(
-                                upd.update_type === "solved" && user?.is_admin
+                                upd.update_type === "solved" && isAdmin
                                   ? "resolved"
                                   : typeInfo.reportStatus
                               ).text;
