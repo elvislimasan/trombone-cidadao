@@ -1,9 +1,12 @@
 import React from 'react';
 
+// "Resolvidas" saiu do feed e virou filtro na busca: o feed e sobre o que
+// precisa de atencao agora. A ordem segue o uso esperado — o padrao primeiro,
+// proximidade no meio (exige GPS), popularidade por ultimo.
 export const FEED_TABS = [
   { key: 'recent', label: 'Recentes' },
+  { key: 'nearby', label: 'Perto de mim' },
   { key: 'trending', label: 'Em alta' },
-  { key: 'resolved', label: 'Resolvidas' },
 ];
 
 const FeedTabs = ({ tabs = FEED_TABS, activeTab, onChange }) => (
@@ -16,7 +19,7 @@ const FeedTabs = ({ tabs = FEED_TABS, activeTab, onChange }) => (
           role="tab"
           aria-selected={active}
           onClick={() => onChange(tab.key)}
-          className={`relative flex-1 py-3 px-3 text-sm font-semibold transition-colors ${
+          className={`relative flex-1 py-3 px-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${
             active ? 'text-brand' : 'text-content-secondary hover:text-content-primary'
           }`}
         >

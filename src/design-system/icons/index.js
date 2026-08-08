@@ -6,6 +6,7 @@ import Lighting from './categories/Lighting';
 import Cleaning from './categories/Cleaning';
 import Greenery from './categories/Greenery';
 import WaterLeak from './categories/WaterLeak';
+import Security from './categories/Security';
 import Other from './categories/Other';
 
 import Received from './status/Received';
@@ -39,6 +40,7 @@ registerIcons({
   cleaning: Cleaning,
   greenery: Greenery,
   waterleak: WaterLeak,
+  security: Security,
   other: Other,
 
   received: Received,
@@ -75,11 +77,31 @@ export const CATEGORY_ICON_MAP = {
   limpeza: 'cleaning',
   poda: 'greenery',
   'vazamento-de-agua': 'waterleak',
+  seguranca: 'security',
   outros: 'other',
 };
 
 export function categoryIconName(categoryId) {
   return CATEGORY_ICON_MAP[categoryId] || 'other';
+}
+
+// Sufixo do token --pin-*-bg/-fg de cada categoria. Vazamento de agua divide o
+// azul com esgoto: sao o mesmo dominio e o guia nao lhe da cor propria - se
+// precisarem ser distinguidos so pela cor, e criar uma matiz nova em
+// primitives.css. Segue o mesmo fallback do icone ('other').
+export const CATEGORY_PIN_TOKEN = {
+  buracos: 'pothole',
+  esgoto: 'sewage',
+  iluminacao: 'lighting',
+  limpeza: 'cleaning',
+  poda: 'greenery',
+  'vazamento-de-agua': 'waterleak',
+  seguranca: 'security',
+  outros: 'other',
+};
+
+export function categoryPinToken(categoryId) {
+  return CATEGORY_PIN_TOKEN[categoryId] || 'other';
 }
 
 // Mapeia status de bronca para nome de icone.

@@ -3,38 +3,40 @@ import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { geocodeCity } from '@/lib/geocodeCity';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView } from '@/contexts/CityContext';
 import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
 import ThemedTileLayer from '@/components/map/ThemedTileLayer';
+import { createMapPin, ICON_SIZE } from '@/components/map/pinIcon';
 
-const createPropertyMarkerIcon = (isActive) => {
-  const color = isActive ? '#16A34A' : '#6B7280';
-  const html = `
-    <div style="
-      background-color: ${color};
-      width: 2.25rem;
-      height: 2.25rem;
-      border-radius: 50%;
-      border: 2px solid white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    ">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-        <path d="M9 22V12h6v10"/>
-      </svg>
-    </div>
-  `;
-  return L.divIcon({
-    html,
-    className: 'custom-rental-property-marker',
-    iconSize: [36, 36],
-    iconAnchor: [18, 36],
-    popupAnchor: [0, -36],
+// Casa: nao ha equivalente no design system (os icones de la sao por categoria
+// de bronca), entao fica inline. O traco herda a cor do corpo via currentColor,
+// que createMapPin define a partir do token de fg.
+const HouseIcon = () => (
+  <svg
+    width={ICON_SIZE}
+    height={ICON_SIZE}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <path d="M9 22V12h6v10" />
+  </svg>
+);
+
+// Verde para imovel ativo, cinza para inativo. Tokens proprios (--pin-rental-*)
+// em vez dos de categoria: assim mudar a cor de uma categoria de bronca nao
+// mexe nesta tela sem querer.
+const createPropertyMarkerIcon = (isActive) =>
+  createMapPin({
+    cacheKey: `rental|${isActive ? 'active' : 'inactive'}`,
+    bgToken: isActive ? '--pin-rental-active-bg' : '--pin-rental-inactive-bg',
+    fgToken: isActive ? '--pin-rental-active-fg' : '--pin-rental-inactive-fg',
+    icon: <HouseIcon />,
   });
-};
 
 // Centraliza no conjunto de imóveis carregados, ou na cidade ativa quando
 // não há imóveis para exibir (mesmo padrão de FitToWorks em WorksMapView).
@@ -76,7 +78,7 @@ const FitToProperties = ({ properties, activeCity }) => {
 };
 
 export default function RentalPropertiesMapView({ properties, onSelectProperty }) {
-  const { activeCity } = useCity();
+  const { city: activeCity } = useCityView();
   const list = properties || [];
 
   return (

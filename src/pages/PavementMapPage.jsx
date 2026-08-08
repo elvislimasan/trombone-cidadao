@@ -26,7 +26,7 @@ import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -42,7 +42,7 @@ const PavementMapPage = () => {
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
   const { toast } = useToast();
-  const { activeCityId, activeCityName } = useCity();
+  const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const [downloading, setDownloading] = useState(false);
@@ -695,4 +695,11 @@ const PavementMapPage = () => {
   );
 };
 
-export default PavementMapPage;
+// Filtro de cidade local a esta tela — nao altera o feed nem persiste.
+export default function PavementMapPageWithCityView() {
+  return (
+    <CityViewProvider>
+      <PavementMapPage />
+    </CityViewProvider>
+  );
+}

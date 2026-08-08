@@ -22,71 +22,32 @@ import { FLORESTA_COORDS, INITIAL_ZOOM } from "@/config/mapConfig";
 import { useMapScrollLock } from "@/hooks/useMapScrollLock";
 import { useMapModeToggle } from "@/contexts/MapModeContext";
 import MapModeToggle from "@/components/MapModeToggle";
+import { createPinIcon } from "@/components/map/pinIcon";
 
-const getCategoryIcon = (category) => {
-  const icons = {
-    iluminacao: "💡",
-    buracos: "🕳️",
-    esgoto: "🚰",
-    limpeza: "🧹",
-    poda: "🌳",
-    outros: "📍",
-  };
-  return icons[category] || "📍";
-};
+// A legenda usa os mesmos tokens do corpo do pin, entao as bolinhas e os pins
+// nunca divergem de cor. Agora lista categorias, nao status: e a categoria que
+// define a cor no mapa.
+const LEGEND_CATEGORIES = [
+  { id: "buracos", token: "--pin-pothole-bg", label: "Buracos" },
+  { id: "iluminacao", token: "--pin-lighting-bg", label: "Iluminação" },
+  { id: "esgoto", token: "--pin-sewage-bg", label: "Esgoto" },
+  { id: "limpeza", token: "--pin-cleaning-bg", label: "Limpeza" },
+  { id: "poda", token: "--pin-greenery-bg", label: "Poda" },
+  { id: "seguranca", token: "--pin-security-bg", label: "Segurança" },
+  { id: "outros", token: "--pin-other-bg", label: "Outros" },
+];
 
-const getStatusColor = (status) => {
-  const colors = {
-    pending: "#f97316",
-    "in-progress": "#3b82f6",
-    resolved: "#22c55e",
-  };
-  return colors[status] || "#6b7280";
-};
-
-const markerIconCache = new Map();
-
-const createMarkerIcon = (category, status) => {
-  const key = `${category || ""}|${status || ""}`;
-  const cached = markerIconCache.get(key);
-  if (cached) return cached;
-
-  const iconHtml = `
-    <div style="
-      background-color: ${getStatusColor(status)};
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 50%;
-      border: 2px solid white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.25rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    ">
-      ${getCategoryIcon(category)}
-    </div>
-  `;
-  const icon = L.divIcon({
-    html: iconHtml,
-    className: "custom-leaflet-icon",
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-    popupAnchor: [0, -40],
-  });
-  markerIconCache.set(key, icon);
-  return icon;
-};
-
+// Ponto "voce esta aqui". Os tokens resolvem no proprio no, entao a constante
+// de modulo continua valendo para os dois temas.
 const userMarkerIcon = L.divIcon({
   html: `
     <div style="
       width: 18px;
       height: 18px;
       border-radius: 999px;
-      background: #2563eb;
-      border: 3px solid white;
-      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+      background: rgb(var(--pin-user-bg));
+      border: 3px solid rgb(var(--pin-ring));
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
     "></div>
   `,
   className: "user-leaflet-icon",
@@ -283,16 +244,18 @@ const MapView = ({
 
   const createClusterIcon = (count) => {
     const size = count >= 50 ? 46 : count >= 10 ? 42 : 38;
-    const intensity =
-      count >= 50 ? "#ef4444" : count >= 10 ? "#f59e0b" : "#3b82f6";
+    const level = count >= 50 ? "high" : count >= 10 ? "mid" : "low";
+    // O no do divIcon fica sob documentElement, que carrega a classe .dark,
+    // entao var(--...) herda e acompanha a troca de tema sozinho - sem precisar
+    // do readToken nem de chave de cache por tema.
     const html = `
       <div style="
-        background: ${intensity};
+        background: rgb(var(--pin-cluster-${level}-bg));
         width: ${size}px;
         height: ${size}px;
         border-radius: 999px;
-        border: 2px solid white;
-        color: white;
+        border: 2px solid rgb(var(--pin-ring));
+        color: rgb(var(--pin-cluster-${level}-fg));
         display: flex;
         align-items: center;
         justify-content: center;
@@ -374,7 +337,7 @@ const MapView = ({
                 icon={
                   isCluster
                     ? createClusterIcon(item.count)
-                    : createMarkerIcon(report.category, report.status)
+                    : createPinIcon({ report })
                 }
                 eventHandlers={{
                   click: (e) => {
@@ -462,7 +425,7 @@ const MapView = ({
         </MapContainer>
         {showModeToggle && (
           <div className="absolute bottom-3 right-3 z-[800]">
-            <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+            <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
               <button
                 type="button"
                 onClick={(e) => {
@@ -488,27 +451,15 @@ const MapView = ({
               Legenda
             </h4>
             <div className="space-y-1 text-[10px] sm:text-xs">
-              <div className="flex items-center space-x-1.5">
-                <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: getStatusColor("pending") }}
-                ></div>
-                <span className="truncate">Pendente</span>
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: getStatusColor("in-progress") }}
-                ></div>
-                <span className="truncate">Em Andamento</span>
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: getStatusColor("resolved") }}
-                ></div>
-                <span className="truncate">Resolvido</span>
-              </div>
+              {LEGEND_CATEGORIES.map(({ id, token, label }) => (
+                <div key={id} className="flex items-center space-x-1.5">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: `rgb(var(${token}))` }}
+                  ></div>
+                  <span className="truncate">{label}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -519,27 +470,15 @@ const MapView = ({
             Legenda
           </span>
           <div className="flex items-center gap-3 flex-1 justify-end">
-            <div className="flex items-center gap-1">
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: getStatusColor("pending") }}
-              />
-              <span className="truncate">Pendente</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: getStatusColor("in-progress") }}
-              />
-              <span className="truncate">Em Andamento</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: getStatusColor("resolved") }}
-              />
-              <span className="truncate">Resolvido</span>
-            </div>
+            {LEGEND_CATEGORIES.map(({ id, token, label }) => (
+              <div key={id} className="flex items-center gap-1">
+                <span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: `rgb(var(${token}))` }}
+                />
+                <span className="truncate">{label}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

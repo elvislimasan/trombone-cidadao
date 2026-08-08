@@ -1,13 +1,12 @@
 import React from 'react';
+// Guia de pins: gota solida. Vale para esgoto e vazamento - as duas categorias
+// compartilham o azul, e o guia nao lhes da desenhos distintos.
 export default function Sewage() {
   return (
-    <>
-      <ellipse cx="12" cy="16.5" rx="8" ry="4.5" />
-      <path d="M7 15.2h10" />
-      <path d="M8.2 17.9h7.6" />
-      <path d="M12 12V8.5" />
-      <path d="M9.5 9.8c0-2 1-3.3 2.5-3.3s2.5 1 2.5 2.6" />
-      <path d="M14.5 6.2c.9-.7 1.9-.9 2.8-.6" />
-    </>
+    <path
+      d="M12 3.2c0 0-6.2 6.4-6.2 10.4a6.2 6.2 0 0 0 12.4 0c0-4-6.2-10.4-6.2-10.4Z"
+      fill="currentColor"
+      stroke="none"
+    />
   );
 }

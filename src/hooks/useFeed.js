@@ -5,6 +5,10 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 const PAGE_SIZE = 10;
 const SLOW_LOAD_MS = 4500;
 const SLOW_MORE_MS = 6500;
+// Raio de "perto de mim". 15 km cobre uma cidade media inteira e ainda exclui
+// municipios vizinhos — sem recorte, uma regiao com poucas broncas devolveria
+// resultados a centenas de km sob o rotulo "perto".
+const NEARBY_RADIUS_M = 15000;
 
 const CATEGORY_EMOJIS = {
   iluminacao: '💡',
@@ -13,6 +17,7 @@ const CATEGORY_EMOJIS = {
   limpeza: '🧹',
   poda: '🌳',
   'vazamento-de-agua': '💧',
+  seguranca: '🛡️',
   outros: '📍',
 };
 
@@ -42,7 +47,7 @@ const normalizeError = (err) => ({
   code: err?.code ?? null,
 });
 
-export function useFeed(tab = 'recent', cityId = null) {
+export function useFeed(tab = 'recent', cityId = null, userCoords = null) {
   const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +67,32 @@ export function useFeed(tab = 'recent', cityId = null) {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
+      // "Perto de mim" resolve a ordem no banco (indice GiST) e devolve so os
+      // ids + distancia. Hidratamos com o mesmo select das outras abas para nao
+      // duplicar a projecao — e reordenamos no cliente porque o `in` do
+      // Postgres nao preserva a ordem da lista.
+      let distanceById = null;
+      let nearbyIds = null;
+      if (tab === 'nearby') {
+        if (!userCoords) return [];
+
+        const { data: near, error: nearErr } = await supabase.rpc('reports_nearby', {
+          user_lat: userCoords.lat,
+          user_lng: userCoords.lng,
+          radius_meters: NEARBY_RADIUS_M,
+          city_filter: cityId ?? null,
+          page_size: PAGE_SIZE,
+          page_offset: from,
+        });
+        if (nearErr) throw nearErr;
+
+        nearbyIds = (near || []).map((r) => r.id);
+        if (nearbyIds.length === 0) return [];
+        distanceById = new Map(
+          (near || []).map((r) => [r.id, Number(r.distance_meters)])
+        );
+      }
+
       let q = supabase
         .from('reports')
         .select(
@@ -76,14 +107,22 @@ export function useFeed(tab = 'recent', cityId = null) {
         `
         )
         .eq('moderation_status', 'approved')
-        .neq('status', 'duplicate')
-        .range(from, to);
+        .neq('status', 'duplicate');
+
+      // Na aba nearby o range/ordem ja vieram da RPC; aqui so buscamos os ids.
+      if (nearbyIds) {
+        q = q.in('id', nearbyIds);
+      } else {
+        q = q.range(from, to);
+      }
 
       if (cityId !== null && cityId !== undefined) {
         q = q.eq('city_id', cityId);
       }
 
-      if (tab === 'resolved') {
+      if (tab === 'nearby') {
+        q = q.in('status', ['pending', 'in-progress']);
+      } else if (tab === 'resolved') {
         q = q.eq('status', 'resolved').order('created_at', { ascending: false });
       } else if (tab === 'trending') {
         q = q
@@ -122,11 +161,12 @@ export function useFeed(tab = 'recent', cityId = null) {
         favorites = new Set((fRes.data || []).map((r) => r.report_id));
       }
 
-      return items.map((r) => {
+      const mapped = items.map((r) => {
         const catName = r.category?.name || r.category_id || '';
         const isAnonymous = Boolean(r.is_anonymous);
         return {
           id: r.id,
+          distanceMeters: distanceById?.get(r.id) ?? null,
           title: r.title,
           description: r.description,
           status: r.status,
@@ -151,8 +191,16 @@ export function useFeed(tab = 'recent', cityId = null) {
           authorAvatar: isAnonymous ? null : r.author?.avatar_url || null,
         };
       });
+
+      // Restaura a ordem por distancia: o `in` acima devolve na ordem do banco.
+      if (nearbyIds) {
+        const rank = new Map(nearbyIds.map((id, i) => [id, i]));
+        mapped.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+      }
+
+      return mapped;
     },
-    [tab, cityId, user]
+    [tab, cityId, user, userCoords]
   );
 
   const loadInitial = useCallback(({ preserve = false } = {}) => {
@@ -213,7 +261,7 @@ export function useFeed(tab = 'recent', cityId = null) {
       if (slowMoreTimerRef.current) clearTimeout(slowMoreTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, cityId, user?.id]);
+  }, [tab, cityId, user?.id, userCoords?.lat, userCoords?.lng]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;

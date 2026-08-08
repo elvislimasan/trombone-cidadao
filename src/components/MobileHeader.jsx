@@ -25,10 +25,11 @@ const MobileHeader = () => {
   const isAuthRoute = authRoutes.includes(location.pathname);
   const shouldShowBack = typeof ctxShowBack === 'boolean' ? ctxShowBack : !isRoot;
   
-  // Nas rotas raiz o seletor de cidade ocupa o lugar do titulo: o nome do app
-  // ja esta no logo ao lado, e a cidade ativa e a informacao que muda o
-  // conteudo da tela. Nas sub-paginas o titulo da rota continua mandando.
-  const showCitySelector = isRoot;
+  // So no feed. O seletor do header muda a cidade do APP (persiste); telas de
+  // exploracao — obras, estatisticas, servicos — tem filtro proprio, local, e
+  // mostrar os dois juntos daria dois controles com escopos diferentes e
+  // aparencia parecida na mesma tela.
+  const showCitySelector = location.pathname === '/';
 
   const headerTitle = (() => {
     const path = location.pathname;

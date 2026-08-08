@@ -70,4 +70,34 @@
   /* Amarelo da marca - destaque secundario */
   --tc-yellow-400: 250 204 21;
   --tc-yellow-500: 234 179 8;
+
+  /* --- Categorias de bronca (guia de pins do mapa) ---
+     O par por categoria: `-vivid` e a cor do guia, usada no tema escuro; `-deep`
+     e a mesma matiz escurecida ate o icone branco passar AA no tema claro (as
+     cores vivas com icone branco ficam em 1.63-3.76, ilegiveis em tamanho de
+     pin). Ficam aqui, e nao em semantic.css, porque sao valores de paleta. */
+  --tc-cat-pothole-vivid:  255 138 0;    /* #FF8A00 */
+  /* Puxa para o vermelho (nao so escurece): no claro, buracos e iluminacao
+     ficavam dois marrons quase iguais. A matiz separa os dois, ja que a
+     luminancia sozinha nao resolve. */
+  --tc-cat-pothole-deep:   194 65 12;
+  --tc-cat-lighting-vivid: 255 193 7;    /* #FFC107 */
+  /* Escurecer o #FFC107 na propria matiz dava #947004, que le como oliva e
+     perde o "amarelo". Este tom puxa para ambar e mantem a identidade. */
+  --tc-cat-lighting-deep:  161 98 7;
+  --tc-cat-sewage-vivid:   33 150 243;   /* #2196F3 */
+  --tc-cat-sewage-deep:    26 120 194;
+  --tc-cat-cleaning-vivid: 34 197 94;    /* #22C55E */
+  --tc-cat-cleaning-deep:  23 134 64;
+  /* Roxo e slate sao os dois tons mais escuros do guia: no tema escuro, com
+     icone escuro por cima, o hex original fica em 4.43/3.94 e reprova AA. As
+     variantes `-soft` clareiam a mesma matiz ate ~7 de contraste. */
+  --tc-cat-greenery-vivid: 139 92 246;   /* #8B5CF6 */
+  --tc-cat-greenery-soft:  174 141 249;
+  --tc-cat-greenery-deep:  133 88 236;
+  --tc-cat-security-vivid: 239 68 68;    /* #EF4444 */
+  --tc-cat-security-deep:  215 61 61;
+  --tc-cat-other-vivid:    100 116 139;  /* #64748B */
+  --tc-cat-other-soft:     147 158 174;
+  --tc-cat-other-deep:     100 116 139;
 }

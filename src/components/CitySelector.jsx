@@ -1,10 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useCity } from '@/contexts/CityContext';
-import { MapPin, Check, Globe, Search, Loader2 } from 'lucide-react';
+import { useCityView } from '@/contexts/CityContext';
+import { MapPin, Check, Globe, Search, Loader2, RotateCcw } from 'lucide-react';
 
-// Seletor de cidade ligado ao CityContext (mesma seleção do feed).
+/**
+ * Seletor de cidade para telas de EXPLORACAO (obras, estatisticas, servicos...).
+ *
+ * Filtra apenas a tela onde esta montado: trocar de cidade aqui nao muda o feed
+ * nem a cidade do header, e nao persiste. Ver as obras de outra cidade e uma
+ * consulta, nao uma mudanca de onde voce mora — ao sair da tela, volta sozinho
+ * para a cidade do header.
+ *
+ * Para trocar a cidade do app inteiro, use o seletor do header.
+ */
 export default function CitySelector() {
-  const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
+  const {
+    cityId: activeCityId,
+    cityName: activeCityName,
+    setCityId: setActiveCity,
+    isExploring,
+    resetToMyCity,
+    cities,
+    loadingCities,
+  } = useCityView();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef(null);
@@ -32,14 +49,35 @@ export default function CitySelector() {
 
   return (
     <div className="relative z-[900]" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted transition-colors"
-      >
-        <MapPin className="w-4 h-4 text-tc-red shrink-0" />
-        <span className="truncate max-w-[10rem]">{activeCityId ? (activeCityName || 'Cidade') : 'Todas as cidades'}</span>
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold shadow-sm transition-colors ${
+            isExploring
+              ? 'border-tc-red/40 bg-tc-red/5 text-tc-red'
+              : 'border-border bg-white text-foreground hover:bg-muted'
+          }`}
+        >
+          <MapPin className={`w-4 h-4 shrink-0 ${isExploring ? '' : 'text-tc-red'}`} />
+          <span className="truncate max-w-[10rem]">{activeCityId ? (activeCityName || 'Cidade') : 'Todas as cidades'}</span>
+        </button>
+
+        {/* Sem esta saida, o usuario que explorou outra cidade nao tem como
+            saber que o que ele ve nao e mais a cidade dele — nem como voltar
+            sem adivinhar qual era. */}
+        {isExploring && (
+          <button
+            type="button"
+            onClick={resetToMyCity}
+            title="Voltar para a minha cidade"
+            aria-label="Voltar para a minha cidade"
+            className="flex items-center gap-1 rounded-full border border-border bg-white px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
 
       {/* Dropdown ancorado à esquerda do botão em telas pequenas: centralizar
           (ou ancorar à direita) empurrava o menu para fora da viewport quando

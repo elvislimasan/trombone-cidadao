@@ -9,6 +9,11 @@ const TAB_CONFIG = {
     title: 'Nenhuma bronca por aqui!',
     subtitle: 'Seja o primeiro a reportar um problema na sua cidade.',
   },
+  nearby: {
+    icon: 'location',
+    title: 'Nenhuma bronca perto de você',
+    subtitle: 'Não encontramos problemas reportados num raio de 15 km. Que tal ser o primeiro?',
+  },
   trending: {
     icon: 'stats',
     title: 'Nada bombando no momento',

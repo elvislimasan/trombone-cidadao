@@ -276,6 +276,51 @@ body > * a:not(.leaflet-container a) {
   touch-action: auto !important;
 }
 
+/* === LEAFLET: NEUTRALIZAR O BRANCO PADRAO === */
+/* O leaflet.css pinta .leaflet-div-icon com `background:#fff` e uma borda
+   cinza. Como nossos pins sao SVG transparente, esse fundo aparecia como um
+   retangulo branco atras da gota - e no tema claro ainda escondia o icone
+   branco. O emoji antigo mascarava o problema porque desenhava sobre um div
+   opaco do mesmo tamanho. */
+.leaflet-container .leaflet-div-icon,
+.leaflet-container .custom-leaflet-icon,
+.leaflet-container .user-leaflet-icon,
+.leaflet-container .cluster-leaflet-icon {
+  background: transparent;
+  border: 0;
+}
+
+/* Controles e atribuicao tambem vem com branco fixo do leaflet.css. O main.jsx
+   importa este arquivo ANTES do leaflet.css, entao empatar na especificidade
+   perde: as regras abaixo sobem para .leaflet-container <seletor> de proposito.
+   Sem isso o botao de zoom fica branco no tema escuro. */
+.leaflet-container .leaflet-bar a,
+.leaflet-container .leaflet-bar a:hover,
+.leaflet-container .leaflet-control-layers {
+  background-color: rgb(var(--surface-raised));
+  color: rgb(var(--text-secondary));
+}
+
+/* A atribuicao empata em especificidade com o leaflet.css (que tambem usa
+   .leaflet-container .leaflet-control-attribution) e ele carrega depois, entao
+   aqui precisa de um seletor mais especifico. Usa `background` porque e a
+   propriedade que o leaflet.css define - `background-color` sozinho perderia
+   para o shorthand dele. */
+.leaflet-container .leaflet-control-container .leaflet-control-attribution {
+  background: rgb(var(--surface-raised) / 0.8);
+  color: rgb(var(--text-secondary));
+}
+
+.leaflet-container .leaflet-bar a,
+.leaflet-container .leaflet-bar a:hover {
+  /* --border-subtle, nao --border: este ultimo e HSL (ponte do Tailwind). */
+  border-bottom-color: rgb(var(--border-subtle));
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: rgb(var(--text-secondary));
+}
+
 /* === AJUSTES PARA CONTROLES DO LEAFLET NÃO SOBREPOREM O BOTTOM NAV === */
 /* Controles de zoom do Leaflet - z-index menor que o BottomNav (900) */
 .leaflet-control-zoom {

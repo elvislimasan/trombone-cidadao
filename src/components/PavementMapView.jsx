@@ -10,8 +10,53 @@ import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useCity } from '@/contexts/CityContext';
+import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
+import { createMapPin, buildPinBadge, ICON_SIZE } from '@/components/map/pinIcon';
+
+// Status de pavimentacao -> sufixo do token --pin-pav-*.
+const PAVEMENT_STATUS_TOKEN = {
+  paved: 'paved',
+  partially_paved: 'partial',
+  unpaved: 'unpaved',
+};
+
+// Via. currentColor recebe o token de fg via createMapPin.
+const RoadIcon = () => (
+  <svg
+    width={ICON_SIZE}
+    height={ICON_SIZE}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 19 8 5" />
+    <path d="M20 19 16 5" />
+    <path d="M12 6v3" />
+    <path d="M12 13v3" />
+  </svg>
+);
+
+// Capacete no badge: marca a rua que ja tem obra vinculada.
+const buildWorkBadge = () =>
+  buildPinBadge(
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v5Z" />
+      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
+    </svg>
+  );
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
@@ -72,7 +117,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const mapRef = useRef();
   const markerRefs = useRef({});
   const { mode } = useMapModeToggle();
-  const { activeCity } = useCity();
+  const { city: activeCity } = useCityView();
 
   useImperativeHandle(ref, () => ({
     goToLocation: (location) => {
@@ -89,34 +134,25 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const getStatusInfo = (status, pavementType) => {
     switch (status) {
       case 'paved':
-        return { text: `Pavimentada (${pavementType === 'granite' ? 'Granito' : 'Asfalto'})`, color: 'bg-gray-800', icon: <HardHat className="w-3 h-3" />, markerColor: '#374151' };
+        return { text: `Pavimentada (${pavementType === 'granite' ? 'Granito' : 'Asfalto'})`, color: 'bg-gray-800', icon: <HardHat className="w-3 h-3" /> };
       case 'partially_paved':
-        return { text: `Parcialmente Pavimentada (${pavementType === 'granite' ? 'Granito' : 'Asfalto'})`, color: 'bg-gray-500', icon: <Construction className="w-3 h-3" />, markerColor: '#6b7280' };
+        return { text: `Parcialmente Pavimentada (${pavementType === 'granite' ? 'Granito' : 'Asfalto'})`, color: 'bg-gray-500', icon: <Construction className="w-3 h-3" /> };
       case 'unpaved':
-        return { text: 'Sem Pavimentação', color: 'bg-amber-600', icon: <ThumbsDown className="w-3 h-3" />, markerColor: '#d97706' };
+        return { text: 'Sem Pavimentação', color: 'bg-amber-600', icon: <ThumbsDown className="w-3 h-3" /> };
       default:
-        return { text: 'N/A', color: 'bg-gray-400', icon: <Road className="w-3 h-3" />, markerColor: '#9ca3af' };
+        return { text: 'N/A', color: 'bg-gray-400', icon: <Road className="w-3 h-3" /> };
     }
   };
 
   const createStreetMarkerIcon = (street) => {
-    const statusInfo = getStatusInfo(street.status, street.pavement_type);
-    const workIcon = street.work_id ? `<div style="position: absolute; top: -5px; right: -5px; width: 1rem; height: 1rem; background-color: #3b82f6; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z"/></svg></div>` : '';
-    
-    const iconHtml = `
-      <div style="position: relative;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="${statusInfo.markerColor}" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
-        </svg>
-        ${workIcon}
-      </div>
-    `;
-    return L.divIcon({
-      html: iconHtml,
-      className: 'custom-street-marker',
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
+    const token = PAVEMENT_STATUS_TOKEN[street.status] || 'unknown';
+    return createMapPin({
+      // work_id entra na chave porque muda o desenho (badge), nao so os dados.
+      cacheKey: `pavement|${token}|${street.work_id ? 'work' : 'none'}`,
+      bgToken: `--pin-pav-${token}-bg`,
+      fgToken: `--pin-pav-${token}-fg`,
+      icon: <RoadIcon />,
+      badge: street.work_id ? buildWorkBadge() : '',
     });
   };
 

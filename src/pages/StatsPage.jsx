@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import WorksStatsReports from '@/components/WorksStatsReports';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import { MapPin, Check, Globe, Search } from 'lucide-react';
 import CitySelector from '@/components/CitySelector';
 import jsPDF from 'jspdf';
@@ -142,7 +142,7 @@ const buildTimelineData = (reports, view, selectedYear) => {
 };
 
 const ReportsStats = () => {
-  const { activeCityId } = useCity();
+  const { cityId: activeCityId } = useCityView();
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -1111,7 +1111,7 @@ const ReportsStats = () => {
 const PublicWorksStats = () => {
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { activeCityId } = useCity();
+  const { cityId: activeCityId } = useCityView();
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -1180,7 +1180,7 @@ const PublicWorksStats = () => {
 };
 
 const StatsPage = () => {
-  const { activeCityId } = useCity();
+  const { cityId: activeCityId } = useCityView();
   const [summary, setSummary] = useState({
     total: 0,
     pending: 0,
@@ -1339,4 +1339,12 @@ const StatsPage = () => {
   );
 };
 
-export default StatsPage;
+// Provider unico para a tela: ReportsStats, PublicWorksStats e o StatsPage
+// leem a mesma cidade, entao o filtro precisa ser compartilhado entre eles.
+export default function StatsPageWithCityView() {
+  return (
+    <CityViewProvider>
+      <StatsPage />
+    </CityViewProvider>
+  );
+}

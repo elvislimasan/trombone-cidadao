@@ -13,7 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import WorksMapView from '@/components/WorksMapView';
 import { formatCurrency, formatTimeAgo, cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -76,7 +76,7 @@ const PublicWorksPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { activeCityId } = useCity();
+  const { cityId: activeCityId } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const mapViewRef = useRef();
@@ -498,4 +498,12 @@ const PublicWorksPage = () => {
 };
 
 
-export default PublicWorksPage;
+// O filtro de cidade desta tela e local: explorar as obras de outra cidade nao
+// muda o feed nem a cidade do header, e nao persiste ao sair.
+export default function PublicWorksPageWithCityView() {
+  return (
+    <CityViewProvider>
+      <PublicWorksPage />
+    </CityViewProvider>
+  );
+}

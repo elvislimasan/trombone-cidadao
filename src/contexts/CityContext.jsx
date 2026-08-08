@@ -188,3 +188,93 @@ export const useCity = () => {
   }
   return context;
 };
+
+/* ------------------------------------------------------------------------ *
+ * Filtro de cidade LOCAL de uma tela (exploracao)
+ *
+ * Existem duas perguntas diferentes que antes compartilhavam o mesmo estado:
+ *
+ *   "onde eu moro"        -> useCity(): global, persiste em localStorage,
+ *                            controlado pelo seletor do header e pelo feed.
+ *   "o que estou olhando" -> useCityView(): local da tela, efemero.
+ *
+ * Misturar as duas fazia uma espiada em outra cidade (ver as obras de Recife)
+ * mudar o app inteiro e sobreviver ao fechamento do app.
+ *
+ * A tela inteira precisa compartilhar UM estado — o seletor e as consultas de
+ * dados estao em componentes diferentes. Por isso o provider: sem ele, cada
+ * useCityView() teria seu proprio estado e o seletor nao filtraria nada.
+ * ------------------------------------------------------------------------ */
+
+const CityViewContext = createContext(undefined);
+
+export const CityViewProvider = ({ children }) => {
+  const { activeCityId, activeCityName, cities, loadingCities } = useCity();
+  // undefined = "seguindo o header". Sentinela proprio porque `null` ja e um
+  // valor valido do filtro ("Todas as cidades").
+  const [override, setOverride] = useState(undefined);
+
+  const isExploring = override !== undefined;
+  const cityId = isExploring ? override : activeCityId;
+
+  // O objeto da cidade tambem precisa acompanhar o filtro local: os mapas
+  // centralizam a viewport por `city.name` — sem isso a lista mostraria a
+  // cidade explorada e o mapa continuaria na cidade do header.
+  const city = React.useMemo(() => {
+    if (cityId === null || cityId === undefined) return null;
+    return cities.find((c) => String(c.id) === String(cityId)) || null;
+  }, [cityId, cities]);
+
+  const cityName = React.useMemo(() => {
+    if (!isExploring) return activeCityName;
+    if (!city) return null;
+    const uf = city.state?.uf || '';
+    return uf ? `${city.name} · ${uf}` : city.name;
+  }, [isExploring, activeCityName, city]);
+
+  const resetToMyCity = useCallback(() => setOverride(undefined), []);
+
+  const value = React.useMemo(
+    () => ({
+      cityId,
+      cityName,
+      city,
+      setCityId: setOverride,
+      isExploring,
+      resetToMyCity,
+      cities,
+      loadingCities,
+    }),
+    [cityId, cityName, city, isExploring, resetToMyCity, cities, loadingCities]
+  );
+
+  return <CityViewContext.Provider value={value}>{children}</CityViewContext.Provider>;
+};
+
+/**
+ * Cidade da tela atual. Dentro de <CityViewProvider> devolve o filtro local
+ * (explorar nao afeta o app); fora dele, cai para a cidade global — assim
+ * telas que ainda nao migraram continuam funcionando sem alteracao.
+ *
+ * @returns {{cityId: string|number|null, cityName: string|null,
+ *            city: object|null, setCityId: (id: string|number|null) => void,
+ *            isExploring: boolean, resetToMyCity: () => void,
+ *            cities: Array, loadingCities: boolean}}
+ */
+export const useCityView = () => {
+  const scoped = useContext(CityViewContext);
+  const global = useCity();
+
+  if (scoped) return scoped;
+
+  return {
+    cityId: global.activeCityId,
+    cityName: global.activeCityName,
+    city: global.activeCity,
+    setCityId: global.setActiveCity,
+    isExploring: false,
+    resetToMyCity: () => {},
+    cities: global.cities,
+    loadingCities: global.loadingCities,
+  };
+};

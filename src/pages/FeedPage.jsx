@@ -4,6 +4,7 @@ import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { useFeed } from '@/hooks/useFeed';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useCreateReport } from '@/hooks/useCreateReport';
 import { useFeedRealtime } from '@/hooks/useFeedRealtime';
@@ -15,6 +16,7 @@ import ReportModal from '@/components/ReportModal';
 import FeedTabs, { FEED_TABS } from '@/components/feed/FeedTabs';
 import FeedStates, { FeedFatalState, FeedLoadMoreError } from '@/components/feed/FeedStates';
 import FeedWelcomeCard from '@/components/feed/FeedWelcomeCard';
+import FeedLocationGate from '@/components/feed/FeedLocationGate';
 import FeedNewReportsBanner from '@/components/feed/FeedNewReportsBanner';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -48,10 +50,18 @@ export default function FeedPage() {
 
   const { createReport } = useCreateReport({ onCreated: () => setShowReportModal(false) });
 
+  const { coords, status: geoStatus, request: requestLocation } = useUserLocation();
+  const isNearby = activeTab === 'nearby';
+  // So passamos coords na aba nearby: nas outras a posicao nao filtra nada e
+  // mudar de aba nao deve disparar recarga.
+  const feedCoords = isNearby ? coords : null;
+  // Sem posicao, a aba mostra o gate em vez de uma lista que ignora a distancia.
+  const awaitingLocation = isNearby && !coords;
+
   const {
     reports, loading, loadingMore, hasMore, loadMore, refresh,
     toggleUpvote, error, isSlow, loadMoreError, isSlowMore,
-  } = useFeed(activeTab, activeCityId);
+  } = useFeed(activeTab, activeCityId, feedCoords);
   const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
 
   // Sentinel for infinite scroll
@@ -107,6 +117,16 @@ export default function FeedPage() {
     setRecentCreatedId(null);
   }, [resetNewCount]);
 
+  // Pede a posicao na primeira vez que a aba "Perto de mim" abre. Depois disso
+  // so o botao do gate dispara: em 'denied' repetir nao reabre o prompt, e em
+  // 'unavailable' um retry automatico a cada render viraria loop de GPS.
+  const askedLocationRef = useRef(false);
+  useEffect(() => {
+    if (activeTab !== 'nearby' || askedLocationRef.current) return;
+    askedLocationRef.current = true;
+    requestLocation();
+  }, [activeTab, requestLocation]);
+
   const handleOpenCreate = useCallback(() => setShowReportModal(true), []);
 
   useEffect(() => {
@@ -154,9 +174,7 @@ export default function FeedPage() {
           filtro global, nao um controle desta pagina. O titulo "Feed" e o botao
           "Nova denuncia" sairam — as abas ja identificam a secao, e criar bronca
           continua no FAB do bottom nav e no atalho abaixo. */}
-      {activeTab !== 'resolved' && (
-        <FeedWelcomeCard onCreateReport={handleOpenCreate} onInvite={handleInvite} />
-      )}
+      <FeedWelcomeCard onCreateReport={handleOpenCreate} onInvite={handleInvite} />
 
       {/* ── Sticky Tab Bar ── */}
       <div className="sticky top-0 z-10 bg-surface-base/90 backdrop-blur-md border-b border-edge-subtle">
@@ -170,15 +188,21 @@ export default function FeedPage() {
 
       {/* ── Feed Content ── */}
       <div className="container mx-auto max-w-2xl px-3 py-4">
-        <FeedStates
-          isOffline={isOffline}
-          isSlow={isSlow}
-          error={error}
-          hasReports={hasReports}
-          onRetry={refresh}
-        />
+        {/* Enquanto falta a posicao nao ha requisicao em curso: mostrar "lento"
+            ou erro de rede ao lado do gate confundiria a causa real. */}
+        {!awaitingLocation && (
+          <FeedStates
+            isOffline={isOffline}
+            isSlow={isSlow}
+            error={error}
+            hasReports={hasReports}
+            onRetry={refresh}
+          />
+        )}
 
-        {loading && !hasReports ? (
+        {awaitingLocation ? (
+          <FeedLocationGate status={geoStatus} onRequest={requestLocation} />
+        ) : loading && !hasReports ? (
           <FeedSkeleton count={3} />
         ) : (isOffline || error) && !hasReports ? (
           <FeedFatalState isOffline={isOffline} error={error} onRetry={refresh} />

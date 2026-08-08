@@ -20,7 +20,7 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
             onClick={onCreateReport}
             className="rounded-2xl border border-edge-subtle bg-surface-raised px-2 py-3 text-center shadow-elevation-1 hover:bg-surface-subtle transition-colors"
           >
-            <div className="mx-auto w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
+            <div className="mx-auto w-10 h-10 rounded-xl bg-brand-subtleBg text-brand-subtleFg ring-1 ring-edge-subtle flex items-center justify-center">
               <Icon name="trombone" size={20} />
             </div>
             <p className="mt-2 text-xs font-bold leading-tight text-content-primary">
@@ -35,7 +35,7 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
             onClick={() => navigate(user?.is_ambassador ? '/embaixador' : '/seja-embaixador')}
             className="rounded-2xl border border-edge-subtle bg-surface-raised px-2 py-3 text-center shadow-elevation-1 hover:bg-surface-subtle transition-colors"
           >
-            <div className="mx-auto w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
+            <div className="mx-auto w-10 h-10 rounded-xl bg-brand-subtleBg text-brand-subtleFg ring-1 ring-edge-subtle flex items-center justify-center">
               <Icon name="ambassador" size={20} />
             </div>
             <p className="mt-2 text-xs font-bold leading-tight text-content-primary">
@@ -60,7 +60,7 @@ const FeedWelcomeCard = ({ onCreateReport, onInvite }) => {
             onClick={onInvite}
             className="rounded-2xl border border-edge-subtle bg-surface-raised px-2 py-3 text-center shadow-elevation-1 hover:bg-surface-subtle transition-colors"
           >
-            <div className="mx-auto w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
+            <div className="mx-auto w-10 h-10 rounded-xl bg-brand-subtleBg text-brand-subtleFg ring-1 ring-edge-subtle flex items-center justify-center">
               <Icon name="profile" size={20} />
             </div>
             <p className="mt-2 text-xs font-bold leading-tight text-content-primary">

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Bus, Landmark, Building, ShoppingCart, Mail, Search, ArrowRight, PlusCircle, Download, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import CitySelector from '@/components/CitySelector';
@@ -22,7 +22,7 @@ const ServicesPage = () => {
   const [selectedBairro, setSelectedBairro] = useState('all');
   const [selectedDestination, setSelectedDestination] = useState('all');
   const { toast } = useToast();
-  const { activeCityId, activeCityName } = useCity();
+  const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
 
@@ -371,4 +371,12 @@ const ServicesPage = () => {
   );
 };
 
-export default ServicesPage;
+// Filtro de cidade local a esta tela — ver os servicos de outra cidade e uma
+// consulta, nao uma mudanca de onde o usuario mora.
+export default function ServicesPageWithCityView() {
+  return (
+    <CityViewProvider>
+      <ServicesPage />
+    </CityViewProvider>
+  );
+}

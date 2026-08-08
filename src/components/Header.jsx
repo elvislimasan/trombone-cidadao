@@ -177,7 +177,15 @@ const Header = () => {
               }}
             />
           </Link>
-          <FeedCitySelector inHeader />
+          {/* No feed o espaco ao lado do logo mostra a cidade ativa — e o filtro
+              que define o conteudo da tela. Fora dele volta o nome do site: as
+              telas de exploracao tem filtro proprio (local), e deixar o espaco
+              vazio so desperdicava o lugar onde a marca deveria estar. */}
+          {location.pathname === '/' ? (
+            <FeedCitySelector inHeader />
+          ) : (
+            <span className="font-extrabold text-lg tracking-tight truncate">{siteName}</span>
+          )}
         </div>
 
         <nav className="hidden lg:flex items-center gap-5">

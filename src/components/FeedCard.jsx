@@ -6,12 +6,22 @@ import TimeAgo from '@/components/TimeAgo';
 import FeedCardMedia from '@/components/feed/FeedCardMedia';
 import { computeSignals } from '@/components/feed/FeedCardSignals';
 import FeedCardSupport from '@/components/feed/FeedCardSupport';
+import FeedCommentsSheet from '@/components/feed/FeedCommentsSheet';
 import StatusBadge from '@/design-system/primitives/StatusBadge';
 import Icon, { categoryIconName } from '@/design-system/icons';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { getReportShareUrl } from '@/lib/shareUtils';
+
+// Distancia em linguagem de rua: abaixo de 1 km em metros arredondados a 50,
+// porque "a 347 m" sugere uma precisao que o GPS do celular nao tem.
+const formatDistance = (meters) => {
+  if (!Number.isFinite(meters)) return null;
+  if (meters < 1000) return `a ${Math.max(50, Math.round(meters / 50) * 50)} m`;
+  const km = meters / 1000;
+  return `a ${km.toFixed(km < 10 ? 1 : 0).replace('.', ',')} km`;
+};
 
 const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-5 h-5', textClassName = 'text-2xs' }) => {
   if (avatarUrl) {
@@ -38,6 +48,14 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
   const { toast } = useToast();
   const cardRef = useRef(null);
   const [isInView, setIsInView] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  // A contagem vem do feed, mas a folha traz o numero atualizado ao abrir —
+  // moderacao pode ter aprovado comentarios desde que o feed carregou.
+  const [commentsCount, setCommentsCount] = useState(report.comments_count);
+
+  useEffect(() => {
+    setCommentsCount(report.comments_count);
+  }, [report.comments_count]);
 
   // Reintroduzido na Task 13: a Task 12 removeu este observer do FeedCard ao
   // extrair o efeito de thumbnail para FeedCardMedia. O card observa a propria
@@ -168,10 +186,20 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
             onClick={goToReport}
             className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
           >
-            {report.address && (
+            {(report.address || report.distanceMeters != null) && (
               <div className="flex items-start gap-1 text-2xs text-content-secondary">
                 <Icon name="location" size={12} className="flex-shrink-0 mt-0.5 text-brand" />
-                <span className="line-clamp-2">{report.address}</span>
+                <span className="line-clamp-2">
+                  {report.address}
+                  {report.distanceMeters != null && (
+                    <>
+                      {report.address && ' · '}
+                      <span className="font-semibold text-content-primary whitespace-nowrap">
+                        {formatDistance(report.distanceMeters)}
+                      </span>
+                    </>
+                  )}
+                </span>
               </div>
             )}
 
@@ -210,15 +238,17 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
               >
                 <Icon name="support" size={15} />
               </button>
+              {/* Abre a folha no proprio feed: ir para a pagina de detalhes so
+                  para ler dois comentarios custava a posicao do scroll. */}
               <button
                 type="button"
-                onClick={goToReport}
+                onClick={() => setCommentsOpen(true)}
                 aria-label="Ver comentários"
                 className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-2xs font-semibold text-content-tertiary hover:text-content-primary transition-colors"
               >
                 <Icon name="comment" size={15} />
-                {report.comments_count > 0 && (
-                  <span className="tabular-nums">{report.comments_count}</span>
+                {commentsCount > 0 && (
+                  <span className="tabular-nums">{commentsCount}</span>
                 )}
               </button>
               <button
@@ -297,6 +327,14 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
           />
         </button>
       )}
+
+      <FeedCommentsSheet
+        open={commentsOpen}
+        onOpenChange={setCommentsOpen}
+        reportId={report.id}
+        reportTitle={report.title}
+        onCountChange={setCommentsCount}
+      />
     </article>
   );
 };

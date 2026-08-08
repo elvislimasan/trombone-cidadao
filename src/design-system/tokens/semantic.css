@@ -49,6 +49,99 @@
   --status-duplicate-fg:     var(--tc-neutral-600);
   --status-duplicate-border: var(--tc-neutral-200);
 
+  /* --- Pins do mapa: cor por CATEGORIA ---
+     Distintos dos --status-* acima: aquele par e de badge (fundo pastel, texto
+     escuro) e le contra o card. O pin le contra o mapa, entao o corpo usa a cor
+     cheia e o icone inverte.
+     No tema claro o corpo usa a variante `-deep` com icone branco. As cores
+     vivas do guia so entram no tema escuro (bloco .dark), onde o icone inverte
+     para escuro - com icone branco elas ficariam em 1.63-3.76. O anel substitui
+     o `border: 2px solid white` que estava hardcoded nas quatro telas de mapa e
+     estourava no tema escuro. */
+  --pin-pothole-bg:   var(--tc-cat-pothole-deep);
+  --pin-pothole-fg:   var(--tc-neutral-0);
+
+  --pin-lighting-bg:  var(--tc-cat-lighting-deep);
+  --pin-lighting-fg:  var(--tc-neutral-0);
+
+  --pin-sewage-bg:    var(--tc-cat-sewage-deep);
+  --pin-sewage-fg:    var(--tc-neutral-0);
+
+  --pin-cleaning-bg:  var(--tc-cat-cleaning-deep);
+  --pin-cleaning-fg:  var(--tc-neutral-0);
+
+  --pin-greenery-bg:  var(--tc-cat-greenery-deep);
+  --pin-greenery-fg:  var(--tc-neutral-0);
+
+  --pin-waterleak-bg: var(--tc-cat-sewage-deep);
+  --pin-waterleak-fg: var(--tc-neutral-0);
+
+  --pin-security-bg:  var(--tc-cat-security-deep);
+  --pin-security-fg:  var(--tc-neutral-0);
+
+  --pin-other-bg:     var(--tc-cat-other-deep);
+  --pin-other-fg:     var(--tc-neutral-0);
+
+  --pin-ring: var(--tc-neutral-0);
+
+  /* Estados do guia. "Em alta" reusa o vermelho de seguranca; "selecionado" nao
+     muda de cor, so engrossa o anel (tratado no componente). */
+  --pin-hot-bg: var(--tc-cat-security-deep);
+  --pin-hot-fg: var(--tc-neutral-0);
+
+  /* Imoveis alugados: tokens proprios em vez de reusar os de bronca, para que
+     mudar a cor de uma categoria nao mexa nesta tela sem querer. */
+  --pin-rental-active-bg:   var(--tc-cat-cleaning-deep);
+  --pin-rental-active-fg:   var(--tc-neutral-0);
+  --pin-rental-inactive-bg: var(--tc-cat-other-deep);
+  --pin-rental-inactive-fg: var(--tc-neutral-0);
+
+  /* Status de obra. Sao seis, e a paleta tem cinco familias cromaticas, entao
+     "licitada" e "paralisada" dividem o ambar - distinguem-se pelo icone e pelo
+     popup, nao pela cor. Se as duas precisarem ser separaveis so pela cor, o
+     caminho e uma familia laranja nova em primitives.css. */
+  --pin-work-planned-bg:    var(--tc-violet-600);
+  --pin-work-planned-fg:    var(--tc-neutral-0);
+  --pin-work-tendered-bg:   var(--tc-amber-700);
+  --pin-work-tendered-fg:   var(--tc-neutral-0);
+  --pin-work-progress-bg:   var(--tc-blue-700);
+  --pin-work-progress-fg:   var(--tc-neutral-0);
+  --pin-work-stalled-bg:    var(--tc-amber-700);
+  --pin-work-stalled-fg:    var(--tc-neutral-0);
+  --pin-work-unfinished-bg: var(--tc-red-700);
+  --pin-work-unfinished-fg: var(--tc-neutral-0);
+  --pin-work-completed-bg:  var(--tc-green-700);
+  --pin-work-completed-fg:  var(--tc-neutral-0);
+  --pin-work-unknown-bg:    var(--tc-neutral-500);
+  --pin-work-unknown-fg:    var(--tc-neutral-0);
+
+  /* Pavimentacao: escala neutra para "tem asfalto", ambar para a ausencia dele,
+     que e o caso que o cidadao quer achar no mapa. */
+  --pin-pav-paved-bg:     var(--tc-neutral-700);
+  --pin-pav-paved-fg:     var(--tc-neutral-0);
+  --pin-pav-partial-bg:   var(--tc-neutral-500);
+  --pin-pav-partial-fg:   var(--tc-neutral-0);
+  --pin-pav-unpaved-bg:   var(--tc-amber-700);
+  --pin-pav-unpaved-fg:   var(--tc-neutral-0);
+  --pin-pav-unknown-bg:   var(--tc-neutral-500);
+  --pin-pav-unknown-fg:   var(--tc-neutral-0);
+
+  /* Badge "tem obra vinculada", sobreposto no canto do pin. */
+  --pin-badge-bg: var(--tc-blue-700);
+  --pin-badge-fg: var(--tc-neutral-0);
+
+  /* Cluster: o numero fica dentro, entao o contraste e de texto. A intensidade
+     cresce com a quantidade agregada. */
+  --pin-cluster-low-bg:  var(--tc-blue-700);
+  --pin-cluster-low-fg:  var(--tc-neutral-0);
+  --pin-cluster-mid-bg:  var(--tc-amber-700);
+  --pin-cluster-mid-fg:  var(--tc-neutral-0);
+  --pin-cluster-high-bg: var(--tc-red-700);
+  --pin-cluster-high-fg: var(--tc-neutral-0);
+
+  /* Ponto "voce esta aqui". */
+  --pin-user-bg: var(--tc-blue-600);
+
   /* --- Sinais do feed --- */
   --signal-hot-bg:     var(--tc-red-600);
   --signal-hot-fg:     var(--tc-neutral-0);
@@ -145,6 +238,84 @@
   --status-duplicate-bg:     var(--tc-neutral-850);
   --status-duplicate-fg:     var(--tc-neutral-400);
   --status-duplicate-border: var(--tc-neutral-800);
+
+  /* Corpo suavizado (*-300) para nao brilhar contra o CARTO Dark Matter. Isso
+     obriga o icone a inverter: branco sobre amber-300 daria 1.44, ilegivel;
+     neutral-950 sobre o mesmo tom da 13.01. A cor do status continua sendo a
+     mesma familia, entao "ambar = pendente" nao muda de sentido entre os temas. */
+  --pin-rental-active-bg:   var(--tc-cat-cleaning-vivid);
+  --pin-rental-active-fg:   var(--tc-neutral-950);
+  --pin-rental-inactive-bg: var(--tc-cat-other-soft);
+  --pin-rental-inactive-fg: var(--tc-neutral-950);
+
+  --pin-ring: var(--tc-neutral-900);
+
+  --pin-work-planned-bg:    var(--tc-violet-300);
+  --pin-work-planned-fg:    var(--tc-neutral-950);
+  --pin-work-tendered-bg:   var(--tc-amber-300);
+  --pin-work-tendered-fg:   var(--tc-neutral-950);
+  --pin-work-progress-bg:   var(--tc-blue-300);
+  --pin-work-progress-fg:   var(--tc-neutral-950);
+  --pin-work-stalled-bg:    var(--tc-amber-300);
+  --pin-work-stalled-fg:    var(--tc-neutral-950);
+  --pin-work-unfinished-bg: var(--tc-red-300);
+  --pin-work-unfinished-fg: var(--tc-neutral-950);
+  --pin-work-completed-bg:  var(--tc-green-300);
+  --pin-work-completed-fg:  var(--tc-neutral-950);
+  --pin-work-unknown-bg:    var(--tc-neutral-400);
+  --pin-work-unknown-fg:    var(--tc-neutral-950);
+
+  /* Cores do guia, na intensidade original. O icone inverte para escuro: sobre
+     #FFC107 um icone branco daria 1.63, enquanto o escuro da 11.51. */
+  --pin-pothole-bg:   var(--tc-cat-pothole-vivid);
+  --pin-pothole-fg:   var(--tc-neutral-950);
+
+  --pin-lighting-bg:  var(--tc-cat-lighting-vivid);
+  --pin-lighting-fg:  var(--tc-neutral-950);
+
+  --pin-sewage-bg:    var(--tc-cat-sewage-vivid);
+  --pin-sewage-fg:    var(--tc-neutral-950);
+
+  --pin-cleaning-bg:  var(--tc-cat-cleaning-vivid);
+  --pin-cleaning-fg:  var(--tc-neutral-950);
+
+  --pin-greenery-bg:  var(--tc-cat-greenery-soft);
+  --pin-greenery-fg:  var(--tc-neutral-950);
+
+  --pin-waterleak-bg: var(--tc-cat-sewage-vivid);
+  --pin-waterleak-fg: var(--tc-neutral-950);
+
+  --pin-security-bg:  var(--tc-cat-security-vivid);
+  --pin-security-fg:  var(--tc-neutral-950);
+
+  --pin-other-bg:     var(--tc-cat-other-soft);
+  --pin-other-fg:     var(--tc-neutral-950);
+
+  --pin-hot-bg: var(--tc-cat-security-vivid);
+  --pin-hot-fg: var(--tc-neutral-950);
+
+  /* No escuro a escala neutra inverte: pavimentada fica clara sobre o mapa
+     escuro, mantendo a distancia visual para "sem pavimentacao". */
+  --pin-pav-paved-bg:     var(--tc-neutral-300);
+  --pin-pav-paved-fg:     var(--tc-neutral-950);
+  --pin-pav-partial-bg:   var(--tc-neutral-400);
+  --pin-pav-partial-fg:   var(--tc-neutral-950);
+  --pin-pav-unpaved-bg:   var(--tc-amber-300);
+  --pin-pav-unpaved-fg:   var(--tc-neutral-950);
+  --pin-pav-unknown-bg:   var(--tc-neutral-400);
+  --pin-pav-unknown-fg:   var(--tc-neutral-950);
+
+  --pin-badge-bg: var(--tc-blue-300);
+  --pin-badge-fg: var(--tc-neutral-950);
+
+  --pin-cluster-low-bg:  var(--tc-blue-300);
+  --pin-cluster-low-fg:  var(--tc-neutral-950);
+  --pin-cluster-mid-bg:  var(--tc-amber-300);
+  --pin-cluster-mid-fg:  var(--tc-neutral-950);
+  --pin-cluster-high-bg: var(--tc-red-300);
+  --pin-cluster-high-fg: var(--tc-neutral-950);
+
+  --pin-user-bg: var(--tc-blue-300);
 
   /* Sobre foto, no escuro, chip solido saturado pesa. Fundo escuro com texto
      colorido le igual e nao briga com a imagem. */

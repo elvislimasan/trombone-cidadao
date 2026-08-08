@@ -8,7 +8,6 @@ export function computeSignals(report, { ageDays, ageHours }) {
   const score = support * 2 + comments;
   const isLighting = report.category_id === 'iluminacao';
   const isOld = ageDays >= 7;
-  const isVeryOld = ageDays >= 14;
 
   const chips = [];
 
@@ -20,9 +19,9 @@ export function computeSignals(report, { ageDays, ageHours }) {
   // Sem chip para bronca recente: o tempo ja aparece no cabecalho do card
   // ("ha 3h"), entao o chip "Agora" era informacao repetida.
 
-  if (!isResolved && (report.is_recurrent || isVeryOld || support >= 20)) {
-    chips.push({ key: 'urgent', variant: 'urgent', label: 'Urgente' });
-  }
+  // Sem chip "Urgente": urgencia e um julgamento que o app fazia por conta
+  // propria (recorrente / 14+ dias / 20+ apoios) e carimbava no card. O peso
+  // do problema ja se le nos apoios, no tempo e no status.
 
   if (isResolved && ageHours <= 24) {
     chips.push({ key: 'resolvedToday', variant: 'hot', label: 'Resolvido hoje' });

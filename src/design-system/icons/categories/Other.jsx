@@ -1,11 +1,12 @@
 import React from 'react';
+// Guia de pins: tres pontos solidos, sem o contorno de pin que o icone antigo
+// tinha - a gota do marcador ja faz esse papel.
 export default function Other() {
   return (
     <>
-      <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
-      <circle cx="8.8" cy="10" r=".9" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="10" r=".9" fill="currentColor" stroke="none" />
-      <circle cx="15.2" cy="10" r=".9" fill="currentColor" stroke="none" />
+      <circle cx="6.4" cy="12" r="1.9" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none" />
+      <circle cx="17.6" cy="12" r="1.9" fill="currentColor" stroke="none" />
     </>
   );
 }

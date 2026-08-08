@@ -22,9 +22,14 @@ const SearchPage = () => {
   const { toast } = useToast();
 
   const runSearch = useCallback(
-    async (query) => {
+    async (query, status = 'all') => {
       const q = (query || '').trim();
-      if (!q) {
+      const onlyResolved = status === 'resolved';
+
+      // Sem termo so faz sentido consultar quando ha um filtro ativo: e assim
+      // que "Resolvidas" (que saiu das abas do feed) continua navegavel — pela
+      // palavra-chave ninguem chegaria nessa lista.
+      if (!q && !onlyResolved) {
         setResults({ reports: [], works: [], petitions: [], services: [] });
         return;
       }
@@ -32,13 +37,25 @@ const SearchPage = () => {
       setLoading(true);
       const like = `%${q}%`;
 
+      let reportsQuery = supabase
+        .from('reports')
+        .select('id, title, description, address, protocol')
+        .eq('moderation_status', 'approved')
+        .neq('status', 'duplicate');
+
+      if (onlyResolved) reportsQuery = reportsQuery.eq('status', 'resolved');
+      if (q) {
+        reportsQuery = reportsQuery.or(
+          `title.ilike.${like},description.ilike.${like},protocol.ilike.${like}`
+        );
+      }
+      reportsQuery = reportsQuery
+        .order('created_at', { ascending: false })
+        .limit(onlyResolved && !q ? 30 : 10);
+
       try {
         const [reportsRes, worksRes, petitionsRes, directoryRes] = await Promise.all([
-          supabase
-            .from('reports')
-            .select('id, title, description, address, protocol')
-            .or(`title.ilike.${like},description.ilike.${like},protocol.ilike.${like}`)
-            .limit(10),
+          reportsQuery,
           supabase
             .from('public_works')
             .select('id, title, description, status')

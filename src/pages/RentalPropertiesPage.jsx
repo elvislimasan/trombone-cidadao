@@ -10,7 +10,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import RentalPropertiesMapView from '@/components/RentalPropertiesMapView';
 import CitySelector from '@/components/CitySelector';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -34,7 +34,7 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
 );
 
 const RentalPropertiesPage = () => {
-  const { activeCityId, activeCityName } = useCity();
+  const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const { toast } = useToast();
@@ -319,4 +319,11 @@ const RentalPropertiesPage = () => {
   );
 };
 
-export default RentalPropertiesPage;
+// Filtro de cidade local a esta tela — nao altera o feed nem persiste.
+export default function RentalPropertiesPageWithCityView() {
+  return (
+    <CityViewProvider>
+      <RentalPropertiesPage />
+    </CityViewProvider>
+  );
+}

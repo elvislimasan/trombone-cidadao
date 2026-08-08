@@ -14,8 +14,38 @@ import { useToast } from '@/components/ui/use-toast';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
 import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
+import { createMapPin, ICON_SIZE } from '@/components/map/pinIcon';
+
+// Status de obra -> sufixo do token --pin-work-*. Fora dessa lista cai em
+// 'unknown', o cinza neutro.
+const WORK_STATUS_TOKEN = {
+  planned: 'planned',
+  tendered: 'tendered',
+  'in-progress': 'progress',
+  stalled: 'stalled',
+  unfinished: 'unfinished',
+  completed: 'completed',
+};
+
+// Capacete de obra, sem equivalente no design system (la os icones sao por
+// categoria de bronca). currentColor recebe o token de fg via createMapPin.
+const WorkIcon = () => (
+  <svg
+    width={ICON_SIZE}
+    height={ICON_SIZE}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v5Z" />
+    <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
+  </svg>
+);
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
@@ -82,7 +112,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { mode } = useMapModeToggle();
-  const { activeCity } = useCity();
+  const { city: activeCity } = useCityView();
 
   const fetchWorkModalData = useCallback(async (workId) => {
     if (!workId) return;
@@ -172,48 +202,29 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   const getStatusInfo = (status) => {
     switch (status) {
       case 'planned':
-        return { icon: CalendarClock, color: 'bg-purple-500', markerColor: '#a855f7', text: 'Prevista' };
+        return { icon: CalendarClock, color: 'bg-purple-500', text: 'Prevista' };
       case 'tendered':
-        return { icon: FileText, color: 'bg-orange-500', markerColor: '#f97316', text: 'Licitada' };
+        return { icon: FileText, color: 'bg-orange-500', text: 'Licitada' };
       case 'in-progress':
-        return { icon: HardHat, color: 'bg-blue-500', markerColor: '#3b82f6', text: 'Em Andamento' };
+        return { icon: HardHat, color: 'bg-blue-500', text: 'Em Andamento' };
       case 'stalled':
-        return { icon: PauseCircle, color: 'bg-amber-500', markerColor: '#f59e0b', text: 'Paralisada' };
+        return { icon: PauseCircle, color: 'bg-amber-500', text: 'Paralisada' };
       case 'unfinished':
-        return { icon: Wrench, color: 'bg-red-500', markerColor: '#ef4444', text: 'Inacabada' };
+        return { icon: Wrench, color: 'bg-red-500', text: 'Inacabada' };
       case 'completed':
-        return { icon: CheckCircle, color: 'bg-green-500', markerColor: '#22c55e', text: 'Concluída' };
+        return { icon: CheckCircle, color: 'bg-green-500', text: 'Concluída' };
       default:
-        return { icon: HardHat, color: 'bg-gray-500', markerColor: '#6b7280', text: 'Desconhecido' };
+        return { icon: HardHat, color: 'bg-gray-500', text: 'Desconhecido' };
     }
   };
 
   const createWorkMarkerIcon = (status) => {
-    const { markerColor } = getStatusInfo(status);
-    const iconHtml = `
-      <div style="
-        background-color: ${markerColor};
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 50%;
-        border: 2px solid white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      ">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v5Z"/>
-          <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z"/>
-        </svg>
-      </div>
-    `;
-    return L.divIcon({
-      html: iconHtml,
-      className: 'custom-work-marker',
-      iconSize: [40, 40],
-      iconAnchor: [20, 40],
-      popupAnchor: [0, -40]
+    const token = WORK_STATUS_TOKEN[status] || 'unknown';
+    return createMapPin({
+      cacheKey: `work|${token}`,
+      bgToken: `--pin-work-${token}-bg`,
+      fgToken: `--pin-work-${token}-fg`,
+      icon: <WorkIcon />,
     });
   };
 

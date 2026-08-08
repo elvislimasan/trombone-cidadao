@@ -54,7 +54,6 @@ import {
   ReportModerationBar,
 } from "@/components/report/ReportActionsMenu";
 import ReportComments from "@/components/report/ReportComments";
-import ReportCommentBar from "@/components/report/ReportCommentBar";
 import Icon from "@/design-system/icons";
 import { useNativeCamera } from "@/hooks/useNativeCamera";
 import {
@@ -84,6 +83,7 @@ const ReportPage = () => {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [showMarkResolvedModal, setShowMarkResolvedModal] = useState(false);
+  const [showRepublishOptions, setShowRepublishOptions] = useState(false);
   const [showFlyerModal, setShowFlyerModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [reportToLink, setReportToLink] = useState(null);
@@ -1714,63 +1714,76 @@ const ReportPage = () => {
                     formatDateTime={formatDateTime}
                   />
 
-                  {/* ── REPUBLICAR ── */}
-                  <section className="bg-surface-subtle rounded-2xl px-4 py-4 sm:px-6 sm:py-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                    <div className="flex-1 space-y-2 text-center sm:text-left">
-                      <h3 className="text-sm font-bold text-content-primary">
-                        Republicar esta denúncia
-                      </h3>
-                      <p className="text-xs text-content-secondary max-w-xl">
-                        Use o QR Code ou o link da bronca para convidar mais
-                        pessoas a apoiar. Quanto mais gente ver esta página,
-                        maior a pressão por mudança.
-                      </p>
-                      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-1 justify-center sm:justify-start">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleCopyShareLink}
-                          className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
-                        >
-                          <Icon name="share" size={14} />
-                          Copiar link da bronca
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowFlyerModal(true)}
-                          className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
-                        >
-                          <FileText className="w-4 h-4" />
-                          Baixar QR Code / Panfleto
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowStoryModal(true)}
-                          className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
-                        >
-                          <Instagram className="w-4 h-4" />
-                          Baixar card de stories
-                        </Button>
+                  {/* ── REPUBLICAR ──
+                      Faixa compacta como na referencia: titulo, subtitulo e um
+                      botao. As tres opcoes (copiar link, panfleto, card de
+                      stories) e o QR ficam num painel que abre ao tocar, em vez
+                      de ocuparem a pagina toda o tempo todo. */}
+                  <section className="bg-surface-subtle rounded-2xl px-4 py-3.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-brand">
+                          Republicar esta denúncia
+                        </h3>
+                        <p className="text-2xs text-content-secondary mt-0.5">
+                          Ajude a divulgar e cobrar uma solução
+                        </p>
                       </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowRepublishOptions((v) => !v)}
+                        aria-expanded={showRepublishOptions}
+                        className="flex-shrink-0 justify-center gap-2 rounded-xl border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
+                      >
+                        <Icon name="share" size={14} />
+                        Republicar
+                      </Button>
                     </div>
-                    <div className="flex-shrink-0 flex items-center justify-center rounded-2xl bg-surface-raised border border-edge-subtle p-3">
-                      {qrCodeUrl ? (
-                        <img
-                          src={qrCodeUrl}
-                          alt="QR Code da bronca"
-                          className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl bg-surface-subtle flex items-center justify-center">
-                          <span className="text-2xs text-content-tertiary">
-                            QR Code
-                          </span>
+
+                    {showRepublishOptions && (
+                      <div className="mt-4 pt-4 border-t border-edge-subtle flex flex-col sm:flex-row items-center gap-4">
+                        <div className="flex-1 w-full flex flex-col gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCopyShareLink}
+                            className="w-full justify-center gap-2 rounded-xl border-edge-default text-content-primary bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <Icon name="share" size={14} />
+                            Copiar link da bronca
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowFlyerModal(true)}
+                            className="w-full justify-center gap-2 rounded-xl border-edge-default text-content-primary bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Baixar QR Code / Panfleto
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowStoryModal(true)}
+                            className="w-full justify-center gap-2 rounded-xl border-edge-default text-content-primary bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <Instagram className="w-4 h-4" />
+                            Baixar card de stories
+                          </Button>
                         </div>
-                      )}
-                    </div>
+                        {qrCodeUrl && (
+                          <div className="flex-shrink-0 rounded-2xl bg-surface-raised border border-edge-subtle p-3">
+                            <img
+                              src={qrCodeUrl}
+                              alt="QR Code da bronca"
+                              className="w-24 h-24 rounded-xl"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </section>
                 </div>
               </div>
@@ -1932,18 +1945,6 @@ const ReportPage = () => {
             qrCodeUrl={qrCodeUrl}
             coverPhotoUrl={coverPhotoUrl}
           />
-
-          {/* Barra fixa "Adicionar comentário" (mobile). Escondida quando a
-              barra de moderação do embaixador está visível, pra não empilhar
-              duas barras fixas no rodapé. */}
-          {!canModerate && report && (
-            <ReportCommentBar
-              user={user}
-              newComment={newComment}
-              setNewComment={setNewComment}
-              handleSubmitComment={handleSubmitComment}
-            />
-          )}
 
           {/* Barra de moderação do embaixador (aprovar/rejeitar) */}
           <ReportModerationBar

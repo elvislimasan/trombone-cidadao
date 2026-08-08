@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { geocodeCity } from '@/lib/geocodeCity';
 const ReportList = React.lazy(() => import('@/components/ReportList'));
@@ -48,7 +48,7 @@ function HomePageImproved() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { activeCityId, activeCityName, activeCity } = useCity();
+  const { cityId: activeCityId, cityName: activeCityName, city: activeCity } = useCityView();
   const { toast } = useToast();
   const { handleUpvote, loading: upvoteLoading } = useUpvote();
   const [showPetitionsUpdate, setShowPetitionsUpdate] = useState(false);
@@ -1692,4 +1692,11 @@ function HomePageImproved() {
   );
 }
 
-export default HomePageImproved;
+// Filtro de cidade local a esta tela — nao altera o feed nem persiste.
+export default function HomePageImprovedWithCityView() {
+  return (
+    <CityViewProvider>
+      <HomePageImproved />
+    </CityViewProvider>
+  );
+}
