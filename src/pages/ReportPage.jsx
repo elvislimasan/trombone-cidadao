@@ -28,8 +28,6 @@ import {
   CheckCircle,
   Image,
   Instagram,
-  Sparkles,
-  Heart,
   FileText,
   Download,
   User2Icon,
@@ -52,11 +50,12 @@ import ReportProgress from "@/components/report/ReportProgress";
 import ReportUpdates from "@/components/report/ReportUpdates";
 import { ReportMediaHero, ReportMediaGallery } from "@/components/report/ReportMedia";
 import {
-  ReportActionsAdminButtons,
   ReportManagementPanel,
   ReportModerationBar,
 } from "@/components/report/ReportActionsMenu";
 import ReportComments from "@/components/report/ReportComments";
+import ReportCommentBar from "@/components/report/ReportCommentBar";
+import Icon from "@/design-system/icons";
 import { useNativeCamera } from "@/hooks/useNativeCamera";
 import {
   AlertCircle,
@@ -1538,13 +1537,13 @@ const ReportPage = () => {
           )}
 
           {/* ── PAGE ── */}
-          <div className="bg-[#f7f9fc] min-h-screen overflow-x-hidden">
+          <div className="bg-surface-sunken min-h-screen overflow-x-hidden">
             <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-4 lg:py-8 grid gap-6 grid-cols-1 lg:grid-cols-3">
               <div className="lg:col-span-2">
                 {managementPanel && (
                   <div className="mb-4 lg:hidden">{managementPanel}</div>
                 )}
-                <div className="bg-white shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] rounded-2xl overflow-hidden">
+                <div className="bg-surface-raised shadow-elevation-1 rounded-2xl overflow-hidden">
                   <ReportMediaHero
                     viewerMedia={viewerMedia}
                     getCategoryName={getCategoryName}
@@ -1555,7 +1554,7 @@ const ReportPage = () => {
                   />
 
                   <div className="relative -mt-5 px-3 pb-4 lg:-mt-10 lg:px-4">
-                    <div className="bg-white rounded-2xl p-4 space-y-4 shadow-[0_4px_16px_-4px_rgba(25,28,30,0.08)] lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-[0_12px_32px_-4px_rgba(25,28,30,0.10)]">
+                    <div className="bg-surface-raised rounded-2xl p-4 space-y-4 shadow-elevation-2 lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-elevation-3">
 
                       <ReportSummary
                         title={report.title}
@@ -1605,41 +1604,29 @@ const ReportPage = () => {
                       formatDateTime={formatDateTime}
                     />
 
-                    {/* admin actions */}
-                    <ReportActionsAdminButtons
-                      isAdmin={isAdmin}
-                      isPublicOfficial={isPublicOfficial}
-                      handleWhatsAppShare={handleWhatsAppShare}
-                      handleShare={handleShare}
-                      handleEditClick={handleEditClick}
-                      handleOpenLinkModal={handleOpenLinkModal}
-                      handleReportError={handleReportError}
-                      report={report}
-                    />
-
                     {/* mobile upvote */}
-                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4 lg:hidden">
-                      <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#6b7280] mb-1 text-center">
+                    <div className="bg-surface-subtle rounded-2xl px-4 py-4 lg:hidden">
+                      <div className="text-2xs font-bold uppercase tracking-[0.15em] text-content-tertiary mb-1 text-center">
                         Apoios da comunidade
                       </div>
-                      <div className="text-3xl font-extrabold text-[#191c1e] tracking-[-0.02em] text-center">
+                      <div className="text-3xl font-extrabold text-content-primary tracking-[-0.02em] text-center">
                         {report.upvotes || 0}
                       </div>
-                      <div className="text-xs text-[#6b7280] mt-1 mb-4 text-center">
+                      <div className="text-xs text-content-tertiary mt-1 mb-4 text-center">
                         pessoas já apoiaram
                       </div>
                       <Button
-                        className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-gradient-to-r from-[#b61722] to-[#da3437] hover:from-[#9f1520] hover:to-[#c22e30] text-white shadow-[0_12px_32px_-4px_rgba(182,23,34,0.25)]"
+                        className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-brand hover:bg-brand/90 text-content-onBrand shadow-elevation-2"
                         onClick={handleUpvoteClick}
                       >
                         <ThumbsUp
-                          className={`w-4 h-4 ${report.user_has_upvoted ? "fill-white" : ""}`}
+                          className={`w-4 h-4 ${report.user_has_upvoted ? "fill-content-onBrand" : ""}`}
                           strokeWidth={1.5}
                         />
                         {report.user_has_upvoted ? "Apoiada" : "Apoiar"}
                       </Button>
                       <Button
-                        className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-white hover:bg-[#f2f4f7] text-[#191c1e] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
+                        className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-content-primary shadow-elevation-1"
                         onClick={handleShare}
                       >
                         <Share2 className="w-4 h-4" strokeWidth={1.5} />
@@ -1647,7 +1634,7 @@ const ReportPage = () => {
                       </Button>
                       {user && canSendAnyUpdate && (
                         <Button
-                          className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#fff7f7] hover:bg-[#ffe8e8] text-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
+                          className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-brand shadow-elevation-1"
                           onClick={() => setShowUpdateModal(true)}
                         >
                           <Megaphone className="w-4 h-4" strokeWidth={1.5} />
@@ -1655,7 +1642,7 @@ const ReportPage = () => {
                         </Button>
                       )}
                       <Button
-                        className="w-full mt-2 justify-center gap-2 text-sm text-[#191c1e] rounded-full bg-white hover:bg-[#f2f4f7] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
+                        className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-raised hover:bg-surface-subtleHover shadow-elevation-1"
                         onClick={() =>
                           handleFavoriteToggle(report.id, report.is_favorited)
                         }
@@ -1673,7 +1660,7 @@ const ReportPage = () => {
                       {report.petitionId && (
                         <Button
                           asChild
-                          className="w-full mt-2 justify-center gap-2 text-sm bg-muted text-black "
+                          className="w-full mt-2 justify-center gap-2 text-sm bg-surface-raised text-content-primary"
                         >
                           <Link to={`/abaixo-assinado/${report.petitionId}`}>
                             <FileSignature className="w-4 h-4" />
@@ -1683,81 +1670,62 @@ const ReportPage = () => {
                       )}
                     </div>
 
-                    {/* ── SHARE SECTION ── */}
-                    <section>
-                      <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-r from-primary/10 via-rose-50 to-amber-50 dark:from-primary/20 dark:via-slate-900 dark:to-amber-900/40 p-6 sm:p-8 flex flex-col lg:flex-row items-center gap-6">
-                        <div className="absolute inset-0 pointer-events-none opacity-40">
-                          <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/25 rounded-full blur-3xl" />
-                          <div className="absolute -bottom-10 -left-10 w-52 h-52 bg-amber-300/40 rounded-full blur-3xl" />
+                    {/* ── REPUBLICAR ── */}
+                    <section className="bg-surface-subtle rounded-2xl px-4 py-4 sm:px-6 sm:py-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                      <div className="flex-1 space-y-2 text-center sm:text-left">
+                        <h3 className="text-sm font-bold text-content-primary">
+                          Republicar esta denúncia
+                        </h3>
+                        <p className="text-xs text-content-secondary max-w-xl">
+                          Use o QR Code ou o link da bronca para convidar mais
+                          pessoas a apoiar. Quanto mais gente ver esta página,
+                          maior a pressão por mudança.
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-1 justify-center sm:justify-start">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCopyShareLink}
+                            className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <Icon name="share" size={14} />
+                            Copiar link da bronca
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowFlyerModal(true)}
+                            className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Baixar QR Code / Panfleto
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowStoryModal(true)}
+                            className="w-full sm:w-auto justify-center gap-2 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <Instagram className="w-4 h-4" />
+                            Baixar card de stories
+                          </Button>
                         </div>
-                        <div className="relative flex-1 space-y-4">
-                          <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-primary shadow-sm">
-                            <Sparkles className="w-3 h-3" />
-                            <span>Compartilhe nos stories e grupos</span>
+                      </div>
+                      <div className="flex-shrink-0 flex items-center justify-center rounded-2xl bg-surface-raised border border-edge-subtle p-3">
+                        {qrCodeUrl ? (
+                          <img
+                            src={qrCodeUrl}
+                            alt="QR Code da bronca"
+                            className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl bg-surface-subtle flex items-center justify-center">
+                            <span className="text-2xs text-content-tertiary">
+                              QR Code
+                            </span>
                           </div>
-                          <h3 className="text-2xl sm:text-3xl font-bold leading-tight">
-                            Leve esta bronca para o Instagram e para seus amigos
-                          </h3>
-                          <p className="text-sm sm:text-base text-muted-foreground max-w-xl">
-                            Use o QR Code ou o link da bronca para convidar mais
-                            pessoas a apoiar. Quanto mais gente ver esta página,
-                            maior a pressão por mudança.
-                          </p>
-
-                          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 pt-2">
-                            <Button
-                              size="sm"
-                              onClick={handleCopyShareLink}
-                              className="w-full sm:w-auto justify-center bg-primary text-primary-foreground hover:bg-primary/90"
-                            >
-                              <Share2 className="w-4 h-4 mr-2" />
-                              Copiar link da bronca
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowFlyerModal(true)}
-                              className="w-full sm:w-auto justify-center border-primary/40 text-primary hover:bg-primary/5"
-                            >
-                              <FileText className="w-4 h-4 mr-2" />
-                              Baixar QR Code / Panfleto
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowStoryModal(true)}
-                              className="w-full sm:w-auto justify-center border-[#E53935]/60 text-[#E53935] hover:bg-[#E53935] hover:text-white hover:shadow-md transition-colors"
-                            >
-                              <Instagram className="w-4 h-4 mr-2" />
-                              Baixar card de stories
-                            </Button>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            Dica: adicione o link nos stories e mostre o QR Code
-                            na tela para quem estiver por perto.
-                          </p>
-                        </div>
-                        <div className="relative flex-shrink-0">
-                          <div className="relative z-10 flex items-center justify-center rounded-2xl bg-white/90 shadow-xl p-3">
-                            {qrCodeUrl ? (
-                              <img
-                                src={qrCodeUrl}
-                                alt="QR Code da bronca"
-                                className="w-32 h-32 sm:w-36 sm:h-36 rounded-xl"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-xl bg-gray-100 flex items-center justify-center">
-                                <span className="text-xs text-gray-500">
-                                  QR Code
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="absolute -bottom-3 -right-3 rounded-full bg-primary text-primary-foreground p-2 shadow-lg">
-                            <Heart className="w-4 h-4" />
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </section>
 
@@ -1803,28 +1771,28 @@ const ReportPage = () => {
 
               {/* ── SIDEBAR ── */}
               <aside className="space-y-4">
-                <div className="bg-white rounded-2xl shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] px-5 py-6 text-center hidden lg:block">
-                  <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#6b7280] mb-1">
+                <div className="bg-surface-raised border border-edge-subtle rounded-2xl shadow-elevation-1 px-5 py-6 text-center hidden lg:block">
+                  <div className="text-2xs font-bold uppercase tracking-[0.2em] text-content-tertiary mb-1">
                     Apoios
                   </div>
-                  <div className="text-4xl font-extrabold text-[#191c1e] tracking-[-0.02em]">
+                  <div className="text-4xl font-extrabold text-content-primary tracking-[-0.02em]">
                     {report.upvotes || 0}
                   </div>
-                  <div className="text-xs text-[#6b7280] mt-1 mb-4">
+                  <div className="text-xs text-content-tertiary mt-1 mb-4">
                     pessoas apoiaram essa bronca
                   </div>
                   <Button
-                    className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-gradient-to-r from-[#b61722] to-[#da3437] hover:from-[#9f1520] hover:to-[#c22e30] text-white shadow-[0_12px_32px_-4px_rgba(182,23,34,0.25)]"
+                    className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-brand hover:bg-brand/90 text-content-onBrand shadow-elevation-2"
                     onClick={handleUpvoteClick}
                   >
                     <ThumbsUp
-                      className={`w-4 h-4 ${report.user_has_upvoted ? "fill-white" : ""}`}
+                      className={`w-4 h-4 ${report.user_has_upvoted ? "fill-content-onBrand" : ""}`}
                       strokeWidth={1.5}
                     />
                     {report.user_has_upvoted ? "Apoiada" : "Apoiar essa bronca"}
                   </Button>
                   <Button
-                    className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#f2f4f7] hover:bg-[#e8eaed] text-[#191c1e]"
+                    className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-subtle hover:bg-surface-subtleHover text-content-primary"
                     onClick={handleShare}
                   >
                     <Share2 className="w-4 h-4" strokeWidth={1.5} />
@@ -1832,7 +1800,7 @@ const ReportPage = () => {
                   </Button>
                   {user && (
                     <Button
-                      className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#fff7f7] hover:bg-[#ffe8e8] text-[#b61722]"
+                      className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-subtle hover:bg-surface-subtleHover text-brand"
                       onClick={() => setShowUpdateModal(true)}
                     >
                       <Megaphone className="w-4 h-4" strokeWidth={1.5} />
@@ -1840,7 +1808,7 @@ const ReportPage = () => {
                     </Button>
                   )}
                   <Button
-                    className="w-full mt-2 justify-center gap-2 text-sm text-[#191c1e] rounded-full bg-[#f2f4f7] hover:bg-[#e8eaed]"
+                    className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-subtle hover:bg-surface-subtleHover"
                     onClick={() =>
                       handleFavoriteToggle(report.id, report.is_favorited)
                     }
@@ -1858,7 +1826,7 @@ const ReportPage = () => {
                   {report.petitionId && (
                     <Button
                       asChild
-                      className="w-full mt-2 justify-center gap-2 text-sm rounded-full bg-muted text-black"
+                      className="w-full mt-2 justify-center gap-2 text-sm rounded-full bg-surface-subtle text-content-primary"
                     >
                       <Link to={`/abaixo-assinado/${report.petitionId}`}>
                         <FileSignature className="w-4 h-4" strokeWidth={1.5} />
@@ -1958,6 +1926,18 @@ const ReportPage = () => {
             qrCodeUrl={qrCodeUrl}
             coverPhotoUrl={coverPhotoUrl}
           />
+
+          {/* Barra fixa "Adicionar comentário" (mobile). Escondida quando a
+              barra de moderação do embaixador está visível, pra não empilhar
+              duas barras fixas no rodapé. */}
+          {!canModerate && report && (
+            <ReportCommentBar
+              user={user}
+              newComment={newComment}
+              setNewComment={setNewComment}
+              handleSubmitComment={handleSubmitComment}
+            />
+          )}
 
           {/* Barra de moderação do embaixador (aprovar/rejeitar) */}
           <ReportModerationBar
