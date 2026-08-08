@@ -5,9 +5,11 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
 
 public class KeepAliveService extends Service {
     private static final String CHANNEL_ID = "KeepAliveChannel";
@@ -29,18 +31,25 @@ public class KeepAliveService extends Service {
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .build();
 
-        // No Android 14+, precisamos especificar o tipo se declarado no manifesto
-        // Mas aqui no código, startForeground simples funciona se o manifesto estiver alinhado
+        // Android 14+ (API 34) exige que o tipo passado aqui bata com o do manifesto.
+        // Android 16 (API 36) impõe timeout de ~6h em dataSync e lança
+        // ForegroundServiceStartNotAllowedException se o app não puder iniciar o
+        // serviço a partir do background — por isso o catch nunca pode derrubar o app.
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Tipo 0 ou específico se necessário. 
-                // Usaremos a versão simples e deixaremos o manifesto ditar.
-                 startForeground(NOTIFICATION_ID, notification);
-            } else {
-                startForeground(NOTIFICATION_ID, notification);
-            }
+            ServiceCompat.startForeground(
+                    this,
+                    NOTIFICATION_ID,
+                    notification,
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+                            ? ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                            : 0
+            );
         } catch (Exception e) {
+            // Falha ao entrar em foreground não deve matar a captura de foto:
+            // o fluxo da câmera continua, apenas sem a proteção contra OOM kill.
             e.printStackTrace();
+            stopSelf();
+            return START_NOT_STICKY;
         }
 
         return START_STICKY;

@@ -9,8 +9,11 @@
 // Rate-limit Nominatim: ~1 req/s (NOMINATIM_DELAY_MS = 1100ms).
 // Commit em lotes de BATCH_SIZE após cada atualização.
 
-const { Pool } = require('pg');
-const https = require('https');
+// ESM: o package.json tem "type": "module", entao `require` nao existe aqui.
+import pg from 'pg';
+import https from 'node:https';
+
+const { Pool } = pg;
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const BATCH_SIZE = 50;
@@ -34,13 +37,24 @@ const password = process.env.DEV_DB_PASSWORD || process.env.PROD_DB_PASSWORD;
 const dbUser = process.env.DB_USER || 'postgres.xxdletrjyjajtrmhwzev';
 const DEFAULT_CITY_UF = process.env.DEFAULT_CITY_UF || 'Floresta,PE';
 
+// O host do pooler inclui a regiao do projeto -- usar a regiao errada da
+// "tenant/user not found". dev (xxdletrjyjajtrmhwzev) = us-east-1;
+// prod (mrejgpcxaevooofyenzq) = sa-east-1. Deduzido do ref em DB_USER,
+// com DB_REGION disponivel para sobrescrever.
+const PROJECT_REGIONS = {
+  'postgres.xxdletrjyjajtrmhwzev': 'us-east-1',
+  'postgres.mrejgpcxaevooofyenzq': 'sa-east-1',
+};
+const dbRegion = process.env.DB_REGION || PROJECT_REGIONS[dbUser] || 'us-east-1';
+const dbHost = `aws-1-${dbRegion}.pooler.supabase.com`;
+
 if (!password) {
   console.error('Defina DEV_DB_PASSWORD ou PROD_DB_PASSWORD');
   process.exit(1);
 }
 
 const pool = new Pool({
-  host: 'aws-1-us-east-1.pooler.supabase.com',
+  host: dbHost,
   port: 5432,
   database: 'postgres',
   user: dbUser,
@@ -260,6 +274,7 @@ function pct(n, total) {
 async function main() {
   console.log(`Modo: ${DRY_RUN ? 'DRY-RUN' : 'REAL'}`);
   console.log(`DB user: ${dbUser}`);
+  console.log(`DB host: ${dbHost}`);
   try {
     await backfillReports(pool);
     await backfillProfiles(pool);

@@ -8,7 +8,11 @@ create table if not exists public.rental_properties (
   city_id bigint not null references public.cities(id),
   bairro_id uuid references public.bairros(id),
   address text not null,
-  location geography(point, 4326),
+  -- Tipo qualificado com o schema: o PostGIS vive em `extensions`, que não
+  -- está no search_path durante o `supabase db push` -- sem o prefixo a
+  -- migração falha com 'type "geography" does not exist'. A 156 converte
+  -- esta coluna para geometry logo em seguida.
+  location extensions.geography(point, 4326),
   length_m numeric,
   width_m numeric,
   area_m2 numeric generated always as (length_m * width_m) stored,
