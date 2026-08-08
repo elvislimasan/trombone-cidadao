@@ -1,10 +1,18 @@
 import { Link } from "react-router-dom";
-import { Megaphone, CheckCircle, Trash2 } from "lucide-react";
+import { CheckCircle, Trash2 } from "lucide-react";
+import Icon from "@/design-system/icons";
 
 // Extraido de src/pages/ReportPage.jsx (refatoracao pura, task 2 da fase 2).
 // Timeline de atualizacoes da comunidade: enviar, confirmar e excluir.
 // canConfirmUpdate/canDeleteUpdate vem de useReportPermissions (task 1) —
 // este componente nao calcula permissao por conta propria.
+// Redesenhado na task 5 da fase 2: bloco de icone trombone em surface-subtle
+// (padrao unico) em vez das cores por update_type (still_here/being_solved/
+// solved) que vinham de getUpdateTypeInfo em ReportPage.jsx -- so usamos dali
+// o texto (label), o icone semantico (Icon, lucide) e o status associado
+// (reportStatus), nao mais as classes de cor (color/cardBg/cardBorder/
+// iconBg), pra manter vermelho restrito a acao/estado ativo como pede o
+// design novo.
 const ReportUpdates = ({
   user,
   isAdmin,
@@ -30,16 +38,16 @@ const ReportUpdates = ({
   setUpdateMediaViewer,
 }) => {
   return (
-    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
+    <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-1.5">
-          <Megaphone className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
+          <Icon name="trombone" size={14} className="text-brand" />
+          <h2 className="text-xs font-bold text-content-primary">
             Atualizações
           </h2>
           {visibleUpdates.length > 0 && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-white font-semibold text-[#6b7280]">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-2xs bg-surface-subtle font-semibold text-content-tertiary">
               {visibleUpdates.length}
             </span>
           )}
@@ -51,12 +59,12 @@ const ReportUpdates = ({
             <button
               type="button"
               onClick={() => setShowUpdateModal(true)}
-              className="text-[11px] font-semibold text-[#b61722] hover:underline"
+              className="text-2xs font-semibold text-brand hover:underline"
             >
               + Enviar atualização
             </button>
           ) : (
-            <span className="text-[10px] text-[#9b9fa3]">
+            <span className="text-2xs text-content-tertiary">
               disponível {nextAvailableLabel}
             </span>
           )
@@ -66,7 +74,7 @@ const ReportUpdates = ({
       {/* Update list */}
       {visibleUpdates.length === 0 ? (
         <div className="py-3 flex items-center gap-3">
-          <p className="text-xs text-[#9b9fa3] flex-1">
+          <p className="text-xs text-content-tertiary flex-1">
             Esteve no local? Informe o status atual.
           </p>
           {/* Usuário logado já tem o botão "+ Enviar atualização" no header acima;
@@ -74,7 +82,7 @@ const ReportUpdates = ({
           {!user && (
             <Link
               to="/login"
-              className="text-[11px] font-semibold text-[#b61722] hover:underline whitespace-nowrap"
+              className="text-2xs font-semibold text-brand hover:underline whitespace-nowrap"
             >
               Fazer login
             </Link>
@@ -88,7 +96,6 @@ const ReportUpdates = ({
               : visibleUpdates.slice(0, UPDATES_VISIBLE_COUNT)
             ).map((upd) => {
               const typeInfo = getUpdateTypeInfo(upd.update_type);
-              const TypeIcon = typeInfo.Icon;
               const isOwnPending =
                 upd.status === "pending" && upd.author_id === user?.id;
               const isPendingModeration = upd.status === "pending_moderation";
@@ -103,41 +110,41 @@ const ReportUpdates = ({
                   : typeInfo.reportStatus
               ).text;
               return (
-                <div key={upd.id} className={`rounded-2xl border overflow-hidden ${typeInfo.cardBorder} ${typeInfo.cardBg}`}>
+                <div key={upd.id} className="rounded-2xl border border-edge-subtle bg-surface-raised overflow-hidden">
 
                   {/* Main row */}
                   <div className="flex items-start gap-3 px-3.5 pt-3 pb-3">
                     {/* Icon */}
-                    <div className={`w-9 h-9 rounded-xl ${typeInfo.iconBg} flex items-center justify-center flex-shrink-0`}>
-                      <TypeIcon className={`w-4.5 h-4.5 ${typeInfo.color}`} strokeWidth={2.5} />
+                    <div className="w-9 h-9 rounded-xl bg-surface-subtle flex items-center justify-center flex-shrink-0">
+                      <Icon name="trombone" size={16} className="text-brand" />
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <span className={`text-[13px] font-bold leading-tight ${typeInfo.color}`}>
+                        <span className="text-[13px] font-bold leading-tight text-content-primary">
                           {typeInfo.label}
                         </span>
                         {upd.status === "confirmed" && (
-                          <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          <span className="flex-shrink-0 flex items-center gap-0.5 text-2xs font-bold text-success-fg bg-success-bg px-2 py-0.5 rounded-full">
                             <CheckCircle className="w-3 h-3" strokeWidth={2.5} />
                             Confirmada
                           </span>
                         )}
                         {isPendingModeration && (
-                          <span className="flex-shrink-0 text-[10px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                          <span className="flex-shrink-0 text-2xs font-semibold text-status-pendingFg bg-status-pendingBg px-2 py-0.5 rounded-full">
                             Em moderação
                           </span>
                         )}
                         {isOwnPending && (
-                          <span className="flex-shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                          <span className="flex-shrink-0 text-2xs font-semibold text-status-pendingFg bg-status-pendingBg px-2 py-0.5 rounded-full">
                             Aguardando
                           </span>
                         )}
                       </div>
 
                       {upd.message && (
-                        <p className="text-xs text-[#374151] mt-1 leading-relaxed">
+                        <p className="text-xs text-content-secondary mt-1 leading-relaxed">
                           {upd.message}
                         </p>
                       )}
@@ -177,17 +184,17 @@ const ReportUpdates = ({
                       {/* Autor + data */}
                       <div className="mt-2 flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <span className="text-[10px] text-[#6b7280]">
+                          <span className="text-2xs text-content-secondary">
                             {upd.author?.name || "Usuário"}
                           </span>
-                          <span className="text-[10px] text-[#9b9fa3] ml-1">
+                          <span className="text-2xs text-content-tertiary ml-1">
                             · {formatRelativeDate(upd.created_at)}
                           </span>
-                          <span className="text-[10px] text-[#b0b5bc] ml-1 hidden sm:inline">
+                          <span className="text-2xs text-content-tertiary ml-1 hidden sm:inline">
                             · {formatDateTime(upd.created_at).replace(",", " às")}
                           </span>
                           {/* data completa em linha própria no mobile */}
-                          <div className="text-[10px] text-[#b0b5bc] sm:hidden">
+                          <div className="text-2xs text-content-tertiary sm:hidden">
                             {formatDateTime(upd.created_at).replace(",", " às")}
                           </div>
                         </div>
@@ -199,7 +206,7 @@ const ReportUpdates = ({
                               <button
                                 type="button"
                                 onClick={() => { setConfirmingUpdateId(null); setDeletingUpdateId(upd.id); }}
-                                className="p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                                className="p-1 rounded-lg text-content-tertiary hover:text-brand hover:bg-surface-subtle transition-colors"
                                 title="Excluir atualização"
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -208,7 +215,7 @@ const ReportUpdates = ({
                             <button
                               type="button"
                               onClick={() => setConfirmingUpdateId(upd.id)}
-                              className={`text-[11px] font-bold ${typeInfo.color} underline underline-offset-2 hover:opacity-70 transition-opacity`}
+                              className="text-[11px] font-bold text-brand underline underline-offset-2 hover:opacity-70 transition-opacity"
                             >
                               Confirmar →
                             </button>
@@ -218,7 +225,7 @@ const ReportUpdates = ({
                           <button
                             type="button"
                             onClick={() => setDeletingUpdateId(upd.id)}
-                            className="flex-shrink-0 p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                            className="flex-shrink-0 p-1 rounded-lg text-content-tertiary hover:text-brand hover:bg-surface-subtle transition-colors"
                             title="Excluir atualização"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -228,15 +235,15 @@ const ReportUpdates = ({
                         {/* Confirmação de exclusão inline */}
                         {isDeleting && (
                           <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                            <span className="text-[10px] text-[#6b7280] text-right">Excluir esta atualização?</span>
+                            <span className="text-2xs text-content-secondary text-right">Excluir esta atualização?</span>
                             <div className="flex items-center gap-2">
-                              <button type="button" onClick={() => setDeletingUpdateId(null)} className="text-[10px] text-[#9b9fa3]">
+                              <button type="button" onClick={() => setDeletingUpdateId(null)} className="text-2xs text-content-tertiary">
                                 Cancelar
                               </button>
                               <button
                                 type="button"
                                 onClick={() => { setDeletingUpdateId(null); handleDeleteUpdate(upd); }}
-                                className="text-[10px] font-bold text-white bg-red-500 px-2.5 py-1 rounded-full"
+                                className="text-2xs font-bold text-content-onBrand bg-brand px-2.5 py-1 rounded-full"
                               >
                                 Excluir
                               </button>
@@ -247,17 +254,17 @@ const ReportUpdates = ({
                         {/* Confirmação de confirmação inline */}
                         {canConfirm && isConfirming && (
                           <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                            <span className="text-[10px] text-[#6b7280] text-right">
+                            <span className="text-2xs text-content-secondary text-right">
                               Muda para <strong>"{confirmStatusText}"</strong>
                             </span>
                             <div className="flex items-center gap-2">
-                              <button type="button" onClick={() => setConfirmingUpdateId(null)} className="text-[10px] text-[#9b9fa3]">
+                              <button type="button" onClick={() => setConfirmingUpdateId(null)} className="text-2xs text-content-tertiary">
                                 Cancelar
                               </button>
                               <button
                                 type="button"
                                 onClick={() => { setConfirmingUpdateId(null); handleConfirmUpdate(upd); }}
-                                className="text-[10px] font-bold text-white bg-[#b61722] px-2.5 py-1 rounded-full"
+                                className="text-2xs font-bold text-content-onBrand bg-brand px-2.5 py-1 rounded-full"
                               >
                                 Confirmar
                               </button>
@@ -277,7 +284,7 @@ const ReportUpdates = ({
             <button
               type="button"
               onClick={() => setShowAllUpdates((v) => !v)}
-              className="mt-2 w-full text-center text-[11px] font-semibold text-[#6b7280] hover:text-[#191c1e] py-1.5 border-t border-gray-200 transition-colors"
+              className="mt-2 w-full text-center text-[11px] font-semibold text-content-tertiary hover:text-content-primary py-1.5 border-t border-edge-subtle transition-colors"
             >
               {showAllUpdates
                 ? "Ver menos"
@@ -289,8 +296,8 @@ const ReportUpdates = ({
 
           {/* Login prompt for guests */}
           {!user && (
-            <p className="mt-3 pt-3 border-t border-gray-200 text-center text-[11px] text-[#9b9fa3]">
-              <Link to="/login" className="font-semibold text-[#b61722] hover:underline">
+            <p className="mt-3 pt-3 border-t border-edge-subtle text-center text-[11px] text-content-tertiary">
+              <Link to="/login" className="font-semibold text-brand hover:underline">
                 Faça login
               </Link>{" "}
               para enviar uma atualização

@@ -1600,6 +1600,7 @@ const ReportPage = () => {
 
                     {/* timeline */}
                     <ReportProgress
+                      status={report.status}
                       timeline={report.timeline}
                       formatDateTime={formatDateTime}
                     />
