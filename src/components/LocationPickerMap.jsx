@@ -1,3 +1,4 @@
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useState, useEffect, useRef } from "react";
 import { Layers, LocateFixed } from "lucide-react";
 import {
@@ -257,12 +258,9 @@ const LocationPickerMap = ({
         {/* Limita o zoom dinamicamente quando troca de layer */}
         <ZoomLimiter maxZoom={activeMaxZoom} />
 
+        {/* So o mapa de ruas acompanha o tema; satelite e foto aerea. */}
         {mapLayer === "osm" ? (
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maxZoom={OSM_MAX_ZOOM}
-          />
+          <ThemedTileLayer maxZoom={OSM_MAX_ZOOM} />
         ) : (
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"

@@ -58,9 +58,11 @@
   --signal-fresh-fg:   var(--tc-neutral-0);
 
   /* --- Header ---
-     Neutro nos dois temas: a cor fica no logo e nos icones, nao no fundo. */
-  --header-bg: var(--tc-neutral-0);
-  --header-fg: var(--tc-neutral-900);
+     Vinho no tema claro: a faixa escura no topo separa a navegacao do feed
+     e devolve a presenca da marca. No escuro o header segue neutro (abaixo),
+     porque sobre fundo preto o vinho vira uma mancha sem contraste. */
+  --header-bg: 91 21 21;
+  --header-fg: 255 255 255;
 
   /* --- CTA principal ---
      No claro e preenchido; no escuro vira contorno, porque um bloco vermelho

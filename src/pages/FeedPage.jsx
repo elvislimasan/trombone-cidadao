@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import Icon from '@/design-system/icons';
 import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -13,7 +12,6 @@ import FeedCard from '@/components/FeedCard';
 import FeedSkeleton from '@/components/FeedSkeleton';
 import FeedEmptyState from '@/components/FeedEmptyState';
 import ReportModal from '@/components/ReportModal';
-import FeedCitySelector from '@/components/feed/FeedCitySelector';
 import FeedTabs, { FEED_TABS } from '@/components/feed/FeedTabs';
 import FeedStates, { FeedFatalState, FeedLoadMoreError } from '@/components/feed/FeedStates';
 import FeedWelcomeCard from '@/components/feed/FeedWelcomeCard';
@@ -152,36 +150,13 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-full bg-surface-base">
-      {/* ── Seletor de cidade ── */}
-      <div className="container mx-auto max-w-2xl px-3">
-        <FeedCitySelector />
-      </div>
-
+      {/* O seletor de cidade agora vive no header (Header/MobileHeader): e um
+          filtro global, nao um controle desta pagina. O titulo "Feed" e o botao
+          "Nova denuncia" sairam — as abas ja identificam a secao, e criar bronca
+          continua no FAB do bottom nav e no atalho abaixo. */}
       {activeTab !== 'resolved' && (
         <FeedWelcomeCard onCreateReport={handleOpenCreate} onInvite={handleInvite} />
       )}
-
-      {/* ── Cabecalho da secao ── */}
-      <div className="container mx-auto max-w-2xl px-3 pt-1 pb-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="font-display text-2xl font-extrabold tracking-tight text-content-primary leading-none">
-              Feed
-            </h1>
-            <p className="text-xs text-content-secondary mt-1">
-              Problemas próximos de você
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="flex items-center gap-1.5 rounded-xl bg-cta-bg border border-cta-border h-12 px-4 text-sm font-semibold text-cta-fg shadow-elevation-1 hover:brightness-110 active:scale-95 transition-all flex-shrink-0"
-          >
-            <Icon name="newreport" size={16} />
-            Nova denúncia
-          </button>
-        </div>
-      </div>
 
       {/* ── Sticky Tab Bar ── */}
       <div className="sticky top-0 z-10 bg-surface-base/90 backdrop-blur-md border-b border-edge-subtle">

@@ -1,3 +1,4 @@
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -31,7 +32,7 @@ import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { WorkEditModal } from './admin/ManageWorksPage';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { FLORESTA_COORDS } from '@/config/mapConfig';
@@ -77,10 +78,7 @@ const WorkMap = ({ location, bairro }) => {
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={false}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ThemedTileLayer />
         <Marker position={position}>
           <Popup>
             {bairro || 'Localização da Obra'}

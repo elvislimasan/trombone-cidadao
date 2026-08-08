@@ -1,5 +1,6 @@
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction, Info } from 'lucide-react';
 import L from 'leaflet';
@@ -145,10 +146,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
         <FitToStreets streets={streets} activeCity={activeCity} />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ThemedTileLayer />
         {streets.map(street => {
           const streetStatusInfo = getStatusInfo(street.status, street.pavement_type);
           return (

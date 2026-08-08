@@ -1,5 +1,6 @@
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -281,10 +282,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
         {!isSingleWorkView && <FitToWorks works={works} activeCity={activeCity} />}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ThemedTileLayer />
         {works.map((work) => (
           work.location &&
           <Marker

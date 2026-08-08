@@ -1,3 +1,4 @@
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import { useMemo } from "react";
@@ -32,10 +33,7 @@ export function WorkMap({ location, label }) {
   return (
     <div className="h-64 w-full rounded-lg overflow-hidden relative z-0">
       <MapContainer center={position} zoom={15} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ThemedTileLayer />
         <Marker position={position}>
           <Popup>{label || "Localização da Obra"}</Popup>
         </Marker>

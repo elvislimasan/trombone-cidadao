@@ -5,7 +5,14 @@ import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
 import { useToast } from '@/components/ui/use-toast';
 
-const FeedCitySelector = () => {
+/**
+ * @param {object} props
+ * @param {boolean} [props.inHeader] Renderiza o gatilho sobre o fundo do header
+ *   (vinho no claro, preto no escuro): o chip herda a cor do header em vez das
+ *   superficies da pagina, que sumiriam contra ele. O dropdown continua usando
+ *   as superficies normais — e um painel flutuante sobre o conteudo.
+ */
+const FeedCitySelector = ({ inHeader = false }) => {
   const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
   const { toast } = useToast();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
@@ -80,21 +87,27 @@ const FeedCitySelector = () => {
   };
 
   return (
-    <div className="pt-2 pb-1 relative" ref={cityPickerRef}>
+    <div className={inHeader ? 'relative min-w-0' : 'pt-2 pb-1 relative'} ref={cityPickerRef}>
       <button
         type="button"
         onClick={() => { setCityPickerOpen(v => !v); setCitySearch(''); }}
-        className="flex items-center gap-1.5 rounded-full border border-edge-subtle bg-surface-sunken px-3 py-1 text-xs font-semibold text-content-primary hover:bg-surface-sunken transition-colors"
+        className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+          inHeader
+            ? 'border-current/25 bg-white/10 text-current hover:bg-white/20'
+            : 'border-edge-subtle bg-surface-sunken text-content-primary hover:bg-surface-sunken'
+        }`}
       >
-        <Icon name="location" size={12} className="shrink-0 text-brand" />
-        <span className="max-w-[180px] truncate">
+        <Icon name="location" size={12} className={`shrink-0 ${inHeader ? '' : 'text-brand'}`} />
+        <span className={`truncate ${inHeader ? 'max-w-[38vw]' : 'max-w-[180px]'}`}>
           {activeCityName ?? 'Todas as cidades'}
         </span>
         <ChevronDown className={`h-3 w-3 shrink-0 opacity-60 transition-transform ${cityPickerOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {cityPickerOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xl border border-edge-subtle bg-surface-overlay shadow-xl overflow-hidden">
+        <div className={`absolute top-full mt-1 z-20 rounded-xl border border-edge-subtle bg-surface-overlay shadow-xl overflow-hidden ${
+          inHeader ? 'left-0 w-[72vw] max-w-xs text-content-primary' : 'left-0 right-0'
+        }`}>
           {/* Busca */}
           <div className="flex items-center gap-2 p-2 border-b border-edge-subtle">
             <input

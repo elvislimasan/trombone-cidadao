@@ -1,3 +1,4 @@
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, {
   useState,
   useEffect,
@@ -70,7 +71,7 @@ import {
   Home,
   Navigation,
 } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { FLORESTA_COORDS } from "@/config/mapConfig";
@@ -109,10 +110,7 @@ const ReportMap = ({ location, address }) => {
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={false}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ThemedTileLayer />
         <Marker position={position}>
           <Popup>{address || "Localização da Bronca"}</Popup>
         </Marker>

@@ -4,6 +4,7 @@ import { ChevronLeft, Search, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import Notifications from '@/components/Notifications';
+import FeedCitySelector from '@/components/feed/FeedCitySelector';
 import { Capacitor } from '@capacitor/core';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
@@ -24,6 +25,11 @@ const MobileHeader = () => {
   const isAuthRoute = authRoutes.includes(location.pathname);
   const shouldShowBack = typeof ctxShowBack === 'boolean' ? ctxShowBack : !isRoot;
   
+  // Nas rotas raiz o seletor de cidade ocupa o lugar do titulo: o nome do app
+  // ja esta no logo ao lado, e a cidade ativa e a informacao que muda o
+  // conteudo da tela. Nas sub-paginas o titulo da rota continua mandando.
+  const showCitySelector = isRoot;
+
   const headerTitle = (() => {
     const path = location.pathname;
     if (path === '/') return siteName;
@@ -139,9 +145,13 @@ const MobileHeader = () => {
               <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
             </Link>
           )}
-          <span className="font-bold text-base truncate max-w-[56vw]">
-            {headerTitle}
-          </span>
+          {showCitySelector ? (
+            <FeedCitySelector inHeader />
+          ) : (
+            <span className="font-bold text-base truncate max-w-[56vw]">
+              {headerTitle}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1">

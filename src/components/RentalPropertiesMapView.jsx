@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { geocodeCity } from '@/lib/geocodeCity';
 import { useCity } from '@/contexts/CityContext';
 import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 
 const createPropertyMarkerIcon = (isActive) => {
   const color = isActive ? '#16A34A' : '#6B7280';
@@ -82,10 +83,7 @@ export default function RentalPropertiesMapView({ properties, onSelectProperty }
     <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
       <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
         <FitToProperties properties={list} activeCity={activeCity} />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ThemedTileLayer />
         {list.map((property) => (
           property.location && (
             <Marker

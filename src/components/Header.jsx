@@ -9,6 +9,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { defaultMenuSettings } from '@/config/menuConfig';
 import Avatar from 'react-nice-avatar';
 import Notifications from '@/components/Notifications';
+import FeedCitySelector from '@/components/feed/FeedCitySelector';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
@@ -155,24 +156,29 @@ const Header = () => {
         style={{ backgroundColor: headerStyle.backgroundColor }}
       />
       <div className="container mx-auto px-4 h-16 flex justify-between items-center" style={{ marginTop: 0 }}>
-        <Link to="/" className="flex items-center gap-3">
-          <img 
-            src={logoError ? '/logo.png' : (logoUrl || '/logo.png')} 
-            alt={siteName} 
-            className="h-10 w-auto"
-            onError={(e) => {
-              if (!logoError) {
-                setLogoError(true);
-                // Tentar logo.png como fallback
-                e.target.src = '/logo.png';
-              } else {
-                // Se logo.png também falhar, usar um placeholder ou deixar vazio
-                e.target.style.display = 'none';
-              }
-            }}
-          />
-          <span className="font-extrabold text-lg tracking-tight">{siteName}</span>
-        </Link>
+        {/* O nome do site saiu daqui: o logo ja identifica a marca, e o espaco
+            passa a mostrar a cidade ativa — o filtro que define o conteudo do
+            feed e das demais telas. */}
+        <div className="flex items-center gap-3 min-w-0">
+          <Link to="/" className="flex items-center shrink-0">
+            <img
+              src={logoError ? '/logo.png' : (logoUrl || '/logo.png')}
+              alt={siteName}
+              className="h-10 w-auto"
+              onError={(e) => {
+                if (!logoError) {
+                  setLogoError(true);
+                  // Tentar logo.png como fallback
+                  e.target.src = '/logo.png';
+                } else {
+                  // Se logo.png também falhar, usar um placeholder ou deixar vazio
+                  e.target.style.display = 'none';
+                }
+              }}
+            />
+          </Link>
+          <FeedCitySelector inHeader />
+        </div>
 
         <nav className="hidden lg:flex items-center gap-5">
           {visibleMenuItems.map(item => (
