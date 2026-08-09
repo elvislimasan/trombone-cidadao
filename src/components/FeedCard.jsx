@@ -226,75 +226,79 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
             )}
           </button>
 
-          {/* Confirmacoes e acoes na MESMA linha: antes eram dois blocos
-              empilhados, o que fatiava demais o card. */}
-          <div className="mt-auto pt-2.5 flex items-end justify-between gap-2">
+          {/* Confirmacoes a esquerda, acoes com rotulo a direita, separadas por
+              uma divisoria — as acoes so com icone eram ambiguas. */}
+          <div className="mt-auto pt-3 border-t border-edge-subtle flex items-center justify-between gap-3">
             <FeedCardSupport upvotes={report.upvotes} />
 
-            <div className="flex items-center gap-0.5 flex-shrink-0">
+            <div className="flex items-stretch gap-1 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => onToggleUpvote?.(report.id)}
                 aria-label="Apoiar bronca"
                 aria-pressed={report.user_has_upvoted}
-                className={`flex items-center gap-1 px-1.5 py-1 rounded-lg text-2xs font-semibold transition-colors ${
+                className={`flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-lg text-2xs font-semibold transition-colors ${
                   report.user_has_upvoted
                     ? 'text-brand'
-                    : 'text-content-tertiary hover:text-content-primary'
+                    : 'text-content-secondary hover:text-content-primary'
                 }`}
               >
-                <Icon name="support" size={15} />
+                <Icon name="support" size={17} />
+                <span>Apoiar</span>
               </button>
+
+              <span className="w-px bg-edge-subtle self-stretch my-1" aria-hidden="true" />
+
               {/* Abre a folha no proprio feed: ir para a pagina de detalhes so
                   para ler dois comentarios custava a posicao do scroll. */}
               <button
                 type="button"
                 onClick={() => setCommentsOpen(true)}
                 aria-label="Ver comentários"
-                className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-2xs font-semibold text-content-tertiary hover:text-content-primary transition-colors"
+                className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-lg text-2xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
               >
-                <Icon name="comment" size={15} />
-                {commentsCount > 0 && (
-                  <span className="tabular-nums">{commentsCount}</span>
-                )}
+                <Icon name="comment" size={17} />
+                <span className="tabular-nums">
+                  {commentsCount > 0 ? commentsCount : 'Comentar'}
+                </span>
               </button>
+
+              <span className="w-px bg-edge-subtle self-stretch my-1" aria-hidden="true" />
+
               <button
                 type="button"
                 onClick={handleShare}
                 aria-label="Compartilhar"
-                className="flex items-center px-1.5 py-1 rounded-lg text-content-tertiary hover:text-content-primary transition-colors"
+                className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-lg text-2xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
               >
-                <Icon name="share" size={15} />
+                <Icon name="share" size={17} />
+                <span>Compartilhar</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Rodape neutro: so divisorias. O vermelho fica reservado para acao. */}
-      <div className="grid grid-cols-2 border-t border-edge-subtle">
+      {/* Dois botoes com fundo proprio, lado a lado. Acompanhando fica verde
+          preenchido — e estado, nao acao, e o verde le como confirmacao. */}
+      <div className="grid grid-cols-2 gap-2.5 px-3 pb-3">
         <button
           type="button"
           onClick={handleBookmark}
           aria-pressed={report.is_favorited}
-          className="flex items-center justify-center gap-2 py-3 text-xs font-semibold border-r border-edge-subtle hover:bg-surface-subtle transition-colors"
+          className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-colors ${
+            report.is_favorited
+              ? 'bg-success-bg text-success-fg'
+              : 'border border-edge-default text-content-secondary hover:bg-surface-subtle'
+          }`}
         >
-          {report.is_favorited ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-bg text-success-fg px-2.5 py-1">
-              <Icon name="resolved" size={13} />
-              Acompanhando
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-content-secondary">
-              <Icon name="flag" size={14} />
-              Acompanhar
-            </span>
-          )}
+          <Icon name={report.is_favorited ? 'resolved' : 'flag'} size={15} />
+          {report.is_favorited ? 'Acompanhando' : 'Acompanhar'}
         </button>
         <button
           type="button"
           onClick={goToReport}
-          className="flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-brand hover:bg-surface-subtle transition-colors group"
+          className="flex items-center justify-center gap-1.5 py-3 rounded-xl border border-edge-default text-xs font-bold text-brand hover:bg-surface-subtle transition-colors group"
         >
           Ver detalhes
           <Icon
@@ -319,14 +323,15 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
             // o position:fixed do modal ao proprio card).
             onRequestUpdate?.(report);
           }}
-          className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-surface-subtle hover:bg-surface-subtleHover border-t border-edge-subtle transition-colors rounded-b-2xl group"
+          className="w-full flex items-center gap-3 mx-3 mb-3 px-3 py-3 rounded-xl bg-surface-subtle hover:bg-surface-subtleHover transition-colors group"
+          style={{ width: 'calc(100% - 1.5rem)' }}
         >
-          <div className="w-7 h-7 rounded-full bg-surface-sunken flex items-center justify-center flex-shrink-0 text-content-secondary">
-            <Icon name="trombone" size={14} />
+          <div className="w-9 h-9 rounded-full bg-surface-sunken flex items-center justify-center flex-shrink-0 text-content-secondary">
+            <Icon name="trombone" size={16} />
           </div>
           <div className="flex-1 text-left min-w-0">
-            <p className="text-2xs font-semibold text-content-primary">Esteve no local?</p>
-            <p className="text-2xs text-content-tertiary">
+            <p className="text-xs font-bold text-content-primary">Esteve no local?</p>
+            <p className="text-2xs text-content-tertiary leading-snug">
               Ajude a comunidade compartilhando o que você viu.
             </p>
           </div>

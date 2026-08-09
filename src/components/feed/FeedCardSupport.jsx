@@ -18,29 +18,31 @@ const FeedCardSupport = ({ upvotes = 0, className = '' }) => {
   const rest = total - stack;
 
   return (
-    <div className={`flex items-center justify-between gap-3 ${className}`}>
+    <div className={`flex items-center gap-3 min-w-0 ${className}`}>
       <div className="min-w-0">
-        <p className="text-2xs text-content-tertiary mb-1">Confirmações</p>
+        <p className="text-2xs text-content-tertiary mb-1.5">Confirmações</p>
         <div className="flex items-center" aria-hidden="true">
           {Array.from({ length: stack }).map((_, i) => (
             <span
               key={i}
-              className="w-6 h-6 rounded-full bg-surface-sunken border-2 border-surface-raised flex items-center justify-center text-content-tertiary -ml-1.5 first:ml-0"
+              className="w-8 h-8 rounded-full bg-surface-sunken border-2 border-surface-raised flex items-center justify-center text-content-tertiary -ml-2 first:ml-0"
             >
-              <Icon name="profile" size={12} />
+              <Icon name="profile" size={14} />
             </span>
           ))}
           {rest > 0 && (
-            <span className="ml-1 h-6 px-1.5 rounded-full bg-brand text-content-onBrand text-2xs font-bold flex items-center">
+            <span className="-ml-2 w-8 h-8 rounded-full border-2 border-surface-raised bg-surface-sunken text-content-secondary text-2xs font-bold flex items-center justify-center">
               +{rest}
             </span>
           )}
         </div>
       </div>
 
-      <div className="text-right flex-shrink-0">
-        <p className="text-lg font-bold leading-none text-brand tabular-nums">{total}</p>
-        <p className="text-2xs text-content-tertiary">
+      <div className="text-center flex-shrink-0">
+        <p className="text-2xl font-extrabold leading-none text-brand tabular-nums">
+          {total}
+        </p>
+        <p className="text-2xs text-content-tertiary mt-0.5">
           {total === 1 ? 'apoio' : 'apoios'}
         </p>
       </div>
