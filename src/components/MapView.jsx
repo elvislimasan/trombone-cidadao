@@ -24,6 +24,11 @@ import { useMapModeToggle } from "@/contexts/MapModeContext";
 import MapModeToggle from "@/components/MapModeToggle";
 import { createPinIcon } from "@/components/map/pinIcon";
 
+// Nivel de zoom ao enquadrar o usuario - na abertura da tela e no botao de
+// recentrar. Os dois usavam valores diferentes (16 e 17): o mapa abria mais
+// afastado do que ficava depois de tocar no botao.
+const USER_ZOOM = 17;
+
 // A legenda usa os mesmos tokens do corpo do pin, entao as bolinhas e os pins
 // nunca divergem de cor. Agora lista categorias, nao status: e a categoria que
 // define a cor no mapa.
@@ -60,10 +65,48 @@ const ClusterZoomHandler = ({ clusterToZoom, onZoomComplete }) => {
 
   useEffect(() => {
     if (!clusterToZoom) return;
-    // Cluster grande: sem lista de coordenadas carregada, dá zoom no centróide
-    // e deixa o próximo fetch (disparado por zoomend) trazer o próximo nível de agregação.
-    map.setView([clusterToZoom.lat, clusterToZoom.lng], Math.min((map.getZoom?.() || 4) + 3, 18), { animate: true });
-    if (onZoomComplete) onZoomComplete();
+
+    const { bounds, lat, lng } = clusterToZoom;
+
+    // Enquadra a extensao real do cluster. O comportamento antigo era zoom fixo
+    // (+3) no centroide: como cada nivel corta a area pela metade, tres niveis
+    // encolhiam a vista 8x e a maioria das broncas agregadas ficava fora - um
+    // pin marcado "20" abria mostrando 2. Com os limites, o que estava no pin e
+    // exatamente o que aparece depois do clique.
+    const zoomAtual = map.getZoom?.() ?? 4;
+    const aproximar = () =>
+      map.setView([lat, lng], Math.min(zoomAtual + 2, 18), { animate: true });
+
+    if (bounds) {
+      const alturaGraus = Math.abs(bounds.maxLat - bounds.minLat);
+      const larguraGraus = Math.abs(bounds.maxLng - bounds.minLng);
+      // Broncas praticamente na mesma coordenada (mesma esquina, mesmo poste):
+      // o retangulo tem area ~zero e fitBounds nao tem o que enquadrar - o
+      // clique nao fazia nada. Aproxima direto nesse caso.
+      const degenerado = alturaGraus < 1e-6 && larguraGraus < 1e-6;
+
+      if (!degenerado) {
+        try {
+          map.fitBounds(
+            L.latLngBounds(
+              [bounds.minLat, bounds.minLng],
+              [bounds.maxLat, bounds.maxLng]
+            ),
+            { padding: [48, 48], maxZoom: 18, animate: true }
+          );
+          // fitBounds nao move quando o cluster ja esta enquadrado - dai a
+          // sensacao de clique morto. Se o zoom nao mudou, aproxima na marra.
+          const depois = map.getZoom?.() ?? zoomAtual;
+          if (depois <= zoomAtual && zoomAtual < 18) aproximar();
+          onZoomComplete?.();
+          return;
+        } catch {}
+      }
+    }
+
+    // Sem limites (payload antigo) ou cluster degenerado: aproxima dois niveis.
+    aproximar();
+    onZoomComplete?.();
   }, [clusterToZoom, map, onZoomComplete]);
 
   return null;
@@ -104,6 +147,9 @@ const MapInstanceBinder = ({ onReady, onBoundsChange }) => {
 
 const MapView = ({
   clusters,
+  // Posicao do usuario ja conhecida por quem renderiza. Quando presente, o mapa
+  // monta nela em vez de montar em Floresta e saltar quando o GPS responder.
+  initialCenter = null,
   onReportClick,
   onUpvote,
   showLegend = true,
@@ -121,7 +167,10 @@ const MapView = ({
   const navigate = useNavigate();
   const { user } = useAuth();
   const mapRef = useRef(null);
-  const hasCenteredRef = useRef(false);
+  // Ja montado no ponto certo quando initialCenter veio: marcar aqui evita que
+  // o efeito de centralizacao repita o movimento assim que o watchPosition
+  // devolver a primeira leitura.
+  const hasCenteredRef = useRef(Boolean(initialCenter));
   const [userLocation, setUserLocation] = useState(null);
   const [clusterToZoom, setClusterToZoom] = useState(null);
 
@@ -132,7 +181,7 @@ const MapView = ({
 
     const go = (loc) => {
       if (!map) return;
-      const nextZoom = Math.max(map.getZoom?.() || INITIAL_ZOOM, 17);
+      const nextZoom = Math.max(map.getZoom?.() || INITIAL_ZOOM, USER_ZOOM);
       map.flyTo([loc.lat, loc.lng], nextZoom, { animate: true });
     };
 
@@ -200,12 +249,16 @@ const MapView = ({
     };
   }, [interactive]);
 
+  // Ao abrir a tela, enquadra a posicao do usuario no mesmo nivel do botao de
+  // recentrar (USER_ZOOM). Estava em 16, que abria mostrando bairros inteiros -
+  // longe demais para reconhecer a propria rua, e divergente do que o botao
+  // fazia depois.
   useEffect(() => {
     const map = mapRef.current;
     if (!interactive || !map || !userLocation || hasCenteredRef.current) return;
     hasCenteredRef.current = true;
     try {
-      map.setView([userLocation.lat, userLocation.lng], 16, { animate: false });
+      map.setView([userLocation.lat, userLocation.lng], USER_ZOOM, { animate: false });
     } catch {}
   }, [interactive, userLocation]);
 
@@ -229,7 +282,11 @@ const MapView = ({
   const handleClusterClick = useCallback((cluster) => {
     // Todo clique em cluster aproxima o zoom na área — o próximo fetch
     // (disparado por zoomend) traz um nível de agregação mais aberto ou pins individuais.
-    setClusterToZoom(cluster);
+    //
+    // O nonce faz cada clique ser um valor novo. Sem ele o efeito compara por
+    // referencia e ignora o clique quando o objeto do cluster e o mesmo de
+    // antes - clicar duas vezes no mesmo pin nao fazia nada na segunda.
+    setClusterToZoom({ ...cluster, nonce: Date.now() });
   }, []);
 
   const handleZoomComplete = useCallback(() => {
@@ -277,8 +334,15 @@ const MapView = ({
     <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
       <div className="absolute inset-0">
         <MapContainer
-          center={FLORESTA_COORDS}
-          zoom={INITIAL_ZOOM}
+          // Monta ja no ponto do usuario quando a pagina conseguiu o GPS antes
+          // de renderizar o mapa. Sem isso o Leaflet montava em Floresta e so
+          // depois saltava - o usuario via a tela pular na abertura.
+          center={
+            initialCenter
+              ? [initialCenter.lat, initialCenter.lng]
+              : FLORESTA_COORDS
+          }
+          zoom={initialCenter ? USER_ZOOM : INITIAL_ZOOM}
           scrollWheelZoom={interactive}
           dragging={interactive}
           doubleClickZoom={interactive}
@@ -423,8 +487,10 @@ const MapView = ({
             );
           })}
         </MapContainer>
+        {/* Controles no alto da lateral direita: embaixo colidiam com os chips
+            de categoria e com o carrossel, que ocupam o rodape do mapa. */}
         {showModeToggle && (
-          <div className="absolute bottom-3 right-3 z-[800]">
+          <div className="absolute top-24 right-3 z-[800]">
             <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
               <button
                 type="button"

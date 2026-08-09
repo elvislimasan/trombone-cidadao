@@ -60,7 +60,7 @@ const ReportHeader = ({
           <Button
             variant="outline"
             size="sm"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-full border-cta-border text-cta-fg bg-transparent hover:bg-surface-subtle"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-full border-cta-border text-brand bg-transparent hover:bg-surface-subtle"
             onClick={handleShare}
           >
             <Icon name="share" size={14} />

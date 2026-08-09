@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import Icon, { categoryIconName, categoryPinToken } from '@/design-system/icons';
 
@@ -46,9 +46,9 @@ const Card = memo(function Card({ report, onSelect }) {
     <button
       type="button"
       onClick={() => onSelect(report)}
-      className="flex-shrink-0 w-[150px] snap-start text-left rounded-xl overflow-hidden border border-border bg-card hover:border-primary/40 transition-colors"
+      className="flex-shrink-0 w-[134px] snap-start text-left rounded-xl overflow-hidden border border-border bg-card hover:border-primary/40 transition-colors"
     >
-      <div className="relative h-[74px] bg-muted">
+      <div className="relative h-[68px] bg-muted">
         {report.coverImage ? (
           <img
             src={report.coverImage}
@@ -78,7 +78,11 @@ const Card = memo(function Card({ report, onSelect }) {
         <p className="text-xs font-semibold text-foreground line-clamp-1">
           {report.title || 'Sem título'}
         </p>
-        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground line-clamp-1">
+        {/* Sem line-clamp aqui: ele exige display:-webkit-box e o `flex` deste
+            mesmo elemento sobrescreve esse display, entao o clamp nao aplicava
+            e a linha crescia para fora do card - era o endereco cortado pela
+            borda inferior. O truncate do <span> ja limita a uma linha. */}
+        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
           <MapPin size={10} className="flex-shrink-0 text-primary" />
           <span className="truncate">{report.address || report.categoryName || '—'}</span>
         </p>
@@ -87,12 +91,12 @@ const Card = memo(function Card({ report, onSelect }) {
   );
 });
 
-// Altura da faixa de cards. Recolhido, o painel mostra so a alca e o cabecalho.
-// Altura da faixa de cards: capa (74) + texto (~40) + respiro. Precisa
-// acompanhar as medidas do Card - e o quanto o painel desliza ao recolher.
-const CARDS_H = 124;
 // Fracao da altura que o dedo precisa vencer para o painel trocar de estado.
 const DRAG_RATIO = 0.35;
+// Usado so no primeiro render, antes da medicao real valer.
+const CARDS_H_FALLBACK = 150;
+// Alca: pt-2 + faixa de 4px + pb-1 = altura fixa, nao depende de conteudo.
+const HANDLE_H = 16;
 
 const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) => {
   const [open, setOpen] = useState(true);
@@ -100,6 +104,14 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
   // ser controlado pela transicao CSS).
   const [dragY, setDragY] = useState(null);
   const drag = useRef(null);
+
+  // Alturas medidas do DOM, nao constantes escritas a mao. Manter os numeros
+  // manualmente ja cortou o rodape dos cards: o card mede 131px e nao os ~108
+  // que a constante assumia, entao o painel ficava 38px menor que o conteudo.
+  const headRef = useRef(null);
+  const cardsRef = useRef(null);
+  const [headH, setHeadH] = useState(60);
+  const [cardsH, setCardsH] = useState(CARDS_H_FALLBACK);
 
   // So pins individuais viram card: cluster e uma agregacao, nao tem bronca.
   const reports = useMemo(() => {
@@ -112,6 +124,28 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
     return out;
   }, [clusters]);
 
+  // Mede uma vez por mudanca de conteudo, sem ResizeObserver.
+  //
+  // O observer parecia a escolha natural, mas realimenta: o container tem
+  // overflow-hidden e altura controlada por este mesmo estado, entao recolher o
+  // painel encolhe a faixa observada, que dispara nova medicao, que recompoe a
+  // altura - o painel nunca fechava (media 208px com style 59px). Medir no
+  // layout effect basta: a altura do card so muda quando a lista muda.
+  // Mede o cabecalho (varia com a fonte do sistema) e a faixa de cards uma
+  // unica vez, na primeira montagem com conteudo. Remedir depois cria um laco:
+  // o container corta a faixa ao recolher, a nova medida vem menor e o painel
+  // congela fechado.
+  const medido = useRef(false);
+  useLayoutEffect(() => {
+    if (headRef.current) setHeadH(headRef.current.offsetHeight);
+    if (medido.current || !cardsRef.current) return;
+    const h = cardsRef.current.offsetHeight;
+    if (h > 0) {
+      setCardsH(h);
+      medido.current = true;
+    }
+  }, [reports.length, loading]);
+
   const onPointerDown = useCallback(
     (e) => {
       // Arrasto que comeca sobre os cards e scroll horizontal da lista, nao
@@ -123,39 +157,55 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
     [open]
   );
 
-  const onPointerMove = useCallback((e) => {
-    const d = drag.current;
-    if (!d) return;
-    // Puxar para baixo fecha, para cima abre. Clamp para o painel nao sair da
-    // faixa entre aberto (0) e recolhido (CARDS_H).
-    const raw = e.clientY - d.y0;
-    const base = d.open ? 0 : CARDS_H;
-    setDragY(Math.min(CARDS_H, Math.max(0, base + raw)));
-  }, []);
+  const onPointerMove = useCallback(
+    (e) => {
+      const d = drag.current;
+      if (!d) return;
+      // Puxar para baixo fecha, para cima abre. Clamp para o painel nao sair da
+      // faixa entre aberto (0) e recolhido (cardsH).
+      const raw = e.clientY - d.y0;
+      const base = d.open ? 0 : cardsH;
+      const next = Math.min(cardsH, Math.max(0, base + raw));
+      d.last = next;
+      setDragY(next);
+    },
+    [cardsH]
+  );
 
   const onPointerUp = useCallback(() => {
     const d = drag.current;
     if (!d) return;
     drag.current = null;
-    setDragY((cur) => {
-      if (cur != null) {
-        // Encaixa no estado mais proximo, com histerese: partindo de aberto,
-        // precisa puxar 35% para fechar (e vice-versa).
-        const limite = d.open ? CARDS_H * DRAG_RATIO : CARDS_H * (1 - DRAG_RATIO);
-        setOpen(cur < limite);
-      }
-      return null;
-    });
-  }, []);
 
-  const shift = dragY != null ? dragY : open ? 0 : CARDS_H;
+    // O deslocamento vem do ref, nao de dentro de um updater do setDragY:
+    // chamar setOpen la dentro e efeito colateral em funcao que o React pode
+    // executar duas vezes (StrictMode), e a segunda passada revertia o estado -
+    // o painel voltava a abrir sozinho ao soltar o dedo.
+    const cur = d.last;
+    if (cur != null) {
+      // Encaixa no estado mais proximo, com histerese: partindo de aberto,
+      // precisa puxar 35% para fechar (e vice-versa).
+      const limite = d.open ? cardsH * DRAG_RATIO : cardsH * (1 - DRAG_RATIO);
+      setOpen(cur < limite);
+    }
+    setDragY(null);
+  }, [cardsH]);
+
+  const shift = dragY != null ? dragY : open ? 0 : cardsH;
 
   return (
     <div
       className="flex-shrink-0 bg-background border-t border-border overflow-hidden touch-none"
       style={{
-        height: CARDS_H + 52 - shift,
-        transition: dragY == null ? 'height 220ms ease' : 'none',
+        // Alca + cabecalho + faixa, todos medidos: a altura acompanha o
+        // conteudo real em vez de depender de uma constante desatualizada.
+        //
+        // flexBasis junto de height: como item de um flex column com
+        // flex-shrink-0, o basis `auto` faz o item usar a altura do CONTEUDO e
+        // o height inline e ignorado - o painel nunca encolhia ao recolher.
+        height: HANDLE_H + headH + cardsH - shift,
+        flexBasis: HANDLE_H + headH + cardsH - shift,
+        transition: dragY == null ? 'height 220ms ease, flex-basis 220ms ease' : 'none',
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -173,7 +223,7 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
         <span className="w-9 h-1 rounded-full bg-border" />
       </button>
 
-      <div className="flex items-center justify-between px-4 pb-1.5">
+      <div ref={headRef} className="flex items-center justify-between px-4 pb-1.5">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">
             {loading ? (
@@ -203,12 +253,16 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
         // na horizontal fecharia o painel. touch-pan-x devolve o scroll que o
         // touch-none do container tirou.
         <div
+          ref={cardsRef}
           data-cards
-          className="flex gap-2 overflow-x-auto snap-x px-4 pb-3 custom-scrollbar touch-pan-x"
+          className="flex gap-2 overflow-x-auto snap-x pl-4 pb-3 custom-scrollbar touch-pan-x"
         >
           {reports.map((r) => (
             <Card key={r.id} report={r} onSelect={onSelect} />
           ))}
+          {/* Espacador em vez de padding-right: em container flex com overflow
+              o padding final colapsa, e o ultimo card encostava na borda. */}
+          <div className="flex-shrink-0 w-3" aria-hidden="true" />
         </div>
       )}
     </div>

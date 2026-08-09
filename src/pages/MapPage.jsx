@@ -9,6 +9,8 @@ import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/Cit
 import { useToast } from '@/components/ui/use-toast';
 import { useReportUpdate } from '@/hooks/useReportUpdate';
 import ReportUpdateModal from '@/components/report/ReportUpdateModal';
+import MapReportsCarousel from '@/components/map/MapReportsCarousel';
+import MapCategoryChips from '@/components/map/MapCategoryChips';
 
 const MapView = lazy(() => import('@/components/MapView'));
 
@@ -29,6 +31,7 @@ const CATEGORIES = [
   { id: 'limpeza',           label: 'Limpeza' },
   { id: 'poda',              label: 'Poda' },
   { id: 'vazamento-de-agua', label: 'Vazamento' },
+  { id: 'seguranca',         label: 'Segurança' },
   { id: 'outros',            label: 'Outros' },
 ];
 
@@ -110,6 +113,14 @@ export default function MapPage() {
   const [mapCityId,   setMapCityId]   = useState(null);
   const [mapCityName, setMapCityName] = useState(null);
   const [mapGpsInitDone, setMapGpsInitDone] = useState(false);
+  // Posicao do usuario obtida no init. Serve para o mapa montar ja centrado
+  // nela, em vez de abrir em Floresta e saltar depois.
+  const [initialUserPos, setInitialUserPos] = useState(null);
+  // Vira true quando o GPS respondeu, foi negado ou expirou. O mapa so monta
+  // depois disso: montar antes fixaria o centro em Floresta, e a posicao do
+  // usuario chegaria tarde demais para evitar o salto. Sem permissao o mapa
+  // abre normalmente na cidade, so um instante depois.
+  const [geoSettled, setGeoSettled] = useState(false);
   const [citySheetOpen,  setCitySheetOpen]  = useState(false);
   const [citySearch,     setCitySearch]     = useState('');
   const [showAllCities,  setShowAllCities]  = useState(false);
@@ -193,10 +204,29 @@ export default function MapPage() {
 
   // ── GPS auto-init on mount ──
   useEffect(() => {
-    if (mapGpsInitDone || !navigator.geolocation) { setMapGpsInitDone(true); return; }
+    if (mapGpsInitDone || !navigator.geolocation) {
+      setMapGpsInitDone(true);
+      setGeoSettled(true);
+      return;
+    }
     setMapGpsInitDone(true);
+
+    // Rede de seguranca: em alguns navegadores o callback de erro nao dispara
+    // quando o usuario ignora o prompt de permissao. Sem isso o mapa ficaria no
+    // loader indefinidamente.
+    const destravar = setTimeout(() => setGeoSettled(true), 4000);
+
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
+        clearTimeout(destravar);
+        // Guarda a posicao antes do reverse geocode: e ela que faz o mapa
+        // montar ja no ponto do usuario. Sem isso a coordenada era usada so
+        // para descobrir a cidade e descartada, e o mapa abria em Floresta ate
+        // o MapView pedir GPS por conta propria - dai o salto na abertura.
+        setInitialUserPos({ lat: coords.latitude, lng: coords.longitude });
+        // Libera o mapa junto com a posicao, sem esperar o reverse geocode:
+        // o nome da cidade e so rotulo, nao muda onde o mapa centra.
+        setGeoSettled(true);
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`
@@ -208,9 +238,15 @@ export default function MapPage() {
           if (found) selectMapCity(found);
         } catch {}
       },
-      () => {},
+      () => {
+        // Permissao negada ou GPS indisponivel: segue sem a posicao.
+        clearTimeout(destravar);
+        setGeoSettled(true);
+      },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 }
     );
+
+    return () => clearTimeout(destravar);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -290,7 +326,23 @@ export default function MapPage() {
 
       const mapped = (data || []).map(row => (
         row.is_cluster
-          ? { isCluster: true, lat: row.cluster_lat, lng: row.cluster_lng, count: row.item_count, ids: row.report_ids }
+          ? {
+              isCluster: true,
+              lat: row.cluster_lat,
+              lng: row.cluster_lng,
+              count: row.item_count,
+              ids: row.report_ids,
+              // Extensao do cluster: o MapView enquadra isso ao clicar, para o
+              // numero do pin bater com o que aparece depois do zoom.
+              bounds: Number.isFinite(row.min_lat_bound)
+                ? {
+                    minLat: row.min_lat_bound,
+                    maxLat: row.max_lat_bound,
+                    minLng: row.min_lng_bound,
+                    maxLng: row.max_lng_bound,
+                  }
+                : null,
+            }
           : {
               isCluster: false,
               lat: row.cluster_lat,
@@ -428,6 +480,9 @@ export default function MapPage() {
     [visibleClusters]
   );
 
+  // Contagem por categoria para os chips. Deriva do que ja esta carregado - sem
+  // requisicao extra. Clusters entram so em 'all': a agregacao nao carrega a
+  // categoria de cada bronca, entao somar em outra chave inventaria numero.
   const handleTitleSearch = useCallback(() => {
     const next = titleSearchInput.trim();
     setTitleSearchTerm(next);
@@ -445,6 +500,15 @@ export default function MapPage() {
     (report) => navigate(`/bronca/${report.id ?? report}`),
     [navigate]
   );
+
+  // Card do carrossel: centraliza no pin sem sair do mapa - diferente de
+  // handleReportClick, que abre a pagina da bronca. O nonce faz o MapView
+  // reagir mesmo quando se toca duas vezes no mesmo card.
+  const handleCardSelect = useCallback((report) => {
+    const loc = report?.location;
+    if (!loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return;
+    setFlyToTarget({ lat: loc.lat, lng: loc.lng, zoom: 18, nonce: Date.now() });
+  }, []);
 
   const filteredCities = useMemo(() => {
     if (!citySearch.trim()) return cities;
@@ -481,9 +545,43 @@ export default function MapPage() {
   return (
     <div className="flex flex-col bg-background flex-1 min-h-0 overflow-hidden">
 
+      {/* ── Mapa em tela cheia, com os controles flutuando por cima ──
+          Antes busca/cidade/chips empilhavam acima e empurravam o mapa para
+          baixo. Flutuando, o mapa ganha ~100px de altura util.
+          z-[700] fica abaixo dos controles do Leaflet (800) e do BottomNav
+          (900), entao nada aqui cobre a navegacao.
+          pointer-events-none no container + auto nos filhos: o espaco vazio
+          entre os controles continua arrastavel como mapa. */}
+      <div className="flex-1 min-h-0 relative overflow-hidden">
+        {(loading || !geoSettled) && <MapLoader />}
+        {/* Só monta o mapa depois que o GPS resolveu: o Leaflet fixa o centro
+            na montagem, entao montar antes deixaria o mapa preso em Floresta e
+            a posicao do usuario chegaria tarde, causando o salto na abertura. */}
+        {geoSettled && (
+        <Suspense fallback={<MapLoader />}>
+          <div className="absolute inset-0">
+            <MapView
+              clusters={visibleClusters}
+              initialCenter={initialUserPos}
+              onReportClick={handleReportClick}
+              onUpvote={() => {}}
+              showLegend={true}
+              showModeToggle={true}
+              interactive={true}
+              flyToTarget={flyToTarget}
+              onBoundsChange={handleBoundsChange}
+              onRecenter={syncCityFromCoords}
+              onUpdateClick={handleOpenUpdate}
+            />
+          </div>
+        </Suspense>
+        )}
+
+        <div className="absolute inset-x-0 top-0 z-[700] pointer-events-none flex flex-col gap-2 pt-2">
+
       {/* ── Top bar: search + filtros ── */}
-      <div className="flex-shrink-0 bg-background border-b border-border px-3 py-2 flex items-center gap-2">
-        <div className="flex-1 flex items-center gap-2 bg-muted rounded-full px-3 py-2">
+      <div className="flex-shrink-0 pointer-events-auto px-3 flex items-center gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5">
           <Search size={15} className="text-muted-foreground flex-shrink-0" />
           <input
             value={titleSearchInput}
@@ -501,7 +599,7 @@ export default function MapPage() {
         <button
           type="button"
           onClick={openFilterSheet}
-          className="flex-shrink-0 flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-sm font-medium text-foreground hover:border-primary/40 transition-colors"
+          className="flex-shrink-0 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/40 transition-colors"
         >
           <SlidersHorizontal size={14} />
           <span className="text-xs">Filtros</span>
@@ -512,11 +610,11 @@ export default function MapPage() {
       </div>
 
       {/* ── City pill + active filter chips ── */}
-      <div className="flex-shrink-0 bg-background px-3 py-2 flex flex-wrap items-center gap-2">
+      <div className="flex-shrink-0 pointer-events-auto px-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => { setCitySheetOpen(true); setCitySearch(''); }}
-          className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary/40 transition-colors shadow-sm"
+          className="flex items-center gap-1.5 rounded-full border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary/40 transition-colors shadow-lg"
         >
           <MapPin size={13} className="text-primary flex-shrink-0" />
           <span className="truncate max-w-[160px]">{mapCityName ?? 'Selecionar cidade'}</span>
@@ -534,37 +632,29 @@ export default function MapPage() {
         )}
       </div>
 
-      {/* ── Map ── */}
-      <div className="flex-1 min-h-0 relative overflow-hidden">
-        {loading && <MapLoader />}
-        <Suspense fallback={<MapLoader />}>
-          <div className="absolute inset-0">
-            <MapView
-              clusters={visibleClusters}
-              onReportClick={handleReportClick}
-              onUpvote={() => {}}
-              showLegend={true}
-              showModeToggle={true}
-              interactive={true}
-              flyToTarget={flyToTarget}
-              onBoundsChange={handleBoundsChange}
-              onRecenter={syncCityFromCoords}
-              onUpdateClick={handleOpenUpdate}
+        </div>
+
+        {/* ── Chips de categoria: ancorados no rodape do mapa, logo acima do
+             carrossel. Ficavam no topo, empurrando busca e cidade para longe
+             do alcance do polegar. ── */}
+        <div className="absolute inset-x-0 bottom-0 z-[700] pointer-events-none pb-2">
+          <div className="pointer-events-auto">
+            <MapCategoryChips
+              categories={CATEGORIES}
+              value={categoryFilter}
+              onChange={setCategoryFilter}
             />
           </div>
-        </Suspense>
+        </div>
       </div>
 
-      {/* ── Bottom bar: contagem ── */}
-      <div className="flex-shrink-0 bg-background border-t border-border px-4 py-2.5 flex items-center">
-        <span className="text-sm font-semibold text-foreground">
-          {loading ? (
-            <span className="text-muted-foreground">Carregando…</span>
-          ) : (
-            `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
-          )}
-        </span>
-      </div>
+      {/* ── Bottom bar: contagem + preview das broncas visiveis (recolhivel) ── */}
+      <MapReportsCarousel
+        clusters={visibleClusters}
+        total={totalVisibleCount}
+        loading={loading}
+        onSelect={handleCardSelect}
+      />
 
       {/* ══ Bottom Sheet: Filtros ══════════════════════════════════════════════ */}
       <BottomSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Filtros">

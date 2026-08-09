@@ -16,7 +16,19 @@
 --    visivel: uma celula fixa em graus por nivel, calibrada para dar ~6-10 pins
 --    por tela em qualquer zoom.
 --
--- Mantem a assinatura e o formato de retorno da 126: o cliente nao muda.
+-- 3. Passa a devolver os limites do cluster (min/max de lat e lng). Sem eles o
+--    cliente so tinha o centroide e aplicava zoom fixo ao clicar, mostrando bem
+--    menos broncas do que o numero exibido no pin.
+--
+-- O retorno ganha colunas novas, e `create or replace` nao muda o tipo de saida
+-- de uma funcao existente ("nao e possivel mudar o tipo de dados retornado").
+-- Por isso o drop antes - a assinatura de ENTRADA continua a mesma, entao a
+-- chamada do cliente nao muda.
+drop function if exists public.reports_map_clusters(
+  double precision, double precision, double precision, double precision,
+  integer, text, text
+);
+
 create or replace function public.reports_map_clusters(
   min_lat double precision,
   max_lat double precision,
@@ -32,7 +44,15 @@ returns table (
   cluster_lng double precision,
   item_count integer,
   report_ids uuid[],
-  report jsonb
+  report jsonb,
+  -- Extensao real do cluster. Sem isso o cliente so tinha o centroide e dava
+  -- zoom fixo (+3) ao clicar: a area encolhia 8x e um cluster de 20 broncas
+  -- exibia 2 depois do clique - o numero do pin nao batia com o que aparecia.
+  -- Com os limites o mapa enquadra exatamente o conteudo agregado.
+  min_lat_bound double precision,
+  max_lat_bound double precision,
+  min_lng_bound double precision,
+  max_lng_bound double precision
 )
 language sql
 stable
@@ -97,7 +117,11 @@ as $$
         'upvotes', f.upvotes,
         'lat', f.lat,
         'lng', f.lng
-      ) as report
+      ) as report,
+      f.lat as min_lat_bound,
+      f.lat as max_lat_bound,
+      f.lng as min_lng_bound,
+      f.lng as max_lng_bound
     from filtered f
     cross join params
     where params.zoom_sanitized >= 17
@@ -112,15 +136,19 @@ as $$
     from filtered f
     cross join params
     cross join lateral (
+      -- Calibrado com 140 broncas num raio de bairro (o caso real de Floresta):
+      -- no zoom 15, que e onde o mapa abre, 0.0032 ainda devolvia 68 pins - a
+      -- tela continuava coberta. 0.0096 leva a ~16 pins, na ordem do que o
+      -- desenho previa. Cada nivel dobra a celula ao afastar.
       select case params.zoom_sanitized
-        when 16 then 0.0016
-        when 15 then 0.0032
-        when 14 then 0.0064
-        when 13 then 0.0128
-        when 12 then 0.0256
-        when 11 then 0.0512
-        when 10 then 0.1024
-        else 0.2048
+        when 16 then 0.0048
+        when 15 then 0.0096
+        when 14 then 0.0192
+        when 13 then 0.0384
+        when 12 then 0.0768
+        when 11 then 0.1536
+        when 10 then 0.3072
+        else 0.6144
       end as cell_size
     ) gc
     where params.zoom_sanitized < 17
@@ -131,26 +159,35 @@ as $$
   clustered as (
     select
       count(*) > 1 as is_cluster,
-      case when count(*) > 1 then avg(g.lat) else min(g.lat) end as cluster_lat,
-      case when count(*) > 1 then avg(g.lng) else min(g.lng) end as cluster_lng,
+      case when count(*) > 1 then avg(g.lat) else (array_agg(g.lat))[1] end as cluster_lat,
+      case when count(*) > 1 then avg(g.lng) else (array_agg(g.lng))[1] end as cluster_lng,
       count(*)::integer as item_count,
       array_agg(g.id) as report_ids,
+      -- Agrega o jsonb inteiro e pega o primeiro, em vez de min() campo a campo:
+      -- min() nao existe para uuid, e agregar por campo tambem poderia misturar
+      -- valores de linhas diferentes se o grupo tivesse mais de uma.
       case
         when count(*) > 1 then null::jsonb
-        else jsonb_build_object(
-          'id', min(g.id),
-          'title', min(g.title),
-          'description', min(g.description),
-          'status', min(g.status),
-          'created_at', min(g.created_at),
-          'category_id', min(g.category_id),
-          'category_name', min(g.category_name),
-          'cover_image', min(g.cover_image),
-          'upvotes', min(g.upvotes),
-          'lat', min(g.lat),
-          'lng', min(g.lng)
-        )
-      end as report
+        else (array_agg(
+          jsonb_build_object(
+            'id', g.id,
+            'title', g.title,
+            'description', g.description,
+            'status', g.status,
+            'created_at', g.created_at,
+            'category_id', g.category_id,
+            'category_name', g.category_name,
+            'cover_image', g.cover_image,
+            'upvotes', g.upvotes,
+            'lat', g.lat,
+            'lng', g.lng
+          )
+        ))[1]
+      end as report,
+      min(g.lat) as min_lat_bound,
+      max(g.lat) as max_lat_bound,
+      min(g.lng) as min_lng_bound,
+      max(g.lng) as max_lng_bound
     from grid g
     group by g.cell_lat, g.cell_lng
   )

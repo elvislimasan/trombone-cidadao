@@ -53,48 +53,55 @@
      Distintos dos --status-* acima: aquele par e de badge (fundo pastel, texto
      escuro) e le contra o card. O pin le contra o mapa, entao o corpo usa a cor
      cheia e o icone inverte.
-     No tema claro o corpo usa a variante `-deep` com icone branco. As cores
-     vivas do guia so entram no tema escuro (bloco .dark), onde o icone inverte
-     para escuro - com icone branco elas ficariam em 1.63-3.76. O anel substitui
-     o `border: 2px solid white` que estava hardcoded nas quatro telas de mapa e
-     estourava no tema escuro. */
-  --pin-pothole-bg:   var(--tc-cat-pothole-deep);
-  --pin-pothole-fg:   var(--tc-neutral-0);
+     As cores vivas do guia valem nos DOIS temas, com icone escuro por cima. A
+     tentativa anterior - escurecer o corpo no tema claro para carregar icone
+     branco - passava no contraste mas deixava os pins marrons sobre o mapa
+     claro, longe do desenho. Com icone escuro as mesmas cores dao 4.99-11.51.
+     O anel substitui o `border: 2px solid white` que estava hardcoded nas
+     quatro telas de mapa e estourava no tema escuro. */
+  --pin-pothole-bg:   var(--tc-cat-pothole-vivid);
+  --pin-pothole-fg:   var(--tc-neutral-950);
 
-  --pin-lighting-bg:  var(--tc-cat-lighting-deep);
-  --pin-lighting-fg:  var(--tc-neutral-0);
+  --pin-lighting-bg:  var(--tc-cat-lighting-vivid);
+  --pin-lighting-fg:  var(--tc-neutral-950);
 
-  --pin-sewage-bg:    var(--tc-cat-sewage-deep);
-  --pin-sewage-fg:    var(--tc-neutral-0);
+  --pin-sewage-bg:    var(--tc-cat-sewage-vivid);
+  --pin-sewage-fg:    var(--tc-neutral-950);
 
-  --pin-cleaning-bg:  var(--tc-cat-cleaning-deep);
-  --pin-cleaning-fg:  var(--tc-neutral-0);
+  --pin-cleaning-bg:  var(--tc-cat-cleaning-vivid);
+  --pin-cleaning-fg:  var(--tc-neutral-950);
 
-  --pin-greenery-bg:  var(--tc-cat-greenery-deep);
-  --pin-greenery-fg:  var(--tc-neutral-0);
+  /* Roxo e slate sao os dois tons mais escuros do guia: com icone escuro por
+     cima o hex original fica em 4.43/3.94 e reprova AA, entao usam a variante
+     clareada tambem no tema claro. */
+  --pin-greenery-bg:  var(--tc-cat-greenery-soft);
+  --pin-greenery-fg:  var(--tc-neutral-950);
 
-  --pin-waterleak-bg: var(--tc-cat-sewage-deep);
-  --pin-waterleak-fg: var(--tc-neutral-0);
+  --pin-waterleak-bg: var(--tc-cat-sewage-vivid);
+  --pin-waterleak-fg: var(--tc-neutral-950);
 
-  --pin-security-bg:  var(--tc-cat-security-deep);
-  --pin-security-fg:  var(--tc-neutral-0);
+  --pin-security-bg:  var(--tc-cat-security-vivid);
+  --pin-security-fg:  var(--tc-neutral-950);
 
-  --pin-other-bg:     var(--tc-cat-other-deep);
-  --pin-other-fg:     var(--tc-neutral-0);
+  --pin-other-bg:     var(--tc-cat-other-soft);
+  --pin-other-fg:     var(--tc-neutral-950);
 
-  --pin-ring: var(--tc-neutral-0);
+  /* Anel escuro nos dois temas, junto com as cores vivas: sobre o amarelo de
+     iluminacao um anel branco fica em 1.63 e o pin se dissolve no mapa claro.
+     O guia mostra contorno branco, mas la os pins estao sobre mapa escuro. */
+  --pin-ring: var(--tc-neutral-900);
 
   /* Estados do guia. "Em alta" reusa o vermelho de seguranca; "selecionado" nao
      muda de cor, so engrossa o anel (tratado no componente). */
-  --pin-hot-bg: var(--tc-cat-security-deep);
-  --pin-hot-fg: var(--tc-neutral-0);
+  --pin-hot-bg: var(--tc-cat-security-vivid);
+  --pin-hot-fg: var(--tc-neutral-950);
 
   /* Imoveis alugados: tokens proprios em vez de reusar os de bronca, para que
      mudar a cor de uma categoria nao mexa nesta tela sem querer. */
-  --pin-rental-active-bg:   var(--tc-cat-cleaning-deep);
-  --pin-rental-active-fg:   var(--tc-neutral-0);
-  --pin-rental-inactive-bg: var(--tc-cat-other-deep);
-  --pin-rental-inactive-fg: var(--tc-neutral-0);
+  --pin-rental-active-bg:   var(--tc-cat-cleaning-vivid);
+  --pin-rental-active-fg:   var(--tc-neutral-950);
+  --pin-rental-inactive-bg: var(--tc-cat-other-soft);
+  --pin-rental-inactive-fg: var(--tc-neutral-950);
 
   /* Status de obra. Sao seis, e a paleta tem cinco familias cromaticas, entao
      "licitada" e "paralisada" dividem o ambar - distinguem-se pelo icone e pelo

@@ -216,9 +216,15 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
               </p>
             )}
 
+            {/* py-0.5 dá folga vertical ao avatar: sem isso ele encostava na
+                linha de cima, que tem line-clamp e nao reserva descida. */}
             {(report.authorName || report.authorAvatar) && (
-              <div className="flex items-center gap-1.5 mt-3 min-w-0">
-                <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
+              <div className="flex items-center gap-2 mt-4 py-0.5 min-w-0">
+                <AuthorAvatar
+                  name={report.authorName}
+                  avatarUrl={report.authorAvatar}
+                  sizeClassName="w-6 h-6"
+                />
                 <span className="text-2xs text-content-tertiary truncate">
                   por {report.authorName || 'Cidadão'}
                 </span>

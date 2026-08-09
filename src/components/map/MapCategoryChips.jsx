@@ -151,7 +151,7 @@ const MapCategoryChips = ({ categories, value, onChange }) => {
   const tail = categories.slice(VISIBLE_COUNT);
 
   return (
-    <div className="flex-shrink-0 flex gap-2 overflow-x-auto px-3 pb-1 custom-scrollbar">
+    <div className="flex-shrink-0 flex gap-2 overflow-x-auto pl-3 pb-1 custom-scrollbar">
       {head.map((c) => (
         <Chip
           key={c.id}
@@ -162,6 +162,8 @@ const MapCategoryChips = ({ categories, value, onChange }) => {
         />
       ))}
       <MoreChip items={tail} value={value} onChange={onChange} />
+      {/* Espacador: o padding-right colapsa no fim da rolagem horizontal. */}
+      <div className="flex-shrink-0 w-2" aria-hidden="true" />
     </div>
   );
 };

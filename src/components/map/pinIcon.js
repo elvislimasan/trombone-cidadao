@@ -13,9 +13,21 @@ import Icon, { categoryIconName, categoryPinToken } from '@/design-system/icons'
 // As cores vivas com icone branco ficam em 1.63-3.76 e reprovariam AA -
 // scripts/check-contrast.mjs cobre os dois temas.
 
-const PIN_W = 40;
-const PIN_H = 52;
-const ICON_SIZE = 20;
+// Geometria de referencia do desenho. O PIN_PATH e desenhado neste sistema de
+// coordenadas e o SVG escala via viewBox, entao mudar o tamanho renderizado nao
+// exige redesenhar nada.
+const BASE_W = 40;
+const BASE_H = 52;
+const BASE_ICON = 20;
+// Centro do circulo da gota, no sistema de coordenadas de referencia.
+const BASE_ICON_CY = 20;
+
+// Tamanho renderizado. Menor que a referencia porque, em bairro denso (o mapa
+// chega a 300+ broncas), pins de 40x52 se empilham e escondem as ruas. Em 28x36
+// os icones com recorte fino (buracos, iluminacao) ja viram mancha.
+const PIN_W = 32;
+const PIN_H = 42;
+const ICON_SIZE = Math.round((BASE_ICON * PIN_W) / BASE_W);
 
 // Os tokens sao tripletes RGB ("255 255 255") consumidos como rgb(var(--x)).
 // O no do divIcon fica sob documentElement, que e onde applyTheme poe a classe
@@ -127,14 +139,21 @@ export const createMapPin = ({
   // fill/stroke vao no style, nao como atributo SVG: var() so e interpretado em
   // propriedade CSS - como atributo de apresentacao a string fica literal e o
   // path sai sem cor.
+  // O viewBox e sempre o da referencia: o SVG escala o desenho para PIN_W/PIN_H.
+  // A espessura do anel divide pela escala, senao encolher o pin engrossaria o
+  // contorno em relacao ao corpo.
+  const scale = PIN_W / BASE_W;
+  const ring = (selected ? 3 : 2) / scale;
+  const iconTop = Math.round((BASE_ICON_CY - BASE_ICON / 2) * scale);
+
   const html = `
     <div style="position:relative;width:${PIN_W}px;height:${PIN_H}px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
-      <svg width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${PIN_W} ${PIN_H}" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${BASE_W} ${BASE_H}" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="${PIN_PATH}" style="fill:${token(bgToken)};stroke:${token(
     '--pin-ring'
-  )};stroke-width:${selected ? 3 : 2};"/>
+  )};stroke-width:${ring};"/>
       </svg>
-      <div style="position:absolute;top:${20 - ICON_SIZE / 2}px;left:${
+      <div style="position:absolute;top:${iconTop}px;left:${
     (PIN_W - ICON_SIZE) / 2
   }px;width:${ICON_SIZE}px;height:${ICON_SIZE}px;color:${token(
     fgToken
