@@ -8,6 +8,7 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useCreateReport } from '@/hooks/useCreateReport';
 import { useFeedRealtime } from '@/hooks/useFeedRealtime';
+import { useSwipeTabs } from '@/hooks/useSwipeTabs';
 import { useCity } from '@/contexts/CityContext';
 import FeedCard from '@/components/FeedCard';
 import FeedSkeleton from '@/components/FeedSkeleton';
@@ -116,11 +117,29 @@ export default function FeedPage() {
     }
   }, [reports]);
 
-  const handleTabChange = useCallback((tabKey) => {
+  // Direcao da ultima troca de aba, para a lista entrar pelo lado certo.
+  // Vale tambem para o clique na barra: pular de "Recentes" para "Em alta"
+  // anima como se tivesse arrastado, senao o movimento so existiria no gesto.
+  const [tabDirection, setTabDirection] = useState('forward');
+
+  const handleTabChange = useCallback((tabKey, direction) => {
+    if (direction) {
+      setTabDirection(direction);
+    } else {
+      const from = FEED_TABS.findIndex((t) => t.key === activeTab);
+      const to = FEED_TABS.findIndex((t) => t.key === tabKey);
+      setTabDirection(to >= from ? 'forward' : 'back');
+    }
     setActiveTab(tabKey);
     resetNewCount();
     setRecentCreatedId(null);
-  }, [resetNewCount]);
+  }, [activeTab, resetNewCount]);
+
+  const swipeHandlers = useSwipeTabs({
+    tabs: FEED_TABS,
+    activeTab,
+    onChange: handleTabChange,
+  });
 
   // Pede a posicao na primeira vez que a aba "Perto de mim" abre. Depois disso
   // so o botao do gate dispara: em 'denied' repetir nao reabre o prompt, e em
@@ -192,7 +211,9 @@ export default function FeedPage() {
       <FeedNewReportsBanner count={newCount} onRefresh={handleRefresh} />
 
       {/* ── Feed Content ── */}
-      <div className="container mx-auto max-w-2xl px-3 py-4">
+      {/* Arrastar na horizontal troca de aba. Fica neste container, e nao na
+          pagina toda, para nao capturar arrasto do header nem do bottom nav. */}
+      <div className="container mx-auto max-w-2xl px-3 py-4" {...swipeHandlers}>
         {/* Enquanto falta a posicao nao ha requisicao em curso: mostrar "lento"
             ou erro de rede ao lado do gate confundiria a causa real. */}
         {!awaitingLocation && (
@@ -218,7 +239,12 @@ export default function FeedPage() {
             onChangeTab={handleTabChange}
           />
         ) : (
-          <div className="space-y-4">
+          // key por aba: sem ela o CSS nao reexecuta a animacao, porque para o
+          // React e o mesmo elemento apenas com filhos diferentes.
+          <div
+            key={activeTab}
+            className={`space-y-4 ${tabDirection === 'forward' ? 'tc-tab-from-right' : 'tc-tab-from-left'}`}
+          >
             {loading && (
               <div className="flex items-center justify-center gap-2 text-xs text-content-secondary">
                 <TromboneSpinner size={14} />

@@ -19,6 +19,37 @@
   animation: tc-fade-up var(--duration-normal) var(--ease-out) both;
 }
 
+/* Troca de aba por arrasto: a lista entra pelo lado de onde veio, para que o
+   gesto tenha resposta visual. Sem isso a aba troca sem aviso e um disparo
+   acidental parece bug. Deslocamento curto (12px) — a intencao e dar direcao,
+   nao encenar uma transicao de pagina. */
+@keyframes tc-slide-from-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes tc-slide-from-left {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tc-tab-from-right {
+  animation: tc-slide-from-right var(--duration-fast) var(--ease-out) both;
+}
+
+.tc-tab-from-left {
+  animation: tc-slide-from-left var(--duration-fast) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-tab-from-right,
+  .tc-tab-from-left {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 /* Shimmer do skeleton */
 @keyframes tc-shimmer {
   from { background-position: -200% 0; }
