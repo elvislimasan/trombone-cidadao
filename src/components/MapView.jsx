@@ -27,7 +27,21 @@ import { createPinIcon } from "@/components/map/pinIcon";
 // Nivel de zoom ao enquadrar o usuario - na abertura da tela e no botao de
 // recentrar. Os dois usavam valores diferentes (16 e 17): o mapa abria mais
 // afastado do que ficava depois de tocar no botao.
-const USER_ZOOM = 17;
+const USER_ZOOM = 18;
+
+// Zoom coerente com a precisao da leitura de GPS. Abrir sempre no maximo sobre
+// uma posicao com centenas de metros de erro (tipico de localizacao por
+// Wi-Fi/rede) mostra a quadra errada com aparencia de certeza; melhor abrir um
+// pouco mais afastado e deixar o usuario aproximar. Com GPS bom, abre bem
+// proximo, no nivel de reconhecer a propria rua.
+const zoomParaPrecisao = (accuracy) => {
+  const m = Number(accuracy);
+  if (!Number.isFinite(m) || m <= 0) return USER_ZOOM;
+  if (m <= 50) return USER_ZOOM;   // GPS de satelite: rua, bem proximo
+  if (m <= 150) return 17;         // rua/quarteirao
+  if (m <= 500) return 16;         // entorno
+  return 15;                       // so da para afirmar o bairro
+};
 
 // A legenda usa os mesmos tokens do corpo do pin, entao as bolinhas e os pins
 // nunca divergem de cor. Agora lista categorias, nao status: e a categoria que
@@ -258,7 +272,11 @@ const MapView = ({
     if (!interactive || !map || !userLocation || hasCenteredRef.current) return;
     hasCenteredRef.current = true;
     try {
-      map.setView([userLocation.lat, userLocation.lng], USER_ZOOM, { animate: false });
+      map.setView(
+        [userLocation.lat, userLocation.lng],
+        zoomParaPrecisao(userLocation.accuracy),
+        { animate: false }
+      );
     } catch {}
   }, [interactive, userLocation]);
 
@@ -342,7 +360,7 @@ const MapView = ({
               ? [initialCenter.lat, initialCenter.lng]
               : FLORESTA_COORDS
           }
-          zoom={initialCenter ? USER_ZOOM : INITIAL_ZOOM}
+          zoom={initialCenter ? zoomParaPrecisao(initialCenter.accuracy) : INITIAL_ZOOM}
           scrollWheelZoom={interactive}
           dragging={interactive}
           doubleClickZoom={interactive}

@@ -59,48 +59,49 @@
      claro, longe do desenho. Com icone escuro as mesmas cores dao 4.99-11.51.
      O anel substitui o `border: 2px solid white` que estava hardcoded nas
      quatro telas de mapa e estourava no tema escuro. */
-  --pin-pothole-bg:   var(--tc-cat-pothole-vivid);
+  --pin-pothole-bg:   var(--tc-cat-pothole);
   --pin-pothole-fg:   var(--tc-neutral-950);
 
-  --pin-lighting-bg:  var(--tc-cat-lighting-vivid);
+  --pin-lighting-bg:  var(--tc-cat-lighting);
   --pin-lighting-fg:  var(--tc-neutral-950);
 
-  --pin-sewage-bg:    var(--tc-cat-sewage-vivid);
+  --pin-sewage-bg:    var(--tc-cat-sewage);
   --pin-sewage-fg:    var(--tc-neutral-950);
 
-  --pin-cleaning-bg:  var(--tc-cat-cleaning-vivid);
+  --pin-cleaning-bg:  var(--tc-cat-cleaning);
   --pin-cleaning-fg:  var(--tc-neutral-950);
 
   /* Roxo e slate sao os dois tons mais escuros do guia: com icone escuro por
      cima o hex original fica em 4.43/3.94 e reprova AA, entao usam a variante
      clareada tambem no tema claro. */
-  --pin-greenery-bg:  var(--tc-cat-greenery-soft);
+  --pin-greenery-bg:  var(--tc-cat-greenery);
   --pin-greenery-fg:  var(--tc-neutral-950);
 
-  --pin-waterleak-bg: var(--tc-cat-sewage-vivid);
+  --pin-waterleak-bg: var(--tc-cat-sewage);
   --pin-waterleak-fg: var(--tc-neutral-950);
 
-  --pin-security-bg:  var(--tc-cat-security-vivid);
+  --pin-security-bg:  var(--tc-cat-security);
   --pin-security-fg:  var(--tc-neutral-950);
 
-  --pin-other-bg:     var(--tc-cat-other-soft);
+  --pin-other-bg:     var(--tc-cat-other);
   --pin-other-fg:     var(--tc-neutral-950);
 
-  /* Anel escuro nos dois temas, junto com as cores vivas: sobre o amarelo de
-     iluminacao um anel branco fica em 1.63 e o pin se dissolve no mapa claro.
-     O guia mostra contorno branco, mas la os pins estao sobre mapa escuro. */
-  --pin-ring: var(--tc-neutral-900);
+  /* Anel branco, fino, nos dois temas. O anel nao existe para contrastar com o
+     corpo do pin - ele separa o pin DO MAPA. A versao escura anterior somava
+     peso: com dezenas de pins juntos os contornos se fundiam numa massa preta
+     que escondia as ruas. Com a cor dessaturada o branco volta a funcionar. */
+  --pin-ring: var(--tc-neutral-0);
 
   /* Estados do guia. "Em alta" reusa o vermelho de seguranca; "selecionado" nao
      muda de cor, so engrossa o anel (tratado no componente). */
-  --pin-hot-bg: var(--tc-cat-security-vivid);
+  --pin-hot-bg: var(--tc-cat-security);
   --pin-hot-fg: var(--tc-neutral-950);
 
   /* Imoveis alugados: tokens proprios em vez de reusar os de bronca, para que
      mudar a cor de uma categoria nao mexa nesta tela sem querer. */
-  --pin-rental-active-bg:   var(--tc-cat-cleaning-vivid);
+  --pin-rental-active-bg:   var(--tc-cat-cleaning);
   --pin-rental-active-fg:   var(--tc-neutral-950);
-  --pin-rental-inactive-bg: var(--tc-cat-other-soft);
+  --pin-rental-inactive-bg: var(--tc-cat-other);
   --pin-rental-inactive-fg: var(--tc-neutral-950);
 
   /* Status de obra. Sao seis, e a paleta tem cinco familias cromaticas, entao
@@ -148,6 +149,27 @@
 
   /* Ponto "voce esta aqui". */
   --pin-user-bg: var(--tc-blue-600);
+
+  /* --- Graficos ---
+     As tres series de status usam a mesma matiz dos --status-* (o usuario ja
+     associa laranja=pendente, azul=andamento, verde=resolvida), mas em tom
+     cheio: a badge le contra o card, a barra le contra a grade do grafico.
+     O Recharts recebe cor por prop JS, nao por classe, entao o componente
+     resolve estes tokens com getComputedStyle e reage a troca de tema. */
+  --chart-pending:  var(--tc-amber-600);
+  --chart-progress: var(--tc-blue-600);
+  --chart-resolved: var(--tc-green-600);
+
+  /* Paleta categorica para series sem significado semantico (broncas por
+     categoria). Reusa as cores de categoria dos pins, para o mapa e o grafico
+     falarem a mesma lingua. */
+  --chart-cat-1: var(--tc-cat-security);
+  --chart-cat-2: var(--tc-cat-pothole);
+  --chart-cat-3: var(--tc-cat-sewage);
+  --chart-cat-4: var(--tc-cat-lighting);
+  --chart-cat-5: var(--tc-cat-cleaning);
+  --chart-cat-6: var(--tc-cat-greenery);
+  --chart-cat-7: var(--tc-cat-other);
 
   /* --- Sinais do feed --- */
   --signal-hot-bg:     var(--tc-red-600);
@@ -250,12 +272,14 @@
      obriga o icone a inverter: branco sobre amber-300 daria 1.44, ilegivel;
      neutral-950 sobre o mesmo tom da 13.01. A cor do status continua sendo a
      mesma familia, entao "ambar = pendente" nao muda de sentido entre os temas. */
-  --pin-rental-active-bg:   var(--tc-cat-cleaning-vivid);
+  --pin-rental-active-bg:   var(--tc-cat-cleaning);
   --pin-rental-active-fg:   var(--tc-neutral-950);
-  --pin-rental-inactive-bg: var(--tc-cat-other-soft);
+  --pin-rental-inactive-bg: var(--tc-cat-other);
   --pin-rental-inactive-fg: var(--tc-neutral-950);
 
-  --pin-ring: var(--tc-neutral-900);
+  /* --pin-ring segue branco tambem no escuro (herda do :root): o anel separa o
+     pin do mapa, e sobre o CARTO Dark Matter o branco e justamente o que da
+     essa separacao. */
 
   --pin-work-planned-bg:    var(--tc-violet-300);
   --pin-work-planned-fg:    var(--tc-neutral-950);
@@ -272,34 +296,9 @@
   --pin-work-unknown-bg:    var(--tc-neutral-400);
   --pin-work-unknown-fg:    var(--tc-neutral-950);
 
-  /* Cores do guia, na intensidade original. O icone inverte para escuro: sobre
-     #FFC107 um icone branco daria 1.63, enquanto o escuro da 11.51. */
-  --pin-pothole-bg:   var(--tc-cat-pothole-vivid);
-  --pin-pothole-fg:   var(--tc-neutral-950);
-
-  --pin-lighting-bg:  var(--tc-cat-lighting-vivid);
-  --pin-lighting-fg:  var(--tc-neutral-950);
-
-  --pin-sewage-bg:    var(--tc-cat-sewage-vivid);
-  --pin-sewage-fg:    var(--tc-neutral-950);
-
-  --pin-cleaning-bg:  var(--tc-cat-cleaning-vivid);
-  --pin-cleaning-fg:  var(--tc-neutral-950);
-
-  --pin-greenery-bg:  var(--tc-cat-greenery-soft);
-  --pin-greenery-fg:  var(--tc-neutral-950);
-
-  --pin-waterleak-bg: var(--tc-cat-sewage-vivid);
-  --pin-waterleak-fg: var(--tc-neutral-950);
-
-  --pin-security-bg:  var(--tc-cat-security-vivid);
-  --pin-security-fg:  var(--tc-neutral-950);
-
-  --pin-other-bg:     var(--tc-cat-other-soft);
-  --pin-other-fg:     var(--tc-neutral-950);
-
-  --pin-hot-bg: var(--tc-cat-security-vivid);
-  --pin-hot-fg: var(--tc-neutral-950);
+  /* Os pins de categoria NAO sao redefinidos aqui: a cor dessaturada e a mesma
+     nos dois temas, com icone escuro por cima. Repetir os mesmos valores no
+     .dark so criava duas fontes de verdade para dessincronizar depois. */
 
   /* No escuro a escala neutra inverte: pavimentada fica clara sobre o mapa
      escuro, mantendo a distancia visual para "sem pavimentacao". */
@@ -324,8 +323,17 @@
 
   --pin-user-bg: var(--tc-blue-300);
 
+  /* Graficos no escuro: as series clareiam um degrau. O tom cheio do tema claro
+     fica escuro demais contra o fundo do card e as barras somem. */
+  --chart-pending:  var(--tc-amber-300);
+  --chart-progress: var(--tc-blue-300);
+  --chart-resolved: var(--tc-green-300);
+
+  /* As cores de categoria ja sao dessaturadas e funcionam nos dois temas — sao
+     as mesmas dos pins do mapa, que leem sobre tiles claros e escuros. */
   /* Sobre foto, no escuro, chip solido saturado pesa. Fundo escuro com texto
      colorido le igual e nao briga com a imagem. */
+
   --signal-hot-bg:     var(--tc-neutral-950);
   --signal-hot-fg:     var(--tc-red-300);
   --signal-rising-bg:  var(--tc-neutral-950);

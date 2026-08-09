@@ -186,10 +186,16 @@ export default function MapPage() {
   };
 
   // ── selectMapCity ──
-  const selectMapCity = useCallback(async (city) => {
+  //
+  // `moverMapa` separa os dois usos. Quando o usuario ESCOLHE uma cidade no
+  // seletor, o mapa precisa voar ate ela. Quando a cidade e apenas DETECTADA
+  // pelo GPS, mover seria errado: o mapa acabou de montar na posicao do
+  // usuario, e o voo para o centro da cidade em zoom 13 desfazia isso - o mapa
+  // abria certo e um instante depois pulava para o nivel de cidade.
+  const selectMapCity = useCallback(async (city, { moverMapa = true } = {}) => {
     setMapCityId(city ? city.id : null);
     setMapCityName(city ? (city.state?.uf ? `${city.name} · ${city.state.uf}` : city.name) : null);
-    if (!city) return;
+    if (!city || !moverMapa) return;
     try {
       const uf = city.state?.uf || '';
       const q  = encodeURIComponent(`${city.name}${uf ? `, ${uf}, Brasil` : ', Brasil'}`);
@@ -223,7 +229,11 @@ export default function MapPage() {
         // montar ja no ponto do usuario. Sem isso a coordenada era usada so
         // para descobrir a cidade e descartada, e o mapa abria em Floresta ate
         // o MapView pedir GPS por conta propria - dai o salto na abertura.
-        setInitialUserPos({ lat: coords.latitude, lng: coords.longitude });
+        setInitialUserPos({
+          lat: coords.latitude,
+          lng: coords.longitude,
+          accuracy: coords.accuracy,
+        });
         // Libera o mapa junto com a posicao, sem esperar o reverse geocode:
         // o nome da cidade e so rotulo, nao muda onde o mapa centra.
         setGeoSettled(true);
@@ -235,7 +245,10 @@ export default function MapPage() {
           const json = await res.json();
           const { name, uf } = parseCityFromNominatim(json.address || {});
           const found = matchCityInList(citiesRef.current, name, uf);
-          if (found) selectMapCity(found);
+          // Só rotula a cidade: o mapa ja esta na posicao do usuario, que fica
+          // dentro dela. Voar para o centro em zoom 13 desfaria o
+          // enquadramento que acabamos de aplicar.
+          if (found) selectMapCity(found, { moverMapa: false });
         } catch {}
       },
       () => {
@@ -243,7 +256,12 @@ export default function MapPage() {
         clearTimeout(destravar);
         setGeoSettled(true);
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 }
+      // maximumAge baixo: com 300000 (5 min) o navegador devolvia uma leitura
+      // antiga em cache, geralmente de rede/Wi-Fi e com centenas de metros de
+      // erro. Como e essa posicao que define onde o mapa MONTA, abrir no zoom
+      // de rua sobre uma coordenada imprecisa colocava o usuario na quadra
+      // errada. 30s ainda aproveita uma leitura recente sem pegar as velhas.
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
     );
 
     return () => clearTimeout(destravar);

@@ -143,11 +143,13 @@ export const createMapPin = ({
   // A espessura do anel divide pela escala, senao encolher o pin engrossaria o
   // contorno em relacao ao corpo.
   const scale = PIN_W / BASE_W;
-  const ring = (selected ? 3 : 2) / scale;
+  // Anel fino: 2px deixava um contorno grosso que, com dezenas de pins juntos,
+  // se somava numa moldura pesada em volta de cada um.
+  const ring = (selected ? 2.5 : 1.5) / scale;
   const iconTop = Math.round((BASE_ICON_CY - BASE_ICON / 2) * scale);
 
   const html = `
-    <div style="position:relative;width:${PIN_W}px;height:${PIN_H}px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
+    <div style="position:relative;width:${PIN_W}px;height:${PIN_H}px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.18));">
       <svg width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${BASE_W} ${BASE_H}" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="${PIN_PATH}" style="fill:${token(bgToken)};stroke:${token(
     '--pin-ring'

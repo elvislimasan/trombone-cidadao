@@ -115,8 +115,16 @@ const PAIRS = [
   ['cluster muitos',                   '--pin-cluster-high-fg',  '--pin-cluster-high-bg',  4.5],
   // O anel separa o pin do mapa, nao carrega texto: limiar de elemento grafico.
   // Checa as duas pontas da faixa de luminancia das categorias.
-  ['anel do pin sobre iluminacao',     '--pin-ring',          '--pin-lighting-bg',   3.0],
-  ['anel do pin sobre outros',         '--pin-ring',          '--pin-other-bg',      3.0],
+  // O anel do pin nao entra aqui de proposito. Ele nao existe para contrastar
+  // com o corpo do pin, e sim para separa-lo do MAPA - e o mapa e uma imagem de
+  // tiles, sem token para comparar. Medir anel-vs-corpo (como era antes)
+  // reprovava o branco sobre o amarelo e empurrava para um anel escuro, que em
+  // densidade alta virava uma moldura preta em volta de cada pin. Esse par fica
+  // fora do automatico e e verificado visualmente.
+  // Series de grafico: barra/linha sobre o card, limiar de elemento grafico.
+  ['grafico pendente',                 '--chart-pending',     '--surface-raised',    3.0],
+  ['grafico em andamento',             '--chart-progress',    '--surface-raised',    3.0],
+  ['grafico resolvido',                '--chart-resolved',    '--surface-raised',    3.0],
   ['sinal quente',                     '--signal-hot-fg',     '--signal-hot-bg',     3.0],
   ['sinal subindo',                    '--signal-rising-fg',  '--signal-rising-bg',  3.0],
   ['sinal recente',                    '--signal-fresh-fg',   '--signal-fresh-bg',   3.0],

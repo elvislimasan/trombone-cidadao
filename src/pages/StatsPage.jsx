@@ -1313,7 +1313,7 @@ const StatsPage = () => {
             {/* So o seletor de cidade: o titulo e o texto de apoio sairam a
                 pedido — a aba ja diz onde o usuario esta e o espaco vertical
                 vale mais para os numeros. */}
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-start">
               <CitySelector />
             </div>
           </motion.div>

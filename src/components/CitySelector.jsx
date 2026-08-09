@@ -11,8 +11,12 @@ import { MapPin, Check, Globe, Search, Loader2, RotateCcw } from 'lucide-react';
  * para a cidade do header.
  *
  * Para trocar a cidade do app inteiro, use o seletor do header.
+ *
+ * `align` deve seguir o lado da tela onde o botao fica: o menu tem 16rem e,
+ * ancorado no lado oposto, escapa da viewport e cria scroll horizontal na
+ * pagina inteira.
  */
-export default function CitySelector() {
+export default function CitySelector({ align = 'right' }) {
   const {
     cityId: activeCityId,
     cityName: activeCityName,
@@ -79,11 +83,9 @@ export default function CitySelector() {
         )}
       </div>
 
-      {/* Dropdown sempre ancorado à direita do botão. O botão fica no canto
-          direito do cabeçalho, então ancorar à esquerda jogava os 16rem do menu
-          para fora da viewport e criava scroll horizontal na página inteira. */}
+      {/* Dropdown ancorado no mesmo lado do botão — ver `align` acima. */}
       {open && (
-        <div className="absolute right-0 z-[900] mt-1 w-[min(16rem,calc(100vw-2rem))] max-h-80 overflow-y-auto rounded-xl border border-edge-subtle bg-surface-raised shadow-elevation-3">
+        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} z-[900] mt-1 w-[min(16rem,calc(100vw-2rem))] max-h-80 overflow-y-auto rounded-xl border border-edge-subtle bg-surface-raised shadow-elevation-3`}>
           <div className="sticky top-0 bg-surface-raised p-2 border-b border-edge-subtle">
             <div className="flex items-center gap-2 rounded-lg border border-edge-default px-2 py-1.5">
               <Search className="w-4 h-4 text-content-tertiary shrink-0" />
