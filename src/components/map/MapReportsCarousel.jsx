@@ -93,12 +93,9 @@ const Card = memo(function Card({ report, onSelect }) {
 
 // Fracao da altura que o dedo precisa vencer para o painel trocar de estado.
 const DRAG_RATIO = 0.35;
-// Usado so no primeiro render, antes da medicao real valer.
+// Referencia de altura da faixa usada so para converter o arrasto em fracao.
 const CARDS_H_FALLBACK = 150;
-// Alca: pt-2 + faixa de 4px + pb-1 = altura fixa, nao depende de conteudo.
-const HANDLE_H = 16;
-// Respiro abaixo dos cards na faixa rolavel (pb-3). Somado a altura do card
-// para compor a altura da faixa sem precisar medi-la.
+// Respiro abaixo dos cards na faixa rolavel (pb-3).
 const CARDS_PADDING = 12;
 
 const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) => {
@@ -108,12 +105,7 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
   const [dragY, setDragY] = useState(null);
   const drag = useRef(null);
 
-  // Alturas medidas do DOM, nao constantes escritas a mao. Manter os numeros
-  // manualmente ja cortou o rodape dos cards: o card mede 131px e nao os ~108
-  // que a constante assumia, entao o painel ficava 38px menor que o conteudo.
-  const headRef = useRef(null);
   const cardsRef = useRef(null);
-  const [headH, setHeadH] = useState(60);
   const [cardsH, setCardsH] = useState(CARDS_H_FALLBACK);
 
   // So pins individuais viram card: cluster e uma agregacao, nao tem bronca.
@@ -127,45 +119,16 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
     return out;
   }, [clusters]);
 
-  // Mede o cabecalho e a faixa de cards, guardando sempre o MAIOR valor visto.
-  //
-  // Duas armadilhas moldaram esta funcao:
-  //
-  // 1. ResizeObserver realimenta. O container tem overflow-hidden e altura
-  //    controlada por este estado; ao recolher, a faixa observada encolhe, o
-  //    observer dispara e a altura se recompoe - o painel nunca fechava.
-  //
-  // 2. Travar na primeira medicao corta o card. Era o que a versao anterior
-  //    fazia, e por isso o painel cortava ao entrar direto na tela e acertava
-  //    quando o usuario ja tinha rolado o feed: sem cache, as imagens de capa
-  //    ainda nao tinham carregado na primeira medida e a faixa vinha mais
-  //    baixa, valor que ficava congelado.
-  //
-  // Guardar o maximo resolve os dois: cresce quando o conteudo real aparece e
-  // ignora as medidas menores de quando o painel esta recolhido.
-  // Mede o CARD, nao a faixa. A faixa e filha do container cuja altura este
-  // mesmo estado controla: recolhido ela vem cortada, e qualquer medida tirada
-  // dali contamina o calculo (o painel congelava aberto, ou reabria menor).
-  // O card tem altura propria, independente do estado do painel - medir ele e
-  // somar o respiro da faixa (pb-3 = 12px) da o mesmo numero, sempre estavel.
-  const medir = useCallback(() => {
-    if (headRef.current) {
-      const h = headRef.current.offsetHeight;
-      if (h > 0) setHeadH(h);
-    }
-    const card = cardsRef.current?.querySelector('button');
-    if (card) {
-      // offsetHeight do card e independente do recorte do painel, mas ainda
-      // pode vir 0 num frame intermediario. Guardar so valores plausiveis evita
-      // congelar a altura em algo menor que o conteudo.
-      const h = card.offsetHeight;
-      if (h > 40) setCardsH(h + CARDS_PADDING);
-    }
-  }, []);
-
+  // A altura do painel NAO depende mais desta medida - quem a define e o
+  // conteudo, via CSS. cardsH serve so para converter o arrasto do dedo em
+  // fracao de abertura. Se vier errada, o gesto fica menos preciso; o card nao
+  // corta, que era o efeito grave da versao anterior.
   useLayoutEffect(() => {
-    medir();
-  }, [reports.length, loading, medir]);
+    const card = cardsRef.current?.querySelector('button');
+    if (!card) return;
+    const h = card.offsetHeight;
+    if (h > 40) setCardsH(h + CARDS_PADDING);
+  }, [reports.length, loading]);
 
   const onPointerDown = useCallback(
     (e) => {
@@ -212,22 +175,21 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
     setDragY(null);
   }, [cardsH]);
 
-  const shift = dragY != null ? dragY : open ? 0 : cardsH;
+  // Fracao da faixa de cards que continua visivel (1 = aberto, 0 = recolhido).
+  const aberturaFaixa =
+    dragY != null && cardsH > 0 ? 1 - dragY / cardsH : open ? 1 : 0;
 
   return (
     <div
-      className="flex-shrink-0 bg-background border-t border-border overflow-hidden touch-none"
-      style={{
-        // Alca + cabecalho + faixa, todos medidos: a altura acompanha o
-        // conteudo real em vez de depender de uma constante desatualizada.
-        //
-        // flexBasis junto de height: como item de um flex column com
-        // flex-shrink-0, o basis `auto` faz o item usar a altura do CONTEUDO e
-        // o height inline e ignorado - o painel nunca encolhia ao recolher.
-        height: HANDLE_H + headH + cardsH - shift,
-        flexBasis: HANDLE_H + headH + cardsH - shift,
-        transition: dragY == null ? 'height 220ms ease, flex-basis 220ms ease' : 'none',
-      }}
+      // Sem altura calculada: o painel se dimensiona pelo conteudo.
+      //
+      // A versao anterior media alca + cabecalho + faixa e aplicava o total como
+      // height/flexBasis. Isso cortava o rodape do card ao entrar direto na tela
+      // (sem passar por outra rolagem): a medicao acontecia antes do layout
+      // estabilizar no dispositivo, o valor vinha baixo e ficava. Deixando o
+      // fluxo normal definir a altura, nao ha o que medir errado - o painel
+      // sempre cabe no que tem dentro.
+      className="flex-shrink-0 bg-background border-t border-border touch-none"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -244,7 +206,7 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
         <span className="w-9 h-1 rounded-full bg-border" />
       </button>
 
-      <div ref={headRef} className="flex items-center justify-between px-4 pb-1.5">
+      <div className="flex items-center justify-between px-4 pb-1.5">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">
             {loading ? (
@@ -270,20 +232,33 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
       </div>
 
       {reports.length > 0 && (
-        // data-cards: onPointerDown ignora arrastos daqui, senao rolar a lista
-        // na horizontal fecharia o painel. touch-pan-x devolve o scroll que o
-        // touch-none do container tirou.
+        // grid-template-rows anima de 1fr (aberto) ate 0fr (recolhido) sem
+        // ninguem precisar saber a altura em pixels - e o que permite o painel
+        // recolher mantendo a altura vinda do conteudo.
         <div
-          ref={cardsRef}
-          data-cards
-          className="flex gap-2 overflow-x-auto snap-x pl-4 pb-3 custom-scrollbar touch-pan-x"
+          style={{
+            display: 'grid',
+            gridTemplateRows: `${aberturaFaixa}fr`,
+            transition: dragY == null ? 'grid-template-rows 220ms ease' : 'none',
+          }}
         >
-          {reports.map((r) => (
-            <Card key={r.id} report={r} onSelect={onSelect} />
-          ))}
-          {/* Espacador em vez de padding-right: em container flex com overflow
-              o padding final colapsa, e o ultimo card encostava na borda. */}
-          <div className="flex-shrink-0 w-3" aria-hidden="true" />
+          {/* data-cards: onPointerDown ignora arrastos daqui, senao rolar a
+              lista na horizontal fecharia o painel. touch-pan-x devolve o
+              scroll que o touch-none do container tirou.
+              min-h-0 e obrigatorio: sem ele o filho do grid nao encolhe abaixo
+              da altura do conteudo e o recolhimento nao acontece. */}
+          <div
+            ref={cardsRef}
+            data-cards
+            className="flex gap-2 overflow-x-auto overflow-y-hidden snap-x pl-4 pb-3 custom-scrollbar touch-pan-x min-h-0"
+          >
+            {reports.map((r) => (
+              <Card key={r.id} report={r} onSelect={onSelect} />
+            ))}
+            {/* Espacador em vez de padding-right: em container flex com overflow
+                o padding final colapsa, e o ultimo card encostava na borda. */}
+            <div className="flex-shrink-0 w-3" aria-hidden="true" />
+          </div>
         </div>
       )}
     </div>
