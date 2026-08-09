@@ -231,20 +231,20 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
           <div className="mt-auto pt-3 border-t border-edge-subtle flex items-center justify-between gap-3">
             <FeedCardSupport upvotes={report.upvotes} />
 
-            <div className="flex items-stretch gap-1 flex-shrink-0">
+            <div className="flex items-stretch gap-0.5 sm:gap-1 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => onToggleUpvote?.(report.id)}
                 aria-label="Apoiar bronca"
                 aria-pressed={report.user_has_upvoted}
-                className={`flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-lg text-2xs font-semibold transition-colors ${
+                className={`flex flex-col items-center justify-center gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg text-2xs font-semibold transition-colors ${
                   report.user_has_upvoted
                     ? 'text-brand'
                     : 'text-content-secondary hover:text-content-primary'
                 }`}
               >
                 <Icon name="support" size={17} />
-                <span>Apoiar</span>
+                <span className="hidden xs:inline">Apoiar</span>
               </button>
 
               <span className="w-px bg-edge-subtle self-stretch my-1" aria-hidden="true" />
@@ -255,11 +255,11 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
                 type="button"
                 onClick={() => setCommentsOpen(true)}
                 aria-label="Ver comentários"
-                className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-lg text-2xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
+                className="flex flex-col items-center justify-center gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg text-2xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
               >
                 <Icon name="comment" size={17} />
                 <span className="tabular-nums">
-                  {commentsCount > 0 ? commentsCount : 'Comentar'}
+                  {commentsCount > 0 ? commentsCount : <span className="hidden xs:inline">Comentar</span>}
                 </span>
               </button>
 
@@ -269,10 +269,10 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
                 type="button"
                 onClick={handleShare}
                 aria-label="Compartilhar"
-                className="flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-lg text-2xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
+                className="flex flex-col items-center justify-center gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg text-2xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
               >
                 <Icon name="share" size={17} />
-                <span>Compartilhar</span>
+                <span className="hidden xs:inline">Compartilhar</span>
               </button>
             </div>
           </div>
