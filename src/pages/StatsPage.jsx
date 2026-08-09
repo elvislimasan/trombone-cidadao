@@ -1314,7 +1314,7 @@ const StatsPage = () => {
                 pedido — a aba ja diz onde o usuario esta e o espaco vertical
                 vale mais para os numeros. */}
             <div className="flex items-center justify-start">
-              <CitySelector />
+              <CitySelector align="left" />
             </div>
           </motion.div>
           {/* O seletor Broncas/Obras vem logo apos o cabecalho: os cards de
