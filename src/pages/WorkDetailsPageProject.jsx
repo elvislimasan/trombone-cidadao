@@ -1653,7 +1653,7 @@ export default function WorkDetailsPageProject() {
   const handleAdminSaveWork = useCallback(
     async (workToSave) => {
       try {
-        const { id, location, ...payload } = workToSave;
+        const { id, location, manual_city_id, ...payload } = workToSave;
 
         const locationString =
           location &&
