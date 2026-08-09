@@ -217,7 +217,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
             )}
 
             {(report.authorName || report.authorAvatar) && (
-              <div className="flex items-center gap-1.5 mt-2 min-w-0">
+              <div className="flex items-center gap-1.5 mt-3 min-w-0">
                 <AuthorAvatar name={report.authorName} avatarUrl={report.authorAvatar} />
                 <span className="text-2xs text-content-tertiary truncate">
                   por {report.authorName || 'Cidadão'}
