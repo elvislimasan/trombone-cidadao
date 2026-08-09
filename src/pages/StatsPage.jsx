@@ -23,6 +23,18 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { FileOpener } from '@capacitor-community/file-opener';
+import { useTheme } from '@/design-system/theme/ThemeProvider';
+
+// Le o valor computado de um token de design em runtime. O Recharts recebe
+// cor por prop JS (nao por classe CSS), entao os tokens de grafico (canal
+// RGB, ex: "217 119 6") precisam ser lidos do DOM e embrulhados em rgb().
+// So funciona no cliente (getComputedStyle) - chamado dentro de useMemo no
+// corpo do componente, entao roda apos a primeira montagem/commit do React.
+const readColorToken = (name) => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value ? `rgb(${value})` : undefined;
+};
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -40,10 +52,12 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-const TimelineLegend = () => (
+// Recebe a lista de status com cor ja resolvida (depende do tema, entao vem
+// de ReportsStats via useMemo em vez de ler uma constante de modulo).
+const TimelineLegend = ({ statuses }) => (
   <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-2 text-[11px] sm:justify-start sm:text-xs">
-    {TIMELINE_STATUS.map((status) => (
-      <div key={status.key} className="inline-flex items-center gap-1.5 text-muted-foreground">
+    {statuses.map((status) => (
+      <div key={status.key} className="inline-flex items-center gap-1.5 text-content-secondary">
         <span
           className="h-2.5 w-2.5 rounded-sm"
           style={{ backgroundColor: status.color }}
@@ -73,11 +87,12 @@ const TimelineFloatingTooltip = ({ tooltip }) => {
   );
 };
 
-// Status das broncas exibidos no gráfico temporal, com cores no padrão do sistema.
-const TIMELINE_STATUS = [
-  { key: 'pending', label: 'Pendentes', color: '#f97316' },
-  { key: 'in-progress', label: 'Em Andamento', color: '#3b82f6' },
-  { key: 'resolved', label: 'Resolvidas', color: '#22c55e' },
+// Status das broncas exibidos no grafico temporal. So key/label aqui - a cor
+// depende do tema e e resolvida dentro do componente (ver chartColors).
+const TIMELINE_STATUS_META = [
+  { key: 'pending', label: 'Pendentes' },
+  { key: 'in-progress', label: 'Em Andamento' },
+  { key: 'resolved', label: 'Resolvidas' },
 ];
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -100,7 +115,7 @@ const buildTimelineData = (reports, view, selectedYear) => {
   if (view === 'monthly') {
     const months = MONTH_LABELS.map((label, monthIndex) => {
       const entry = { key: `${selectedYear}-${monthIndex}`, label, sortValue: monthIndex };
-      TIMELINE_STATUS.forEach((s) => { entry[s.key] = 0; });
+      TIMELINE_STATUS_META.forEach((s) => { entry[s.key] = 0; });
       return entry;
     });
 
@@ -129,7 +144,7 @@ const buildTimelineData = (reports, view, selectedYear) => {
     const key = `${year}`;
     if (!buckets.has(key)) {
       const entry = { key, label: `${year}`, sortValue: year };
-      TIMELINE_STATUS.forEach((s) => { entry[s.key] = 0; });
+      TIMELINE_STATUS_META.forEach((s) => { entry[s.key] = 0; });
       buckets.set(key, entry);
     }
     const entry = buckets.get(key);
@@ -168,9 +183,28 @@ const ReportsStats = () => {
   const { toast } = useToast();
   const timelineChartRef = useRef(null);
   const timelineTooltipLayerRef = useRef(null);
+  const { resolved: resolvedTheme } = useTheme();
 
+  // Cores dos graficos lidas dos tokens CSS em runtime. Recalcula sempre que
+  // o tema resolvido muda, para o Recharts (que so aceita cor via prop JS)
+  // acompanhar a troca claro/escuro.
+  const chartColors = useMemo(() => ({
+    pending: readColorToken('--chart-pending'),
+    progress: readColorToken('--chart-progress'),
+    resolved: readColorToken('--chart-resolved'),
+    categories: [1, 2, 3, 4, 5, 6, 7].map((n) => readColorToken(`--chart-cat-${n}`)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [resolvedTheme]);
 
-  const COLORS = ['#ef4444', '#f97316', '#3b82f6', '#8b5cf6', '#ec4899', '#facc15'];
+  // Paleta categorica (broncas por categoria, origem dos buracos etc).
+  const COLORS = chartColors.categories;
+
+  // TIMELINE_STATUS_META + cor resolvida do tema, para legenda e series do grafico.
+  const timelineStatus = useMemo(() => ([
+    { ...TIMELINE_STATUS_META[0], color: chartColors.pending },
+    { ...TIMELINE_STATUS_META[1], color: chartColors.progress },
+    { ...TIMELINE_STATUS_META[2], color: chartColors.resolved },
+  ]), [chartColors]);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -215,9 +249,9 @@ const ReportsStats = () => {
           : reports;
 
         const statusDistribution = [
-          { name: 'Pendentes', value: filtered.filter(r => r.status === 'pending').length, fill: '#f97316' },
-          { name: 'Em Andamento', value: filtered.filter(r => r.status === 'in-progress').length, fill: '#3b82f6' },
-          { name: 'Resolvidas', value: filtered.filter(r => r.status === 'resolved').length, fill: '#22c55e' },
+          { name: 'Pendentes', value: filtered.filter(r => r.status === 'pending').length, fill: chartColors.pending },
+          { name: 'Em Andamento', value: filtered.filter(r => r.status === 'in-progress').length, fill: chartColors.progress },
+          { name: 'Resolvidas', value: filtered.filter(r => r.status === 'resolved').length, fill: chartColors.resolved },
         ];
         setStatusData(statusDistribution);
 
@@ -227,7 +261,7 @@ const ReportsStats = () => {
             acc[categoryName] = (acc[categoryName] || 0) + 1;
             return acc;
           }, {});
-  
+
           const categoryDistribution = Object.entries(categoryCounts)
             .map(([name, value], index) => ({ name, value, fill: COLORS[index % COLORS.length] }))
             .sort((a, b) => b.value - a.value);
@@ -248,7 +282,10 @@ const ReportsStats = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, categoryFilter, activeCityId]);
+    // COLORS e so um apelido para chartColors.categories (mesma referencia
+    // a cada memo), entao chartColors ja cobre a dependencia.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast, categoryFilter, activeCityId, chartColors]);
 
   // Recalcular distribuições quando mudar o filtro sem reconsultar o backend
   useEffect(() => {
@@ -257,9 +294,9 @@ const ReportsStats = () => {
       ? stats.reports.filter(r => r.category?.id === 'buracos')
       : stats.reports;
     const statusDistribution = [
-      { name: 'Pendentes', value: filtered.filter(r => r.status === 'pending').length, fill: '#f97316' },
-      { name: 'Em Andamento', value: filtered.filter(r => r.status === 'in-progress').length, fill: '#3b82f6' },
-      { name: 'Resolvidas', value: filtered.filter(r => r.status === 'resolved').length, fill: '#22c55e' },
+      { name: 'Pendentes', value: filtered.filter(r => r.status === 'pending').length, fill: chartColors.pending },
+      { name: 'Em Andamento', value: filtered.filter(r => r.status === 'in-progress').length, fill: chartColors.progress },
+      { name: 'Resolvidas', value: filtered.filter(r => r.status === 'resolved').length, fill: chartColors.resolved },
     ];
     setStatusData(statusDistribution);
     if (categoryFilter === 'all') {
@@ -275,7 +312,8 @@ const ReportsStats = () => {
     } else {
       setCategoryData([]);
     }
-  }, [categoryFilter, stats.reports]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryFilter, stats.reports, chartColors]);
 
   useEffect(() => {
     fetchStats();
@@ -689,8 +727,11 @@ const ReportsStats = () => {
         });
       });
 
+      // Fundo da captura acompanha o tema atual (nao fixo em branco): no tema
+      // escuro, texto/traços claros sobre um PNG branco forcado ficariam
+      // ilegiveis. O PDF passa a refletir exatamente o que o usuario ve na tela.
       const dataUrl = await toPng(timelineChartRef.current, {
-        backgroundColor: '#ffffff',
+        backgroundColor: readColorToken('--surface-raised'),
         pixelRatio: 2,
         cacheBust: true,
       });
@@ -707,7 +748,7 @@ const ReportsStats = () => {
           ? 'Barras empilhadas'
           : 'Linha';
       const totals = timelineData.reduce((acc, entry) => {
-        TIMELINE_STATUS.forEach((status) => {
+        TIMELINE_STATUS_META.forEach((status) => {
           acc[status.key] += Number(entry[status.key] || 0);
         });
         return acc;
@@ -730,7 +771,7 @@ const ReportsStats = () => {
       doc.addImage(dataUrl, 'PNG', margin, 58, chartWidth, chartHeight);
 
       const tableRows = timelineData.map((entry) => {
-        const total = TIMELINE_STATUS.reduce((sum, status) => sum + Number(entry[status.key] || 0), 0);
+        const total = TIMELINE_STATUS_META.reduce((sum, status) => sum + Number(entry[status.key] || 0), 0);
         return [
           entry.label,
           Number(entry.pending || 0),
@@ -811,11 +852,11 @@ const ReportsStats = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.5 }}
       >
-        <Card className="border border-[#E5E7EB] bg-white rounded-2xl shadow-sm">
+        <Card className="border border-edge-subtle bg-surface-raised rounded-2xl shadow-elevation-1">
           <CardHeader>
             <div className="flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <CardTitle className="text-sm md:text-base text-[#111827]">
+                <CardTitle className="text-sm md:text-base text-content-primary">
                   Estatísticas das broncas
                 </CardTitle>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -832,7 +873,7 @@ const ReportsStats = () => {
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
-                      <span className="min-w-[3rem] text-center text-sm font-semibold tabular-nums text-[#111827]">
+                      <span className="min-w-[3rem] text-center text-sm font-semibold tabular-nums text-content-primary">
                         {selectedYear}
                       </span>
                       <Button
@@ -862,7 +903,7 @@ const ReportsStats = () => {
               </div>
 
               {/* Toolbar do gráfico: tipo (barras / empilhado / linha), atualizar e baixar imagem */}
-              <div className="flex flex-wrap items-center justify-start gap-1 border-t border-[#E5E7EB] pt-2 sm:justify-end">
+              <div className="flex flex-wrap items-center justify-start gap-1 border-t border-edge-subtle pt-2 sm:justify-end">
                 <ToggleGroup
                   type="single"
                   value={chartType}
@@ -912,7 +953,7 @@ const ReportsStats = () => {
             <div className="-mx-2 overflow-x-auto overflow-y-visible px-2 sm:mx-0 sm:overflow-visible sm:px-0">
               <div
                 ref={timelineChartRef}
-                className={`h-72 bg-white sm:h-80 ${timelineView === 'monthly' ? 'min-w-[560px] sm:min-w-0' : 'min-w-full'}`}
+                className={`h-72 bg-surface-raised sm:h-80 ${timelineView === 'monthly' ? 'min-w-[560px] sm:min-w-0' : 'min-w-full'}`}
               >
               {timelineData.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -932,7 +973,7 @@ const ReportsStats = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                       <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval={0} tickMargin={8} height={32} />
                       <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} width={36} />
-                      {TIMELINE_STATUS.map((s) => (
+                      {timelineStatus.map((s) => (
                         <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                       ))}
                     </LineChart>
@@ -948,14 +989,14 @@ const ReportsStats = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                       <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval={0} tickMargin={8} height={32} />
                       <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} width={36} />
-                      {TIMELINE_STATUS.map((s, i) => (
+                      {timelineStatus.map((s, i) => (
                         <Bar
                           key={s.key}
                           dataKey={s.key}
                           name={s.label}
                           fill={s.color}
                           stackId={chartType === 'stacked' ? 'status' : undefined}
-                          radius={chartType === 'stacked' ? (i === TIMELINE_STATUS.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]) : [4, 4, 0, 0]}
+                          radius={chartType === 'stacked' ? (i === timelineStatus.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]) : [4, 4, 0, 0]}
                           maxBarSize={chartType === 'stacked' ? 40 : 28}
                         />
                       ))}
@@ -965,7 +1006,7 @@ const ReportsStats = () => {
               )}
               </div>
             </div>
-            <TimelineLegend />
+            <TimelineLegend statuses={timelineStatus} />
           </CardContent>
         </Card>
       </motion.div>
@@ -977,22 +1018,22 @@ const ReportsStats = () => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          <Card className="h-full border border-[#E5E7EB] bg-white rounded-2xl shadow-sm">
+          <Card className="h-full border border-edge-subtle bg-surface-raised rounded-2xl shadow-elevation-1">
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <CardTitle className="text-sm md:text-base text-[#111827]">
+                  <CardTitle className="text-sm md:text-base text-content-primary">
                     {categoryFilter === 'buracos' ? 'Buracos — origem do problema' : 'Broncas por categoria'}
                   </CardTitle>
                   {categoryFilter === 'buracos' && (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-xs text-content-secondary">
                       Total de buracos: <span className="font-semibold">{stats.waterUtility.totalBuracos}</span>
                     </p>
                   )}
                 </div>
                 <div>
-                  <Combobox 
-                    value={categoryFilter} 
+                  <Combobox
+                    value={categoryFilter}
                     onChange={setCategoryFilter}
                     options={[
                       { value: "all", label: "Todas as categorias" },
@@ -1000,7 +1041,7 @@ const ReportsStats = () => {
                     ]}
                     placeholder="Categoria"
                     searchPlaceholder="Buscar categoria..."
-                    className="h-8 w-[150px] bg-white/70 border-muted text-xs"
+                    className="h-8 w-[150px] bg-surface-subtle/70 border-muted text-xs"
                   />
                 </div>
               </div>
@@ -1015,8 +1056,8 @@ const ReportsStats = () => {
                         <Legend />
                         <Pie
                           data={[
-                            { name: 'Companhia de abastecimento', value: stats.waterUtility.buracosFromWaterUtility, fill: '#0ea5e9' },
-                            { name: 'Outras Causas', value: Math.max(stats.waterUtility.totalBuracos - stats.waterUtility.buracosFromWaterUtility, 0), fill: '#94a3b8' },
+                            { name: 'Companhia de abastecimento', value: stats.waterUtility.buracosFromWaterUtility, fill: chartColors.categories[2] },
+                            { name: 'Outras Causas', value: Math.max(stats.waterUtility.totalBuracos - stats.waterUtility.buracosFromWaterUtility, 0), fill: chartColors.categories[6] },
                           ]}
                           dataKey="value"
                           nameKey="name"
@@ -1069,9 +1110,9 @@ const ReportsStats = () => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6, duration: 0.5 }}
         >
-          <Card className="h-full border border-[#E5E7EB] bg-white rounded-2xl shadow-sm">
+          <Card className="h-full border border-edge-subtle bg-surface-raised rounded-2xl shadow-elevation-1">
             <CardHeader>
-              <CardTitle className="text-sm md:text-base text-[#111827]">
+              <CardTitle className="text-sm md:text-base text-content-primary">
                 Distribuição por status
               </CardTitle>
             </CardHeader>
@@ -1220,30 +1261,39 @@ const StatsPage = () => {
     fetchSummary();
   }, [activeCityId]);
 
+  // Cores por token semantico: total usa a marca (fundo cheio + texto
+  // on-brand), os tres status usam o par bg-*Bg (pastel) / text-*Fg (mesma
+  // familia dos badges de bronca em toda a app) - esse par ja e garantido
+  // legivel nos dois temas, ao contrario de um icone branco fixo sobre cor
+  // cheia (que so funciona no claro).
   const summaryCards = [
     {
       title: 'Total de Broncas',
       value: summary.total,
-      accentBg: 'bg-[#2563EB]',
-      valueColor: 'text-[#1D4ED8]',
+      iconBg: 'bg-brand',
+      iconFg: 'text-content-onBrand',
+      valueColor: 'text-brand',
     },
     {
       title: 'Pendentes',
       value: summary.pending,
-      accentBg: 'bg-[#DC2626]',
-      valueColor: 'text-[#B91C1C]',
+      iconBg: 'bg-status-pendingBg',
+      iconFg: 'text-status-pendingFg',
+      valueColor: 'text-status-pendingFg',
     },
     {
       title: 'Em Andamento',
       value: summary.inProgress,
-      accentBg: 'bg-[#D97706]',
-      valueColor: 'text-[#B45309]',
+      iconBg: 'bg-status-progressBg',
+      iconFg: 'text-status-progressFg',
+      valueColor: 'text-status-progressFg',
     },
     {
       title: 'Resolvidas',
       value: summary.resolved,
-      accentBg: 'bg-[#16A34A]',
-      valueColor: 'text-[#166534]',
+      iconBg: 'bg-status-resolvedBg',
+      iconFg: 'text-status-resolvedFg',
+      valueColor: 'text-status-resolvedFg',
     },
   ];
 
@@ -1254,7 +1304,7 @@ const StatsPage = () => {
         <title>Estatísticas - Trombone Cidadão</title>
         <meta name="description" content="Veja as estatísticas detalhadas das solicitações e obras na plataforma Trombone Cidadão." />
       </Helmet>
-      <div className="flex flex-col bg-[#F9FAFB] md:px-6">
+      <div className="flex flex-col bg-surface-base md:px-6">
         <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-8 space-y-8 max-w-[88rem] mx-auto w-full">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -1264,17 +1314,17 @@ const StatsPage = () => {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
-                  <span className="inline-block w-1 h-3 rounded-full bg-tc-red" />
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
+                  <span className="inline-block w-1 h-3 rounded-full bg-brand" />
                   Panorama
                 </p>
-                <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827]">
+                <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-content-primary font-display">
                   Estatísticas da Cidade
                 </h1>
               </div>
               <CitySelector />
             </div>
-            <p className="text-xs lg:text-sm text-[#6B7280] max-w-2xl">
+            <p className="text-xs lg:text-sm text-content-secondary max-w-2xl">
               Acompanhe em tempo real o andamento das solicitações e obras e veja os dados que movem a cidade.
             </p>
           </motion.div>
@@ -1282,7 +1332,7 @@ const StatsPage = () => {
               resumo sao especificos de Broncas e passaram para dentro da aba,
               em vez de empurrarem o seletor para baixo da dobra. */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2 bg-white/80 border border-[#E5E7EB] rounded-xl">
+            <TabsList className="grid w-full max-w-md grid-cols-2 bg-surface-raised/80 border border-edge-subtle rounded-xl">
               <TabsTrigger value="reports" className="gap-2 text-xs md:text-sm">
                 <Wrench className="w-4 h-4" />
                 Broncas
@@ -1302,7 +1352,7 @@ const StatsPage = () => {
                 {summaryCards.map((card, index) => (
                   <Card
                     key={index}
-                    className="border border-[#E5E7EB] bg-white shadow-sm hover:shadow-md transition-shadow duration-300 rounded-xl"
+                    className="border border-edge-subtle bg-surface-raised shadow-elevation-1 hover:shadow-elevation-2 transition-shadow duration-300 rounded-xl"
                   >
                     <div className="flex items-center justify-between px-3 py-3 lg:px-6 lg:py-6">
                       <div>
@@ -1316,7 +1366,7 @@ const StatsPage = () => {
                         </div>
                       </div>
                       <div
-                        className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl ${card.accentBg} text-white`}
+                        className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl ${card.iconBg} ${card.iconFg}`}
                       >
                         {index === 0 && <BarChart3 className="w-4 h-4" />}
                         {index === 1 && <AlertTriangle className="w-4 h-4" />}
