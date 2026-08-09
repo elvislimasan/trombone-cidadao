@@ -436,18 +436,17 @@ const MapView = ({
               >
                 {!isCluster && (
                   <Popup>
-                    <div className="w-64">
-                      <h3 className="font-bold text-base mb-1">
+                    {/* Sem a descricao: o popup e um cartao de identificacao,
+                        nao de leitura - o texto completo esta em "Detalhes". */}
+                    <div className="w-52">
+                      <h3 className="font-bold text-sm leading-snug mb-1 line-clamp-2">
                         {report.title}
                       </h3>
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                        {report.description}
-                      </p>
-                      <div className="flex items-center text-xs text-muted-foreground mb-3">
+                      <div className="flex items-center text-[11px] text-muted-foreground mb-2">
                         <Calendar className="w-3 h-3 mr-1" />
                         {formatDate(report.created_at)}
                       </div>
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"
@@ -455,7 +454,7 @@ const MapView = ({
                             e.stopPropagation();
                             onUpvote(report.id);
                           }}
-                          className="flex items-center space-x-1"
+                          className="h-7 px-2 flex items-center gap-1 text-xs"
                         >
                           <ThumbsUp className="w-3 h-3" />
                           <span>{report.upvotes}</span>
@@ -476,7 +475,7 @@ const MapView = ({
                               }
                               navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
                             }}
-                            className="flex items-center gap-1 border-[#b61722]/30 text-[#b61722] hover:bg-[#fff7f7] text-xs"
+                            className="h-7 px-2 flex items-center gap-1 border-primary/30 text-primary hover:bg-primary/10 text-xs"
                             style={{ pointerEvents: "auto", touchAction: "auto" }}
                           >
                             <Megaphone className="w-3 h-3" />
@@ -489,7 +488,7 @@ const MapView = ({
                             e.stopPropagation();
                             onReportClick(report);
                           }}
-                          className="bg-primary hover:bg-primary/90"
+                          className="h-7 px-3 text-xs bg-primary hover:bg-primary/90"
                           style={{
                             pointerEvents: "auto",
                             touchAction: "auto",

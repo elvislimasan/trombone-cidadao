@@ -97,6 +97,9 @@ const DRAG_RATIO = 0.35;
 const CARDS_H_FALLBACK = 150;
 // Alca: pt-2 + faixa de 4px + pb-1 = altura fixa, nao depende de conteudo.
 const HANDLE_H = 16;
+// Respiro abaixo dos cards na faixa rolavel (pb-3). Somado a altura do card
+// para compor a altura da faixa sem precisar medi-la.
+const CARDS_PADDING = 12;
 
 const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) => {
   const [open, setOpen] = useState(true);
@@ -124,27 +127,45 @@ const MapReportsCarousel = ({ clusters, total, loading, onSelect, onOpenList }) 
     return out;
   }, [clusters]);
 
-  // Mede uma vez por mudanca de conteudo, sem ResizeObserver.
+  // Mede o cabecalho e a faixa de cards, guardando sempre o MAIOR valor visto.
   //
-  // O observer parecia a escolha natural, mas realimenta: o container tem
-  // overflow-hidden e altura controlada por este mesmo estado, entao recolher o
-  // painel encolhe a faixa observada, que dispara nova medicao, que recompoe a
-  // altura - o painel nunca fechava (media 208px com style 59px). Medir no
-  // layout effect basta: a altura do card so muda quando a lista muda.
-  // Mede o cabecalho (varia com a fonte do sistema) e a faixa de cards uma
-  // unica vez, na primeira montagem com conteudo. Remedir depois cria um laco:
-  // o container corta a faixa ao recolher, a nova medida vem menor e o painel
-  // congela fechado.
-  const medido = useRef(false);
-  useLayoutEffect(() => {
-    if (headRef.current) setHeadH(headRef.current.offsetHeight);
-    if (medido.current || !cardsRef.current) return;
-    const h = cardsRef.current.offsetHeight;
-    if (h > 0) {
-      setCardsH(h);
-      medido.current = true;
+  // Duas armadilhas moldaram esta funcao:
+  //
+  // 1. ResizeObserver realimenta. O container tem overflow-hidden e altura
+  //    controlada por este estado; ao recolher, a faixa observada encolhe, o
+  //    observer dispara e a altura se recompoe - o painel nunca fechava.
+  //
+  // 2. Travar na primeira medicao corta o card. Era o que a versao anterior
+  //    fazia, e por isso o painel cortava ao entrar direto na tela e acertava
+  //    quando o usuario ja tinha rolado o feed: sem cache, as imagens de capa
+  //    ainda nao tinham carregado na primeira medida e a faixa vinha mais
+  //    baixa, valor que ficava congelado.
+  //
+  // Guardar o maximo resolve os dois: cresce quando o conteudo real aparece e
+  // ignora as medidas menores de quando o painel esta recolhido.
+  // Mede o CARD, nao a faixa. A faixa e filha do container cuja altura este
+  // mesmo estado controla: recolhido ela vem cortada, e qualquer medida tirada
+  // dali contamina o calculo (o painel congelava aberto, ou reabria menor).
+  // O card tem altura propria, independente do estado do painel - medir ele e
+  // somar o respiro da faixa (pb-3 = 12px) da o mesmo numero, sempre estavel.
+  const medir = useCallback(() => {
+    if (headRef.current) {
+      const h = headRef.current.offsetHeight;
+      if (h > 0) setHeadH(h);
     }
-  }, [reports.length, loading]);
+    const card = cardsRef.current?.querySelector('button');
+    if (card) {
+      // offsetHeight do card e independente do recorte do painel, mas ainda
+      // pode vir 0 num frame intermediario. Guardar so valores plausiveis evita
+      // congelar a altura em algo menor que o conteudo.
+      const h = card.offsetHeight;
+      if (h > 40) setCardsH(h + CARDS_PADDING);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    medir();
+  }, [reports.length, loading, medir]);
 
   const onPointerDown = useCallback(
     (e) => {

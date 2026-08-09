@@ -295,6 +295,27 @@ body > * a:not(.leaflet-container a) {
   border: 0;
 }
 
+/* Popup: o leaflet.css pinta `.leaflet-popup-content-wrapper` e o `-tip` com
+   `background: white` fixo, entao no tema escuro o balao saia branco no meio do
+   mapa escuro. Precisa de `.leaflet-container` na frente porque este arquivo e
+   importado ANTES do leaflet.css (ver nota abaixo). */
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+  background: rgb(var(--surface-raised));
+  color: rgb(var(--text-primary));
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.3);
+}
+
+.leaflet-container .leaflet-popup-close-button {
+  color: rgb(var(--text-secondary));
+}
+
+/* O leaflet.css usa margin 13px 19px no conteudo, generoso demais para um
+   cartao pequeno - o balao ficava bem maior que o texto dentro dele. */
+.leaflet-container .leaflet-popup-content {
+  margin: 10px 12px;
+}
+
 /* Controles e atribuicao tambem vem com branco fixo do leaflet.css. O main.jsx
    importa este arquivo ANTES do leaflet.css, entao empatar na especificidade
    perde: as regras abaixo sobem para .leaflet-container <seletor> de proposito.
