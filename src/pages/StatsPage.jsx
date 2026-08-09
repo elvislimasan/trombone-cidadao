@@ -828,25 +828,6 @@ const ReportsStats = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        
-        <div className="flex w-full justify-end mt-2 md:mt-0">
-          <Button onClick={handleDownloadPdf} disabled={downloading}>
-            {downloading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Baixando...
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" />
-                Baixar Relatório
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -856,9 +837,27 @@ const ReportsStats = () => {
           <CardHeader>
             <div className="flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <CardTitle className="text-sm md:text-base text-content-primary">
-                  Estatísticas das broncas
-                </CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-sm md:text-base text-content-primary">
+                    Estatísticas das broncas
+                  </CardTitle>
+                  {/* O relatorio sai dos dados deste card, entao o botao mora
+                      aqui dentro em vez de flutuar solto acima dele. */}
+                  <Button onClick={handleDownloadPdf} disabled={downloading} size="sm" className="shrink-0">
+                    {downloading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Baixando...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 h-4 w-4" />
+                        <span className="hidden xs:inline">Baixar Relatório</span>
+                        <span className="xs:hidden">Relatório</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   {/* Seletor de ano (canto superior direito) — só na visão mensal */}
                   {timelineView === 'monthly' && (
