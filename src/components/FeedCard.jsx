@@ -5,7 +5,6 @@ import { Share } from '@capacitor/share';
 import TimeAgo from '@/components/TimeAgo';
 import FeedCardMedia from '@/components/feed/FeedCardMedia';
 import { computeSignals } from '@/components/feed/FeedCardSignals';
-import FeedCardSupport from '@/components/feed/FeedCardSupport';
 import FeedCommentsSheet from '@/components/feed/FeedCommentsSheet';
 import StatusBadge from '@/design-system/primitives/StatusBadge';
 import Icon, { categoryIconName } from '@/design-system/icons';
@@ -189,71 +188,51 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
 
       <div className="flex flex-col p-3">
         <div className="flex-1 min-w-0 flex flex-col">
-          <button
-            onClick={goToReport}
-            className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-          >
-            {(report.address || report.distanceMeters != null) && (
-              <div className="flex items-start gap-1 text-2xs text-content-secondary">
-                <Icon name="location" size={12} className="flex-shrink-0 mt-0.5 text-brand" />
-                <span className="line-clamp-2">
-                  {report.address}
-                  {report.distanceMeters != null && (
-                    <>
-                      {report.address && ' · '}
-                      <span className="font-semibold text-content-primary whitespace-nowrap">
-                        {formatDistance(report.distanceMeters)}
-                      </span>
-                    </>
-                  )}
-                </span>
-              </div>
-            )}
-
-            {report.description && (
-              <p className="text-2xs text-content-secondary line-clamp-2 mt-2 leading-relaxed">
+          {report.description && (
+            <button
+              onClick={goToReport}
+              className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+            >
+              <p className="text-2xs text-content-secondary line-clamp-2 leading-relaxed">
                 {report.description}
               </p>
-            )}
+            </button>
+          )}
 
-            {/* py-0.5 dá folga vertical ao avatar: sem isso ele encostava na
-                linha de cima, que tem line-clamp e nao reserva descida. */}
-            {(report.authorName || report.authorAvatar) && (
-              <div className="flex items-center gap-2 mt-4 py-0.5 min-w-0">
-                <AuthorAvatar
-                  name={report.authorName}
-                  avatarUrl={report.authorAvatar}
-                  sizeClassName="w-6 h-6"
-                />
-                <span className="text-2xs text-content-tertiary truncate">
-                  por {report.authorName || 'Cidadão'}
-                </span>
-              </div>
-            )}
-          </button>
+          {/* py-0.5 dá folga vertical ao avatar: sem isso ele encostava na
+              linha de cima, que tem line-clamp e nao reserva descida. */}
+          {(report.authorName || report.authorAvatar) && (
+            <div className="flex items-center gap-2 mt-3 py-0.5 min-w-0">
+              <AuthorAvatar
+                name={report.authorName}
+                avatarUrl={report.authorAvatar}
+                sizeClassName="w-6 h-6"
+              />
+              <span className="text-2xs text-content-tertiary truncate">
+                por {report.authorName || 'Cidadão'}
+              </span>
+            </div>
+          )}
 
-          {/* Confirmacoes a esquerda, acoes com rotulo a direita, separadas por
-              uma divisoria — as acoes so com icone eram ambiguas. */}
-          <div className="mt-auto pt-3 border-t border-edge-subtle flex items-center justify-between gap-3">
-            <FeedCardSupport upvotes={report.upvotes} />
-
-            <div className="flex items-stretch gap-0.5 sm:gap-1 flex-shrink-0">
+          {/* Barra de acoes so com icone: apoiar, comentar e compartilhar a
+              esquerda; salvar isolado a direita, porque e a unica que age sobre
+              a bronca do proprio usuario e nao sobre a conversa. */}
+          <div className="mt-auto pt-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => onToggleUpvote?.(report.id)}
                 aria-label="Apoiar bronca"
                 aria-pressed={report.user_has_upvoted}
-                className={`flex flex-col items-center justify-center gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg text-2xs font-semibold transition-colors ${
+                className={`flex items-center gap-1.5 p-1.5 rounded-lg text-xs font-semibold transition-colors ${
                   report.user_has_upvoted
                     ? 'text-brand'
                     : 'text-content-secondary hover:text-content-primary'
                 }`}
               >
-                <Icon name="support" size={17} />
-                <span className="hidden xs:inline">Apoiar</span>
+                <Icon name="support" size={19} />
+                {report.upvotes > 0 && <span className="tabular-nums">{report.upvotes}</span>}
               </button>
-
-              <span className="w-px bg-edge-subtle self-stretch my-1" aria-hidden="true" />
 
               {/* Abre a folha no proprio feed: ir para a pagina de detalhes so
                   para ler dois comentarios custava a posicao do scroll. */}
@@ -261,58 +240,60 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
                 type="button"
                 onClick={() => setCommentsOpen(true)}
                 aria-label="Ver comentários"
-                className="flex flex-col items-center justify-center gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg text-2xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
+                className="flex items-center gap-1.5 p-1.5 rounded-lg text-xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
               >
-                <Icon name="comment" size={17} />
-                <span className="tabular-nums">
-                  {commentsCount > 0 ? commentsCount : <span className="hidden xs:inline">Comentar</span>}
-                </span>
+                <Icon name="comment" size={19} />
+                {commentsCount > 0 && <span className="tabular-nums">{commentsCount}</span>}
               </button>
-
-              <span className="w-px bg-edge-subtle self-stretch my-1" aria-hidden="true" />
 
               <button
                 type="button"
                 onClick={handleShare}
                 aria-label="Compartilhar"
-                className="flex flex-col items-center justify-center gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg text-2xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
+                className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary transition-colors"
               >
-                <Icon name="share" size={17} />
-                <span className="hidden xs:inline">Compartilhar</span>
+                <Icon name="share" size={19} />
               </button>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Dois botoes com fundo proprio, lado a lado. Acompanhando fica verde
-          preenchido — e estado, nao acao, e o verde le como confirmacao. */}
-      <div className="grid grid-cols-2 gap-2.5 px-3 pb-3">
-        <button
-          type="button"
-          onClick={handleBookmark}
-          aria-pressed={report.is_favorited}
-          className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-colors ${
-            report.is_favorited
-              ? 'bg-success-bg text-success-fg'
-              : 'border border-edge-default text-content-secondary hover:bg-surface-subtle'
-          }`}
-        >
-          <Icon name={report.is_favorited ? 'resolved' : 'flag'} size={15} />
-          {report.is_favorited ? 'Acompanhando' : 'Acompanhar'}
-        </button>
-        <button
-          type="button"
-          onClick={goToReport}
-          className="flex items-center justify-center gap-1.5 py-3 rounded-xl border border-edge-default text-xs font-bold text-brand hover:bg-surface-subtle transition-colors group"
-        >
-          Ver detalhes
-          <Icon
-            name="chevronright"
-            size={13}
-            className="group-hover:translate-x-0.5 transition-transform"
-          />
-        </button>
+            <button
+              type="button"
+              onClick={handleBookmark}
+              aria-label={report.is_favorited ? 'Deixar de acompanhar' : 'Acompanhar bronca'}
+              aria-pressed={report.is_favorited}
+              className={`p-1.5 rounded-lg transition-colors ${
+                report.is_favorited
+                  ? 'text-brand'
+                  : 'text-content-secondary hover:text-content-primary'
+              }`}
+            >
+              <Icon name="save" size={19} />
+            </button>
+          </div>
+
+          {/* O sinal de comunidade ja era calculado em computeSignals mas o card
+              nao mostrava — e ele que da a dimensao de quanta gente esta junto. */}
+          {signals.community && (
+            <p className="mt-3 text-2xs text-brand font-medium">{signals.community}</p>
+          )}
+
+          {(report.address || report.distanceMeters != null) && (
+            <div className="flex items-start gap-1 mt-1.5 text-2xs text-content-secondary">
+              <Icon name="location" size={12} className="flex-shrink-0 mt-0.5 text-content-tertiary" />
+              <span className="line-clamp-1">
+                {report.address}
+                {report.distanceMeters != null && (
+                  <>
+                    {report.address && ' · '}
+                    <span className="font-semibold text-content-primary whitespace-nowrap">
+                      {formatDistance(report.distanceMeters)}
+                    </span>
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {isActive && (
@@ -329,22 +310,18 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
             // o position:fixed do modal ao proprio card).
             onRequestUpdate?.(report);
           }}
-          className="w-full flex items-center gap-3 mx-3 mb-3 px-3 py-3 rounded-xl bg-surface-subtle hover:bg-surface-subtleHover transition-colors group"
+          className="w-full flex items-center gap-2.5 mx-3 mb-3 px-3 py-2.5 rounded-xl bg-brand-subtleBg text-brand-subtleFg transition-opacity hover:opacity-90 group"
           style={{ width: 'calc(100% - 1.5rem)' }}
         >
-          <div className="w-9 h-9 rounded-full bg-surface-sunken flex items-center justify-center flex-shrink-0 text-content-secondary">
-            <Icon name="trombone" size={16} />
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-xs font-bold text-content-primary">Esteve no local?</p>
-            <p className="text-2xs text-content-tertiary leading-snug">
-              Ajude a comunidade compartilhando o que você viu.
-            </p>
-          </div>
+          <Icon name="trombone" size={16} className="flex-shrink-0" />
+          <p className="flex-1 text-left text-2xs leading-snug min-w-0">
+            <span className="font-bold">Esteve no local?</span>{' '}
+            <span className="opacity-80">Informe o que viu</span>
+          </p>
           <Icon
             name="chevronright"
             size={14}
-            className="flex-shrink-0 text-content-tertiary group-hover:translate-x-0.5 transition-transform"
+            className="flex-shrink-0 group-hover:translate-x-0.5 transition-transform"
           />
         </button>
       )}
