@@ -1310,23 +1310,13 @@ const StatsPage = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-2"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
-                  <span className="inline-block w-1 h-3 rounded-full bg-brand" />
-                  Panorama
-                </p>
-                <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-content-primary font-display">
-                  Estatísticas da Cidade
-                </h1>
-              </div>
+            {/* So o seletor de cidade: o titulo e o texto de apoio sairam a
+                pedido — a aba ja diz onde o usuario esta e o espaco vertical
+                vale mais para os numeros. */}
+            <div className="flex items-center justify-end">
               <CitySelector />
             </div>
-            <p className="text-xs lg:text-sm text-content-secondary max-w-2xl">
-              Acompanhe em tempo real o andamento das solicitações e obras e veja os dados que movem a cidade.
-            </p>
           </motion.div>
           {/* O seletor Broncas/Obras vem logo apos o cabecalho: os cards de
               resumo sao especificos de Broncas e passaram para dentro da aba,
