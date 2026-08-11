@@ -180,7 +180,7 @@ const AmbassadorProfilePage = () => {
                   <p className="text-sm text-muted-foreground">Nenhuma cidade.</p>
                 ) : (
                   (profile.cities || []).map((c) => {
-                    const st = STATUS_LABEL[c.status] || { text: c.status, cls: 'text-gray-600 bg-gray-100' };
+                    const st = STATUS_LABEL[c.status] || { text: c.status, cls: 'text-content-secondary bg-surface-sunken' };
                     return (
                       <div key={c.ac_id} className="flex items-center justify-between gap-3 border border-border rounded-xl px-3 py-2">
                         <div className="min-w-0">

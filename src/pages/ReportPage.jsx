@@ -337,7 +337,7 @@ const ReportPage = () => {
       },
       duplicate: {
         text: "Duplicada",
-        colorClasses: "bg-gray-100 text-gray-500",
+        colorClasses: "bg-surface-sunken text-content-tertiary",
       },
       pending_resolution: {
         text: "Verificando Resolução",

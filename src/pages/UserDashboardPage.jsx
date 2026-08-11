@@ -331,7 +331,7 @@ const UserDashboardPage = () => {
       case 'pending_approval': return { text: 'Aguardando Moderação', icon: <Clock className="w-4 h-4 text-yellow-500" />, color: 'text-yellow-500' };
       case 'approved': return { text: 'Aprovado', icon: <CheckCircle className="w-4 h-4 text-green-500" />, color: 'text-green-500' };
       case 'rejected': return { text: 'Rejeitado', icon: <XCircle className="w-4 h-4 text-red-500" />, color: 'text-red-500' };
-      default: return { text: 'Pendente', icon: <Clock className="w-4 h-4 text-gray-500" />, color: 'text-gray-500' };
+      default: return { text: 'Pendente', icon: <Clock className="w-4 h-4 text-content-tertiary" />, color: 'text-content-tertiary' };
     }
   };
 
@@ -415,7 +415,7 @@ const UserDashboardPage = () => {
             <Button
               asChild
               variant="outline"
-              className="h-10 px-4 sm:px-6 rounded-full font-semibold border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
+              className="h-10 px-4 sm:px-6 rounded-full font-semibold border-[#F97316] text-[#F97316] hover:bg-surface-subtle"
             >
               <a href="/minhas-peticoes">Criar um abaixo-assinado</a>
             </Button>
@@ -460,7 +460,7 @@ const UserDashboardPage = () => {
                   {reports.map((report) => (
                     <motion.div key={report.id} variants={itemVariants}>
                       <div
-                        className="h-full flex flex-col bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition cursor-pointer group"
+                        className="h-full flex flex-col bg-surface-raised border border-edge-subtle rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition cursor-pointer group"
                         onClick={() => setSelectedReport(report)}
                       >
                         <div className="relative h-40 w-full overflow-hidden">
@@ -504,7 +504,7 @@ const UserDashboardPage = () => {
                                 <Button 
                                   size="icon" 
                                   variant="secondary" 
-                                  className="h-7 w-7 rounded-full bg-white/95 text-[#374151] hover:bg-white hover:text-blue-600" 
+                                  className="h-7 w-7 rounded-full bg-white/95 text-content-secondary hover:bg-surface-raised hover:text-blue-600" 
                                   onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedReport(report);
@@ -516,7 +516,7 @@ const UserDashboardPage = () => {
                                 <Button 
                                   size="icon" 
                                   variant="secondary"
-                                  className="h-7 w-7 rounded-full bg-white/95 text-[#374151] hover:bg-red-50 hover:text-red-600"
+                                  className="h-7 w-7 rounded-full bg-white/95 text-content-secondary hover:bg-red-50 hover:text-red-600"
                                   onClick={(e) => {
                                       e.stopPropagation();
                                       openDeleteConfirmation(report);
@@ -537,7 +537,7 @@ const UserDashboardPage = () => {
                              <span className="text-[10px]">{new Date(report.created_at).toLocaleDateString('pt-BR')}</span>
                           </div>
 
-                          <h3 className="text-base font-semibold text-[#111827] leading-snug line-clamp-2">
+                          <h3 className="text-base font-semibold text-content-primary leading-snug line-clamp-2">
                             {report.title}
                           </h3>
                           
@@ -545,10 +545,10 @@ const UserDashboardPage = () => {
                             {report.description}
                           </p>
 
-                          <div className="pt-2 mt-auto flex items-center justify-between gap-2 border-t border-gray-100">
+                          <div className="pt-2 mt-auto flex items-center justify-between gap-2 border-t border-edge-subtle">
                              <div className="flex items-center gap-1.5">
                                 <span className="text-lg">{report.categoryIcon}</span>
-                                <span className="text-xs font-medium text-gray-600">{report.categoryName}</span>
+                                <span className="text-xs font-medium text-content-secondary">{report.categoryName}</span>
                              </div>
                              {report.is_featured && (
                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium border border-blue-100">

@@ -44,11 +44,11 @@ const UserEditModal = ({ user, onSave, onClose }) => {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">Nome</label>
+            <label htmlFor="name" className="block text-sm font-medium text-content-secondary">Nome</label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label htmlFor="userType" className="block text-sm font-medium text-gray-700">Tipo de Usuário</label>
+            <label htmlFor="userType" className="block text-sm font-medium text-content-secondary">Tipo de Usuário</label>
             <Combobox
               value={userType}
               onChange={setUserType}

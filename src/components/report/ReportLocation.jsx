@@ -23,7 +23,7 @@ L.Icon.Default.mergeOptions({
 // Redesenhado na task 6 da fase 2: cantos arredondados dentro do container
 // (nao no leaflet.css, que e compartilhado com Mapa/Pavimentacao/Obras) --
 // ThemedTileLayer ja troca os tiles conforme o tema, entao a "moldura clara"
-// no escuro vinha do card em volta (bg-white), nao do mapa em si.
+// no escuro vinha do card em volta (bg-surface-raised), nao do mapa em si.
 export const ReportMap = ({ location, address }) => {
   const position = useMemo(() => {
     if (

@@ -765,7 +765,7 @@ function HomePageImproved() {
   };
 
   return (
-    <div className=" flex flex-col bg-[#F9FAFB] md:px-6">
+    <div className=" flex flex-col bg-surface-base md:px-6">
       <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-4 space-y-10 max-w-[88rem] mx-auto w-full">
         <section className="space-y-4">
           <div className="rounded-3xl border border-[#FEE2E2] bg-gradient-to-r from-[#FEF2F2] via-white to-[#FFF7ED] shadow-sm p-4 md:p-5">
@@ -773,10 +773,10 @@ function HomePageImproved() {
               <span className="inline-block w-1 h-3 rounded-full bg-[#EF4444]" />
               Bem-vindo
             </p>
-            <div className="text-lg md:text-xl lg:text-2xl font-extrabold text-[#111827] mt-2">
+            <div className="text-lg md:text-xl lg:text-2xl font-extrabold text-content-primary mt-2">
               Ajude a melhorar a cidade
             </div>
-            <div className="text-xs lg:text-sm text-[#6B7280] mt-1">
+            <div className="text-xs lg:text-sm text-content-secondary mt-1">
               Cadastre broncas, apoie petições e convide alguém para contribuir.
             </div>
 
@@ -784,29 +784,29 @@ function HomePageImproved() {
               <button
                 type="button"
                 onClick={() => openCreateReportFlow()}
-                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#EF4444]/50 bg-white shadow-sm hover:shadow-md hover:border-[#EF4444]/70 transition p-3 flex flex-col items-center justify-center gap-2"
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#EF4444]/50 bg-surface-raised shadow-sm hover:shadow-md hover:border-[#EF4444]/70 transition p-3 flex flex-col items-center justify-center gap-2"
               >
                 <Megaphone className="w-6 h-6 text-[#EF4444]" />
-                <div className="text-xs font-semibold text-[#111827] leading-tight text-center">Cadastre sua bronca</div>
+                <div className="text-xs font-semibold text-content-primary leading-tight text-center">Cadastre sua bronca</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate('/abaixo-assinados')}
-                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#F97316]/50 bg-white shadow-sm hover:shadow-md hover:border-[#F97316]/70 transition p-3 flex flex-col items-center justify-center gap-2"
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#F97316]/50 bg-surface-raised shadow-sm hover:shadow-md hover:border-[#F97316]/70 transition p-3 flex flex-col items-center justify-center gap-2"
               >
                 <Heart className="w-6 h-6 text-[#F97316]" />
-                <div className="text-xs font-semibold text-[#111827] leading-tight text-center">Petições</div>
+                <div className="text-xs font-semibold text-content-primary leading-tight text-center">Petições</div>
               </button>
 
               <button
                 type="button"
                 onClick={handleShareCreateReport}
-                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#EF4444]/30 bg-white shadow-sm hover:shadow-md hover:border-[#EF4444]/50 transition p-3 flex flex-col items-center justify-center gap-2"
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#EF4444]/30 bg-surface-raised shadow-sm hover:shadow-md hover:border-[#EF4444]/50 transition p-3 flex flex-col items-center justify-center gap-2"
               >
                 <Share2 className="w-6 h-6 text-[#EF4444]" />
                 <div
-                  className="text-[11px] font-semibold text-[#111827] leading-tight text-center"
+                  className="text-[11px] font-semibold text-content-primary leading-tight text-center"
                   style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
                 >
                   Convide alguém para contribuir
@@ -817,8 +817,8 @@ function HomePageImproved() {
          
            <div className="lg:pt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
-              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827] mb-2">Broncas da Sua Cidade</h1>
-              <p className="text-xs lg:text-sm text-[#6B7280] mb-3">
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-content-primary mb-2">Broncas da Sua Cidade</h1>
+              <p className="text-xs lg:text-sm text-content-secondary mb-3">
                 Veja os problemas reportados pela comunidade e acompanhe as soluções em tempo real.
               </p>
               <CitySelector />
@@ -839,8 +839,8 @@ function HomePageImproved() {
               onClick={() => handleStatusCardClick('active')}
               className={`group flex items-center justify-between rounded-xl px-3 py-3 lg:px-6 lg:py-6 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'active'
-                  ? 'bg-white border border-[#2563EB]/60 shadow-md'
-                  : 'bg-white border border-transparent hover:border-[#2563EB]/40 hover:shadow-md'
+                  ? 'bg-surface-raised border border-[#2563EB]/60 shadow-md'
+                  : 'bg-surface-raised border border-transparent hover:border-[#2563EB]/40 hover:shadow-md'
               }`}
             >
               <div>
@@ -859,8 +859,8 @@ function HomePageImproved() {
               onClick={() => handleStatusCardClick('pending')}
               className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'pending'
-                  ? 'bg-white border border-[#DC2626]/60 shadow-md'
-                  : 'bg-white border border-transparent hover:border-[#DC2626]/40 hover:shadow-md'
+                  ? 'bg-surface-raised border border-[#DC2626]/60 shadow-md'
+                  : 'bg-surface-raised border border-transparent hover:border-[#DC2626]/40 hover:shadow-md'
               }`}
             >
               <div>
@@ -879,8 +879,8 @@ function HomePageImproved() {
               onClick={() => handleStatusCardClick('in-progress')}
               className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'in-progress'
-                  ? 'bg-white border border-[#D97706]/60 shadow-md'
-                  : 'bg-white border border-transparent hover:border-[#D97706]/40 hover:shadow-md'
+                  ? 'bg-surface-raised border border-[#D97706]/60 shadow-md'
+                  : 'bg-surface-raised border border-transparent hover:border-[#D97706]/40 hover:shadow-md'
               }`}
             >
               <div>
@@ -899,8 +899,8 @@ function HomePageImproved() {
               onClick={() => handleStatusCardClick('resolved')}
               className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'resolved'
-                  ? 'bg-white border border-[#16A34A]/60 shadow-md'
-                  : 'bg-white border border-transparent hover:border-[#16A34A]/40 hover:shadow-md'
+                  ? 'bg-surface-raised border border-[#16A34A]/60 shadow-md'
+                  : 'bg-surface-raised border border-transparent hover:border-[#16A34A]/40 hover:shadow-md'
               }`}
             >
               <div>
@@ -921,22 +921,22 @@ function HomePageImproved() {
         <section ref={explorerRef} className="space-y-4">
           <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
                     <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                     Explorar
                   </p>
-                  <h2 className="text-sm md:text-base lg:text-md font-semibold text-[#111827]">
+                  <h2 className="text-sm md:text-base lg:text-md font-semibold text-content-primary">
                     Broncas{activeCityName ? ` em ${activeCityName}` : ''}
                   </h2>
                 </div>
-                <div className="inline-flex items-center rounded-full bg-white border border-[#E5E7EB] p-1 ml-auto">
+                <div className="inline-flex items-center rounded-full bg-surface-raised border border-edge-subtle p-1 ml-auto">
                   <button
                     type="button"
                     onClick={() => setViewMode('map')}
                     className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs md:text-sm ${
                       viewMode === 'map'
                         ? 'bg-[#111827] text-white'
-                        : 'text-[#6B7280]'
+                        : 'text-content-secondary'
                     }`}
                   >
                     <MapIcon className="w-3 h-3" />
@@ -948,7 +948,7 @@ function HomePageImproved() {
                     className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs md:text-sm ${
                       viewMode === 'list'
                         ? 'bg-[#111827] text-white'
-                        : 'text-[#6B7280]'
+                        : 'text-content-secondary'
                     }`}
                   >
                     <List className="w-3 h-3" />
@@ -962,7 +962,7 @@ function HomePageImproved() {
                     className={`lg:hidden sm:flex items-center gap-1 px-2 py-1 rounded-full text-xs md:text-sm ${
                       viewMode === 'ranking'
                         ? 'bg-[#111827] text-white'
-                        : 'text-[#6B7280]'
+                        : 'text-content-secondary'
                     }`}
                   >
                     Ranking
@@ -978,7 +978,7 @@ function HomePageImproved() {
               
 
              {viewMode !== 'ranking' && ( 
-              <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-sm p-3 space-y-3">
+              <div className="bg-surface-raised rounded-2xl border border-edge-subtle shadow-sm p-3 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {viewMode === 'list' && (
@@ -987,7 +987,7 @@ function HomePageImproved() {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 rounded-full border-[#E5E7EB] text-[#4B5563] bg-white"
+                            className="h-8 w-8 rounded-full border-edge-subtle text-content-secondary bg-surface-raised"
                             title="Ordenar por data"
                           >
                             <ArrowUpDown className="w-4 h-4" />
@@ -1009,13 +1009,13 @@ function HomePageImproved() {
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 rounded-full border-[#E5E7EB] text-[#4B5563] bg-white"
+                        className="h-8 w-8 rounded-full border-edge-subtle text-content-secondary bg-surface-raised"
                       >
                         <Filter className="w-4 h-4" />
                       </Button>
                     )}
                     {!searchOpen && (
-                      <span className="text-[11px] text-[#6B7280]">
+                      <span className="text-[11px] text-content-secondary">
                         {activeFiltersCount > 0
                           ? `${activeFiltersCount} filtro${activeFiltersCount > 1 ? 's' : ''} ativos`
                           : 'Todas as broncas ativas'}
@@ -1029,7 +1029,7 @@ function HomePageImproved() {
                       <button
                         type="button"
                         onClick={() => setSearchOpen(true)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#E5E7EB] shadow-sm text-[#4B5563]"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised border border-edge-subtle shadow-sm text-content-secondary"
                         aria-label="Abrir busca"
                       >
                         <Search className="w-4 h-4" />
@@ -1037,13 +1037,13 @@ function HomePageImproved() {
                     ) : (
                       <div className="flex items-center gap-2">
                         <div className="relative">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9CA3AF]" />
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-content-tertiary" />
                           <Input
                             type="text"
                             placeholder="Título ou protocolo..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-7 h-8 text-xs md:text-sm bg-white border-[#E5E7EB] w-40 sm:w-60"
+                            className="pl-7 h-8 text-xs md:text-sm bg-surface-raised border-edge-subtle w-40 sm:w-60"
                           />
                         </div>
                         <button
@@ -1052,7 +1052,7 @@ function HomePageImproved() {
                             setSearchOpen(false);
                             setSearchTerm('');
                           }}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#E5E7EB] shadow-sm text-[#4B5563]"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised border border-edge-subtle shadow-sm text-content-secondary"
                           aria-label="Fechar busca"
                         >
                           <X className="w-4 h-4" />
@@ -1065,7 +1065,7 @@ function HomePageImproved() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="relative h-8 px-3 rounded-full text-[11px] border-[#E5E7EB] text-[#374151] bg-white"
+                            className="relative h-8 px-3 rounded-full text-[11px] border-edge-subtle text-content-secondary bg-surface-raised"
                           >
                             Filtros
                             {activeFiltersCount > 0 && (
@@ -1112,23 +1112,23 @@ function HomePageImproved() {
                         </DialogHeader>
                         <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto">
                           <div>
-                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
                               <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                               Buscar
                             </p>
                             <div className="relative mt-2">
-                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-content-tertiary" />
                               <Input
                                 type="text"
                                 placeholder="Título ou protocolo..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-8 h-9 text-sm bg-white border-[#E5E7EB]"
+                                className="pl-8 h-9 text-sm bg-surface-raised border-edge-subtle"
                               />
                             </div>
                           </div>
                           {/* <div>
-                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
                               <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                               Ordenar
                             </p>
@@ -1138,8 +1138,8 @@ function HomePageImproved() {
                                 onClick={() => setSortOrder('newest')}
                                 className={`px-3 py-2 rounded-lg border text-sm text-center transition-colors ${
                                   sortOrder === 'newest'
-                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827] font-medium'
-                                    : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'
+                                    ? 'border-tc-red bg-surface-subtle text-content-primary font-medium'
+                                    : 'border-edge-subtle bg-surface-raised text-content-secondary hover:bg-surface-subtle'
                                 }`}
                               >
                                 Mais Recentes
@@ -1149,8 +1149,8 @@ function HomePageImproved() {
                                 onClick={() => setSortOrder('oldest')}
                                 className={`px-3 py-2 rounded-lg border text-sm text-center transition-colors ${
                                   sortOrder === 'oldest'
-                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827] font-medium'
-                                    : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'
+                                    ? 'border-tc-red bg-surface-subtle text-content-primary font-medium'
+                                    : 'border-edge-subtle bg-surface-raised text-content-secondary hover:bg-surface-subtle'
                                 }`}
                               >
                                 Mais Antigas
@@ -1158,7 +1158,7 @@ function HomePageImproved() {
                             </div>
                           </div> */}
                           <div>
-                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
                               <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                               Status
                             </p>
@@ -1168,8 +1168,8 @@ function HomePageImproved() {
                                 onClick={() => setFilter((f) => ({ ...f, status: 'pending' }))}
                                 className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
                                   filter.status === 'pending'
-                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827]'
-                                    : 'border-[#E5E7EB] bg-white text-[#374151]'
+                                    ? 'border-tc-red bg-surface-subtle text-content-primary'
+                                    : 'border-edge-subtle bg-surface-raised text-content-secondary'
                                 }`}
                               >
                                 Pendentes ({statusCounts.pending})
@@ -1179,8 +1179,8 @@ function HomePageImproved() {
                                 onClick={() => setFilter((f) => ({ ...f, status: 'in-progress' }))}
                                 className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
                                   filter.status === 'in-progress'
-                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827]'
-                                    : 'border-[#E5E7EB] bg-white text-[#374151]'
+                                    ? 'border-tc-red bg-surface-subtle text-content-primary'
+                                    : 'border-edge-subtle bg-surface-raised text-content-secondary'
                                 }`}
                               >
                                 Em Andamento ({statusCounts.inProgress})
@@ -1190,8 +1190,8 @@ function HomePageImproved() {
                                 onClick={() => setFilter((f) => ({ ...f, status: 'resolved' }))}
                                 className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
                                   filter.status === 'resolved'
-                                    ? 'border-tc-red bg-[#FEF2F2] text-[#111827]'
-                                    : 'border-[#E5E7EB] bg-white text-[#374151]'
+                                    ? 'border-tc-red bg-surface-subtle text-content-primary'
+                                    : 'border-edge-subtle bg-surface-raised text-content-secondary'
                                 }`}
                               >
                                 Resolvidas ({statusCounts.resolved})
@@ -1202,8 +1202,8 @@ function HomePageImproved() {
                                   onClick={() => setFilter((f) => ({ ...f, status: 'my-resolved' }))}
                                   className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
                                     filter.status === 'my-resolved'
-                                      ? 'border-tc-red bg-[#FEF2F2] text-[#111827]'
-                                      : 'border-[#E5E7EB] bg-white text-[#374151]'
+                                      ? 'border-tc-red bg-surface-subtle text-content-primary'
+                                      : 'border-edge-subtle bg-surface-raised text-content-secondary'
                                   }`}
                                 >
                                   Minhas Resolvidas ({statusCounts.myResolved})
@@ -1212,7 +1212,7 @@ function HomePageImproved() {
                             </div>
                           </div>
                           <div>
-                            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                            <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
                               <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                               Categoria
                             </p>
@@ -1224,8 +1224,8 @@ function HomePageImproved() {
                                   onClick={() => setFilter((f) => ({ ...f, category: cat.id }))}
                                   className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm ${
                                     filter.category === cat.id
-                                      ? 'border-tc-red bg-[#FEF2F2] text-[#111827]'
-                                      : 'border-[#E5E7EB] bg-white text-[#374151]'
+                                      ? 'border-tc-red bg-surface-subtle text-content-primary'
+                                      : 'border-edge-subtle bg-surface-raised text-content-secondary'
                                   }`}
                                 >
                                   <span className="flex items-center gap-2 flex-1 min-w-0">
@@ -1240,7 +1240,7 @@ function HomePageImproved() {
                             </div>
                           </div>
                         </div>
-                        <div className="px-4 py-3 border-t bg-white">
+                        <div className="px-4 py-3 border-t bg-surface-raised">
                           <Button
                             className="w-full h-10 text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
                             onClick={() => setMobileFiltersOpen(false)}
@@ -1256,7 +1256,7 @@ function HomePageImproved() {
                     <button
                       type="button"
                       onClick={() => setMapExpanded((prev) => !prev)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#E5E7EB] shadow-sm text-[#4B5563]"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised border border-edge-subtle shadow-sm text-content-secondary"
                     >
                       {mapExpanded ? (
                         <Minimize2 className="w-4 h-4" />
@@ -1281,11 +1281,11 @@ function HomePageImproved() {
                     >
                       
                         <div
-                          className={`relative rounded-2xl overflow-hidden border border-[#E5E7EB] bg-white transition-[height] duration-200 mt-2 ${
+                          className={`relative rounded-2xl overflow-hidden border border-edge-subtle bg-surface-raised transition-[height] duration-200 mt-2 ${
                             mapExpanded ? 'h-[26rem]' : 'h-[18rem]'
                           }`}
                         >
-                          <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-white">Carregando mapa...</div>}>
+                          <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-surface-raised">Carregando mapa...</div>}>
                             <MapView
                               clusters={mapItems}
                               onReportClick={handleReportClick}
@@ -1301,11 +1301,11 @@ function HomePageImproved() {
 
                     <div className="hidden md:block">
                       <div
-                        className={`relative rounded-2xl overflow-hidden border border-[#E5E7EB] transition-[height] duration-200 mt-2 ${
+                        className={`relative rounded-2xl overflow-hidden border border-edge-subtle transition-[height] duration-200 mt-2 ${
                           mapExpanded ? 'h-[30rem] xl:h-[32rem]' : 'h-[28rem] xl:h-[28rem]'
                         }`}
                       >
-                        <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-white">Carregando mapa...</div>}>
+                        <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-surface-raised">Carregando mapa...</div>}>
                           <MapView
                             clusters={mapItems}
                             onReportClick={handleReportClick}
@@ -1336,7 +1336,7 @@ function HomePageImproved() {
           </div>
         </section>
        { viewMode === 'ranking' && (
-                        <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm overflow-hidden mt-2">
+                        <div className="rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm overflow-hidden mt-2">
                           <Suspense fallback={<div className="p-4 text-xs text-muted-foreground">Carregando ranking...</div>}>
                             <RankingSidebar
                               embedded
@@ -1350,12 +1350,12 @@ function HomePageImproved() {
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
                   <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                   Destaques
                 </p>
-                <h2 className="text-lg md:text-2xl font-bold text-[#111827]">Broncas em Destaque</h2>
-                <p className="text-xs md:text-sm text-[#6B7280]">Acompanhe as principais broncas.</p>
+                <h2 className="text-lg md:text-2xl font-bold text-content-primary">Broncas em Destaque</h2>
+                <p className="text-xs md:text-sm text-content-secondary">Acompanhe as principais broncas.</p>
               </div>
             </div>
             <Carousel className="w-full" opts={{ align: 'start', loop: true }}>
@@ -1366,7 +1366,7 @@ function HomePageImproved() {
                     className="pl-3 basis-[85%] sm:basis-[60%] md:basis-1/2 lg:basis-1/3"
                   >
                     <div
-                      className="h-full bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden cursor-pointer hover:shadow-lg transition"
+                      className="h-full bg-surface-raised border border-edge-subtle rounded-2xl shadow-sm overflow-hidden cursor-pointer hover:shadow-lg transition"
                       onClick={() => handleReportClick(r)}
                       role="button"
                     >
@@ -1386,7 +1386,7 @@ function HomePageImproved() {
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/0" />
                         <div className="absolute top-2 left-2">
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/90 text-[#111827] font-medium">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/90 text-content-primary font-medium">
                             {r.status === 'pending'
                               ? 'Pendente'
                               : r.status === 'in-progress'
@@ -1416,7 +1416,7 @@ function HomePageImproved() {
                               variant="secondary"
                               size="icon"
                               onClick={(e) => handleShareReport(r, e)}
-                              className="h-7 w-7 rounded-full bg-white/95 text-[#374151]"
+                              className="h-7 w-7 rounded-full bg-white/95 text-content-secondary"
                             >
                               <Share2 className="w-3.5 h-3.5" />
                             </Button>
@@ -1426,7 +1426,7 @@ function HomePageImproved() {
                               disabled={upvoteLoading}
                               onClick={(e) => handleFeaturedUpvote(r, e)}
                               className={`h-7 px-2 rounded-full bg-white/95 text-xs font-medium ${
-                                r.user_has_upvoted ? 'text-[#EF4444]' : 'text-[#374151]'
+                                r.user_has_upvoted ? 'text-[#EF4444]' : 'text-content-secondary'
                               }`}
                             >
                               <Heart
@@ -1440,17 +1440,17 @@ function HomePageImproved() {
                         </div>
                       </div>
                       <div className="p-3 space-y-1.5">
-                        <p className="text-xs text-[#6B7280] flex items-center gap-1">
+                        <p className="text-xs text-content-secondary flex items-center gap-1">
                           <MapPin className="w-3 h-3" />
                           <span className="truncate">{r.address || 'Endereço não informado'}</span>
                         </p>
-                        <p className="text-sm md:text-base font-semibold text-[#111827] leading-snug md:leading-snug line-clamp-2 min-h-[2.5rem] md:min-h-[3rem]">
+                        <p className="text-sm md:text-base font-semibold text-content-primary leading-snug md:leading-snug line-clamp-2 min-h-[2.5rem] md:min-h-[3rem]">
                           {r.title}
                         </p>
-                        <p className="text-xs md:text-sm text-[#6B7280] mt-0.5 leading-snug md:leading-snug line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
+                        <p className="text-xs md:text-sm text-content-secondary mt-0.5 leading-snug md:leading-snug line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
                           {r.description}
                         </p>
-                        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[#6B7280]">
+                        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-content-secondary">
                           <div className="flex items-center gap-1.5">
                             <span className="text-base">{r.categoryIcon}</span>
                             <span className="truncate">{r.categoryName}</span>
@@ -1472,19 +1472,19 @@ function HomePageImproved() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
                 <span className="inline-block w-1 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
                 Petições
               </p>
-              <h2 className="text-lg md:text-2xl font-bold text-[#111827] ">Petições Ativas</h2>
-              <p className="text-xs md:text-sm text-[#6B7280] lg:mb-4">
+              <h2 className="text-lg md:text-2xl font-bold text-content-primary ">Petições Ativas</h2>
+              <p className="text-xs md:text-sm text-content-secondary lg:mb-4">
                 Apoie causas importantes da cidade.
               </p>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="h-8 px-3 text-xs md:text-sm rounded-full border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
+              className="h-8 px-3 text-xs md:text-sm rounded-full border-[#F97316] text-[#F97316] hover:bg-surface-subtle"
               onClick={() => navigate('/abaixo-assinados')}
             >
               Ver Todas
@@ -1499,9 +1499,9 @@ function HomePageImproved() {
                     key={i}
                     className={`w-full ${
                       isDesktopCarousel ? 'md:min-w-[340px] md:max-w-[340px]' : 'md:max-w-none md:min-w-0'
-                    } rounded-2xl bg-white border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0`}
+                    } rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0`}
                   >
-                    <div className="h-40 w-full bg-[#F3F4F6] animate-pulse" />
+                    <div className="h-40 w-full bg-surface-base animate-pulse" />
                     <div className="p-3 space-y-2">
                       <div className="h-3 w-1/3 rounded bg-[#E5E7EB] animate-pulse" />
                       <div className="h-4 w-3/4 rounded bg-[#E5E7EB] animate-pulse" />
@@ -1512,7 +1512,7 @@ function HomePageImproved() {
                 ))}
               </div>
             ) : petitions.length === 0 ? (
-              <div className="min-w-full text-center text-xs text-[#6B7280] py-6">
+              <div className="min-w-full text-center text-xs text-content-secondary py-6">
                 Ainda não há petições ativas com doações registradas.
               </div>
             ) : (
@@ -1527,7 +1527,7 @@ function HomePageImproved() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25 }}
-                        className="w-full h-full flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0 overflow-hidden"
+                        className="w-full h-full flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0 overflow-hidden"
                       >
                         <div className="relative h-36 md:h-40 w-full overflow-hidden">
                           {petition.image_url ? (
@@ -1537,7 +1537,7 @@ function HomePageImproved() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-[#FEF2F2] flex items-center justify-center">
+                            <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
                               <Megaphone className="w-8 h-8 text-[#F97316]" />
                             </div>
                           )}
@@ -1552,15 +1552,15 @@ function HomePageImproved() {
                               variant="ghost"
                               size="icon"
                               onClick={(e) => handleSharePetition(petition, e)}
-                              className="h-7 w-7 rounded-full text-[#6B7280]"
+                              className="h-7 w-7 rounded-full text-content-secondary"
                             >
                               <Share2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
-                         <h3 className="text-sm md:text-base font-semibold text-[#111827] leading-snug md:leading-snug line-clamp-2 min-h-[2.5rem] md:min-h-[3rem]">
+                         <h3 className="text-sm md:text-base font-semibold text-content-primary leading-snug md:leading-snug line-clamp-2 min-h-[2.5rem] md:min-h-[3rem]">
                             {petition.title}
                           </h3>
-                          <p className="text-xs md:text-sm text-[#6B7280] leading-snug md:leading-snug line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
+                          <p className="text-xs md:text-sm text-content-secondary leading-snug md:leading-snug line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
                             {petition.description}
                           </p>
                           <div className="">
@@ -1573,13 +1573,13 @@ function HomePageImproved() {
                                 const progress = Math.min((signatures / displayGoal) * 100, 100);
                                 return (
                                   <>
-                                    <div className="flex items-center justify-between text-[11px] md:text-xs text-[#6B7280] mb-1">
+                                    <div className="flex items-center justify-between text-[11px] md:text-xs text-content-secondary mb-1">
                                       <span>{signatures} assinaturas</span>
                                       <span>Meta {displayGoal}</span>
                                     </div>
                                     <Progress
                                       value={progress}
-                                      className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full"
+                                      className="h-1.5 bg-surface-base [&>div]:bg-tc-red rounded-full"
                                     />
                                   </>
                                 );
@@ -1608,7 +1608,7 @@ function HomePageImproved() {
         <DialogContent hideClose className="max-w-[calc(100vw-1.5rem)] sm:max-w-[520px] md:max-w-[720px] p-0 overflow-hidden border-none rounded-xl">
           <div className="flex flex-col md:flex-row">
             {promoModalConfig?.image_url && (
-              <div className="w-full md:w-1/2 bg-[#FEF2F2] overflow-hidden h-36 sm:h-56 md:h-auto">
+              <div className="w-full md:w-1/2 bg-surface-subtle overflow-hidden h-36 sm:h-56 md:h-auto">
                 <img
                   src={promoModalConfig.image_url}
                   alt={promoModalConfig?.title || "Promoção"}
@@ -1620,7 +1620,7 @@ function HomePageImproved() {
               <DialogClose asChild>
                 <button
                   type="button"
-                  className="sm:hidden absolute top-2 right-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#111827] shadow-md"
+                  className="sm:hidden absolute top-2 right-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised text-content-primary shadow-md"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1628,7 +1628,7 @@ function HomePageImproved() {
               <DialogClose asChild>
                 <button
                   type="button"
-                  className="hidden sm:inline-flex absolute top-4 right-4 z-10 h-8 w-8 items-center justify-center rounded-full bg-white text-[#111827] shadow-md hover:bg-white"
+                  className="hidden sm:inline-flex absolute top-4 right-4 z-10 h-8 w-8 items-center justify-center rounded-full bg-surface-raised text-content-primary shadow-md hover:bg-surface-raised"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1641,12 +1641,12 @@ function HomePageImproved() {
               )}
               <div className="space-y-2">
                 {promoModalConfig?.title && (
-                  <h2 className="text-xl md:text-2xl font-bold text-[#111827]">
+                  <h2 className="text-xl md:text-2xl font-bold text-content-primary">
                     {promoModalConfig.title}
                   </h2>
                 )}
                 {promoModalConfig?.description && (
-                  <p className="text-sm md:text-[15px] text-[#4B5563] leading-relaxed">
+                  <p className="text-sm md:text-[15px] text-content-secondary leading-relaxed">
                     {promoModalConfig.description}
                   </p>
                 )}
@@ -1663,7 +1663,7 @@ function HomePageImproved() {
                 {promoModalConfig?.secondary_button_text && (
                   <Button
                     variant="outline"
-                    className="w-full h-10 text-sm font-semibold rounded-full border-[#F97316] text-[#F97316] hover:bg-[#FEF2F2]"
+                    className="w-full h-10 text-sm font-semibold rounded-full border-[#F97316] text-[#F97316] hover:bg-surface-subtle"
                     onClick={handleGoToPetitionsOverview}
                   >
                     {promoModalConfig.secondary_button_text}
@@ -1672,7 +1672,7 @@ function HomePageImproved() {
                 <DialogClose asChild>
                   <button
                     type="button"
-                    className="mt-1 text-xs text-[#6B7280] hover:text-[#111827] self-center"
+                    className="mt-1 text-xs text-content-secondary hover:text-content-primary self-center"
                   >
                     {promoModalConfig?.dismiss_text || "Fechar"}
                   </button>

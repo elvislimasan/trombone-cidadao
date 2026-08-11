@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { User, Briefcase, Edit, LogOut, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Megaphone, Trash2 } from 'lucide-react';
+import { User, Briefcase, Edit, LogOut, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Megaphone, Trash2, LayoutDashboard, Star, HardHat, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import EditProfileModal from '@/components/EditProfileModal';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -12,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Avatar from 'react-nice-avatar';
 import { Capacitor } from '@capacitor/core';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
+import { useNotifications } from '@/contexts/NotificationContext';
 import Icon from '@/design-system/icons';
 
 // Meses abreviados em portugues para "Membro desde".
@@ -28,6 +30,7 @@ const ProfilePage = () => {
   const { toast } = useToast();
   const { user, signOut, refreshUserProfile } = useAuth();
   const { preference, setPreference } = useTheme();
+  const { notificationsEnabled, toggleNotifications, loading: notificationsLoading } = useNotifications();
   const navigate = useNavigate();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [rankings, setRankings] = useState({ reports: [], upvotes: [], comments: [] });
@@ -297,6 +300,47 @@ const ProfilePage = () => {
                   <Icon name="chevronright" size={16} />
                 </Button>
               </Link>
+              {/* Estes atalhos viviam no menu do avatar no header. O avatar saiu
+                  de la no mobile (virou a aba Perfil da barra inferior), entao
+                  eles se juntam aos que ja existiam aqui. */}
+              <Link to="/painel-usuario" className="w-full block">
+                <Button variant="outline" className="w-full justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <LayoutDashboard className="w-4 h-4" />
+                    Meu Painel
+                  </span>
+                  <Icon name="chevronright" size={16} />
+                </Button>
+              </Link>
+              <Link to="/favoritos" className="w-full block">
+                <Button variant="outline" className="w-full justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <Star className="w-4 h-4" />
+                    Broncas Favoritas
+                  </span>
+                  <Icon name="chevronright" size={16} />
+                </Button>
+              </Link>
+              <Link to="/obras-favoritas" className="w-full block">
+                <Button variant="outline" className="w-full justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <HardHat className="w-4 h-4" />
+                    Obras Favoritas
+                  </span>
+                  <Icon name="chevronright" size={16} />
+                </Button>
+              </Link>
+              {(user.is_ambassador || user.is_master) && (
+                <Link to="/embaixador" className="w-full block">
+                  <Button variant="outline" className="w-full justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4" />
+                      Painel Embaixador
+                    </span>
+                    <Icon name="chevronright" size={16} />
+                  </Button>
+                </Link>
+              )}
             </div>
           </motion.div>
 
@@ -352,6 +396,25 @@ const ProfilePage = () => {
                 label="Notificações"
                 to="/settings/notifications"
               />
+              {/* Liga/desliga rapido, equivalente ao switch que ficava no menu
+                  do avatar. As preferencias detalhadas seguem na linha acima. */}
+              <div className="flex items-center gap-3 w-full px-3 py-3 rounded-xl">
+                <span className="flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0 bg-surface-subtle text-content-secondary">
+                  <Icon name="bell" size={16} />
+                </span>
+                <div className="flex-1 flex flex-col text-left">
+                  <span className="text-sm font-medium text-content-primary">Notificações do Site</span>
+                  <span className="text-xs text-content-secondary">
+                    {notificationsEnabled ? 'Ativadas' : 'Desativadas'}
+                  </span>
+                </div>
+                <Switch
+                  checked={notificationsEnabled}
+                  onCheckedChange={() => { toggleNotifications().catch(() => {}); }}
+                  disabled={notificationsLoading}
+                  aria-label="Notificações do Site"
+                />
+              </div>
               <SettingsRow
                 icon={<Shield className="w-4 h-4" />}
                 label="Privacidade"

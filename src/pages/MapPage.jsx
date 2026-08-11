@@ -9,7 +9,6 @@ import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/Cit
 import { useToast } from '@/components/ui/use-toast';
 import { useReportUpdate } from '@/hooks/useReportUpdate';
 import ReportUpdateModal from '@/components/report/ReportUpdateModal';
-import MapReportsCarousel from '@/components/map/MapReportsCarousel';
 import MapCategoryChips from '@/components/map/MapCategoryChips';
 
 const MapView = lazy(() => import('@/components/MapView'));
@@ -31,7 +30,6 @@ const CATEGORIES = [
   { id: 'limpeza',           label: 'Limpeza' },
   { id: 'poda',              label: 'Poda' },
   { id: 'vazamento-de-agua', label: 'Vazamento' },
-  { id: 'seguranca',         label: 'Segurança' },
   { id: 'outros',            label: 'Outros' },
 ];
 
@@ -519,15 +517,6 @@ export default function MapPage() {
     [navigate]
   );
 
-  // Card do carrossel: centraliza no pin sem sair do mapa - diferente de
-  // handleReportClick, que abre a pagina da bronca. O nonce faz o MapView
-  // reagir mesmo quando se toca duas vezes no mesmo card.
-  const handleCardSelect = useCallback((report) => {
-    const loc = report?.location;
-    if (!loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return;
-    setFlyToTarget({ lat: loc.lat, lng: loc.lng, zoom: 18, nonce: Date.now() });
-  }, []);
-
   const filteredCities = useMemo(() => {
     if (!citySearch.trim()) return cities;
     const norm = s => s.toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
@@ -666,13 +655,16 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* ── Bottom bar: contagem + preview das broncas visiveis (recolhivel) ── */}
-      <MapReportsCarousel
-        clusters={visibleClusters}
-        total={totalVisibleCount}
-        loading={loading}
-        onSelect={handleCardSelect}
-      />
+      {/* ── Bottom bar: contagem ── */}
+      <div className="flex-shrink-0 bg-background border-t border-border px-4 py-2.5 flex items-center">
+        <span className="text-sm font-semibold text-foreground">
+          {loading ? (
+            <span className="text-muted-foreground">Carregando…</span>
+          ) : (
+            `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
+          )}
+        </span>
+      </div>
 
       {/* ══ Bottom Sheet: Filtros ══════════════════════════════════════════════ */}
       <BottomSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Filtros">

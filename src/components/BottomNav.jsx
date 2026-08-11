@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Map, PlusCircle, BarChart3, User } from 'lucide-react';
+import Avatar from 'react-nice-avatar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ReportModal from '@/components/ReportModal';
 import { useToast } from '@/components/ui/use-toast';
@@ -26,6 +27,30 @@ const NAV_ITEMS = [
   { path: '/estatisticas', icon: BarChart3, label: 'Estatísticas' },
   { path: '/perfil', icon: User, label: 'Perfil' },
 ];
+
+// Mesma resolucao de avatar do Header/ProfilePage: 'upload' e 'url' apontam
+// para uma imagem; 'generated' guarda a config do react-nice-avatar.
+const getAvatarComponent = (profile) => {
+  if (!profile) return <Avatar className="w-full h-full" />;
+
+  if ((profile.avatar_type === 'url' || profile.avatar_type === 'upload') && profile.avatar_url) {
+    return <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />;
+  }
+
+  if (profile.avatar_type === 'generated' && profile.avatar_config) {
+    let config = profile.avatar_config;
+    if (typeof config === 'string') {
+      try {
+        config = JSON.parse(config);
+      } catch {
+        config = {};
+      }
+    }
+    return <Avatar className="w-full h-full" {...config} />;
+  }
+
+  return <Avatar className="w-full h-full" />;
+};
 
 const BottomNav = () => {
   const location = useLocation();
@@ -192,6 +217,12 @@ const BottomNav = () => {
                 );
               }
 
+              // Aba Perfil: mostra a foto do usuario em vez do icone generico,
+              // no lugar onde o avatar do header ficava. Deslogado continua com
+              // o icone, que e o convite a entrar.
+              const isProfile = item.path === '/perfil';
+              const showAvatar = isProfile && !!user;
+
               return (
                 <NavLink
                   key={item.path}
@@ -200,7 +231,19 @@ const BottomNav = () => {
                   className={`${navLinkClass(item.path)} justify-self-center`}
                   aria-label={item.label}
                 >
-                  <item.icon size={22} />
+                  {showAvatar ? (
+                    <span
+                      className={`w-[26px] h-[26px] rounded-full overflow-hidden bg-surface-subtle flex items-center justify-center ${
+                        location.pathname.startsWith('/perfil')
+                          ? 'ring-2 ring-brand'
+                          : 'ring-1 ring-edge-subtle'
+                      }`}
+                    >
+                      {getAvatarComponent(user)}
+                    </span>
+                  ) : (
+                    <item.icon size={22} />
+                  )}
                   <span className="text-[10px] font-medium">{item.label}</span>
                 </NavLink>
               );

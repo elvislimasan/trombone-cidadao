@@ -11,7 +11,7 @@ export function ObraProgress({ percentage }) {
   const value = Math.max(0, Math.min(100, Number(percentage) || 0));
 
   return (
-    <section className="bg-card rounded-xl border border-slate-200 shadow-sm p-6">
+    <section className="bg-card rounded-xl border border-edge-subtle shadow-sm p-6">
       <div className="flex items-center gap-2 mb-4">
         <Activity className="h-5 w-5 text-red-500" />
         <h2 className="text-lg font-semibold">Progresso da Obra</h2>

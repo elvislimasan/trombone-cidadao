@@ -85,6 +85,19 @@
   --tc-cat-greenery:  170 144 228;  /* base #8B5CF6 */
   /* Clareado alem dos 22%: no tom dessaturado puro o icone escuro caia para
      4.33 e reprovava AA. */
-  --tc-cat-security:  219  95  95;  /* base #EF4444 */
+  /* Vermelho: usado pelo estado "em alta" do pin e pela primeira serie dos
+     graficos. Nao e mais cor de categoria - 'seguranca' foi removida. */
+  --tc-cat-alert:     219  95  95;  /* base #EF4444 */
   --tc-cat-other:     149 158 170;  /* base #64748B */
+
+  /* --- Status de bronca no mapa ---
+     As cores originais do app (laranja/azul/verde), com a mesma dessaturacao de
+     22% aplicada as categorias: sobre o mapa, o tom cheio competia com as ruas.
+     Valem nos dois temas. */
+  --tc-status-pending:   224 120  47;  /* base #F97316 */
+  --tc-status-progress:   73 129 219;  /* base #3B82F6 */
+  --tc-status-resolved:   61 188 107;  /* base #22C55E */
+  /* Clareado alem dos 22%: no tom dessaturado puro o icone escuro caia para
+     3.88 e reprovava AA. */
+  --tc-status-duplicate: 125 131 142;  /* base #6B7280 */
 }

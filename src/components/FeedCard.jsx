@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { Instagram } from 'lucide-react';
 import TimeAgo from '@/components/TimeAgo';
 import FeedCardMedia from '@/components/feed/FeedCardMedia';
 import { computeSignals } from '@/components/feed/FeedCardSignals';
@@ -11,7 +12,22 @@ import Icon, { categoryIconName } from '@/design-system/icons';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getReportShareUrl } from '@/lib/shareUtils';
+import {
+  canShareVideoToStory,
+  shareVideoToInstagramStory,
+} from '@/lib/instagramStory';
+
+const ReportStoryModal = React.lazy(
+  () => import('@/components/report/ReportStoryModal')
+);
 
 // Distancia em linguagem de rua: abaixo de 1 km em metros arredondados a 50,
 // porque "a 347 m" sugere uma precisao que o GPS do celular nao tem.
@@ -54,6 +70,10 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
   // Status local: o modal de atualizacao pode mudar o status da bronca, e o
   // card precisa refletir isso sem esperar um refresh do feed inteiro.
   const [localStatus, setLocalStatus] = useState(report.status);
+  // O download do video para o cache local pode levar alguns segundos em rede
+  // movel; sem indicador o usuario acha que o toque nao registrou.
+  const [sharingStory, setSharingStory] = useState(false);
+  const [storyModalOpen, setStoryModalOpen] = useState(false);
 
   useEffect(() => {
     setLocalStatus(report.status);
@@ -103,7 +123,26 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
     navigate(`/bronca/${report.id}`);
   }, [navigate, report.id]);
 
-  const handleShare = useCallback(async () => {
+  // Copiar link: acao direta, sem abrir a folha do sistema. Em contexto
+  // inseguro (http) o clipboard nao existe, entao caimos no share nativo.
+  const handleCopyLink = useCallback(async () => {
+    const url = getReportShareUrl(report.id);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast({ title: 'Link copiado!', description: 'Cole onde quiser compartilhar.', duration: 2000 });
+        return;
+      }
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({ title: report.title, url });
+      }
+    } catch {
+      // usuario cancelou ou clipboard indisponivel
+    }
+  }, [report.id, report.title, toast]);
+
+  // Folha de compartilhamento do sistema (WhatsApp, Telegram, etc).
+  const shareLink = useCallback(async () => {
     const url = getReportShareUrl(report.id);
     try {
       if (Capacitor.isNativePlatform()) {
@@ -111,13 +150,72 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
       } else if (navigator.share) {
         await navigator.share({ title: report.title, url });
       } else {
-        await navigator.clipboard.writeText(url);
-        toast({ title: 'Link copiado!', description: 'Cole onde quiser compartilhar.' });
+        await handleCopyLink();
       }
     } catch {
       // usuario cancelou ou share nao suportado
     }
-  }, [report.id, report.title, toast]);
+  }, [report.id, report.title, handleCopyLink]);
+
+  const handleShareToStory = useCallback(async () => {
+    // Sem video (ou sem suporte nativo): cai no card estatico do story,
+    // que funciona com a foto de capa e leva o QR code do app.
+    if (!report.coverVideo || !canShareVideoToStory()) {
+      setStoryModalOpen(true);
+      return;
+    }
+
+    setSharingStory(true);
+    try {
+      const { linkAttached } = await shareVideoToInstagramStory({
+        videoUrl: report.coverVideo,
+        reportId: report.id,
+        shareUrl: getReportShareUrl(report.id),
+      });
+
+      if (linkAttached) {
+        // Nao da para saber se o Instagram renderizou o sticker: a permissao
+        // de link em story e da conta do usuario, invisivel para o app.
+        toast({
+          title: 'Vídeo enviado ao Instagram',
+          description:
+            'Se sua conta permitir link em story, o sticker do Trombone já vai estar lá.',
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      const reason = String(error?.message || '');
+
+      if (reason === 'INSTAGRAM_NOT_INSTALLED') {
+        toast({
+          title: 'Instagram não encontrado',
+          description: 'Instale o Instagram para postar direto no story.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Video fora dos limites do story: o card estatico ainda resolve.
+      if (reason === 'VIDEO_TOO_LONG' || reason === 'VIDEO_TOO_LARGE') {
+        toast({
+          title: 'Vídeo muito grande para o story',
+          description: 'Gerando um card com a imagem da bronca.',
+          duration: 3000,
+        });
+        setStoryModalOpen(true);
+        return;
+      }
+
+      toast({
+        title: 'Não foi possível compartilhar',
+        description: 'Tente novamente ou compartilhe o link.',
+        variant: 'destructive',
+      });
+      await shareLink();
+    } finally {
+      setSharingStory(false);
+    }
+  }, [report.id, report.coverVideo, toast, shareLink]);
 
   const handleBookmark = useCallback(async () => {
     if (!user) {
@@ -246,14 +344,53 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
                 {commentsCount > 0 && <span className="tabular-nums">{commentsCount}</span>}
               </button>
 
-              <button
-                type="button"
-                onClick={handleShare}
-                aria-label="Compartilhar"
-                className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary transition-colors"
-              >
-                <Icon name="share" size={19} />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={sharingStory}
+                    aria-label="Compartilhar"
+                    aria-busy={sharingStory}
+                    className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary transition-colors disabled:opacity-60"
+                  >
+                    {sharingStory ? (
+                      <span className="block w-[19px] h-[19px] rounded-full border-2 border-current border-t-transparent animate-spin" />
+                    ) : (
+                      <Icon name="share" size={19} />
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={handleCopyLink}
+                  >
+                    <Icon name="save" size={14} />
+                    Copiar link da bronca
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={handleShareToStory}
+                  >
+                    <Instagram size={14} />
+                    {report.coverVideo && canShareVideoToStory()
+                      ? 'Enviar vídeo ao story'
+                      : 'Gerar card para story'}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={shareLink}
+                  >
+                    <Icon name="share" size={14} />
+                    Mais opções…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <button
@@ -333,6 +470,19 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
         reportTitle={report.title}
         onCountChange={setCommentsCount}
       />
+
+      {/* Lazy + montado so quando aberto: o modal carrega html-to-image e
+          renderiza um canvas 1080x1920, caro demais para cada card do feed. */}
+      {storyModalOpen && (
+        <React.Suspense fallback={null}>
+          <ReportStoryModal
+            isOpen={storyModalOpen}
+            onClose={() => setStoryModalOpen(false)}
+            report={{ ...report, status: localStatus }}
+            coverPhotoUrl={report.coverImage}
+          />
+        </React.Suspense>
+      )}
     </article>
   );
 };

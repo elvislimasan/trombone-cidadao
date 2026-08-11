@@ -62,26 +62,30 @@ const FeedUpdateModal = ({ open, onClose, report, onStatusChange }) => {
     },
   });
 
-  if (!open || !report) return null;
-
   const handleClose = () => {
     reset();
     onClose();
   };
 
+  // O AnimatePresence fica FORA da condicional: com `return null` antes dele o
+  // modal desaparecia de uma vez, sem a animacao de saida que o proprio
+  // ReportUpdateModal declara no `exit`.
   return (
     <AnimatePresence>
-      <ReportUpdateModal
-        onClose={handleClose}
-        onSubmit={submit}
-        submitting={submitting}
-        disabledTypes={loadingUpdates ? {} : disabledTypes}
-        cam={cam}
-        selectedType={updateType}
-        onSelectType={setUpdateType}
-        message={message}
-        onMessageChange={setMessage}
-      />
+      {open && report && (
+        <ReportUpdateModal
+          key="report-update-modal"
+          onClose={handleClose}
+          onSubmit={submit}
+          submitting={submitting}
+          disabledTypes={loadingUpdates ? {} : disabledTypes}
+          cam={cam}
+          selectedType={updateType}
+          onSelectType={setUpdateType}
+          message={message}
+          onMessageChange={setMessage}
+        />
+      )}
     </AnimatePresence>
   );
 };

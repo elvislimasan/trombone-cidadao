@@ -46,14 +46,12 @@ const zoomParaPrecisao = (accuracy) => {
 // A legenda usa os mesmos tokens do corpo do pin, entao as bolinhas e os pins
 // nunca divergem de cor. Agora lista categorias, nao status: e a categoria que
 // define a cor no mapa.
-const LEGEND_CATEGORIES = [
-  { id: "buracos", token: "--pin-pothole-bg", label: "Buracos" },
-  { id: "iluminacao", token: "--pin-lighting-bg", label: "Iluminação" },
-  { id: "esgoto", token: "--pin-sewage-bg", label: "Esgoto" },
-  { id: "limpeza", token: "--pin-cleaning-bg", label: "Limpeza" },
-  { id: "poda", token: "--pin-greenery-bg", label: "Poda" },
-  { id: "seguranca", token: "--pin-security-bg", label: "Segurança" },
-  { id: "outros", token: "--pin-other-bg", label: "Outros" },
+// Legenda por STATUS, que e o que a cor do pin diz. A categoria aparece no
+// emoji dentro do disco e nos chips de filtro, entao nao precisa de legenda.
+const LEGEND_STATUSES = [
+  { id: "pending", token: "--pin-pending-bg", label: "Pendente" },
+  { id: "in-progress", token: "--pin-progress-bg", label: "Em Andamento" },
+  { id: "resolved", token: "--pin-resolved-bg", label: "Resolvido" },
 ];
 
 // Ponto "voce esta aqui". Os tokens resolvem no proprio no, entao a constante
@@ -534,7 +532,7 @@ const MapView = ({
               Legenda
             </h4>
             <div className="space-y-1 text-[10px] sm:text-xs">
-              {LEGEND_CATEGORIES.map(({ id, token, label }) => (
+              {LEGEND_STATUSES.map(({ id, token, label }) => (
                 <div key={id} className="flex items-center space-x-1.5">
                   <div
                     className="w-2.5 h-2.5 rounded-full flex-shrink-0"
@@ -553,7 +551,7 @@ const MapView = ({
             Legenda
           </span>
           <div className="flex items-center gap-3 flex-1 justify-end">
-            {LEGEND_CATEGORIES.map(({ id, token, label }) => (
+            {LEGEND_STATUSES.map(({ id, token, label }) => (
               <div key={id} className="flex items-center gap-1">
                 <span
                   className="w-2.5 h-2.5 rounded-full"

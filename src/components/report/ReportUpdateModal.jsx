@@ -99,16 +99,6 @@ const ReportUpdateModal = ({
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[3000]"
       onClick={onClose}
     >
-      {/* Web fallback file input */}
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-        ref={cam.fileInputRef}
-        onChange={cam.handleFileChange}
-        className="hidden"
-      />
-
       <motion.div
         initial={{ y: '100%', opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -118,6 +108,18 @@ const ReportUpdateModal = ({
         style={{ maxHeight: '94vh' }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Web fallback file input — DENTRO do painel de proposito: como filho
+            direto do overlay, o clique sintetico que o input dispara ao escolher
+            o arquivo borbulhava ate o onClick={onClose} e fechava o modal antes
+            da foto ser processada. */}
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          ref={cam.fileInputRef}
+          onChange={cam.handleFileChange}
+          className="hidden"
+        />
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0">
           <div>
@@ -158,16 +160,24 @@ const ReportUpdateModal = ({
                   transition={{ type: 'spring', damping: 20, stiffness: 300 }}
                   className="relative w-[72px] h-[72px] rounded-2xl overflow-hidden bg-surface-sunken flex-shrink-0"
                 >
-                  {/* Clique na imagem abre preview fullscreen */}
+                  {/* Clique na imagem abre preview fullscreen.
+                      `block` no botao e essencial: <button> e inline-block por
+                      padrao, entao o `h-full` do <img> nao tinha altura de
+                      referencia e a imagem colapsava para 0px — o quadrado
+                      ficava so com o fundo do container, parecendo preto. */}
                   <button
                     type="button"
                     onClick={() => openPreview(idx)}
-                    className="w-full h-full"
+                    className="block w-full h-full"
                   >
                     <img
                       src={item.preview}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="block w-full h-full object-cover"
+                      onError={(e) => {
+                        console.warn('[ReportUpdateModal] preview falhou:', item.preview);
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
                   </button>
                   {/* Botão de remover */}

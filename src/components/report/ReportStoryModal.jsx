@@ -1,5 +1,6 @@
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { toPng } from 'html-to-image';
+import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -28,6 +29,38 @@ import {
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
+
+const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.trombonecidadao.app&pcampaignid=web_share';
+
+/**
+ * Converte uma imagem remota em data URI.
+ *
+ * O toPng precisa ler os pixels de cada <img> para desenhar no canvas. Uma
+ * imagem servida sem header CORS "suja" (taints) o canvas e faz o toPng lancar
+ * erro — era a causa do "erro ao baixar" do card. Buscando via fetch e
+ * embutindo como data URI, a imagem passa a ser same-origin para o canvas.
+ *
+ * Best-effort: se a busca falhar, devolve string vazia e o card renderiza sem
+ * aquele elemento, em vez de derrubar a exportacao inteira.
+ */
+const toDataUri = async (url) => {
+  if (!url) return '';
+  if (url.startsWith('data:')) return url;
+  try {
+    const response = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+    if (!response.ok) return '';
+    const blob = await response.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result || ''));
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return '';
+  }
+};
 
 const normalizeText = (text = '') =>
   String(text || '').replace(/\s+/g, ' ').trim();
@@ -258,31 +291,44 @@ function StatusTag({ statusConfig }) {
   );
 }
 
-function getStatusBackgroundStyle(bgType, customBgColor, reportStatus) {
+// Cor solida por status, usada como piso quando a textura de fundo nao carrega.
+// Sem isso o card cai para preto e perde a leitura de status.
+const FALLBACK_BG_COLOR = {
+  pending: '#8f2f10',
+  in_progress: '#24405f',
+  resolved: '#245536',
+};
+
+function resolveBgKey(bgType, reportStatus) {
+  if (bgType === 'auto') return getStatusConfig(reportStatus).bgKey;
+  return bgType;
+}
+
+const BG_FILE_BY_KEY = {
+  pending: 'bg-pending-1.png',
+  in_progress: 'bg-in-progress.png',
+  resolved: 'bg-resolved.png',
+};
+
+function getStatusBackgroundStyle(bgType, customBgColor, reportStatus, bgDataUri) {
   if (bgType === 'color') {
     return {
       backgroundColor: customBgColor,
     };
   }
 
-  let resolvedBgType = bgType;
+  const resolvedBgType = resolveBgKey(bgType, reportStatus);
+  const backgroundColor = FALLBACK_BG_COLOR[resolvedBgType] || '#111111';
 
-  if (bgType === 'auto') {
-    resolvedBgType = getStatusConfig(reportStatus).bgKey;
-  }
-
-  let bgUrl = getCardInstagramPublicUrl('bg-pending-1.png');
-
-  if (resolvedBgType === 'in_progress') {
-    bgUrl = getCardInstagramPublicUrl('bg-in-progress.png');
-  } else if (resolvedBgType === 'resolved') {
-    bgUrl = getCardInstagramPublicUrl('bg-resolved.png');
-  } else if (resolvedBgType === 'pending') {
-    bgUrl = getCardInstagramPublicUrl('bg-pending-1.png');
+  // Sem o data URI pronto, renderiza a cor solida: um backgroundImage com URL
+  // remota sujaria o canvas e faria o toPng falhar.
+  if (!bgDataUri) {
+    return { backgroundColor };
   }
 
   return {
-    backgroundImage: `url(${bgUrl})`,
+    backgroundColor,
+    backgroundImage: `url(${bgDataUri})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
@@ -417,19 +463,14 @@ function StoryTemplateInstagram({
   bgStyle,
   enableImageEffect = true,
   enableHoleEffect = false,
+  qrCodePlayStore = '',
+  likeIconUrl = '',
 }) {
   const title = report?.title || '';
   const address = report?.address || '';
   const fontSize = getDynamicFontSize(title, 68);
   const titleLines = splitHeadline(title, title.length > 40 ? 25 : 19, 6);
   const statusConfig = getStatusConfig(report?.status);
-
-  const playStoreUrl =
-    'https://play.google.com/store/apps/details?id=com.trombonecidadao.app&pcampaignid=web_share';
-
-  const qrCodePlayStore = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-    playStoreUrl
-  )}`;
 
   return (
     <div
@@ -659,11 +700,13 @@ function StoryTemplateInstagram({
                   boxShadow: '0 14px 26px rgba(0,0,0,0.18)',
                 }}
               >
-                  <img
-                    src={getCardInstagramPublicUrl('like-svgrepo-com (1).svg')}
-                    style={{ width: 75, height: 75 }}
-                    alt="Like"
-                  />
+                  {likeIconUrl && (
+                    <img
+                      src={likeIconUrl}
+                      style={{ width: 75, height: 75 }}
+                      alt="Like"
+                    />
+                  )}
               </div>
 
               <div
@@ -748,12 +791,13 @@ function StoryTemplateInstagram({
               boxShadow: '0 18px 36px rgba(0,0,0,0.22)',
             }}
           >
-            <img
-              src={qrCodePlayStore}
-              alt="QR Code Play Store"
-              style={{ width: '100%', height: '100%' }}
-              crossOrigin="anonymous"
-            />
+            {qrCodePlayStore && (
+              <img
+                src={qrCodePlayStore}
+                alt="QR Code Play Store"
+                style={{ width: '100%', height: '100%' }}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -768,6 +812,8 @@ const StoryRenderer = React.forwardRef(function StoryRenderer(
     bgStyle,
     enableImageEffect = true,
     enableHoleEffect = false,
+    qrCodePlayStore = '',
+    likeIconUrl = '',
   },
   ref
 ) {
@@ -779,6 +825,8 @@ const StoryRenderer = React.forwardRef(function StoryRenderer(
         bgStyle={bgStyle}
         enableImageEffect={enableImageEffect}
         enableHoleEffect={enableHoleEffect}
+        qrCodePlayStore={qrCodePlayStore}
+        likeIconUrl={likeIconUrl}
       />
     </div>
   );
@@ -809,9 +857,66 @@ const ReportStoryModal = ({
   const [bgType, setBgType] = useState('auto');
   const [customBgColor, setCustomBgColor] = useState('#111111');
 
+  // Todos os assets do card viram data URI antes da exportacao: o toPng falha
+  // se qualquer imagem do DOM vier de outra origem sem CORS.
+  const [assets, setAssets] = useState({
+    backgrounds: {},
+    likeIcon: '',
+    qrCode: '',
+    coverPhoto: '',
+  });
+  const [assetsReady, setAssetsReady] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+
+    (async () => {
+      setAssetsReady(false);
+
+      const [qrCode, likeIcon, coverPhoto, pending, inProgress, resolved] =
+        await Promise.all([
+          QRCode.toDataURL(PLAY_STORE_URL, {
+            width: 500,
+            margin: 1,
+            errorCorrectionLevel: 'M',
+          }).catch(() => ''),
+          toDataUri(getCardInstagramPublicUrl('like-svgrepo-com (1).svg')),
+          toDataUri(coverPhotoUrl),
+          toDataUri(getCardInstagramPublicUrl(BG_FILE_BY_KEY.pending)),
+          toDataUri(getCardInstagramPublicUrl(BG_FILE_BY_KEY.in_progress)),
+          toDataUri(getCardInstagramPublicUrl(BG_FILE_BY_KEY.resolved)),
+        ]);
+
+      if (cancelled) return;
+
+      setAssets({
+        qrCode,
+        likeIcon,
+        coverPhoto,
+        backgrounds: {
+          pending,
+          in_progress: inProgress,
+          resolved,
+        },
+      });
+      setAssetsReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, coverPhotoUrl]);
+
   const currentBgStyle = useMemo(() => {
-    return getStatusBackgroundStyle(bgType, customBgColor, report?.status);
-  }, [bgType, customBgColor, report?.status]);
+    const bgKey = resolveBgKey(bgType, report?.status);
+    return getStatusBackgroundStyle(
+      bgType,
+      customBgColor,
+      report?.status,
+      assets.backgrounds[bgKey]
+    );
+  }, [bgType, customBgColor, report?.status, assets.backgrounds]);
 
   const safeTitle = useMemo(
     () => getSafeFilename(report?.title || 'trombone-cidadao'),
@@ -819,7 +924,7 @@ const ReportStoryModal = ({
   );
 
   const handleDownload = useCallback(async () => {
-    if (!exportRef.current || downloading) return;
+    if (!exportRef.current || downloading || !assetsReady) return;
 
     try {
       setDownloading(true);
@@ -917,7 +1022,7 @@ const ReportStoryModal = ({
     } finally {
       setDownloading(false);
     }
-  }, [downloading, layout, safeTitle, toast]);
+  }, [downloading, assetsReady, layout, safeTitle, toast]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1147,10 +1252,12 @@ const ReportStoryModal = ({
                     <div className="w-full h-full relative overflow-hidden bg-black">
                       <StoryRenderer
                         report={report}
-                        coverPhotoUrl={coverPhotoUrl}
+                        coverPhotoUrl={assets.coverPhoto || coverPhotoUrl}
                         bgStyle={currentBgStyle}
                         enableImageEffect={enableImageEffect}
                         enableHoleEffect={enableHoleEffect}
+                        qrCodePlayStore={assets.qrCode}
+                        likeIconUrl={assets.likeIcon}
                       />
                     </div>
                   </div>
@@ -1180,15 +1287,19 @@ const ReportStoryModal = ({
 
           <Button
             onClick={handleDownload}
-            disabled={downloading}
+            disabled={downloading || !assetsReady}
             className="bg-cta-bg hover:bg-cta-bg/90 text-cta-fg border border-cta-border gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-brand/20 flex-1 sm:flex-none"
           >
-            {downloading ? (
+            {downloading || !assetsReady ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cta-fg" />
             ) : (
               <Download size={18} />
             )}
-            {downloading ? 'Gerando...' : 'Baixar para Instagram'}
+            {!assetsReady
+              ? 'Carregando...'
+              : downloading
+              ? 'Gerando...'
+              : 'Baixar para Instagram'}
           </Button>
         </DialogFooter>
 
@@ -1206,10 +1317,12 @@ const ReportStoryModal = ({
           <StoryRenderer
             ref={exportRef}
             report={report}
-            coverPhotoUrl={coverPhotoUrl}
+            coverPhotoUrl={assets.coverPhoto || coverPhotoUrl}
             bgStyle={currentBgStyle}
             enableImageEffect={enableImageEffect}
             enableHoleEffect={enableHoleEffect}
+            qrCodePlayStore={assets.qrCode}
+            likeIconUrl={assets.likeIcon}
           />
         </div>
       </DialogContent>

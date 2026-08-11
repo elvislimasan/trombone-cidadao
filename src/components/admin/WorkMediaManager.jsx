@@ -87,10 +87,10 @@ export const WorkMediaManager = ({ workId }) => {
   
   const getFileIcon = (type) => {
     switch(type) {
-      case 'image': return <ImageIcon className="w-10 h-10 text-gray-500" />;
-      case 'video': return <Video className="w-10 h-10 text-gray-500" />;
+      case 'image': return <ImageIcon className="w-10 h-10 text-content-tertiary" />;
+      case 'video': return <Video className="w-10 h-10 text-content-tertiary" />;
       case 'pdf': return <Paperclip className="w-10 h-10 text-red-500" />;
-      default: return <Paperclip className="w-10 h-10 text-gray-500" />;
+      default: return <Paperclip className="w-10 h-10 text-content-tertiary" />;
     }
   }
 
@@ -195,7 +195,7 @@ export const WorkMediaManager = ({ workId }) => {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {items.map(m => (
                   <Card key={m.id} className="relative group overflow-hidden border-muted hover:border-primary/50 transition-colors">
-                    <a href={m.url} target="_blank" rel="noopener noreferrer" className="flex aspect-square bg-slate-100 dark:bg-slate-800 items-center justify-center overflow-hidden">
+                    <a href={m.url} target="_blank" rel="noopener noreferrer" className="flex aspect-square bg-surface-sunken dark:bg-slate-800 items-center justify-center overflow-hidden">
                       {m.type === 'image' ? (
                         <img src={m.url} alt={m.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                       ) : (

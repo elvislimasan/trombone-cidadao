@@ -157,7 +157,7 @@ const AdminPage = () => {
       case 'approved': return <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">Aprovada</span>;
       case 'pending_approval': return <span className="px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">Pendente</span>;
       case 'rejected': return <span className="px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-full">Rejeitada</span>;
-      case 'hidden': return <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">Oculta</span>;
+      case 'hidden': return <span className="px-2 py-1 text-xs font-medium text-content-secondary bg-surface-sunken rounded-full">Oculta</span>;
       default: return null;
     }
   };

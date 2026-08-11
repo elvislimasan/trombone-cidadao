@@ -314,7 +314,7 @@ const PublicWorksPage = () => {
     'stalled': { icon: HardHat, text: 'Paralisada', color: 'text-amber-500' },
     'unfinished': { icon: Wrench, text: 'Inacabada', color: 'text-red-500' },
     'completed': { icon: CheckSquare, text: 'Concluída', color: 'text-green-500' },
-  })[status] || { icon: HardHat, text: 'N/A', color: 'text-gray-500' };
+  })[status] || { icon: HardHat, text: 'N/A', color: 'text-content-tertiary' };
 
   return <>
     <Helmet>

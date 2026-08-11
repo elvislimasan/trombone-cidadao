@@ -992,7 +992,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
               <Button
                 size="sm"
                 onClick={() => navigate('/abaixo-assinados')}
-                className="bg-white text-[#F05045] hover:bg-white/90 rounded-full font-bold border border-white text-sm"
+                className="bg-surface-raised text-[#F05045] hover:bg-white/90 rounded-full font-bold border border-white text-sm"
               >
                 Começar Agora →
               </Button>

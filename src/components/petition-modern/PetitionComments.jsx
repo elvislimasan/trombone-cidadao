@@ -43,7 +43,7 @@ const PetitionComments = ({
   };
 
   return (
-    <Card className="border shadow-sm bg-white" data-testid="petition-comments">
+    <Card className="border shadow-sm bg-surface-raised" data-testid="petition-comments">
       <CardContent className="p-3 md:p-4 space-y-4 md:space-y-6">
         {/* Header Section */}
         <div className="flex flex-col gap-2">
@@ -79,7 +79,7 @@ const PetitionComments = ({
                   return commentSort === 'newest' ? dateB - dateA : dateA - dateB;
               })
               .map((sig, i) => (
-              <div key={i} className="flex gap-2 md:gap-3 p-3 md:p-4 rounded-xl bg-white border shadow-sm hover:shadow-md transition-all">
+              <div key={i} className="flex gap-2 md:gap-3 p-3 md:p-4 rounded-xl bg-surface-raised border shadow-sm hover:shadow-md transition-all">
                 <Avatar className="w-8 h-8 md:w-10 md:h-10 border-2 border-background ring-2 ring-primary/10 shrink-0">
                   <AvatarFallback className="bg-primary/10 text-primary font-bold text-[10px] md:text-xs">
                     {sig.is_public ? (sig.name ? sig.name.substring(0, 2).toUpperCase() : 'AN') : 'AN'}

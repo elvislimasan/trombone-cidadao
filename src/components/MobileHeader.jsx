@@ -149,16 +149,16 @@ const MobileHeader = () => {
               <img src={logoUrl} alt="Logo" className="h-7 w-auto" />
             </Link>
           )}
-          {showCitySelector ? (
-            <FeedCitySelector inHeader />
-          ) : (
-            <span className="font-bold text-base truncate max-w-[56vw]">
-              {headerTitle}
-            </span>
-          )}
+          <span className="font-bold text-base truncate max-w-[56vw]">
+            {headerTitle}
+          </span>
         </div>
 
         <div className="flex items-center gap-1">
+          {/* A cidade ativa virou um pin no lado direito: o nome dela competia
+              com o titulo da tela pelo mesmo espaco. Segue so no feed, onde o
+              filtro define o conteudo. */}
+          {showCitySelector && <FeedCitySelector iconOnly />}
           {isRoot && location.pathname !== '/buscar' && (!ctxActions || ctxActions.length === 0) && (
             <Button variant="ghost" size="icon" onClick={() => navigate('/buscar')} className="rounded-full">
               <Search size={22} />

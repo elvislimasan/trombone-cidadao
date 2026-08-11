@@ -64,19 +64,32 @@ export const isUserCancelled = (err) =>
 
 /** Compressão web via Canvas (fallback browser) */
 export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
+  let objectUrl = null;
   try {
-    const dataUrl = await new Promise((res) => {
-      const r = new FileReader();
-      r.onloadend = () => res(r.result);
-      r.readAsDataURL(file);
-    });
-    const img = await new Promise((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = rej;
-      i.src = dataUrl;
-    });
-    let { width, height } = img;
+    // createObjectURL em vez de readAsDataURL: nao carrega a imagem inteira em
+    // base64 na memoria (fotos de 12MP viravam strings de ~16MB) e evita o
+    // FileReader travar sem onerror.
+    objectUrl = URL.createObjectURL(file);
+
+    const img = new Image();
+    img.src = objectUrl;
+
+    // `onload` sinaliza metadados prontos, NAO pixels decodificados: em alguns
+    // browsers o drawImage logo apos onload pinta um canvas vazio e o JPEG sai
+    // preto — sem lancar erro. `decode()` espera a decodificacao de verdade.
+    if (typeof img.decode === 'function') {
+      await img.decode();
+    } else {
+      await new Promise((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error('falha ao carregar a imagem'));
+      });
+    }
+
+    let width = img.naturalWidth || img.width;
+    let height = img.naturalHeight || img.height;
+    if (!width || !height) throw new Error('imagem sem dimensoes');
+
     if (width > maxPx || height > maxPx) {
       const r = Math.min(maxPx / width, maxPx / height);
       width = Math.floor(width * r);
@@ -85,16 +98,26 @@ export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+    const ctx = canvas.getContext('2d');
+    // JPEG nao tem canal alfa: sem um fundo explicito, area transparente de PNG
+    // sai PRETA. Pintar branco antes preserva a aparencia original.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
     const blob = await new Promise((res, rej) => {
-      if (canvas.convertToBlob) {
-        canvas.convertToBlob({ type: 'image/jpeg', quality }).then(res).catch(rej);
-      } else {
+      // toBlob e o metodo do HTMLCanvasElement; convertToBlob so existe em
+      // OffscreenCanvas. Testar toBlob primeiro evita cair no caminho errado
+      // caso o browser exponha os dois.
+      if (typeof canvas.toBlob === 'function') {
         canvas.toBlob(
-          (b) => (b ? res(b) : rej(new Error('toBlob failed'))),
+          (b) => (b ? res(b) : rej(new Error('toBlob retornou null'))),
           'image/jpeg',
           quality
         );
+      } else if (typeof canvas.convertToBlob === 'function') {
+        canvas.convertToBlob({ type: 'image/jpeg', quality }).then(res).catch(rej);
+      } else {
+        rej(new Error('canvas sem toBlob/convertToBlob'));
       }
     });
     return new File(
@@ -102,8 +125,15 @@ export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
       (file.name || 'photo').replace(/\.(webp|png|heic)$/i, '.jpg'),
       { type: 'image/jpeg' }
     );
-  } catch (_) {
+  } catch (err) {
+    // Devolver o arquivo original mantem o envio funcionando, mas o preview
+    // pode falhar (HEIC do iPhone, por exemplo, o browser nao renderiza).
+    // Sem este log o motivo real ficava invisivel.
+    console.warn('[useNativeCamera] compressToJpeg falhou, usando original:', err);
     return file;
+  } finally {
+    // A imagem ja foi copiada para o canvas; segurar a URL so vazaria memoria.
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
 };
 
@@ -301,23 +331,48 @@ export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicio
   // ── Web file input ──────────────────────────────────────────────────────
   const handleFileChange = useCallback(
     async (e) => {
-      const files = Array.from(e.target.files || []);
+      const input = e.target;
+      const files = Array.from(input.files || []);
       if (!files.length) return;
-      for (const file of files.slice(0, maxPhotos - photoItems.length)) {
-        const compressed = await compressToJpeg(file);
-        setPhotoItems((prev) => [
-          ...prev,
-          {
-            id: Date.now() + Math.random(),
-            file: compressed,
-            preview: URL.createObjectURL(compressed),
-            name: compressed.name,
-          },
-        ]);
+
+      // Limpa o input ANTES do await: se o usuario escolher a mesma imagem de
+      // novo, o `change` so dispara se o value tiver sido zerado — e depois do
+      // await o React ja pode ter reciclado o evento.
+      input.value = '';
+
+      setAddingPhoto(true);
+      try {
+        for (const file of files) {
+          const compressed = await compressToJpeg(file);
+          const preview = URL.createObjectURL(compressed);
+          let added = false;
+          // O limite e checado DENTRO do setState: `photoItems.length` da
+          // closure fica velho entre uma foto e outra (compressToJpeg e async),
+          // e com varias imagens de uma vez o corte saia errado.
+          setPhotoItems((prev) => {
+            if (prev.length >= maxPhotos) return prev;
+            added = true;
+            return [
+              ...prev,
+              {
+                id: Date.now() + Math.random(),
+                file: compressed,
+                preview,
+                name: compressed.name,
+              },
+            ];
+          });
+          if (!added) {
+            // Estourou o limite: libera o blob que nao entrou na lista.
+            URL.revokeObjectURL(preview);
+            break;
+          }
+        }
+      } finally {
+        setAddingPhoto(false);
       }
-      e.target.value = '';
     },
-    [maxPhotos, photoItems.length]
+    [maxPhotos]
   );
 
   // ── Câmera ──────────────────────────────────────────────────────────────

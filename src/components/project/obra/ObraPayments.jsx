@@ -1169,7 +1169,7 @@ export function ObraPayments({
                           const isExpandable = g.count > 1;
                           const isOpen = isExpandable && openGroupKeys.has(g.key);
                           const portalUrl = g.count === 1 ? g.items[0]?.url : "";
-                          const zebraClassName = idx % 2 === 0 ? "bg-slate-50" : "bg-slate-100/50";
+                          const zebraClassName = idx % 2 === 0 ? "bg-surface-subtle" : "bg-slate-100/50";
                           return (
                             <Fragment key={g.key}>
                               <TableRow
@@ -1270,7 +1270,7 @@ export function ObraPayments({
                                             {g.items.map((p) => {
                                               const paymentDateLabel = formatDateLabel(getPaymentDate(p));
                                               return (
-                                                <TableRow key={p.id} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
+                                                <TableRow key={p.id} className="odd:bg-surface-subtle even:bg-slate-100/50 hover:bg-slate-200/70">
                                                   <TableCell className="whitespace-nowrap text-foreground">{paymentDateLabel}</TableCell>
                                                   <TableCell className="text-center whitespace-nowrap">
                                                     <span className="inline-flex items-center h-6 px-2.5 rounded-full bg-muted/20 border border-border text-xs text-foreground">
@@ -1548,7 +1548,7 @@ export function ObraPayments({
                     {managePageItems.map((p) => {
                       const paymentDateLabel = formatDateLabel(getPaymentDate(p));
                       return (
-                        <TableRow key={p.id} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
+                        <TableRow key={p.id} className="odd:bg-surface-subtle even:bg-slate-100/50 hover:bg-slate-200/70">
                           <TableCell className="whitespace-nowrap text-red-600 font-semibold">{p.orderNumber || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap">{paymentDateLabel}</TableCell>
                           <TableCell className="whitespace-nowrap">{formatTypeLabel(p.commitmentType)}</TableCell>
@@ -1591,7 +1591,7 @@ export function ObraPayments({
 
               <div className="md:hidden p-3 space-y-3 overflow-y-auto flex-1">
                 {managePageItems.map((p) => (
-                  <div key={p.id} className="rounded-2xl border border-border bg-slate-50 p-4">
+                  <div key={p.id} className="rounded-2xl border border-border bg-surface-subtle p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Nº Empenho</div>
@@ -1750,7 +1750,7 @@ export function ObraPayments({
                     <select
                       value={importCommitmentType}
                       onChange={(e) => setImportCommitmentType(e.target.value)}
-                      className="h-9 w-full sm:max-w-[320px] rounded-xl border border-amber-200 bg-white px-3 text-sm"
+                      className="h-9 w-full sm:max-w-[320px] rounded-xl border border-amber-200 bg-surface-raised px-3 text-sm"
                     >
                       <option value="">Não informado</option>
                       <option value="Ordinário">Ordinário</option>
@@ -1782,7 +1782,7 @@ export function ObraPayments({
                             const edit = importEdits[key] || {};
                             const numericValue = Number(edit.value);
                             return (
-                              <TableRow key={key} className="odd:bg-slate-50 even:bg-slate-100/50 hover:bg-slate-200/70">
+                              <TableRow key={key} className="odd:bg-surface-subtle even:bg-slate-100/50 hover:bg-slate-200/70">
                                 <TableCell>
                                   <input type="checkbox" checked={checked} onChange={() => toggleImportRow(key)} />
                                 </TableCell>

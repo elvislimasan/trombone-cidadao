@@ -830,10 +830,10 @@ const SiteSettingsPage = () => {
                     <div className="mt-6 pt-6 border-t">
                       <p className="text-sm font-medium mb-4">Pré-visualização do Modal:</p>
                       <div className="bg-black/5 p-4 rounded-xl">
-                        <div className="max-w-[520px] mx-auto bg-white rounded-xl overflow-hidden shadow-lg border relative">
+                        <div className="max-w-[520px] mx-auto bg-surface-raised rounded-xl overflow-hidden shadow-lg border relative">
                           <div className="flex flex-col md:flex-row">
                             {promoModalSettings.petitions_modal.image_url && (
-                              <div className="w-full md:w-1/2 bg-[#FEF2F2] overflow-hidden h-36 md:h-auto">
+                              <div className="w-full md:w-1/2 bg-surface-subtle overflow-hidden h-36 md:h-auto">
                                 <img
                                   src={promoModalSettings.petitions_modal.image_url}
                                   alt="Pré-visualização"
@@ -843,8 +843,8 @@ const SiteSettingsPage = () => {
                               </div>
                             )}
                             <div className={`w-full ${promoModalSettings.petitions_modal.image_url ? 'md:w-1/2' : ''} p-5 flex flex-col gap-3`}>
-                              <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-white shadow flex items-center justify-center">
-                                <LucideIcons.X className="h-3 w-3 text-gray-500" />
+                              <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-surface-raised shadow flex items-center justify-center">
+                                <LucideIcons.X className="h-3 w-3 text-content-tertiary" />
                               </div>
                               {promoModalSettings.petitions_modal.badge_text && (
                                 <div className="flex items-center gap-2 text-xs font-semibold text-[#F97316] uppercase tracking-[0.18em]">
@@ -854,14 +854,14 @@ const SiteSettingsPage = () => {
                               )}
                               <div className="space-y-2">
                                 {promoModalSettings.petitions_modal.title ? (
-                                  <h2 className="text-lg font-bold text-[#111827]">
+                                  <h2 className="text-lg font-bold text-content-primary">
                                     {promoModalSettings.petitions_modal.title}
                                   </h2>
                                 ) : (
                                   <h2 className="text-lg font-bold text-gray-300 italic">Título do modal</h2>
                                 )}
                                 {promoModalSettings.petitions_modal.description ? (
-                                  <p className="text-sm text-[#4B5563] leading-relaxed">
+                                  <p className="text-sm text-content-secondary leading-relaxed">
                                     {promoModalSettings.petitions_modal.description}
                                   </p>
                                 ) : (
@@ -874,7 +874,7 @@ const SiteSettingsPage = () => {
                                     {promoModalSettings.petitions_modal.primary_button_text}
                                   </div>
                                 ) : (
-                                  <div className="w-full h-9 text-sm font-semibold rounded-full bg-gray-200 text-gray-400 flex items-center justify-center italic">
+                                  <div className="w-full h-9 text-sm font-semibold rounded-full bg-gray-200 text-content-tertiary flex items-center justify-center italic">
                                     Botão principal
                                   </div>
                                 )}
@@ -883,11 +883,11 @@ const SiteSettingsPage = () => {
                                     {promoModalSettings.petitions_modal.secondary_button_text}
                                   </div>
                                 ) : (
-                                  <div className="w-full h-9 text-sm font-semibold rounded-full border border-gray-200 text-gray-400 flex items-center justify-center italic">
+                                  <div className="w-full h-9 text-sm font-semibold rounded-full border border-edge-subtle text-content-tertiary flex items-center justify-center italic">
                                     Botão secundário
                                   </div>
                                 )}
-                                <div className="mt-1 text-xs text-[#6B7280] self-center">
+                                <div className="mt-1 text-xs text-content-secondary self-center">
                                   {promoModalSettings.petitions_modal.dismiss_text || "Fechar"}
                                 </div>
                               </div>

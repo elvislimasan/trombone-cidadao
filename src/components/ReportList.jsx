@@ -13,7 +13,7 @@ const ReportList = ({ reports, onReportClick }) => {
       'pending': { icon: AlertTriangle, text: 'Pendente', color: 'text-primary' },
       'in-progress': { icon: Clock, text: 'Em Andamento', color: 'text-secondary' },
       'resolved': { icon: CheckCircle, text: 'Resolvido', color: 'text-green-500' },
-      'duplicate': { icon: LinkIcon, text: 'Duplicada', color: 'text-gray-500' }
+      'duplicate': { icon: LinkIcon, text: 'Duplicada', color: 'text-content-tertiary' }
     };
     return statusInfo[status] || { icon: AlertTriangle, text: 'Pendente', color: 'text-muted-foreground' };
   };

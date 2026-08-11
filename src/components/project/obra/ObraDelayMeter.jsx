@@ -115,9 +115,9 @@ export function ObraDelayMeter({
           }
         : tone === "completed"
         ? {
-            badgeClassName: "bg-slate-100 text-slate-700",
+            badgeClassName: "bg-surface-sunken text-content-secondary",
             ringClassName: "stroke-slate-500",
-            numberClassName: "text-slate-700",
+            numberClassName: "text-content-secondary",
           }
         : {
             badgeClassName: "bg-emerald-100 text-emerald-700",
@@ -148,10 +148,10 @@ export function ObraDelayMeter({
     circumference - (Math.max(0, Math.min(100, computed.ringValue)) / 100) * circumference;
 
   return (
-    <section className="mt-2 mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <section className="mt-2 mb-5 rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm overflow-hidden">
       <header className="px-5 pt-5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-extrabold text-slate-900">Atrasômetro</h3>
+          <h3 className="text-lg font-extrabold text-content-primary">Atrasômetro</h3>
           <span
             className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide ${computed.colors.badgeClassName}`}
           >
@@ -193,20 +193,20 @@ export function ObraDelayMeter({
             <div className={`text-5xl font-extrabold ${computed.colors.numberClassName}`}>
               {computed.metricNumber}
             </div>
-            <div className="mt-1 text-[11px] font-semibold tracking-wider text-slate-500">
+            <div className="mt-1 text-[11px] font-semibold tracking-wider text-content-tertiary">
               {computed.metricLabel}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="border-t border-slate-200" />
+      <div className="border-t border-edge-subtle" />
 
       <div className="px-5 py-4">
-        <div className="text-[10px] font-semibold tracking-wider text-slate-500">
+        <div className="text-[10px] font-semibold tracking-wider text-content-tertiary">
           PREVISÃO DE CONCLUSÃO
         </div>
-        <div className="mt-1 text-base font-extrabold text-slate-900">
+        <div className="mt-1 text-base font-extrabold text-content-primary">
           {computed.expectedDateText}
         </div>
       </div>

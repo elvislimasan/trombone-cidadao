@@ -168,7 +168,7 @@ const ManagePetitionsPage = () => {
       case 'victory':
         return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200 gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><Trophy className="w-2.5 h-2.5 md:w-3 h-3" /> Vitória</Badge>;
       case 'closed':
-        return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 border-gray-200 gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><XCircle className="w-2.5 h-2.5 md:w-3 h-3" /> Encerrada</Badge>;
+        return <Badge className="bg-surface-sunken text-content-secondary hover:bg-surface-sunken border-edge-subtle gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><XCircle className="w-2.5 h-2.5 md:w-3 h-3" /> Encerrada</Badge>;
       case 'pending_moderation':
         return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 gap-1 text-[9px] md:text-xs py-0 h-5 md:h-6"><AlertCircle className="w-2.5 h-2.5 md:w-3 h-3" /> Em Moderação</Badge>;
       case 'rejected':
@@ -389,7 +389,7 @@ const ManagePetitionsPage = () => {
                                     className="rounded-lg gap-2 cursor-pointer"
                                     onClick={() => handleStatusChange(petition.id, 'closed')}
                                   >
-                                    <XCircle className="w-4 h-4 text-gray-500" /> Encerrar
+                                    <XCircle className="w-4 h-4 text-content-tertiary" /> Encerrar
                                   </DropdownMenuItem>
                                   <DropdownMenuItem 
                                     className="rounded-lg gap-2 cursor-pointer"

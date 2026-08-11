@@ -97,13 +97,13 @@ const MyPetitionsPage = () => {
       case 'rejected':
         return { label: 'Rejeitada', color: 'bg-red-100 text-red-800', icon: XCircle };
       case 'closed':
-        return { label: 'Encerrada', color: 'bg-gray-100 text-gray-800', icon: Clock };
+        return { label: 'Encerrada', color: 'bg-surface-sunken text-content-primary', icon: Clock };
       case 'draft':
-        return { label: 'Rascunho', color: 'bg-slate-100 text-slate-800', icon: FileText };
+        return { label: 'Rascunho', color: 'bg-surface-sunken text-content-primary', icon: FileText };
       case 'pending_moderation':
         return { label: 'Em Análise', color: 'bg-yellow-100 text-yellow-800', icon: Clock };
       default:
-        return { label: 'Status Desconhecido', color: 'bg-gray-100 text-gray-800', icon: Clock };
+        return { label: 'Status Desconhecido', color: 'bg-surface-sunken text-content-primary', icon: Clock };
     }
   };
 

@@ -796,10 +796,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       'in-progress': 'bg-blue-100 text-blue-700 border-blue-200',
       'stalled': 'bg-amber-100 text-amber-700 border-amber-200',
       'tendered': 'bg-purple-100 text-purple-700 border-purple-200',
-      'planned': 'bg-slate-100 text-slate-700 border-slate-200',
+      'planned': 'bg-surface-sunken text-content-secondary border-edge-subtle',
       'unfinished': 'bg-rose-100 text-rose-700 border-rose-200'
     };
-    return map[status] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return map[status] || 'bg-surface-sunken text-content-secondary border-edge-subtle';
   };
 
   if (isEditing) {
@@ -1053,14 +1053,14 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
             </div>
 
             <div className="border-t pt-4 mt-4">
-              <Label className="mb-4 block text-base font-semibold text-slate-700">
+              <Label className="mb-4 block text-base font-semibold text-content-secondary">
                 Datas e Prazos ({getStatusLabel(formData.status)})
               </Label>
               
               <div className="space-y-4">
                 {/* Grupo 1: Marcos Contratuais */}
                 <div>
-                  <h5 className="text-sm font-medium text-slate-500 mb-2 border-b pb-1">Marcos Contratuais</h5>
+                  <h5 className="text-sm font-medium text-content-tertiary mb-2 border-b pb-1">Marcos Contratuais</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="contract_signature_date">Assinatura do contrato</Label>
@@ -1087,7 +1087,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
                 {/* Grupo 2: Previsões e Prazos */}
                 <div>
-                  <h5 className="text-sm font-medium text-slate-500 mb-2 border-b pb-1">Previsões e Prazos</h5>
+                  <h5 className="text-sm font-medium text-content-tertiary mb-2 border-b pb-1">Previsões e Prazos</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="predicted_start_date">Previsão Início</Label>
@@ -1118,7 +1118,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
                 {/* Grupo 3: Execução Real */}
                 <div>
-                  <h5 className="text-sm font-medium text-slate-500 mb-2 border-b pb-1">Execução Real</h5>
+                  <h5 className="text-sm font-medium text-content-tertiary mb-2 border-b pb-1">Execução Real</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="start_date">Data Início Real</Label>
@@ -1249,12 +1249,12 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
                               {files.length > 0 ? (
                                 <div className="space-y-2">
-                                  <div className="text-xs font-semibold text-slate-700">
+                                  <div className="text-xs font-semibold text-content-secondary">
                                     Arquivos (serão enviados ao salvar)
                                   </div>
                                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     {files.map((file, fileIndex) => (
-                                      <div key={`${file.name}-${fileIndex}`} className="relative group border rounded-md overflow-hidden aspect-square bg-white shadow-sm">
+                                      <div key={`${file.name}-${fileIndex}`} className="relative group border rounded-md overflow-hidden aspect-square bg-surface-raised shadow-sm">
                                         {file.type.startsWith('image/') ? (
                                           <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
                                         ) : (
@@ -1335,9 +1335,9 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+      <div className="flex justify-between items-center bg-surface-subtle p-4 rounded-xl border border-edge-subtle">
         <div>
-          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-content-primary flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-primary" />
             Histórico de Fases e Licitações
           </h3>
@@ -1357,10 +1357,10 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       ) : measurements.length === 0 ? (
         <Card className="bg-muted/30 border-dashed border-2">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-            <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+            <div className="bg-surface-raised p-4 rounded-full shadow-sm mb-4">
               <Briefcase className="w-10 h-10 opacity-20 text-primary" />
             </div>
-            <h4 className="font-semibold text-slate-700 mb-1">Nenhuma fase registrada</h4>
+            <h4 className="font-semibold text-content-secondary mb-1">Nenhuma fase registrada</h4>
             <p className="max-w-xs mb-6">Comece cadastrando a primeira licitação ou contrato para acompanhar o progresso.</p>
             <Button type="button" variant="outline" onClick={() => handleEdit()} className="gap-2">
               <PlusCircle className="w-4 h-4" /> Adicionar Fase
@@ -1370,11 +1370,11 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {measurements.map((measurement) => (
-            <Card key={measurement.id} className="overflow-hidden border-slate-200 hover:shadow-md transition-all group">
-              <div className="bg-white p-4 flex flex-col sm:flex-row justify-between gap-4 border-b group-hover:bg-slate-50/50 transition-colors">
+            <Card key={measurement.id} className="overflow-hidden border-edge-subtle hover:shadow-md transition-all group">
+              <div className="bg-surface-raised p-4 flex flex-col sm:flex-row justify-between gap-4 border-b group-hover:bg-slate-50/50 transition-colors">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3">
-                    <h4 className="font-bold text-lg text-slate-800">{measurement.title}</h4>
+                    <h4 className="font-bold text-lg text-content-primary">{measurement.title}</h4>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${getStatusBadgeClass(measurement.status)}`}>
                       {getStatusLabel(measurement.status)}
                     </span>
@@ -1382,21 +1382,21 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     {measurement.contractor && (
                       <div className="flex items-center gap-1.5">
-                        <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-medium text-slate-600">{measurement.contractor.name}</span>
+                        <Briefcase className="w-3.5 h-3.5 text-content-tertiary" />
+                        <span className="font-medium text-content-secondary">{measurement.contractor.name}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <Calendar className="w-3.5 h-3.5 text-content-tertiary" />
                       <span>Início: {measurement.start_date ? new Date(measurement.start_date).toLocaleDateString('pt-BR') : 'Não definido'}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(measurement)} className="h-9 px-3 border-slate-200 hover:bg-white hover:text-primary hover:border-primary shadow-sm">
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(measurement)} className="h-9 px-3 border-edge-subtle hover:bg-surface-raised hover:text-primary hover:border-primary shadow-sm">
                     <Edit className="w-4 h-4 mr-2" /> Editar
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-destructive hover:bg-destructive/5" onClick={() => handleDelete(measurement.id)}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-content-tertiary hover:text-destructive hover:bg-destructive/5" onClick={() => handleDelete(measurement.id)}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -1404,21 +1404,21 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
               <CardContent className="p-0">
                 <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
                   <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor do Contrato</span>
-                    <p className="font-bold text-slate-700 text-sm">
+                    <span className="text-[10px] font-bold text-content-tertiary uppercase tracking-tight">Valor do Contrato</span>
+                    <p className="font-bold text-content-secondary text-sm">
                       {measurement.value ? formatCurrency(measurement.value) : 'R$ 0,00'}
                     </p>
                   </div>
                   {/* <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Valor Pago</span>
+                    <span className="text-[10px] font-bold text-content-tertiary uppercase tracking-tight">Valor Pago</span>
                     <p className="font-bold text-blue-600 text-sm">
                       {measurement.amount_spent ? formatCurrency(measurement.amount_spent) : 'R$ 0,00'}
                     </p>
                   </div> */}
                   <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Execução</span>
+                    <span className="text-[10px] font-bold text-content-tertiary uppercase tracking-tight">Execução</span>
                     <div className="flex items-center gap-2">
-                      <div className="flex-grow bg-slate-100 h-1.5 rounded-full overflow-hidden max-w-[60px]">
+                      <div className="flex-grow bg-surface-sunken h-1.5 rounded-full overflow-hidden max-w-[60px]">
                         <div 
                           className="bg-emerald-500 h-full rounded-full" 
                           style={{ width: `${measurement.execution_percentage || 0}%` }}
@@ -1430,8 +1430,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                     </div>
                   </div>
                   <div className="p-4 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Status Atual</span>
-                    <p className="font-semibold text-slate-600 text-xs truncate">
+                    <span className="text-[10px] font-bold text-content-tertiary uppercase tracking-tight">Status Atual</span>
+                    <p className="font-semibold text-content-secondary text-xs truncate">
                       {measurement.status === 'completed' ? 'Concluída ✅' : 
                        measurement.status === 'in-progress' ? 'Em execução...' :
                        measurement.status === 'stalled' ? 'Paralisada ⚠️' : 
@@ -1441,8 +1441,8 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
                 </div>
                 {measurement.description && (
                   <div className="px-4 pb-4">
-                    <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-100">
-                      <p className="text-xs text-slate-500 leading-relaxed italic line-clamp-2">
+                    <div className="bg-slate-50/80 p-3 rounded-lg border border-edge-subtle">
+                      <p className="text-xs text-content-tertiary leading-relaxed italic line-clamp-2">
                         "{measurement.description}"
                       </p>
                     </div>

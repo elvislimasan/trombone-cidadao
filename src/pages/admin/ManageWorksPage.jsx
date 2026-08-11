@@ -632,11 +632,11 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                     <div className="grid gap-2">
                       <Label>Imagem de Capa (Thumbnail)</Label>
                       <div className="flex items-center gap-4">
-                        <div className="relative w-32 h-20 bg-slate-100 rounded overflow-hidden border">
+                        <div className="relative w-32 h-20 bg-surface-sunken rounded overflow-hidden border">
                           {thumbnailPreview ? (
                             <img src={thumbnailPreview} alt="Thumbnail" className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                            <div className="w-full h-full flex items-center justify-center text-content-tertiary">
                               <ImageIcon className="w-8 h-8" />
                             </div>
                           )}

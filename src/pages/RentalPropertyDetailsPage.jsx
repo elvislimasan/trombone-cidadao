@@ -21,13 +21,13 @@ const SectionBlock = ({ icon: Icon, title, children }) => (
 );
 
 const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-center gap-3 bg-white px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
-    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b45309] shrink-0">
+  <div className="flex items-center gap-3 bg-surface-raised px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
+    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-raised text-[#b45309] shrink-0">
       <Icon className="w-4 h-4" strokeWidth={1.5} />
     </div>
     <div className="min-w-0">
-      <div className="text-[11px] font-semibold text-[#6b7280] leading-tight">{label}</div>
-      <div className="text-xs text-[#191c1e] break-words leading-tight">{value}</div>
+      <div className="text-[11px] font-semibold text-content-secondary leading-tight">{label}</div>
+      <div className="text-xs text-content-primary break-words leading-tight">{value}</div>
     </div>
   </div>
 );
@@ -89,7 +89,7 @@ const RentalPropertyDetailsPage = () => {
   if (loading) {
     return (
       <div className="bg-[#f7f9fc] min-h-screen flex items-center justify-center">
-        <p className="text-sm text-[#6b7280]">Carregando imóvel...</p>
+        <p className="text-sm text-content-secondary">Carregando imóvel...</p>
       </div>
     );
   }
@@ -97,7 +97,7 @@ const RentalPropertyDetailsPage = () => {
   if (!property) {
     return (
       <div className="bg-[#f7f9fc] min-h-screen flex flex-col items-center justify-center gap-4">
-        <p className="text-[#6b7280]">Imóvel não encontrado.</p>
+        <p className="text-content-secondary">Imóvel não encontrado.</p>
         <Link to="/imoveis-alugados"><Button>Voltar</Button></Link>
       </div>
     );
@@ -122,9 +122,9 @@ const RentalPropertyDetailsPage = () => {
             className="h-9 w-9 rounded-xl bg-[#f2f4f7] hover:bg-[#e8eaed]"
             onClick={() => navigate(-1)}
           >
-            <ArrowLeft className="w-4 h-4 text-[#191c1e]" strokeWidth={1.5} />
+            <ArrowLeft className="w-4 h-4 text-content-primary" strokeWidth={1.5} />
           </Button>
-          <span className="text-sm font-bold tracking-tight text-[#191c1e] flex-1">Voltar para Imóveis Alugados</span>
+          <span className="text-sm font-bold tracking-tight text-content-primary flex-1">Voltar para Imóveis Alugados</span>
           {canEditProperty && (
             <Link to={`/imoveis-alugados/gerenciar?edit=${property.id}`}>
               <Button size="sm" variant="outline" className="gap-1.5 text-xs border-tc-red/30 text-tc-red hover:bg-tc-red/5">
@@ -134,12 +134,12 @@ const RentalPropertyDetailsPage = () => {
           )}
         </div>
         <div className="hidden lg:block bg-[#f7f9fc]">
-          <div className="max-w-5xl mx-auto px-4 py-2 text-[11px] text-[#6b7280] flex items-center gap-1">
+          <div className="max-w-5xl mx-auto px-4 py-2 text-[11px] text-content-secondary flex items-center gap-1">
             <Link to="/" className="hover:text-[#b45309] transition-colors">Início</Link>
             <span className="opacity-50">›</span>
             <Link to="/imoveis-alugados" className="hover:text-[#b45309] transition-colors">Imóveis Alugados</Link>
             <span className="opacity-50">›</span>
-            <span className="text-[#191c1e] truncate">{title}</span>
+            <span className="text-content-primary truncate">{title}</span>
           </div>
         </div>
       </div>
@@ -147,7 +147,7 @@ const RentalPropertyDetailsPage = () => {
       {/* ── PAGE ── */}
       <div className="bg-[#f7f9fc] min-h-screen overflow-x-hidden">
         <div className="max-w-5xl mx-auto px-4 py-4 lg:py-8">
-          <div className="bg-white shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] rounded-2xl overflow-hidden">
+          <div className="bg-surface-raised shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] rounded-2xl overflow-hidden">
             <div className="relative overflow-hidden">
               <div className="w-full h-48 sm:h-64 lg:h-72 bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] relative overflow-hidden">
                 <div className="absolute inset-0 opacity-10 bg-[repeating-linear-gradient(135deg,#fff_0,#fff_1px,transparent_1px,transparent_12px)]" />
@@ -162,16 +162,16 @@ const RentalPropertyDetailsPage = () => {
             </div>
 
             <div className="relative -mt-5 px-3 pb-4 lg:-mt-10 lg:px-4">
-              <div className="bg-white rounded-2xl p-4 space-y-6 shadow-[0_4px_16px_-4px_rgba(25,28,30,0.08)] lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-[0_12px_32px_-4px_rgba(25,28,30,0.10)]">
+              <div className="bg-surface-raised rounded-2xl p-4 space-y-6 shadow-[0_4px_16px_-4px_rgba(25,28,30,0.08)] lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-[0_12px_32px_-4px_rgba(25,28,30,0.10)]">
 
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
-                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-[-0.02em] text-[#191c1e] leading-tight">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-[-0.02em] text-content-primary leading-tight">
                       {title}
                     </h1>
                     <span
                       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold flex-shrink-0 ${
-                        property.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                        property.is_active ? 'bg-green-100 text-green-700' : 'bg-surface-sunken text-content-secondary'
                       }`}
                     >
                       {property.is_active ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
@@ -179,12 +179,12 @@ const RentalPropertyDetailsPage = () => {
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-[#6b7280]">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-content-secondary">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5" strokeWidth={1.5} />
                       <span>{formatAddressWithNumber(property.address, property.street_number)}</span>
                     </div>
-                    <span className="bg-[#e0e3e6] px-3 py-1 rounded-full font-semibold text-[10px] text-[#191c1e]">
+                    <span className="bg-[#e0e3e6] px-3 py-1 rounded-full font-semibold text-[10px] text-content-primary">
                       {property.bairro?.name || 'Bairro não informado'}
                     </span>
                   </div>
@@ -192,7 +192,7 @@ const RentalPropertyDetailsPage = () => {
 
                 {media.length > 1 && (
                   <div>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#191c1e] mb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-content-primary mb-2">
                       <ImageIcon className="w-3.5 h-3.5 text-[#92400e]" strokeWidth={1.5} />
                       Fotos ({media.length})
                     </div>
@@ -245,7 +245,7 @@ const RentalPropertyDetailsPage = () => {
                     <InfoRow icon={Building2} label="Secretaria responsável" value={property.department || 'Não informada'} />
                   </div>
                   {property.characteristics && (
-                    <p className="text-sm leading-relaxed text-[#191c1e] whitespace-pre-line break-words">
+                    <p className="text-sm leading-relaxed text-content-primary whitespace-pre-line break-words">
                       {property.characteristics}
                     </p>
                   )}
@@ -255,19 +255,19 @@ const RentalPropertyDetailsPage = () => {
                   {contracts.length > 0 ? (
                     <div className="space-y-2">
                       {contracts.map((c) => (
-                        <div key={c.id} className="flex items-center justify-between gap-3 bg-white px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
+                        <div key={c.id} className="flex items-center justify-between gap-3 bg-surface-raised px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
                           <div className="min-w-0">
-                            <p className="text-xs font-semibold text-[#191c1e] truncate">{c.owner_name}</p>
-                            <p className="text-[11px] text-[#6b7280]">
+                            <p className="text-xs font-semibold text-content-primary truncate">{c.owner_name}</p>
+                            <p className="text-[11px] text-content-secondary">
                               {formatDate(c.start_date)} — {c.end_date ? formatDate(c.end_date) : (c.is_current ? 'atual' : '—')}
                             </p>
                           </div>
-                          <p className="text-sm font-bold text-[#191c1e] flex-shrink-0">{formatCurrency(c.monthly_value)}</p>
+                          <p className="text-sm font-bold text-content-primary flex-shrink-0">{formatCurrency(c.monthly_value)}</p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-[#6b7280]">Nenhum contrato cadastrado.</p>
+                    <p className="text-sm text-content-secondary">Nenhum contrato cadastrado.</p>
                   )}
                 </SectionBlock>
 
@@ -280,19 +280,19 @@ const RentalPropertyDetailsPage = () => {
                           href={d.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-3 bg-white px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)] hover:shadow-[0_4px_12px_-2px_rgba(25,28,30,0.1)] transition-shadow"
+                          className="flex items-center gap-3 bg-surface-raised px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)] hover:shadow-[0_4px_12px_-2px_rgba(25,28,30,0.1)] transition-shadow"
                         >
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b45309] shrink-0">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-raised text-[#b45309] shrink-0">
                             <FileText className="w-4 h-4" strokeWidth={1.5} />
                           </div>
-                          <span className="text-xs font-semibold text-[#191c1e] flex-1 truncate">
+                          <span className="text-xs font-semibold text-content-primary flex-1 truncate">
                             {d.type === 'contrato' ? 'Contrato' : 'Aditivo'}{d.description ? ` — ${d.description}` : ''}
                           </span>
                         </a>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-[#6b7280]">Nenhum documento disponível.</p>
+                    <p className="text-sm text-content-secondary">Nenhum documento disponível.</p>
                   )}
                 </SectionBlock>
 

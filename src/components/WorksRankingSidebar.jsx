@@ -26,7 +26,7 @@ const WorksRankingSidebar = ({ works, onWorkClick }) => {
       case 'stalled': return { text: 'Paralisada', color: 'text-red-500' };
       case 'planned': return { text: 'Prevista', color: 'text-purple-500' };
       case 'tendered': return { text: 'Licitada', color: 'text-orange-500' };
-      default: return { text: 'Não iniciada', color: 'text-gray-500' };
+      default: return { text: 'Não iniciada', color: 'text-content-tertiary' };
     }
   };
 

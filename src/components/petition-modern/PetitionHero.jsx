@@ -40,9 +40,9 @@ const PetitionHero = ({
       case 'rejected':
         return <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-200">REJEITADA</Badge>;
       case 'closed':
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-800 hover:bg-gray-200">ENCERRADA</Badge>;
+        return <Badge variant="secondary" className="bg-surface-sunken text-content-primary hover:bg-gray-200">ENCERRADA</Badge>;
       case 'draft':
-        return <Badge variant="secondary" className="bg-slate-100 text-slate-800 hover:bg-slate-200">RASCUNHO</Badge>;
+        return <Badge variant="secondary" className="bg-surface-sunken text-content-primary hover:bg-slate-200">RASCUNHO</Badge>;
       case 'pending_moderation':
         return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">EM ANÁLISE</Badge>;
       default:

@@ -111,7 +111,7 @@ const AppDownloadBanner = () => {
                 <Button
                   onClick={handleDownload}
                   size="sm"
-                  className="bg-white text-primary hover:bg-white/90 text-xs sm:text-sm font-semibold gap-1 sm:gap-2 px-2 sm:px-4 h-8 sm:h-9"
+                  className="bg-surface-raised text-primary hover:bg-white/90 text-xs sm:text-sm font-semibold gap-1 sm:gap-2 px-2 sm:px-4 h-8 sm:h-9"
                 >
                   <Download className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline">Baixar</span>

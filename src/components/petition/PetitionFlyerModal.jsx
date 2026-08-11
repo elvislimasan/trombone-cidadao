@@ -129,7 +129,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
     const primaryBorderClass = isColor ? 'border-tc-red' : 'border-black';
     
     // Proporção A4 ainda mais alongada para garantir que nada corte
-    const flyerContainerClass = "w-full aspect-[1/1.6] bg-white relative overflow-hidden flex flex-col items-center shadow-sm";
+    const flyerContainerClass = "w-full aspect-[1/1.6] bg-surface-raised relative overflow-hidden flex flex-col items-center shadow-sm";
 
     // Função para calcular o tamanho da fonte baseado no comprimento do título
     const getFontSize = (baseSize, titleText) => {
@@ -158,7 +158,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
 
             {/* Título em Destaque */}
             <div className="w-full text-center my-2">
-              <h2 className={`${getFontSize('text-xl', title)} font-black uppercase leading-tight text-gray-900`}>
+              <h2 className={`${getFontSize('text-xl', title)} font-black uppercase leading-tight text-content-primary`}>
                 {title}
               </h2>
             </div>
@@ -179,7 +179,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
               <div className="relative z-10">
                 {/* A placa (Sign) */}
                 <div className={`${primaryBgClass} p-4 rounded-2xl shadow-xl rotate-[-1deg]`}>
-                  <div className="bg-white p-3 rounded-xl">
+                  <div className="bg-surface-raised p-3 rounded-xl">
                     <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48" />
                   </div>
                 </div>
@@ -229,19 +229,19 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
                 Sua voz importa!
               </h1>
               <div className={`h-1.5 w-20 ${primaryBgClass} mx-auto mb-6 rounded-full`}></div>
-              <h2 className={`${getFontSize('text-lg', title)} font-bold leading-snug px-2 text-gray-800`}>
+              <h2 className={`${getFontSize('text-lg', title)} font-bold leading-snug px-2 text-content-primary`}>
                 {title}
               </h2>
             </div>
             
             <div className={`flex-1 flex flex-col items-center justify-center gap-4 w-full bg-gradient-to-b from-gray-50 to-white rounded-[2rem] border-4 ${isColor ? 'border-tc-red/20' : 'border-black/20'} p-8 shadow-lg relative`}>
               <div className={`absolute top-0 right-0 w-32 h-32 ${isColor ? 'bg-tc-red/5' : 'bg-black/5'} rounded-full -mr-16 -mt-16 blur-3xl overflow-hidden`}></div>
-              <div className="bg-white p-4 rounded-3xl shadow-2xl border border-gray-100 relative z-10 flex items-center justify-center">
+              <div className="bg-surface-raised p-4 rounded-3xl shadow-2xl border border-edge-subtle relative z-10 flex items-center justify-center">
                 <img src={qrCodeUrl} alt="QR Code" className="w-44 h-44 object-contain" />
               </div>
               <div className="text-center relative z-10 mt-2">
                 <p className={`font-black text-sm ${primaryTextClass} uppercase tracking-widest mb-1`}>Aponte a câmera</p>
-                <p className="text-[10px] font-medium text-gray-500">Escaneie o código para assinar agora</p>
+                <p className="text-[10px] font-medium text-content-tertiary">Escaneie o código para assinar agora</p>
               </div>
             </div>
           
@@ -269,7 +269,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
               <div className="text-center space-y-2">
                 <p className={`text-xl font-black uppercase italic tracking-tighter ${primaryTextClass}`}>ESCANEIE E APOIE</p>
                 <div className={`h-1 w-16 ${primaryBgClass} mx-auto`}></div>
-                <p className="text-[10px] font-bold text-gray-600 max-w-[200px] mx-auto leading-tight">Sua assinatura faz a diferença em nossa comunidade.</p>
+                <p className="text-[10px] font-bold text-content-secondary max-w-[200px] mx-auto leading-tight">Sua assinatura faz a diferença em nossa comunidade.</p>
               </div>
             </div>
             
@@ -286,7 +286,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl w-[95vw] h-[95vh] sm:h-[90vh] lg:h-[85vh] p-0 flex flex-col overflow-hidden border-none shadow-2xl">
         {/* Cabeçalho Fixo */}
-        <DialogHeader className="p-4 sm:p-6 border-b bg-white flex-shrink-0">
+        <DialogHeader className="p-4 sm:p-6 border-b bg-surface-raised flex-shrink-0">
           <DialogTitle className="text-xl sm:text-2xl">Escolha um modelo de panfleto</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm hidden xs:block">
             Baixe e imprima para divulgar o seu abaixo-assinado.
@@ -310,7 +310,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
                       className={`flex items-center sm:items-start flex-row gap-1.5 sm:gap-4 lg:gap-2 p-1.5 sm:p-4 lg:p-2 rounded-xl text-left transition-all border-2 flex-1 sm:flex-none ${
                         selectedTemplate === t.id 
                           ? 'border-tc-red bg-tc-red/10 shadow-sm ring-1 ring-tc-red/20' 
-                          : 'border-transparent hover:bg-muted bg-white'
+                          : 'border-transparent hover:bg-muted bg-surface-raised'
                       }`}
                     >
                       <div className={`p-1 sm:p-2 rounded-lg transition-colors ${selectedTemplate === t.id ? 'bg-tc-red text-white' : 'bg-muted text-muted-foreground'}`}>
@@ -331,7 +331,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
               </div>
 
               {/* Seção de Estilo Movida para Cá */}
-              <div className="pt-2 sm:pt-2 border-t border-gray-100 sm:border-none">
+              <div className="pt-2 sm:pt-2 border-t border-edge-subtle sm:border-none">
                 <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-3">
                   Estilo e Cores
                 </h3>
@@ -341,7 +341,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
                       value="color" 
                       className={`flex-1 gap-1.5 px-3 h-9 sm:h-10 lg:h-9 justify-center sm:justify-start lg:justify-center rounded-lg transition-all duration-200 ${
                         isColor 
-                          ? 'bg-white text-tc-red shadow-sm border border-tc-red/20 font-bold' 
+                          ? 'bg-surface-raised text-tc-red shadow-sm border border-tc-red/20 font-bold' 
                           : 'text-muted-foreground hover:bg-white/50'
                       }`}
                     >
@@ -352,7 +352,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
                       value="bw" 
                       className={`flex-1 gap-1.5 px-3 h-9 sm:h-10 lg:h-9 justify-center sm:justify-start lg:justify-center rounded-lg transition-all duration-200 ${
                         !isColor 
-                          ? 'bg-white text-black shadow-sm border border-black/20 font-bold' 
+                          ? 'bg-surface-raised text-black shadow-sm border border-black/20 font-bold' 
                           : 'text-muted-foreground hover:bg-white/50'
                       }`}
                     >
@@ -370,7 +370,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
                   <div className="transform scale-[0.5] xs:scale-[0.55] sm:scale-[0.6] lg:scale-[0.45] xl:scale-[0.65] origin-top center flex-shrink-0 pt-2">
                     <div 
                       ref={flyerRef} 
-                      className="w-[400px] shadow-2xl relative overflow-hidden bg-white"
+                      className="w-[400px] shadow-2xl relative overflow-hidden bg-surface-raised"
                     >
                       <AnimatePresence mode="wait">
                         <motion.div
@@ -391,7 +391,7 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
         </div>
 
         {/* Rodapé Fixo com Botões */}
-        <div className="p-4 sm:p-6 lg:p-4 border-t bg-white flex items-center justify-center sm:justify-end gap-3 flex-shrink-0">
+        <div className="p-4 sm:p-6 lg:p-4 border-t bg-surface-raised flex items-center justify-center sm:justify-end gap-3 flex-shrink-0">
           <Button 
             onClick={handleDownload} 
             disabled={isGenerating}

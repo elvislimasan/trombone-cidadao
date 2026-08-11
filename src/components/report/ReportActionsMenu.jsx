@@ -51,7 +51,7 @@ export const ReportManagementPanel = ({
     <div className="bg-surface-raised rounded-2xl shadow-elevation-1 border border-edge-subtle">
       <Accordion type="single" collapsible defaultValue="">
         <AccordionItem value="management" className="border-b-0">
-          <AccordionTrigger className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2 hover:no-underline">
+          <AccordionTrigger className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-content-tertiary flex items-center gap-2 hover:no-underline">
             <span className="inline-flex items-center gap-2">
               <Shield className="w-3.5 h-3.5 text-blue-600" />
               <span className="tracking-[0.18em]">Painel de Gestão</span>
@@ -59,7 +59,7 @@ export const ReportManagementPanel = ({
           </AccordionTrigger>
           <AccordionContent className="px-5 py-4 space-y-4">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-content-tertiary mb-1">
                 Alterar Status
               </div>
               <Combobox
@@ -83,7 +83,7 @@ export const ReportManagementPanel = ({
             </div>
             {canEditCategory && (
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-content-tertiary mb-1">
                   Alterar Categoria
                 </div>
                 <Combobox
@@ -101,7 +101,7 @@ export const ReportManagementPanel = ({
             )}
             {canEditWaterUtility && (
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-content-tertiary mb-1">
                   Aberto pela COMPESA?
                 </div>
                 <Combobox

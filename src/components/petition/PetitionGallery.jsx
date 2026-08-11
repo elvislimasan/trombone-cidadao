@@ -74,7 +74,7 @@ const PetitionGallery = ({ images }) => {
           <button
             key={index}
             className={`w-2 h-2 rounded-full transition-all ${
-              index === selectedIndex ? "bg-white w-6" : "bg-white/50"
+              index === selectedIndex ? "bg-surface-raised w-6" : "bg-white/50"
             }`}
             onClick={() => emblaApi && emblaApi.scrollTo(index)}
           />

@@ -1,6 +1,6 @@
 import React from 'react';
 import L from 'leaflet';
-import Icon, { categoryIconName, categoryPinToken } from '@/design-system/icons';
+import { categoryEmoji, categoryPinToken } from '@/design-system/icons';
 
 // Fabrica unica de pins do mapa. Antes cada tela montava seu proprio divIcon com
 // emoji e `border: 2px solid white` hardcoded - o anel branco estourava no tema
@@ -13,21 +13,24 @@ import Icon, { categoryIconName, categoryPinToken } from '@/design-system/icons'
 // As cores vivas com icone branco ficam em 1.63-3.76 e reprovariam AA -
 // scripts/check-contrast.mjs cobre os dois temas.
 
-// Geometria de referencia do desenho. O PIN_PATH e desenhado neste sistema de
-// coordenadas e o SVG escala via viewBox, entao mudar o tamanho renderizado nao
-// exige redesenhar nada.
-const BASE_W = 40;
-const BASE_H = 52;
-const BASE_ICON = 20;
-// Centro do circulo da gota, no sistema de coordenadas de referencia.
-const BASE_ICON_CY = 20;
+// Disco: circulo com o icone da categoria no centro. Volta ao formato original
+// do app (2.5rem, borda branca), agora com os SVGs do design system no lugar
+// dos emojis - eles aceitam recolorir e acompanham o tema.
+const PIN_SIZE = 40;
+const ICON_SIZE = 22;
+// Emoji ocupa mais area visual que o SVG no mesmo tamanho nominal.
+const EMOJI_SIZE = 19;
 
-// Tamanho renderizado. Menor que a referencia porque, em bairro denso (o mapa
-// chega a 300+ broncas), pins de 40x52 se empilham e escondem as ruas. Em 28x36
-// os icones com recorte fino (buracos, iluminacao) ja viram mancha.
-const PIN_W = 32;
-const PIN_H = 42;
-const ICON_SIZE = Math.round((BASE_ICON * PIN_W) / BASE_W);
+// Status da bronca -> sufixo do token --pin-*. Status desconhecido ou ausente
+// cai em 'pending', que e o estado inicial de toda bronca.
+const STATUS_PIN_TOKEN = {
+  pending: 'pending',
+  'in-progress': 'progress',
+  resolved: 'resolved',
+  duplicate: 'duplicate',
+};
+
+const statusPinToken = (status) => STATUS_PIN_TOKEN[status] || 'pending';
 
 // Os tokens sao tripletes RGB ("255 255 255") consumidos como rgb(var(--x)).
 // O no do divIcon fica sob documentElement, que e onde applyTheme poe a classe
@@ -35,11 +38,6 @@ const ICON_SIZE = Math.round((BASE_ICON * PIN_W) / BASE_W);
 // de tema sem re-render. Por isso o tema nao entra na chave de cache: o mesmo
 // HTML serve aos dois temas.
 const token = (name) => `rgb(var(${name}))`;
-
-// Gota: circulo de raio 20 no topo e uma ponta que fecha em (20, 52). A ponta
-// marca a coordenada exata, entao o iconAnchor precisa cair exatamente nela.
-const PIN_PATH =
-  'M20 0C8.95 0 0 8.95 0 20c0 12.5 16.5 29.1 18.6 31.2a2 2 0 0 0 2.8 0C23.5 49.1 40 32.5 40 20 40 8.95 31.05 0 20 0Z';
 
 // Chaveado so pela identidade visual: como as cores saem de var(--...), o mesmo
 // divIcon serve aos dois temas e nunca precisa ser invalidado.
@@ -101,11 +99,11 @@ const renderIconMarkup = (element) => {
  * @param {React.ReactElement} icon  elemento do icone, ja dimensionado
  */
 export const buildPinBadge = (icon) => `
-    <div style="position:absolute;top:0;right:0;width:16px;height:16px;border-radius:9999px;background:${token(
+    <div style="position:absolute;top:-2px;right:-2px;width:16px;height:16px;border-radius:9999px;background:${token(
       '--pin-badge-bg'
     )};color:${token('--pin-badge-fg')};border:2px solid ${token(
   '--pin-ring'
-)};display:flex;align-items:center;justify-content:center;">
+)};display:flex;align-items:center;justify-content:center;box-sizing:border-box;">
       ${renderIconMarkup(icon)}
     </div>
   `;
@@ -134,34 +132,38 @@ export const createMapPin = ({
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const iconMarkup = renderIconMarkup(icon);
+  // Aceita emoji (string) alem de elemento React: os pins de bronca voltaram a
+  // usar emoji, enquanto as outras telas de mapa (obras, pavimentacao, imoveis)
+  // seguem com SVG proprio.
+  // As reticencias de "outros" sao texto, nao emoji: assentam na linha de base
+  // e ficariam encostadas embaixo. O flex do disco centra na horizontal, mas o
+  // ajuste vertical precisa deste translate.
+  const ehTexto = icon === '…';
+  const iconMarkup =
+    typeof icon === 'string'
+      ? `<span style="font-size:${
+          ehTexto ? EMOJI_SIZE + 6 : EMOJI_SIZE
+        }px;line-height:1;font-weight:700;transform:translateY(${
+          ehTexto ? '-4px' : '0'
+        });">${icon}</span>`
+      : renderIconMarkup(icon);
 
-  // fill/stroke vao no style, nao como atributo SVG: var() so e interpretado em
-  // propriedade CSS - como atributo de apresentacao a string fica literal e o
-  // path sai sem cor.
-  // O viewBox e sempre o da referencia: o SVG escala o desenho para PIN_W/PIN_H.
-  // A espessura do anel divide pela escala, senao encolher o pin engrossaria o
-  // contorno em relacao ao corpo.
-  const scale = PIN_W / BASE_W;
-  // Anel fino: 2px deixava um contorno grosso que, com dezenas de pins juntos,
-  // se somava numa moldura pesada em volta de cada um.
-  const ring = (selected ? 2.5 : 1.5) / scale;
-  const iconTop = Math.round((BASE_ICON_CY - BASE_ICON / 2) * scale);
+  // Disco simples: um div redondo com o icone centralizado. Sem SVG de corpo,
+  // entao as cores entram por background/color e o var(--...) resolve direto -
+  // nao ha o problema de fill/stroke como atributo de apresentacao.
+  const ring = selected ? 3 : 2;
 
+  // position:relative e necessario aqui: o badge se posiciona por absolute
+  // em relacao a este disco.
   const html = `
-    <div style="position:relative;width:${PIN_W}px;height:${PIN_H}px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.18));">
-      <svg width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${BASE_W} ${BASE_H}" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="${PIN_PATH}" style="fill:${token(bgToken)};stroke:${token(
+    <div style="position:relative;width:${PIN_SIZE}px;height:${PIN_SIZE}px;border-radius:50%;background:${token(
+    bgToken
+  )};border:${ring}px solid ${token(
     '--pin-ring'
-  )};stroke-width:${ring};"/>
-      </svg>
-      <div style="position:absolute;top:${iconTop}px;left:${
-    (PIN_W - ICON_SIZE) / 2
-  }px;width:${ICON_SIZE}px;height:${ICON_SIZE}px;color:${token(
+  )};box-shadow:0 2px 5px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;color:${token(
     fgToken
-  )};display:flex;align-items:center;justify-content:center;">
-        ${iconMarkup}
-      </div>
+  )};box-sizing:border-box;">
+      ${iconMarkup}
       ${badge}
     </div>
   `;
@@ -169,9 +171,11 @@ export const createMapPin = ({
   const divIcon = L.divIcon({
     html,
     className: 'custom-leaflet-icon',
-    iconSize: [PIN_W, PIN_H],
-    iconAnchor: [PIN_W / 2, PIN_H],
-    popupAnchor: [0, -PIN_H],
+    iconSize: [PIN_SIZE, PIN_SIZE],
+    // Ancora no centro, nao na base: o disco marca o ponto pelo proprio centro,
+    // diferente da gota, que apontava a coordenada com a ponta.
+    iconAnchor: [PIN_SIZE / 2, PIN_SIZE / 2],
+    popupAnchor: [0, -PIN_SIZE / 2],
   });
 
   cache.set(cacheKey, divIcon);
@@ -194,20 +198,20 @@ export const createMapPin = ({
  */
 export const createPinIcon = ({ report, selected = false, hot = false }) => {
   const category = report?.category ?? report?.category_id;
-  // "Em alta" sobrepoe a cor da categoria: e um alerta, e o icone continua
-  // dizendo de que categoria se trata.
-  const name = hot ? 'hot' : categoryPinToken(category);
+  const status = report?.status;
+  // Cor pelo STATUS: laranja pendente, azul em andamento, verde resolvida. A
+  // categoria e dita pelo emoji dentro do disco. Assim o mapa responde de
+  // relance "o que ainda esta em aberto", que e a pergunta da tela.
+  const name = hot ? 'hot' : statusPinToken(status);
   return createMapPin({
-    cacheKey: `report|${category || ''}|${hot ? 'hot' : ''}|${selected ? 's' : ''}`,
+    cacheKey: `report|${category || ''}|${status || ''}|${hot ? 'hot' : ''}|${
+      selected ? 's' : ''
+    }`,
     bgToken: `--pin-${name}-bg`,
     fgToken: `--pin-${name}-fg`,
-    // categoryIconName ja cai em 'other' para categoria desconhecida, e cobre
-    // 'poda'/'vazamento-de-agua', que os emojis antigos do MapView nao tinham.
-    icon: React.createElement(Icon, {
-      name: categoryIconName(category),
-      size: ICON_SIZE,
-      strokeWidth: 2,
-    }),
+    // categoryEmoji ja cai em 'outros' para categoria desconhecida, e cobre
+    // 'vazamento-de-agua' e 'seguranca', que o mapa antigo nao tinha.
+    icon: categoryEmoji(category),
     selected,
   });
 };

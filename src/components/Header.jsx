@@ -159,15 +159,15 @@ const Header = () => {
         className="container mx-auto px-4 flex justify-between items-center"
         style={{ marginTop: 0, height: 'var(--header-bar-height)' }}
       >
-        {/* O nome do site saiu daqui: o logo ja identifica a marca, e o espaco
-            passa a mostrar a cidade ativa — o filtro que define o conteudo do
-            feed e das demais telas. */}
+        {/* A marca volta a ocupar o lado esquerdo em todas as telas. A cidade
+            ativa saiu daqui: virou um icone de pin no lado direito, para o nome
+            do site nao competir com o nome da cidade pelo mesmo espaco. */}
         <div className="flex items-center gap-3 min-w-0">
-          <Link to="/" className="flex items-center shrink-0">
+          <Link to="/" className="flex items-center gap-2 min-w-0">
             <img
               src={logoError ? '/logo.png' : (logoUrl || '/logo.png')}
               alt={siteName}
-              className="h-10 w-auto"
+              className="h-10 w-auto shrink-0"
               onError={(e) => {
                 if (!logoError) {
                   setLogoError(true);
@@ -179,16 +179,8 @@ const Header = () => {
                 }
               }}
             />
-          </Link>
-          {/* No feed o espaco ao lado do logo mostra a cidade ativa — e o filtro
-              que define o conteudo da tela. Fora dele volta o nome do site: as
-              telas de exploracao tem filtro proprio (local), e deixar o espaco
-              vazio so desperdicava o lugar onde a marca deveria estar. */}
-          {location.pathname === '/' ? (
-            <FeedCitySelector inHeader />
-          ) : (
             <span className="font-extrabold text-lg tracking-tight truncate">{siteName}</span>
-          )}
+          </Link>
         </div>
 
         <nav className="hidden lg:flex items-center gap-5">
@@ -205,12 +197,18 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-4">
+          {/* Pin da cidade ativa: substitui o chip com o nome da cidade. Abre a
+              lista como sheet centralizado, que nao corta na borda da tela. */}
+          <FeedCitySelector iconOnly />
           {user ? (
             <>
               <Notifications />
+              {/* No mobile o acesso ao perfil e as opcoes de conta vive na aba
+                  Perfil da barra inferior, entao o avatar aparece so a partir
+                  de lg, onde essa barra nao existe. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 overflow-hidden">
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 overflow-hidden hidden lg:flex">
                     {getAvatarComponent(user)}
                   </Button>
                 </DropdownMenuTrigger>
@@ -343,7 +341,7 @@ const Header = () => {
                     </div>
                     
                     <div className="flex flex-col gap-2">
-                      <Button asChild variant="secondary" className="w-full h-10 bg-white text-black hover:bg-gray-100 font-semibold border-0 transition-all hover:translate-y-[-1px] shadow-sm text-sm">
+                      <Button asChild variant="secondary" className="w-full h-10 bg-surface-raised text-black hover:bg-surface-sunken font-semibold border-0 transition-all hover:translate-y-[-1px] shadow-sm text-sm">
                         <Link to="/login" className="flex items-center justify-center gap-2">
                           <LucideIcons.LogIn className="w-4 h-4" />
                           <span>Entrar</span>

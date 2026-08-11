@@ -318,7 +318,7 @@ const CreateInviteSection = ({ user }) => {
               <Check className="w-4 h-4" /> Convite gerado!
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-white border border-green-200 rounded-lg p-2 break-all text-green-900">
+              <code className="flex-1 text-xs bg-surface-raised border border-green-200 rounded-lg p-2 break-all text-green-900">
                 {generatedLink}
               </code>
               <Button

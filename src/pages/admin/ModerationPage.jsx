@@ -473,7 +473,7 @@ const ModerationPage = () => {
                                 {isUpdateModeration ? 'Atualização' : isWorkMediaModeration ? 'Mídia de Obra' : isPetitionModeration ? 'Abaixo-Assinado' : isResolutionModeration ? 'Resolução' : 'Comentário'}
                               </Badge>
                               {isUpdateModeration && item.update_type && (
-                                <span className={`text-[9px] md:text-xs font-semibold px-2 py-0.5 rounded-full border ${UPDATE_TYPE_COLORS[item.update_type] || 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                                <span className={`text-[9px] md:text-xs font-semibold px-2 py-0.5 rounded-full border ${UPDATE_TYPE_COLORS[item.update_type] || 'bg-surface-subtle text-content-secondary border-edge-subtle'}`}>
                                   {UPDATE_TYPE_LABELS[item.update_type] || item.update_type}
                                 </span>
                               )}
@@ -504,11 +504,11 @@ const ModerationPage = () => {
                                     key={m.id}
                                     src={m.url}
                                     alt=""
-                                    className="w-10 h-10 rounded-lg object-cover border border-gray-100"
+                                    className="w-10 h-10 rounded-lg object-cover border border-edge-subtle"
                                   />
                                 ))}
                                 {item.media.length > 3 && (
-                                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">
+                                  <div className="w-10 h-10 rounded-lg bg-surface-sunken flex items-center justify-center text-[10px] font-bold text-content-tertiary">
                                     +{item.media.length - 3}
                                   </div>
                                 )}
@@ -598,7 +598,7 @@ const ModerationPage = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 md:h-10 md:w-10 text-gray-400 hover:text-white hover:bg-gray-500 rounded-lg transition-colors disabled:opacity-50"
+                                  className="h-8 w-8 md:h-10 md:w-10 text-content-tertiary hover:text-white hover:bg-gray-500 rounded-lg transition-colors disabled:opacity-50"
                                   onClick={() => handleAction(item, 'deleted')}
                                   title="Excluir definitivamente"
                                   disabled={!!actionLoadingId}
@@ -639,7 +639,7 @@ const ModerationPage = () => {
                                   Abrir bronca
                                 </a>
                               </div>
-                              <div className="bg-white rounded-xl border border-orange-100 px-4 py-3">
+                              <div className="bg-surface-raised rounded-xl border border-orange-100 px-4 py-3">
                                 <p className="font-semibold text-sm">{item.report?.title || 'Bronca sem título'}</p>
                               </div>
 
@@ -647,7 +647,7 @@ const ModerationPage = () => {
                               {item.message && (
                                 <div>
                                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Mensagem do autor</p>
-                                  <div className="bg-white rounded-xl border border-orange-100 px-4 py-3">
+                                  <div className="bg-surface-raised rounded-xl border border-orange-100 px-4 py-3">
                                     <p className="text-sm whitespace-pre-wrap leading-relaxed">{item.message}</p>
                                   </div>
                                 </div>
@@ -664,7 +664,7 @@ const ModerationPage = () => {
                                       <button
                                         key={m.id}
                                         onClick={() => setLightboxImage(m.url)}
-                                        className="relative aspect-square rounded-xl overflow-hidden border border-orange-100 bg-gray-100 group focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                        className="relative aspect-square rounded-xl overflow-hidden border border-orange-100 bg-surface-sunken group focus:outline-none focus:ring-2 focus:ring-orange-400"
                                       >
                                         <img
                                           src={m.url}
@@ -712,7 +712,7 @@ const ModerationPage = () => {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="rounded-lg h-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                  className="rounded-lg h-9 text-content-tertiary hover:text-content-secondary hover:bg-surface-sunken"
                                   onClick={() => handleAction(item, 'deleted')}
                                   disabled={!!actionLoadingId}
                                   title="Excluir definitivamente"

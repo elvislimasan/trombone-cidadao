@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { categoryEmoji } from '@/design-system/icons';
 
 const PAGE_SIZE = 10;
 const SLOW_LOAD_MS = 4500;
@@ -10,16 +11,9 @@ const SLOW_MORE_MS = 6500;
 // resultados a centenas de km sob o rotulo "perto".
 const NEARBY_RADIUS_M = 15000;
 
-const CATEGORY_EMOJIS = {
-  iluminacao: '💡',
-  buracos: '🕳️',
-  esgoto: '🚰',
-  limpeza: '🧹',
-  poda: '🌳',
-  'vazamento-de-agua': '💧',
-  seguranca: '🛡️',
-  outros: '📍',
-};
+// Emojis vem do design system: a lista estava duplicada aqui e no mapa, e as
+// duas copias ja divergiram (o mapa nao tinha 'vazamento-de-agua' nem
+// 'seguranca').
 
 const errorToMessage = (err) => {
   if (!err) return 'Não foi possível carregar. Tente novamente.';
@@ -178,7 +172,7 @@ export function useFeed(tab = 'recent', cityId = null, userCoords = null) {
           is_anonymous: isAnonymous,
           categoryName: catName,
           categoryIcon: r.category?.icon || '',
-          categoryEmoji: CATEGORY_EMOJIS[catName] || '📍',
+          categoryEmoji: categoryEmoji(catName),
           coverImage:
             (r.report_media || []).find((m) => m.type === 'photo')?.url || null,
           coverVideo:

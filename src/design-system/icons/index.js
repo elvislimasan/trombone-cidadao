@@ -6,7 +6,6 @@ import Lighting from './categories/Lighting';
 import Cleaning from './categories/Cleaning';
 import Greenery from './categories/Greenery';
 import WaterLeak from './categories/WaterLeak';
-import Security from './categories/Security';
 import Other from './categories/Other';
 
 import Received from './status/Received';
@@ -40,7 +39,6 @@ registerIcons({
   cleaning: Cleaning,
   greenery: Greenery,
   waterleak: WaterLeak,
-  security: Security,
   other: Other,
 
   received: Received,
@@ -77,9 +75,27 @@ export const CATEGORY_ICON_MAP = {
   limpeza: 'cleaning',
   poda: 'greenery',
   'vazamento-de-agua': 'waterleak',
-  seguranca: 'security',
   outros: 'other',
 };
+
+// Emoji por categoria. Usado nos pins do mapa e nas listas do feed - o mesmo
+// mapa nos dois lugares, para o simbolo de uma categoria nao divergir entre
+// telas (antes existia uma copia em useFeed.js e outra no MapView).
+export const CATEGORY_EMOJI_MAP = {
+  iluminacao: '💡',
+  buracos: '🕳️',
+  esgoto: '🚰',
+  limpeza: '🧹',
+  poda: '🌳',
+  'vazamento-de-agua': '💧',
+  // Reticencias em vez de 📍: o alfinete repetia o proprio formato do marcador
+  // e nao dizia nada sobre a bronca.
+  outros: '…',
+};
+
+export function categoryEmoji(categoryId) {
+  return CATEGORY_EMOJI_MAP[categoryId] || CATEGORY_EMOJI_MAP.outros;
+}
 
 export function categoryIconName(categoryId) {
   return CATEGORY_ICON_MAP[categoryId] || 'other';
@@ -96,7 +112,6 @@ export const CATEGORY_PIN_TOKEN = {
   limpeza: 'cleaning',
   poda: 'greenery',
   'vazamento-de-agua': 'waterleak',
-  seguranca: 'security',
   outros: 'other',
 };
 

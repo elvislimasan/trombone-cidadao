@@ -1025,7 +1025,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl w-[95vw] h-[95vh] sm:h-[90vh] lg:h-[85vh] p-0 flex flex-col overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-4 sm:p-6 border-b bg-white flex-shrink-0">
+        <DialogHeader className="p-4 sm:p-6 border-b bg-surface-raised flex-shrink-0">
           <div className="flex items-center gap-2">
             <Instagram className="text-pink-600" size={24} />
             <DialogTitle className="text-xl sm:text-2xl font-black">Story para Instagram</DialogTitle>
@@ -1050,7 +1050,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                       className={`flex items-center sm:items-start flex-row gap-1.5 sm:gap-4 lg:gap-2 p-1.5 sm:p-4 lg:p-2 rounded-xl text-left transition-all border-2 flex-1 sm:flex-none ${
                         layout === item.value 
                           ? 'border-tc-red bg-tc-red/10 shadow-sm' 
-                          : 'border-transparent hover:bg-muted bg-white'
+                          : 'border-transparent hover:bg-muted bg-surface-raised'
                       }`}
                     >
                       <div className={`p-1 sm:p-2 rounded-lg transition-colors ${layout === item.value ? 'bg-tc-red text-white' : 'bg-muted text-muted-foreground'}`}>
@@ -1071,7 +1071,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
               </div>
 
               {layout === 'instagram' && (
-                <div className="pt-2 border-t border-gray-100 space-y-4">
+                <div className="pt-2 border-t border-edge-subtle space-y-4">
                   <div>
                     <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                       Fundo do Story
@@ -1080,7 +1080,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                       <button
                         onClick={() => setBgType('default')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
-                          bgType === 'default' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                          bgType === 'default' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-edge-subtle bg-surface-raised'
                         }`}
                       >
                         Padrão
@@ -1089,7 +1089,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                       <button
                         onClick={() => setBgType('primary')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
-                          bgType === 'primary' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                          bgType === 'primary' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-edge-subtle bg-surface-raised'
                         }`}
                       >
                         Mapa Vermelho
@@ -1098,7 +1098,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                       <button
                         onClick={() => setBgType('second')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
-                          bgType === 'second' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                          bgType === 'second' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-edge-subtle bg-surface-raised'
                         }`}
                       >
                         Mapa Azul
@@ -1107,7 +1107,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                       <button
                         onClick={() => setBgType('third')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
-                          bgType === 'third' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                          bgType === 'third' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-edge-subtle bg-surface-raised'
                         }`}
                       >
                         Mapa Verde
@@ -1116,7 +1116,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                       <button
                         onClick={() => setBgType('color')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold flex items-center justify-between ${
-                          bgType === 'color' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-gray-200 bg-white'
+                          bgType === 'color' ? 'border-tc-red bg-tc-red/5 text-tc-red' : 'border-edge-subtle bg-surface-raised'
                         }`}
                       >
                         <span>Cor</span>
@@ -1142,12 +1142,12 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                       className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all ${
                         enableImageEffect 
                           ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold' 
-                          : 'border-gray-200 bg-white text-gray-600'
+                          : 'border-edge-subtle bg-surface-raised text-content-secondary'
                       }`}
                     >
                       <span className="text-[10px]">Suavizar Imagem</span>
                       <div className={`w-8 h-4 rounded-full relative transition-colors ${enableImageEffect ? 'bg-tc-red' : 'bg-gray-200'}`}>
-                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${enableImageEffect ? 'right-0.5' : 'left-0.5'}`} />
+                        <div className={`absolute top-0.5 w-3 h-3 bg-surface-raised rounded-full transition-all ${enableImageEffect ? 'right-0.5' : 'left-0.5'}`} />
                       </div>
                     </button>
                   </div>
@@ -1155,7 +1155,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
               )}
 
               {layout === 'urgent' && (
-                <div className="pt-2 sm:pt-2 border-t border-gray-100 sm:border-none">
+                <div className="pt-2 sm:pt-2 border-t border-edge-subtle sm:border-none">
                   <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-3">
                     Cor do Card
                   </h3>
@@ -1176,7 +1176,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
               )}
 
               {layout === 'urgent' && (
-                <div className="pt-2 sm:pt-2 border-t border-gray-100 sm:border-none space-y-4">
+                <div className="pt-2 sm:pt-2 border-t border-edge-subtle sm:border-none space-y-4">
                   <div>
                     <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-3">
                       Estilo da Imagem
@@ -1193,7 +1193,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                           className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border-2 transition-all text-left ${
                             imageMode === opt.value 
                               ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold' 
-                              : 'border-gray-200 bg-white text-gray-600'
+                              : 'border-edge-subtle bg-surface-raised text-content-secondary'
                           }`}
                         >
                           <span className="text-[10px] sm:text-xs">{opt.label}</span>
@@ -1210,7 +1210,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                     <button
                       onClick={() => setShowQRCode(!showQRCode)}
                       className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 transition-all ${
-                        showQRCode ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold' : 'border-gray-200 bg-white text-gray-600'
+                        showQRCode ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold' : 'border-edge-subtle bg-surface-raised text-content-secondary'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1218,7 +1218,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
                         <span className="text-[10px] sm:text-xs">Incluir QR Code</span>
                       </div>
                       <div className={`w-8 h-4 rounded-full relative transition-colors ${showQRCode ? 'bg-tc-red' : 'bg-gray-200'}`}>
-                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showQRCode ? 'right-0.5' : 'left-0.5'}`} />
+                        <div className={`absolute top-0.5 w-3 h-3 bg-surface-raised rounded-full transition-all ${showQRCode ? 'right-0.5' : 'left-0.5'}`} />
                       </div>
                     </button>
                   </div>
@@ -1255,7 +1255,7 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
           </div>
         </div>
 
-        <DialogFooter className="p-4 sm:p-6 lg:p-4 border-t bg-white flex flex-row items-center justify-between gap-3 flex-shrink-0">
+        <DialogFooter className="p-4 sm:p-6 lg:p-4 border-t bg-surface-raised flex flex-row items-center justify-between gap-3 flex-shrink-0">
           <Button variant="ghost" onClick={onClose} className="h-10 px-4 font-bold">Cancelar</Button>
           <Button onClick={handleDownload} disabled={downloading} className="bg-tc-red hover:bg-tc-red/90 text-white gap-2 h-10 px-6 font-bold shadow-lg flex-1 sm:flex-none">
             {downloading ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : <Download size={18} />}

@@ -351,7 +351,7 @@ const LoginPage = () => {
                         /* Preto no claro, branco no escuro: e a regra de marca
                            da Apple para o botao de login, e preto sobre fundo
                            escuro sumiria. Por isso nao usa token de superficie. */
-                        className="w-full h-10 gap-2 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200 transition-colors"
+                        className="w-full h-10 gap-2 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-surface-raised dark:text-neutral-950 dark:hover:bg-neutral-200 transition-colors"
                         onClick={handleAppleLogin}
                         disabled={isLoading}
                       >

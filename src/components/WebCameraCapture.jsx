@@ -189,7 +189,7 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
             </Button>
           )
         ) : (
-          <Button type="button" onClick={capturePhoto} disabled={!isReady} className="bg-white text-black hover:bg-white/90 rounded-full h-12 px-6">
+          <Button type="button" onClick={capturePhoto} disabled={!isReady} className="bg-surface-raised text-black hover:bg-white/90 rounded-full h-12 px-6">
             <Camera className="h-5 w-5 mr-2" />
             Capturar
           </Button>

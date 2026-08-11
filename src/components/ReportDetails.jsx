@@ -2070,7 +2070,7 @@ const ReportDetails = ({
       <DynamicSEO key={`report-${report?.id}`} {...seoData} />
 
       {isPageVariant ? (
-        <div className="flex flex-col min-h-screen bg-[#F9FAFB] md:px-6">
+        <div className="flex flex-col min-h-screen bg-surface-base md:px-6">
           <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-6 max-w-[88rem] mx-auto w-full">
             <div className="max-w-4xl mx-auto">{cardContent}</div>
           </div>

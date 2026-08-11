@@ -178,12 +178,12 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
                     <div className="w-full h-full flex flex-col items-center justify-center text-white bg-black/50 rounded-lg">
                       <AlertCircle className="w-16 h-16 text-yellow-500 mb-4" />
                       <p className="text-lg font-semibold">Vídeo indisponível no momento</p>
-                      <p className="text-sm text-gray-400 mt-2">
+                      <p className="text-sm text-content-tertiary mt-2">
                         O vídeo pode estar sendo processado ou o envio falhou.
                       </p>
                       <Button 
                         variant="outline" 
-                        className="mt-4 bg-transparent border-white text-white hover:bg-white hover:text-black"
+                        className="mt-4 bg-transparent border-white text-white hover:bg-surface-raised hover:text-black"
                         onClick={() => {
                           setVideoError(false);
                           // Forçar recarregamento do vídeo
@@ -225,7 +225,7 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
             {currentItem.description && currentItem.name && (
               <p className="text-sm text-gray-300 mt-1 hidden sm:block">{currentItem.name}</p>
             )}
-            <p className="text-xs text-gray-400 mt-2">{currentIndex + 1} de {safeMedia.length}</p>
+            <p className="text-xs text-content-tertiary mt-2">{currentIndex + 1} de {safeMedia.length}</p>
           </div>
         </motion.div>
       </motion.div>

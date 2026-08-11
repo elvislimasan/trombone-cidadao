@@ -429,10 +429,10 @@ const VideoProcessor = ({
                 </div>
             </div>
           ) : (
-            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center rounded border border-gray-200 dark:border-gray-700 relative">
-                   <Video className="w-5 h-5 text-gray-400" />
+            <div className="w-12 h-12 bg-surface-sunken dark:bg-gray-800 flex flex-col items-center justify-center rounded border border-edge-subtle dark:border-gray-700 relative">
+                   <Video className="w-5 h-5 text-content-tertiary" />
                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Play className="w-3 h-3 text-gray-500 fill-gray-500 opacity-50" />
+                      <Play className="w-3 h-3 text-content-tertiary fill-gray-500 opacity-50" />
                    </div>
             </div>
           )}

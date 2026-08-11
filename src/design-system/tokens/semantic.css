@@ -49,16 +49,27 @@
   --status-duplicate-fg:     var(--tc-neutral-600);
   --status-duplicate-border: var(--tc-neutral-200);
 
-  /* --- Pins do mapa: cor por CATEGORIA ---
+  /* --- Pins do mapa ---
      Distintos dos --status-* acima: aquele par e de badge (fundo pastel, texto
      escuro) e le contra o card. O pin le contra o mapa, entao o corpo usa a cor
      cheia e o icone inverte.
-     As cores vivas do guia valem nos DOIS temas, com icone escuro por cima. A
-     tentativa anterior - escurecer o corpo no tema claro para carregar icone
-     branco - passava no contraste mas deixava os pins marrons sobre o mapa
-     claro, longe do desenho. Com icone escuro as mesmas cores dao 4.99-11.51.
-     O anel substitui o `border: 2px solid white` que estava hardcoded nas
-     quatro telas de mapa e estourava no tema escuro. */
+
+     A cor do pin de bronca vem do STATUS - laranja pendente, azul em andamento,
+     verde resolvida. A categoria e dita pelo emoji dentro do disco. Os
+     --pin-<categoria>-* abaixo seguem em uso pelos chips de filtro e pelas
+     capas dos cards do feed. */
+  --pin-pending-bg:   var(--tc-status-pending);
+  --pin-pending-fg:   var(--tc-neutral-950);
+
+  --pin-progress-bg:  var(--tc-status-progress);
+  --pin-progress-fg:  var(--tc-neutral-950);
+
+  --pin-resolved-bg:  var(--tc-status-resolved);
+  --pin-resolved-fg:  var(--tc-neutral-950);
+
+  --pin-duplicate-bg: var(--tc-status-duplicate);
+  --pin-duplicate-fg: var(--tc-neutral-950);
+
   --pin-pothole-bg:   var(--tc-cat-pothole);
   --pin-pothole-fg:   var(--tc-neutral-950);
 
@@ -80,9 +91,6 @@
   --pin-waterleak-bg: var(--tc-cat-sewage);
   --pin-waterleak-fg: var(--tc-neutral-950);
 
-  --pin-security-bg:  var(--tc-cat-security);
-  --pin-security-fg:  var(--tc-neutral-950);
-
   --pin-other-bg:     var(--tc-cat-other);
   --pin-other-fg:     var(--tc-neutral-950);
 
@@ -92,9 +100,9 @@
      que escondia as ruas. Com a cor dessaturada o branco volta a funcionar. */
   --pin-ring: var(--tc-neutral-0);
 
-  /* Estados do guia. "Em alta" reusa o vermelho de seguranca; "selecionado" nao
-     muda de cor, so engrossa o anel (tratado no componente). */
-  --pin-hot-bg: var(--tc-cat-security);
+  /* "Em alta" sobrepoe a cor de status com o vermelho de alerta; "selecionado"
+     nao muda de cor, so engrossa o anel (tratado no componente). */
+  --pin-hot-bg: var(--tc-cat-alert);
   --pin-hot-fg: var(--tc-neutral-950);
 
   /* Imoveis alugados: tokens proprios em vez de reusar os de bronca, para que
@@ -163,7 +171,7 @@
   /* Paleta categorica para series sem significado semantico (broncas por
      categoria). Reusa as cores de categoria dos pins, para o mapa e o grafico
      falarem a mesma lingua. */
-  --chart-cat-1: var(--tc-cat-security);
+  --chart-cat-1: var(--tc-cat-alert);
   --chart-cat-2: var(--tc-cat-pothole);
   --chart-cat-3: var(--tc-cat-sewage);
   --chart-cat-4: var(--tc-cat-lighting);

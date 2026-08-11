@@ -398,14 +398,14 @@ const RegisterPage = () => {
 
                 <div className="relative flex items-center gap-2 my-2">
                       <div className="h-px bg-gray-200 flex-1" />
-                      <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider">ou cadastre-se com</span>
+                      <span className="text-[10px] uppercase text-content-tertiary font-medium tracking-wider">ou cadastre-se com</span>
                       <div className="h-px bg-gray-200 flex-1" />
                 </div>
 
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-10 gap-2 rounded-full border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  className="w-full h-10 gap-2 rounded-full border-edge-subtle text-content-secondary hover:bg-surface-subtle hover:text-content-primary transition-colors"
                   onClick={handleGoogleLogin}
                   disabled={loading}
                 >

@@ -337,7 +337,7 @@ const LocationPickerMap = ({
 
       {showLocateButton && (
         <div className="absolute bottom-3 right-3 z-[9999]">
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-lg">
             <button
               type="button"
               onClick={(e) => {
@@ -360,9 +360,9 @@ const LocationPickerMap = ({
         <button
           type="button"
           onClick={handleLayerToggle}
-          className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[9999] bg-white/95 backdrop-blur-sm border border-gray-200 shadow-lg rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:bg-white transition-all active:scale-95 select-none"
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[9999] bg-white/95 backdrop-blur-sm border border-edge-subtle shadow-lg rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:bg-surface-raised transition-all active:scale-95 select-none"
         >
-          <Layers className="w-3.5 h-3.5 text-gray-600" />
+          <Layers className="w-3.5 h-3.5 text-content-secondary" />
           {mapLayer === "satellite" ? "Mapa Padrão" : "Satélite"}
         </button>
       )}

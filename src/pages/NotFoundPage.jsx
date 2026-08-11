@@ -21,7 +21,7 @@ const NotFoundPage = () => {
       <Helmet>
         <title>404 – Trombone Cidadão</title>
       </Helmet>
-      <div className="w-full bg-[#F9FAFB]">
+      <div className="w-full bg-surface-base">
         <div className="relative container mx-auto flex flex-col items-center px-4 py-16 md:py-20 text-center">
           <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#c0392b] opacity-10 blur-3xl" />
           <div className="pointer-events-none absolute -right-20 -bottom-24 h-64 w-64 rounded-full bg-[#e8a317] opacity-10 blur-3xl" />
@@ -63,7 +63,7 @@ const NotFoundPage = () => {
                   placeholder="Buscar obras, serviços, petições..."
                   value={term}
                   onChange={(e) => setTerm(e.target.value)}
-                  className="h-11 border-2 border-[#d9cfc9] bg-white pl-9 text-[0.95rem] placeholder:text-[#b1a39e] focus-visible:border-[#c0392b] focus-visible:ring-0"
+                  className="h-11 border-2 border-[#d9cfc9] bg-surface-raised pl-9 text-[0.95rem] placeholder:text-[#b1a39e] focus-visible:border-[#c0392b] focus-visible:ring-0"
                 />
               </div>
               <Button
@@ -80,42 +80,42 @@ const NotFoundPage = () => {
             <div className="mb-8 flex max-w-2xl flex-wrap justify-center gap-3">
               <Link
                 to="/"
-                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-white px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-surface-raised px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
               >
                 <span className="text-base">🏠</span>
                 <span>Início</span>
               </Link>
               <Link
                 to="/obras-publicas"
-                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-white px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-surface-raised px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
               >
                 <span className="text-base">🏗️</span>
                 <span>Obras Públicas</span>
               </Link>
               <Link
                 to="/mapa-pavimentacao"
-                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-white px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-surface-raised px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
               >
                 <span className="text-base">🛣️</span>
                 <span>Pavimentação</span>
               </Link>
               <Link
                 to="/abaixo-assinados"
-                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-white px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-surface-raised px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
               >
                 <span className="text-base">📋</span>
                 <span>Petições</span>
               </Link>
               <Link
                 to="/estatisticas"
-                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-white px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-surface-raised px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
               >
                 <span className="text-base">📊</span>
                 <span>Estatísticas</span>
               </Link>
               <Link
                 to="/noticias"
-                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-white px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d9cfc9] bg-surface-raised px-4 py-2 text-sm font-medium text-[#1a0a08] transition hover:border-[#c0392b] hover:bg-[#fff5f5] shadow-sm"
               >
                 <span className="text-base">📰</span>
                 <span>Notícias</span>
