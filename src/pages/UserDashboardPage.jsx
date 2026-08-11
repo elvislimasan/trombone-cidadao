@@ -415,7 +415,7 @@ const UserDashboardPage = () => {
             <Button
               asChild
               variant="outline"
-              className="h-10 px-4 sm:px-6 rounded-full font-semibold border-[#F97316] text-[#F97316] hover:bg-surface-subtle"
+              className="h-10 px-4 sm:px-6 rounded-full font-semibold border-status-pendingBorder text-status-pendingFg hover:bg-surface-subtle"
             >
               <a href="/minhas-peticoes">Criar um abaixo-assinado</a>
             </Button>

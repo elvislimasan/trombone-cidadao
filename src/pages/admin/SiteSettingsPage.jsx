@@ -847,8 +847,8 @@ const SiteSettingsPage = () => {
                                 <LucideIcons.X className="h-3 w-3 text-content-tertiary" />
                               </div>
                               {promoModalSettings.petitions_modal.badge_text && (
-                                <div className="flex items-center gap-2 text-xs font-semibold text-[#F97316] uppercase tracking-[0.18em]">
-                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]" />
+                                <div className="flex items-center gap-2 text-xs font-semibold text-status-pendingFg uppercase tracking-[0.18em]">
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-status-pendingFg" />
                                   {promoModalSettings.petitions_modal.badge_text}
                                 </div>
                               )}
@@ -879,7 +879,7 @@ const SiteSettingsPage = () => {
                                   </div>
                                 )}
                                 {promoModalSettings.petitions_modal.secondary_button_text ? (
-                                  <div className="w-full h-9 text-sm font-semibold rounded-full border border-[#F97316] text-[#F97316] flex items-center justify-center">
+                                  <div className="w-full h-9 text-sm font-semibold rounded-full border border-status-pendingBorder text-status-pendingFg flex items-center justify-center">
                                     {promoModalSettings.petitions_modal.secondary_button_text}
                                   </div>
                                 ) : (

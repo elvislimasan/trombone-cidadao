@@ -435,7 +435,7 @@ const PavementMapPage = () => {
                   onClick={() => setReportScope('streets')}
                   className={`px-2 py-0.5 rounded-full border text-[10px] ${
                     reportScope === 'streets'
-                      ? 'bg-[#111827] text-white border-[#111827]'
+                      ? 'bg-surface-sunken text-white border-[#111827]'
                       : 'bg-surface-raised text-content-secondary border-edge-subtle'
                   }`}
                 >
@@ -446,7 +446,7 @@ const PavementMapPage = () => {
                   onClick={() => setReportScope('neighborhoods')}
                   className={`px-2 py-0.5 rounded-full border text-[10px] ${
                     reportScope === 'neighborhoods'
-                      ? 'bg-[#111827] text-white border-[#111827]'
+                      ? 'bg-surface-sunken text-white border-[#111827]'
                       : 'bg-surface-raised text-content-secondary border-edge-subtle'
                   }`}
                 >
@@ -482,15 +482,15 @@ const PavementMapPage = () => {
               type="button"
               variants={itemVariants}
               onClick={() => handleStreetListClick('paved', 'Ruas Pavimentadas')}
-              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-[#16A34A]/40 hover:shadow-md"
+              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-status-resolvedBorder/40 hover:shadow-md"
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#15803D]">Pavimentadas</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#15803D] leading-tight">
+                <div className="text-[11px] md:text-xs text-status-resolvedFg">Pavimentadas</div>
+                <div className="text-xl md:text-2xl font-extrabold text-status-resolvedFg leading-tight">
                   {stats.paved}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#16A34A] text-white">
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-status-resolvedFg text-white">
                 <HardHat className="w-4 h-4" />
               </div>
             </motion.button>
@@ -499,15 +499,15 @@ const PavementMapPage = () => {
               type="button"
               variants={itemVariants}
               onClick={() => handleStreetListClick('partially_paved', 'Ruas Parcialmente Pavimentadas')}
-              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-[#D97706]/40 hover:shadow-md"
+              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-status-pendingBorder/40 hover:shadow-md"
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#B45309]">Parcialmente Pavimentadas</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#B45309] leading-tight">
+                <div className="text-[11px] md:text-xs text-status-pendingFg">Parcialmente Pavimentadas</div>
+                <div className="text-xl md:text-2xl font-extrabold text-status-pendingFg leading-tight">
                   {stats.partially_paved}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#D97706] text-white">
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-status-pendingFg text-white">
                 <Construction className="w-4 h-4" />
               </div>
             </motion.button>
@@ -516,15 +516,15 @@ const PavementMapPage = () => {
               type="button"
               variants={itemVariants}
               onClick={() => handleStreetListClick('unpaved', 'Ruas Sem Pavimentação')}
-              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-[#DC2626]/40 hover:shadow-md"
+              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-brand/40 hover:shadow-md"
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#B91C1C]">Sem Pavimentação</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#B91C1C] leading-tight">
+                <div className="text-[11px] md:text-xs text-brand">Sem Pavimentação</div>
+                <div className="text-xl md:text-2xl font-extrabold text-brand leading-tight">
                   {stats.unpaved}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#DC2626] text-white">
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand text-white">
                 <ThumbsDown className="w-4 h-4" />
               </div>
             </motion.button>
@@ -554,7 +554,7 @@ const PavementMapPage = () => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-surface-raised text-foreground border border-edge-subtle">
                     <DropdownMenuLabel className="text-tc-red">Status</DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-[#E5E7EB]" />
+                    <DropdownMenuSeparator className="bg-surface-sunken" />
                     <DropdownMenuRadioGroup value={statusFilter} onValueChange={setStatusFilter}>
                       <DropdownMenuRadioItem value="all">Todos</DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="paved">Pavimentadas</DropdownMenuRadioItem>
@@ -586,11 +586,11 @@ const PavementMapPage = () => {
             <div className="border-t border-edge-subtle px-3 py-2 bg-surface-base flex flex-wrap items-center gap-3 text-[11px] text-content-secondary">
               <span className="font-semibold">Legenda</span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-status-resolvedFg" />
                 Pavimentada
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-status-pendingFg" />
                 Parcialmente
               </span>
               <span className="inline-flex items-center gap-1">

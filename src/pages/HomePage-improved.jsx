@@ -768,9 +768,11 @@ function HomePageImproved() {
     <div className=" flex flex-col bg-surface-base md:px-6">
       <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-4 space-y-10 max-w-[88rem] mx-auto w-full">
         <section className="space-y-4">
-          <div className="rounded-3xl border border-[#FEE2E2] bg-gradient-to-r from-[#FEF2F2] via-white to-[#FFF7ED] shadow-sm p-4 md:p-5">
-            <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-[#B91C1C]">
-              <span className="inline-block w-1 h-3 rounded-full bg-[#EF4444]" />
+          {/* Fundo neutro em vez do gradiente rosa/branco fixo: no tema escuro
+              o titulo ficava branco sobre rosa claro, ilegivel. */}
+          <div className="rounded-3xl border border-edge-subtle bg-surface-raised shadow-elevation-1 p-4 md:p-5">
+            <p className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-brand">
+              <span className="inline-block w-1 h-3 rounded-full bg-brand" />
               Bem-vindo
             </p>
             <div className="text-lg md:text-xl lg:text-2xl font-extrabold text-content-primary mt-2">
@@ -784,27 +786,27 @@ function HomePageImproved() {
               <button
                 type="button"
                 onClick={() => openCreateReportFlow()}
-                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#EF4444]/50 bg-surface-raised shadow-sm hover:shadow-md hover:border-[#EF4444]/70 transition p-3 flex flex-col items-center justify-center gap-2"
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-brand/50 bg-surface-raised shadow-sm hover:shadow-md hover:border-brand/70 transition p-3 flex flex-col items-center justify-center gap-2"
               >
-                <Megaphone className="w-6 h-6 text-[#EF4444]" />
+                <Megaphone className="w-6 h-6 text-brand" />
                 <div className="text-xs font-semibold text-content-primary leading-tight text-center">Cadastre sua bronca</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate('/abaixo-assinados')}
-                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#F97316]/50 bg-surface-raised shadow-sm hover:shadow-md hover:border-[#F97316]/70 transition p-3 flex flex-col items-center justify-center gap-2"
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-status-pendingBorder/50 bg-surface-raised shadow-sm hover:shadow-md hover:border-status-pendingBorder/70 transition p-3 flex flex-col items-center justify-center gap-2"
               >
-                <Heart className="w-6 h-6 text-[#F97316]" />
+                <Heart className="w-6 h-6 text-status-pendingFg" />
                 <div className="text-xs font-semibold text-content-primary leading-tight text-center">Petições</div>
               </button>
 
               <button
                 type="button"
                 onClick={handleShareCreateReport}
-                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-[#EF4444]/30 bg-surface-raised shadow-sm hover:shadow-md hover:border-[#EF4444]/50 transition p-3 flex flex-col items-center justify-center gap-2"
+                className="group shrink-0 w-[120px] h-[120px] rounded-2xl border-2 border-brand/30 bg-surface-raised shadow-sm hover:shadow-md hover:border-brand/50 transition p-3 flex flex-col items-center justify-center gap-2"
               >
-                <Share2 className="w-6 h-6 text-[#EF4444]" />
+                <Share2 className="w-6 h-6 text-brand" />
                 <div
                   className="text-[11px] font-semibold text-content-primary leading-tight text-center"
                   style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
@@ -839,17 +841,17 @@ function HomePageImproved() {
               onClick={() => handleStatusCardClick('active')}
               className={`group flex items-center justify-between rounded-xl px-3 py-3 lg:px-6 lg:py-6 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'active'
-                  ? 'bg-surface-raised border border-[#2563EB]/60 shadow-md'
-                  : 'bg-surface-raised border border-transparent hover:border-[#2563EB]/40 hover:shadow-md'
+                  ? 'bg-surface-raised border border-status-progressBorder/60 shadow-md'
+                  : 'bg-surface-raised border border-transparent hover:border-status-progressBorder/40 hover:shadow-md'
               }`}
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#1D4ED8]">Ativas</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#1D4ED8] leading-tight">
+                <div className="text-[11px] md:text-xs text-status-progressFg">Ativas</div>
+                <div className="text-xl md:text-2xl font-extrabold text-status-progressFg leading-tight">
                   {loadingStats ? '–' : stats.total}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl bg-[#2563EB] text-white">
+              <div className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl bg-status-progressFg text-white">
                 <BarChart3 className="w-4 h-4" />
               </div>
             </button>
@@ -859,17 +861,17 @@ function HomePageImproved() {
               onClick={() => handleStatusCardClick('pending')}
               className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'pending'
-                  ? 'bg-surface-raised border border-[#DC2626]/60 shadow-md'
-                  : 'bg-surface-raised border border-transparent hover:border-[#DC2626]/40 hover:shadow-md'
+                  ? 'bg-surface-raised border border-brand/60 shadow-md'
+                  : 'bg-surface-raised border border-transparent hover:border-brand/40 hover:shadow-md'
               }`}
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#B91C1C]">Pendentes</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#B91C1C] leading-tight">
+                <div className="text-[11px] md:text-xs text-brand">Pendentes</div>
+                <div className="text-xl md:text-2xl font-extrabold text-brand leading-tight">
                   {loadingStats ? '–' : stats.pending}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl bg-[#DC2626] text-white">
+              <div className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl bg-brand text-white">
                 <AlertTriangle className="w-4 h-4" />
               </div>
             </button>
@@ -879,17 +881,17 @@ function HomePageImproved() {
               onClick={() => handleStatusCardClick('in-progress')}
               className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'in-progress'
-                  ? 'bg-surface-raised border border-[#D97706]/60 shadow-md'
-                  : 'bg-surface-raised border border-transparent hover:border-[#D97706]/40 hover:shadow-md'
+                  ? 'bg-surface-raised border border-status-pendingBorder/60 shadow-md'
+                  : 'bg-surface-raised border border-transparent hover:border-status-pendingBorder/40 hover:shadow-md'
               }`}
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#B45309]">Em Andamento</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#B45309] leading-tight">
+                <div className="text-[11px] md:text-xs text-status-pendingFg">Em Andamento</div>
+                <div className="text-xl md:text-2xl font-extrabold text-status-pendingFg leading-tight">
                   {loadingStats ? '–' : stats.inProgress}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl bg-[#D97706] text-white">
+              <div className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl bg-status-pendingFg text-white">
                 <Clock3 className="w-4 h-4" />
               </div>
             </button>
@@ -899,17 +901,17 @@ function HomePageImproved() {
               onClick={() => handleStatusCardClick('resolved')}
               className={`group flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer shadow-sm ${
                 filter.status === 'resolved'
-                  ? 'bg-surface-raised border border-[#16A34A]/60 shadow-md'
-                  : 'bg-surface-raised border border-transparent hover:border-[#16A34A]/40 hover:shadow-md'
+                  ? 'bg-surface-raised border border-status-resolvedBorder/60 shadow-md'
+                  : 'bg-surface-raised border border-transparent hover:border-status-resolvedBorder/40 hover:shadow-md'
               }`}
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#166534]">Resolvidas</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#166534] leading-tight">
+                <div className="text-[11px] md:text-xs text-status-resolvedFg">Resolvidas</div>
+                <div className="text-xl md:text-2xl font-extrabold text-status-resolvedFg leading-tight">
                   {loadingStats ? '–' : stats.totalResolved}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl bg-[#16A34A] text-white">
+              <div className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-xl bg-status-resolvedFg text-white">
                 <Check className="w-4 h-4" />
               </div>
             </button>
@@ -935,7 +937,7 @@ function HomePageImproved() {
                     onClick={() => setViewMode('map')}
                     className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs md:text-sm ${
                       viewMode === 'map'
-                        ? 'bg-[#111827] text-white'
+                        ? 'bg-surface-sunken text-white'
                         : 'text-content-secondary'
                     }`}
                   >
@@ -947,7 +949,7 @@ function HomePageImproved() {
                     onClick={() => setViewMode('list')}
                     className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs md:text-sm ${
                       viewMode === 'list'
-                        ? 'bg-[#111827] text-white'
+                        ? 'bg-surface-sunken text-white'
                         : 'text-content-secondary'
                     }`}
                   >
@@ -961,7 +963,7 @@ function HomePageImproved() {
                     }}
                     className={`lg:hidden sm:flex items-center gap-1 px-2 py-1 rounded-full text-xs md:text-sm ${
                       viewMode === 'ranking'
-                        ? 'bg-[#111827] text-white'
+                        ? 'bg-surface-sunken text-white'
                         : 'text-content-secondary'
                     }`}
                   >
@@ -1426,7 +1428,7 @@ function HomePageImproved() {
                               disabled={upvoteLoading}
                               onClick={(e) => handleFeaturedUpvote(r, e)}
                               className={`h-7 px-2 rounded-full bg-white/95 text-xs font-medium ${
-                                r.user_has_upvoted ? 'text-[#EF4444]' : 'text-content-secondary'
+                                r.user_has_upvoted ? 'text-brand' : 'text-content-secondary'
                               }`}
                             >
                               <Heart
@@ -1455,7 +1457,7 @@ function HomePageImproved() {
                             <span className="text-base">{r.categoryIcon}</span>
                             <span className="truncate">{r.categoryName}</span>
                           </div>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] font-medium">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-progressBg text-status-progressFg font-medium">
                             Bronca em destaque
                           </span>
                         </div>
@@ -1484,7 +1486,7 @@ function HomePageImproved() {
             <Button
               variant="outline"
               size="sm"
-              className="h-8 px-3 text-xs md:text-sm rounded-full border-[#F97316] text-[#F97316] hover:bg-surface-subtle"
+              className="h-8 px-3 text-xs md:text-sm rounded-full border-status-pendingBorder text-status-pendingFg hover:bg-surface-subtle"
               onClick={() => navigate('/abaixo-assinados')}
             >
               Ver Todas
@@ -1499,14 +1501,14 @@ function HomePageImproved() {
                     key={i}
                     className={`w-full ${
                       isDesktopCarousel ? 'md:min-w-[340px] md:max-w-[340px]' : 'md:max-w-none md:min-w-0'
-                    } rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0`}
+                    } rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm md:flex-shrink-0 mx-auto md:mx-0`}
                   >
                     <div className="h-40 w-full bg-surface-base animate-pulse" />
                     <div className="p-3 space-y-2">
-                      <div className="h-3 w-1/3 rounded bg-[#E5E7EB] animate-pulse" />
-                      <div className="h-4 w-3/4 rounded bg-[#E5E7EB] animate-pulse" />
-                      <div className="h-3 w-full rounded bg-[#E5E7EB] animate-pulse" />
-                      <div className="h-2 w-full rounded bg-[#E5E7EB] animate-pulse mt-2" />
+                      <div className="h-3 w-1/3 rounded bg-surface-sunken animate-pulse" />
+                      <div className="h-4 w-3/4 rounded bg-surface-sunken animate-pulse" />
+                      <div className="h-3 w-full rounded bg-surface-sunken animate-pulse" />
+                      <div className="h-2 w-full rounded bg-surface-sunken animate-pulse mt-2" />
                     </div>
                   </div>
                 ))}
@@ -1527,7 +1529,7 @@ function HomePageImproved() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25 }}
-                        className="w-full h-full flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm md:flex-shrink-0 mx-auto md:mx-0 overflow-hidden"
+                        className="w-full h-full flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm md:flex-shrink-0 mx-auto md:mx-0 overflow-hidden"
                       >
                         <div className="relative h-36 md:h-40 w-full overflow-hidden">
                           {petition.image_url ? (
@@ -1538,13 +1540,13 @@ function HomePageImproved() {
                             />
                           ) : (
                             <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
-                              <Megaphone className="w-8 h-8 text-[#F97316]" />
+                              <Megaphone className="w-8 h-8 text-status-pendingFg" />
                             </div>
                           )}
                         </div>
                          <div className="p-3 md:p-4 space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-[11px] md:text-xs font-semibold text-[#F97316] flex items-center gap-1">
+                            <p className="text-[11px] md:text-xs font-semibold text-status-pendingFg flex items-center gap-1">
                               <Megaphone className="w-3 h-3 md:w-4 md:h-4" />
                               Petição Ativa
                             </p>
@@ -1634,8 +1636,8 @@ function HomePageImproved() {
                 </button>
               </DialogClose>
               {promoModalConfig?.badge_text && (
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#F97316] uppercase tracking-[0.18em]">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F97316]" />
+                <div className="flex items-center gap-2 text-xs font-semibold text-status-pendingFg uppercase tracking-[0.18em]">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-status-pendingFg" />
                   {promoModalConfig.badge_text}
                 </div>
               )}
@@ -1663,7 +1665,7 @@ function HomePageImproved() {
                 {promoModalConfig?.secondary_button_text && (
                   <Button
                     variant="outline"
-                    className="w-full h-10 text-sm font-semibold rounded-full border-[#F97316] text-[#F97316] hover:bg-surface-subtle"
+                    className="w-full h-10 text-sm font-semibold rounded-full border-status-pendingBorder text-status-pendingFg hover:bg-surface-subtle"
                     onClick={handleGoToPetitionsOverview}
                   >
                     {promoModalConfig.secondary_button_text}

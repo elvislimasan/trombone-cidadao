@@ -22,7 +22,7 @@ const SectionBlock = ({ icon: Icon, title, children }) => (
 
 const InfoRow = ({ icon: Icon, label, value }) => (
   <div className="flex items-center gap-3 bg-surface-raised px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
-    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-raised text-[#b45309] shrink-0">
+    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-raised text-status-pendingFg shrink-0">
       <Icon className="w-4 h-4" strokeWidth={1.5} />
     </div>
     <div className="min-w-0">
@@ -135,9 +135,9 @@ const RentalPropertyDetailsPage = () => {
         </div>
         <div className="hidden lg:block bg-[#f7f9fc]">
           <div className="max-w-5xl mx-auto px-4 py-2 text-[11px] text-content-secondary flex items-center gap-1">
-            <Link to="/" className="hover:text-[#b45309] transition-colors">Início</Link>
+            <Link to="/" className="hover:text-status-pendingFg transition-colors">Início</Link>
             <span className="opacity-50">›</span>
-            <Link to="/imoveis-alugados" className="hover:text-[#b45309] transition-colors">Imóveis Alugados</Link>
+            <Link to="/imoveis-alugados" className="hover:text-status-pendingFg transition-colors">Imóveis Alugados</Link>
             <span className="opacity-50">›</span>
             <span className="text-content-primary truncate">{title}</span>
           </div>
@@ -282,7 +282,7 @@ const RentalPropertyDetailsPage = () => {
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 bg-surface-raised px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)] hover:shadow-[0_4px_12px_-2px_rgba(25,28,30,0.1)] transition-shadow"
                         >
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-raised text-[#b45309] shrink-0">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-raised text-status-pendingFg shrink-0">
                             <FileText className="w-4 h-4" strokeWidth={1.5} />
                           </div>
                           <span className="text-xs font-semibold text-content-primary flex-1 truncate">

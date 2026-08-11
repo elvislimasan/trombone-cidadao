@@ -550,7 +550,7 @@ const NewsDetailsPage = () => {
                       <CarouselItem key={w.id} className="pl-4 md:basis-1/2">
                         <Link
                           to={`/obras-publicas/${w.id}`}
-                          className="group flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                          className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                         >
                           <div className="relative h-40 w-full overflow-hidden bg-muted">
               { w.thumbnail_url ||w.image_url ? (
@@ -609,7 +609,7 @@ const NewsDetailsPage = () => {
                     <Link
                       key={w.id}
                       to={`/obras-publicas/${w.id}`}
-                      className="group flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                      className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                     >
                       <div className="relative h-40 w-full overflow-hidden bg-muted">
                         {w.thumbnail_url ? (
@@ -661,20 +661,20 @@ const NewsDetailsPage = () => {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.25 }}
-                          className="w-full h-full flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm overflow-hidden h-full"
+                          className="w-full h-full flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden h-full"
                         >
                           <div className="relative h-40 w-full overflow-hidden bg-muted">
                             {p.image_url ? (
                               <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
-                                <Megaphone className="w-8 h-8 text-[#F97316]" />
+                                <Megaphone className="w-8 h-8 text-status-pendingFg" />
                               </div>
                             )}
                           </div>
                           <div className="p-4 flex flex-col flex-1">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                              <span className="font-semibold text-[#F97316] flex items-center gap-1">
+                              <span className="font-semibold text-status-pendingFg flex items-center gap-1">
                                 <Megaphone className="w-3 h-3" />
                                 Petição Ativa
                               </span>
@@ -717,20 +717,20 @@ const NewsDetailsPage = () => {
                   return (
                     <div
                       key={p.id}
-                      className="group flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm overflow-hidden h-full"
+                      className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden h-full"
                     >
                       <div className="relative h-40 w-full overflow-hidden bg-muted">
                         {p.image_url ? (
                           <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
-                            <Megaphone className="w-8 h-8 text-[#F97316]" />
+                            <Megaphone className="w-8 h-8 text-status-pendingFg" />
                           </div>
                         )}
                       </div>
                       <div className="p-4 flex flex-col flex-1">
                         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                          <span className="font-semibold text-[#F97316] flex items-center gap-1">
+                          <span className="font-semibold text-status-pendingFg flex items-center gap-1">
                             <Megaphone className="w-3 h-3" />
                             Petição Ativa
                           </span>
@@ -771,7 +771,7 @@ const NewsDetailsPage = () => {
                     <CarouselItem key={r.id} className="pl-4 md:basis-1/2">
                       <Link
                         to={`/bronca/${r.id}`}
-                        className="group flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                        className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                       >
                         <div className="relative h-40 w-full overflow-hidden bg-muted">
                           {r.image_url ? (
@@ -813,7 +813,7 @@ const NewsDetailsPage = () => {
                   <Link
                     key={r.id}
                     to={`/bronca/${r.id}`}
-                    className="group flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                    className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                   >
                     <div className="relative h-40 w-full overflow-hidden bg-muted">
                       {r.image_url ? (
@@ -858,7 +858,7 @@ const NewsDetailsPage = () => {
                     <CarouselItem key={n.id} className="pl-4 md:basis-1/2">
                       <Link
                         to={`/noticias/${n.id}`}
-                        className="group flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                        className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                       >
                         <div className="relative h-40 w-full overflow-hidden bg-muted">
                           {n.image_url ? (
@@ -897,7 +897,7 @@ const NewsDetailsPage = () => {
                   <Link
                     key={n.id}
                     to={`/noticias/${n.id}`}
-                    className="group flex flex-col rounded-2xl bg-surface-raised border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                    className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                   >
                     <div className="relative h-40 w-full overflow-hidden bg-muted">
                       {n.image_url ? (

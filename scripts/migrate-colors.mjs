@@ -74,6 +74,50 @@ const RULES = [
   [/\bborder-gray-300\b(?!\/)/g, 'border-edge-default'],
   [/\bborder-\[#E5E7EB\]/gi, 'border-edge-subtle'],
   [/\bborder-\[#ECECEC\]/gi, 'border-edge-subtle'],
+  [/\bborder-\[#F3F4F6\]/gi, 'border-edge-subtle'],
+  [/\bbg-\[#E5E7EB\]/gi, 'bg-surface-sunken'],
+  // #111827 como FUNDO e um bloco escuro (badge/chip invertido): no tema claro
+  // segue escuro, no escuro vira a superficie elevada.
+  [/\bbg-\[#111827\]/gi, 'bg-surface-sunken'],
+
+  // --- cores semanticas: cada hex vira o token do papel correspondente ---
+  // Vermelho da marca (CTA, destaque, links de acao).
+  [/\btext-\[#EF4444\]/gi, 'text-brand'],
+  [/\btext-\[#DC2626\]/gi, 'text-brand'],
+  [/\btext-\[#B91C1C\]/gi, 'text-brand'],
+  [/\bbg-\[#EF4444\]/gi, 'bg-brand'],
+  [/\bbg-\[#DC2626\]/gi, 'bg-brand'],
+  [/\bborder-\[#EF4444\]/gi, 'border-brand'],
+  [/\bborder-\[#DC2626\]/gi, 'border-brand'],
+  [/\bborder-\[#FEE2E2\]/gi, 'border-edge-subtle'],
+
+  // Ambar/laranja = status pendente.
+  [/\btext-\[#F97316\]/gi, 'text-status-pendingFg'],
+  [/\btext-\[#B45309\]/gi, 'text-status-pendingFg'],
+  [/\bborder-\[#F97316\]/gi, 'border-status-pendingBorder'],
+  [/\bbg-\[#FEF3C7\]/gi, 'bg-status-pendingBg'],
+
+  // Azul = status em andamento.
+  [/\btext-\[#1D4ED8\]/gi, 'text-status-progressFg'],
+  [/\btext-\[#2563EB\]/gi, 'text-status-progressFg'],
+  [/\bbg-\[#DBEAFE\]/gi, 'bg-status-progressBg'],
+
+  // Verde = resolvido.
+  [/\btext-\[#166534\]/gi, 'text-status-resolvedFg'],
+  [/\btext-\[#15803D\]/gi, 'text-status-resolvedFg'],
+  [/\bbg-\[#DCFCE7\]/gi, 'bg-status-resolvedBg'],
+  [/\bbg-\[#16A34A\]/gi, 'bg-status-resolvedFg'],
+  [/\bborder-\[#16A34A\]/gi, 'border-status-resolvedBorder'],
+
+  // Cores fortes usadas como preenchimento de chip/badge: viram o token de
+  // TEXTO do status, que e a variante escura o suficiente para receber texto
+  // claro por cima nos dois temas.
+  [/\bbg-\[#F97316\]/gi, 'bg-status-pendingFg'],
+  [/\bbg-\[#D97706\]/gi, 'bg-status-pendingFg'],
+  [/\bborder-\[#D97706\]/gi, 'border-status-pendingBorder'],
+  [/\bbg-\[#2563EB\]/gi, 'bg-status-progressFg'],
+  [/\bborder-\[#2563EB\]/gi, 'border-status-progressBorder'],
+  [/\bbg-\[#EFF6FF\]/gi, 'bg-status-progressBg'],
 ];
 
 const walk = (p) => {

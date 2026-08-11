@@ -328,7 +328,7 @@ const FavoritesPage = () => {
                         onClick={() => setSortBy('recent')}
                         className={`px-2 py-0.5 rounded-full border text-[11px] ${
                           sortBy === 'recent'
-                            ? 'bg-[#111827] text-white border-[#111827]'
+                            ? 'bg-surface-sunken text-white border-[#111827]'
                             : 'bg-surface-raised text-content-secondary border-edge-subtle'
                         }`}
                       >
@@ -339,7 +339,7 @@ const FavoritesPage = () => {
                         onClick={() => setSortBy('upvotes')}
                         className={`px-2 py-0.5 rounded-full border text-[11px] ${
                           sortBy === 'upvotes'
-                            ? 'bg-[#111827] text-white border-[#111827]'
+                            ? 'bg-surface-sunken text-white border-[#111827]'
                             : 'bg-surface-raised text-content-secondary border-edge-subtle'
                         }`}
                       >
@@ -355,7 +355,7 @@ const FavoritesPage = () => {
                         onClick={() => setStatusFilter(chip.key)}
                         className={`px-3 py-1 rounded-full border text-[11px] md:text-xs transition ${
                           statusFilter === chip.key
-                            ? 'bg-[#111827] text-white border-[#111827]'
+                            ? 'bg-surface-sunken text-white border-[#111827]'
                             : 'bg-surface-raised text-content-secondary border-edge-subtle'
                         }`}
                       >
@@ -441,7 +441,7 @@ const FavoritesPage = () => {
                               <span className="text-base">{r.categoryIcon}</span>
                               <span className="truncate">{r.categoryName}</span>
                             </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-medium">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-pendingBg text-[#92400E] font-medium">
                               Nos seus favoritos
                             </span>
                           </div>
@@ -464,7 +464,7 @@ const FavoritesPage = () => {
                       onClick={() => fetchFavorites(page - 1)}
                       className={`px-3 py-1 rounded-full border ${
                         page === 1
-                          ? 'bg-[#E5E7EB] text-content-tertiary border-edge-subtle cursor-not-allowed'
+                          ? 'bg-surface-sunken text-content-tertiary border-edge-subtle cursor-not-allowed'
                           : 'bg-surface-raised text-content-secondary border-edge-subtle'
                       }`}
                     >
@@ -476,7 +476,7 @@ const FavoritesPage = () => {
                       onClick={() => fetchFavorites(page + 1)}
                       className={`px-3 py-1 rounded-full border ${
                         page === totalPages
-                          ? 'bg-[#E5E7EB] text-content-tertiary border-edge-subtle cursor-not-allowed'
+                          ? 'bg-surface-sunken text-content-tertiary border-edge-subtle cursor-not-allowed'
                           : 'bg-surface-raised text-content-secondary border-edge-subtle'
                       }`}
                     >
