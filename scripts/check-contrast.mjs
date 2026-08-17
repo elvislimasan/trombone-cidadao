@@ -87,13 +87,16 @@ const PAIRS = [
   // O corpo troca de tom entre os temas e o icone inverte junto, entao os dois
   // lados precisam ser checados. Sem estes pares, uma cor de categoria pode
   // reprovar AA sem nada acusar.
+  ['pin pendente',                     '--pin-pending-fg',    '--pin-pending-bg',    4.5],
+  ['pin em andamento',                 '--pin-progress-fg',   '--pin-progress-bg',   4.5],
+  ['pin resolvido',                    '--pin-resolved-fg',   '--pin-resolved-bg',   4.5],
+  ['pin duplicado',                    '--pin-duplicate-fg',  '--pin-duplicate-bg',  4.5],
   ['pin buracos',                      '--pin-pothole-fg',    '--pin-pothole-bg',    4.5],
   ['pin iluminacao',                   '--pin-lighting-fg',   '--pin-lighting-bg',   4.5],
   ['pin esgoto',                       '--pin-sewage-fg',     '--pin-sewage-bg',     4.5],
   ['pin limpeza',                      '--pin-cleaning-fg',   '--pin-cleaning-bg',   4.5],
   ['pin poda',                         '--pin-greenery-fg',   '--pin-greenery-bg',   4.5],
   ['pin vazamento de agua',            '--pin-waterleak-fg',  '--pin-waterleak-bg',  4.5],
-  ['pin seguranca',                    '--pin-security-fg',   '--pin-security-bg',   4.5],
   ['pin outros',                       '--pin-other-fg',      '--pin-other-bg',      4.5],
   ['pin em alta',                      '--pin-hot-fg',        '--pin-hot-bg',        4.5],
   ['pin imovel ativo',                 '--pin-rental-active-fg',  '--pin-rental-active-bg',  4.5],

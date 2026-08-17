@@ -16,6 +16,9 @@
             <action android:name="android.intent.action.PICK" />
             <data android:mimeType="video/*" />
         </intent>
+        <!-- Sem esta declaracao, no Android 11+ o resolveActivity do
+             ADD_TO_STORY devolve null mesmo com o Instagram instalado. -->
+        <package android:name="com.instagram.android" />
     </queries>
 
     <application

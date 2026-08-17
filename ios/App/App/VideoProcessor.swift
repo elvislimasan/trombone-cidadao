@@ -26,7 +26,8 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "uploadVideoInBackground", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getUploadProgress", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cancelUpload", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "generateImageThumbnail", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "generateImageThumbnail", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "shareToInstagramStory", returnType: CAPPluginReturnPromise)
     ]
 
     // MARK: - Estado de upload
@@ -507,6 +508,74 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.resolve(["thumbnailPath": outURL.path])
             } catch {
                 call.reject("thumbnail failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // MARK: - shareToInstagramStory
+
+    /// Compartilha um vídeo diretamente no story do Instagram via URL scheme.
+    ///
+    /// O sticker de link (contentURL) só é renderizado pelo Instagram se a conta do
+    /// usuário tiver permissão de link em story — regra da Meta, fora do controle do app.
+    /// Quando a conta não tem, o vídeo entra normalmente e o link é ignorado em silêncio.
+    /// `linkAttached` indica apenas que enviamos o parâmetro, não que ele apareceu.
+    @objc func shareToInstagramStory(_ call: CAPPluginCall) {
+        guard let rawPath = call.getString("filePath") else {
+            call.reject("filePath é obrigatório")
+            return
+        }
+        guard let appId = call.getString("facebookAppId"), !appId.isEmpty else {
+            call.reject("facebookAppId é obrigatório para o Instagram aceitar o asset")
+            return
+        }
+
+        let actualPath = resolveFilePath(rawPath)
+        guard FileManager.default.fileExists(atPath: actualPath) else {
+            call.reject("Arquivo não encontrado: \(actualPath)")
+            return
+        }
+
+        guard let videoData = FileManager.default.contents(atPath: actualPath) else {
+            call.reject("Não foi possível ler o vídeo")
+            return
+        }
+
+        let contentUrl = call.getString("contentUrl")
+
+        DispatchQueue.main.async {
+            // O scheme precisa estar em LSApplicationQueriesSchemes no Info.plist,
+            // senão canOpenURL retorna false mesmo com o Instagram instalado.
+            guard let urlScheme = URL(string: "instagram-stories://share?source_application=\(appId)"),
+                  UIApplication.shared.canOpenURL(urlScheme) else {
+                call.reject("INSTAGRAM_NOT_INSTALLED", "Instagram não está instalado")
+                return
+            }
+
+            var item: [String: Any] = [
+                "com.instagram.sharedSticker.backgroundVideo": videoData,
+                "com.instagram.sharedSticker.appID": appId
+            ]
+            if let contentUrl = contentUrl, !contentUrl.isEmpty {
+                item["com.instagram.sharedSticker.contentURL"] = contentUrl
+            }
+
+            // O pasteboard é consumido pelo Instagram na abertura; a expiração
+            // evita que o vídeo fique acessível a outros apps depois disso.
+            UIPasteboard.general.setItems(
+                [item],
+                options: [.expirationDate: Date().addingTimeInterval(60 * 5)]
+            )
+
+            UIApplication.shared.open(urlScheme, options: [:]) { opened in
+                if opened {
+                    call.resolve([
+                        "shared": true,
+                        "linkAttached": !(contentUrl ?? "").isEmpty
+                    ])
+                } else {
+                    call.reject("Não foi possível abrir o Instagram")
+                }
             }
         }
     }
