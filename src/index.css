@@ -192,6 +192,57 @@
   }
 }
 
+/* === MODO NAVEGAÇÃO: contra-giro dos pins === */
+/*
+ * O modo navegação gira o container inteiro do mapa por transform. Sem
+ * compensação, os pins giram junto e ficam deitados ou de cabeça para baixo.
+ *
+ * O contra-giro é aplicado no CONTEÚDO do divIcon (o filho direto de
+ * .leaflet-marker-icon), nunca no próprio .leaflet-marker-icon: é ele que
+ * carrega o translate3d de posicionamento do Leaflet, e sobrescrever esse
+ * transform jogaria todos os pins para o canto do mapa.
+ *
+ * --nav-rot é escrito pelo MapView a cada leitura do GPS.
+ *
+ * A geometria: o container gira por -rumo, então um filho com transform T
+ * aparece na tela em (-rumo + T). Para qualquer elemento ficar de pé,
+ * T = +rumo — que é exatamente o valor de --nav-rot.
+ *
+ * A seta do usuário segue a MESMA regra, e não uma exceção. Ela é desenhada
+ * apontando para cima no próprio espaço; sem a contra-rotação apareceria em
+ * -rumo, ou seja, torta em qualquer direção que não fosse o norte. Com ela,
+ * aponta sempre para o topo da tela — que, no mapa girado, é o sentido do
+ * deslocamento.
+ */
+.nav-rotating .leaflet-marker-icon > * {
+  transform: rotate(var(--nav-rot, 0deg));
+  transform-origin: center center;
+  transition: transform 500ms linear;
+}
+
+/* === MODO PATRULHA: pontos ganhos === */
+/*
+ * Sobe e some. `forwards` mantém o estado final para o elemento não reaparecer
+ * cheio no quadro anterior ao desmonte.
+ */
+@keyframes patrol-points-burst {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.85); }
+  18%  { opacity: 1; transform: translateY(0) scale(1.08); }
+  32%  { transform: translateY(-4px) scale(1); }
+  100% { opacity: 0; transform: translateY(-56px) scale(0.95); }
+}
+
+.patrol-points-burst {
+  animation: patrol-points-burst 1.2s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .patrol-points-burst {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* === MELHORIAS DE NAVEGAÇÃO PARA MAPAS NO MOBILE === */
 /* Quando o mapa está em modo scroll-locked, melhora a experiência de scroll */
 .leaflet-scroll-locked {

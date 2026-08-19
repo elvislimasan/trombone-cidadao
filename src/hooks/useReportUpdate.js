@@ -66,6 +66,114 @@ export const computeDisabledUpdateTypes = (reportUpdates, user) => {
 };
 
 /**
+ * Envia uma atualização de bronca. Contém as regras de negócio inteiras:
+ * moderação por perfil, upload de fotos com rollback, auto-confirmação para
+ * autor/admin e mudança de status derivada do tipo.
+ *
+ * Separado do hook porque nem todo chamador tem um formulário. O modo navegação
+ * envia com um toque só, sem foto e sem texto, a partir de um alerta — precisa
+ * das mesmas regras sem o estado de React que o hook carrega.
+ *
+ * Não emite toast: quem chama decide como reportar (o hook mostra toast; a
+ * navegação prefere um aviso discreto que não tire o olho da via).
+ *
+ * @returns {Promise<{ok:boolean, isAuthorOrAdmin?:boolean, newStatus?:string|null,
+ *                    update?:object, error?:Error, isRateLimit?:boolean}>}
+ */
+export async function enviarAtualizacaoDeBronca({
+  report,
+  updateType,
+  user,
+  message = '',
+  photos = [],
+  onOptimisticInsert,
+}) {
+  if (!user || !report || !updateType) {
+    return { ok: false, error: new Error('parâmetros insuficientes') };
+  }
+  const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
+
+  try {
+    const { data: newUpdate, error: insertError } = await supabase
+      .from('report_updates')
+      .insert({
+        report_id: report.id,
+        author_id: user.id,
+        update_type: updateType,
+        message: message || null,
+        // Autor e admin auto-confirmam; outros entram em moderação
+        status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    if (photos && photos.length > 0) {
+      try {
+        const mediaRecords = await Promise.all(
+          photos.map(async (photo) => {
+            const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${photo.name}`;
+            const { error: uploadError } = await supabase.storage
+              .from('reports-media')
+              .upload(filePath, photo);
+            if (uploadError) throw uploadError;
+            const {
+              data: { publicUrl },
+            } = supabase.storage.from('reports-media').getPublicUrl(filePath);
+            return { report_update_id: newUpdate.id, url: publicUrl, type: 'photo' };
+          })
+        );
+        await supabase.from('report_update_media').insert(mediaRecords);
+      } catch {
+        // Rollback: exclui o update para não deixar registro órfão
+        await supabase.from('report_updates').delete().eq('id', newUpdate.id);
+        throw new Error(
+          'Falha no upload das fotos. A atualização não foi enviada. Tente novamente ou envie sem fotos.'
+        );
+      }
+    }
+
+    onOptimisticInsert?.({
+      id: newUpdate.id,
+      report_id: report.id,
+      author_id: user.id,
+      update_type: updateType,
+      message: message || null,
+      status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
+      created_at: new Date().toISOString(),
+      media: [],
+      author: { name: user.name || 'Você' },
+    });
+
+    let newStatus = null;
+    if (isAuthorOrAdmin) {
+      const typeInfo = getUpdateTypeInfo(updateType);
+      newStatus =
+        updateType === 'solved' && user.is_admin ? 'resolved' : typeInfo.reportStatus;
+
+      await supabase
+        .from('report_updates')
+        .update({
+          status: 'confirmed',
+          confirmed_by: user.id,
+          confirmed_at: new Date().toISOString(),
+        })
+        .eq('id', newUpdate.id);
+
+      await supabase.from('reports').update({ status: newStatus }).eq('id', report.id);
+    }
+
+    return { ok: true, isAuthorOrAdmin, newStatus, update: newUpdate };
+  } catch (err) {
+    // O limite semanal é imposto por RLS: a policy recusa o insert e volta 42501.
+    const isRateLimit =
+      err.message?.includes('row-level security') || err.code === '42501';
+    return { ok: false, error: err, isRateLimit };
+  }
+}
+
+/**
  * Lógica compartilhada de "enviar atualização de bronca".
  *
  * Extraído de ReportPage para permitir enviar a atualização de outros lugares
@@ -106,96 +214,35 @@ export function useReportUpdate(report, reportUpdates = [], { onSuccess, onOptim
     if (!user || !report || !updateType) return;
     const photos = await cam.resolveForUpload();
     setSubmitting(true);
-    const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
 
-    try {
-      const { data: newUpdate, error: insertError } = await supabase
-        .from('report_updates')
-        .insert({
-          report_id: report.id,
-          author_id: user.id,
-          update_type: updateType,
-          message: message || null,
-          // Autor e admin auto-confirmam; outros entram em moderação
-          status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
-        })
-        .select()
-        .single();
+    const r = await enviarAtualizacaoDeBronca({
+      report,
+      updateType,
+      user,
+      message,
+      photos,
+      onOptimisticInsert,
+    });
+    setSubmitting(false);
 
-      if (insertError) throw insertError;
-
-      if (photos && photos.length > 0) {
-        try {
-          const mediaRecords = await Promise.all(
-            photos.map(async (photo) => {
-              const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${photo.name}`;
-              const { error: uploadError } = await supabase.storage
-                .from('reports-media')
-                .upload(filePath, photo);
-              if (uploadError) throw uploadError;
-              const {
-                data: { publicUrl },
-              } = supabase.storage.from('reports-media').getPublicUrl(filePath);
-              return { report_update_id: newUpdate.id, url: publicUrl, type: 'photo' };
-            })
-          );
-          await supabase.from('report_update_media').insert(mediaRecords);
-        } catch (uploadErr) {
-          // Rollback: exclui o update para não deixar registro órfão
-          await supabase.from('report_updates').delete().eq('id', newUpdate.id);
-          throw new Error(
-            'Falha no upload das fotos. A atualização não foi enviada. Tente novamente ou envie sem fotos.'
-          );
-        }
-      }
-
-      onOptimisticInsert?.({
-        id: newUpdate.id,
-        report_id: report.id,
-        author_id: user.id,
-        update_type: updateType,
-        message: message || null,
-        status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
-        created_at: new Date().toISOString(),
-        media: [],
-        author: { name: user.name || 'Você' },
-      });
-
-      let newStatus = null;
-      if (isAuthorOrAdmin) {
-        const typeInfo = getUpdateTypeInfo(updateType);
-        newStatus =
-          updateType === 'solved' && user.is_admin ? 'resolved' : typeInfo.reportStatus;
-
-        await supabase
-          .from('report_updates')
-          .update({
-            status: 'confirmed',
-            confirmed_by: user.id,
-            confirmed_at: new Date().toISOString(),
-          })
-          .eq('id', newUpdate.id);
-
-        await supabase.from('reports').update({ status: newStatus }).eq('id', report.id);
-      }
-
-      reset();
-      onSuccess?.({ isAuthorOrAdmin, newStatus, updateId: newUpdate.id });
-      return { ok: true, isAuthorOrAdmin, newStatus };
-    } catch (err) {
-      const isRlsError =
-        err.message?.includes('row-level security') || err.code === '42501';
+    if (!r.ok) {
       toast({
-        title: isRlsError ? 'Limite semanal atingido' : 'Erro ao enviar atualização',
-        description: isRlsError
+        title: r.isRateLimit ? 'Limite semanal atingido' : 'Erro ao enviar atualização',
+        description: r.isRateLimit
           ? 'Você já enviou este tipo de atualização esta semana. Tente outro tipo ou aguarde.'
-          : err.message,
+          : r.error?.message,
         variant: 'destructive',
       });
       return { ok: false };
-    } finally {
-      setSubmitting(false);
     }
+
+    reset();
+    onSuccess?.({
+      isAuthorOrAdmin: r.isAuthorOrAdmin,
+      newStatus: r.newStatus,
+      updateId: r.update.id,
+    });
+    return { ok: true, isAuthorOrAdmin: r.isAuthorOrAdmin, newStatus: r.newStatus };
   };
 
   return {

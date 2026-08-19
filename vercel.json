@@ -17,6 +17,10 @@
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-news?id=:id"
     },
     {
+      "source": "/share/patrulha/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-preview?id=:id&type=patrulha"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

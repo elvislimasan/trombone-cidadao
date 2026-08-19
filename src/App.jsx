@@ -66,6 +66,7 @@ import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
 import HomePageImproved from './pages/HomePage-improved';
 import MapPage from './pages/MapPage';
+import PatrolPage from '@/pages/PatrolPage';
 import HomeRouter from './pages/HomeRouter';
 import NotFoundPage from '@/pages/NotFoundPage';
 import SearchPage from '@/pages/SearchPage';
@@ -277,6 +278,17 @@ function AppShell() {
   const { toast } = useToast();
   const { loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
+
+  // O modo navegação é uma rota própria, mas a mesma tela: entra em tela cheia
+  // (sem header, sem bottom nav, sem os paddings que reservam o espaço deles) e
+  // sai pelo botão voltar do aparelho, de graça, por ser rota.
+  const patrulhaAtiva = location.pathname === '/mapa/patrulha';
+
+  // A key remonta o ErrorBoundary a cada navegação para que a tela de erro não
+  // sobreviva à saída da rota que quebrou. Entrar em navegação, porém, é a
+  // mesma tela: deixar a key mudar remontaria a MapPage e recarregaria o mapa
+  // inteiro — exatamente o que renderizar o overlay sobre o mapa evita.
+  const boundaryKey = patrulhaAtiva ? '/mapa' : location.pathname;
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -613,25 +625,29 @@ function AppShell() {
             (que reserva o espaco da bottom nav) deixava esse cinza claro
             aparecer como uma faixa no tema escuro ao chegar no fim da pagina. */}
         <div className="min-h-screen bg-surface-base text-content-primary flex flex-col">
-          {(!isNative || !isInteractive) && <Header />}
-          {isNative && isInteractive && <MobileHeader />}
-          {!isNative && <AppDownloadBanner />}
+          {!patrulhaAtiva && (!isNative || !isInteractive) && <Header />}
+          {!patrulhaAtiva && isNative && isInteractive && <MobileHeader />}
+          {!isNative && !patrulhaAtiva && <AppDownloadBanner />}
           <main
-            className="flex-grow pb-20 lg:pb-0 flex flex-col min-h-0"
+            className={`flex-grow flex flex-col min-h-0 ${patrulhaAtiva ? '' : 'pb-20 lg:pb-0'}`}
             style={{
-              paddingTop: (isNative && isInteractive)
-                ? 'calc(var(--header-bar-height) + var(--header-safe-top))'
-                : 'calc(var(--header-bar-height) + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
-              paddingBottom: (isNative && isInteractive)
-                ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
-                : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+              paddingTop: patrulhaAtiva
+                ? 0
+                : (isNative && isInteractive)
+                  ? 'calc(var(--header-bar-height) + var(--header-safe-top))'
+                  : 'calc(var(--header-bar-height) + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+              paddingBottom: patrulhaAtiva
+                ? 0
+                : (isNative && isInteractive)
+                  ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
+                  : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
             }}
           >
             <div className="flex-1 min-h-0 flex flex-col">
               <PendingInviteBanner />
               {/* key={pathname}: remonta o boundary a cada navegação, senão a tela
                   de erro persistiria mesmo depois de sair da rota que quebrou. */}
-              <ErrorBoundary key={location.pathname}>
+              <ErrorBoundary key={boundaryKey}>
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
@@ -644,6 +660,11 @@ function AppShell() {
               
               <Route path="/" element={<HomeRouter />} />
               <Route path="/mapa" element={<MapPage />} />
+              {/* Mesma MapPage: o modo navegação é um overlay sobre o mapa, e
+                  renderizar o mesmo componente evita desmontar o Leaflet ao
+                  entrar. O botão voltar do aparelho sai do modo. */}
+              <Route path="/mapa/patrulha" element={<MapPage />} />
+              <Route path="/patrulha/:id" element={<PatrolPage />} />
               <Route path="/home-legado" element={<HomePageImproved />} />
               <Route path="/buscar" element={<SearchPage />} />
               <Route path="/broncas" element={<HomePage />} />
@@ -706,8 +727,11 @@ function AppShell() {
               </ErrorBoundary>
             </div>
           </main>
-          {(!isNative || !isInteractive) && <Footer />}
-          <BottomNav />
+          {!patrulhaAtiva && (!isNative || !isInteractive) && <Footer />}
+          {/* O modo navegação ocupa a tela inteira: a barra roubaria 64px da
+              via à frente e oferece destinos que ninguém deve tocar dirigindo.
+              Sair é pelo X do painel ou pelo botão voltar do aparelho. */}
+          {!patrulhaAtiva && <BottomNav />}
           <Toaster />
           <SonnerToast position="top-right" richColors />
           <WebUploadIndicator />

@@ -1,0 +1,99 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabase } from '@/lib/customSupabaseClient';
+import { caixaDeRaio, haversine } from '@/lib/navGeo';
+
+// Broncas do corredor por onde o usuário está passando.
+//
+// A MapPage busca por bounds a cada moveend com 300ms de debounce. Isso serve
+// para quem arrasta o mapa, mas dirigindo o mapa se move o tempo todo: seria
+// uma RPC por segundo, para sempre. Aqui a estratégia se inverte —
+//
+//   busca UMA vez um quadrado de RAIO_M em volta do usuário e só refaz quando
+//   ele se afasta REFETCH_M do centro daquele fetch.
+//
+// A 60 km/h isso dá um request por minuto em vez de ~60, e a detecção de alerta
+// roda sobre o cache local: latência zero no instante que importa, e continua
+// funcionando em túnel ou área sem sinal.
+//
+// `zoom: 18` importa: a partir de 13 a RPC devolve pins individuais com status
+// e coordenadas, sem agregação (migração 171). Não há RPC nova nem migração.
+
+const RAIO_M = 2000;
+const REFETCH_M = 1000;
+
+export function useNavCorridor(posicao, { categoria = null } = {}) {
+  const [broncas, setBroncas] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+  const [erroRede, setErroRede] = useState(false);
+
+  const centroRef = useRef(null);
+  const emVooRef = useRef(false);
+  // Contador de requisições: descarta resposta de um fetch antigo que chegou
+  // depois de um mais novo, senão o cache volta para um trecho já percorrido.
+  const seqRef = useRef(0);
+
+  const buscar = useCallback(async (centro) => {
+    if (emVooRef.current) return;
+    emVooRef.current = true;
+    const seq = ++seqRef.current;
+    setCarregando(true);
+    try {
+      const caixa = caixaDeRaio(centro, RAIO_M);
+      const { data, error } = await supabase.rpc('reports_map_clusters', {
+        min_lat: caixa.minLat,
+        max_lat: caixa.maxLat,
+        min_lng: caixa.minLng,
+        max_lng: caixa.maxLng,
+        zoom: 18,
+        status_filter: 'active',
+        category_filter: categoria,
+      });
+      if (error) throw error;
+      if (seq !== seqRef.current) return;
+
+      setBroncas(
+        (data || [])
+          .filter((row) => !row.is_cluster && row.report)
+          .map((row) => ({
+            id: row.report.id,
+            title: row.report.title,
+            status: row.report.status,
+            category: row.report.category_id,
+            categoryName: row.report.category_name || row.report.category_id,
+            coverImage: row.report.cover_image,
+            author_id: row.report.author_id ?? null,
+            lat: row.report.lat,
+            lng: row.report.lng,
+          }))
+      );
+      centroRef.current = centro;
+      setErroRede(false);
+    } catch (err) {
+      console.error('[useNavCorridor] falha ao buscar corredor:', err);
+      // Mantém o cache anterior de propósito: perder sinal no meio do trajeto
+      // não deve apagar as broncas que já sabemos estar à frente.
+      setErroRede(true);
+    } finally {
+      emVooRef.current = false;
+      setCarregando(false);
+    }
+  }, [categoria]);
+
+  useEffect(() => {
+    if (!posicao) return;
+    const centro = centroRef.current;
+    if (!centro || haversine(centro, posicao) > REFETCH_M) {
+      buscar({ lat: posicao.lat, lng: posicao.lng });
+    }
+  }, [posicao, buscar]);
+
+  // Troca de categoria invalida o cache: o filtro é aplicado no servidor.
+  useEffect(() => { centroRef.current = null; }, [categoria]);
+
+  /** Remove uma bronca do cache após confirmação, para não realertar. */
+  const descartar = useCallback((id) => {
+    setBroncas((atual) => atual.filter((b) => b.id !== id));
+  }, []);
+
+  return { broncas, carregando, erroRede, descartar };
+}

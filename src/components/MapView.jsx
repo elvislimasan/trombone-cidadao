@@ -7,6 +7,7 @@ import {
   Popup,
   useMap,
   Circle,
+  Polyline,
 } from "react-leaflet";
 import {
   ThumbsUp,
@@ -23,6 +24,7 @@ import { useMapScrollLock } from "@/hooks/useMapScrollLock";
 import { useMapModeToggle } from "@/contexts/MapModeContext";
 import MapModeToggle from "@/components/MapModeToggle";
 import { createPinIcon } from "@/components/map/pinIcon";
+import { panParaOffsetDeTela } from "@/lib/navGeo";
 
 // Nivel de zoom ao enquadrar o usuario - na abertura da tela e no botao de
 // recentrar. Os dois usavam valores diferentes (16 e 17): o mapa abria mais
@@ -71,6 +73,93 @@ const userMarkerIcon = L.divIcon({
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
+
+// ── Modo navegação ────────────────────────────────────────────────────────────
+
+// Zoom de navegação: perto o bastante para reconhecer a esquina que vem.
+const NAV_ZOOM = 18;
+
+// A seta fica abaixo do centro, para sobrar tela na direção do movimento — é a
+// via à frente que interessa, não a que já ficou para trás. Fração da altura
+// VISÍVEL, não a do container ampliado.
+const NAV_OFFSET_TELA = 0.16;
+
+// Marcador de navegação: seta, não bolinha. Ela aponta sempre para cima porque
+// o mapa inteiro é que gira sob ela.
+const navMarkerIcon = L.divIcon({
+  html: `
+    <div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;">
+      <svg width="34" height="34" viewBox="0 0 24 24" style="filter: drop-shadow(0 3px 6px rgba(0,0,0,0.45));">
+        <path d="M12 2 L20.5 21 L12 16.5 L3.5 21 Z"
+              fill="rgb(var(--pin-user-bg))"
+              stroke="rgb(var(--pin-ring))"
+              stroke-width="1.6"
+              stroke-linejoin="round" />
+      </svg>
+    </div>
+  `,
+  className: 'nav-leaflet-icon',
+  iconSize: [46, 46],
+  iconAnchor: [23, 23],
+});
+
+// Mantém o mapa colado no usuário. Fora do MapView porque precisa do useMap.
+const NavFollow = ({ posicao, offsetPx, lado }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!posicao) return;
+    try {
+      map.setView([posicao.lat, posicao.lng], NAV_ZOOM, { animate: false });
+      // O deslocamento precisa ser contra-rotacionado: o Leaflet trabalha no
+      // espaço não girado, e um "para baixo" cru vira "para a lateral" assim
+      // que o rumo sai do norte — foi assim que a seta sumiu da tela.
+      const pan = panParaOffsetDeTela(offsetPx, posicao.heading);
+      if (pan.x || pan.y) map.panBy([pan.x, pan.y], { animate: false });
+    } catch {}
+  // O rumo entra aqui porque o vetor do deslocamento depende dele; a posição
+  // inteira não, senão precisão e timestamp reposicionariam o mapa sem que o
+  // usuário tivesse saído do lugar.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, posicao?.lat, posicao?.lng, posicao?.heading, offsetPx]);
+
+  // O container muda de tamanho ao entrar no modo e quando a tela é medida;
+  // sem isto o Leaflet segue usando as dimensões antigas e o centro sai do
+  // lugar.
+  useEffect(() => {
+    const t = setTimeout(() => { try { map.invalidateSize(); } catch {} }, 60);
+    return () => clearTimeout(t);
+  }, [map, lado]);
+
+  return null;
+};
+
+/**
+ * Ângulo contínuo para animar o giro.
+ *
+ * Interpolar de 350° para 10° pelo caminho numérico gira 340° para o lado
+ * errado — o mapa dá um rodopio a cada volta completa. Acumulando o menor delta
+ * a cada leitura, o valor cresce/decresce sem saltos e o CSS anima o caminho
+ * curto.
+ */
+const useAnguloContinuo = (heading) => {
+  const acumuladoRef = useRef(0);
+  const anteriorRef = useRef(null);
+
+  if (Number.isFinite(heading)) {
+    if (anteriorRef.current == null) {
+      acumuladoRef.current = heading;
+    } else {
+      let delta = heading - anteriorRef.current;
+      while (delta > 180) delta -= 360;
+      while (delta < -180) delta += 360;
+      acumuladoRef.current += delta;
+    }
+    anteriorRef.current = heading;
+  }
+
+  return acumuladoRef.current;
+};
 
 const ClusterZoomHandler = ({ clusterToZoom, onZoomComplete }) => {
   const map = useMap();
@@ -174,6 +263,15 @@ const MapView = ({
   // do mapa). Sem essa prop, mantem o comportamento antigo de navegar para a
   // pagina da bronca com o modal aberto.
   onUpdateClick,
+  // Modo navegacao: o mapa gira com o rumo, segue a posicao recebida de fora e
+  // nao aceita toque. A posicao vem por prop de proposito - o modo navegacao ja
+  // mantem seu proprio watchPosition, e um segundo aqui dobraria o consumo de
+  // GPS por leituras identicas.
+  navMode = false,
+  navPosition = null,
+  // Rastro percorrido na inspecao. Vive so em memoria de quem passa a prop -
+  // nao e gravado em lugar nenhum.
+  navTrail = null,
 }) => {
   const { mode } = useMapModeToggle();
   const navigate = useNavigate();
@@ -346,9 +444,68 @@ const MapView = ({
     });
   };
 
+  const anguloContinuo = useAnguloContinuo(navPosition?.heading);
+
+  // Tamanho do container girado, medido da área visível.
+  //
+  // Precisa ser um QUADRADO de lado igual à diagonal da tela. Um retângulo
+  // apenas ampliado não resolve: num celular em pé (400x800, digamos), ampliar
+  // 45% dá 580x1160 — girado 90° isso vira 1160 de largura por 580 de altura, e
+  // 580 não cobre os 800 de altura da tela. Apareceriam faixas vazias em cima e
+  // embaixo justamente ao virar para leste ou oeste. A diagonal é o menor lado
+  // que cobre a tela em QUALQUER ângulo.
+  const areaRef = useRef(null);
+  const [medidas, setMedidas] = useState(null);
+
+  useEffect(() => {
+    if (!navMode) return;
+    const el = areaRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const medir = () => {
+      const { width, height } = el.getBoundingClientRect();
+      if (!width || !height) return;
+      setMedidas({
+        lado: Math.ceil(Math.hypot(width, height)),
+        offsetPx: height * NAV_OFFSET_TELA,
+      });
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [navMode]);
+
+  // Em navegação o mapa é filho de um container girado e maior que a tela.
+  // Fora dela, os dois níveis são transparentes: mesmo `absolute inset-0` de
+  // antes. Enquanto a medição não chega, também: o mapa aparece imediatamente e
+  // ganha o tamanho de giro no quadro seguinte.
+  const estiloGiro = navMode && medidas
+    ? {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: `${medidas.lado}px`,
+        height: `${medidas.lado}px`,
+        transform: `translate(-50%, -50%) rotate(${-anguloContinuo}deg)`,
+        transformOrigin: 'center center',
+        // Linear, não ease: com curva de aceleração o mapa parece derrapar a
+        // cada leitura do GPS. 500ms cobre o intervalo típico entre leituras.
+        transition: 'transform 500ms linear',
+        willChange: 'transform',
+      }
+    : { position: 'absolute', inset: 0 };
+
   return (
     <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
-      <div className="absolute inset-0">
+      {/* A classe nav-rotating não pinta nada: existe para o CSS contra-girar o
+          conteúdo dos pins, que de outro modo ficariam deitados junto com o
+          mapa. Ver index.css. */}
+      <div
+        ref={areaRef}
+        className={`absolute inset-0 overflow-hidden ${navMode ? 'nav-rotating' : ''}`}
+        style={navMode ? { '--nav-rot': `${anguloContinuo}deg` } : undefined}
+      >
+       <div style={estiloGiro}>
         <MapContainer
           // Monta ja no ponto do usuario quando a pagina conseguiu o GPS antes
           // de renderizar o mapa. Sem isso o Leaflet montava em Floresta e so
@@ -360,9 +517,11 @@ const MapView = ({
           }
           zoom={initialCenter ? zoomParaPrecisao(initialCenter.accuracy) : INITIAL_ZOOM}
           scrollWheelZoom={interactive}
-          dragging={interactive}
-          doubleClickZoom={interactive}
-          zoomControl={interactive}
+          // Toque desligado em navegação: com o mapa girado, o ponto tocado não
+          // corresponde ao ponto sob o dedo, e arrastar brigaria com o follow.
+          dragging={interactive && !navMode}
+          doubleClickZoom={interactive && !navMode}
+          zoomControl={interactive && !navMode}
           className="absolute inset-0"
           style={{ height: "100%", width: "100%" }}
         >
@@ -376,7 +535,36 @@ const MapView = ({
             clusterToZoom={clusterToZoom}
             onZoomComplete={handleZoomComplete}
           />
-          {userLocation && (
+          {/* Traco do percurso. E camada do Leaflet, entao gira junto com o
+              mapa sem tratamento extra - ao contrario dos pins, que precisam da
+              contra-rotacao para ficarem de pe. */}
+          {navMode && navTrail && navTrail.length > 1 && (
+            <Polyline
+              positions={navTrail.map((p) => [p.lat, p.lng])}
+              pathOptions={{
+                color: 'rgb(var(--pin-user-bg))',
+                weight: 6,
+                opacity: 0.55,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          )}
+          {navMode && navPosition && (
+            <>
+              <NavFollow
+                posicao={navPosition}
+                offsetPx={medidas?.offsetPx ?? 0}
+                lado={medidas?.lado ?? 0}
+              />
+              <Marker
+                position={[navPosition.lat, navPosition.lng]}
+                icon={navMarkerIcon}
+                zIndexOffset={1000}
+              />
+            </>
+          )}
+          {!navMode && userLocation && (
             <>
               <Circle
                 center={[userLocation.lat, userLocation.lng]}
@@ -432,7 +620,7 @@ const MapView = ({
                   },
                 }}
               >
-                {!isCluster && (
+                {!isCluster && !navMode && (
                   <Popup>
                     {/* Sem a descricao: o popup e um cartao de identificacao,
                         nao de leitura - o texto completo esta em "Detalhes". */}
@@ -502,8 +690,11 @@ const MapView = ({
             );
           })}
         </MapContainer>
+       </div>
         {/* Controles no alto da lateral direita: embaixo colidiam com os chips
-            de categoria e com o carrossel, que ocupam o rodape do mapa. */}
+            de categoria e com o carrossel, que ocupam o rodape do mapa. Ficam
+            FORA do container girado: em navegacao eles precisam continuar de pe
+            enquanto o mapa gira. */}
         {showModeToggle && (
           <div className="absolute top-24 right-3 z-[800]">
             <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
