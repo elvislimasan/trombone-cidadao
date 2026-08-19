@@ -88,7 +88,7 @@ export class VideoProcessorWeb extends WebPlugin implements VideoProcessorPlugin
     throw new Error('Não disponível na web');
   }
 
-  async shareToInstagramStory(options: { filePath: string; facebookAppId: string; contentUrl?: string }): Promise<{ shared: boolean; linkAttached: boolean }> {
+  async shareToInstagramStory(options: { filePath: string; facebookAppId: string; contentUrl?: string; mediaType?: 'video' | 'image' }): Promise<{ shared: boolean; linkAttached: boolean }> {
     throw new Error('Compartilhamento no story do Instagram não disponível na web. Use a versão nativa.');
   }
 }

@@ -111,7 +111,7 @@ export interface VideoProcessorPlugin {
   generateImageThumbnail(options: { filePath: string; maxWidth?: number; maxHeight?: number; quality?: number }): Promise<{ thumbnailPath: string }>;
 
   /**
-   * Compartilha um vídeo local diretamente no story do Instagram.
+   * Compartilha um vídeo ou imagem local diretamente no story do Instagram.
    *
    * Requer um Facebook App ID registrado — sem ele o Instagram recusa o asset.
    * O `filePath` precisa ser um caminho LOCAL (URL remota não funciona).
@@ -127,5 +127,7 @@ export interface VideoProcessorPlugin {
     filePath: string;
     facebookAppId: string;
     contentUrl?: string;
+    /** Padrao 'video'. Define o mime (Android) e a chave de pasteboard (iOS). */
+    mediaType?: 'video' | 'image';
   }): Promise<{ shared: boolean; linkAttached: boolean }>;
 }

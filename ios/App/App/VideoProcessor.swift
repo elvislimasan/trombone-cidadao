@@ -514,11 +514,11 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // MARK: - shareToInstagramStory
 
-    /// Compartilha um vídeo diretamente no story do Instagram via URL scheme.
+    /// Compartilha um vídeo ou imagem diretamente no story do Instagram via URL scheme.
     ///
     /// O sticker de link (contentURL) só é renderizado pelo Instagram se a conta do
     /// usuário tiver permissão de link em story — regra da Meta, fora do controle do app.
-    /// Quando a conta não tem, o vídeo entra normalmente e o link é ignorado em silêncio.
+    /// Quando a conta não tem, a mídia entra normalmente e o link é ignorado em silêncio.
     /// `linkAttached` indica apenas que enviamos o parâmetro, não que ele apareceu.
     @objc func shareToInstagramStory(_ call: CAPPluginCall) {
         guard let rawPath = call.getString("filePath") else {
@@ -536,10 +536,17 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        guard let videoData = FileManager.default.contents(atPath: actualPath) else {
-            call.reject("Não foi possível ler o vídeo")
+        guard let mediaData = FileManager.default.contents(atPath: actualPath) else {
+            call.reject("Não foi possível ler a mídia")
             return
         }
+
+        // O Instagram usa chaves de pasteboard distintas para os dois fundos;
+        // enviar imagem na chave de vídeo faz o story abrir vazio.
+        let mediaType = call.getString("mediaType") ?? "video"
+        let backgroundKey = mediaType == "image"
+            ? "com.instagram.sharedSticker.backgroundImage"
+            : "com.instagram.sharedSticker.backgroundVideo"
 
         let contentUrl = call.getString("contentUrl")
 
@@ -553,7 +560,7 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             var item: [String: Any] = [
-                "com.instagram.sharedSticker.backgroundVideo": videoData,
+                backgroundKey: mediaData,
                 "com.instagram.sharedSticker.appID": appId
             ]
             if let contentUrl = contentUrl, !contentUrl.isEmpty {
@@ -561,7 +568,7 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             // O pasteboard é consumido pelo Instagram na abertura; a expiração
-            // evita que o vídeo fique acessível a outros apps depois disso.
+            // evita que a mídia fique acessível a outros apps depois disso.
             UIPasteboard.general.setItems(
                 [item],
                 options: [.expirationDate: Date().addingTimeInterval(60 * 5)]

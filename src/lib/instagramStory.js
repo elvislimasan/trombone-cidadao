@@ -12,10 +12,20 @@ const MAX_STORY_VIDEO_BYTES = 50 * 1024 * 1024;
 export const getFacebookAppId = () =>
   import.meta.env.VITE_FACEBOOK_APP_ID || '';
 
-export const canShareVideoToStory = () =>
+export const canShareToStory = () =>
   Capacitor.isNativePlatform() &&
   Capacitor.isPluginAvailable('VideoProcessor') &&
   Boolean(getFacebookAppId());
+
+// O plugin nativo rejeita com esse codigo quando o app nao esta instalado;
+// normalizamos para o chamador tratar sem inspecionar string de erro.
+const normalizePluginError = (error) => {
+  const message = String(error?.message || error?.code || '');
+  if (message.includes('INSTAGRAM_NOT_INSTALLED')) {
+    return new Error('INSTAGRAM_NOT_INSTALLED');
+  }
+  return error;
+};
 
 const blobToBase64 = (blob) =>
   new Promise((resolve, reject) => {
@@ -116,14 +126,63 @@ export const shareVideoToInstagramStory = async ({
       filePath,
       facebookAppId,
       contentUrl: shareUrl,
+      mediaType: 'video',
     });
   } catch (error) {
-    // O plugin nativo rejeita com esse codigo quando o app nao esta instalado;
-    // normalizamos para o chamador tratar sem inspecionar string de erro.
-    const message = String(error?.message || error?.code || '');
-    if (message.includes('INSTAGRAM_NOT_INSTALLED')) {
-      throw new Error('INSTAGRAM_NOT_INSTALLED');
-    }
-    throw error;
+    throw normalizePluginError(error);
+  }
+};
+
+/**
+ * Compartilha o card do story (PNG gerado pelo html-to-image) direto no
+ * Instagram, sem passar pela galeria.
+ *
+ * Mesma ressalva do video: o sticker de link so aparece se a conta do usuario
+ * tiver permissao de link em story.
+ *
+ * @param {object} params
+ * @param {string} params.dataUrl PNG em data URI, saida do toPng
+ * @param {string} params.reportId
+ * @param {string} [params.shareUrl] URL da bronca para o sticker de link
+ * @returns {Promise<{shared: boolean, linkAttached: boolean}>}
+ */
+export const shareImageToInstagramStory = async ({
+  dataUrl,
+  reportId,
+  shareUrl,
+}) => {
+  const facebookAppId = getFacebookAppId();
+  if (!facebookAppId) {
+    throw new Error('MISSING_FACEBOOK_APP_ID');
+  }
+
+  const base64 = String(dataUrl || '').split(',')[1] || '';
+  if (!base64) {
+    throw new Error('INVALID_IMAGE_DATA');
+  }
+
+  const fileName = `story-card-${reportId}-${Date.now()}.png`;
+
+  await Filesystem.writeFile({
+    path: fileName,
+    data: base64,
+    directory: Directory.Cache,
+    recursive: true,
+  });
+
+  const { uri } = await Filesystem.getUri({
+    directory: Directory.Cache,
+    path: fileName,
+  });
+
+  try {
+    return await VideoProcessor.shareToInstagramStory({
+      filePath: uri,
+      facebookAppId,
+      contentUrl: shareUrl,
+      mediaType: 'image',
+    });
+  } catch (error) {
+    throw normalizePluginError(error);
   }
 };

@@ -138,11 +138,11 @@ class VideoProcessorPlugin : Plugin() {
     }
 
     /**
-     * Compartilha um vídeo diretamente no story do Instagram.
+     * Compartilha um vídeo ou imagem diretamente no story do Instagram.
      *
      * O sticker de link (contentURL) só é renderizado pelo Instagram se a conta do
      * usuário tiver permissão de link em story — isso é regra da Meta, não do app.
-     * Quando a conta não tem, o vídeo entra normalmente e o link é ignorado
+     * Quando a conta não tem, a mídia entra normalmente e o link é ignorado
      * silenciosamente. Por isso o retorno traz `linkAttached` apenas como indicação
      * de que enviamos o parâmetro, não de que ele apareceu.
      */
@@ -160,6 +160,11 @@ class VideoProcessorPlugin : Plugin() {
             return
         }
 
+        // O Instagram distingue os dois fundos pelo mime do intent: um asset de
+        // imagem enviado como video/* e recusado em silencio.
+        val mediaType = call.getString("mediaType") ?: "video"
+        val mimeType = if (mediaType == "image") "image/*" else "video/*"
+
         val appId = call.getString("facebookAppId")
         if (appId.isNullOrBlank()) {
             call.reject("facebookAppId é obrigatório para o Instagram aceitar o asset")
@@ -174,7 +179,7 @@ class VideoProcessorPlugin : Plugin() {
             )
 
             val intent = Intent("com.instagram.share.ADD_TO_STORY").apply {
-                setDataAndType(uri, "video/*")
+                setDataAndType(uri, mimeType)
                 putExtra("source_application", appId)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 call.getString("contentUrl")?.takeIf { it.isNotBlank() }?.let {

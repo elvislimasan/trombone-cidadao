@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getReportShareUrl } from '@/lib/shareUtils';
 import {
-  canShareVideoToStory,
+  canShareToStory,
   shareVideoToInstagramStory,
 } from '@/lib/instagramStory';
 
@@ -160,7 +160,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
   const handleShareToStory = useCallback(async () => {
     // Sem video (ou sem suporte nativo): cai no card estatico do story,
     // que funciona com a foto de capa e leva o QR code do app.
-    if (!report.coverVideo || !canShareVideoToStory()) {
+    if (!report.coverVideo || !canShareToStory()) {
       setStoryModalOpen(true);
       return;
     }
@@ -375,7 +375,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
                     onClick={handleShareToStory}
                   >
                     <Instagram size={14} />
-                    {report.coverVideo && canShareVideoToStory()
+                    {report.coverVideo && canShareToStory()
                       ? 'Enviar vídeo ao story'
                       : 'Gerar card para story'}
                   </DropdownMenuItem>

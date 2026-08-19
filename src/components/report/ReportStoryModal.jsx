@@ -8,6 +8,11 @@ import { Media } from '@capacitor-community/media';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { useToast } from '@/components/ui/use-toast';
 import { getCardInstagramPublicUrl } from '@/lib/cardInstagramAssets';
+import { getReportShareUrl } from '@/lib/shareUtils';
+import {
+  canShareToStory,
+  shareImageToInstagramStory,
+} from '@/lib/instagramStory';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +30,7 @@ import {
   BadgeCheck,
   Clock3,
   Wrench,
+  Send,
 } from 'lucide-react';
 
 const STORY_WIDTH = 1080;
@@ -850,6 +856,7 @@ const ReportStoryModal = ({
   const exportRef = useRef(null);
   const [layout, setLayout] = useState('instagram');
   const [downloading, setDownloading] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [enableImageEffect, setEnableImageEffect] = useState(true);
   const [enableHoleEffect, setEnableHoleEffect] = useState(false);
   const { toast } = useToast();
@@ -918,29 +925,92 @@ const ReportStoryModal = ({
     );
   }, [bgType, customBgColor, report?.status, assets.backgrounds]);
 
+  // Sem suporte nativo (web, plugin ausente ou App ID faltando) o modal volta
+  // a ter apenas o download manual.
+  const storyShareAvailable = useMemo(() => canShareToStory(), []);
+
   const safeTitle = useMemo(
     () => getSafeFilename(report?.title || 'trombone-cidadao'),
     [report?.title]
   );
 
+  // Compartilhada por baixar e compartilhar: o delay da ao navegador tempo de
+  // pintar fontes e imagens antes do toPng ler os pixels.
+  const renderStoryPng = useCallback(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    return toPng(exportRef.current, {
+      cacheBust: true,
+      pixelRatio: 2,
+      width: STORY_WIDTH,
+      height: STORY_HEIGHT,
+      canvasWidth: STORY_WIDTH,
+      canvasHeight: STORY_HEIGHT,
+      backgroundColor: '#111111',
+      skipAutoScale: true,
+    });
+  }, []);
+
+  // Envia o card direto ao story, sem passar pela galeria — mesmo caminho
+  // nativo do video, trocando o fundo de video por imagem.
+  const handleShareToStory = useCallback(async () => {
+    if (!exportRef.current || sharing || downloading || !assetsReady) return;
+
+    try {
+      setSharing(true);
+      const dataUrl = await renderStoryPng();
+
+      const { linkAttached } = await shareImageToInstagramStory({
+        dataUrl,
+        reportId: report?.id,
+        shareUrl: report?.id ? getReportShareUrl(report.id) : undefined,
+      });
+
+      if (linkAttached) {
+        // Nao da para saber se o Instagram renderizou o sticker: a permissao
+        // de link em story e da conta do usuario, invisivel para o app.
+        toast({
+          title: 'Card enviado ao Instagram',
+          description:
+            'Se sua conta permitir link em story, o sticker do Trombone já vai estar lá.',
+          duration: 4000,
+        });
+      }
+      onClose?.();
+    } catch (error) {
+      console.error('Erro ao compartilhar card no story:', error);
+      const notInstalled =
+        String(error?.message || '') === 'INSTAGRAM_NOT_INSTALLED';
+
+      toast({
+        title: notInstalled
+          ? 'Instagram não encontrado'
+          : 'Não foi possível compartilhar',
+        description: notInstalled
+          ? 'Instale o Instagram para postar direto no story.'
+          : 'Tente baixar o card e postar manualmente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSharing(false);
+    }
+  }, [
+    sharing,
+    downloading,
+    assetsReady,
+    renderStoryPng,
+    report?.id,
+    toast,
+    onClose,
+  ]);
+
   const handleDownload = useCallback(async () => {
-    if (!exportRef.current || downloading || !assetsReady) return;
+    if (!exportRef.current || downloading || sharing || !assetsReady) return;
 
     try {
       setDownloading(true);
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const dataUrl = await toPng(exportRef.current, {
-        cacheBust: true,
-        pixelRatio: 2,
-        width: STORY_WIDTH,
-        height: STORY_HEIGHT,
-        canvasWidth: STORY_WIDTH,
-        canvasHeight: STORY_HEIGHT,
-        backgroundColor: '#111111',
-        skipAutoScale: true,
-      });
+      const dataUrl = await renderStoryPng();
 
       const fileName = `story-${layout}-${safeTitle}.png`;
       if (Capacitor.isNativePlatform()) {
@@ -1022,7 +1092,7 @@ const ReportStoryModal = ({
     } finally {
       setDownloading(false);
     }
-  }, [downloading, assetsReady, layout, safeTitle, toast]);
+  }, [downloading, sharing, assetsReady, renderStoryPng, layout, safeTitle, toast]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1285,22 +1355,46 @@ const ReportStoryModal = ({
             Cancelar
           </Button>
 
-          <Button
-            onClick={handleDownload}
-            disabled={downloading || !assetsReady}
-            className="bg-cta-bg hover:bg-cta-bg/90 text-cta-fg border border-cta-border gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-brand/20 flex-1 sm:flex-none"
-          >
-            {downloading || !assetsReady ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cta-fg" />
-            ) : (
-              <Download size={18} />
+          <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
+            <Button
+              onClick={handleDownload}
+              disabled={downloading || sharing || !assetsReady}
+              variant={storyShareAvailable ? 'outline' : 'default'}
+              className={
+                storyShareAvailable
+                  ? 'gap-2 h-10 sm:h-12 lg:h-10 px-4 sm:px-5 font-bold text-content-primary'
+                  : 'bg-cta-bg hover:bg-cta-bg/90 text-cta-fg border border-cta-border gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-brand/20 flex-1 sm:flex-none'
+              }
+            >
+              {downloading || !assetsReady ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+              ) : (
+                <Download size={18} />
+              )}
+              {!assetsReady
+                ? 'Carregando...'
+                : downloading
+                ? 'Gerando...'
+                : storyShareAvailable
+                ? 'Baixar'
+                : 'Baixar para Instagram'}
+            </Button>
+
+            {storyShareAvailable && (
+              <Button
+                onClick={handleShareToStory}
+                disabled={downloading || sharing || !assetsReady}
+                className="bg-cta-bg hover:bg-cta-bg/90 text-cta-fg border border-cta-border gap-2 h-10 sm:h-12 lg:h-10 px-5 sm:px-7 font-bold shadow-lg shadow-brand/20"
+              >
+                {sharing ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cta-fg" />
+                ) : (
+                  <Send size={18} />
+                )}
+                {sharing ? 'Enviando...' : 'Compartilhar no story'}
+              </Button>
             )}
-            {!assetsReady
-              ? 'Carregando...'
-              : downloading
-              ? 'Gerando...'
-              : 'Baixar para Instagram'}
-          </Button>
+          </div>
         </DialogFooter>
 
         <div
