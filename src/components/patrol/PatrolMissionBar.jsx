@@ -1,5 +1,5 @@
 import { Navigation, X, Camera } from 'lucide-react';
-import { RAIO_PRESENCA_M } from '@/hooks/usePatrolSignals';
+import { RAIO_REGISTRO_M } from '@/hooks/usePatrolSignals';
 
 // A missão que a pessoa escolheu no mapa, e a distância até ela.
 //
@@ -10,27 +10,27 @@ import { RAIO_PRESENCA_M } from '@/hooks/usePatrolSignals';
 // havia nada a fazer com elas: os pinos eram enfeite até a pessoa esbarrar num
 // por acaso.
 //
-// Agora tocar num pino traça o caminho e abre esta barra. Ela é a ponte entre
-// "vi que tem uma ali" e "estou lá".
+// Tocar num pino abre esta barra. Ela é a ponte entre "vi que tem uma ali" e
+// "estou lá": diz qual é a missão e quanto falta.
 //
-// O TRACEJADO NÃO É ROTA DE NAVEGAÇÃO
+// NÃO HÁ LINHA DESENHADA ATÉ ELA
 //
-// É uma reta. Não conhece rua, não sabe de mão única, não recalcula. Ela diz a
-// direção e a distância — o resto quem sabe é quem está dirigindo. Prometer
-// rota de verdade exigiria um serviço de roteamento e, com ele, a obrigação de
-// estar certo numa tela que a pessoa olha em movimento.
+// Houve, por pouco tempo: um tracejado reto da posição até o pino. Saiu. Uma
+// reta não conhece rua nem mão única, e sobre um mapa ela é lida como caminho
+// — o desenho promete uma navegação que o app não faz. O número em metros diz
+// a mesma coisa sem fingir ser rota.
 
 const formatarDistancia = (m) => {
   const v = Math.max(0, Math.round(m || 0));
   return v < 1000 ? `${v} m` : `${(v / 1000).toFixed(1).replace('.', ',')} km`;
 };
 
-export default function PatrolRouteBar({ missao, distancia, onRegistrar, onCancelar }) {
+export default function PatrolMissionBar({ missao, distancia, onRegistrar, onCancelar }) {
   if (!missao) return null;
 
-  // O servidor recusa registrar de longe (RAIO_PRESENCA_M, migração 173).
-  // Mostrar o botão assim mesmo mandaria a pessoa até a rede para ouvir não.
-  const perto = distancia != null && distancia <= RAIO_PRESENCA_M;
+  // Registrar só de perto. Ver RAIO_REGISTRO_M para os três raios e o porquê
+  // de este ser mais apertado que o do servidor.
+  const perto = distancia != null && distancia <= RAIO_REGISTRO_M;
 
   return (
     <div className="absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-[1002] px-3">
@@ -43,7 +43,10 @@ export default function PatrolRouteBar({ missao, distancia, onRegistrar, onCance
           </p>
           <p className="text-xs text-content-secondary tabular-nums">
             {distancia != null ? `a ${formatarDistancia(distancia)} daqui` : 'no mapa'}
-            {missao.bairro ? ` · ${missao.bairro}` : ''}
+            {/* Longe, a barra tem que dizer o que falta para o botão aparecer —
+                senão ela é um card sem ação, e a pessoa fica esperando algo
+                que não vem. */}
+            {!perto && distancia != null && ' · aproxime-se para registrar'}
           </p>
         </div>
 

@@ -45,6 +45,25 @@ export const RAIO_PRESENCA_M = 100;
 export const RAIO_CARD_MISSAO_M = 15;
 
 /**
+ * Até onde a barra da missão escolhida oferece "Registrar".
+ *
+ * TRÊS RAIOS, TRÊS PERGUNTAS DIFERENTES
+ *
+ *   • 100 m — o servidor aceita. É permissão, e é a única que protege o dado.
+ *   •  20 m — o botão aparece na barra. É "você chegou".
+ *   •  15 m — o card completo interrompe sozinho. É "você está em cima".
+ *
+ * O botão nascia com o raio do servidor, e por isso aparecia a um quarteirão
+ * de distância: a barra dizia "a 55 m daqui" com um Registrar aceso ao lado,
+ * convidando a cadastrar de longe uma bronca que a pessoa não estava vendo.
+ * Foto tirada de 55 m é foto de outra coisa.
+ *
+ * Mais apertado que o servidor de propósito. O contrário — cliente mais
+ * frouxo — é o que faz o botão prometer o que a RPC nega.
+ */
+export const RAIO_REGISTRO_M = 20;
+
+/**
  * Quanto o ponto de uma missão pode ser corrigido. Espelha
  * `patrol_signal_adjust_m()` na migração 175.
  *

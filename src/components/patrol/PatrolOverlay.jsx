@@ -36,7 +36,7 @@ import PatrolAchievementUnlocked from './PatrolAchievementUnlocked';
 import PatrolSignalButton from './PatrolSignalButton';
 import PatrolSignalSheet from './PatrolSignalSheet';
 import PatrolMissionCard from './PatrolMissionCard';
-import PatrolRouteBar from './PatrolRouteBar';
+import PatrolMissionBar from './PatrolMissionBar';
 import PatrolReportModal from './PatrolReportModal';
 import PatrolStoryModal from './PatrolStoryModal';
 
@@ -69,8 +69,8 @@ const useAvisoAceito = () => {
  * @param {string|null} [props.categoria]  patrulha de uma categoria só; null = tudo.
  */
 export default function PatrolOverlay({
-  missaoTracada,
-  onTracarRota,
+  missaoEscolhida,
+  onEscolherMissao,
   onPosicao,
   onBroncas,
   onRastro,
@@ -335,16 +335,16 @@ export default function PatrolOverlay({
     return m && !missoesAdiadas.has(m.id) ? m : null;
   }, [sinais.missaoAoAlcance, missoesAdiadas]);
 
-  // Chegou: a rota cumpriu o papel e sai de cena.
+  // Chegou: a barra cumpriu o papel e sai de cena.
   //
-  // Sem isto, a barra continuaria montada sob o card de missão — invisível pela
-  // ordem das camadas, mas viva —, e cancelar o card devolveria uma rota para
-  // um lugar onde a pessoa já está.
+  // Sem isto, ela continuaria montada sob o card de missão — invisível pela
+  // ordem das camadas, mas viva —, e cancelar o card devolveria uma barra
+  // apontando para onde a pessoa já está.
   useEffect(() => {
-    if (missaoAoAlcance && missaoTracada && missaoAoAlcance.id === missaoTracada.id) {
-      onTracarRota?.(null);
+    if (missaoAoAlcance && missaoEscolhida && missaoAoAlcance.id === missaoEscolhida.id) {
+      onEscolherMissao?.(null);
     }
-  }, [missaoAoAlcance, missaoTracada, onTracarRota]);
+  }, [missaoAoAlcance, missaoEscolhida, onEscolherMissao]);
 
   // ── Fila de camadas ──
   //
@@ -371,12 +371,12 @@ export default function PatrolOverlay({
     if (mostrarSinalizar) return 'sinalizar';
     if (alertaAtual) return 'alerta';
     if (missaoAoAlcance) return 'missao';
-    // Chegar vence o caminho: a 15 m o card completo toma o lugar da barra.
-    if (missaoTracada) return 'rota';
+    // Chegar vence a escolha: a 15 m o card completo toma o lugar da barra.
+    if (missaoEscolhida) return 'escolhida';
     return 'livre';
   }, [
     novasConquistas.length, story, saida, registro,
-    mostrarSinalizar, alertaAtual, missaoAoAlcance, missaoTracada,
+    mostrarSinalizar, alertaAtual, missaoAoAlcance, missaoEscolhida,
   ]);
 
 
@@ -653,12 +653,12 @@ export default function PatrolOverlay({
     if (registro) { setRegistro(null); return; }
     if (mostrarSinalizar) { setMostrarSinalizar(false); return; }
     if (alertaAtual) { adiar(); return; }
-    if (missaoTracada) { onTracarRota?.(null); return; }
+    if (missaoEscolhida) { onEscolherMissao?.(null); return; }
     // Camada livre: abre a folha de saída, que é onde se decide.
     sair();
   }, [
     novasConquistas.length, story, saida, registro, mostrarSinalizar,
-    alertaAtual, missaoTracada, onTracarRota, adiar, sair, sairDaTela,
+    alertaAtual, missaoEscolhida, onEscolherMissao, adiar, sair, sairDaTela,
     encerrar, concluir,
   ]);
 
@@ -782,12 +782,12 @@ export default function PatrolOverlay({
         />
       )}
 
-      {camada === 'rota' && (
-        <PatrolRouteBar
-          missao={missaoTracada}
-          distancia={posicao ? haversine(posicao, missaoTracada) : null}
+      {camada === 'escolhida' && (
+        <PatrolMissionBar
+          missao={missaoEscolhida}
+          distancia={posicao ? haversine(posicao, missaoEscolhida) : null}
           onRegistrar={(m) => setRegistro({ modo: 'missao', missao: m })}
-          onCancelar={() => onTracarRota?.(null)}
+          onCancelar={() => onEscolherMissao?.(null)}
         />
       )}
 
