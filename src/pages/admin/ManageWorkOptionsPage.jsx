@@ -14,6 +14,74 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Combobox } from '@/components/ui/combobox';
 import { useCity } from '@/contexts/CityContext';
 import { formatCnpj } from '@/lib/utils';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
+
+// Lista simples de opções (categorias, áreas, construtoras).
+// Componente, e não função, porque a paginação é um hook — e as abas trocam.
+const ListaOpcoes = ({ data, renderItem }) => {
+  const { visiveis, propsPaginacao } = useListaPaginada(data || [], { porPagina: 25 });
+
+  if (!data || data.length === 0) {
+    return <p className="text-center text-muted-foreground py-8">Nada cadastrado aqui ainda.</p>;
+  }
+
+  return (
+    <>
+      <div className="space-y-2">{visiveis.map(renderItem)}</div>
+      <PaginacaoLista {...propsPaginacao} />
+    </>
+  );
+};
+
+// Bairros agrupados por cidade — sem isso, bairros de todas as cidades
+// apareciam juntos ordenados só pelo nome, sem indicar de qual cidade cada um
+// é (confuso desde que o app deixou de ser só-Floresta).
+//
+// O recorte é por GRUPO, não por bairro: cortar no meio de uma cidade deixaria
+// metade dos bairros dela numa página e metade na outra, sob o mesmo título.
+const BairrosAgrupados = ({ data, renderItem }) => {
+  const groups = new Map();
+  const noCityGroup = [];
+  (data || []).forEach((item) => {
+    if (!item.city) {
+      noCityGroup.push(item);
+      return;
+    }
+    const key = String(item.city.id);
+    if (!groups.has(key)) {
+      groups.set(key, { label: `${item.city.name}${item.city.states?.uf ? ` (${item.city.states.uf})` : ''}`, items: [] });
+    }
+    groups.get(key).items.push(item);
+  });
+  const sortedGroups = Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label));
+
+  const { visiveis: gruposVisiveis, propsPaginacao } = useListaPaginada(sortedGroups, { porPagina: 8 });
+
+  return (
+    <>
+      <div className="space-y-6">
+        {gruposVisiveis.map((group) => (
+          <div key={group.label}>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">{group.label}</p>
+            <div className="space-y-2">
+              {group.items.map(renderItem)}
+            </div>
+          </div>
+        ))}
+        {noCityGroup.length > 0 && (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-destructive mb-2">Sem cidade definida</p>
+            <div className="space-y-2">
+              {noCityGroup.map(renderItem)}
+            </div>
+          </div>
+        )}
+      </div>
+      <PaginacaoLista {...propsPaginacao} />
+    </>
+  );
+};
 
 const GenericOptionEditModal = ({ option, onSave, onClose, typeLabel }) => {
   const [name, setName] = useState('');
@@ -278,51 +346,15 @@ const ManageWorkOptionsPage = () => {
   );
 
   const renderList = (data, type, typeLabel) => (
-    <div className="space-y-2">
-      {data.map(item => renderItem(item, type, typeLabel))}
-    </div>
+    <ListaOpcoes data={data} renderItem={(item) => renderItem(item, type, typeLabel)} />
   );
 
   // Bairros agrupados por cidade — sem isso, bairros de todas as cidades
   // apareciam juntos ordenados só pelo nome, sem indicar de qual cidade cada
   // um é (confuso desde que o app deixou de ser só-Floresta).
-  const renderBairrosGrouped = (data, type, typeLabel) => {
-    const groups = new Map();
-    const noCityGroup = [];
-    data.forEach((item) => {
-      if (!item.city) {
-        noCityGroup.push(item);
-        return;
-      }
-      const key = String(item.city.id);
-      if (!groups.has(key)) {
-        groups.set(key, { label: `${item.city.name}${item.city.states?.uf ? ` (${item.city.states.uf})` : ''}`, items: [] });
-      }
-      groups.get(key).items.push(item);
-    });
-    const sortedGroups = Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label));
-
-    return (
-      <div className="space-y-6">
-        {sortedGroups.map((group) => (
-          <div key={group.label}>
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">{group.label}</p>
-            <div className="space-y-2">
-              {group.items.map((item) => renderItem(item, type, typeLabel))}
-            </div>
-          </div>
-        ))}
-        {noCityGroup.length > 0 && (
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-destructive mb-2">Sem cidade definida</p>
-            <div className="space-y-2">
-              {noCityGroup.map((item) => renderItem(item, type, typeLabel))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const renderBairrosGrouped = (data, type, typeLabel) => (
+    <BairrosAgrupados data={data} renderItem={(item) => renderItem(item, type, typeLabel)} />
+  );
 
   return (
     <>

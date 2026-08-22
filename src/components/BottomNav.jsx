@@ -157,10 +157,17 @@ const BottomNav = () => {
         });
       } catch {}
 
+      // O aviso de moderação não é enfeite: sem ele a pessoa envia, não vê a
+      // bronca no feed e conclui que o app perdeu o cadastro — reenvia, ou
+      // desiste. Só admin/master publicam direto (é o que a linha de
+      // moderation_status acima decide), então o texto segue a mesma regra.
+      const isPublishedDirectly = user?.is_admin || user?.is_master;
       toast({
         title: 'Você acabou de ajudar sua cidade 🔥',
-        description: `Bronca enviada. Total: ${nextSubmitted}`,
-        duration: 4500,
+        description: isPublishedDirectly
+          ? `Bronca publicada. Total: ${nextSubmitted}`
+          : `Bronca enviada para moderação — após aprovada, estará disponível no feed. Total: ${nextSubmitted}`,
+        duration: 5500,
       });
       setShowReportModal(false);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));

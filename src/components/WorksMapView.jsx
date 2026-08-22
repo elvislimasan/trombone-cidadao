@@ -2,7 +2,7 @@ import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback } from 'react';
 import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
-import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck } from 'lucide-react';
+import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck, LocateFixed } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
@@ -198,6 +198,34 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       }
     }
   }));
+
+  /**
+   * Centraliza o mapa na posição do usuário.
+   *
+   * Sem isto, quem abre o mapa de obras cai na vista que enquadra TODAS as
+   * obras da cidade (FitToWorks) e tem que arrastar até o próprio bairro para
+   * saber o que tem por perto — que é a pergunta que a maioria das pessoas
+   * chega fazendo.
+   *
+   * Não marca posição nem altera filtro: só move a câmera. Falha em silêncio
+   * quando a permissão é negada — o mapa continua utilizável, e um toast de
+   * erro para uma ação que a pessoa pode simplesmente não repetir só atrapalha.
+   */
+  const recenterToUser = useCallback(() => {
+    if (!mapRef.current || !navigator?.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos?.coords?.latitude;
+        const lng = pos?.coords?.longitude;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        try {
+          mapRef.current.flyTo([lat, lng], Math.max(mapRef.current.getZoom(), 15), { animate: true, duration: 0.6 });
+        } catch {}
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  }, []);
 
   const getStatusInfo = (status) => {
     switch (status) {
@@ -492,7 +520,25 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       </AnimatePresence>
 
       <div className="absolute top-4 right-4 z-[800]">
-        <MapModeToggle />
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              recenterToUser();
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="w-10 h-10 inline-flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
+            title="Ir para minha posição"
+            aria-label="Ir para minha posição"
+          >
+            <LocateFixed className="w-4 h-4" />
+          </button>
+          <div className="h-px w-full bg-border" />
+          <MapModeToggle className="w-10 h-10 p-0 bg-transparent shadow-none border-0 rounded-none hover:bg-muted/60" />
+        </div>
       </div>
 
       {!isSingleWorkView && (

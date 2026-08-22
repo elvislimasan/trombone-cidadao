@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Loader2, Search, X, MapPin, ChevronDown, LocateFixed, Check,
-  SlidersHorizontal, ChevronRight, Navigation2,
+  SlidersHorizontal, ChevronRight,
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
@@ -13,7 +13,6 @@ import ReportUpdateModal from '@/components/report/ReportUpdateModal';
 const MapView = lazy(() => import('@/components/MapView'));
 // Carregado sob demanda: quem só consulta o mapa não paga pelo peso dos hooks
 // de GPS contínuo, voz e alertas.
-const PatrolOverlay = lazy(() => import('@/components/patrol/PatrolOverlay'));
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -105,19 +104,14 @@ const MapLoader = () => (
 
 export default function MapPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { cities, loadingCities } = useCity();
 
-  // O modo patrulha é uma rota (/mapa/patrulha) renderizada SOBRE este mapa,
-  // não uma tela separada: assim o MapView não desmonta ao entrar e não há
-  // recarga de tiles nem tela branca na transição. O botão voltar do aparelho
-  // sai do modo, que é o que o usuário espera.
-  const navMode = location.pathname.startsWith('/mapa/patrulha');
-  const [navPosition, setNavPosition] = useState(null);
-  const [navBroncas, setNavBroncas] = useState([]);
-  // Rastro percorrido, só para desenhar. Não é gravado em lugar nenhum: o
-  // percurso começaria e terminaria na casa de quem patrulha.
-  const [navTrail, setNavTrail] = useState([]);
+  // Esta página consulta. A patrulha mora em /patrulhar, com mapa próprio.
+  //
+  // Até aqui as duas dividiam esta tela, e o preço eram quinze condicionais
+  // `if (navMode)` espalhadas: não buscar clusters, não sincronizar cidade,
+  // esconder loader, legenda, toque e chrome. Cada recurso novo de um dos modos
+  // obrigava a reler os freios do outro. Agora cada tela faz uma coisa.
   const citiesRef = useRef(cities);
   useEffect(() => { citiesRef.current = cities; }, [cities]);
 
@@ -407,13 +401,13 @@ export default function MapPage() {
   // alimenta os alertas é o useNavCorridor, que busca um raio de 2 km e só
   // repete depois de 1 km percorrido.
   useEffect(() => {
-    if (!mapBounds || navMode) return;
+    if (!mapBounds) return;
     clearTimeout(fetchClustersTimerRef.current);
     fetchClustersTimerRef.current = setTimeout(() => {
       fetchClusters(mapBounds, mapZoom);
     }, 300);
     return () => clearTimeout(fetchClustersTimerRef.current);
-  }, [mapBounds, mapZoom, fetchClusters, navMode]);
+  }, [mapBounds, mapZoom, fetchClusters]);
 
   // Abre o modal de atualização sobre o mapa. Busca as atualizações já
   // existentes da bronca porque o rate limit (1 envio por tipo a cada 7 dias)
@@ -480,7 +474,7 @@ export default function MapPage() {
   const boundsCityTimerRef = useRef(null);
 
   const handleBoundsChange = useCallback((bounds, zoom) => {
-    if (!bounds || navMode) return;
+    if (!bounds) return;
     setMapBounds({
       minLat: bounds.getSouth(),
       maxLat: bounds.getNorth(),
@@ -496,7 +490,7 @@ export default function MapPage() {
         syncCityFromCoords({ lat: center.lat, lng: center.lng });
       }, 1200);
     }
-  }, [syncCityFromCoords, navMode]);
+  }, [syncCityFromCoords]);
 
   useEffect(() => () => clearTimeout(boundsCityTimerRef.current), []);
 
@@ -512,22 +506,6 @@ export default function MapPage() {
   const totalVisibleCount = useMemo(
     () => visibleClusters.reduce((sum, item) => sum + item.count, 0),
     [visibleClusters]
-  );
-
-  // Em navegação o mapa desenha o corredor do useNavCorridor, não o resultado
-  // do último enquadramento: são poucas dezenas de pins em vez de centenas, e a
-  // referência só muda quando o corredor é rebuscado — sem isso o mapa
-  // reposicionaria todos os marcadores a cada leitura de GPS.
-  const navClusters = useMemo(
-    () => navBroncas.map((b) => ({
-      isCluster: false,
-      lat: b.lat,
-      lng: b.lng,
-      count: 1,
-      ids: [b.id],
-      report: { ...b, location: { lat: b.lat, lng: b.lng } },
-    })),
-    [navBroncas]
   );
 
   // Contagem por categoria para os chips. Deriva do que ja esta carregado - sem
@@ -594,7 +572,7 @@ export default function MapPage() {
           pointer-events-none no container + auto nos filhos: o espaco vazio
           entre os controles continua arrastavel como mapa. */}
       <div className="flex-1 min-h-0 relative overflow-hidden">
-        {(loading || !geoSettled) && !navMode && <MapLoader />}
+        {(loading || !geoSettled) && <MapLoader />}
         {/* Só monta o mapa depois que o GPS resolveu: o Leaflet fixa o centro
             na montagem, entao montar antes deixaria o mapa preso em Floresta e
             a posicao do usuario chegaria tarde, causando o salto na abertura. */}
@@ -602,45 +580,20 @@ export default function MapPage() {
         <Suspense fallback={<MapLoader />}>
           <div className="absolute inset-0">
             <MapView
-              clusters={navMode ? navClusters : visibleClusters}
+              clusters={visibleClusters}
               initialCenter={initialUserPos}
               onReportClick={handleReportClick}
               onUpvote={() => {}}
-              showLegend={!navMode}
-              showModeToggle={!navMode}
-              interactive={!navMode}
               flyToTarget={flyToTarget}
               onBoundsChange={handleBoundsChange}
               onRecenter={syncCityFromCoords}
               onUpdateClick={handleOpenUpdate}
-              navMode={navMode}
-              navPosition={navPosition}
-              navTrail={navTrail}
             />
           </div>
         </Suspense>
         )}
 
-        {navMode && (
-          <Suspense fallback={null}>
-            <PatrolOverlay
-              onPosicao={setNavPosition}
-              onBroncas={setNavBroncas}
-              onRastro={setNavTrail}
-              cityId={mapCityId}
-              onSair={() => {
-                setNavPosition(null);
-                setNavBroncas([]);
-                setNavTrail([]);
-                navigate('/mapa', { replace: true });
-              }}
-            />
-          </Suspense>
-        )}
-
-        {/* Chrome de consulta: some inteiro em navegação, onde a tela pertence
-            ao painel e ao card de alerta. */}
-        <div className={`absolute inset-x-0 top-0 z-[700] pointer-events-none flex-col gap-2 pt-2 ${navMode ? 'hidden' : 'flex'}`}>
+        <div className="absolute inset-x-0 top-0 z-[700] pointer-events-none flex flex-col gap-2 pt-2">
 
       {/* ── Top bar: search + filtros ── */}
       <div className="flex-shrink-0 pointer-events-auto px-3 flex items-center gap-2">
@@ -699,26 +652,18 @@ export default function MapPage() {
 
       </div>
 
-      {/* ── Bottom bar: contagem + entrada da navegação ── */}
-      {!navMode && (
-        <div className="flex-shrink-0 bg-background border-t border-border px-4 py-2.5 flex items-center gap-3">
-          <span className="text-sm font-semibold text-foreground">
-            {loading ? (
-              <span className="text-muted-foreground">Carregando…</span>
-            ) : (
-              `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => navigate('/mapa/patrulha')}
-            className="ml-auto flex items-center gap-2 rounded-full bg-primary text-primary-foreground font-bold text-sm px-4 py-2 shadow-md active:scale-[0.97] transition-transform"
-          >
-            <Navigation2 size={15} />
-            Patrulhar
-          </button>
-        </div>
-      )}
+      {/* ── Bottom bar: contagem ──
+          A entrada da patrulha saiu daqui para o hub de missões: este mapa é
+          para consultar, e o botão de agir vivia escondido atrás dele. */}
+      <div className="flex-shrink-0 bg-background border-t border-border px-4 py-2.5 flex items-center gap-3">
+        <span className="text-sm font-semibold text-foreground">
+          {loading ? (
+            <span className="text-muted-foreground">Carregando…</span>
+          ) : (
+            `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
+          )}
+        </span>
+      </div>
 
       {/* ══ Bottom Sheet: Filtros ══════════════════════════════════════════════ */}
       <BottomSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Filtros">

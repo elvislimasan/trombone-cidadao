@@ -1073,7 +1073,13 @@ const ReportDetails = ({
   const StatusIcon = statusInfo.icon;
   const canEdit = user && (user.is_admin || (user.id === report.author_id && report.moderation_status === 'pending_approval'));
   const canChangeStatus = user && (user.is_admin || user.user_type === 'public_official');
-  const canModerate = user && user.is_admin; // Apenas admins podem moderar
+  // Sinal aberto não é matéria de moderação: não tem foto nem descrição para
+  // julgar, e a migração 175 impede publicá-lo pelo banco. Sem esta exceção o
+  // admin veria o botão Aprovar, clicaria e receberia um erro cru do Postgres —
+  // a trava funcionando, parecendo defeito.
+  const isSinalAberto = report.origin === 'signal' && report.signal_status === 'open';
+
+  const canModerate = user && user.is_admin && !isSinalAberto; // Apenas admins podem moderar
   // Determina se há resolução pendente para moderação (apenas para admins)
   const isResolutionModeration = canModerate && report.status === 'pending_resolution' && report.resolution_submission;
 

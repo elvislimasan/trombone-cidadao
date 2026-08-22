@@ -6,6 +6,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { useMissionProgress } from '@/contexts/MissionProgressContext';
 
 const STORAGE_KEYS = {
   reportsSubmitted: 'tc_reports_submitted_count',
@@ -49,6 +50,7 @@ const AnimatedNumber = ({ value, durationMs = 650, className = '' }) => {
 export function useCreateReport({ onCreated } = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { celebrar } = useMissionProgress();
   const [submittedCount, setSubmittedCount] = useState(() => {
     try {
       return readInt(localStorage.getItem(STORAGE_KEYS.reportsSubmitted), 0);
@@ -67,6 +69,7 @@ export function useCreateReport({ onCreated } = {}) {
         is_from_water_utility,
         is_anonymous,
         city_id: geocodedCityId,
+        neighborhood,
       } = newReportData;
 
       const normPole = (raw) =>
@@ -102,6 +105,10 @@ export function useCreateReport({ onCreated } = {}) {
           issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
           is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
           is_anonymous: !!is_anonymous,
+          // Bairro do MARCADOR, pela mesma razão do city_id: a bronca pertence ao
+          // lugar marcado no mapa, não ao bairro onde quem registra está.
+          // Alimenta os títulos e as medalhas de bairro (migração 174).
+          neighborhood: neighborhood?.trim() || null,
           status: 'pending',
           moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
           city_id: cityId,
@@ -122,6 +129,11 @@ export function useCreateReport({ onCreated } = {}) {
           throw uploadError;
         }
       }
+
+      // A bronca pode ter fechado uma etapa de missão — de "Registre broncas"
+      // ou de "Investigue", conforme a categoria. Quem descobre o quê é a
+      // comparação de contadores no provider; aqui só se avisa que houve ação.
+      celebrar();
 
       const nextSubmitted = submittedCount + 1;
       setSubmittedCount(nextSubmitted);
@@ -160,7 +172,7 @@ export function useCreateReport({ onCreated } = {}) {
       onCreated?.(data.id);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
     },
-    [submittedCount, user, toast, onCreated]
+    [submittedCount, user, toast, onCreated, celebrar]
   );
 
   return { createReport, submittedCount };

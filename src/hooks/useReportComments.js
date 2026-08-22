@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useMissionProgress } from '@/contexts/MissionProgressContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 /**
@@ -13,6 +14,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
  */
 export function useReportComments(reportId, { enabled = true } = {}) {
   const { user } = useAuth();
+  const { celebrar } = useMissionProgress();
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -83,6 +85,9 @@ export function useReportComments(reportId, { enabled = true } = {}) {
 
         // Insere direto na lista em vez de refazer o fetch: o comentario ja
         // volta do insert e a folha esta aberta na frente do usuario.
+        // Comentário conta para a missão da trilha Comunidade.
+        celebrar();
+
         setComments((prev) => [
           ...prev,
           {
@@ -102,7 +107,7 @@ export function useReportComments(reportId, { enabled = true } = {}) {
         setSubmitting(false);
       }
     },
-    [reportId, user]
+    [reportId, user, celebrar]
   );
 
   // Contagem publica: pendentes do proprio autor nao entram, senao o numero no

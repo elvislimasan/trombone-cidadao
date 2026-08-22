@@ -1,26 +1,16 @@
-import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
-import { toPng } from 'html-to-image';
+import React, { useMemo, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Media } from '@capacitor-community/media';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { useToast } from '@/components/ui/use-toast';
 import { getCardInstagramPublicUrl } from '@/lib/cardInstagramAssets';
 import { getReportShareUrl } from '@/lib/shareUtils';
-import {
-  canShareToStory,
-  shareImageToInstagramStory,
-} from '@/lib/instagramStory';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { useStoryExport } from '@/hooks/useStoryExport';
+// A conversao para data URI saiu daqui quando o card da patrulha passou a ter
+// fundo proprio no mesmo bucket: dois lugares convertendo imagem seriam dois
+// lugares para redescobrir, no primeiro card que voltasse a falhar, que o
+// problema era CORS.
+import { toDataUri } from '@/lib/storyAssets';
+import { canShareToStory } from '@/lib/instagramStory';
 import {
   Download,
   Instagram,
@@ -31,6 +21,8 @@ import {
   Clock3,
   Wrench,
   Send,
+  X,
+  Loader2,
 } from 'lucide-react';
 
 const STORY_WIDTH = 1080;
@@ -38,35 +30,6 @@ const STORY_HEIGHT = 1920;
 
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.trombonecidadao.app&pcampaignid=web_share';
-
-/**
- * Converte uma imagem remota em data URI.
- *
- * O toPng precisa ler os pixels de cada <img> para desenhar no canvas. Uma
- * imagem servida sem header CORS "suja" (taints) o canvas e faz o toPng lancar
- * erro — era a causa do "erro ao baixar" do card. Buscando via fetch e
- * embutindo como data URI, a imagem passa a ser same-origin para o canvas.
- *
- * Best-effort: se a busca falhar, devolve string vazia e o card renderiza sem
- * aquele elemento, em vez de derrubar a exportacao inteira.
- */
-const toDataUri = async (url) => {
-  if (!url) return '';
-  if (url.startsWith('data:')) return url;
-  try {
-    const response = await fetch(url, { mode: 'cors', cache: 'no-cache' });
-    if (!response.ok) return '';
-    const blob = await response.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(String(reader.result || ''));
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return '';
-  }
-};
 
 const normalizeText = (text = '') =>
   String(text || '').replace(/\s+/g, ' ').trim();
@@ -853,13 +816,9 @@ const ReportStoryModal = ({
   qrCodeUrl,
   coverPhotoUrl,
 }) => {
-  const exportRef = useRef(null);
   const [layout, setLayout] = useState('instagram');
-  const [downloading, setDownloading] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const [enableImageEffect, setEnableImageEffect] = useState(true);
   const [enableHoleEffect, setEnableHoleEffect] = useState(false);
-  const { toast } = useToast();
 
   const [bgType, setBgType] = useState('auto');
   const [customBgColor, setCustomBgColor] = useState('#111111');
@@ -934,186 +893,81 @@ const ReportStoryModal = ({
     [report?.title]
   );
 
-  // Compartilhada por baixar e compartilhar: o delay da ao navegador tempo de
-  // pintar fontes e imagens antes do toPng ler os pixels.
-  const renderStoryPng = useCallback(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  // Rasterizar, salvar em disco e mandar ao story vivem no useStoryExport:
+  // o caminho nativo tem as partes difíceis (permissão de armazenamento,
+  // ExternalStorage no Android, álbum, notificação) e o card da patrulha usa
+  // exatamente o mesmo. Duas cópias divergiriam no primeiro conserto.
+  const {
+    exportRef,
+    baixando: downloading,
+    compartilhando: sharing,
+    ocupado,
+    baixar: handleDownload,
+    compartilhar: handleShareToStory,
+  } = useStoryExport({
+    nomeArquivo: `story-${layout}-${safeTitle}`,
+    shareUrl: report?.id ? getReportShareUrl(report.id) : undefined,
+    tipoConteudo: 'report',
+    contentId: report?.id,
+    pronto: assetsReady,
+    aoConcluirShare: onClose,
+  });
 
-    return toPng(exportRef.current, {
-      cacheBust: true,
-      pixelRatio: 2,
-      width: STORY_WIDTH,
-      height: STORY_HEIGHT,
-      canvasWidth: STORY_WIDTH,
-      canvasHeight: STORY_HEIGHT,
-      backgroundColor: '#111111',
-      skipAutoScale: true,
-    });
-  }, []);
+  // Fechado é desmontado, não escondido: a FeedCard já monta este componente só
+  // quando abre, mas a ReportPage o mantém sempre montado e controla por prop.
+  // Sem esta saída, o painel animado apareceria na tela em ambas.
+  if (!isOpen) return null;
 
-  // Envia o card direto ao story, sem passar pela galeria — mesmo caminho
-  // nativo do video, trocando o fundo de video por imagem.
-  const handleShareToStory = useCallback(async () => {
-    if (!exportRef.current || sharing || downloading || !assetsReady) return;
-
-    try {
-      setSharing(true);
-      const dataUrl = await renderStoryPng();
-
-      const { linkAttached } = await shareImageToInstagramStory({
-        dataUrl,
-        reportId: report?.id,
-        shareUrl: report?.id ? getReportShareUrl(report.id) : undefined,
-      });
-
-      if (linkAttached) {
-        // Nao da para saber se o Instagram renderizou o sticker: a permissao
-        // de link em story e da conta do usuario, invisivel para o app.
-        toast({
-          title: 'Card enviado ao Instagram',
-          description:
-            'Se sua conta permitir link em story, o sticker do Trombone já vai estar lá.',
-          duration: 4000,
-        });
-      }
-      onClose?.();
-    } catch (error) {
-      console.error('Erro ao compartilhar card no story:', error);
-      const notInstalled =
-        String(error?.message || '') === 'INSTAGRAM_NOT_INSTALLED';
-
-      toast({
-        title: notInstalled
-          ? 'Instagram não encontrado'
-          : 'Não foi possível compartilhar',
-        description: notInstalled
-          ? 'Instale o Instagram para postar direto no story.'
-          : 'Tente baixar o card e postar manualmente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSharing(false);
-    }
-  }, [
-    sharing,
-    downloading,
-    assetsReady,
-    renderStoryPng,
-    report?.id,
-    toast,
-    onClose,
-  ]);
-
-  const handleDownload = useCallback(async () => {
-    if (!exportRef.current || downloading || sharing || !assetsReady) return;
-
-    try {
-      setDownloading(true);
-
-      const dataUrl = await renderStoryPng();
-
-      const fileName = `story-${layout}-${safeTitle}.png`;
-      if (Capacitor.isNativePlatform()) {
-        try {
-          const perm = await LocalNotifications.checkPermissions();
-          if (perm.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-        } catch {}
-
-        const base64 = dataUrl.split(',')[1] || '';
-        const platform = Capacitor.getPlatform();
-        let directory = Directory.Documents;
-        let downloadPath = fileName;
-        if (platform === 'android') {
-          try { await Filesystem.requestPermissions(); } catch {}
-          directory = Directory.ExternalStorage;
-          downloadPath = `Pictures/TromboneCidadao/Stories/${fileName}`;
-        }
-
-        await Filesystem.writeFile({
-          path: downloadPath,
-          data: base64,
-          directory,
-          recursive: true,
-        });
-
-        const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
-        try {
-          if (Media.requestPermissions) {
-            await Media.requestPermissions();
-          }
-        } catch {}
-        try {
-          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
-        } catch {}
-        try {
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Card baixado!',
-                body: 'O card foi salvo na sua galeria. Toque para abrir.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-                extra: {
-                  filePath: uriResult.uri,
-                  contentType: 'image/png',
-                },
-              },
-            ],
-          });
-        } catch (e) {
-          toast({
-            title: 'Card salvo na galeria',
-            description: 'Notificação não disponível no dispositivo.',
-          });
-        }
-      } else {
-        const link = document.createElement('a');
-        link.download = fileName;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-
-      toast({
-        title: 'Card pronto!',
-        description: 'O story foi gerado e baixado.',
-      });
-    } catch (error) {
-      console.error('Erro ao gerar story:', error);
-      toast({
-        title: 'Erro ao gerar story',
-        description: 'Tente novamente em instantes.',
-        variant: 'destructive',
-      });
-    } finally {
-      setDownloading(false);
-    }
-  }, [downloading, sharing, assetsReady, renderStoryPng, layout, safeTitle, toast]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-[95vw] h-[95vh] sm:h-[90vh] lg:h-[85vh] p-0 flex flex-col overflow-hidden border-none shadow-2xl">
-        {/* Interface do modal (cabecalho) - acompanha o tema */}
-        <DialogHeader className="p-4 sm:p-6 border-b border-edge-subtle bg-surface-raised flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Instagram className="text-pink-600" size={24} />
-            <DialogTitle className="text-xl sm:text-2xl font-black text-content-primary">
-              Criar Story para Instagram
-            </DialogTitle>
+    // Mesma concha do ReportUpdateModal: folha que sobe de baixo no celular e
+    // vira caixa centrada a partir de sm. Antes era um Dialog de 95vw × 95vh,
+    // que no celular ocupava a tela toda sem ser tela cheia — sobravam faixas
+    // de 2,5% nas laterais e o rodapé encostava na barra de gestos.
+    //
+    // A largura cresce só no lg, onde o corpo vira duas colunas: com max-w-lg
+    // ali a pré-visualização ficaria espremida ao lado dos controles.
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[3000]"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: '100%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: '100%', opacity: 0 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 380 }}
+        className="bg-surface-raised rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg lg:max-w-4xl flex flex-col overflow-hidden"
+        style={{ maxHeight: '94vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabeçalho */}
+        <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-4 flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Instagram className="text-pink-600 flex-shrink-0" size={20} />
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-extrabold text-content-primary tracking-tight truncate">
+                Criar Story
+              </h2>
+              <p className="text-xs text-content-tertiary mt-0.5 truncate">
+                Escolha o estilo e compartilhe no Instagram
+              </p>
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-surface-sunken text-content-secondary hover:bg-surface-subtleHover transition-colors active:scale-90"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-          <DialogDescription className="text-xs sm:text-sm hidden xs:block text-content-secondary">
-            Escolha um estilo visual e baixe o card otimizado para os stories.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-4 bg-surface-base no-scrollbar">
-          <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 sm:gap-8 lg:gap-4 h-full">
-            <div className="space-y-4 sm:space-y-6 lg:space-y-4">
+        <div className="flex-1 overflow-y-auto px-5 pb-4 no-scrollbar">
+          <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 lg:gap-5 h-full">
+            <div className="space-y-4 lg:space-y-4">
               <div>
                 <h3 className="text-[10px] sm:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-2 sm:mb-4 lg:mb-2">
                   Modelo de Layout
@@ -1305,8 +1159,14 @@ const ReportStoryModal = ({
               )}
             </div>
 
-            <div className="flex flex-col gap-3 sm:gap-4 lg:gap-2 h-full min-w-0">
-              <div className="bg-muted/30 rounded-2xl p-2 sm:p-4 lg:p-2 flex items-center justify-center border border-dashed border-muted-foreground/20 overflow-hidden h-[360px] xs:h-[400px] sm:h-[480px] lg:h-[350px] xl:h-[480px] flex-shrink-0 relative group">
+            <div className="flex flex-col gap-2.5 lg:gap-2 h-full min-w-0">
+              {/* Tokens semânticos no lugar de bg-muted/border-muted-foreground:
+                  o resto do modal já migrou, e os antigos não acompanham o tema.
+
+                  As alturas encolheram junto com o resto — a moldura só precisa
+                  caber o card, e o card mais alto aqui tem 307px (escala 0,159
+                  sobre 1920). Sobra folga, não vazio. */}
+              <div className="bg-surface-sunken rounded-2xl p-2 sm:p-4 lg:p-2 flex items-center justify-center border border-dashed border-edge-default overflow-hidden h-[330px] xs:h-[360px] sm:h-[440px] lg:h-[350px] xl:h-[460px] flex-shrink-0 relative group">
                 {/* Chip flutuante sobre a preview, sempre escuro/texto branco de proposito - overlay padrao sobre imagem, nao segue o tema */}
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/80 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
                   <Instagram size={12} className="text-pink-500" />
@@ -1334,9 +1194,9 @@ const ReportStoryModal = ({
                 </div>
               </div>
 
-              <div className="text-xs text-muted-foreground px-1">
+              <div className="text-xs text-content-tertiary px-1">
                 Status atual detectado:{' '}
-                <span className="font-bold text-foreground">
+                <span className="font-bold text-content-primary">
                   {getStatusConfig(report?.status).label}
                 </span>
               </div>
@@ -1344,58 +1204,117 @@ const ReportStoryModal = ({
           </div>
         </div>
 
-        {/* Interface do modal (rodape) - acompanha o tema */}
-        <DialogFooter className="p-4 sm:p-6 lg:p-4 border-t border-edge-subtle bg-surface-raised flex flex-row items-center justify-between gap-3 flex-shrink-0">
-          {/* variant ghost nao define cor de texto propria; sem token explicito o texto fica invisivel no tema escuro */}
-          <Button
-            variant="ghost"
-            onClick={onClose}
-            className="h-10 sm:h-12 lg:h-10 px-4 sm:px-8 lg:px-4 font-bold text-content-primary"
-          >
-            Cancelar
-          </Button>
+        {/* Rodapé
+            ────────────────────────────────────────────────────────────────────
+            Antes: três botões com rótulo por extenso numa linha só. Em tela
+            estreita "Compartilhar no story" quebrava em duas linhas e vazava
+            pela borda — era o que a captura mostrava.
 
-          <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
+            Agora a hierarquia decide o espaço. Compartilhar é a ação que o
+            modal existe para oferecer e fica com o dobro da largura de
+            Cancelar; Baixar é alternativa, e vira um quadrado de 48px com o
+            ícone. Três rótulos por extenso não cabem em 360px de tela sem
+            encolher a fonte abaixo do legível.
+
+            Quando não há compartilhamento nativo (web, iOS sem Instagram),
+            Baixar assume o lugar de ação principal e volta a ter rótulo — aí
+            são dois botões, e sobra espaço. */}
+        <div
+          className="flex-shrink-0 bg-surface-raised border-t border-edge-subtle"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+        >
+          {/* O aviso de "preparando" morava dentro do rótulo do botão. Com o
+              botão virando ícone, ele precisava de um lugar próprio — e uma
+              faixa que aparece e some não empurra o rodapé de forma permanente. */}
+          <AnimatePresence>
+            {!assetsReady && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="mx-5 mt-3 px-3.5 py-2 rounded-xl bg-surface-sunken flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-content-tertiary flex-shrink-0" />
+                  <span className="text-xs font-semibold text-content-secondary leading-tight">
+                    Preparando as imagens do card…
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="flex gap-2.5 px-5 pt-3">
             <Button
-              onClick={handleDownload}
-              disabled={downloading || sharing || !assetsReady}
-              variant={storyShareAvailable ? 'outline' : 'default'}
-              className={
-                storyShareAvailable
-                  ? 'gap-2 h-10 sm:h-12 lg:h-10 px-4 sm:px-5 font-bold text-content-primary'
-                  : 'bg-cta-bg hover:bg-cta-bg/90 text-cta-fg border border-cta-border gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-brand/20 flex-1 sm:flex-none'
-              }
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={ocupado}
+              className="flex-1 rounded-2xl h-12 text-sm font-semibold border-edge-default text-content-primary"
             >
-              {downloading || !assetsReady ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-              ) : (
-                <Download size={18} />
-              )}
-              {!assetsReady
-                ? 'Carregando...'
-                : downloading
-                ? 'Gerando...'
-                : storyShareAvailable
-                ? 'Baixar'
-                : 'Baixar para Instagram'}
+              Cancelar
             </Button>
 
-            {storyShareAvailable && (
+            {storyShareAvailable ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDownload}
+                  disabled={ocupado || !assetsReady}
+                  aria-label="Baixar imagem"
+                  title="Baixar imagem"
+                  className="w-12 flex-shrink-0 p-0 rounded-2xl h-12 border-edge-default text-content-primary"
+                >
+                  {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download size={18} />
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={handleShareToStory}
+                  disabled={ocupado || !assetsReady}
+                  className="flex-[2] rounded-2xl h-12 gap-2 text-sm font-bold bg-cta-bg border border-cta-border text-cta-fg hover:brightness-110 shadow-elevation-2 active:scale-[0.98] disabled:opacity-60"
+                >
+                  {sharing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      Compartilhar
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
               <Button
-                onClick={handleShareToStory}
-                disabled={downloading || sharing || !assetsReady}
-                className="bg-cta-bg hover:bg-cta-bg/90 text-cta-fg border border-cta-border gap-2 h-10 sm:h-12 lg:h-10 px-5 sm:px-7 font-bold shadow-lg shadow-brand/20"
+                type="button"
+                onClick={handleDownload}
+                disabled={ocupado || !assetsReady}
+                className="flex-[2] rounded-2xl h-12 gap-2 text-sm font-bold bg-cta-bg border border-cta-border text-cta-fg hover:brightness-110 shadow-elevation-2 active:scale-[0.98] disabled:opacity-60"
               >
-                {sharing ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cta-fg" />
+                {downloading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Gerando...
+                  </>
                 ) : (
-                  <Send size={18} />
+                  <>
+                    <Download size={16} />
+                    Baixar imagem
+                  </>
                 )}
-                {sharing ? 'Enviando...' : 'Compartilhar no story'}
               </Button>
             )}
           </div>
-        </DialogFooter>
+        </div>
 
         <div
           style={{
@@ -1419,8 +1338,8 @@ const ReportStoryModal = ({
             likeIconUrl={assets.likeIcon}
           />
         </div>
-      </DialogContent>
-    </Dialog>
+      </motion.div>
+    </motion.div>
   );
 };
 

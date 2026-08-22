@@ -13,6 +13,7 @@ import {
   angleDiff,
   avaliarAlerta,
   selecionarAlertas,
+  agruparAlertas,
   estimarMovimento,
   panParaOffsetDeTela,
   deveRegistrarPonto,
@@ -20,6 +21,16 @@ import {
   caixaDeRaio,
   frasear,
   NAV_ALERTA,
+  NAV_RASTRO,
+  NAV_TRAJETO,
+  alturaDoSol,
+  ehNoite,
+  simplificarRastro,
+  rastroParaBanco,
+  rastroDoBanco,
+  MAX_PONTOS_GRAVADOS,
+  enquadrarRastro,
+  TOLERANCIA_SIMPLIFICACAO_M,
 } from '../lib/navGeo.js';
 
 // Ponto de referência: centro de Floresta-PE.
@@ -79,13 +90,23 @@ test('angleDiff atravessa a virada de 360° sem inverter o sinal', () => {
 
 // ── Distância ─────────────────────────────────────────────────────────────────
 
+// Distâncias em função da régua, não do número dela. Quando o raio caiu de
+// 120 m para 30 m, oito testes quebraram por terem gravado "119" — todos
+// verificavam a REGRA, e nenhum precisava saber o valor.
+// Proporcionais à régua, não subtraindo um valor fixo: com o raio em 10 m,
+// "régua menos 5" deixaria os pontos de teste espremidos uns sobre os outros e
+// a ordenação por distância deixaria de ser verificável.
+const DENTRO = NAV_ALERTA.distanciaAlertaM * 0.7;
+const PERTINHO = NAV_ALERTA.distanciaAlertaM * 0.2;
+const FORA = NAV_ALERTA.distanciaAlertaM * 1.3;
+
 test('alerta dentro do limite de distância', () => {
-  const r = avaliarAlerta(posicao(), bronca(0, 119));
+  const r = avaliarAlerta(posicao(), bronca(0, DENTRO));
   assert.equal(r.alerta, true);
 });
 
 test('não alerta além do limite de distância', () => {
-  const r = avaliarAlerta(posicao(), bronca(0, 121));
+  const r = avaliarAlerta(posicao(), bronca(0, FORA));
   assert.equal(r.alerta, false);
   assert.equal(r.motivo, 'longe');
 });
@@ -93,18 +114,18 @@ test('não alerta além do limite de distância', () => {
 // ── Cone de direção ───────────────────────────────────────────────────────────
 
 test('alerta o que está dentro do cone à frente', () => {
-  const r = avaliarAlerta(posicao({ heading: 0 }), bronca(44, 100));
+  const r = avaliarAlerta(posicao({ heading: 0 }), bronca(44, DENTRO));
   assert.equal(r.alerta, true);
 });
 
 test('não alerta o que está fora do cone', () => {
-  const r = avaliarAlerta(posicao({ heading: 0 }), bronca(46, 100));
+  const r = avaliarAlerta(posicao({ heading: 0 }), bronca(46, DENTRO));
   assert.equal(r.alerta, false);
   assert.equal(r.motivo, 'fora-do-cone');
 });
 
 test('não alerta o que ficou para trás', () => {
-  const r = avaliarAlerta(posicao({ heading: 0 }), bronca(180, 60));
+  const r = avaliarAlerta(posicao({ heading: 0 }), bronca(180, DENTRO));
   assert.equal(r.alerta, false);
   assert.equal(r.motivo, 'fora-do-cone');
 });
@@ -112,49 +133,123 @@ test('não alerta o que ficou para trás', () => {
 test('o cone acompanha o rumo na virada de 360°', () => {
   // Rumo 350°, bronca em 10°: 20° de desvio. Com subtração crua daria 340 e a
   // bronca à frente seria descartada.
-  const r = avaliarAlerta(posicao({ heading: 350 }), bronca(10, 100));
+  const r = avaliarAlerta(posicao({ heading: 350 }), bronca(10, DENTRO));
   assert.equal(r.alerta, true);
 });
 
 // ── Guardas de estado ─────────────────────────────────────────────────────────
 
 test('não alerta com o veículo parado', () => {
-  const r = avaliarAlerta(posicao({ speed: 0.4 }), bronca(0, 80));
+  const r = avaliarAlerta(posicao({ speed: 0.4 }), bronca(0, DENTRO));
   assert.equal(r.motivo, 'parado');
 });
 
 test('não alerta com sinal impreciso', () => {
-  const r = avaliarAlerta(posicao({ accuracy: 90 }), bronca(0, 80));
+  const r = avaliarAlerta(posicao({ accuracy: 90 }), bronca(0, DENTRO));
+  assert.equal(r.motivo, 'sinal-fraco');
+});
+
+test('sinal com erro maior que a régua não decide nada', () => {
+  // O teto de precisão acompanha o raio: com 30 m de régua, uma leitura com
+  // 40 m de erro diria "está a menos de 30 m" com incerteza maior que a
+  // própria medida.
+  const r = avaliarAlerta(
+    posicao({ accuracy: NAV_ALERTA.distanciaAlertaM + 10 }),
+    bronca(0, DENTRO)
+  );
   assert.equal(r.motivo, 'sinal-fraco');
 });
 
 test('não alerta bronca já resolvida', () => {
-  const r = avaliarAlerta(posicao(), bronca(0, 80, { status: 'resolved' }));
+  const r = avaliarAlerta(posicao(), bronca(0, DENTRO, { status: 'resolved' }));
   assert.equal(r.motivo, 'status-nao-alertavel');
 });
 
 test('não repete alerta da mesma bronca', () => {
-  const b = bronca(0, 80);
+  const b = bronca(0, DENTRO);
   const r = avaliarAlerta(posicao(), b, { jaAlertadas: new Set([b.id]) });
   assert.equal(r.motivo, 'ja-alertada');
 });
 
 test('não alerta sem rumo conhecido', () => {
-  const r = avaliarAlerta(posicao({ heading: null }), bronca(0, 80));
+  const r = avaliarAlerta(posicao({ heading: null }), bronca(0, DENTRO));
   assert.equal(r.motivo, 'sem-rumo');
 });
 
 test('in-progress alerta igual a pending', () => {
-  const r = avaliarAlerta(posicao(), bronca(0, 80, { status: 'in-progress' }));
+  const r = avaliarAlerta(posicao(), bronca(0, DENTRO, { status: 'in-progress' }));
+  assert.equal(r.alerta, true);
+});
+
+// ── Categoria ─────────────────────────────────────────────────────────────────
+
+// A lista de categorias silenciosas saiu: a patrulha é sempre de UMA categoria
+// e o corredor filtra na origem, então uma bronca de categoria indesejada nunca
+// chega ao avaliador. O que sobrou aqui é a regra que não é de categoria, e sim
+// de física.
+
+test('iluminação continua muda de dia, venha de onde vier', () => {
+  // Escuridão é física: nenhuma escolha de tela faz o poste ficar visível ao
+  // meio-dia.
+  const r = avaliarAlerta(
+    posicao(),
+    bronca(0, DENTRO, { category: 'iluminacao' }),
+    { agora: new Date('2026-08-20T15:00:00Z').getTime() }
+  );
+  assert.equal(r.motivo, 'so-a-noite');
+});
+
+test('categoria sem regra especial alerta normalmente', () => {
+  const r = avaliarAlerta(posicao(), bronca(0, DENTRO, { category: 'buracos' }));
+  assert.equal(r.alerta, true);
+});
+
+test('bronca sem categoria não é silenciada por engano', () => {
+  assert.equal(avaliarAlerta(posicao(), bronca(0, DENTRO)).alerta, true);
+});
+
+// ── Iluminação só à noite ─────────────────────────────────────────────────────
+
+// Floresta/PE em 20/ago/2026. O pôr do sol local é ~17h31 (UTC-3).
+const MEIO_DIA = new Date('2026-08-20T15:00:00Z').getTime();
+const NOITE = new Date('2026-08-20T22:00:00Z').getTime();
+
+test('poste apagado não alerta de dia', () => {
+  // De dia ninguém consegue confirmar nem desmentir um poste apagado — o
+  // alerta pediria um julgamento impossível.
+  const r = avaliarAlerta(
+    posicao(),
+    bronca(0, DENTRO, { category: 'iluminacao' }),
+    { agora: MEIO_DIA }
+  );
+  assert.equal(r.alerta, false);
+  assert.equal(r.motivo, 'so-a-noite');
+});
+
+test('poste apagado alerta à noite', () => {
+  const r = avaliarAlerta(
+    posicao(),
+    bronca(0, DENTRO, { category: 'iluminacao' }),
+    { agora: NOITE }
+  );
+  assert.equal(r.alerta, true);
+});
+
+test('a regra da noite não afeta as outras categorias', () => {
+  const r = avaliarAlerta(
+    posicao(),
+    bronca(0, DENTRO, { category: 'buracos' }),
+    { agora: MEIO_DIA }
+  );
   assert.equal(r.alerta, true);
 });
 
 // ── Seleção ───────────────────────────────────────────────────────────────────
 
 test('selecionarAlertas devolve a mais próxima primeiro', () => {
-  const longe = { ...bronca(0, 110), id: 'longe' };
-  const perto = { ...bronca(0, 40), id: 'perto' };
-  const atras = { ...bronca(180, 30), id: 'atras' };
+  const longe = { ...bronca(0, DENTRO), id: 'longe' };
+  const perto = { ...bronca(0, PERTINHO), id: 'perto' };
+  const atras = { ...bronca(180, PERTINHO), id: 'atras' };
   const r = selecionarAlertas(posicao(), [longe, perto, atras], new Set());
   assert.deepEqual(r.map((x) => x.bronca.id), ['perto', 'longe']);
 });
@@ -265,6 +360,131 @@ test('limite de movimento cobre a caminhada', () => {
   assert.ok(NAV_ALERTA.velocidadeMinimaMs < 1.2);
 });
 
+// ── Velocidade dentro de casa ────────────────────────────────────────────────
+//
+// O sintoma relatado: aparelho parado sobre a mesa, velocímetro marcando
+// 32 km/h. Em ambiente fechado o GPS erra dezenas de metros, e a deriva entre
+// duas leituras passava do piso fixo de 6 m como se fosse deslocamento.
+
+/** Série de quem está parado com sinal ruim de ambiente fechado. */
+const paradoEmCasa = ({ segundos = 30, accuracy = 45, semente = 3 } = {}) => {
+  const rand = aleatorio(semente);
+  return Array.from({ length: segundos }, (_, i) => ({
+    // Deriva compatível com a precisão informada: é assim que o GPS erra.
+    ...mover(BASE, rand() * 360, rand() * accuracy),
+    accuracy,
+    t: i * 1000,
+  }));
+};
+
+test('parado em casa, a velocidade é zero', () => {
+  const amostras = paradoEmCasa();
+  const m = estimarMovimento(amostras);
+  assert.equal(m.velocidade, 0, `marcou ${(m.velocidade * 3.6).toFixed(0)} km/h parado`);
+  assert.equal(m.rumo, null);
+});
+
+test('sem o piso por precisão, a mesma série vira dezenas de km/h', () => {
+  // Documenta o comportamento antigo: piso fixo de 6 m, e a deriva de 45 m o
+  // atravessa sem esforço. É o número que aparecia na tela.
+  const amostras = paradoEmCasa();
+  const semPiso = estimarMovimento(amostras, { fatorPrecisao: 0 });
+  assert.ok(
+    semPiso.velocidade * 3.6 > 20,
+    `esperava ruído alto, veio ${(semPiso.velocidade * 3.6).toFixed(0)} km/h`
+  );
+});
+
+test('o piso acompanha a precisão da leitura', () => {
+  // 20 m de deslocamento em 6 s: movimento real na rua (12 km/h), ruído puro
+  // com 45 m de erro.
+  const comPrecisao = (accuracy) => [
+    { ...BASE, accuracy, t: 0 },
+    { ...mover(BASE, 0, 20), accuracy, t: 6000 },
+  ];
+  assert.ok(estimarMovimento(comPrecisao(6)).rumo !== null, 'GPS bom deveria confirmar');
+  assert.equal(estimarMovimento(comPrecisao(45)).rumo, null, 'GPS ruim não pode confirmar');
+});
+
+test('caminhada lenta na rua continua sendo detectada', () => {
+  // O risco da correção: apertar tanto que quem anda devagar com sinal comum
+  // deixe de contar. 0,8 m/s por 12 s com 6 m de precisão precisa passar.
+  const amostras = Array.from({ length: 13 }, (_, i) => ({
+    ...mover(BASE, 0, i * 0.8),
+    accuracy: 6,
+    t: i * 1000,
+  }));
+  const m = estimarMovimento(amostras);
+  assert.ok(m.rumo !== null, 'caminhada lenta parou de ser detectada');
+  assert.ok(m.velocidade > 0.5, `velocidade ${m.velocidade}`);
+});
+
+test('sem precisão informada, vale o piso fixo de sempre', () => {
+  // Alguns navegadores não informam accuracy; recusar tudo deixaria a seta
+  // congelada nesses aparelhos.
+  const amostras = [
+    { ...BASE, t: 0 },
+    { ...mover(BASE, 0, 8), t: 6000 },
+  ];
+  assert.ok(estimarMovimento(amostras).rumo !== null);
+});
+
+// ── Agrupamento ───────────────────────────────────────────────────────────────
+//
+// Três buracos no mesmo quarteirão são três perguntas idênticas em sequência, e
+// a terceira ninguém responde.
+
+const candidato = (rumo, metros, extra = {}) => {
+  const b = bronca(rumo, metros, extra);
+  return { bronca: b, distancia: metros };
+};
+
+test('broncas no mesmo ponto viram um grupo', () => {
+  const grupo = agruparAlertas([
+    candidato(0, 6, { id: 'a' }),
+    candidato(0, 9, { id: 'b' }),
+    candidato(10, 8, { id: 'c' }),
+  ]);
+  assert.equal(grupo.length, 3);
+  assert.equal(grupo[0].id, 'a', 'o mais próximo lidera');
+});
+
+test('bronca distante do líder fica de fora', () => {
+  const grupo = agruparAlertas([
+    candidato(0, 5, { id: 'perto' }),
+    candidato(180, 8, { id: 'longe' }),   // 13 m do líder
+  ], 10);
+  assert.deepEqual(grupo.map((b) => b.id), ['perto']);
+});
+
+test('o grupo nunca vira uma corrente', () => {
+  // Proximidade mútua encadearia: A perto de B, B perto de C, e C entraria no
+  // grupo mesmo longe de A. Numa rua esburacada isso juntaria o quarteirão
+  // inteiro, e a pessoa confirmaria buracos que não viu.
+  const a = { bronca: { ...bronca(0, 0), id: 'a' }, distancia: 0 };
+  const b = { bronca: { ...bronca(0, 25), id: 'b' }, distancia: 25 };
+  const c = { bronca: { ...bronca(0, 50), id: 'c' }, distancia: 50 };
+
+  const grupo = agruparAlertas([a, b, c], 30);
+  assert.deepEqual(grupo.map((x) => x.id), ['a', 'b'], 'c está a 50 m do líder');
+});
+
+test('um candidato só devolve um grupo de um', () => {
+  const grupo = agruparAlertas([candidato(0, 5, { id: 'unico' })]);
+  assert.deepEqual(grupo.map((b) => b.id), ['unico']);
+});
+
+test('sem candidatos, grupo vazio', () => {
+  assert.deepEqual(agruparAlertas([]), []);
+  assert.deepEqual(agruparAlertas(null), []);
+});
+
+test('o raio de abandono é maior que o de alerta', () => {
+  // Se fosse igual ou menor, o card sumiria no instante seguinte ao de
+  // aparecer: basta um passo à frente para a distância crescer.
+  assert.ok(NAV_ALERTA.raioAbandonoM > NAV_ALERTA.distanciaAlertaM);
+});
+
 // ── Caixa do corredor ─────────────────────────────────────────────────────────
 
 test('caixaDeRaio cobre o raio pedido nas quatro direções', () => {
@@ -336,17 +556,219 @@ test('o rastro descarta o tremor do GPS parado', () => {
 });
 
 test('o rastro aceita o ponto que andou o suficiente', () => {
-  assert.equal(deveRegistrarPonto(BASE, mover(BASE, 37, 5.1)), true);
+  // A régua subiu de 5 m para 10 m. Com 5 m ela ficava DENTRO do ruído que
+  // deveria filtrar: o GPS parado entrega saltos de 5 a 15 m o tempo todo, e
+  // era assim que a patrulha somava quilômetros com o usuário sentado.
+  assert.equal(deveRegistrarPonto(BASE, mover(BASE, 37, 5.1)), false);
+  assert.equal(deveRegistrarPonto(BASE, mover(BASE, 37, 10.5)), true);
   assert.equal(deveRegistrarPonto(BASE, mover(BASE, 180, 40)), true);
 });
 
-test('o primeiro ponto do rastro sempre entra', () => {
+test('parado não estende o rastro, por mais que o GPS pule', () => {
+  // O freio decisivo: sem movimento confirmado, distância nenhuma vale.
+  const longe = mover(BASE, 90, 60);
+  assert.equal(deveRegistrarPonto(BASE, longe, { emMovimento: true }), true);
+  assert.equal(deveRegistrarPonto(BASE, longe, { emMovimento: false }), false);
+});
+
+test('leitura imprecisa fica de fora, mesmo em movimento', () => {
+  // Cada leitura ruim injeta o próprio erro na distância total — e o total é
+  // o número que a patrulha guarda para sempre.
+  const ruim = { ...mover(BASE, 0, 40), accuracy: NAV_RASTRO.precisaoMaximaM + 1 };
+  const boa = { ...mover(BASE, 0, 40), accuracy: 10 };
+  assert.equal(deveRegistrarPonto(BASE, ruim, { emMovimento: true }), false);
+  assert.equal(deveRegistrarPonto(BASE, boa, { emMovimento: true }), true);
+});
+
+test('a régua acompanha a precisão da leitura', () => {
+  // Duas leituras do MESMO ponto parado podem diferir por até 2 × accuracy sem
+  // que ninguém tenha se mexido. Exigir mais que isso é exigir deslocamento
+  // que o ruído não explica.
+  const comPrecisao = (metros, accuracy) => ({ ...mover(BASE, 0, metros), accuracy });
+  assert.equal(deveRegistrarPonto(BASE, comPrecisao(18, 12), { emMovimento: true }), false);
+  assert.equal(deveRegistrarPonto(BASE, comPrecisao(26, 12), { emMovimento: true }), true);
+  // Com GPS bom a régua volta ao piso fixo de 10 m.
+  assert.equal(deveRegistrarPonto(BASE, comPrecisao(12, 4), { emMovimento: true }), true);
+});
+
+test('salto impossível é reposicionamento do aparelho, não trajeto', () => {
+  // 200 m entre duas leituras a 1 Hz seriam 720 km/h. Acontece quando o
+  // aparelho troca de fonte de posição e se recoloca de uma vez.
+  const teleporte = { ...mover(BASE, 0, NAV_RASTRO.saltoMaximoM + 100), accuracy: 10 };
+  assert.equal(deveRegistrarPonto(BASE, teleporte, { emMovimento: true }), false);
+});
+
+test('o primeiro ponto do rastro entra se há movimento', () => {
   assert.equal(deveRegistrarPonto(null, BASE), true);
+  assert.equal(deveRegistrarPonto(null, BASE, { emMovimento: false }), false);
 });
 
 test('coordenada inválida não entra no rastro', () => {
   assert.equal(deveRegistrarPonto(BASE, { lat: NaN, lng: 0 }), false);
   assert.equal(deveRegistrarPonto(BASE, null), false);
+});
+
+// ── O bug do rastro que andava sozinho ───────────────────────────────────────
+//
+// Reproduz a sessão inteira, não uma chamada: é o acúmulo ao longo de 1.800
+// leituras que produzia o sintoma, e nenhuma leitura isolada o revela.
+
+/**
+ * Gerador pseudoaleatório com semente.
+ *
+ * Deriva de GPS é ruído, e ruído com Math.random daria um teste que passa numa
+ * execução e falha na seguinte.
+ */
+const aleatorio = (semente) => {
+  let s = semente >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+};
+
+/**
+ * Reproduz o caminho de uma leitura no modo patrulha: useNavigationGps calcula
+ * `emMovimento` da janela recente, e usePatrolRecorder decide com ele.
+ *
+ * As duas decisões são das funções puras — os hooks só as encadeiam. Testar o
+ * encadeamento exigiria React, DOM e GPS falso para verificar esta mesma
+ * aritmética.
+ */
+const simularRastro = (leituras) => {
+  const BUFFER_MS = NAV_TRAJETO.janelaMaxMs + 4000;
+  let janela = [];
+  const rastro = [];
+
+  for (const leitura of leituras) {
+    janela = [...janela, { lat: leitura.lat, lng: leitura.lng, t: leitura.t }]
+      .filter((a) => leitura.t - a.t <= BUFFER_MS);
+
+    const emMovimento = Number.isFinite(estimarMovimento(janela).rumo);
+    const ultimo = rastro[rastro.length - 1];
+
+    if (deveRegistrarPonto(ultimo, leitura, { emMovimento })) {
+      rastro.push({ lat: leitura.lat, lng: leitura.lng });
+    }
+  }
+  return rastro;
+};
+
+/** Meia hora parado, com o GPS derivando num raio de 8 m. */
+const paradoDerivando = ({ minutos = 30, raioM = 8, accuracy = 12, semente = 7 } = {}) => {
+  const rand = aleatorio(semente);
+  const leituras = [];
+  for (let i = 0; i < minutos * 60; i += 1) {
+    leituras.push({
+      ...mover(BASE, rand() * 360, rand() * raioM),
+      accuracy,
+      t: i * 1000,
+    });
+  }
+  return leituras;
+};
+
+/** Caminhada em linha reta a `velocidade` m/s. */
+const caminhando = ({ segundos = 300, velocidade = 1.4, accuracy = 10 } = {}) =>
+  Array.from({ length: segundos }, (_, i) => ({
+    ...mover(BASE, 0, i * velocidade),
+    accuracy,
+    t: i * 1000,
+  }));
+
+test('meia hora parado não acumula distância', () => {
+  assert.ok(distanciaTotal(simularRastro(paradoDerivando())) < 50);
+});
+
+test('com a regra antiga, a mesma série virava quilômetros', () => {
+  // Documenta o que o usuário via crescer sentado: espaçamento de 5 m era o
+  // único freio, e a deriva passa por ele o tempo todo.
+  const antigo = [];
+  for (const leitura of paradoDerivando()) {
+    const ultimo = antigo[antigo.length - 1];
+    if (!ultimo || haversine(ultimo, leitura) >= 5) {
+      antigo.push({ lat: leitura.lat, lng: leitura.lng });
+    }
+  }
+  assert.ok(distanciaTotal(antigo) > 1000);
+});
+
+test('quem anda de verdade tem a distância medida', () => {
+  const rastro = simularRastro(caminhando({ segundos: 300, velocidade: 1.4 }));
+  const esperado = 299 * 1.4;
+  const medido = distanciaTotal(rastro);
+  assert.ok(medido > esperado * 0.9, `mediu ${medido}, esperava perto de ${esperado}`);
+  assert.ok(medido < esperado * 1.05, `mediu ${medido}, esperava perto de ${esperado}`);
+});
+
+test('o rastro guarda um ponto por régua, não um por segundo', () => {
+  // Com accuracy de 10 m a régua é 20 m: 418 m dão ~21 pontos de 300 leituras.
+  const rastro = simularRastro(caminhando({ segundos: 300, velocidade: 1.4 }));
+  assert.ok(rastro.length > 15 && rastro.length < 40, `guardou ${rastro.length}`);
+});
+
+// ── Sol ───────────────────────────────────────────────────────────────────────
+//
+// Decide se um poste apagado pode ser julgado. Errar aqui é alertar sobre
+// iluminação com o sol a pino, ou calar já no escuro.
+
+const FLORESTA = { lat: -8.6021, lng: -37.9855 };   // PE, ~UTC-3
+const PORTO_ALEGRE = { lat: -30.0346, lng: -51.2177 };
+
+/** Instante UTC a partir de uma hora local de Brasília (UTC-3). */
+const horaDeBrasilia = (iso) => new Date(`${iso}-03:00`).getTime();
+
+test('ao meio-dia o sol está alto', () => {
+  const alt = alturaDoSol(horaDeBrasilia('2026-08-20T12:00:00'), FLORESTA.lat, FLORESTA.lng);
+  // Latitude -8,6 em agosto: o sol passa perto do zênite.
+  assert.ok(alt > 60 && alt < 75, `altura ${alt}`);
+});
+
+test('à meia-noite o sol está do outro lado do planeta', () => {
+  const alt = alturaDoSol(horaDeBrasilia('2026-08-21T00:00:00'), FLORESTA.lat, FLORESTA.lng);
+  assert.ok(alt < -60, `altura ${alt}`);
+});
+
+test('meio-dia não é noite, meia-noite é', () => {
+  assert.equal(ehNoite(horaDeBrasilia('2026-08-20T12:00:00'), FLORESTA.lat, FLORESTA.lng), false);
+  assert.equal(ehNoite(horaDeBrasilia('2026-08-21T00:00:00'), FLORESTA.lat, FLORESTA.lng), true);
+});
+
+test('o crepúsculo ainda não é noite', () => {
+  // Em Floresta, 20/ago, o sol se põe ~17h31. Às 17h30 ainda se enxerga, e a
+  // iluminação pública ainda não é o que decide se a rua está clara.
+  assert.equal(ehNoite(horaDeBrasilia('2026-08-20T17:30:00'), FLORESTA.lat, FLORESTA.lng), false);
+  // Meia hora depois, sim.
+  assert.equal(ehNoite(horaDeBrasilia('2026-08-20T18:00:00'), FLORESTA.lat, FLORESTA.lng), true);
+});
+
+test('anoitece em horas diferentes em lugares diferentes', () => {
+  // É por isto que a regra não é "depois das 18h".
+  //
+  // Mesmo relógio (17h50 de Brasília, junho), duas respostas: em Floresta já é
+  // noite, em Porto Alegre ainda não. E não é a latitude que manda — é a
+  // LONGITUDE. Floresta fica 13° a leste de Porto Alegre, quase 53 minutos de
+  // sol adiantado, e no mesmo fuso de relógio. Um corte por horário fixo
+  // erraria dos dois lados do país, em direções opostas.
+  const t = horaDeBrasilia('2026-06-20T17:50:00');
+  assert.equal(ehNoite(t, FLORESTA.lat, FLORESTA.lng), true);
+  assert.equal(ehNoite(t, PORTO_ALEGRE.lat, PORTO_ALEGRE.lng), false);
+});
+
+test('o mesmo instante dá a mesma resposta, venha como Date ou número', () => {
+  const t = horaDeBrasilia('2026-08-20T21:00:00');
+  assert.equal(
+    alturaDoSol(t, FLORESTA.lat, FLORESTA.lng),
+    alturaDoSol(new Date(t), FLORESTA.lat, FLORESTA.lng)
+  );
+});
+
+test('sem coordenada válida, não se afirma que é noite', () => {
+  // No escuro da dúvida é melhor não alertar que acordar alguém às duas da
+  // tarde.
+  assert.ok(Number.isNaN(alturaDoSol(Date.now(), NaN, 0)));
+  assert.equal(ehNoite(Date.now(), NaN, 0), false);
+  assert.equal(ehNoite(NaN, FLORESTA.lat, FLORESTA.lng), false);
 });
 
 // ── Frase falada ──────────────────────────────────────────────────────────────
@@ -358,6 +780,207 @@ test('frasear arredonda a distância', () => {
 });
 
 test('parâmetros do alerta são os do design', () => {
-  assert.equal(NAV_ALERTA.distanciaAlertaM, 120);
+  // 30 m: 10 foi testado em campo e ficou pouco — menor que o erro do GPS
+  // urbano, o alerta não chegava a aparecer.
+  assert.equal(NAV_ALERTA.distanciaAlertaM, 30);
   assert.equal(NAV_ALERTA.coneGraus, 45);
+  // O teto de precisão nunca pode ser maior que a régua que ele mede.
+  assert.ok(NAV_ALERTA.precisaoMaximaM <= NAV_ALERTA.distanciaAlertaM);
+});
+
+// ── Guardar o percurso ──────────────────────────────────────────────────────
+//
+// A simplificação é a única coisa entre o rastro que o GPS produziu e o traço
+// que a pessoa vai ver meses depois. Se ela cortar demais, o percurso passa a
+// mentir — corta esquinas que existiram e desenha ruas por onde ninguém andou.
+
+/** Rastro reto, com o espaçamento real do NAV_RASTRO. */
+const linhaReta = (n, passoM = 10) =>
+  Array.from({ length: n }, (_, i) => ({
+    lat: BASE.lat,
+    lng: BASE.lng + (i * passoM) / (111320 * Math.cos((BASE.lat * Math.PI) / 180)),
+  }));
+
+test('reta longa vira só as duas pontas', () => {
+  const reta = linhaReta(120);
+  const s = simplificarRastro(reta);
+
+  assert.equal(s.length, 2);
+  assert.deepEqual(s[0], { lat: reta[0].lat, lng: reta[0].lng });
+  assert.deepEqual(s[1], { lat: reta[119].lat, lng: reta[119].lng });
+});
+
+test('a esquina sobrevive — é ela que faz o percurso ser aquele', () => {
+  // Leste por 500 m, depois norte por 500 m.
+  const metroLng = 111320 * Math.cos((BASE.lat * Math.PI) / 180);
+  const leste = linhaReta(50);
+  const canto = leste[leste.length - 1];
+  const norte = Array.from({ length: 50 }, (_, i) => ({
+    lat: canto.lat + ((i + 1) * 10) / 111320,
+    lng: canto.lng,
+  }));
+
+  const s = simplificarRastro([...leste, ...norte]);
+
+  assert.equal(s.length, 3, 'ponta, esquina, ponta');
+  assert.ok(Math.abs(s[1].lat - canto.lat) < 1e-9);
+  assert.ok(Math.abs(s[1].lng - canto.lng) < 1e-9);
+  assert.ok(metroLng > 0);
+});
+
+test('nenhum ponto guardado se afasta mais que a tolerância do traço original', () => {
+  // Curva suave de 90°, raio ~300 m: o caso em que RDP mais tende a exagerar.
+  const curva = Array.from({ length: 200 }, (_, i) => {
+    const t = (i / 199) * (Math.PI / 2);
+    return {
+      lat: BASE.lat + (300 * Math.sin(t)) / 111320,
+      lng: BASE.lng + (300 * (1 - Math.cos(t))) / (111320 * Math.cos((BASE.lat * Math.PI) / 180)),
+    };
+  });
+
+  const s = simplificarRastro(curva, TOLERANCIA_SIMPLIFICACAO_M);
+
+  assert.ok(s.length < curva.length, 'cortou alguma coisa');
+  assert.ok(s.length >= 2);
+
+  // Todo ponto original continua perto de algum ponto guardado. Não é a
+  // garantia formal do RDP, mas é a que a tela precisa: nada some do traço.
+  for (const p of curva) {
+    const maisPerto = Math.min(...s.map((q) => haversine(p, q)));
+    assert.ok(
+      maisPerto <= 60,
+      `ponto ficou a ${maisPerto.toFixed(0)} m do traço simplificado`
+    );
+  }
+});
+
+test('o teto é respeitado mesmo quando a tolerância não corta nada', () => {
+  // Zigue-zague de 3 km: cada ponto é uma quina, e nenhuma quina cabe dentro
+  // da tolerância. Sem o teto, isto passaria inteiro para o banco.
+  const zigue = Array.from({ length: 3000 }, (_, i) => ({
+    lat: BASE.lat + (i % 2 === 0 ? 0 : 30) / 111320,
+    lng: BASE.lng + (i * 10) / (111320 * Math.cos((BASE.lat * Math.PI) / 180)),
+  }));
+
+  const s = simplificarRastro(zigue);
+
+  assert.ok(s.length <= MAX_PONTOS_GRAVADOS, `sobraram ${s.length}`);
+  // As pontas continuam sendo as pontas.
+  assert.ok(Math.abs(s[0].lng - zigue[0].lng) < 1e-9);
+  assert.ok(Math.abs(s[s.length - 1].lng - zigue[zigue.length - 1].lng) < 1e-9);
+});
+
+test('rastro curto demais para simplificar passa inteiro', () => {
+  assert.deepEqual(simplificarRastro([]), []);
+  assert.equal(simplificarRastro([BASE]).length, 1);
+  assert.equal(simplificarRastro([BASE, { lat: BASE.lat + 0.01, lng: BASE.lng }]).length, 2);
+});
+
+test('lixo no rastro não vira ponto no mapa', () => {
+  const sujo = [
+    BASE,
+    null,
+    { lat: NaN, lng: BASE.lng },
+    { lat: BASE.lat + 0.01, lng: undefined },
+    { lat: BASE.lat + 0.02, lng: BASE.lng },
+  ];
+  const s = simplificarRastro(sujo);
+  assert.equal(s.length, 2);
+  assert.ok(s.every((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)));
+});
+
+test('ida e volta ao banco preserva o traço', () => {
+  const reta = linhaReta(40);
+  const gravado = rastroParaBanco(reta);
+
+  // Ordem GeoJSON: [lng, lat]. Trocar isso põe o percurso no oceano.
+  assert.ok(Array.isArray(gravado[0]));
+  assert.equal(gravado[0].length, 2);
+  assert.ok(Math.abs(gravado[0][0] - reta[0].lng) < 1e-4, 'primeiro valor é lng');
+  assert.ok(Math.abs(gravado[0][1] - reta[0].lat) < 1e-4, 'segundo valor é lat');
+
+  const devolta = rastroDoBanco(gravado);
+  assert.equal(devolta.length, gravado.length);
+  assert.ok(haversine(devolta[0], reta[0]) < 2, 'menos de 2 m de perda no arredondamento');
+});
+
+test('coluna nula ou corrompida devolve rastro vazio, não quebra a tela', () => {
+  assert.deepEqual(rastroDoBanco(null), []);
+  assert.deepEqual(rastroDoBanco(undefined), []);
+  assert.deepEqual(rastroDoBanco('nada disso'), []);
+  assert.deepEqual(rastroDoBanco([[1], 'x', null, [NaN, 2]]), []);
+});
+
+// ── Miniatura do traçado ────────────────────────────────────────────────────
+
+test('a miniatura cabe na caixa, com a margem respeitada', () => {
+  const curva = Array.from({ length: 60 }, (_, i) => ({
+    lat: BASE.lat + Math.sin(i / 8) * 0.004,
+    lng: BASE.lng + i * 0.0004,
+  }));
+
+  const { pontos } = enquadrarRastro(curva, 120, 64, 4);
+
+  assert.equal(pontos.length, 60);
+  for (const p of pontos) {
+    assert.ok(p.x >= -0.001 && p.x <= 120.001, `x fora da caixa: ${p.x}`);
+    assert.ok(p.y >= -0.001 && p.y <= 64.001, `y fora da caixa: ${p.y}`);
+  }
+});
+
+test('o norte fica em cima — Y do SVG cresce ao contrário da latitude', () => {
+  const sul = { lat: BASE.lat, lng: BASE.lng };
+  const norte = { lat: BASE.lat + 0.01, lng: BASE.lng };
+
+  const { pontos } = enquadrarRastro([sul, norte], 100, 100);
+
+  assert.ok(pontos[1].y < pontos[0].y, 'o ponto ao norte precisa ter Y menor');
+});
+
+test('a escala é a mesma nos dois eixos — reta não vira quadrado', () => {
+  // 10x mais longo em longitude que em latitude.
+  const reta = [
+    { lat: BASE.lat, lng: BASE.lng },
+    { lat: BASE.lat + 0.001, lng: BASE.lng + 0.01 },
+  ];
+
+  const { pontos } = enquadrarRastro(reta, 100, 100, 0);
+
+  const dx = Math.abs(pontos[1].x - pontos[0].x);
+  const dy = Math.abs(pontos[1].y - pontos[0].y);
+  // Esticando cada eixo, dx e dy seriam iguais (100 e 100). Com escala única,
+  // dy tem que ser cerca de um décimo de dx.
+  assert.ok(dx > 90, `dx=${dx} deveria preencher a caixa`);
+  assert.ok(dy < dx / 5, `dy=${dy} deveria ser muito menor que dx=${dx}`);
+});
+
+test('percurso de um ponto só fica no centro, sem dividir por zero', () => {
+  const { pontos } = enquadrarRastro([BASE], 100, 60);
+  assert.equal(pontos.length, 1);
+  assert.ok(Number.isFinite(pontos[0].x) && Number.isFinite(pontos[0].y));
+  assert.ok(Math.abs(pontos[0].x - 50) < 0.001);
+  assert.ok(Math.abs(pontos[0].y - 30) < 0.001);
+});
+
+test('as ações usam o mesmo enquadramento do traço', () => {
+  const trajeto = [
+    { lat: BASE.lat, lng: BASE.lng },
+    { lat: BASE.lat + 0.01, lng: BASE.lng + 0.01 },
+  ];
+  const { pontos, projetar } = enquadrarRastro(trajeto, 100, 100);
+
+  // Uma ação exatamente na ponta do trajeto tem que cair sobre o ponto dela —
+  // senão os pontinhos flutuam ao lado da linha.
+  const naPonta = projetar({ lat: BASE.lat + 0.01, lng: BASE.lng + 0.01 });
+  assert.ok(Math.abs(naPonta.x - pontos[1].x) < 0.001);
+  assert.ok(Math.abs(naPonta.y - pontos[1].y) < 0.001);
+
+  assert.equal(projetar(null), null);
+  assert.equal(projetar({ lat: NaN, lng: 1 }), null);
+});
+
+test('rastro vazio devolve nada em vez de quebrar', () => {
+  assert.deepEqual(enquadrarRastro([], 100, 100).pontos, []);
+  assert.deepEqual(enquadrarRastro(null, 100, 100).pontos, []);
+  assert.equal(enquadrarRastro([], 100, 100).projetar(BASE), null);
 });

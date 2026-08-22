@@ -22,6 +22,12 @@ import FeedLocationGate from '@/components/feed/FeedLocationGate';
 import FeedNewReportsBanner from '@/components/feed/FeedNewReportsBanner';
 import { useToast } from '@/components/ui/use-toast';
 
+// Lazy: carrega html-to-image e qrcode, peso que so faz sentido quando o
+// usuario abre o card. Um unico modal serve a lista inteira.
+const ReportStoryModal = React.lazy(
+  () => import('@/components/report/ReportStoryModal')
+);
+
 const getInviteUrl = () => {
   const envUrl = import.meta.env.VITE_APP_URL;
   if (envUrl) return String(envUrl).replace(/\/$/, '');
@@ -50,6 +56,7 @@ export default function FeedPage() {
   // fora da arvore do card — que tem transform (tc-animate-in) e prenderia o
   // position:fixed do modal ao proprio card em vez da janela.
   const [updateTarget, setUpdateTarget] = useState(null);
+  const [storyTarget, setStoryTarget] = useState(null);
   const [recentCreatedId, setRecentCreatedId] = useState(null);
   const recentCreatedTimerRef = useRef(null);
   const preloadedImagesRef = useRef(new Set());
@@ -258,6 +265,7 @@ export default function FeedPage() {
                 report={report}
                 onToggleUpvote={toggleUpvote}
                 onRequestUpdate={setUpdateTarget}
+                onRequestStory={setStoryTarget}
                 isNew={report.id === recentCreatedId}
                 index={index}
               />
@@ -295,6 +303,17 @@ export default function FeedPage() {
         report={updateTarget}
         onStatusChange={() => refresh({ preserve: true })}
       />
+
+      {storyTarget && (
+        <React.Suspense fallback={null}>
+          <ReportStoryModal
+            isOpen={!!storyTarget}
+            onClose={() => setStoryTarget(null)}
+            report={storyTarget}
+            coverPhotoUrl={storyTarget.coverImage}
+          />
+        </React.Suspense>
+      )}
 
       {/* ── Report Modal ── */}
       {showReportModal && (

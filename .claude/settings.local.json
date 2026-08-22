@@ -21,7 +21,12 @@
       "Bash(curl -s -X GET https://mrejgpcxaevooofyenzq.supabase.co/rest/v1/report_updates?limit=1 -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NzI3OTYsImV4cCI6MjA3NDA0ODc5Nn0.mfMzOixO1AUWPb6O6cFKNTbLHvYA2GBBAT8QW2WSsWU' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZWpncGN4YWV2b29vZnllbnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NzI3OTYsImV4cCI6MjA3NDA0ODc5Nn0.mfMzOixO1AUWPb6O6cFKNTbLHvYA2GBBAT8QW2WSsWU')",
       "Bash(git add *)",
       "Bash(supabase functions *)",
-      "Bash(supabase --version)"
+      "Bash(supabase --version)",
+      "Bash(node --test src/test/navGeo.test.mjs)",
+      "Bash(npx eslint *)",
+      "PowerShell(npx eslint src/pages/admin/ManageReportsPage.jsx --ext jsx)",
+      "PowerShell(npx eslint src/pages/admin/ManagePavementPage.jsx src/pages/admin/TrashPage.jsx src/pages/admin/ManagePetitionsPage.jsx --ext jsx)",
+      "Bash(node -e ' *)"
     ]
   }
 }

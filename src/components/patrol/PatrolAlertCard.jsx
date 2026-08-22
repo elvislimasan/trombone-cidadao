@@ -26,6 +26,8 @@ export default function PatrolAlertCard({ alerta, duracaoMs, onResponder, onAdia
   }, [alerta.bronca.id, duracaoMs]);
 
   const { bronca, distancia } = alerta;
+  // Quantas broncas este card responde de uma vez.
+  const quantas = alerta.broncas?.length ?? 1;
   const emoji = categoryEmoji(bronca.category);
 
   return (
@@ -43,10 +45,12 @@ export default function PatrolAlertCard({ alerta, duracaoMs, onResponder, onAdia
           <span className="text-3xl leading-none shrink-0" aria-hidden="true">{emoji}</span>
           <div className="min-w-0 flex-1">
             <p className="text-xl font-extrabold text-content-primary leading-tight">
-              {bronca.categoryName} a {distancia} m
+              {quantas > 1
+                ? `${quantas} ${bronca.categoryName.toLowerCase()} aqui`
+                : `${bronca.categoryName} a ${distancia} m`}
             </p>
             <p className="text-sm text-content-secondary truncate mt-0.5">
-              {bronca.title}
+              {quantas > 1 ? `A menos de ${distancia} m de você` : bronca.title}
             </p>
           </div>
           <button
@@ -59,8 +63,14 @@ export default function PatrolAlertCard({ alerta, duracaoMs, onResponder, onAdia
           </button>
         </div>
 
+        {/* Com grupo, a pergunta muda de número E o card diz quantas serão
+            respondidas de uma vez. Confirmar três broncas com um toque sem
+            avisar seria colocar na conta da pessoa uma afirmação que ela não
+            fez. */}
         <p className="px-4 pb-3 text-sm font-semibold text-content-secondary">
-          O problema continua aí?
+          {quantas > 1
+            ? `Os problemas continuam aí? Sua resposta vale para as ${quantas}.`
+            : 'O problema continua aí?'}
         </p>
 
         <div className="grid grid-cols-2 gap-2 px-3 pb-3">

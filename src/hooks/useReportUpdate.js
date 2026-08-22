@@ -50,11 +50,39 @@ export const getUpdateTypeInfo = (updateType) => {
 
 // Rate limit por tipo: mapeia tipo → Date de liberação (se bloqueado).
 // Cada usuário só pode enviar o mesmo tipo de atualização a cada 7 dias.
+/**
+ * Status inicial de uma atualização.
+ *
+ * QUEM ESCAPA DA MODERAÇÃO, E POR QUÊ
+ *
+ * `still_here` é o único tipo que NÃO move a bronca: os três levam um
+ * `reportStatus`, e o dele é 'pending' — o mesmo em que a bronca já está.
+ * Confirmar que o problema continua não promove, não resolve e não reabre nada.
+ *
+ * É também o tipo que o modo patrulha produz com um toque, em volume, e o que
+ * a fiscalização existe para colher. Passar cada um deles por um moderador
+ * enche a fila de aprovações triviais e atrasa justamente o sinal mais barato
+ * de obter.
+ *
+ * O teto de abuso já existe e é estreito: a policy do banco permite um envio
+ * do mesmo tipo por bronca a cada 7 dias.
+ *
+ * 'pending' não é "aprovado sem olhar": a atualização aparece para todos, mas
+ * o autor da bronca continua com os botões de confirmar ou recusar. O que se
+ * dispensa é a fila do moderador, não a validação de quem é dono do problema.
+ */
+export const statusInicialDaAtualizacao = (updateType, isAuthorOrAdmin) =>
+  isAuthorOrAdmin || updateType === 'still_here' ? 'pending' : 'pending_moderation';
+
 export const computeDisabledUpdateTypes = (reportUpdates, user) => {
   if (!user) return {};
   const cutoff = new Date(Date.now() - SEVEN_DAYS_MS);
   const result = {};
   (reportUpdates || []).forEach((u) => {
+    // Rejeitada não bloqueia — precisa casar com a policy do banco (185).
+    // Divergir aqui é pior que os dois estarem errados juntos: a tela
+    // desabilitaria um tipo que o servidor aceita, e ninguém descobriria.
+    if (u.status === 'rejected') return;
     if (u.author_id === user.id && new Date(u.created_at) > cutoff) {
       const unlockDate = new Date(new Date(u.created_at).getTime() + SEVEN_DAYS_MS);
       if (!result[u.update_type] || unlockDate > result[u.update_type]) {
@@ -101,8 +129,7 @@ export async function enviarAtualizacaoDeBronca({
         author_id: user.id,
         update_type: updateType,
         message: message || null,
-        // Autor e admin auto-confirmam; outros entram em moderação
-        status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
+        status: statusInicialDaAtualizacao(updateType, isAuthorOrAdmin),
       })
       .select()
       .single();
@@ -140,7 +167,7 @@ export async function enviarAtualizacaoDeBronca({
       author_id: user.id,
       update_type: updateType,
       message: message || null,
-      status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
+      status: statusInicialDaAtualizacao(updateType, isAuthorOrAdmin),
       created_at: new Date().toISOString(),
       media: [],
       author: { name: user.name || 'Você' },

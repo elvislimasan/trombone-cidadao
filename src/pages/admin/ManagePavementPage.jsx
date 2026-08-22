@@ -1,11 +1,13 @@
 
-import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, MapPin } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, MapPin, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -281,6 +283,7 @@ const ManagePavementPage = () => {
   const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [streets, setStreets] = useState([]);
   const [bairros, setBairros] = useState([]);
+  const [buscaRua, setBuscaRua] = useState('');
   const [editingStreet, setEditingStreet] = useState(null);
   const [deletingStreet, setDeletingStreet] = useState(null);
 
@@ -360,15 +363,22 @@ const ManagePavementPage = () => {
     }
 
     const trimmedName = name.trim();
+    // A checagem de nome repetido é POR CIDADE.
+    //
+    // Sem o recorte, ela olhava a tabela inteira: "Rua São João" cadastrada em
+    // Palmares bloqueava o cadastro de "Rua São João" em qualquer outra cidade
+    // do país. É o nome de rua mais comum do Brasil — e o embaixador da cidade
+    // vizinha via "já existe no sistema" sem ter como descobrir onde.
     let query = supabase
         .from('pavement_streets')
-        .select('id', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
+        .eq('city_id', resolvedCityId)
         .ilike('name', trimmedName);
 
     if (id) {
         query = query.neq('id', id);
     }
-    
+
     const { error: checkError, count } = await query;
 
     if (checkError) {
@@ -377,7 +387,7 @@ const ManagePavementPage = () => {
     }
 
     if (count > 0) {
-        toast({ title: "Rua já cadastrada", description: `A rua "${trimmedName}" já existe no sistema.`, variant: "destructive" });
+        toast({ title: "Rua já cadastrada", description: `A rua "${trimmedName}" já existe nesta cidade.`, variant: "destructive" });
         return;
     }
 
@@ -434,6 +444,23 @@ const ManagePavementPage = () => {
     }
   };
 
+  // `streets` continua inteiro: o modal precisa da lista completa para avisar
+  // de nomes repetidos. O recorte é só do que vai para a tela.
+  const ruasFiltradas = useMemo(() => {
+    const termo = buscaRua.trim().toLowerCase();
+    if (!termo) return streets;
+    return streets.filter((s) =>
+      (s.name || '').toLowerCase().includes(termo) ||
+      (s.bairro_name || '').toLowerCase().includes(termo) ||
+      (s.cep || '').toLowerCase().includes(termo)
+    );
+  }, [streets, buscaRua]);
+
+  const { visiveis: ruasVisiveis, propsPaginacao: propsPaginacaoRuas } = useListaPaginada(
+    ruasFiltradas,
+    { porPagina: 20, chaveFiltro: buscaRua }
+  );
+
   return (
     <>
       <Helmet>
@@ -463,10 +490,28 @@ const ManagePavementPage = () => {
         </motion.div>
 
         <Card>
-          <CardHeader><CardTitle>Ruas Cadastradas</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Ruas Cadastradas</CardTitle>
+            <CardDescription>{streets.length} rua{streets.length === 1 ? '' : 's'}.</CardDescription>
+            {/* Sem busca, achar uma rua era rolar até topá-la. */}
+            <div className="relative mt-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por rua, bairro ou CEP..."
+                className="pl-10"
+                value={buscaRua}
+                onChange={(e) => setBuscaRua(e.target.value)}
+              />
+            </div>
+          </CardHeader>
           <CardContent>
+            {ruasVisiveis.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10">
+                {buscaRua ? 'Nenhuma rua corresponde à busca.' : 'Nenhuma rua cadastrada ainda.'}
+              </p>
+            ) : (
             <div className="space-y-3">
-              {streets.map(street => (
+              {ruasVisiveis.map(street => (
                 <div key={street.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
                   <div>
                     <p className="font-semibold">{street.name}</p>
@@ -482,6 +527,9 @@ const ManagePavementPage = () => {
                 </div>
               ))}
             </div>
+            )}
+
+            <PaginacaoLista {...propsPaginacaoRuas} />
           </CardContent>
         </Card>
       </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { ArrowLeft, MapPin, Ruler, User, Building2, FileText, Calendar, CheckCircle2, XCircle, Image as ImageIcon, DollarSign, History, Pencil } from 'lucide-react';
+import { ArrowLeft, MapPin, Ruler, User, Building2, FileText, Calendar, CheckCircle2, XCircle, Image as ImageIcon, DollarSign, History, Pencil, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -232,7 +232,29 @@ const RentalPropertyDetailsPage = () => {
                         value={formatDate(currentContract.expected_end_date)}
                       />
                     )}
+                    {(currentContract?.contract_number || currentContract?.contract_year) && (
+                      <InfoRow
+                        icon={FileText}
+                        label="Número do contrato"
+                        value={`${currentContract.contract_number || 's/nº'}${currentContract.contract_year ? `/${currentContract.contract_year}` : ''}`}
+                      />
+                    )}
                   </div>
+                  {/* Fora da grade de InfoRow: o link e uma acao, nao um dado.
+                      E o unico ponto da tela em que a pessoa sai do app para
+                      conferir o documento original na fonte — merece o peso de
+                      um botao. */}
+                  {currentContract?.contract_url && (
+                    <a
+                      href={currentContract.contract_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-tc-red/10 text-tc-red text-xs font-bold hover:bg-tc-red/15 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Ver contrato no site da prefeitura
+                    </a>
+                  )}
                 </SectionBlock>
 
                 <SectionBlock icon={Ruler} title="Características e utilização">
@@ -257,10 +279,21 @@ const RentalPropertyDetailsPage = () => {
                       {contracts.map((c) => (
                         <div key={c.id} className="flex items-center justify-between gap-3 bg-surface-raised px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
                           <div className="min-w-0">
-                            <p className="text-xs font-semibold text-content-primary truncate">{c.owner_name}</p>
+                            <p className="text-xs font-semibold text-content-primary truncate">{c.owner_name || 'Proprietário não informado'}</p>
                             <p className="text-[11px] text-content-secondary">
                               {formatDate(c.start_date)} — {c.end_date ? formatDate(c.end_date) : (c.is_current ? 'atual' : '—')}
                             </p>
+                            {(c.contract_number || c.contract_year) && (
+                              <p className="text-[11px] text-content-secondary">
+                                Contrato {c.contract_number || 's/nº'}{c.contract_year ? `/${c.contract_year}` : ''}
+                                {c.contract_url && (
+                                  <>
+                                    {' · '}
+                                    <a href={c.contract_url} target="_blank" rel="noopener noreferrer" className="text-tc-red hover:underline">ver documento</a>
+                                  </>
+                                )}
+                              </p>
+                            )}
                           </div>
                           <p className="text-sm font-bold text-content-primary flex-shrink-0">{formatCurrency(c.monthly_value)}</p>
                         </div>

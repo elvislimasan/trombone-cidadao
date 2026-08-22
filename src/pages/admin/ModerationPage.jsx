@@ -4,26 +4,57 @@ import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, Check, X, Eye, ChevronLeft, ChevronRight, Search,
-  MessageSquare, AlertCircle, FileText, CheckCircle2, Info,
-  Filter, Calendar, User, Clock, Image as ImageIcon, Megaphone, Trash2,
-  ChevronDown, ZoomIn, ExternalLink, Loader2
+  AlertCircle, FileText, CheckCircle2, Info,
+  User, Clock, Image as ImageIcon, Trash2,
+  ZoomIn, ExternalLink, Loader2, MapPin
 } from 'lucide-react';
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useCity } from '@/contexts/CityContext';
+import { nomeDaCategoria } from '@/lib/reportCategories';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+
+// Normaliza para busca: sem acento, sem caixa. "Sao Vicente" acha "São Vicente".
+const normalizar = (s) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
+
+/**
+ * Há quanto tempo o item espera.
+ *
+ * Numa fila de moderação a idade importa mais que a data: "há 3 dias" é uma
+ * cobrança, "12 de ago" é uma informação. A data exata continua acessível no
+ * `title` do elemento, para quando alguém precisar dela.
+ */
+const esperaHa = (iso) => {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const min = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `há ${h}h`;
+  const d = Math.round(h / 24);
+  if (d < 30) return `há ${d} ${d === 1 ? 'dia' : 'dias'}`;
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+};
+
+/** A primeira foto de uma lista de mídia. */
+const primeiraFoto = (midias) =>
+  (midias || []).find((m) => m?.type === 'photo' && m?.url)?.url || null;
 
 const ModerationPage = () => {
   const { type } = useParams();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { cities, loadingCities } = useCity();
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,8 +76,21 @@ const ModerationPage = () => {
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [itemToApprove, setItemToApprove] = useState(null);
 
-  // Update expansion + lightbox
-  const [expandedUpdateId, setExpandedUpdateId] = useState(null);
+  // ── Cidade atribuída na aprovação ──
+  //
+  // Bronca sem `city_id` existe: o modo patrulha grava a partir do GPS, e o
+  // reverse-geocode pode não ter respondido a tempo do primeiro registro. Sem
+  // cidade a bronca sai de todo escopo do app — placar, clusters do mapa e,
+  // principalmente, o painel do embaixador, cuja RLS é
+  // `is_ambassador_of(uid, city_id)`. Aprovar assim publica uma bronca que
+  // ninguém da cidade dela consegue administrar depois.
+  //
+  // Por isso é o moderador quem fecha o buraco, no momento em que já está
+  // olhando a bronca no mapa da revisão. Não há como o servidor adivinhar:
+  // `cities` não tem polígono, e `match_city` casa por nome.
+  const [approveCityId, setApproveCityId] = useState('');
+  const [approveCitySearch, setApproveCitySearch] = useState('');
+
   const [lightboxImage, setLightboxImage] = useState(null);
 
   // Per-item action loading state
@@ -71,9 +115,9 @@ const ModerationPage = () => {
     solved: 'O problema foi resolvido',
   };
   const UPDATE_TYPE_COLORS = {
-    still_here: 'bg-red-50 text-red-700 border-red-200',
-    being_solved: 'bg-amber-50 text-amber-700 border-amber-200',
-    solved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    still_here: 'bg-danger-subtleBg text-danger-subtleFg border-danger/25',
+    being_solved: 'bg-status-progressBg text-status-progressFg border-status-progressBorder',
+    solved: 'bg-status-resolvedBg text-status-resolvedFg border-status-resolvedBorder',
   };
 
   const fetchItems = useCallback(async () => {
@@ -86,7 +130,11 @@ const ModerationPage = () => {
           .select(
             'id, report_id, author_id, update_type, message, status, created_at, ' +
             'author:profiles!report_updates_author_id_fkey(name), ' +
-            'report:reports!report_updates_report_id_fkey(id, title), ' +
+            // Endereco e foto da bronca vem junto: sem eles o moderador tinha
+            // que abrir a bronca em outra aba para saber DE ONDE se fala, e
+            // julgar "o problema ainda esta aqui" sem ver o lugar e julgar no
+            // escuro. Uma linha a mais na consulta poupa uma navegacao por item.
+            'report:reports!report_updates_report_id_fkey(id, title, address, report_media(url, type)), ' +
             'media:report_update_media(*)'
           )
           .eq('status', 'pending_moderation')
@@ -121,11 +169,32 @@ const ModerationPage = () => {
       } else {
         const tableToFetch = isReportModeration ? 'reports' : 'comments';
         const statusField = 'moderation_status';
-        const { data, error } = await supabase
+        let query = supabase
           .from(tableToFetch)
-          .select('*, author:profiles!author_id(name)')
-          .eq(statusField, 'pending_approval')
-          .order('created_at', { ascending: true });
+          // A foto vem junto SÓ para broncas — `comments` não tem essa relação,
+          // e pedi-la ali derrubaria a consulta inteira.
+          //
+          // Sem ela o moderador decidia no escuro: o cartão trazia título,
+          // autor e protocolo, e a única coisa que diz se a bronca é real —
+          // a foto — exigia abrir o modal de revisão, um por um. A fila de
+          // moderação existe para ser percorrida rápido.
+          .select(
+            isReportModeration
+              ? '*, author:profiles!author_id(name), report_media(url, type)'
+              : '*, author:profiles!author_id(name)'
+          )
+          .eq(statusField, 'pending_approval');
+
+        // Sinal aberto TAMBÉM é 'pending_approval' — é o que o mantém fora do
+        // feed e do mapa público. Mas não é matéria de moderação: não tem foto
+        // nem descrição para julgar, é uma missão esperando alguém ir ao local.
+        // Sem este filtro, a fila do moderador encheria de linhas que ele não
+        // teria como aprovar nem rejeitar.
+        if (isReportModeration) {
+          query = query.or('signal_status.is.null,signal_status.in.(done,empty)');
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: true });
         if (error) throw error;
         setItems(data || []);
       }
@@ -146,7 +215,6 @@ const ModerationPage = () => {
       const { error } = await supabase.rpc('delete_report_update', { p_update_id: item.id });
       if (error) throw error;
       toast({ title: 'Atualização excluída definitivamente.' });
-      setExpandedUpdateId(null);
       fetchItems();
     } catch (err) {
       toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
@@ -170,6 +238,8 @@ const ModerationPage = () => {
       setIsRejectModalOpen(true);
     } else if (newStatus === 'approved') {
       setItemToApprove(item);
+      setApproveCityId(item?.city_id ? String(item.city_id) : '');
+      setApproveCitySearch('');
       setIsApproveModalOpen(true);
     }
   };
@@ -299,7 +369,19 @@ const ModerationPage = () => {
       } else {
         const tableToUpdate = isReportModeration ? 'reports' : 'comments';
         let updateData = { moderation_status: newStatus };
-        if (isReportModeration && newStatus === 'approved') updateData.status = 'pending';
+        if (isReportModeration && newStatus === 'approved') {
+          updateData.status = 'pending';
+          // Só grava quando a linha está sem cidade. O moderador não reescreve
+          // uma cidade que o GPS já resolveu no local — ele preenche o que
+          // faltou. Mesma regra do servidor na migração 176.
+          if (!item.city_id) {
+            const escolhida = Number(approveCityId);
+            if (!Number.isFinite(escolhida) || escolhida <= 0) {
+              throw new Error('Selecione a cidade desta bronca antes de aprovar.');
+            }
+            updateData.city_id = escolhida;
+          }
+        }
         if (isReportModeration && newStatus === 'rejected') {
           updateData.rejection_title = rejectionTitle.trim();
           updateData.rejection_description = rejectionDescription.trim();
@@ -332,7 +414,6 @@ const ModerationPage = () => {
       }
 
       toast({ title: `Item ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso!` });
-      setExpandedUpdateId(null);
       fetchItems();
     } catch (error) {
       toast({ title: "Erro ao processar", description: error.message, variant: "destructive" });
@@ -356,10 +437,8 @@ const ModerationPage = () => {
     await processAction(itemToApprove, 'approved');
     setIsApproveModalOpen(false);
     setItemToApprove(null);
-  };
-
-  const toggleExpand = (id) => {
-    setExpandedUpdateId(prev => prev === id ? null : id);
+    setApproveCityId('');
+    setApproveCitySearch('');
   };
 
   // Filter and Pagination Logic
@@ -372,12 +451,51 @@ const ModerationPage = () => {
     });
   }, [items, searchTerm]);
 
+  // A bronca em aprovação precisa que o moderador informe a cidade?
+  const precisaCidade = Boolean(
+    isReportModeration && itemToApprove && !itemToApprove.city_id
+  );
+
+  // Lista do seletor. Sem busca, mostra só as 50 primeiras: são ~5.570 cidades
+  // e renderizar todas trava o modal em aparelho fraco.
+  const cidadesFiltradas = useMemo(() => {
+    const termo = normalizar(approveCitySearch.trim());
+    if (!termo) return cities.slice(0, 50);
+    return cities
+      .filter(
+        (c) =>
+          normalizar(c.name).includes(termo) ||
+          (c.state?.uf || '').toLowerCase() === termo
+      )
+      .slice(0, 80);
+  }, [cities, approveCitySearch]);
+
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-  const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Celular rola, desktop pagina.
+  //
+  // A fila de moderação se percorre de cima a baixo: o moderador julga um item,
+  // ele some da lista, e o seguinte sobe. Interromper isso a cada 8 itens com
+  // um par de botões no rodapé — que no celular ficam empilhados, um em cima do
+  // outro — troca um gesto contínuo por uma mira. Rolando, a página só cresce.
+  //
+  // No desktop os botões ficam: com mouse eles são confortáveis, e dizem de
+  // relance quantos itens ainda faltam.
+  const isMobile = useIsMobile();
+  const currentItems = isMobile
+    ? filteredItems.slice(0, currentPage * itemsPerPage)
+    : filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const temMais = isMobile && currentItems.length < filteredItems.length;
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) setCurrentPage(newPage);
   };
+
+  const carregarMais = useCallback(() => {
+    setCurrentPage((p) => p + 1);
+  }, []);
+
+  const sentinelaRef = useInfiniteScroll(carregarMais, { enabled: temMais });
 
   const handleViewReport = async (reportId) => {
     const { data, error } = await supabase
@@ -417,6 +535,13 @@ const ModerationPage = () => {
                 </Button>
               </Link>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{pageTitle}</h1>
+              {/* Quantos faltam. Numa fila, é o número que decide se dá para
+                  fechar hoje — e ele não aparecia em lugar nenhum. */}
+              {!loading && filteredItems.length > 0 && (
+                <span className="shrink-0 inline-flex items-center justify-center min-w-7 h-7 px-2 rounded-full bg-brand text-content-onBrand text-sm font-extrabold tabular-nums">
+                  {filteredItems.length}
+                </span>
+              )}
             </div>
             <p className="text-muted-foreground ml-10 md:ml-12 text-sm md:text-base">
               {isUpdateModeration ? 'Revise atualizações enviadas antes de ficarem visíveis ao público' : isWorkMediaModeration ? 'Aprove ou rejeite fotos e vídeos enviados pelos cidadãos' : isResolutionModeration ? 'Valide as resoluções enviadas' : 'Garanta a qualidade do conteúdo da plataforma'}
@@ -442,8 +567,8 @@ const ModerationPage = () => {
               <p className="text-muted-foreground animate-pulse">Carregando itens para moderação...</p>
             </div>
           ) : filteredItems.length === 0 ? (
-            <Card className="border-dashed border-2 py-20 flex flex-col items-center justify-center text-center bg-muted/20">
-              <div className="bg-muted p-4 rounded-full mb-4 text-muted-foreground">
+            <Card className="border-dashed border-2 border-edge-default py-20 flex flex-col items-center justify-center text-center bg-surface-subtle">
+              <div className="bg-success-bg p-4 rounded-full mb-4 text-success-fg">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <h3 className="text-xl font-bold mb-1">Tudo limpo por aqui!</h3>
@@ -451,7 +576,43 @@ const ModerationPage = () => {
             </Card>
           ) : (
             <AnimatePresence mode="popLayout">
-              {currentItems.map((item) => (
+              {currentItems.map((item) => {
+                // As tres derivadas do cartao, calculadas uma vez.
+                //
+                // Antes cada uma vivia como ternario de cinco galhos dentro do
+                // JSX, repetido em tres lugares. O selo errado da bronca
+                // ("Comentario") era exatamente o galho de fallback de um
+                // deles — o tipo de erro que so aparece na tela, porque no
+                // codigo a linha e longa demais para alguem ler ate o fim.
+                const miniatura = isUpdateModeration
+                  ? primeiraFoto(item.report?.report_media)
+                  : isReportModeration
+                    ? primeiraFoto(item.report_media)
+                    : isWorkMediaModeration
+                      ? (item.type === 'photo' ? item.url : null)
+                      : null;
+
+                const endereco = isUpdateModeration
+                  ? item.report?.address
+                  : isReportModeration
+                    ? item.address
+                    : null;
+
+                const chip = isUpdateModeration
+                  ? (item.update_type
+                      ? {
+                          texto: UPDATE_TYPE_LABELS[item.update_type] || item.update_type,
+                          classe: UPDATE_TYPE_COLORS[item.update_type] || 'bg-surface-subtle text-content-secondary border-edge-subtle',
+                        }
+                      : null)
+                  : isReportModeration
+                    ? {
+                        texto: nomeDaCategoria(item.category_id),
+                        classe: 'bg-brand-subtleBg text-brand border-brand/20',
+                      }
+                    : null;
+
+                return (
                 <motion.div
                   layout
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -459,263 +620,239 @@ const ModerationPage = () => {
                   exit={{ opacity: 0, scale: 0.98 }}
                   key={item.id}
                 >
-                  <Card className={`overflow-hidden border-muted-foreground/10 transition-all shadow-sm hover:shadow-md ${isUpdateModeration && expandedUpdateId === item.id ? 'border-orange-300 shadow-orange-100' : 'hover:border-tc-red/20'}`}>
+                  <Card className="overflow-hidden border-muted-foreground/10 transition-all shadow-sm hover:shadow-md hover:border-brand/20">
                     <CardContent className="p-0">
                       <div className="flex flex-row items-stretch min-h-[110px] md:min-h-[130px]">
-                        {/* Icon/Visual Indicator - Always vertical stripe */}
-                        <div className={`w-1.5 md:w-2 shrink-0 ${isUpdateModeration ? 'bg-orange-500' : isWorkMediaModeration ? 'bg-purple-500' : isPetitionModeration ? 'bg-tc-red' : isResolutionModeration ? 'bg-green-500' : 'bg-blue-500'}`} />
+                        {/* Faixa do tipo. Cor semântica, não da paleta: esta
+                            página inteira usava orange-500/blue-500 crus e some
+                            no tema escuro. */}
+                        <div className={`w-1.5 shrink-0 ${isUpdateModeration ? 'bg-status-progressFg' : isWorkMediaModeration ? 'bg-status-duplicateFg' : isPetitionModeration ? 'bg-brand' : isResolutionModeration ? 'bg-success-fg' : 'bg-status-pendingFg'}`} />
 
-                        <div className="flex-1 p-2.5 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-6 min-w-0">
-                          <div className="space-y-1 md:space-y-2 flex-1 min-w-0 w-full">
-                            <div className="flex items-center gap-1.5 md:gap-3 flex-wrap mb-0.5">
-                              <Badge variant="outline" className="gap-1 font-medium py-0 h-5 md:h-6 text-[9px] md:text-xs">
-                                {isUpdateModeration ? <Megaphone className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isWorkMediaModeration ? <ImageIcon className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isPetitionModeration ? <FileText className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : isResolutionModeration ? <CheckCircle2 className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> : <MessageSquare className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />}
-                                {isUpdateModeration ? 'Atualização' : isWorkMediaModeration ? 'Mídia de Obra' : isPetitionModeration ? 'Abaixo-Assinado' : isResolutionModeration ? 'Resolução' : 'Comentário'}
-                              </Badge>
-                              {isUpdateModeration && item.update_type && (
-                                <span className={`text-[9px] md:text-xs font-semibold px-2 py-0.5 rounded-full border ${UPDATE_TYPE_COLORS[item.update_type] || 'bg-surface-subtle text-content-secondary border-edge-subtle'}`}>
-                                  {UPDATE_TYPE_LABELS[item.update_type] || item.update_type}
+                        <div className="flex-1 min-w-0 p-3 md:p-4">
+                          <div className="flex gap-3">
+                            {/* A miniatura, quando existe.
+
+                                Numa bronca é a foto do problema; numa
+                                atualização, a foto do cadastro original — a
+                                referência contra a qual se julga "o problema
+                                ainda está aqui". */}
+                            {miniatura && (
+                              <button
+                                type="button"
+                                onClick={() => setLightboxImage(miniatura)}
+                                className="shrink-0 relative group/thumb rounded-xl overflow-hidden"
+                                title="Ampliar"
+                              >
+                                <img
+                                  src={miniatura}
+                                  alt=""
+                                  loading="lazy"
+                                  className="w-16 h-16 md:w-[72px] md:h-[72px] object-cover bg-surface-sunken"
+                                />
+                                <span className="absolute inset-0 bg-black/45 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
+                                  <ZoomIn className="w-4 h-4 text-white" />
                                 </span>
-                              )}
-                              <span className="text-[9px] md:text-xs text-muted-foreground flex items-center gap-1">
-                                <Clock className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />
-                                {new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-
-                            <h3 className="font-bold text-sm md:text-lg leading-tight line-clamp-2 group-hover:text-tc-red transition-colors">
-                              {isUpdateModeration
-                                ? (item.report?.title || 'Bronca sem título')
-                                : isWorkMediaModeration
-                                  ? (item.work?.title || 'Obra desconhecida')
-                                  : (item.title || (item.text ? `"${item.text}"` : 'Sem título'))}
-                            </h3>
-
-                            {isUpdateModeration && item.message && (
-                              <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 italic">
-                                "{item.message}"
-                              </p>
+                              </button>
                             )}
 
-                            {isUpdateModeration && item.media && item.media.length > 0 && (
-                              <div className="flex gap-1.5 mt-1.5">
-                                {item.media.slice(0, 3).map((m) => (
-                                  <img
-                                    key={m.id}
-                                    src={m.url}
-                                    alt=""
-                                    className="w-10 h-10 rounded-lg object-cover border border-edge-subtle"
-                                  />
-                                ))}
-                                {item.media.length > 3 && (
-                                  <div className="w-10 h-10 rounded-lg bg-surface-sunken flex items-center justify-center text-[10px] font-bold text-content-tertiary">
-                                    +{item.media.length - 3}
-                                  </div>
+                            <div className="min-w-0 flex-1">
+                              {/* Primeira linha: só o que VARIA entre itens.
+
+                                  Aqui havia um selo dizendo o tipo — "Bronca",
+                                  "Atualização", "Comentário". Ele repetia o
+                                  título da página em cada cartão, e no caso das
+                                  broncas repetia errado: como era o galho de
+                                  fallback dos ternários, toda bronca aparecia
+                                  rotulada "Comentário".
+
+                                  O que ficou é o que muda de item para item: a
+                                  categoria da bronca, o tipo da atualização. */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {chip && (
+                                  <span className={`text-[10px] md:text-[11px] font-bold px-2 py-0.5 rounded-full border ${chip.classe}`}>
+                                    {chip.texto}
+                                  </span>
                                 )}
-                              </div>
-                            )}
-
-                            <div className="flex flex-col xs:flex-row xs:items-center gap-1.5 xs:gap-4 text-[10px] md:text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1.5">
-                                <User className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                <span className="font-medium text-foreground truncate max-w-[90px] sm:max-w-none">
-                                  {isWorkMediaModeration ? (item.contributor?.name || 'Cidadão') : (item.author?.name || item.resolution_submission?.userName || 'Anônimo')}
+                                <span
+                                  className="text-[11px] text-content-tertiary inline-flex items-center gap-1"
+                                  title={new Date(item.created_at).toLocaleString('pt-BR')}
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  {esperaHa(item.created_at)}
                                 </span>
                               </div>
-                              {item.protocol && (
-                                <div className="flex items-center gap-1.5">
-                                  <Info className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                  <span>Prot: <span className="font-mono text-[9px] md:text-xs">{item.protocol}</span></span>
+
+                              <h3 className="font-bold text-sm md:text-base leading-snug line-clamp-2 mt-1 text-content-primary">
+                                {isUpdateModeration
+                                  ? (item.report?.title || 'Bronca sem título')
+                                  : isWorkMediaModeration
+                                    ? (item.work?.title || 'Obra desconhecida')
+                                    : (item.title || (item.text ? `"${item.text}"` : 'Sem título'))}
+                              </h3>
+
+                              {endereco && (
+                                <p className="mt-1 flex items-start gap-1.5 text-xs text-content-secondary leading-snug">
+                                  <MapPin className="w-3.5 h-3.5 shrink-0 mt-px text-content-tertiary" />
+                                  <span className="min-w-0 line-clamp-1">{endereco}</span>
+                                </p>
+                              )}
+
+                              {/* Mensagem e fotos da atualização, inteiras.
+
+                                  Antes o cartão trazia duas prévias — a mensagem
+                                  cortada em duas linhas e três miniaturas de
+                                  36 px — e o resto só abrindo um accordion. Mas
+                                  a mensagem e essas fotos SÃO a atualização: é
+                                  sobre elas que o moderador decide, e elas não
+                                  estão na página da bronca (vivem em
+                                  `report_update_media`). Esconder atrás de um
+                                  clique o único conteúdo a ser julgado obrigava
+                                  a abrir todos os itens da fila, um a um.
+
+                                  A prévia foi para o lixo junto com o accordion:
+                                  o cartão mostra o que há, e pronto. */}
+                              {isUpdateModeration && item.message && (
+                                <p className="text-xs md:text-sm text-content-secondary mt-2 italic whitespace-pre-wrap leading-relaxed">
+                                  &ldquo;{item.message}&rdquo;
+                                </p>
+                              )}
+
+                              {isUpdateModeration && item.media && item.media.length > 0 && (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 mt-3">
+                                  {item.media.map((m) => (
+                                    <button
+                                      key={m.id}
+                                      type="button"
+                                      onClick={() => setLightboxImage(m.url)}
+                                      title="Ampliar"
+                                      className="relative aspect-square rounded-xl overflow-hidden border border-edge-subtle bg-surface-sunken group/foto focus:outline-none focus:ring-2 focus:ring-brand"
+                                    >
+                                      <img
+                                        src={m.url}
+                                        alt=""
+                                        loading="lazy"
+                                        className="w-full h-full object-cover transition-transform duration-200 group-hover/foto:scale-105"
+                                      />
+                                      <span className="absolute inset-0 bg-black/0 group-hover/foto:bg-black/30 transition-colors flex items-center justify-center">
+                                        <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover/foto:opacity-100 transition-opacity" />
+                                      </span>
+                                    </button>
+                                  ))}
                                 </div>
                               )}
+
+                              <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-2 text-[11px] md:text-xs text-content-tertiary">
+                                <span className="flex items-center gap-1.5 min-w-0">
+                                  <User className="w-3.5 h-3.5 shrink-0" />
+                                  <span className="font-medium text-content-secondary truncate max-w-[140px]">
+                                    {isWorkMediaModeration ? (item.contributor?.name || 'Cidadão') : (item.author?.name || item.resolution_submission?.userName || 'Anônimo')}
+                                  </span>
+                                </span>
+                                {item.protocol && (
+                                  <span className="flex items-center gap-1.5">
+                                    <Info className="w-3.5 h-3.5" />
+                                    <span className="font-mono text-[10px] md:text-[11px]">{item.protocol}</span>
+                                  </span>
+                                )}
+                                {/* Avisa antes de abrir: aprovar sem cidade pede um passo a mais. */}
+                                {isReportModeration && !item.city_id && (
+                                  <span className="flex items-center gap-1.5 font-bold text-status-pendingFg">
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    Sem cidade
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5 md:gap-3 shrink-0 self-end md:self-center bg-muted/30 p-1.5 md:p-2 rounded-xl w-full sm:w-auto justify-end border-t border-muted sm:border-0 pt-2 sm:pt-2 mt-1 sm:mt-0">
+                          {/* Barra de ações, largura inteira do cartão.
+
+                              Antes era uma coluna apertada à direita, com
+                              aprovar e rejeitar como dois ícones de 32 px
+                              encostados um no outro — no celular, dois alvos
+                              vizinhos de consequência oposta.
+
+                              Agora "Revisar" fica na esquerda e as decisões na
+                              direita, com rótulo onde cabe. Excluir, que é
+                              irreversível, fica separado por uma linha. */}
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-edge-subtle">
+                            {/* Numa atualização não há o que "revisar" aqui: o
+                                cartão já mostra tudo o que a atualização tem. O
+                                que ainda falta é o histórico da bronca, e esse
+                                fica na página dela — então o lugar do botão é
+                                de quem leva até lá. */}
+                            {isUpdateModeration ? (
+                              <a
+                                href={`/bronca/${item.report_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center h-9 px-3 rounded-md text-xs md:text-sm font-semibold text-content-secondary hover:bg-surface-subtle hover:text-brand transition-colors"
+                              >
+                                <ExternalLink className="w-4 h-4 mr-1.5" />
+                                Abrir bronca
+                              </a>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 px-3 text-xs md:text-sm font-semibold text-content-secondary"
+                                onClick={() => {
+                                  if (isPetitionModeration) {
+                                    navigate(`/abaixo-assinado/${item.id}`);
+                                  } else if (isWorkMediaModeration) {
+                                    setSelectedWorkMedia(item);
+                                  } else {
+                                    handleViewReport(item.id);
+                                  }
+                                }}
+                              >
+                                <Eye className="w-4 h-4 mr-1.5" />
+                                Revisar
+                              </Button>
+                            )}
+
+                            <div className="flex-1" />
+
                             <Button
-                              variant="ghost"
                               size="sm"
-                              className={`h-8 md:h-10 px-2.5 md:px-4 hover:bg-background flex-1 sm:flex-none text-[11px] md:text-sm ${isUpdateModeration && expandedUpdateId === item.id ? 'bg-orange-50 text-orange-700' : ''}`}
-                              onClick={() => {
-                                if (isUpdateModeration) {
-                                  toggleExpand(item.id);
-                                } else if (isPetitionModeration) {
-                                  navigate(`/abaixo-assinado/${item.id}`);
-                                } else if (isWorkMediaModeration) {
-                                  setSelectedWorkMedia(item);
-                                } else {
-                                  handleViewReport(item.id);
-                                }
-                              }}
+                              className="h-9 px-3 md:px-4 bg-success-bg text-success-fg border border-success-border hover:bg-success-fg hover:text-white text-xs md:text-sm font-bold disabled:opacity-50"
+                              onClick={() => handleAction(item, 'approved')}
+                              title="Aprovar"
+                              disabled={!!actionLoadingId}
                             >
-                              {isUpdateModeration ? (
-                                <>
-                                  <ChevronDown className={`w-3.5 h-3.5 md:w-4 md:h-4 mr-1 transition-transform duration-200 ${expandedUpdateId === item.id ? 'rotate-180' : ''}`} />
-                                  {expandedUpdateId === item.id ? 'Fechar' : 'Revisar'}
-                                </>
+                              {actionLoadingId === `${item.id}-approved` ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
-                                <>
-                                  <Eye className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                                  Revisar
-                                </>
+                                <Check className="w-4 h-4 md:mr-1.5" />
                               )}
+                              <span className="hidden md:inline">Aprovar</span>
                             </Button>
 
-                            <div className="hidden sm:block w-px h-6 bg-muted-foreground/20 mx-1" />
+                            <Button
+                              size="sm"
+                              className="h-9 px-3 md:px-4 bg-danger-subtleBg text-danger-subtleFg border border-danger/30 hover:bg-danger hover:text-white text-xs md:text-sm font-bold disabled:opacity-50"
+                              onClick={() => handleAction(item, 'rejected')}
+                              title="Rejeitar (mantém registro)"
+                              disabled={!!actionLoadingId}
+                            >
+                              {actionLoadingId === `${item.id}-rejected` ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <X className="w-4 h-4 md:mr-1.5" />
+                              )}
+                              <span className="hidden md:inline">Rejeitar</span>
+                            </Button>
 
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 md:h-10 md:w-10 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-colors disabled:opacity-50"
-                                onClick={() => handleAction(item, 'approved')}
-                                title="Aprovar"
-                                disabled={!!actionLoadingId}
-                              >
-                                {actionLoadingId === `${item.id}-approved` ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Check className="w-4 h-4 md:w-5 md:h-5" />
-                                )}
-                              </Button>
-
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 md:h-10 md:w-10 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50"
-                                onClick={() => handleAction(item, 'rejected')}
-                                title="Rejeitar (mantém registro)"
-                                disabled={!!actionLoadingId}
-                              >
-                                {actionLoadingId === `${item.id}-rejected` ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <X className="w-4 h-4 md:w-5 md:h-5" />
-                                )}
-                              </Button>
-
-                              {isUpdateModeration && (
+                            {isUpdateModeration && (
+                              <>
+                                <div className="w-px h-6 bg-edge-default mx-0.5" />
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 md:h-10 md:w-10 text-content-tertiary hover:text-white hover:bg-gray-500 rounded-lg transition-colors disabled:opacity-50"
+                                  className="h-9 w-9 text-content-tertiary hover:text-white hover:bg-danger rounded-lg disabled:opacity-50"
                                   onClick={() => handleAction(item, 'deleted')}
                                   title="Excluir definitivamente"
                                   disabled={!!actionLoadingId}
-                                >
-                                  {actionLoadingId === `${item.id}-deleted` ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
-                                  )}
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Expandable update detail panel */}
-                      <AnimatePresence>
-                        {isUpdateModeration && expandedUpdateId === item.id && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.22, ease: 'easeInOut' }}
-                            className="overflow-hidden"
-                          >
-                            <div className="border-t border-orange-100 bg-orange-50/40 px-4 md:px-6 py-4 space-y-4">
-                              {/* Report context link */}
-                              <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Bronca relacionada</p>
-                                <a
-                                  href={`/bronca/${item.report_id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-xs text-orange-700 hover:underline font-medium"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                  Abrir bronca
-                                </a>
-                              </div>
-                              <div className="bg-surface-raised rounded-xl border border-orange-100 px-4 py-3">
-                                <p className="font-semibold text-sm">{item.report?.title || 'Bronca sem título'}</p>
-                              </div>
-
-                              {/* Full message */}
-                              {item.message && (
-                                <div>
-                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Mensagem do autor</p>
-                                  <div className="bg-surface-raised rounded-xl border border-orange-100 px-4 py-3">
-                                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{item.message}</p>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Media gallery */}
-                              {item.media && item.media.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                                    Fotos ({item.media.length})
-                                  </p>
-                                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                                    {item.media.map((m) => (
-                                      <button
-                                        key={m.id}
-                                        onClick={() => setLightboxImage(m.url)}
-                                        className="relative aspect-square rounded-xl overflow-hidden border border-orange-100 bg-surface-sunken group focus:outline-none focus:ring-2 focus:ring-orange-400"
-                                      >
-                                        <img
-                                          src={m.url}
-                                          alt=""
-                                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                                        />
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                                          <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        </div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Action row inside panel */}
-                              <div className="flex items-center gap-2 pt-2 border-t border-orange-100">
-                                <Button
-                                  size="sm"
-                                  className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 flex-1 sm:flex-none sm:px-6 shadow-sm"
-                                  onClick={() => handleAction(item, 'approved')}
-                                  disabled={!!actionLoadingId}
-                                >
-                                  {actionLoadingId === `${item.id}-approved` ? (
-                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                  ) : (
-                                    <Check className="w-4 h-4 mr-2" />
-                                  )}
-                                  Aprovar atualização
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  className="rounded-lg h-9 flex-1 sm:flex-none sm:px-6 shadow-sm"
-                                  onClick={() => handleAction(item, 'rejected')}
-                                  disabled={!!actionLoadingId}
-                                >
-                                  {actionLoadingId === `${item.id}-rejected` ? (
-                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                  ) : (
-                                    <X className="w-4 h-4 mr-2" />
-                                  )}
-                                  Rejeitar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="rounded-lg h-9 text-content-tertiary hover:text-content-secondary hover:bg-surface-sunken"
-                                  onClick={() => handleAction(item, 'deleted')}
-                                  disabled={!!actionLoadingId}
-                                  title="Excluir definitivamente"
                                 >
                                   {actionLoadingId === `${item.id}-deleted` ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -723,21 +860,43 @@ const ModerationPage = () => {
                                     <Trash2 className="w-4 h-4" />
                                   )}
                                 </Button>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Aqui havia um painel expandível (accordion) com a
+                          mensagem inteira e a galeria de fotos da atualização.
+
+                          Eram exatamente as duas coisas sobre as quais o
+                          moderador decide — escondidas atrás de um clique, uma
+                          fila inteira de itens para abrir e fechar antes de
+                          conseguir julgar qualquer um. Agora ficam no próprio
+                          cartão, e o link para a bronca assumiu o lugar do
+                          botão que abria isto aqui. */}
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
           )}
         </div>
 
-        {/* Pagination */}
-        {filteredItems.length > itemsPerPage && (
+        {/* Celular: a lista cresce sozinha ao chegar no fim. */}
+        {isMobile && temMais && (
+          <div ref={sentinelaRef} className="flex justify-center mt-8">
+            {/* Rede de segurança para quando o IntersectionObserver não
+                dispara (WebView antiga) — este app roda dentro de uma. */}
+            <Button variant="outline" className="rounded-xl h-10" onClick={carregarMais}>
+              Carregar mais
+            </Button>
+          </div>
+        )}
+
+        {/* Desktop: paginação por botões. */}
+        {!isMobile && filteredItems.length > itemsPerPage && (
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 mt-10">
             <Button
               variant="outline"
@@ -886,12 +1045,76 @@ const ModerationPage = () => {
               Ao aprovar, este conteúdo ficará visível para todos os usuários da plataforma. Deseja continuar?
             </DialogDescription>
           </DialogHeader>
+
+          {precisaCidade && (
+            <div className="mt-4 space-y-3">
+              <div className="flex items-start gap-2 rounded-xl border-2 border-status-pendingBorder bg-status-pendingBg p-3">
+                <AlertCircle className="w-5 h-5 shrink-0 text-status-pendingFg mt-0.5" />
+                <p className="text-sm text-status-pendingFg">
+                  Esta bronca chegou <strong>sem cidade</strong>. Informe qual é antes de
+                  aprovar — sem ela a bronca fica fora dos placares, do agrupamento do mapa
+                  e do painel do embaixador da cidade.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4" /> Cidade da bronca
+                </Label>
+                <Input
+                  value={approveCitySearch}
+                  onChange={(e) => setApproveCitySearch(e.target.value)}
+                  placeholder="Buscar cidade ou UF..."
+                  className="rounded-xl border-2 bg-muted/30"
+                  disabled={!!actionLoadingId || loadingCities}
+                />
+                <div className="max-h-56 overflow-y-auto rounded-xl border-2 border-muted divide-y divide-muted">
+                  {loadingCities ? (
+                    <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Carregando cidades...
+                    </div>
+                  ) : cidadesFiltradas.length === 0 ? (
+                    <p className="p-3 text-sm text-muted-foreground">
+                      Nenhuma cidade encontrada para "{approveCitySearch}".
+                    </p>
+                  ) : (
+                    cidadesFiltradas.map((c) => {
+                      const ativa = String(approveCityId) === String(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setApproveCityId(String(c.id))}
+                          disabled={!!actionLoadingId}
+                          className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition-colors ${
+                            ativa ? 'bg-green-50 font-semibold text-green-800' : 'hover:bg-muted/50'
+                          }`}
+                        >
+                          <span className="truncate">
+                            {c.name}
+                            {c.state?.uf ? ` · ${c.state.uf}` : ''}
+                          </span>
+                          {ativa && <Check className="w-4 h-4 shrink-0 text-success-fg" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                {!approveCitySearch.trim() && !loadingCities && (
+                  <p className="text-xs text-muted-foreground">
+                    Mostrando as 50 primeiras — use a busca para encontrar a cidade.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <DialogFooter className="mt-6 gap-3">
             <Button variant="ghost" onClick={() => setIsApproveModalOpen(false)} className="rounded-xl h-12 flex-1" disabled={!!actionLoadingId}>Cancelar</Button>
             <Button
               onClick={confirmApproval}
-              className="bg-green-600 hover:bg-green-700 text-white rounded-xl h-12 flex-1 shadow-lg shadow-green-200"
-              disabled={!!actionLoadingId}
+              className="bg-success-fg hover:brightness-110 text-white rounded-xl h-12 flex-1 shadow-lg"
+              disabled={!!actionLoadingId || (precisaCidade && !approveCityId)}
             >
               {actionLoadingId ? (
                 <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Aprovando...</>
@@ -905,7 +1128,7 @@ const ModerationPage = () => {
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-              <AlertCircle className="w-6 h-6 text-red-500" /> {isReportModeration ? 'Mensagem de Recusa' : 'Motivo da Rejeição'}
+              <AlertCircle className="w-6 h-6 text-danger" /> {isReportModeration ? 'Mensagem de Recusa' : 'Motivo da Rejeição'}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
               {isReportModeration ? 'Envie uma mensagem clara ao autor explicando por que a bronca foi recusada.' : 'Explique por que este conteúdo não foi aprovado. O autor receberá esta justificativa.'}
@@ -920,7 +1143,7 @@ const ModerationPage = () => {
                     value={rejectionTitle}
                     onChange={(e) => setRejectionTitle(e.target.value)}
                     placeholder="Ex: Falta de informações essenciais"
-                    className="rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
+                    className="rounded-xl border-2 focus-visible:ring-danger bg-muted/30"
                   />
                 </div>
                 <div className="space-y-2">
@@ -929,7 +1152,7 @@ const ModerationPage = () => {
                     value={rejectionDescription}
                     onChange={(e) => setRejectionDescription(e.target.value)}
                     placeholder="Explique o que precisa ser ajustado para reenviar a bronca."
-                    className="min-h-[120px] rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
+                    className="min-h-[120px] rounded-xl border-2 focus-visible:ring-danger bg-muted/30"
                   />
                 </div>
               </div>
@@ -938,7 +1161,7 @@ const ModerationPage = () => {
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Ex: Conteúdo duplicado, informações incompletas..."
-                className="min-h-[120px] rounded-xl border-2 focus-visible:ring-red-500 bg-muted/30"
+                className="min-h-[120px] rounded-xl border-2 focus-visible:ring-danger bg-muted/30"
               />
             )}
           </div>
@@ -948,7 +1171,7 @@ const ModerationPage = () => {
               variant="destructive"
               onClick={confirmRejection}
               disabled={!!actionLoadingId || (isReportModeration ? (!rejectionTitle.trim() || !rejectionDescription.trim()) : !rejectionReason.trim())}
-              className="rounded-xl h-12 flex-1 shadow-lg shadow-red-200"
+              className="rounded-xl h-12 flex-1 shadow-lg"
             >
               {actionLoadingId ? (
                 <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Rejeitando...</>

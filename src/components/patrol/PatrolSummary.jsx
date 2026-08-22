@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AlertCircle, CheckCircle, Clock, Loader2, Share2, Route, Timer, Flame } from 'lucide-react';
 import { categoryEmoji } from '@/design-system/icons';
-import { PONTOS_POR_CONFIRMACAO } from '@/lib/patrolGame';
+import { PONTOS, avaliarPatrulha } from '@/lib/patrolGame';
 
 // Fim da patrulha: o que você percorreu, o que confirmou e o que ficou pendente.
 //
@@ -75,6 +75,7 @@ export default function PatrolSummary({
   duracaoS,
   distanciaM,
   salvando,
+
   onResponder,
   onCompartilhar,
   onFechar,
@@ -84,7 +85,17 @@ export default function PatrolSummary({
   conquistas = [],
   ranking = [],
   minhaPosicao = null,
+  titulos = [],
+  feitosNaSessao = { sinais: 0, missoes: 0, broncas: 0 },
 }) {
+  // Guardar ou descartar. A regra é pura e testada — ver avaliarPatrulha.
+  const veredito = avaliarPatrulha({
+    duracaoS,
+    distanciaM,
+    contagens,
+    feitos: feitosNaSessao,
+  });
+
   const nivelProgresso = progressoDoNivel(nivel);
   // Só as que faltam pouco: uma grade com as oito medalhas transformaria a tela
   // de comemoração em lista de pendências.
@@ -120,8 +131,20 @@ export default function PatrolSummary({
         {/* Placar */}
         <div className="px-5 pt-2 pb-4 shrink-0">
           <h2 className="text-xl font-extrabold text-content-primary text-center mb-4">
-            Patrulha concluída
+            {veredito.descartavel ? 'Saída encerrada' : 'Patrulha concluída'}
           </h2>
+
+          {/* Aqui o aviso é constatação, não pergunta: a decisão já foi tomada
+              na folha de saída, e a patrulha já está gravada. Ele fica para a
+              pessoa não estranhar depois que os números não subiram. */}
+          {veredito.descartavel && (
+            <div className="mb-4 rounded-xl bg-status-pendingBg border border-status-pendingBorder px-3.5 py-3">
+              <p className="text-xs text-content-secondary leading-snug">
+                Sem nenhuma ação, esta saída ficou guardada no seu histórico mas
+                não contou como patrulha.
+              </p>
+            </div>
+          )}
           <div className="flex items-start gap-2">
             <Estatistica Icon={Timer} valor={formatarDuracao(duracaoS)} rotulo="Tempo" />
             <div className="w-px self-stretch bg-edge-subtle" />
@@ -131,6 +154,34 @@ export default function PatrolSummary({
             <div className="w-px self-stretch bg-edge-subtle" />
             <Estatistica valor={contagens.confirmadas} rotulo="Confirmou" destaque />
           </div>
+
+          {/* Sinais e missões ficam FORA da linha principal de propósito: são
+              ações sobre o mundo, não medidas do trajeto, e diluí-las entre
+              tempo e distância faria seis números competindo por um olhar. */}
+          {(feitosNaSessao.sinais > 0 ||
+            feitosNaSessao.missoes > 0 ||
+            feitosNaSessao.broncas > 0) && (
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-edge-subtle">
+              {feitosNaSessao.broncas > 0 && (
+                <span className="text-sm font-semibold text-brand">
+                  📣 {feitosNaSessao.broncas}{' '}
+                  {feitosNaSessao.broncas === 1 ? 'bronca registrada' : 'broncas registradas'}
+                </span>
+              )}
+              {feitosNaSessao.missoes > 0 && (
+                <span className="text-sm font-semibold text-brand">
+                  🎯 {feitosNaSessao.missoes}{' '}
+                  {feitosNaSessao.missoes === 1 ? 'missão cumprida' : 'missões cumpridas'}
+                </span>
+              )}
+              {feitosNaSessao.sinais > 0 && (
+                <span className="text-sm font-semibold text-content-secondary">
+                  🚩 {feitosNaSessao.sinais}{' '}
+                  {feitosNaSessao.sinais === 1 ? 'sinalizado' : 'sinalizados'}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="overflow-y-auto flex-1">
@@ -174,6 +225,32 @@ export default function PatrolSummary({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Títulos de bairro. Vêm antes das medalhas porque são o que muda
+              de mão: a medalha, uma vez conquistada, é sua para sempre; o
+              título é da janela de 90 dias e alguém pode tomá-lo na semana que
+              vem. É essa diferença que faz voltar. */}
+          {titulos.length > 0 && (
+            <div className="px-5 py-4 border-b border-edge-subtle">
+              <h3 className="text-sm font-bold text-content-primary mb-2.5">
+                Seus títulos
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {titulos.slice(0, 4).map((t) => (
+                  <span
+                    key={t.bairro}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-subtleBg border border-brand/25 px-3 py-1.5 text-sm font-bold text-brand-subtleFg"
+                  >
+                    <span aria-hidden="true">{t.emoji}</span>
+                    {t.titulo}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-content-tertiary mt-2">
+                Contam os últimos 90 dias de ações no bairro.
+              </p>
             </div>
           )}
 
@@ -265,7 +342,7 @@ export default function PatrolSummary({
                 Faltam {fila.length} {fila.length === 1 ? 'confirmação' : 'confirmações'}
               </p>
               <p className="text-xs text-content-secondary mt-0.5">
-                Cada uma vale {PONTOS_POR_CONFIRMACAO} pontos e ajuda a cidade a priorizar o conserto.
+                Cada uma vale {PONTOS.atualizacao} pontos e ajuda a cidade a priorizar o conserto.
               </p>
             </div>
           )}
@@ -314,6 +391,13 @@ export default function PatrolSummary({
           </div>
         </div>
 
+        {/* Só ver e compartilhar.
+
+            As decisões saíram daqui para a folha de saída (PatrolExitSheet):
+            quando este resumo aparece, a patrulha JÁ foi salva. Misturar a
+            comemoração com "salvar ou descartar?" fazia a pessoa atravessar
+            nível, sequência, títulos e medalhas para achar como voltar — e as
+            opções competiam com os números pela atenção. */}
         <div className="px-4 py-3 shrink-0 border-t border-edge-subtle flex flex-col gap-2">
           <button
             type="button"
@@ -324,15 +408,15 @@ export default function PatrolSummary({
             {salvando ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
             Compartilhar patrulha
           </button>
+
           <button
             type="button"
             disabled={salvando}
             onClick={onFechar}
             className="w-full py-3 rounded-xl bg-surface-subtle text-content-primary font-bold text-sm disabled:opacity-50 active:bg-surface-subtleHover transition-colors"
           >
-            Concluir
-          </button>
-        </div>
+            Fechar
+          </button>        </div>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/SupabaseAuthContext';
 import { CityProvider } from '@/contexts/CityContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { MapModeProvider } from './contexts/MapModeContext';
+import { MissionProgressProvider } from './contexts/MissionProgressContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from '@/design-system/theme/ThemeProvider';
 import { Capacitor } from '@capacitor/core';
@@ -247,7 +248,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <NotificationProvider>
               <MapModeProvider>
               <HelmetProvider>
-                <App />
+                {/* Dentro do Auth e do Router: precisa do usuário para buscar os
+                    contadores, e do Link do aviso para levar às missões. */}
+                <MissionProgressProvider>
+                  <App />
+                </MissionProgressProvider>
               </HelmetProvider>
               </MapModeProvider>
             </NotificationProvider>

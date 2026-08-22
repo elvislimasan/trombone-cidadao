@@ -103,6 +103,30 @@ const navMarkerIcon = L.divIcon({
   iconAnchor: [23, 23],
 });
 
+// Missao: sinal que alguem deixou e que ainda espera cadastro completo.
+//
+// Contorno tracejado, e nao um pin cheio como o das broncas. A diferenca e
+// semantica, nao decorativa: uma bronca e um problema JA documentado, com foto
+// e revisao; uma missao e a palavra de quem passou por ali. Desenhar as duas
+// iguais faria o mapa afirmar sobre a missao mais do que se sabe.
+const missionMarkerIcon = L.divIcon({
+  html: `
+    <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+      <div style="
+        width:26px;height:26px;border-radius:999px;
+        border:2.5px dashed rgb(var(--pin-ring));
+        background: rgba(var(--pin-user-bg), 0.35);
+        display:flex;align-items:center;justify-content:center;
+        font-size:13px;line-height:1;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      ">🚩</div>
+    </div>
+  `,
+  className: 'mission-leaflet-icon',
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+});
+
 // Mantém o mapa colado no usuário. Fora do MapView porque precisa do useMap.
 const NavFollow = ({ posicao, offsetPx, lado }) => {
   const map = useMap();
@@ -272,6 +296,9 @@ const MapView = ({
   // Rastro percorrido na inspecao. Vive so em memoria de quem passa a prop -
   // nao e gravado em lugar nenhum.
   navTrail = null,
+  // Missoes abertas no corredor. Chegam prontas do PatrolOverlay - o mapa nao
+  // busca nada, so desenha.
+  navMissoes = null,
 }) => {
   const { mode } = useMapModeToggle();
   const navigate = useNavigate();
@@ -583,6 +610,14 @@ const MapView = ({
               />
             </>
           )}
+          {navMode && (navMissoes || []).map((missao) => (
+            <Marker
+              key={`missao-${missao.id}`}
+              position={[missao.lat, missao.lng]}
+              icon={missionMarkerIcon}
+              zIndexOffset={500}
+            />
+          ))}
           {(clusters || []).map((item) => {
             const isCluster = !!item.isCluster;
             const location = { lat: item.lat, lng: item.lng };

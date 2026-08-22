@@ -54,6 +54,18 @@ const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, on
 };
 
 
+// Obra concluída sai da visão padrão (mapa e lista).
+//
+// O mapa existe para ACOMPANHAR obra — quem abre quer saber o que está parado,
+// atrasado ou em andamento na rua dele. Concluídas nunca mudam de novo e, em
+// cidade com histórico longo, são a maioria dos pinos: enterravam as três ou
+// quatro que ainda importam num mar de verde.
+//
+// Não é remoção: continuam no banco e voltam assim que alguém marca "Concluída"
+// no filtro de status — daí o filtro passa a mandar sozinho, e o padrão sai da
+// frente.
+const HIDDEN_BY_DEFAULT_STATUS = 'completed';
+
 const PublicWorksPage = () => {
   const [view, setView] = useState('map');
   const [works, setWorks] = useState([]); // dataset para modo mapa
@@ -219,6 +231,8 @@ const PublicWorksPage = () => {
       }
       if (filters.status.length > 0) {
         query = query.in('status', filters.status);
+      } else {
+        query = query.neq('status', HIDDEN_BY_DEFAULT_STATUS);
       }
       if (filters.area.length > 0) {
         query = query.in('work_area_id', filters.area);
@@ -270,6 +284,8 @@ const PublicWorksPage = () => {
     }
     if (filters.status.length > 0) {
       result = result.filter(w => filters.status.includes(w.status));
+    } else {
+      result = result.filter(w => w.status !== HIDDEN_BY_DEFAULT_STATUS);
     }
     if (filters.bairro.length > 0) {
       result = result.filter(w => w.bairro?.id && filters.bairro.includes(w.bairro.id));
@@ -361,14 +377,21 @@ const PublicWorksPage = () => {
                 <Input placeholder="Buscar obra por nome ou descrição..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               </div>
 
-              <MultiSelectFilter
-                triggerIcon={Activity}
-                triggerLabel="Filtrar por Status"
-                items={workStatusesAsArray}
-                selectedItems={filters.status}
-                onSelectionChange={(id) => handleMultiSelectFilterChange('status', id)}
-                searchPlaceholder="Buscar status..."
-              />
+              <div className="flex flex-col gap-1">
+                <MultiSelectFilter
+                  triggerIcon={Activity}
+                  triggerLabel="Filtrar por Status"
+                  items={workStatusesAsArray}
+                  selectedItems={filters.status}
+                  onSelectionChange={(id) => handleMultiSelectFilterChange('status', id)}
+                  searchPlaceholder="Buscar status..."
+                />
+                {filters.status.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground leading-tight">
+                    Obras concluídas ficam ocultas. Marque "Concluída" no filtro para vê-las.
+                  </p>
+                )}
+              </div>
 
               <MultiSelectFilter
                 triggerIcon={MapPin}

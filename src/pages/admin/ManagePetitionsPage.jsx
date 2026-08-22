@@ -22,6 +22,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import PetitionUpdateModal from '@/components/petition/PetitionUpdateModal';
 import { Megaphone } from 'lucide-react';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 
 const ManagePetitionsPage = () => {
   const { toast } = useToast();
@@ -52,43 +54,39 @@ const ManagePetitionsPage = () => {
 
   const fetchPetitions = useCallback(async () => {
     setLoading(true);
-    
+
+    // Contagem de assinaturas: uma consulta, não uma por petição.
+    //
+    // Antes esta tela buscava as petições e depois disparava um `count` para
+    // CADA uma — em paralelo, mas ainda assim N requisições que o navegador
+    // enfileira de seis em seis. Com 60 campanhas eram 61 idas ao servidor
+    // para desenhar uma lista.
+    //
+    // Os dois filtros vão na própria consulta, aplicados ao recurso embutido:
+    // o PostgREST filtra as assinaturas antes de agregar, então `count` já
+    // chega descontando as sem e-mail (as importadas em papel, que não valem
+    // como assinatura verificada). É o mesmo recurso que a tela de broncas usa
+    // para trazer só o favorito do usuário logado.
+    //
+    // O status também deixou de ser filtrado em JS: rascunho, pendente e
+    // rejeitada nunca aparecem aqui, então não precisam vir.
     const { data, error } = await supabase
       .from('petitions')
       .select('*, author:profiles!author_id(name, avatar_url), signatures:signatures(count)')
+      .not('status', 'in', '("draft","pending_moderation","rejected")')
+      .not('signatures.email', 'is', null)
+      .ilike('signatures.email', '%@%.%')
       .order('created_at', { ascending: false });
 
     if (error) {
       toast({ title: "Erro ao buscar abaixo-assinados", description: error.message, variant: "destructive" });
     } else {
-      const filtered = data.filter(
-        (p) => !["draft", "pending_moderation", "rejected"].includes(p.status)
-      );
-
-      const petitionsWithCounts = await Promise.all(
-        filtered.map(async (p) => {
-          const { count, error: countError } = await supabase
-            .from("signatures")
-            .select("id", { count: "exact", head: true })
-            .eq("petition_id", p.id)
-            .not("email", "is", null)
-            .ilike("email", "%@%.%");
-
-          const signatureCount =
-            !countError && typeof count === "number"
-              ? count
-              : p.signatures?.[0]?.count || 0;
-
-          return {
-            ...p,
-            authorName: p.author?.name || "Anônimo",
-            authorAvatar: p.author?.avatar_url,
-            signatureCount,
-          };
-        })
-      );
-
-      setPetitions(petitionsWithCounts);
+      setPetitions((data || []).map((p) => ({
+        ...p,
+        authorName: p.author?.name || "Anônimo",
+        authorAvatar: p.author?.avatar_url,
+        signatureCount: p.signatures?.[0]?.count || 0,
+      })));
     }
     setLoading(false);
   }, [toast]);
@@ -160,6 +158,11 @@ const ManagePetitionsPage = () => {
 
     return result;
   }, [petitions, searchTerm, statusFilter, sortBy]);
+
+  const { visiveis: petitionsVisiveis, propsPaginacao } = useListaPaginada(
+    filteredAndSortedPetitions,
+    { porPagina: 12, chaveFiltro: `${searchTerm}|${statusFilter}|${sortBy}` }
+  );
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -298,7 +301,7 @@ const ManagePetitionsPage = () => {
           ) : (
             <div className="grid gap-4">
               <AnimatePresence mode="popLayout">
-                {filteredAndSortedPetitions.map((petition) => (
+                {petitionsVisiveis.map((petition) => (
                   <motion.div
                     layout
                     initial={{ opacity: 0, y: 10 }}
@@ -432,6 +435,8 @@ const ManagePetitionsPage = () => {
               </AnimatePresence>
             </div>
           )}
+
+          {!loading && <PaginacaoLista {...propsPaginacao} />}
         </div>
       </div>
 

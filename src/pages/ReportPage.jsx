@@ -8,6 +8,10 @@ import React, {
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  computeDisabledUpdateTypes,
+  statusInicialDaAtualizacao,
+} from "@/hooks/useReportUpdate";
 import { Button } from "@/components/ui/button";
 import LinkReportModal from "@/components/LinkReportModal";
 import ReportDetails from "@/components/ReportDetails";
@@ -120,23 +124,17 @@ const ReportPage = () => {
   } = useReportPermissions(report);
 
   const UPDATES_VISIBLE_COUNT = 3;
-  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-  // Rate limit por tipo: mapeia tipo → Date de liberação (se bloqueado)
-  const disabledUpdateTypes = useMemo(() => {
-    if (!user) return {};
-    const cutoff = new Date(Date.now() - SEVEN_DAYS_MS);
-    const result = {};
-    reportUpdates.forEach((u) => {
-      if (u.author_id === user.id && new Date(u.created_at) > cutoff) {
-        const unlockDate = new Date(new Date(u.created_at).getTime() + SEVEN_DAYS_MS);
-        if (!result[u.update_type] || unlockDate > result[u.update_type]) {
-          result[u.update_type] = unlockDate;
-        }
-      }
-    });
-    return result;
-  }, [reportUpdates, user]);
+  // Rate limit por tipo: mapeia tipo → Date de liberação (se bloqueado).
+  //
+  // A conta vinha copiada aqui, idêntica à de useReportUpdate.js. A cópia já
+  // custou caro: a correção de "atualização rejeitada não bloqueia" foi feita
+  // lá e não chegou nesta tela — que é justamente onde o usuário encontra o
+  // bloqueio.
+  const disabledUpdateTypes = useMemo(
+    () => computeDisabledUpdateTypes(reportUpdates, user),
+    [reportUpdates, user]
+  );
 
   const canSendAnyUpdate = useMemo(() => {
     if (!user) return false;
@@ -826,8 +824,9 @@ const ReportPage = () => {
           author_id: user.id,
           update_type: updateType,
           message: message || null,
-          // Autor e admin auto-confirmam; outros entram em moderação
-          status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
+          // A regra mora em useReportUpdate.js: repeti-la aqui já custou uma
+          // divergência entre esta tela e o envio da patrulha.
+          status: statusInicialDaAtualizacao(updateType, isAuthorOrAdmin),
         })
         .select()
         .single();
@@ -860,7 +859,7 @@ const ReportPage = () => {
       }
 
       // Atualização otimista
-      const optimisticStatus = isAuthorOrAdmin ? 'pending' : 'pending_moderation';
+      const optimisticStatus = statusInicialDaAtualizacao(updateType, isAuthorOrAdmin);
       setReportUpdates((prev) => [
         {
           id: newUpdate.id,
@@ -1632,15 +1631,11 @@ const ReportPage = () => {
                       <Share2 className="w-4 h-4" strokeWidth={1.5} />
                       Compartilhar
                     </Button>
-                    {user && canSendAnyUpdate && (
-                      <Button
-                        className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-brand shadow-elevation-1"
-                        onClick={() => setShowUpdateModal(true)}
-                      >
-                        <Megaphone className="w-4 h-4" strokeWidth={1.5} />
-                        Enviar Atualização
-                      </Button>
-                    )}
+                    {/* O botão de enviar atualização mora na seção Atualizações,
+                        logo abaixo. Aqui era o mesmo botão pela segunda vez na
+                        mesma tela — e o de lá é melhor: fica junto da lista que
+                        ele alimenta e, quando o limite semanal está batido,
+                        informa quando libera em vez de simplesmente sumir. */}
                     <Button
                       className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-raised hover:bg-surface-subtleHover shadow-elevation-1"
                       onClick={() =>
@@ -1817,15 +1812,8 @@ const ReportPage = () => {
                     <Share2 className="w-4 h-4" strokeWidth={1.5} />
                     Compartilhar bronca
                   </Button>
-                  {user && (
-                    <Button
-                      className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-subtle hover:bg-surface-subtleHover text-brand"
-                      onClick={() => setShowUpdateModal(true)}
-                    >
-                      <Megaphone className="w-4 h-4" strokeWidth={1.5} />
-                      Enviar Atualização
-                    </Button>
-                  )}
+                  {/* Duplicata do botão da seção Atualizações — ver comentário
+                      no bloco equivalente acima. */}
                   <Button
                     className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-subtle hover:bg-surface-subtleHover"
                     onClick={() =>

@@ -66,7 +66,9 @@ import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
 import HomePageImproved from './pages/HomePage-improved';
 import MapPage from './pages/MapPage';
-import PatrolPage from '@/pages/PatrolPage';
+import MissionsPage from '@/pages/MissionsPage';
+import PatrolRunPage from '@/pages/PatrolRunPage';
+import MyPatrolsPage from '@/pages/MyPatrolsPage';
 import HomeRouter from './pages/HomeRouter';
 import NotFoundPage from '@/pages/NotFoundPage';
 import SearchPage from '@/pages/SearchPage';
@@ -279,16 +281,22 @@ function AppShell() {
   const { loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
 
-  // O modo navegação é uma rota própria, mas a mesma tela: entra em tela cheia
-  // (sem header, sem bottom nav, sem os paddings que reservam o espaço deles) e
-  // sai pelo botão voltar do aparelho, de graça, por ser rota.
-  const patrulhaAtiva = location.pathname === '/mapa/patrulha';
+  // A patrulha é tela cheia: sem header, sem bottom nav e sem os paddings que
+  // reservam o espaço deles. Sair pelo botão voltar do aparelho vem de graça,
+  // por ser rota.
+  //
+  // `/patrulhar`, não `/patrulha/:id` — este segundo é a rota antiga da
+  // patrulha compartilhada, hoje só um redirecionamento, e `/patrulha/buracos`
+  // cairia nele como se "buracos" fosse um id.
+  const patrulhaAtiva = location.pathname.startsWith('/patrulhar');
 
   // A key remonta o ErrorBoundary a cada navegação para que a tela de erro não
-  // sobreviva à saída da rota que quebrou. Entrar em navegação, porém, é a
-  // mesma tela: deixar a key mudar remontaria a MapPage e recarregaria o mapa
-  // inteiro — exatamente o que renderizar o overlay sobre o mapa evita.
-  const boundaryKey = patrulhaAtiva ? '/mapa' : location.pathname;
+  // sobreviva à saída da rota que quebrou.
+  //
+  // Antes havia uma exceção aqui: a patrulha era a MapPage com um overlay, e
+  // deixar a key mudar recarregaria o mapa inteiro. Agora a patrulha é página
+  // própria, e a regra volta a ser uma só.
+  const boundaryKey = location.pathname;
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -663,8 +671,28 @@ function AppShell() {
               {/* Mesma MapPage: o modo navegação é um overlay sobre o mapa, e
                   renderizar o mesmo componente evita desmontar o Leaflet ao
                   entrar. O botão voltar do aparelho sai do modo. */}
-              <Route path="/mapa/patrulha" element={<MapPage />} />
-              <Route path="/patrulha/:id" element={<PatrolPage />} />
+              <Route path="/missoes" element={<MissionsPage />} />
+              {/* Histórico é dado pessoal: exige sessão, como o painel. */}
+              <Route path="/minhas-patrulhas" element={<PrivateRoute><MyPatrolsPage /></PrivateRoute>} />
+              <Route path="/patrulhar" element={<PatrolRunPage />} />
+              <Route path="/patrulhar/:categoria" element={<PatrolRunPage />} />
+              {/* Rota antiga da patrulha: links e atalhos salvos continuam
+                  funcionando, agora caindo no hub em vez de numa tela morta. */}
+              <Route path="/mapa/patrulha" element={<Navigate to="/missoes" replace />} />
+              {/* A tela da patrulha de alguém deixou de existir (ago/2026).
+
+                  Ela mostrava três números e um convite — a mesma cara para uma
+                  volta no bairro inteiro e para vinte segundos abertos por
+                  engano. Quem chegava pelo story não encontrava razão para
+                  ficar, e quem era dono já via tudo no próprio histórico.
+
+                  A ROTA FICA. O sticker do story aponta para
+                  `/share/patrulha/:id`, que a share-preview responde com a
+                  prévia rica e depois redireciona o navegador para cá. Apagar a
+                  rota faria todo story já publicado terminar numa tela em
+                  branco. Ela vira porta de entrada: a prévia continua contando
+                  o que a pessoa fez, e o toque leva ao app. */}
+              <Route path="/patrulha/:id" element={<Navigate to="/" replace />} />
               <Route path="/home-legado" element={<HomePageImproved />} />
               <Route path="/buscar" element={<SearchPage />} />
               <Route path="/broncas" element={<HomePage />} />

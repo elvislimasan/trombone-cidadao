@@ -21,6 +21,20 @@ import { caixaDeRaio, haversine } from '@/lib/navGeo';
 const RAIO_M = 2000;
 const REFETCH_M = 1000;
 
+/**
+ * Bronca atualizada nos últimos dias sai do corredor.
+ *
+ * Alertar sobre um buraco que alguém confirmou anteontem é pedir o mesmo
+ * trabalho duas vezes — e o segundo relato não acrescenta nada ao processo,
+ * porque a informação já está lá, recente. Pior: gasta o único recurso escasso
+ * do modo, que é a atenção de quem está dirigindo.
+ *
+ * Dois dias é curto de propósito. A janela existe para evitar repetição, não
+ * para esconder a bronca: no terceiro dia ela volta a alertar, porque aí já faz
+ * diferença saber se continua lá.
+ */
+const DIAS_SEM_REALERTAR = 2;
+
 export function useNavCorridor(posicao, { categoria = null } = {}) {
   const [broncas, setBroncas] = useState([]);
   const [carregando, setCarregando] = useState(false);
@@ -51,9 +65,25 @@ export function useNavCorridor(posicao, { categoria = null } = {}) {
       if (error) throw error;
       if (seq !== seqRef.current) return;
 
+      const doCorredor = (data || [])
+        .filter((row) => !row.is_cluster && row.report);
+
+      // Uma consulta a cada corredor — ou seja, uma por quilômetro, não uma por
+      // leitura de GPS. Se ela falhar, `recentes` fica vazio e o corredor vem
+      // inteiro: alertar demais é falha melhor que perder a bronca.
+      let recentes = new Set();
+      if (doCorredor.length > 0) {
+        const { data: atualizadas } = await supabase.rpc('reports_updated_recently', {
+          p_ids: doCorredor.map((row) => row.report.id),
+          p_dias: DIAS_SEM_REALERTAR,
+        });
+        recentes = new Set((atualizadas || []).map((r) => r.report_id));
+      }
+      if (seq !== seqRef.current) return;
+
       setBroncas(
-        (data || [])
-          .filter((row) => !row.is_cluster && row.report)
+        doCorredor
+          .filter((row) => !recentes.has(row.report.id))
           .map((row) => ({
             id: row.report.id,
             title: row.report.title,

@@ -25,10 +25,6 @@ import {
   shareVideoToInstagramStory,
 } from '@/lib/instagramStory';
 
-const ReportStoryModal = React.lazy(
-  () => import('@/components/report/ReportStoryModal')
-);
-
 // Distancia em linguagem de rua: abaixo de 1 km em metros arredondados a 50,
 // porque "a 347 m" sugere uma precisao que o GPS do celular nao tem.
 const formatDistance = (meters) => {
@@ -57,7 +53,7 @@ const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-5 h-5', textClassNam
   );
 };
 
-const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, index = 0 }) => {
+const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isNew = false, index = 0 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -73,7 +69,6 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
   // O download do video para o cache local pode levar alguns segundos em rede
   // movel; sem indicador o usuario acha que o toque nao registrou.
   const [sharingStory, setSharingStory] = useState(false);
-  const [storyModalOpen, setStoryModalOpen] = useState(false);
 
   useEffect(() => {
     setLocalStatus(report.status);
@@ -157,11 +152,18 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
     }
   }, [report.id, report.title, handleCopyLink]);
 
+  // Quem hospeda o modal do card e o FeedPage, pelo mesmo motivo do modal de
+  // atualizacao: o card tem transform, e um position:fixed dentro dele fica
+  // preso ao proprio card em vez de cobrir a tela.
+  const openStoryCard = useCallback(() => {
+    onRequestStory?.({ ...report, status: localStatus });
+  }, [onRequestStory, report, localStatus]);
+
   const handleShareToStory = useCallback(async () => {
     // Sem video (ou sem suporte nativo): cai no card estatico do story,
     // que funciona com a foto de capa e leva o QR code do app.
     if (!report.coverVideo || !canShareToStory()) {
-      setStoryModalOpen(true);
+      openStoryCard();
       return;
     }
 
@@ -202,7 +204,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
           description: 'Gerando um card com a imagem da bronca.',
           duration: 3000,
         });
-        setStoryModalOpen(true);
+        openStoryCard();
         return;
       }
 
@@ -215,7 +217,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
     } finally {
       setSharingStory(false);
     }
-  }, [report.id, report.coverVideo, toast, shareLink]);
+  }, [report.id, report.coverVideo, toast, shareLink, openStoryCard]);
 
   const handleBookmark = useCallback(async () => {
     if (!user) {
@@ -471,18 +473,6 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, isNew = false, inde
         onCountChange={setCommentsCount}
       />
 
-      {/* Lazy + montado so quando aberto: o modal carrega html-to-image e
-          renderiza um canvas 1080x1920, caro demais para cada card do feed. */}
-      {storyModalOpen && (
-        <React.Suspense fallback={null}>
-          <ReportStoryModal
-            isOpen={storyModalOpen}
-            onClose={() => setStoryModalOpen(false)}
-            report={{ ...report, status: localStatus }}
-            coverPhotoUrl={report.coverImage}
-          />
-        </React.Suspense>
-      )}
     </article>
   );
 };

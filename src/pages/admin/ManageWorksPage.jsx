@@ -21,6 +21,8 @@ import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
 import { WorkFinancialTab } from '@/components/admin/WorkFinancialTab';
 import { WorkGalleryManager } from '@/components/admin/WorkGalleryManager';
 import { Combobox } from '@/components/ui/combobox';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -694,6 +696,11 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                             initialPosition={formData.location}
                             fallbackCityCenter={fallbackCityCenter}
                             flyToCity={flyToCity}
+                            /* Quem cadastra obra costuma estar NA obra. Sem o
+                               botão, era arrastar o mapa desde o centro da
+                               cidade até o ponto certo — com ele, um toque
+                               marca onde a pessoa está. */
+                            showLocateButton
                           />
                         </Suspense>
                       </div>
@@ -1223,6 +1230,11 @@ const ManageWorksPage = () => {
 
   const hasActiveFilters = searchTerm || Object.values(filters).some(v => v !== '');
 
+  const { visiveis: obrasVisiveis, propsPaginacao } = useListaPaginada(filteredWorks, {
+    porPagina: 20,
+    chaveFiltro: `${searchTerm}|${Object.values(filters).join('|')}`,
+  });
+
   // Error boundary para evitar tela branca
   if (!workOptions) {
     return (
@@ -1358,7 +1370,7 @@ const ManageWorksPage = () => {
               </div>
             ) : (
               <div className="space-y-2 sm:space-y-3">
-                {filteredWorks.map(work => (
+                {obrasVisiveis.map(work => (
                 <div key={work.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 sm:p-4 bg-background rounded-lg border gap-3 sm:gap-4 overflow-hidden">
                   <div className="min-w-0 flex-1 overflow-hidden w-full sm:w-auto">
                     <p className="font-semibold text-sm sm:text-base break-words line-clamp-2">{work.title}</p>
@@ -1406,6 +1418,8 @@ const ManageWorksPage = () => {
               ))}
                </div>
              )}
+
+            <PaginacaoLista {...propsPaginacao} />
           </CardContent>
         </Card>
       </div>

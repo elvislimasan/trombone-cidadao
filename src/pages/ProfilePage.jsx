@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { User, Briefcase, Edit, LogOut, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Megaphone, Trash2, LayoutDashboard, Star, HardHat, ShieldCheck } from 'lucide-react';
+import { User, Briefcase, Edit, LogOut, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Trash2, LayoutDashboard, Star, HardHat, ShieldCheck, Radar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
@@ -9,11 +9,15 @@ import EditProfileModal from '@/components/EditProfileModal';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
+import { placar } from '@/lib/scoring';
+import { calcularSequencia, avaliarConquistas } from '@/lib/patrolGame';
+import AchievementGrid from '@/components/missions/AchievementGrid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Avatar from 'react-nice-avatar';
 import { Capacitor } from '@capacitor/core';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useCity } from '@/contexts/CityContext';
 import Icon from '@/design-system/icons';
 
 // Meses abreviados em portugues para "Membro desde".
@@ -31,10 +35,12 @@ const ProfilePage = () => {
   const { user, signOut, refreshUserProfile } = useAuth();
   const { preference, setPreference } = useTheme();
   const { notificationsEnabled, toggleNotifications, loading: notificationsLoading } = useNotifications();
+  const { setActiveCity } = useCity();
   const navigate = useNavigate();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [rankings, setRankings] = useState({ reports: [], upvotes: [], comments: [] });
   const [userLevel, setUserLevel] = useState(null);
+  const [conquistas, setConquistas] = useState([]);
 
   const fetchRankings = useCallback(async () => {
     const { data: reportsRank, error: reportsError } = await supabase.rpc('get_top_users_by_reports');
@@ -53,18 +59,47 @@ const ProfilePage = () => {
     });
   }, []);
 
+  // O nivel vem do MESMO calculo da central de missoes (src/lib/scoring.js),
+  // nao mais do `get_user_level`.
+  //
+  // A funcao do banco continua existindo e correta — ela so nao conhece o bonus
+  // das etapas de missao, que sao um catalogo JavaScript. Enquanto o perfil a
+  // usava, a mesma pessoa via um total aqui e outro maior na central, sem nada
+  // na tela explicando a diferenca.
+  //
+  // A tela nao pode quebrar se a RPC falhar ou ainda nao existir no banco: sem
+  // dado, o bloco de nivel simplesmente nao aparece.
   const fetchUserLevel = useCallback(async (userId) => {
-    // A migracao 169_user_levels.sql pode ainda nao ter sido aplicada no banco.
-    // Se a RPC nao existir (ou falhar por qualquer motivo), so nao mostramos
-    // o bloco de nivel -- a tela nao pode quebrar por causa disso.
-    const { data, error } = await supabase.rpc('get_user_level', { target_user_id: userId });
+    const { data, error } = await supabase.rpc('get_mission_counters', {
+      target_user_id: userId,
+    });
     if (error) {
-      console.error("Erro ao buscar nivel do usuario:", error);
+      console.error("Erro ao buscar contadores do usuario:", error);
       setUserLevel(null);
       return;
     }
     const row = Array.isArray(data) ? data[0] : data;
-    setUserLevel(row || null);
+    if (!row) {
+      setUserLevel(null);
+      return;
+    }
+
+    const contadores = {
+      ...row,
+      confirmadasPorCategoria: row.confirmed_by_category ?? {},
+      registradasPorCategoria: row.reported_by_category ?? {},
+    };
+
+    setUserLevel(placar(contadores));
+
+    // A mesma consulta alimenta as medalhas: a sequência de dias é função pura
+    // sobre as datas que a RPC já devolve.
+    setConquistas(
+      avaliarConquistas({
+        ...contadores,
+        sequencia: calcularSequencia(contadores.patrol_days || []),
+      })
+    );
   }, []);
 
   useEffect(() => {
@@ -77,13 +112,19 @@ const ProfilePage = () => {
   }, [user, navigate, fetchRankings, fetchUserLevel]);
 
   const handleProfileUpdate = async (updatedData) => {
+    // city_id/city vêm juntos: "city" é o nome desnormalizado que telas antigas
+    // ainda leem. Gravar só o id deixaria as duas colunas discordando —
+    // "Recife" no texto e o id de outra cidade.
+    const cityChanged = String(updatedData.city_id ?? '') !== String(user.city_id ?? '');
     const { error } = await supabase
       .from('profiles')
       .update({
         name: updatedData.name,
         avatar_type: updatedData.avatar_type,
         avatar_url: updatedData.avatar_url,
-        avatar_config: updatedData.avatar_config
+        avatar_config: updatedData.avatar_config,
+        city_id: updatedData.city_id ?? null,
+        city: updatedData.city ?? null,
       })
       .eq('id', user.id);
 
@@ -91,6 +132,12 @@ const ProfilePage = () => {
       toast({ title: "Erro ao atualizar perfil", description: error.message, variant: "destructive" });
     } else {
       await refreshUserProfile();
+      // Trocar a cidade do perfil não move sozinha a cidade ATIVA: essa é uma
+      // escolha separada, guardada no localStorage pelo CityContext, e que
+      // pode estar propositalmente em outra cidade. Trocamos junto porque, no
+      // fluxo "me mudei", manter o feed na cidade antiga é exatamente o bug
+      // que essa tela veio consertar.
+      if (cityChanged && updatedData.city_id) setActiveCity(updatedData.city_id);
       toast({ title: "Perfil atualizado! ✨" });
     }
   };
@@ -249,6 +296,14 @@ const ProfilePage = () => {
                   Nível {userLevel.level}
                 </p>
                 <p className="text-2xs text-content-tertiary mt-1">{userLevel.label}</p>
+                {/* O total agora aparece: sem ele, subir de nivel parecia
+                    acontecer sozinho, e o bonus das missoes ficava invisivel. */}
+                <p className="text-2xs font-semibold text-content-tertiary mt-0.5 tabular-nums">
+                  {userLevel.points} pts
+                  {userLevel.pontosMissoes > 0 && (
+                    <span className="text-brand"> · +{userLevel.pontosMissoes}</span>
+                  )}
+                </p>
               </div>
             )}
 
@@ -291,23 +346,31 @@ const ProfilePage = () => {
                   <Icon name="chevronright" size={16} />
                 </Button>
               </Link>
-              <Link to="/painel-usuario?tab=reports" className="w-full block">
-                <Button variant="outline" className="w-full justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <Megaphone className="w-4 h-4" />
-                    Minhas Broncas
-                  </span>
-                  <Icon name="chevronright" size={16} />
-                </Button>
-              </Link>
-              {/* Estes atalhos viviam no menu do avatar no header. O avatar saiu
-                  de la no mobile (virou a aba Perfil da barra inferior), entao
-                  eles se juntam aos que ja existiam aqui. */}
+              {/* "Minhas Broncas" saiu daqui em ago/2026: apontava para
+                  /painel-usuario?tab=reports, e a aba de broncas ja e a que o
+                  painel abre por padrao — eram dois botoes para a mesma tela.
+                  Ficou "Meu Painel", que e o nome da tela de verdade.
+
+                  Os atalhos abaixo vieram do menu do avatar no header. O avatar
+                  saiu de la no mobile (virou a aba Perfil da barra inferior),
+                  entao eles se juntaram aos que ja existiam aqui. */}
               <Link to="/painel-usuario" className="w-full block">
                 <Button variant="outline" className="w-full justify-between gap-2">
                   <span className="flex items-center gap-2">
                     <LayoutDashboard className="w-4 h-4" />
                     Meu Painel
+                  </span>
+                  <Icon name="chevronright" size={16} />
+                </Button>
+              </Link>
+              {/* Veio da tela de missões em ago/2026. Lá ele fazia a tela
+                  terminar olhando para trás; aqui fica ao lado dos outros
+                  "meus": painel, favoritas, petições. */}
+              <Link to="/minhas-patrulhas" className="w-full block">
+                <Button variant="outline" className="w-full justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <Radar className="w-4 h-4" />
+                    Minhas Patrulhas
                   </span>
                   <Icon name="chevronright" size={16} />
                 </Button>
@@ -448,6 +511,23 @@ const ProfilePage = () => {
               </Button>
             </Link>
           </motion.div>
+
+          {/* Conquistas.
+
+              Vieram da central de missões, e não só por espaço: medalha e
+              missão são de tempos diferentes. Missão é o que há para fazer
+              agora — renova a meta e sai da lista quando acaba. Medalha é o que
+              já foi feito, para sempre. O perfil é onde se olha para trás. */}
+          {conquistas.length > 0 && (
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.05 }}
+              className="bg-surface-raised p-6 rounded-2xl border border-edge-subtle shadow-elevation-1"
+            >
+              <AchievementGrid conquistas={conquistas} />
+            </motion.div>
+          )}
 
           {/* Card Gamificacao e Ranking */}
           <motion.div

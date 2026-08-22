@@ -51,10 +51,23 @@ export function useNavigationGps({ ativo = true } = {}) {
           // Janela deslizante: a referência do rumo avança sozinha. Comparar
           // sempre contra o ponto de partida daria a direção da origem até
           // aqui, que ao voltar pela mesma rua aponta para trás.
-          trajetoRef.current = [...trajetoRef.current, { ...ponto, t: agora }]
-            .filter((a) => agora - a.t <= BUFFER_MS);
+          // A precisão viaja com a amostra: é ela que diz se o deslocamento
+          // entre duas leituras foi movimento ou salto do GPS.
+          trajetoRef.current = [
+            ...trajetoRef.current,
+            { ...ponto, t: agora, accuracy: coords.accuracy },
+          ].filter((a) => agora - a.t <= BUFFER_MS);
 
           const movimento = estimarMovimento(trajetoRef.current);
+
+          // Rumo nesta leitura = movimento agora. É o mesmo teste que os
+          // alertas usam (≥6 m na janela), e o único disponível que não depende
+          // de coords.speed — que vem nulo ou zerado no WebView do Android.
+          //
+          // Vai junto da posição porque o rastro precisa dele: sem essa
+          // informação o gravador não tinha como distinguir andar de tremer, e
+          // acumulava distância com o usuário parado.
+          const emMovimento = Number.isFinite(movimento.rumo);
 
           // Rumo nulo significa deslocamento abaixo do piso — parado. Manter o
           // último válido evita a seta rodopiando com o tremor do GPS.
@@ -74,8 +87,16 @@ export function useNavigationGps({ ativo = true } = {}) {
           setPosicao({
             ...ponto,
             accuracy: coords.accuracy,
-            speed: Math.max(doAparelho, movimento.velocidade),
+            // Sem movimento confirmado, zero — inclusive ignorando o que o
+            // aparelho reporta. Parado dentro de casa, `coords.speed` também
+            // vem contaminado pela deriva, e o `Math.max` escolhia justamente
+            // o maior dos dois ruídos.
+            speed: emMovimento ? Math.max(doAparelho, movimento.velocidade) : 0,
             heading: rumoValidoRef.current,
+            // heading é o ÚLTIMO rumo válido, e continua preenchido depois de
+            // parar — para a seta não rodopiar. Por isso não serve como teste
+            // de movimento, e emMovimento existe separado.
+            emMovimento,
             timestamp: agora,
           });
         },

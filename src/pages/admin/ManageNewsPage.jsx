@@ -17,6 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from '@/lib/customSupabaseClient';
 import RichTextEditor from '@/components/petition/RichTextEditor';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 
 export const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [formData, setFormData] = useState(null);
@@ -788,6 +790,13 @@ const ManageNewsPage = () => {
     fetchNewsAndComments();
   }, [fetchNewsAndComments]);
 
+  // Recorte só da renderização. A consulta acima ainda traz `select('*')` — o
+  // corpo inteiro de cada notícia — porque o modal de edição recebe o item da
+  // lista, e não recarrega o registro. Enxugar a consulta exige buscar a
+  // notícia ao abrir a edição; enquanto isso, ao menos o DOM não monta todas.
+  const { visiveis: noticiasVisiveis, propsPaginacao: propsPaginacaoNoticias } =
+    useListaPaginada(news, { porPagina: 20 });
+
   const handleRunImporter = async () => {
     if (isImporting) return;
     setIsImporting(true);
@@ -1133,7 +1142,7 @@ const ManageNewsPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {news.map(item => (
+                  {noticiasVisiveis.map(item => (
                     <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
                       <div>
                         <p className="font-semibold">{item.title}</p>
@@ -1146,6 +1155,8 @@ const ManageNewsPage = () => {
                     </div>
                   ))}
                 </div>
+
+                <PaginacaoLista {...propsPaginacaoNoticias} />
               </CardContent>
             </Card>
           </TabsContent>
