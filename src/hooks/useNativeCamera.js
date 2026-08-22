@@ -221,6 +221,14 @@ export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicio
 
   // Estado unificado — cada item: { id, preview, nativePath?, file?, name }
   const [photoItems, setPhotoItems] = useState([]);
+  // Espelho do estado, legível DENTRO de um laço assíncrono.
+  //
+  // `photoItems` da closure envelhece entre uma foto e outra (compressToJpeg é
+  // async), e o valor certo só existe depois do próximo render — que não
+  // acontece no meio do laço. O ref é o único jeito de saber quantas já
+  // entraram sem perguntar ao React.
+  const photoItemsRef = useRef([]);
+  useEffect(() => { photoItemsRef.current = photoItems; }, [photoItems]);
   const [addingPhoto, setAddingPhoto] = useState(false);
 
   // Ref para evitar double-tap sem causar re-render
@@ -342,31 +350,43 @@ export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicio
 
       setAddingPhoto(true);
       try {
+        // ⚠️ NÃO VOLTE A DECIDIR ISTO DENTRO DO `setPhotoItems`.
+        //
+        // Havia aqui um `let added = false` marcado dentro do updater e lido na
+        // linha seguinte, para revogar o blob quando a foto não coubesse. O
+        // React não promete rodar o updater na hora: com o batching automático
+        // do 18 ele roda na fase de render, DEPOIS desta linha. Então `added`
+        // ainda era `false`, o `revokeObjectURL` disparava sobre a foto que
+        // tinha acabado de entrar, e a miniatura aparecia quebrada.
+        //
+        // Foi o que apareceu no registro pela web: a foto na lista, com o botão
+        // de remover, e um ícone de imagem quebrada no lugar dela.
+        //
+        // A contagem agora é local ao laço, decidida ANTES de gastar trabalho
+        // comprimindo — e o updater voltou a ser o que deve ser: uma função
+        // pura de `prev` para o próximo estado.
+        let cabem = Math.max(0, maxPhotos - photoItemsRef.current.length);
+
         for (const file of files) {
+          if (cabem <= 0) break;
+
           const compressed = await compressToJpeg(file);
           const preview = URL.createObjectURL(compressed);
-          let added = false;
-          // O limite e checado DENTRO do setState: `photoItems.length` da
-          // closure fica velho entre uma foto e outra (compressToJpeg e async),
-          // e com varias imagens de uma vez o corte saia errado.
-          setPhotoItems((prev) => {
-            if (prev.length >= maxPhotos) return prev;
-            added = true;
-            return [
-              ...prev,
-              {
-                id: Date.now() + Math.random(),
-                file: compressed,
-                preview,
-                name: compressed.name,
-              },
-            ];
-          });
-          if (!added) {
-            // Estourou o limite: libera o blob que nao entrou na lista.
-            URL.revokeObjectURL(preview);
-            break;
-          }
+          cabem -= 1;
+
+          setPhotoItems((prev) =>
+            prev.length >= maxPhotos
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id: Date.now() + Math.random(),
+                    file: compressed,
+                    preview,
+                    name: compressed.name,
+                  },
+                ]
+          );
         }
       } finally {
         setAddingPhoto(false);

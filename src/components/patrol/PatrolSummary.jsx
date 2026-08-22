@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { AlertCircle, CheckCircle, Clock, Loader2, Share2, Route, Timer, Flame } from 'lucide-react';
+import { AlertCircle, Check, CheckCircle, Clock, Loader2, Share2, Route, Timer, Flame, Star } from 'lucide-react';
 import { categoryEmoji } from '@/design-system/icons';
+import Confetti from './Confetti';
 import { PONTOS, avaliarPatrulha } from '@/lib/patrolGame';
 
 // Fim da patrulha: o que você percorreu, o que confirmou e o que ficou pendente.
@@ -96,6 +97,13 @@ export default function PatrolSummary({
     feitos: feitosNaSessao,
   });
 
+  // Pesos de scoring.js, aplicados ao que ESTA saída produziu.
+  const pontosDaSaida =
+    (feitosNaSessao.broncas || 0) * PONTOS.bronca +
+    (feitosNaSessao.missoes || 0) * PONTOS.missao +
+    (feitosNaSessao.sinais || 0) * PONTOS.sinal +
+    (contagens.confirmadas || 0) * PONTOS.atualizacao;
+
   const nivelProgresso = progressoDoNivel(nivel);
   // Só as que faltam pouco: uma grade com as oito medalhas transformaria a tela
   // de comemoração em lista de pendências.
@@ -129,10 +137,31 @@ export default function PatrolSummary({
         </div>
 
         {/* Placar */}
-        <div className="px-5 pt-2 pb-4 shrink-0">
-          <h2 className="text-xl font-extrabold text-content-primary text-center mb-4">
-            {veredito.descartavel ? 'Saída encerrada' : 'Patrulha concluída'}
-          </h2>
+        <div className="relative px-5 pt-2 pb-4 shrink-0">
+          {/* A COMEMORAÇÃO SÓ EXISTE SE HOUVE O QUE COMEMORAR.
+
+              Confete numa saída de quarenta segundos sem nenhuma ação seria o
+              app se enganando junto com a pessoa — e, pior, festejando
+              exatamente o que ele acabou de dizer que não conta. Aqui a mesma
+              regra que decide se a patrulha vale (avaliarPatrulha) decide se a
+              tela festeja. */}
+          <Confetti ativo={!veredito.descartavel} />
+
+          <div className="relative flex flex-col items-center mb-4">
+            {!veredito.descartavel && (
+              <span className="w-16 h-16 rounded-full bg-brand flex items-center justify-center shadow-lg mb-3">
+                <Check size={32} className="text-content-onBrand" strokeWidth={3} />
+              </span>
+            )}
+            <h2 className="text-2xl font-extrabold text-content-primary text-center leading-tight">
+              {veredito.descartavel ? 'Saída encerrada' : 'Patrulha concluída!'}
+            </h2>
+            {!veredito.descartavel && (
+              <p className="text-sm text-content-secondary mt-1">
+                Você fez a diferença hoje
+              </p>
+            )}
+          </div>
 
           {/* Aqui o aviso é constatação, não pergunta: a decisão já foi tomada
               na folha de saída, e a patrulha já está gravada. Ele fica para a
@@ -180,6 +209,30 @@ export default function PatrolSummary({
                   {feitosNaSessao.sinais === 1 ? 'sinalizado' : 'sinalizados'}
                 </span>
               )}
+            </div>
+          )}
+          {/* O QUE A SAÍDA RENDEU, EM UMA LINHA.
+
+              O resumo mostrava tempo, distância e contagens — medidas do que
+              aconteceu — e o nível logo abaixo, que é o acumulado de meses. No
+              meio faltava a resposta da pergunta que a pessoa faz ao encerrar:
+              "e daí, quanto isso valeu?".
+
+              É a soma das ações DESTA saída, pelos mesmos pesos de scoring.js.
+              O bônus de etapa de missão fica de fora: ele depende de contadores
+              do servidor que esta tela não tem, e chutar aqui faria o número
+              divergir do que o perfil mostra minutos depois. */}
+          {pontosDaSaida > 0 && (
+            <div className="flex items-center justify-center gap-2.5 mt-4 rounded-2xl bg-brand-subtleBg border border-brand/20 px-4 py-3">
+              <Star size={20} className="text-brand shrink-0 fill-current" />
+              <div className="min-w-0">
+                <p className="text-base font-extrabold text-brand leading-none tabular-nums">
+                  +{pontosDaSaida} pontos
+                </p>
+                <p className="text-xs text-content-secondary mt-0.5">
+                  para o seu bairro
+                </p>
+              </div>
             </div>
           )}
         </div>

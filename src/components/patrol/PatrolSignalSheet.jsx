@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Loader2, Zap, Camera, ChevronLeft } from 'lucide-react';
+import { X, Loader2, Zap, Camera, ChevronLeft, Radio } from 'lucide-react';
 import { CATEGORIAS_SINAL, nomeDaCategoria } from '@/lib/reportCategories';
 import { PONTOS } from '@/lib/patrolGame';
 
@@ -124,6 +124,12 @@ export default function PatrolSignalSheet({
                 <p className="text-sm opacity-90 leading-snug mt-0.5">
                   Foto e descrição agora, no local
                 </p>
+                {/* A ordem já recomendava — quem lê de cima para baixo entende.
+                    Mas nesta folha a pessoa decide de relance, em movimento, e
+                    de relance uma lista de dois é só uma lista de dois. */}
+                <span className="inline-block mt-1.5 rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                  Recomendado
+                </span>
               </div>
               <span className="shrink-0 text-sm font-extrabold tabular-nums">
                 +{PONTOS.bronca}
@@ -149,6 +155,19 @@ export default function PatrolSignalSheet({
                 +{PONTOS.sinal}
               </span>
             </button>
+            {/* POR QUE UMA DICA, E NÃO SÓ OS NÚMEROS
+
+                Os pontos dizem qual vale mais; não dizem por quê. Sem a razão,
+                "+10 contra +3" lê como preço arbitrário — e quem está com
+                pressa escolhe o barato sem saber o que está abrindo mão. */}
+            <div className="flex items-start gap-2.5 rounded-2xl bg-status-pendingBg border border-status-pendingBorder px-3.5 py-3 mt-1">
+              <Radio size={16} className="shrink-0 text-status-pendingFg mt-0.5" />
+              <p className="text-xs text-content-secondary leading-snug">
+                <span className="font-bold text-status-pendingFg">Dica: </span>
+                registrar com foto ajuda a resolver mais rápido e gera mais
+                impacto na sua comunidade.
+              </p>
+            </div>
           </div>
         )}
 

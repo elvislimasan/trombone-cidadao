@@ -62,7 +62,19 @@ export default function PatrolReportModal({
   );
 
   const [ponto, setPonto] = useState(origem);
-  const [ajustando, setAjustando] = useState(false);
+  /**
+   * O mapa começa ABERTO.
+   *
+   * Ele nascia fechado, atrás de um botão "Ajustar" — e o ponto era só uma
+   * frase: "Na sua posição atual". Quem sinaliza de carro marca a esquina, não
+   * o buraco, e a frase não dá nenhuma pista disso: parece exato. O erro só
+   * aparecia para quem desconfiava o bastante para abrir o mapa.
+   *
+   * Aberto, o pino é a primeira coisa que se vê, e corrigir vira arrastar em
+   * vez de descobrir. O botão continua ali para fechar quando o ponto já está
+   * certo e o teclado precisa do espaço.
+   */
+  const [ajustando, setAjustando] = useState(true);
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [salvando, setSalvando] = useState(false);
