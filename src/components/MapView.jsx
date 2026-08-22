@@ -299,6 +299,8 @@ const MapView = ({
   // Missoes abertas no corredor. Chegam prontas do PatrolOverlay - o mapa nao
   // busca nada, so desenha.
   navMissoes = null,
+  navRota = null,
+  onNavMissaoClick = null,
 }) => {
   const { mode } = useMapModeToggle();
   const navigate = useNavigate();
@@ -616,8 +618,38 @@ const MapView = ({
               position={[missao.lat, missao.lng]}
               icon={missionMarkerIcon}
               zIndexOffset={500}
+              // O toque funciona mesmo com o mapa sem `dragging`: no Leaflet a
+              // interatividade do marcador é independente da do mapa. É o que
+              // permite escolher uma missão numa tela que não aceita arrastar.
+              eventHandlers={
+                onNavMissaoClick
+                  ? { click: () => onNavMissaoClick(missao) }
+                  : undefined
+              }
             />
           ))}
+
+          {/* Rota até a missão escolhida.
+              Linha reta e tracejada, de propósito: não é rota de navegação —
+              não passa por rua nenhuma, não sabe de mão única. É uma seta
+              dizendo "é para lá, a tantos metros". Tracejado é como se desenha
+              um caminho que ainda não foi percorrido; o rastro, que é contínuo,
+              mostra o que já foi. */}
+          {navMode && navRota && navPosition && (
+            <Polyline
+              positions={[
+                [navPosition.lat, navPosition.lng],
+                [navRota.lat, navRota.lng],
+              ]}
+              pathOptions={{
+                color: 'rgb(var(--brand))',
+                weight: 3,
+                opacity: 0.85,
+                dashArray: '8 10',
+                lineCap: 'round',
+              }}
+            />
+          )}
           {(clusters || []).map((item) => {
             const isCluster = !!item.isCluster;
             const location = { lat: item.lat, lng: item.lng };

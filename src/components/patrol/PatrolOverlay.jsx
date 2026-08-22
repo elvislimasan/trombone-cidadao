@@ -22,7 +22,7 @@ import { useNavStreet } from '@/hooks/useNavStreet';
 import { usePatrolRecorder } from '@/hooks/usePatrolRecorder';
 import { usePatrolGame } from '@/hooks/usePatrolGame';
 import { usePatrolSignals } from '@/hooks/usePatrolSignals';
-import { frasear } from '@/lib/navGeo';
+import { frasear, haversine } from '@/lib/navGeo';
 import { PONTOS } from '@/lib/patrolGame';
 import { getPatrolShareUrl } from '@/lib/shareUtils';
 
@@ -36,6 +36,7 @@ import PatrolAchievementUnlocked from './PatrolAchievementUnlocked';
 import PatrolSignalButton from './PatrolSignalButton';
 import PatrolSignalSheet from './PatrolSignalSheet';
 import PatrolMissionCard from './PatrolMissionCard';
+import PatrolRouteBar from './PatrolRouteBar';
 import PatrolReportModal from './PatrolReportModal';
 import PatrolStoryModal from './PatrolStoryModal';
 
@@ -68,6 +69,8 @@ const useAvisoAceito = () => {
  * @param {string|null} [props.categoria]  patrulha de uma categoria só; null = tudo.
  */
 export default function PatrolOverlay({
+  missaoTracada,
+  onTracarRota,
   onPosicao,
   onBroncas,
   onRastro,
@@ -100,6 +103,34 @@ export default function PatrolOverlay({
   // Sem isso, cada alerta precisaria de uma consulta só para saber se os botões
   // estão liberados — uma requisição por bronca, em movimento.
   const [minhasAtualizacoes, setMinhasAtualizacoes] = useState([]);
+
+  /**
+   * A única saída da tela.
+   *
+   * NA WEB ELA TEM QUE DESFAZER A ARMADILHA
+   *
+   * O efeito mais abaixo empilha uma entrada extra no histórico para segurar o
+   * botão voltar do navegador. Sair com `navigate(replace)` por cima dela
+   * trocaria só o topo, e a entrada de `/patrulhar/:categoria` ficaria embaixo:
+   * um toque no voltar, depois de encerrada, abriria uma patrulha NOVA.
+   *
+   * Então a saída consome a sentinela primeiro (`history.back()`) e só navega
+   * quando o `popstate` confirma que ela se foi — que é o que `saindoRef` marca
+   * para o listener não rearmar a armadilha nesse caminho.
+   *
+   * No Android nada disso existe: lá o voltar é evento do sistema e não mexe no
+   * histórico.
+   */
+  const saindoRef = useRef(false);
+  const onSairRef = useRef(onSair);
+  useEffect(() => { onSairRef.current = onSair; }, [onSair]);
+
+  const sairDaTela = useCallback(() => {
+    if (Capacitor.isNativePlatform()) { onSairRef.current(); return; }
+    if (saindoRef.current) return;
+    saindoRef.current = true;
+    window.history.back();
+  }, []);
 
   const ativo = avisoAceito;
   const { posicao, erro, velocidadeKmh, sinalFraco } = useNavigationGps({ ativo });
@@ -304,6 +335,17 @@ export default function PatrolOverlay({
     return m && !missoesAdiadas.has(m.id) ? m : null;
   }, [sinais.missaoAoAlcance, missoesAdiadas]);
 
+  // Chegou: a rota cumpriu o papel e sai de cena.
+  //
+  // Sem isto, a barra continuaria montada sob o card de missão — invisível pela
+  // ordem das camadas, mas viva —, e cancelar o card devolveria uma rota para
+  // um lugar onde a pessoa já está.
+  useEffect(() => {
+    if (missaoAoAlcance && missaoTracada && missaoAoAlcance.id === missaoTracada.id) {
+      onTracarRota?.(null);
+    }
+  }, [missaoAoAlcance, missaoTracada, onTracarRota]);
+
   // ── Fila de camadas ──
   //
   // Uma tela, uma coisa por vez.
@@ -329,10 +371,12 @@ export default function PatrolOverlay({
     if (mostrarSinalizar) return 'sinalizar';
     if (alertaAtual) return 'alerta';
     if (missaoAoAlcance) return 'missao';
+    // Chegar vence o caminho: a 15 m o card completo toma o lugar da barra.
+    if (missaoTracada) return 'rota';
     return 'livre';
   }, [
     novasConquistas.length, story, saida, registro,
-    mostrarSinalizar, alertaAtual, missaoAoAlcance,
+    mostrarSinalizar, alertaAtual, missaoAoAlcance, missaoTracada,
   ]);
 
 
@@ -372,8 +416,8 @@ export default function PatrolOverlay({
           : 'Não foi possível obter sua posição.',
       variant: 'destructive',
     });
-    onSair();
-  }, [erro, toast, onSair]);
+    sairDaTela();
+  }, [erro, toast, sairDaTela]);
 
   useEffect(() => {
     if (!user) return;
@@ -496,8 +540,8 @@ export default function PatrolOverlay({
       }
       return;   // a tela de medalha assume; sair é o botão dela
     }
-    onSair();
-  }, [jogo, onSair]);
+    sairDaTela();
+  }, [jogo, sairDaTela]);
 
   /**
    * Encerra SEM gravar.
@@ -527,7 +571,7 @@ export default function PatrolOverlay({
    * confirmações feitas depois deste ponto atualizam a mesma linha.
    */
   const encerrarESalvar = useCallback(async () => {
-    if (!user) { onSair(); return; }
+    if (!user) { sairDaTela(); return; }
 
     const r = await finalizar({ publica: false });
 
@@ -539,12 +583,12 @@ export default function PatrolOverlay({
         description: 'Suas confirmações foram enviadas normalmente.',
         variant: 'destructive',
       });
-      onSair();
+      sairDaTela();
       return;
     }
 
     setSaida('resumo');
-  }, [user, finalizar, toast, onSair]);
+  }, [user, finalizar, toast, sairDaTela]);
 
   /**
    * Os dois botões do resumo. A patrulha já está gravada quando eles aparecem;
@@ -554,7 +598,7 @@ export default function PatrolOverlay({
   const concluir = useCallback(async ({ publica = false } = {}) => {
     // Sem conta não há o que gravar: a patrulha pertence a alguém. Quem entrou
     // só para ver os alertas sai sem erro na cara.
-    if (!user) { onSair(); return; }
+    if (!user) { sairDaTela(); return; }
 
     const r = await finalizar({ publica });
 
@@ -566,7 +610,7 @@ export default function PatrolOverlay({
         description: 'Suas confirmações foram enviadas normalmente.',
         variant: 'destructive',
       });
-      onSair();
+      sairDaTela();
       return;
     }
 
@@ -582,7 +626,7 @@ export default function PatrolOverlay({
     }
 
     await encerrar();
-  }, [user, finalizar, toast, onSair, encerrar]);
+  }, [user, finalizar, toast, sairDaTela, encerrar]);
 
   // ── Botão voltar do aparelho ──
   //
@@ -601,30 +645,100 @@ export default function PatrolOverlay({
   //
   // No resumo é o contrário: a decisão já foi tomada e a patrulha já está no
   // banco. Ali o voltar fecha mesmo, como o botão "Fechar" ao lado.
+  const voltarUmaCamada = useCallback(() => {
+    if (novasConquistas.length > 0) { sairDaTela(); return; }
+    if (story) { setStory(null); encerrar(); return; }
+    if (saida === 'resumo') { concluir({ publica: false }); return; }
+    if (saida === 'decidir') { setSaida(null); return; }
+    if (registro) { setRegistro(null); return; }
+    if (mostrarSinalizar) { setMostrarSinalizar(false); return; }
+    if (alertaAtual) { adiar(); return; }
+    if (missaoTracada) { onTracarRota?.(null); return; }
+    // Camada livre: abre a folha de saída, que é onde se decide.
+    sair();
+  }, [
+    novasConquistas.length, story, saida, registro, mostrarSinalizar,
+    alertaAtual, missaoTracada, onTracarRota, adiar, sair, sairDaTela,
+    encerrar, concluir,
+  ]);
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     let handle = null;
-    CapApp.addListener('backButton', () => {
-      if (novasConquistas.length > 0) { onSair(); return; }
-      if (story) { setStory(null); encerrar(); return; }
-      if (saida === 'resumo') { concluir({ publica: false }); return; }
-      if (saida === 'decidir') { setSaida(null); return; }
-      if (registro) { setRegistro(null); return; }
-      if (mostrarSinalizar) { setMostrarSinalizar(false); return; }
-      if (alertaAtual) { adiar(); return; }
-      // Camada livre: abre o resumo, que é onde se decide salvar ou descartar.
-      sair();
-    }).then((h) => { handle = h; });
+    CapApp.addListener('backButton', voltarUmaCamada).then((h) => { handle = h; });
 
     return () => { handle?.remove(); };
-  }, [
-    novasConquistas.length, story, saida, registro, mostrarSinalizar,
-    alertaAtual, adiar, sair, onSair, encerrar, concluir,
-  ]);
+  }, [voltarUmaCamada]);
+
+  /**
+   * O mesmo voltar, no navegador.
+   *
+   * O QUE ACONTECIA
+   *
+   * Este bloco não existia: a escada de camadas era privilégio do Android. Na
+   * web, o botão voltar do navegador desmontava a patrulha inteira na hora —
+   * sem folha de saída, sem gravação, sem aviso. O tempo, a distância e as
+   * confirmações da fila iam junto. Foi o relato: "ao voltar na web perdi minha
+   * patrulha, não foi salva".
+   *
+   * COMO SE SEGURA UM `POPSTATE`
+   *
+   * Não dá para cancelá-lo — quando o evento chega, a navegação já aconteceu.
+   * O que dá é empilhar uma entrada extra ao entrar na patrulha: o primeiro
+   * "voltar" consome ESSA entrada em vez da rota, e aí `pushState` recoloca a
+   * sentinela para o próximo. A pessoa continua na tela, e o toque vira o que
+   * já virava no Android — fechar uma camada.
+   *
+   * `beforeunload` cobre o resto: recarregar, fechar a aba, digitar outro
+   * endereço. Aí o navegador mostra o aviso genérico dele; o texto é ignorado
+   * por todos eles desde 2019, e é por isso que não tentamos escrever um.
+   */
+  // A escada corrente, lida pelo listener que é instalado uma vez só. Sem este
+  // ref, ele chamaria para sempre a versão de `voltarUmaCamada` capturada na
+  // montagem — a que enxerga a patrulha no primeiro segundo, sem alerta aberto,
+  // sem fila, sem nada.
+  const voltarRef = useRef(voltarUmaCamada);
+  useEffect(() => { voltarRef.current = voltarUmaCamada; }, [voltarUmaCamada]);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+
+    window.history.pushState({ patrulha: true }, '');
+
+    const aoVoltar = () => {
+      // Este `popstate` é o nosso: veio do history.back() de `sairDaTela`, que
+      // acabou de consumir a sentinela. Navegar agora deixa o histórico limpo.
+      if (saindoRef.current) {
+        saindoRef.current = false;
+        onSairRef.current();
+        return;
+      }
+      window.history.pushState({ patrulha: true }, '');
+      voltarRef.current();
+    };
+
+    const aoSairDaPagina = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+
+    window.addEventListener('popstate', aoVoltar);
+    window.addEventListener('beforeunload', aoSairDaPagina);
+
+    return () => {
+      window.removeEventListener('popstate', aoVoltar);
+      window.removeEventListener('beforeunload', aoSairDaPagina);
+    };
+    // Só na montagem: reinstalar a sentinela a cada mudança de camada
+    // empilharia uma entrada por alerta respondido, e sair da patrulha passaria
+    // a exigir vinte toques no voltar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   if (!avisoAceito) {
-    return <PatrolDisclaimer onAceitar={aceitarAviso} onCancelar={onSair} />;
+    return <PatrolDisclaimer onAceitar={aceitarAviso} onCancelar={sairDaTela} />;
   }
 
   return (
@@ -665,6 +779,15 @@ export default function PatrolOverlay({
           bloqueados={bloqueadosDoAlerta}
           onResponder={responderAlerta}
           onAdiar={adiar}
+        />
+      )}
+
+      {camada === 'rota' && (
+        <PatrolRouteBar
+          missao={missaoTracada}
+          distancia={posicao ? haversine(posicao, missaoTracada) : null}
+          onRegistrar={(m) => setRegistro({ modo: 'missao', missao: m })}
+          onCancelar={() => onTracarRota?.(null)}
         />
       )}
 
@@ -759,7 +882,7 @@ export default function PatrolOverlay({
       )}
 
       {camada === 'medalha' && (
-        <PatrolAchievementUnlocked conquistas={novasConquistas} onFechar={onSair} />
+        <PatrolAchievementUnlocked conquistas={novasConquistas} onFechar={sairDaTela} />
       )}
     </>
   );

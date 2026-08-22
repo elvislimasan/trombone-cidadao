@@ -419,12 +419,33 @@ export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicio
           clearPendingPhoto(); // limpa após sucesso
         }
       } else {
+        // O INPUT PRECISA ESTAR NO DOM.
+        //
+        // Este elemento era criado solto e clicado assim mesmo. No Chrome de
+        // desktop funciona; em Safari (iOS) e em vários navegadores Android um
+        // input DESTACADO não dispara `change` — a câmera abre, a pessoa tira a
+        // foto, e nada volta para a tela. Foi o que aconteceu no registro pela
+        // web.
+        //
+        // Anexado ao body (invisível), o `change` dispara em todos eles.
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
         input.capture = 'environment';
-        input.onchange = (e) => handleFileChange(e);
+        input.style.display = 'none';
+        input.onchange = (e) => {
+          handleFileChange(e);
+          input.remove();
+        };
+        document.body.appendChild(input);
         input.click();
+
+        // Cancelar o seletor não dispara evento nenhum em boa parte dos
+        // navegadores: sem esta limpeza, cada tentativa cancelada deixaria um
+        // input órfão no body para sempre.
+        setTimeout(() => {
+          if (input.isConnected && !input.files?.length) input.remove();
+        }, 120000);
       }
     } catch (err) {
       clearCameraContext();

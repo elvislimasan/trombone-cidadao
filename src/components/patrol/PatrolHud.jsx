@@ -1,4 +1,4 @@
-import { X, Navigation2, SatelliteDish, WifiOff, ListChecks } from 'lucide-react';
+import { X, Navigation2, SatelliteDish, WifiOff, ListChecks, Square } from 'lucide-react';
 
 // Painel do modo patrulha: velocidade, rua, avisos e a ação da vez.
 //
@@ -108,8 +108,26 @@ export default function PatrolHud({
 
         {/* Sem ação, a fatia não intercepta toque: um div vazio por cima do
             card de missão roubaria o clique do botão dele. */}
-        <div className={`flex-1 min-w-0 flex justify-center ${acao ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+        <div className={`flex-1 min-w-0 flex flex-col items-center gap-2 ${acao ? 'pointer-events-auto' : 'pointer-events-none'}`}>
           {acao}
+
+          {/* ENCERRAR, POR EXTENSO.
+              Havia um X no canto superior direito, do tamanho de um ícone, ao
+              lado do nome da rua — e era a única saída. Num modo que se usa em
+              movimento, a ação de terminar não pode depender de a pessoa
+              reconhecer um símbolo pequeno no alto da tela enquanto dirige.
+              Aqui embaixo, junto do polegar e do botão de sinalizar, ela tem
+              nome. O X continua lá para quem já o conhece. */}
+          {!cardVisivel && (
+            <button
+              type="button"
+              onClick={onSair}
+              className="pointer-events-auto h-10 px-4 inline-flex items-center gap-1.5 rounded-full bg-surface-overlay/95 backdrop-blur-sm border border-edge-default shadow-lg text-sm font-bold text-content-secondary active:bg-surface-subtleHover transition-colors"
+            >
+              <Square size={13} className="fill-current" />
+              Encerrar patrulha
+            </button>
+          )}
         </div>
       </div>
     </>

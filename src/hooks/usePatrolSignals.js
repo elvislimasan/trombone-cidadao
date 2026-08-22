@@ -20,8 +20,29 @@ import { camposParaColunas } from '@/lib/reportCategoryFields';
 // e a coordenada enviada é texto no corpo da requisição. Nunca troque uma pela
 // outra.
 
-/** Espelha `patrol_signal_presence_m()` na migração 173. */
+/**
+ * Até onde o servidor aceita a ação. Espelha `patrol_signal_presence_m()` na
+ * migração 173 — mudar aqui sem mudar lá faz o botão prometer o que a RPC nega.
+ */
 export const RAIO_PRESENCA_M = 100;
+
+/**
+ * Até onde o card da missão APARECE sozinho.
+ *
+ * Separado do raio de ação de propósito, e a diferença não é detalhe:
+ *
+ *   • 100 m é "o servidor deixa registrar daqui" — é permissão;
+ *   • 15 m é "você está em cima do problema" — é o momento de perguntar.
+ *
+ * Com um número só, o card pulava na tela a um quarteirão de distância, sobre
+ * um poste que a pessoa ainda não enxergava, e ficava lá enquanto ela dirigia.
+ * O mesmo raio do alerta de bronca (NAV_ALERTA.distanciaAlertaM), pela mesma
+ * razão: perguntar sobre o que não está à vista convida ao palpite.
+ *
+ * Longe disso a missão continua existindo — o pin está no mapa, e tocar nele
+ * traça a rota e abre o registro. O que muda é que ela deixa de INTERROMPER.
+ */
+export const RAIO_CARD_MISSAO_M = 15;
 
 /**
  * Quanto o ponto de uma missão pode ser corrigido. Espelha
@@ -322,7 +343,7 @@ export function usePatrolSignals(
         // junto o buraco a 80 m, que era a missão certa para esta patrulha.
         .filter((m) => !categoria || m.category === categoria)
         .map((m) => ({ ...m, distancia: haversine(posicao, m) }))
-        .filter((m) => m.distancia <= RAIO_PRESENCA_M)
+        .filter((m) => m.distancia <= RAIO_CARD_MISSAO_M)
         .sort((a, b) => a.distancia - b.distancia)[0] || null
     );
   }, [missoes, posicao, categoria]);

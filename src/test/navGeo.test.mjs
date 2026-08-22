@@ -782,7 +782,7 @@ test('frasear arredonda a distância', () => {
 test('parâmetros do alerta são os do design', () => {
   // 30 m: 10 foi testado em campo e ficou pouco — menor que o erro do GPS
   // urbano, o alerta não chegava a aparecer.
-  assert.equal(NAV_ALERTA.distanciaAlertaM, 30);
+  assert.equal(NAV_ALERTA.distanciaAlertaM, 15);
   assert.equal(NAV_ALERTA.coneGraus, 45);
   // O teto de precisão nunca pode ser maior que a régua que ele mede.
   assert.ok(NAV_ALERTA.precisaoMaximaM <= NAV_ALERTA.distanciaAlertaM);

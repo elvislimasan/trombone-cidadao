@@ -126,15 +126,23 @@ export const NAV_ALERTA = {
   /**
    * Distância em que o alerta dispara.
    *
-   * 30 m. Passou por 120 (quarteirão inteiro entre o aviso e o problema) e por
-   * 10, que foi testado em campo e ficou pouco: a 10 m o raio era menor que o
-   * erro típico do GPS urbano, e o alerta simplesmente não chegava.
+   * O número foi calibrado em campo, nesta ordem: 120 m (um quarteirão inteiro
+   * entre o aviso e o problema), 10 m (ficou pouco — menor que o erro típico do
+   * GPS urbano, o alerta não chegava), 30 m, e agora 15 m.
    *
-   * 30 m é o meio-termo que sobreviveu ao uso real — perto o bastante para não
-   * haver dúvida sobre qual bronca o card fala, largo o bastante para o GPS
-   * conseguir afirmar que você está lá.
+   * ⚠️ ESTE NÚMERO NÃO ANDA SOZINHO
+   *
+   * `precisaoMaximaM` desce junto, e tem que descer: se a sua posição tem erro
+   * de 30 m, dizer "você está a 15 m da bronca" é chute com cara de medida. A
+   * régua nunca pode ser mais grossa que o que ela mede.
+   *
+   * A consequência é real e vale saber: com o teto em 15 m, leitura de GPS pior
+   * que isso deixa de alertar. Em céu aberto o erro urbano fica em 5–15 m e
+   * quase tudo passa; sob marquise, entre prédios altos ou com o aparelho no
+   * bolso, alertas vão deixar de aparecer. Se o campo mostrar que sumiu demais,
+   * os dois números sobem juntos — nunca um só.
    */
-  distanciaAlertaM: 30,
+  distanciaAlertaM: 15,
   /** Abertura do cone à frente, para cada lado do rumo. */
   coneGraus: 45,
   /**
@@ -158,11 +166,12 @@ export const NAV_ALERTA = {
    * maior que a régua que ela mede. Com 50 m de erro sobre um raio de 30 m, o
    * alerta dispararia e calaria ao acaso.
    *
-   * Em 10 m esta regra estrangulava o recurso — o erro urbano comum (5 a 15 m)
-   * já reprovava a leitura. Com a régua em 30 m ela volta a filtrar só o que é
-   * de fato ruim.
+   * Anda colado em `distanciaAlertaM` — ver o aviso lá em cima. Em 10 m esta
+   * regra estrangulava o recurso, porque o erro urbano comum (5 a 15 m) já
+   * reprovava a leitura. Em 15 m ela fica no limite disso: passa o que é bom,
+   * corta o que é duvidoso.
    */
-  precisaoMaximaM: 30,
+  precisaoMaximaM: 15,
   /**
    * Distância a partir da qual o card some sozinho.
    *
@@ -171,11 +180,11 @@ export const NAV_ALERTA = {
    * sobre o que não está mais à vista convida ao palpite, que é justamente o
    * contrário do que a confirmação serve para produzir.
    *
-   * 50 m: cinco vezes o raio que fez o card aparecer. Perto o bastante para
-   * ainda ser "aquele ali", longe o bastante para não sumir por um passo atrás
-   * ou por um tremor do GPS.
+   * Três vezes o raio que fez o card aparecer. Perto o bastante para ainda ser
+   * "aquele ali", longe o bastante para não sumir por um passo atrás ou por um
+   * tremor do GPS.
    */
-  raioAbandonoM: 50,
+  raioAbandonoM: 45,
   /**
    * Broncas a esta distância uma da outra viram um card só.
    *

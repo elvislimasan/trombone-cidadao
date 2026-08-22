@@ -2,7 +2,8 @@ import { Target, Camera, Ban } from 'lucide-react';
 
 // Missão ao alcance da mão.
 //
-// Aparece quando o usuário chega a menos de 100 m de um sinal aberto. Não tem
+// Aparece quando o usuário chega a menos de 15 m de um sinal aberto — em cima
+// do problema, não a um quarteirão dele (RAIO_CARD_MISSAO_M). Não tem
 // contagem regressiva, diferente do card de alerta: o alerta é sobre uma bronca
 // que fica para trás em segundos, e a missão é sobre um lugar onde a pessoa já
 // está. Fechar sozinho seria perder a única chance de agir.
@@ -39,12 +40,20 @@ export default function PatrolMissionCard({ missao, enviando, onCumprir, onDesca
               : `Sinalizado por ${missao.autorNome || 'outro cidadão'}`}
           </p>
 
-          <div className="flex gap-2 mt-3.5">
+          {/* O botão da direita era só um ícone de proibido, sem rótulo.
+              Ele encerra o sinal de OUTRA pessoa e apaga os pontos dela — é a
+              ação mais consequente deste card, e era a única sem nome. Quem
+              não adivinhava o símbolo não tinha como usá-la; quem adivinhava
+              errado podia tocá-la achando que era "fechar".
+
+              Continua discreto, porque não é o que se quer provocar. Mas
+              discreto e anônimo são coisas diferentes. */}
+          <div className="flex flex-col gap-2 mt-3.5">
             <button
               type="button"
               disabled={enviando}
               onClick={() => onCumprir(missao)}
-              className="flex-1 h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-brand text-content-onBrand font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
+              className="w-full h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-brand text-content-onBrand font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
             >
               <Camera size={18} />
               Registrar bronca
@@ -53,10 +62,10 @@ export default function PatrolMissionCard({ missao, enviando, onCumprir, onDesca
               type="button"
               disabled={enviando}
               onClick={() => onDescartar(missao)}
-              aria-label="Nada encontrado neste local"
-              className="w-12 h-12 shrink-0 inline-flex items-center justify-center rounded-xl border border-edge-default text-content-secondary active:bg-surface-subtleHover transition-colors disabled:opacity-50"
+              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-edge-default text-sm font-semibold text-content-secondary active:bg-surface-subtleHover transition-colors disabled:opacity-50"
             >
-              <Ban size={18} />
+              <Ban size={16} />
+              Não há nada aqui
             </button>
           </div>
 
