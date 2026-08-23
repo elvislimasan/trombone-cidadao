@@ -23,9 +23,9 @@ const Etapas = ({ etapa, etapas, completa }) => (
         key={i}
         className={`h-1.5 rounded-full transition-colors ${
           completa || i < etapa - 1
-            ? 'w-4 bg-brand'
+            ? 'w-4 bg-status-progressFg'
             : i === etapa - 1
-            ? 'w-4 bg-brand/40'
+            ? 'w-4 bg-status-progressFg opacity-50'
             : 'w-1.5 bg-edge-default'
         }`}
       />
@@ -97,7 +97,7 @@ const CartaoMissao = ({ missao }) => {
     <li
       className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 ${
         missao.completa
-          ? 'border-brand/30 bg-brand-subtleBg'
+          ? 'border-edge-subtle bg-brand-subtleBg'
           : 'border-edge-subtle bg-surface-raised shadow-elevation-1'
       }`}
     >
@@ -106,83 +106,40 @@ const CartaoMissao = ({ missao }) => {
       </span>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <p className="text-sm font-bold text-content-primary leading-tight flex-1 min-w-0">
-            {missao.titulo}
-          </p>
-          <span className="shrink-0 text-xs font-bold text-content-tertiary tabular-nums">
-            {missao.rotulo}
-          </span>
-        </div>
+        <p className="text-sm font-bold text-content-primary leading-tight">
+          {missao.titulo}
+        </p>
 
         <p className="text-xs text-content-secondary mt-0.5 leading-snug">
-          {missao.completa
-            ? 'Todas as etapas concluídas'
-            : missao.descricao}
+          {missao.completa ? 'Todas as etapas concluídas' : missao.descricao}
         </p>
 
         {!missao.completa && (
           <>
-            <div className="mt-2 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
-              <div
-                className="h-full rounded-full bg-brand transition-[width] duration-500"
-                style={{ width: `${missao.progresso * 100}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-2 mt-2">
-              <Etapas etapa={missao.etapa} etapas={missao.etapas} completa={false} />
-              <span className="text-[11px] font-semibold text-content-tertiary">
-                {/* O próximo passo, não o acumulado. */}
-                {missao.faltam === 1
-                  ? 'falta 1'
-                  : `faltam ${missao.faltam}`}
+            {/* A barra e o contador na MESMA linha, e o selo do que falta ao
+                lado. Empilhados, os três diziam a mesma coisa em três alturas
+                diferentes e a linha ficava com o dobro do tamanho. */}
+            <div className="flex items-center gap-2.5 mt-2">
+              <div className="flex-1 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-status-progressFg transition-[width] duration-500"
+                  style={{ width: `${missao.progresso * 100}%` }}
+                />
+              </div>
+              <span className="shrink-0 text-xs font-bold text-brand tabular-nums">
+                {missao.rotulo}
+              </span>
+              <span
+                className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                  missao.faltam === 1
+                    ? 'bg-success-bg text-success-fg'
+                    : 'bg-surface-subtle text-content-tertiary'
+                }`}
+              >
+                {missao.faltam === 1 ? 'Só falta 1' : `Faltam ${missao.faltam}`}
               </span>
             </div>
 
-            {/* O que a etapa rende.
-
-                A central dizia o que fazer e quanto faltava, mas não POR QUE
-                vale a pena — e o preço de uma etapa não é óbvio: quem vê
-                "faltam 2" não sabe se são 4 pontos ou 40.
-
-                O número é o total de fechar a etapa: o bônus dela mais o que as
-                ações que faltam já pagam sozinhas. Mostrar só o bônus faria a
-                missão parecer valer menos que o trabalho avulso. */}
-            <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap mt-2.5">
-              <span className="inline-flex items-center gap-1 rounded-md bg-surface-subtle px-2 py-1 text-[11px] font-bold text-content-secondary tabular-nums">
-                <Zap size={11} className="text-brand" />
-                +{missao.xpAteAEtapa} XP
-              </span>
-
-              {/* As medalhas que esta missão empurra. As já ganhas continuam
-                  aqui, apagadas: sumir faria o cartão prometer menos hoje do
-                  que prometia ontem, sem explicação. */}
-              {(missao.medalhas || []).map((q) => (
-                <span
-                  key={q.id}
-                  title={
-                    q.conquistada
-                      ? `${q.nome} — já conquistada`
-                      : `${q.nome} — falta chegar a ${q.alvo}`
-                  }
-                  className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                    q.conquistada
-                      ? 'text-content-tertiary line-through decoration-content-tertiary/40'
-                      : 'text-content-secondary'
-                  }`}
-                >
-                  <span className={q.conquistada ? 'opacity-40' : ''}>{q.emoji}</span>
-                  {q.nome}
-                </span>
-              ))}
-            </div>
-
-            {/* O botão que leva a fazer.
-
-                Sem ele a central vira relatório: diz o que falta e deixa a
-                pessoa procurar sozinha onde fazer. Quem abriu a tela querendo
-                agir desiste no meio do caminho. */}
             {missao.acao && <BotaoDaMissao acao={missao.acao} />}
           </>
         )}
@@ -205,6 +162,46 @@ const CartaoMissao = ({ missao }) => {
           </div>
         )}
       </div>
+
+      {/* O PRÊMIO FICA NUMA COLUNA PRÓPRIA, À DIREITA.
+
+          Antes ele vinha embaixo, na mesma coluna do texto — e como o texto é
+          longo e o prêmio é curto, a linha crescia para acomodar uma faixa
+          quase vazia. À direita ele ocupa a altura que já existe.
+
+          O número é o total de fechar a etapa: o bônus dela mais o que as ações
+          que faltam já pagam sozinhas. Sem ele, quem vê "faltam 2" não sabe se
+          são 4 pontos ou 40. */}
+      {!missao.completa && (
+        <div className="shrink-0 flex flex-col items-end gap-1 pl-1 max-w-[42%]">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand tabular-nums">
+            <Zap size={11} />
+            +{missao.xpAteAEtapa} XP
+          </span>
+
+          {/* As medalhas que esta missão empurra. As já ganhas continuam aqui,
+              apagadas: sumir faria o cartão prometer menos hoje do que prometia
+              ontem, sem explicação. */}
+          {(missao.medalhas || []).map((q) => (
+            <span
+              key={q.id}
+              title={
+                q.conquistada
+                  ? `${q.nome} — já conquistada`
+                  : `${q.nome} — falta chegar a ${q.alvo}`
+              }
+              className={`inline-flex items-center gap-1 text-[11px] font-semibold text-right ${
+                q.conquistada
+                  ? 'text-content-tertiary line-through decoration-content-tertiary'
+                  : 'text-content-secondary'
+              }`}
+            >
+              <span className={q.conquistada ? 'opacity-40' : ''}>{q.emoji}</span>
+              <span className="truncate">{q.nome}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </li>
   );
 };

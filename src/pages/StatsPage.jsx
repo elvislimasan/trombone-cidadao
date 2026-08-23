@@ -36,6 +36,14 @@ const readColorToken = (name) => {
   return value ? `rgb(${value})` : undefined;
 };
 
+// Nome da categoria -> pedaco de nome de arquivo (sem acento/espaco).
+const slugify = (value) => (value || '')
+  .normalize('NFD')
+  .replace(/\p{Mn}/gu, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '');
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -242,36 +250,9 @@ const ReportsStats = () => {
         },
       });
 
-      // Distribuições serão recalculadas abaixo conforme filtro
-      const recompute = () => {
-        const filtered = categoryFilter === 'buracos'
-          ? reports.filter(r => r.category?.id === 'buracos')
-          : reports;
-
-        const statusDistribution = [
-          { name: 'Pendentes', value: filtered.filter(r => r.status === 'pending').length, fill: chartColors.pending },
-          { name: 'Em Andamento', value: filtered.filter(r => r.status === 'in-progress').length, fill: chartColors.progress },
-          { name: 'Resolvidas', value: filtered.filter(r => r.status === 'resolved').length, fill: chartColors.resolved },
-        ];
-        setStatusData(statusDistribution);
-
-        if (categoryFilter === 'all') {
-          const categoryCounts = filtered.reduce((acc, report) => {
-            const categoryName = report.category?.name || 'Outros';
-            acc[categoryName] = (acc[categoryName] || 0) + 1;
-            return acc;
-          }, {});
-
-          const categoryDistribution = Object.entries(categoryCounts)
-            .map(([name, value], index) => ({ name, value, fill: COLORS[index % COLORS.length] }))
-            .sort((a, b) => b.value - a.value);
-          setCategoryData(categoryDistribution);
-        } else {
-          // Para filtro "buracos", mantemos categoryData vazio e usamos gráfico específico
-          setCategoryData([]);
-        }
-      };
-      recompute();
+      // As distribuições (status/categoria) derivam de stats.reports e do
+      // filtro — calculadas no efeito abaixo, não aqui, para trocar de filtro
+      // sem reconsultar o backend.
 
     } catch (error) {
       toast({
@@ -282,38 +263,72 @@ const ReportsStats = () => {
     } finally {
       setLoading(false);
     }
-    // COLORS e so um apelido para chartColors.categories (mesma referencia
-    // a cada memo), entao chartColors ja cobre a dependencia.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, categoryFilter, activeCityId, chartColors]);
+  }, [toast, activeCityId]);
+
+  // Broncas da categoria selecionada — base do gráfico de status e do PDF.
+  const filteredReports = useMemo(() => {
+    const all = stats.reports || [];
+    return categoryFilter === 'all'
+      ? all
+      : all.filter((report) => String(report.category?.id ?? 'outros') === categoryFilter);
+  }, [stats.reports, categoryFilter]);
+
+  // Opções do filtro montadas a partir das categorias presentes nos dados da
+  // cidade — antes era uma lista fixa (Todas/Buracos), o que impedia filtrar
+  // Iluminação e as demais.
+  const categoryOptions = useMemo(() => {
+    const found = new Map();
+    (stats.reports || []).forEach((report) => {
+      const id = String(report.category?.id ?? 'outros');
+      if (!found.has(id)) found.set(id, report.category?.name || 'Outros');
+    });
+    const options = Array.from(found.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+    return [{ value: 'all', label: 'Todas as categorias' }, ...options];
+  }, [stats.reports]);
+
+  const selectedCategoryLabel = useMemo(
+    () => categoryOptions.find((option) => option.value === categoryFilter)?.label || 'Todas as categorias',
+    [categoryOptions, categoryFilter]
+  );
+
+  // Ao trocar de cidade a categoria filtrada pode não existir mais.
+  useEffect(() => {
+    if (categoryFilter === 'all') return;
+    if ((stats.reports || []).length === 0) return;
+    if (!categoryOptions.some((option) => option.value === categoryFilter)) {
+      setCategoryFilter('all');
+    }
+  }, [categoryOptions, categoryFilter, stats.reports]);
 
   // Recalcular distribuições quando mudar o filtro sem reconsultar o backend
   useEffect(() => {
-    if (!stats.reports || stats.reports.length === 0) return;
-    const filtered = categoryFilter === 'buracos'
-      ? stats.reports.filter(r => r.category?.id === 'buracos')
-      : stats.reports;
-    const statusDistribution = [
-      { name: 'Pendentes', value: filtered.filter(r => r.status === 'pending').length, fill: chartColors.pending },
-      { name: 'Em Andamento', value: filtered.filter(r => r.status === 'in-progress').length, fill: chartColors.progress },
-      { name: 'Resolvidas', value: filtered.filter(r => r.status === 'resolved').length, fill: chartColors.resolved },
-    ];
-    setStatusData(statusDistribution);
-    if (categoryFilter === 'all') {
-      const categoryCounts = filtered.reduce((acc, report) => {
-        const categoryName = report.category?.name || 'Outros';
-        acc[categoryName] = (acc[categoryName] || 0) + 1;
-        return acc;
-      }, {});
-      const categoryDistribution = Object.entries(categoryCounts)
-        .map(([name, value], index) => ({ name, value, fill: COLORS[index % COLORS.length] }))
-        .sort((a, b) => b.value - a.value);
-      setCategoryData(categoryDistribution);
-    } else {
-      setCategoryData([]);
-    }
+    setStatusData([
+      { name: 'Pendentes', value: filteredReports.filter(r => r.status === 'pending').length, fill: chartColors.pending },
+      { name: 'Em Andamento', value: filteredReports.filter(r => r.status === 'in-progress').length, fill: chartColors.progress },
+      { name: 'Resolvidas', value: filteredReports.filter(r => r.status === 'resolved').length, fill: chartColors.resolved },
+    ]);
+
+    // O gráfico de categorias continua mostrando todas as categorias mesmo com
+    // filtro ativo (uma barra só não diz nada) — a selecionada fica destacada
+    // e as outras esmaecidas, ver fillOpacity das Cells.
+    const counts = new Map();
+    (stats.reports || []).forEach((report) => {
+      const id = String(report.category?.id ?? 'outros');
+      const entry = counts.get(id) || { id, name: report.category?.name || 'Outros', value: 0 };
+      entry.value += 1;
+      counts.set(id, entry);
+    });
+    setCategoryData(
+      Array.from(counts.values())
+        .sort((a, b) => b.value - a.value)
+        .map((entry, index) => ({ ...entry, fill: COLORS[index % COLORS.length] }))
+    );
+    // COLORS e so um apelido para chartColors.categories (mesma referencia
+    // a cada memo), entao chartColors ja cobre a dependencia.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryFilter, stats.reports, chartColors]);
+  }, [filteredReports, stats.reports, chartColors]);
 
   useEffect(() => {
     fetchStats();
@@ -358,7 +373,9 @@ const ReportsStats = () => {
     };
   }, [toast]);
 
-  // Função auxiliar para gerar o PDF
+  // Função auxiliar para gerar o PDF.
+  // O relatório acompanha o filtro de categoria do card: "Todas as categorias"
+  // sai completo, uma categoria específica sai só com as broncas dela.
   const generatePdf = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -366,12 +383,14 @@ const ReportsStats = () => {
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 14, 28);
-    
-    let yPosition = 40;
+    doc.text(`Categoria: ${selectedCategoryLabel}`, 14, 34);
+
+    let yPosition = 44;
+    const emptyPosition = yPosition;
 
     // Seções listadas por status (apenas pendentes e em andamento)
 
-    const reportsToInclude = stats.reports
+    const reportsToInclude = filteredReports
       .filter(report => report.status === 'pending' || report.status === 'in-progress');
 
     const groupedByStatus = reportsToInclude.reduce((acc, report) => {
@@ -455,8 +474,9 @@ const ReportsStats = () => {
       });
     });
 
-    if (yPosition === 40) { // No reports were added
-      doc.text("Não há broncas pendentes ou em andamento para relatar.", 14, yPosition);
+    if (yPosition === emptyPosition) { // No reports were added
+      const scope = categoryFilter === 'all' ? '' : ` em ${selectedCategoryLabel}`;
+      doc.text(`Não há broncas pendentes ou em andamento${scope} para relatar.`, 14, yPosition);
     }
     
     return doc;
@@ -554,80 +574,17 @@ const ReportsStats = () => {
     setDownloading(true);
     try {
       const doc = generatePdf();
-      const fileName = `relatorio_broncas_${new Date().toISOString().split('T')[0]}.pdf`;
-      const isNative = Capacitor.isNativePlatform();
+      const scopeSlug = categoryFilter === 'all' ? '' : `${slugify(selectedCategoryLabel)}_`;
+      const fileName = `relatorio_broncas_${scopeSlug}${new Date().toISOString().split('T')[0]}.pdf`;
 
-      if (isNative) {
-        try {
-          const permissionStatus = await LocalNotifications.checkPermissions();
-          if (permissionStatus.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-
-          const base64Data = await pdfToBase64(doc);
-          const platform = Capacitor.getPlatform();
-
-          let downloadPath = fileName;
-          let directory = Directory.Documents;
-
-          if (platform === 'android') {
-            try { await Filesystem.requestPermissions(); } catch {}
-            directory = Directory.ExternalStorage;
-            downloadPath = `Download/${fileName}`;
-          } else if (platform === 'ios') {
-            directory = Directory.Documents;
-            downloadPath = fileName;
-          }
-
-          await Filesystem.writeFile({
-            path: downloadPath,
-            data: base64Data,
-            directory,
-            recursive: true,
-          });
-
-          const uriResult = await Filesystem.getUri({
-            directory,
-            path: downloadPath,
-          });
-          const fileUri = uriResult.uri;
-
-          const notificationId = Math.floor(Date.now() % 2147483647);
-
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Download Concluído',
-                body: 'Relatório salvo com sucesso. Toque para abrir.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-                extra: {
-                  filePath: fileUri,
-                  contentType: 'application/pdf',
-                },
-              },
-            ],
-          });
-
-          toast({
-            title: 'Download concluído!',
-          });
-        } catch (error) {
-          console.error('Erro ao salvar PDF:', error);
-          toast({
-            title: 'Erro ao baixar relatório',
-            description: 'Não foi possível salvar o relatório. Tente novamente.',
-            variant: 'destructive',
-          });
-        }
-      } else {
-        doc.save(fileName);
-
-        toast({
-          title: 'Download concluído!',
-          description: 'O download do seu PDF foi iniciado.',
-        });
-      }
+      await savePdfDocument({
+        doc,
+        fileName,
+        successTitle: 'Download concluído!',
+        successDescription: categoryFilter === 'all'
+          ? 'Relatório com todas as categorias.'
+          : `Relatório apenas da categoria ${selectedCategoryLabel}.`,
+      });
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       toast({
@@ -837,27 +794,11 @@ const ReportsStats = () => {
           <CardHeader>
             <div className="flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-sm md:text-base text-content-primary">
-                    Estatísticas das broncas
-                  </CardTitle>
-                  {/* O relatorio sai dos dados deste card, entao o botao mora
-                      aqui dentro em vez de flutuar solto acima dele. */}
-                  <Button onClick={handleDownloadPdf} disabled={downloading} size="sm" className="shrink-0">
-                    {downloading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Baixando...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="mr-2 h-4 w-4" />
-                        <span className="hidden xs:inline">Baixar Relatório</span>
-                        <span className="xs:hidden">Relatório</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
+                {/* O botao de relatorio saiu daqui: ele segue o filtro de
+                    categoria, entao mora no card "Broncas por categoria". */}
+                <CardTitle className="text-sm md:text-base text-content-primary">
+                  Estatísticas das broncas
+                </CardTitle>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   {/* Seletor de ano (canto superior direito) — só na visão mensal */}
                   {timelineView === 'monthly' && (
@@ -1029,19 +970,42 @@ const ReportsStats = () => {
                       Total de buracos: <span className="font-semibold">{stats.waterUtility.totalBuracos}</span>
                     </p>
                   )}
+                  <p className="mt-1 text-xs text-content-secondary">
+                    {categoryFilter === 'all'
+                      ? 'O relatório sai com todas as categorias.'
+                      : <>O relatório sai só com <span className="font-semibold">{selectedCategoryLabel}</span>.</>}
+                  </p>
                 </div>
-                <div>
+                {/* Filtro + relatorio juntos: o PDF acompanha exatamente a
+                    categoria selecionada aqui. */}
+                <div className="flex shrink-0 flex-col items-end gap-2">
                   <Combobox
                     value={categoryFilter}
                     onChange={setCategoryFilter}
-                    options={[
-                      { value: "all", label: "Todas as categorias" },
-                      { value: "buracos", label: "Buracos" }
-                    ]}
+                    options={categoryOptions}
                     placeholder="Categoria"
                     searchPlaceholder="Buscar categoria..."
                     className="h-8 w-[150px] bg-surface-subtle/70 border-muted text-xs"
                   />
+                  <Button
+                    onClick={handleDownloadPdf}
+                    disabled={downloading}
+                    size="sm"
+                    className="h-8 w-[150px] text-xs"
+                    aria-label={`Baixar relatório — ${selectedCategoryLabel}`}
+                  >
+                    {downloading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Baixando...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 h-4 w-4" />
+                        Relatório
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -1092,7 +1056,11 @@ const ReportsStats = () => {
                       <Bar dataKey="value" name="Quantidade" radius={[0, 8, 8, 0]} barSize={18}>
                         <LabelList dataKey="value" position="right" style={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
                         {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.fill}
+                            fillOpacity={categoryFilter === 'all' || entry.id === categoryFilter ? 1 : 0.25}
+                          />
                         ))}
                       </Bar>
                     </BarChart>

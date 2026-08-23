@@ -101,7 +101,7 @@ export default function AuditSummary({
         </div>
 
         {pontos > 0 && (
-          <div className="flex items-center justify-center gap-2.5 mt-3 rounded-2xl bg-brand-subtleBg border border-brand/20 px-4 py-3">
+          <div className="flex items-center justify-center gap-2.5 mt-3 rounded-2xl bg-brand-subtleBg border border-edge-subtle px-4 py-3">
             <Star size={20} className="text-brand shrink-0 fill-current" />
             <div className="min-w-0">
               <p className="text-base font-extrabold text-brand leading-none tabular-nums">

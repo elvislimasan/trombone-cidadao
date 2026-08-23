@@ -44,8 +44,8 @@ import { CONQUISTAS, PONTOS, PONTOS_POR_ETAPA } from './patrolGame.js';
 
 /** Abre o formulário de bronca no feed. O parâmetro já era tratado lá. */
 const CADASTRAR = { rotulo: 'Cadastrar bronca', para: '/?criar_bronca=1' };
-/** Âncora da própria central: a lista de patrulhas por categoria. */
-const PATRULHAR = { rotulo: 'Sair em patrulha', para: '#patrulhas' };
+/** A tela de escolha da categoria — o passo anterior a qualquer patrulha. */
+const PATRULHAR = { rotulo: 'Sair em patrulha', para: '/patrulhar' };
 const VER_BRONCAS = { rotulo: 'Ver broncas', para: '/' };
 /** O modo de conferir os pontos que alguém marcou de passagem. */
 const CONFERIR = { rotulo: 'Conferir', para: '/conferir' };

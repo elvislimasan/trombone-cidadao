@@ -11,14 +11,22 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
  * sem isso, enviar um comentario nao muda nada na tela e parece que falhou.
  * O pendente vai marcado (`isPending`) para a UI deixar claro que ainda nao
  * esta publico — nao e o mesmo que ja ter sido publicado.
+ *
+ * Moderador (admin/master) ve TODOS os pendentes e pode aprovar ali mesmo.
+ * Duas razoes: a RLS ja entrega essas linhas para ele (entao o contador do card
+ * as somava enquanto a folha as escondia — "1 pessoas ja comentaram" numa folha
+ * vazia), e a fila de /admin/moderacao/comentarios exige sair do feed para
+ * liberar uma frase de tres palavras.
  */
 export function useReportComments(reportId, { enabled = true } = {}) {
   const { user } = useAuth();
+  const canModerate = Boolean(user?.is_admin || user?.is_master);
   const { celebrar } = useMissionProgress();
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [moderatingId, setModeratingId] = useState(null);
   const cancelRef = useRef(false);
 
   const fetch = useCallback(async () => {
@@ -38,7 +46,10 @@ export function useReportComments(reportId, { enabled = true } = {}) {
         .filter(
           (c) =>
             c.moderation_status === 'approved' ||
-            (user && c.author_id === user.id)
+            (user && c.author_id === user.id) ||
+            // Rejeitado nao volta a aparecer nem para o moderador: a folha do
+            // feed e para o que ainda esta em decisao.
+            (canModerate && c.moderation_status === 'pending_approval')
         )
         .map((c) => ({
           id: c.id,
@@ -56,7 +67,7 @@ export function useReportComments(reportId, { enabled = true } = {}) {
     } finally {
       if (!cancelRef.current) setLoading(false);
     }
-  }, [reportId, user]);
+  }, [reportId, user, canModerate]);
 
   useEffect(() => {
     cancelRef.current = false;
@@ -110,9 +121,52 @@ export function useReportComments(reportId, { enabled = true } = {}) {
     [reportId, user, celebrar]
   );
 
+  /**
+   * Aprova ou rejeita sem sair do feed. So o moderador chega aqui — a RLS de
+   * `comments` recusa a troca de status de qualquer outra pessoa, entao o botao
+   * escondido na UI nao e a unica tranca.
+   */
+  const moderate = useCallback(
+    async (commentId, status) => {
+      if (!canModerate || !commentId) return { ok: false };
+
+      setModeratingId(commentId);
+      try {
+        const { error: err } = await supabase
+          .from('comments')
+          .update({ moderation_status: status })
+          .eq('id', commentId);
+        if (err) throw err;
+
+        setComments((prev) =>
+          status === 'approved'
+            ? prev.map((c) => (c.id === commentId ? { ...c, isPending: false } : c))
+            : prev.filter((c) => c.id !== commentId)
+        );
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e?.message || 'Não foi possível moderar o comentário.' };
+      } finally {
+        setModeratingId(null);
+      }
+    },
+    [canModerate]
+  );
+
   // Contagem publica: pendentes do proprio autor nao entram, senao o numero no
   // card divergiria do que as outras pessoas veem.
   const publicCount = comments.filter((c) => !c.isPending).length;
 
-  return { comments, loading, error, submit, submitting, publicCount, refresh: fetch };
+  return {
+    comments,
+    loading,
+    error,
+    submit,
+    submitting,
+    publicCount,
+    refresh: fetch,
+    canModerate,
+    moderate,
+    moderatingId,
+  };
 }

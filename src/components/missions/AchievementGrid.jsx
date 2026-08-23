@@ -32,7 +32,7 @@ export default function AchievementGrid({ conquistas }) {
             key={c.id}
             className={`rounded-2xl border px-3 py-3 ${
               c.desbloqueada
-                ? 'border-brand/30 bg-brand-subtleBg'
+                ? 'border-edge-subtle bg-brand-subtleBg'
                 : 'border-edge-subtle bg-surface-subtle'
             }`}
           >
@@ -60,7 +60,7 @@ export default function AchievementGrid({ conquistas }) {
               <>
                 <div className="mt-2 h-1 rounded-full bg-surface-sunken overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-brand/60"
+                    className="h-full rounded-full bg-status-progressFg opacity-70"
                     style={{ width: `${c.progresso * 100}%` }}
                   />
                 </div>

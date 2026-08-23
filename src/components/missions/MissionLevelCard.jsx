@@ -13,6 +13,27 @@ import { Shield, Flame, Trophy, Eye } from 'lucide-react';
 // existiam espalhadas (nível no perfil, sequência no resumo da patrulha) e que
 // ninguém via junto.
 //
+// PESO DA COR: ONDE ELA FICA E ONDE ELA SAI
+//
+// Três papéis, três cores, e nenhuma delas se repete fora do seu papel:
+//
+//   • VERMELHO (brand)      — identidade e o que se toca: botão, XP, link.
+//   • AZUL (statusProgress) — TODA barra de progresso, aqui e na lista.
+//   • neutro (edge/surface) — moldura e fundo.
+//
+// A barra era vermelha também. Com dez delas na mesma rolagem, mais os botões e
+// os números, a marca deixava de destacar coisa alguma — tudo era destaque. O
+// azul já era o "em andamento" do app (status-progress), então a barra passou a
+// dizer a mesma coisa que o resto do produto já diz.
+//
+// Molduras e fundos usam `edge-subtle` e `surface-subtle`, que têm valor
+// próprio em cada tema.
+//
+// O motivo é concreto: `border-brand/30` calcula a cor sobre o FUNDO, e o fundo
+// inverte entre claro e escuro. 30% de vermelho sobre branco vira rosa pálido;
+// os mesmos 30% sobre quase-preto viram um vinho denso que puxa a atenção. Um
+// valor só, dois pesos — e foi o que deixou o modo escuro pesado.
+//
 // "FALTAM APENAS 11 XP" É O CORAÇÃO DISTO
 //
 // Um total absoluto ("289 pontos") é placar; a distância até o próximo degrau é
@@ -22,13 +43,10 @@ import { Shield, Flame, Trophy, Eye } from 'lucide-react';
 
 const PERTO = 40;
 
-const Estatistica = ({ Icone, valor, rotulo }) => (
-  <div className="flex items-center gap-1.5 min-w-0">
-    <Icone size={13} className="shrink-0 text-content-tertiary" />
-    <span className="text-xs text-content-secondary truncate">
-      <span className="font-bold text-content-primary tabular-nums">{valor}</span>{' '}
-      {rotulo}
-    </span>
+const Estatistica = ({ Icone, cor, texto }) => (
+  <div className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5">
+    <Icone size={13} className={`shrink-0 ${cor}`} />
+    <span className="text-[11px] text-content-secondary truncate">{texto}</span>
   </div>
 );
 
@@ -57,69 +75,75 @@ export default function MissionLevelCard({
         </span>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-extrabold text-content-primary leading-tight">
+          <p className="text-[15px] font-extrabold text-brand leading-tight">
             {label}
           </p>
-          <p className="text-xs text-content-secondary mt-0.5 tabular-nums">
-            {proxima ? `${points} / ${proxima.minimo} XP` : `${points} XP`}
+          <p className="text-xs font-bold text-content-secondary mt-0.5">
+            Nível {level}
           </p>
         </div>
 
-        <div className="shrink-0 text-right">
-          <p className="text-xl font-extrabold text-brand leading-none tabular-nums">
+        {/* O total fica num selo próprio: é o número que a pessoa procura
+            primeiro, e no meio do texto ele se perdia. */}
+        <div className="shrink-0 rounded-xl bg-brand-subtleBg px-3 py-2 text-center">
+          <p className="text-2xl font-extrabold text-brand leading-none tabular-nums">
             {points}
           </p>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary mt-1">
+          <p className="text-[9px] font-semibold uppercase tracking-wider text-brand mt-1 opacity-80">
             XP total
           </p>
         </div>
       </div>
 
-      <div className="px-4 pb-3">
+      <div className="px-4 pb-3.5">
+        <div className="flex items-baseline justify-between gap-3 mb-1.5">
+          <span className="text-xs font-bold text-brand tabular-nums">
+            {proxima ? `${points} / ${proxima.minimo} XP` : `${points} XP`}
+          </span>
+          <span className="text-[11px] text-content-tertiary">
+            {!proxima
+              ? 'Nível máximo alcançado'
+              : quaseLa
+              ? (
+                <span className="font-bold text-brand">
+                  Faltam apenas {proxima.faltam} XP
+                </span>
+              )
+              : `Faltam ${proxima.faltam} XP para ${proxima.rotulo}`}
+          </span>
+        </div>
         <div className="h-2 rounded-full bg-surface-sunken overflow-hidden">
           <div
-            className="h-full rounded-full bg-brand transition-[width] duration-700"
+            className="h-full rounded-full bg-status-progressFg transition-[width] duration-700"
             style={{ width: `${Math.round(fracao * 100)}%` }}
           />
         </div>
-        <p className="text-[11px] text-content-tertiary mt-1.5">
-          {!proxima
-            ? 'Nível máximo alcançado'
-            : quaseLa
-            ? (
-              <span className="font-bold text-brand">
-                Faltam apenas {proxima.faltam} XP para o nível {proxima.nivel}
-              </span>
-            )
-            : `Faltam ${proxima.faltam} XP para ${proxima.rotulo}`}
-        </p>
       </div>
 
       {/* A faixa de baixo só existe quando há o que dizer. Três zeros lado a
           lado numa conta nova seriam a primeira coisa que a pessoa vê. */}
       {(sequencia > 0 || concluidas > 0 || melhorMedalha) && (
-        <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap border-t border-edge-subtle bg-surface-subtle px-4 py-2.5">
+        <div className="flex items-center divide-x divide-edge-subtle border-t border-edge-subtle bg-surface-subtle">
           {sequencia > 0 && (
             <Estatistica
               Icone={Flame}
-              valor={sequencia}
-              rotulo={sequencia === 1 ? 'dia seguido' : 'dias seguidos'}
+              cor="text-status-pendingFg"
+              texto={`Sequência: ${sequencia} ${sequencia === 1 ? 'dia' : 'dias'}`}
             />
           )}
           {concluidas > 0 && (
             <Estatistica
               Icone={Trophy}
-              valor={concluidas}
-              rotulo={concluidas === 1 ? 'etapa concluída' : 'etapas concluídas'}
+              cor="text-brand"
+              texto={`${concluidas} ${concluidas === 1 ? 'missão concluída' : 'missões concluídas'}`}
             />
           )}
           {melhorMedalha && (
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Eye size={13} className="shrink-0 text-content-tertiary" />
-              <span className="text-xs text-content-secondary truncate">
-                {melhorMedalha.emoji} {melhorMedalha.nome}
-              </span>
-            </div>
+            <Estatistica
+              Icone={Eye}
+              cor="text-success-fg"
+              texto={melhorMedalha.nome}
+            />
           )}
         </div>
       )}

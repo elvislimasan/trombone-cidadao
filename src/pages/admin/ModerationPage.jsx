@@ -50,6 +50,19 @@ const esperaHa = (iso) => {
 const primeiraFoto = (midias) =>
   (midias || []).find((m) => m?.type === 'photo' && m?.url)?.url || null;
 
+// Fora do componente: são constantes, e recriá-las a cada render fazia o
+// `useMemo` da busca recalcular sempre — além do aviso do eslint.
+const UPDATE_TYPE_LABELS = {
+  still_here: 'O problema ainda está aqui',
+  being_solved: 'O problema está sendo resolvido',
+  solved: 'O problema foi resolvido',
+};
+const UPDATE_TYPE_COLORS = {
+  still_here: 'bg-danger-subtleBg text-danger-subtleFg border-danger/25',
+  being_solved: 'bg-status-progressBg text-status-progressFg border-status-progressBorder',
+  solved: 'bg-status-resolvedBg text-status-resolvedFg border-status-resolvedBorder',
+};
+
 const ModerationPage = () => {
   const { type } = useParams();
   const { toast } = useToast();
@@ -101,6 +114,14 @@ const ModerationPage = () => {
   const isPetitionModeration = type === 'peticoes';
   const isWorkMediaModeration = type === 'obras-midias';
   const isUpdateModeration = type === 'atualizacoes';
+  // Comentário é o caso padrão desta página: qualquer `type` que não seja um
+  // dos acima cai aqui (é assim que /admin/moderacao/comentarios funciona).
+  const isCommentModeration =
+    !isReportModeration &&
+    !isResolutionModeration &&
+    !isPetitionModeration &&
+    !isWorkMediaModeration &&
+    !isUpdateModeration;
 
   const pageTitle = isUpdateModeration ? 'Moderação de Atualizações' :
                    isWorkMediaModeration ? 'Moderação de Mídias de Obras' :
@@ -108,17 +129,6 @@ const ModerationPage = () => {
                    isReportModeration ? 'Moderação de Broncas' :
                    isPetitionModeration ? 'Moderação de Abaixo-Assinados' :
                    'Moderação de Comentários';
-
-  const UPDATE_TYPE_LABELS = {
-    still_here: 'O problema ainda está aqui',
-    being_solved: 'O problema está sendo resolvido',
-    solved: 'O problema foi resolvido',
-  };
-  const UPDATE_TYPE_COLORS = {
-    still_here: 'bg-danger-subtleBg text-danger-subtleFg border-danger/25',
-    being_solved: 'bg-status-progressBg text-status-progressFg border-status-progressBorder',
-    solved: 'bg-status-resolvedBg text-status-resolvedFg border-status-resolvedBorder',
-  };
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -178,10 +188,14 @@ const ModerationPage = () => {
           // autor e protocolo, e a única coisa que diz se a bronca é real —
           // a foto — exigia abrir o modal de revisão, um por um. A fila de
           // moderação existe para ser percorrida rápido.
+          //
+          // No comentário vem junto a bronca comentada: sem ela o cartão mostra
+          // uma frase solta ("concordo", "de novo isso") e não há como julgar
+          // se ela cabe ali.
           .select(
             isReportModeration
               ? '*, author:profiles!author_id(name), report_media(url, type)'
-              : '*, author:profiles!author_id(name)'
+              : '*, author:profiles!author_id(name), report:reports(id, title)'
           )
           .eq(statusField, 'pending_approval');
 
@@ -194,6 +208,13 @@ const ModerationPage = () => {
           query = query.or('signal_status.is.null,signal_status.in.(done,empty)');
         }
 
+        // Comentário de notícia (news_id) tem fila própria dentro de "Gerenciar
+        // Notícias". Trazê-lo aqui também faria o mesmo item aparecer em dois
+        // lugares — e nesta tela ele viria sem contexto nenhum.
+        if (isCommentModeration) {
+          query = query.not('report_id', 'is', null);
+        }
+
         const { data, error } = await query.order('created_at', { ascending: true });
         if (error) throw error;
         setItems(data || []);
@@ -203,7 +224,7 @@ const ModerationPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isReportModeration, isResolutionModeration, isPetitionModeration, isWorkMediaModeration, isUpdateModeration, toast]);
+  }, [isReportModeration, isResolutionModeration, isPetitionModeration, isWorkMediaModeration, isUpdateModeration, isCommentModeration, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -394,6 +415,21 @@ const ModerationPage = () => {
         }
         if (error) throw error;
 
+        // O modal promete ao moderador que "o autor receberá esta
+        // justificativa" — para comentário, ninguém enviava nada. O motivo
+        // digitado morria na tela.
+        if (isCommentModeration && newStatus === 'rejected' && item.author_id) {
+          await supabase.from('notifications').insert({
+            user_id: item.author_id,
+            type: 'moderation_update',
+            title: 'Comentário não aprovado',
+            message: `Seu comentário em "${item.report?.title || 'uma bronca'}" não foi aprovado. Motivo: ${rejectionReason}`,
+            link: item.report_id ? `/bronca/${item.report_id}` : null,
+            report_id: item.report_id || null,
+            is_read: false,
+          });
+        }
+
         if (isReportModeration && newStatus === 'rejected' && item.author_id) {
           try {
             await supabase.functions.invoke('send-report-status-email', {
@@ -445,7 +481,15 @@ const ModerationPage = () => {
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const searchLower = searchTerm.toLowerCase();
-      const title = item.title || item.text || item.work?.title || item.report?.title || UPDATE_TYPE_LABELS[item.update_type] || '';
+      // Num comentário procura-se pelas duas pontas: o que foi dito e em que
+      // bronca. Por isso os dois entram, e não o primeiro que existir.
+      const title = [
+        item.title,
+        item.text,
+        item.work?.title,
+        item.report?.title,
+        UPDATE_TYPE_LABELS[item.update_type],
+      ].filter(Boolean).join(' ');
       const authorName = item.author?.name || item.resolution_submission?.userName || item.contributor?.name || '';
       return title.toLowerCase().includes(searchLower) || authorName.toLowerCase().includes(searchLower);
     });
@@ -500,7 +544,11 @@ const ModerationPage = () => {
   const handleViewReport = async (reportId) => {
     const { data, error } = await supabase
       .from('reports')
-      .select('*, author:profiles!reports_author_id_fkey(name, avatar_url), comments(*), report_media(*), timeline:report_timeline(*), upvotes:upvotes(count)')
+      // `comments(*)` traz a linha da tabela e mais nada — `author` fica
+      // indefinido e o modal carimba "Anônimo" em TODO comentário, inclusive
+      // no que o moderador está julgando. O perfil vem embutido, como em todos
+      // os outros lugares que montam este mesmo componente.
+      .select('*, author:profiles!reports_author_id_fkey(name, avatar_url), comments(*, author:profiles!comments_author_id_fkey(name, avatar_url)), report_media(*), timeline:report_timeline(*), upvotes:upvotes(count)')
       .eq('id', reportId)
       .single();
 
@@ -687,7 +735,9 @@ const ModerationPage = () => {
                                   ? (item.report?.title || 'Bronca sem título')
                                   : isWorkMediaModeration
                                     ? (item.work?.title || 'Obra desconhecida')
-                                    : (item.title || (item.text ? `"${item.text}"` : 'Sem título'))}
+                                    : isCommentModeration
+                                      ? (item.report?.title || 'Bronca sem título')
+                                      : (item.title || 'Sem título')}
                               </h3>
 
                               {endereco && (
@@ -714,6 +764,18 @@ const ModerationPage = () => {
                               {isUpdateModeration && item.message && (
                                 <p className="text-xs md:text-sm text-content-secondary mt-2 italic whitespace-pre-wrap leading-relaxed">
                                   &ldquo;{item.message}&rdquo;
+                                </p>
+                              )}
+
+                              {/* O comentário inteiro, sem corte.
+                                  Ele era o título do cartão, limitado a duas
+                                  linhas — o moderador aprovava ou rejeitava
+                                  lendo metade do que estava julgando. Como na
+                                  atualização, o texto é a matéria da decisão:
+                                  fica no corpo, inteiro. */}
+                              {isCommentModeration && item.text && (
+                                <p className="text-xs md:text-sm text-content-secondary mt-2 italic whitespace-pre-wrap break-words leading-relaxed">
+                                  &ldquo;{item.text}&rdquo;
                                 </p>
                               )}
 
@@ -801,6 +863,11 @@ const ModerationPage = () => {
                                     navigate(`/abaixo-assinado/${item.id}`);
                                   } else if (isWorkMediaModeration) {
                                     setSelectedWorkMedia(item);
+                                  } else if (isCommentModeration) {
+                                    // `item.id` aqui é o id do COMENTÁRIO — abrir
+                                    // a revisão com ele buscava uma bronca que não
+                                    // existe e o botão só devolvia erro.
+                                    handleViewReport(item.report_id);
                                   } else {
                                     handleViewReport(item.id);
                                   }

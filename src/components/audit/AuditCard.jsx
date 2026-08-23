@@ -51,8 +51,8 @@ export default function AuditCard({
 
   return (
     <div className="absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-[1002] px-3">
-      <div className="rounded-2xl bg-surface-overlay border border-brand/40 shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-2 bg-brand/10 px-4 py-2">
+      <div className="rounded-2xl bg-surface-overlay border border-edge-default shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-2 bg-brand-subtleBg px-4 py-2">
           <span className="text-base leading-none" aria-hidden="true">
             {categoria?.icon || '📍'}
           </span>

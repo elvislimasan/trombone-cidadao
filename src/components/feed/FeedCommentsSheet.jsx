@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Send, Clock } from 'lucide-react';
+import { Send, Clock, Check, X, MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Drawer,
   DrawerContent,
@@ -36,7 +42,7 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
   const [text, setText] = useState('');
   const listEndRef = useRef(null);
 
-  const { comments, loading, error, submit, submitting, publicCount } =
+  const { comments, loading, error, submit, submitting, publicCount, canModerate, moderate, moderatingId } =
     useReportComments(reportId, { enabled: open });
 
   // Mantem o card do feed em sincronia quando a moderacao ja aprovou algo novo.
@@ -57,6 +63,25 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
     } else {
       toast({
         title: 'Erro ao enviar comentário',
+        description: result.error,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleModerate = async (commentId, status) => {
+    const result = await moderate(commentId, status);
+    if (result.ok) {
+      toast({
+        title: status === 'approved' ? 'Visível para todos' : 'Comentário rejeitado',
+        description:
+          status === 'approved'
+            ? 'O comentário saiu da análise e já aparece no feed.'
+            : 'Ele não será publicado.',
+      });
+    } else {
+      toast({
+        title: 'Erro ao moderar',
         description: result.error,
         variant: 'destructive',
       });
@@ -102,17 +127,52 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
                       <span className="text-2xs text-content-tertiary flex-shrink-0">
                         <TimeAgo date={c.created_at} />
                       </span>
+
+                      {/* Moderação no lugar onde o comentário é lido, sem virar
+                          um par de botões coloridos dentro da conversa: quem lê
+                          a folha na maior parte das vezes não vai moderar nada.
+                          A fila do admin continua para o volume; isto aqui é o
+                          atalho de quem já está com a bronca na frente. */}
+                      {c.isPending && canModerate && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Moderar comentário"
+                              disabled={moderatingId === c.id}
+                              className="ml-auto -mr-1 flex-shrink-0 rounded-full p-1 text-content-tertiary hover:bg-surface-raised hover:text-content-primary disabled:opacity-40"
+                            >
+                              <MoreVertical size={13} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="min-w-[190px]">
+                            <DropdownMenuItem onSelect={() => handleModerate(c.id, 'approved')}>
+                              <Check size={14} className="mr-2" />
+                              Deixar visível para todos
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => handleModerate(c.id, 'rejected')}
+                              className="text-danger focus:text-danger"
+                            >
+                              <X size={14} className="mr-2" />
+                              Rejeitar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                     <p className="text-sm text-content-primary break-words leading-relaxed">
                       {c.text}
                     </p>
                   </div>
-                  {/* Só o autor vê o próprio pendente — sem este aviso ele
-                      acharia que já está publicado para todo mundo. */}
+                  {/* O autor precisa saber que o próprio comentário ainda não é
+                      público — senão acharia que já está publicado para todo
+                      mundo. Para o moderador basta o estado: a ação está no
+                      menu, não faz sentido repeti-la aqui. */}
                   {c.isPending && (
                     <p className="mt-1 ml-1 flex items-center gap-1 text-2xs text-content-tertiary">
                       <Clock size={11} />
-                      Em análise — visível só para você
+                      {canModerate ? 'Em análise' : 'Em análise — visível só para você'}
                     </p>
                   )}
                 </div>

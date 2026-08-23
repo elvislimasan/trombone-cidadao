@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { Toaster } from '@/components/ui/toaster';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import {Toaster as SonnerToast} from 'sonner'
+import { Toaster } from 'sonner';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
@@ -69,6 +68,7 @@ import MapPage from './pages/MapPage';
 import MissionsPage from '@/pages/MissionsPage';
 import PatrolRunPage from '@/pages/PatrolRunPage';
 import AuditRunPage from '@/pages/AuditRunPage';
+import PatrolPickPage from '@/pages/PatrolPickPage';
 import MyPatrolsPage from '@/pages/MyPatrolsPage';
 import HomeRouter from './pages/HomeRouter';
 import NotFoundPage from '@/pages/NotFoundPage';
@@ -677,7 +677,10 @@ function AppShell() {
               <Route path="/missoes" element={<MissionsPage />} />
               {/* Histórico é dado pessoal: exige sessão, como o painel. */}
               <Route path="/minhas-patrulhas" element={<PrivateRoute><MyPatrolsPage /></PrivateRoute>} />
-              <Route path="/patrulhar" element={<PatrolRunPage />} />
+              {/* Sem categoria, `/patrulhar` era PatrolRunPage e redirecionava
+                  de volta para a central. Agora e a tela de escolha — o destino
+                  natural de todo botao de patrulha. */}
+              <Route path="/patrulhar" element={<PatrolPickPage />} />
               <Route path="/patrulhar/:categoria" element={<PatrolRunPage />} />
               {/* Conferir os pontos marcados. Tela cheia como a patrulha, e
                   privada: responder um ponto é ação de conta. */}
@@ -766,8 +769,19 @@ function AppShell() {
               via à frente e oferece destinos que ninguém deve tocar dirigindo.
               Sair é pelo X do painel ou pelo botão voltar do aparelho. */}
           {!patrulhaAtiva && <BottomNav />}
-          <Toaster />
-          <SonnerToast position="top-right" richColors />
+          {/* Toast no rodapé, acima do BottomNav: no topo ele cobria o header e
+              o conteúdo que o usuário acabou de tocar. Só o cartão recebe
+              toque — o resto da tela continua respondendo enquanto ele aparece.
+              Fecha por toque, pelo X ou arrastando em qualquer direção. */}
+          <Toaster
+            position="bottom-center"
+            richColors
+            closeButton
+            visibleToasts={3}
+            swipeDirections={['bottom', 'left', 'right']}
+            offset={{ bottom: '1.5rem' }}
+            mobileOffset={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))', left: '0.75rem', right: '0.75rem' }}
+          />
           <WebUploadIndicator />
           <UploadStatusBar />
         </div>

@@ -26,7 +26,17 @@
       "Bash(npx eslint *)",
       "PowerShell(npx eslint src/pages/admin/ManageReportsPage.jsx --ext jsx)",
       "PowerShell(npx eslint src/pages/admin/ManagePavementPage.jsx src/pages/admin/TrashPage.jsx src/pages/admin/ManagePetitionsPage.jsx --ext jsx)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "PowerShell(npx eslint src/pages/admin/ManageMastersPage.jsx --ext jsx)",
+      "Bash(git commit -m ' *)",
+      "PowerShell(npx eslint src/pages/StatsPage.jsx)",
+      "PowerShell(npm run build 2>&1)",
+      "Bash(git rm *)",
+      "Bash(awk -F: '{s+=$2} END {print s}')",
+      "Bash(npm uninstall *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(git --no-pager diff --stat HEAD -- src/ package.json)",
+      "Bash(grep -o \"title: *['\\\\\"\\\\`][^'\\\\\"\\\\`]*['\\\\\"\\\\`]\")"
     ]
   }
 }

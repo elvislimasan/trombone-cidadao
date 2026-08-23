@@ -428,6 +428,12 @@ export function usePatrolSignals(
             user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
           city_id: cityId ? Number(cityId) : null,
           neighborhood: bairroRef.current,
+          // A rua vai junto, pelo mesmo motivo do `sinalizar`: sem ela a bronca
+          // nasce com `address` nulo e a página de detalhe some com o endereço
+          // — o card de Localização fica só com o mapa, e o resumo, só com o
+          // título. É a mesma ref que o sinal usa, então os dois caminhos de
+          // criação gravam a mesma coisa no mesmo lugar.
+          address: ruaRef.current,
           is_anonymous: false,
         })
         .select('id')

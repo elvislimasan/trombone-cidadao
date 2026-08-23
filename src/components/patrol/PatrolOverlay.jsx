@@ -11,7 +11,6 @@ import { useToast } from '@/components/ui/use-toast';
 import {
   enviarAtualizacaoDeBronca,
   computeDisabledUpdateTypes,
-  getUpdateTypeInfo,
 } from '@/hooks/useReportUpdate';
 
 import { useNavigationGps } from '@/hooks/useNavigationGps';
@@ -435,12 +434,16 @@ export default function PatrolOverlay({
     // aconteceu, e esperar a rede tornaria o retorno indiferente ao toque.
     comemorar(PONTOS.atualizacao);
 
-    toast({
-      title: r.isAuthorOrAdmin ? 'Confirmado ✅' : 'Enviado 📢',
-      description: r.isAuthorOrAdmin
-        ? getUpdateTypeInfo(tipo).label
-        : 'Sua atualização será revisada.',
-    });
+    // Autor e admin não precisam de aviso: o +N já subiu e a atualização deles
+    // entra direto, sem fila. O toast diria "Confirmado" seguido do rótulo do
+    // botão que o dedo acabou de tocar. Para os demais ele fica, porque avisa de
+    // algo que a tela não mostra — a atualização ainda vai passar por revisão.
+    if (!r.isAuthorOrAdmin) {
+      toast({
+        title: 'Enviado 📢',
+        description: 'Sua atualização será revisada.',
+      });
+    }
     return true;
   }, [user, navigate, toast, removerDaFila, descartar, registrarConfirmacao, comemorar]);
 
@@ -504,13 +507,12 @@ export default function PatrolOverlay({
    * sinal e confirmação já foram enviados, cada um na sua própria linha, e
    * continuam valendo pontos. O que se joga fora é só a medida do percurso.
    */
+  /* Sem toast de confirmação: a folha de saída já diz, embaixo do botão, que
+     broncas e sinais continuam valendo. Repetir isso depois do toque não
+     informa nada novo — só tapa a tela para onde o usuário está voltando. */
   const descartarPatrulha = useCallback(async () => {
-    toast({
-      title: 'Saída descartada',
-      description: 'O que você registrou pelo caminho continua valendo.',
-    });
     await encerrar();
-  }, [toast, encerrar]);
+  }, [encerrar]);
 
   /**
    * "Encerrar e salvar": grava e passa para o resumo.

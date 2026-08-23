@@ -75,11 +75,13 @@ export default function AuditOverlay({
   }, []);
 
   const { posicao, erro, sinalFraco } = useNavigationGps({ ativo: avisoAceito });
-  const { bairro, cidadeId } = useNavStreet(posicao);
+  const { rua, bairro, cidadeId } = useNavStreet(posicao);
 
   // Sem categoria: a conferência é sobre TUDO que está em aberto. É a diferença
   // central em relação à patrulha, que é de uma categoria só.
-  const sinais = usePatrolSignals(posicao, { cityId: cidadeId, bairro });
+  // `rua` entra porque o que nasce aqui é bronca de verdade: sem ela o
+  // `address` fica nulo e a página de detalhe exibe o mapa sem o endereço.
+  const sinais = usePatrolSignals(posicao, { cityId: cidadeId, bairro, rua });
 
   // Mede a saída: tempo, distância, rastro, e o que ela produziu.
   const recorder = usePatrolRecorder(posicao, { cityId: cidadeId, kind: 'audit' });
@@ -144,13 +146,12 @@ export default function AuditOverlay({
       return;
     }
     registrarVistoria(sinal.id);
+    // Três confirmações visuais já acontecem aqui: o +N sobe, o contador de
+    // resolvidos anda e o sinal some do mapa. Um toast narrando isso seria a
+    // quarta — e a única que tapa a via na frente de quem está verificando.
     comemorar(PONTOS.vistoria);
     setResolvidos((n) => n + 1);
-    toast({
-      title: 'Ponto verificado',
-      description: 'Obrigado por conferir — o sinal sai do mapa.',
-    });
-  }, [sinais, toast, comemorar, registrarVistoria]);
+  }, [sinais, toast, comemorar, registrarVistoria, setResolvidos]);
 
   const aoFecharRegistro = useCallback(({ concluida, id }) => {
     setRegistro(null);
@@ -223,13 +224,11 @@ export default function AuditOverlay({
    * cada ponto verificado já é linha própria em `reports`, com pontos pagos. O
    * que se joga fora é só a medida do trajeto.
    */
+  /* Sem toast de confirmação: a folha de saída já diz, embaixo do botão, que
+     as respostas continuam valendo. Repetir depois do toque não informa nada. */
   const descartarSaida = useCallback(() => {
-    toast({
-      title: 'Saída descartada',
-      description: 'O que você respondeu pelo caminho continua valendo.',
-    });
     onSair();
-  }, [toast, onSair]);
+  }, [onSair]);
 
   const voltarUmaCamada = useCallback(() => {
     // No resumo a decisão já foi tomada e a saída já está no banco: fechar de

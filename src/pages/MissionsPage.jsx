@@ -1,13 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link, useNavigate } from 'react-router-dom';
-import { Moon, ChevronRight, Loader2, ClipboardCheck } from 'lucide-react';
+import { Moon, ChevronRight, ChevronDown, Loader2, Lock } from 'lucide-react';
 
 import PageHeader from '@/components/PageHeader';
+import { usePosicaoAproximada } from '@/hooks/usePosicaoAproximada';
 import MissionList from '@/components/missions/MissionList';
+import MissionLevelCard from '@/components/missions/MissionLevelCard';
+import MissionResume from '@/components/missions/MissionResume';
+import MissionCategoryGrid from '@/components/missions/MissionCategoryGrid';
+import MissionPatrolProgress from '@/components/missions/MissionPatrolProgress';
 import { useMissions } from '@/hooks/useMissions';
 import { CATEGORIAS_SINAL } from '@/lib/reportCategories';
 import { NAV_ALERTA, ehNoite } from '@/lib/navGeo';
+import { calcularSequencia } from '@/lib/patrolGame';
 
 // Hub das missões: onde a patrulha começa.
 //
@@ -17,83 +22,17 @@ import { NAV_ALERTA, ehNoite } from '@/lib/navGeo';
 // as pessoas abrem para OLHAR, não para agir. Quem não soubesse que o modo
 // existia não tinha como descobrir.
 //
-// Aqui ela ganha o lugar certo, e uma coisa que antes não tinha onde ser dita:
-// que patrulha tem tipo. Sair para caçar buraco e sair para conferir poste são
-// atividades diferentes, com hora diferente e olhar diferente.
+// Aqui ela ganha o lugar certo. A ESCOLHA da categoria mudou de casa outra vez
+// (ago/2026): virou tela própria, em /patrulhar. Ela é o passo seguinte de uma
+// decisão já tomada, e ocupava meia central para quem só queria ver progresso.
 //
-// A HORA DA ILUMINAÇÃO
-//
-// Poste apagado só pode ser julgado no escuro — é a regra dos alertas, e sem
-// este aviso a pessoa sairia às duas da tarde, andaria um quilômetro e não
-// receberia nada. Pareceria defeito.
-//
-// A hora vem do `ehNoite`, que calcula a posição do sol para AQUELE lugar: em
-// junho, às 17h50 de Brasília, Floresta já está escura e Porto Alegre não. Um
-// corte por horário fixo erraria dos dois lados do país.
-
-/** Posição grosseira, só para saber se já escureceu aqui. */
-function usePosicaoAproximada() {
-  const [posicao, setPosicao] = useState(null);
-
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    let vivo = true;
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        if (vivo) setPosicao({ lat: coords.latitude, lng: coords.longitude });
-      },
-      // Falhar aqui não é problema: sem posição, a patrulha da iluminação
-      // continua disponível com o aviso de que só alerta à noite. Bloquear por
-      // falta de informação seria pior que deixar entrar.
-      () => {},
-      { enableHighAccuracy: false, maximumAge: 300000, timeout: 5000 }
-    );
-    return () => { vivo = false; };
-  }, []);
-
-  return posicao;
-}
-
-const CartaoPatrulha = ({ icone, titulo, descricao, aviso, desabilitado, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={desabilitado}
-    className={`w-full flex items-center gap-4 rounded-2xl border px-4 py-4 text-left transition-colors ${
-      desabilitado
-        ? 'border-edge-subtle bg-surface-subtle opacity-60 cursor-not-allowed'
-        : 'border-edge-subtle bg-surface-raised shadow-elevation-1 hover:bg-surface-subtle active:scale-[0.99]'
-    }`}
-  >
-    <span className="shrink-0 w-12 h-12 rounded-xl bg-brand-subtleBg ring-1 ring-edge-subtle flex items-center justify-center text-2xl">
-      {icone}
-    </span>
-
-    <span className="min-w-0 flex-1">
-      <span className="block text-[15px] font-bold text-content-primary leading-tight">
-        {titulo}
-      </span>
-      <span className="block text-xs text-content-secondary mt-0.5 leading-snug">
-        {descricao}
-      </span>
-      {aviso && (
-        <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-status-pendingBg px-2 py-1 text-[11px] font-semibold text-status-pendingFg">
-          <Moon size={12} />
-          {aviso}
-        </span>
-      )}
-    </span>
-
-    {!desabilitado && (
-      <ChevronRight size={20} className="shrink-0 text-content-tertiary" />
-    )}
-  </button>
-);
+// O que ficou desta tela é o que responde "onde eu estou e o que continuar":
+// nível, as missões mais perto de fechar, a trilha de patrulha em andamento, o
+// catálogo, e o aviso do que abre mais tarde.
 
 export default function MissionsPage() {
-  const navigate = useNavigate();
   const posicao = usePosicaoAproximada();
-  const { trilhas, pontuacao, concluidas, disponiveis, carregando } =
+  const { trilhas, pontuacao, concluidas, conquistas, contadores, carregando } =
     useMissions();
 
   // null = não sabemos ainda (ou o GPS recusou). Diferente de "é dia".
@@ -102,7 +41,92 @@ export default function MissionsPage() {
     [posicao]
   );
 
-  const patrulhar = (categoria) => navigate(`/patrulhar/${categoria}`);
+
+  // ── O que a tela nova precisa saber ──
+
+  const sequencia = useMemo(
+    () => calcularSequencia(contadores?.patrol_days || []),
+    [contadores]
+  );
+
+  /** A medalha mais difícil já conquistada. Vale mais dizer uma que listar oito. */
+  const melhorMedalha = useMemo(() => {
+    const ganhas = (conquistas || []).filter((c) => c.desbloqueada);
+    return ganhas.length > 0 ? ganhas[ganhas.length - 1] : null;
+  }, [conquistas]);
+
+  const [trilhaAtiva, setTrilhaAtiva] = useState('todas');
+  const [verTodas, setVerTodas] = useState(false);
+  const [verRequisitos, setVerRequisitos] = useState(false);
+
+  const abas = useMemo(
+    () => [{ id: 'todas', nome: 'Todos' }, ...trilhas.map((t) => ({ id: t.id, nome: t.nome }))],
+    [trilhas]
+  );
+
+  /**
+   * As mais perto de fechar, para o "Continue daqui".
+   *
+   * Ordena por QUANTO FALTA, não por porcentagem: 90% de uma etapa de 50 ainda
+   * são cinco ações, e uma missão a um passo do fim tem que vir antes.
+   */
+  const quaseLa = useMemo(() => {
+    const abertas = trilhas
+      .flatMap((t) => t.missoes)
+      .filter((m) => !m.bloqueada && !m.completa && m.atual > 0);
+    return [...abertas].sort((a, b) => a.faltam - b.faltam).slice(0, 4);
+  }, [trilhas]);
+
+  const investigacoes = useMemo(
+    () => trilhas.find((t) => t.id === 'investigacao')?.missoes ?? [],
+    [trilhas]
+  );
+
+  const dePatrulha = useMemo(
+    () => trilhas.find((t) => t.id === 'patrulha')?.missoes ?? [],
+    [trilhas]
+  );
+
+  const adiadasParaANoite = useMemo(
+    () => CATEGORIAS_SINAL.filter((c) => NAV_ALERTA.categoriasNoturnas.includes(c.id)),
+    []
+  );
+
+  const bloqueadas = useMemo(
+    () => trilhas.flatMap((t) => t.missoes).filter((m) => m.bloqueada),
+    [trilhas]
+  );
+
+  /**
+   * A lista, filtrada e recortada.
+   *
+   * As bloqueadas saem daqui: elas viram uma linha só no fim. Sem isso a
+   * central termina em cartões cinzas, que é o oposto do que ela deve provocar.
+   */
+  const { visiveis, ocultas, totalVisiveis } = useMemo(() => {
+    const base = trilhaAtiva === 'todas'
+      ? trilhas
+      : trilhas.filter((t) => t.id === trilhaAtiva);
+
+    const semBloqueio = base
+      .map((t) => ({ ...t, missoes: t.missoes.filter((m) => !m.bloqueada) }))
+      .filter((t) => t.missoes.length > 0);
+
+    const total = semBloqueio.reduce((n, t) => n + t.missoes.length, 0);
+    if (verTodas || total <= 4) {
+      return { visiveis: semBloqueio, ocultas: 0, totalVisiveis: total };
+    }
+
+    // Corta em quatro, atravessando as trilhas na ordem em que aparecem.
+    let restam = 4;
+    const cortado = [];
+    for (const t of semBloqueio) {
+      if (restam <= 0) break;
+      cortado.push({ ...t, missoes: t.missoes.slice(0, restam) });
+      restam -= Math.min(restam, t.missoes.length);
+    }
+    return { visiveis: cortado, ocultas: total - 4, totalVisiveis: total };
+  }, [trilhas, trilhaAtiva, verTodas]);
 
   return (
     <div className="container max-w-2xl mx-auto w-full px-4 py-6 pb-24">
@@ -114,81 +138,40 @@ export default function MissionsPage() {
         />
       </Helmet>
 
-      <PageHeader
-        titulo="Missões"
-        subtitulo=""
-        paraOnde="/feed"
-      />
+ 
 
       {/* Estado pessoal antes das ações: quem abre a central quer saber onde
           está antes de escolher o que fazer. */}
       {!carregando && (
-        <div className="rounded-2xl border border-edge-subtle bg-surface-raised px-4 py-4 mb-5 shadow-elevation-1">
-          <div className="flex items-center gap-3">
-            <span className="shrink-0 w-11 h-11 rounded-xl bg-brand-subtleBg ring-1 ring-edge-subtle flex items-center justify-center text-lg font-extrabold text-brand">
-              {pontuacao.level}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-content-primary leading-tight">
-                {pontuacao.label}
-              </p>
-              <p className="text-xs text-content-secondary mt-0.5">
-                {concluidas} {concluidas === 1 ? 'etapa vencida' : 'etapas vencidas'}
-                {disponiveis > 0 && ` · ${disponiveis} em andamento`}
-              </p>
-            </div>
-            <div className="shrink-0 text-right">
-              <p className="text-lg font-extrabold text-content-primary leading-none tabular-nums">
-                {pontuacao.points}
-              </p>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary mt-1">
-                pontos
-              </p>
-            </div>
-          </div>
+        <MissionLevelCard
+          nivel={pontuacao}
+          sequencia={sequencia}
+          concluidas={concluidas}
+          melhorMedalha={melhorMedalha}
+        />
+      )}
 
-          {/* O bônus aparece separado de propósito: quem não vê o prêmio da
-              etapa não persegue a etapa. */}
-          {pontuacao.pontosMissoes > 0 && (
-            <p className="text-xs text-brand font-semibold mt-2.5">
-              +{pontuacao.pontosMissoes} de bônus por missões
-            </p>
-          )}
+      {/* Por onde começar hoje: as seis categorias, com o quanto anda cada uma. */}
+      {!carregando && (
+        <MissionCategoryGrid missoes={investigacoes} categorias={CATEGORIAS_SINAL} />
+      )}
 
-          {pontuacao.proxima && (
-            <div className="mt-3">
-              <div className="flex items-baseline justify-between mb-1.5">
-                <span className="text-[11px] font-semibold text-content-tertiary">
-                  Próximo: {pontuacao.proxima.rotulo}
-                </span>
-                <span className="text-[11px] font-bold text-content-tertiary tabular-nums">
-                  faltam {pontuacao.proxima.faltam}
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-surface-sunken overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-brand transition-[width] duration-700"
-                  style={{ width: `${pontuacao.proxima.fracao * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+      {/* O que já foi começado, antes do catálogo inteiro. */}
+      {!carregando && (
+        <MissionResume missoes={quaseLa} />
       )}
 
       {/* ── As missões ──
           Vêm primeiro: a tela se chama Missões, e o que ela promete é dizer o
           que há para fazer. As patrulhas ficam logo abaixo, com âncora, porque
           são o DESTINO de metade das missões. */}
-      <section>
-        <div className="flex items-baseline justify-between gap-3 mb-3">
-          <h2 className="text-lg font-extrabold text-content-primary tracking-tight">
-            Suas missões
-          </h2>
-          <span className="text-xs text-content-tertiary">
-            metas que crescem
-          </span>
-        </div>
+      <section id="lista" className="mt-8 scroll-mt-4">
+        {/* O "Ver todas" daqui saiu junto com os outros dois: a pílula no fim
+            da lista faz a mesma coisa, e no lugar certo — depois de a pessoa
+            ver o que já cabe. */}
+        <h2 className="text-lg font-extrabold text-content-primary tracking-tight mb-3">
+          Suas missões
+        </h2>
 
         {carregando ? (
           <div className="flex justify-center py-10">
@@ -199,97 +182,146 @@ export default function MissionsPage() {
             Entre na sua conta para acompanhar suas missões.
           </p>
         ) : (
-          <MissionList trilhas={trilhas} />
+          <>
+            {/* FILTRO POR TRILHA.
+                Doze missões em quatro grupos cabem numa rolagem longa, e é
+                assim que a lista estava. O filtro serve a quem já sabe o que
+                quer fazer hoje — "só quero patrulhar" — sem obrigar quem não
+                sabe a escolher: "Todas" é o padrão. */}
+            <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 mb-3 scrollbar-none">
+              {abas.map((aba) => (
+                <button
+                  key={aba.id}
+                  type="button"
+                  onClick={() => setTrilhaAtiva(aba.id)}
+                  className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-bold transition-colors ${
+                    trilhaAtiva === aba.id
+                      ? 'bg-brand text-content-onBrand'
+                      : 'bg-surface-subtle text-content-secondary border border-edge-subtle'
+                  }`}
+                >
+                  {aba.nome}
+                </button>
+              ))}
+            </div>
+
+            <MissionList trilhas={visiveis} />
+
+            {/* O RESTO FICA DOBRADO.
+                Mostrar as doze de uma vez faz a tela terminar em lista de
+                pendências — e as últimas, que são as mais distantes, são
+                justamente as que menos convidam. */}
+            {ocultas > 0 && !verTodas && (
+              <button
+                type="button"
+                onClick={() => setVerTodas(true)}
+                className="w-full mt-3 h-11 inline-flex items-center justify-center gap-1.5 rounded-xl border border-edge-default bg-surface-subtle text-sm font-bold text-brand active:scale-[0.99] transition-transform"
+              >
+                Ver todas as {totalVisiveis} missões
+                <ChevronDown size={16} />
+              </button>
+            )}
+
+            {/* As bloqueadas viram UMA linha, não N cartões cinzas: elas não
+                são tarefa, são consequência de subir de nível. */}
+            {bloqueadas.length > 0 && (
+              <div className="mt-3 flex items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-subtle px-4 py-3.5">
+                <span className="shrink-0 w-9 h-9 rounded-xl bg-surface-raised flex items-center justify-center">
+                  <Lock size={17} className="text-content-tertiary" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-content-primary leading-tight">
+                    {bloqueadas.length}{' '}
+                    {bloqueadas.length === 1 ? 'missão bloqueada' : 'missões bloqueadas'}
+                  </p>
+                  <p className="text-xs text-content-secondary mt-0.5 leading-snug">
+                    Suba de nível para desbloquear
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVerRequisitos((v) => !v)}
+                  className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-bold text-brand"
+                >
+                  {verRequisitos ? 'Ocultar' : 'Ver requisitos'}
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            )}
+
+            {/* O requisito de cada uma, sob demanda. Ele é a resposta de "o que
+                eu preciso fazer" — mas listado sempre, viraria mais uma parede
+                de cinza no fim da tela. */}
+            {verRequisitos && bloqueadas.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {bloqueadas.map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex items-center gap-2.5 rounded-xl border border-edge-subtle bg-surface-subtle px-3.5 py-2.5"
+                  >
+                    <span className="text-base leading-none opacity-50" aria-hidden="true">
+                      {m.icone}
+                    </span>
+                    <span className="min-w-0 flex-1 text-xs font-semibold text-content-secondary truncate">
+                      {m.titulo}
+                    </span>
+                    <span className="shrink-0 text-[11px] font-bold text-content-tertiary">
+                      Nível {m.nivelMinimo}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </section>
 
 
-      {/* CONFERIR PONTOS: a outra atividade de rua, e ela vem primeiro.
+      {!carregando && (
+        <MissionPatrolProgress missoes={dePatrulha} para="/patrulhar" />
+      )}
 
-          Patrulhar é percorrer sem destino — o app avisa o que aparece. Conferir
-          é ir até pontos que já existem e fechá-los. As duas viviam na mesma
-          tela de patrulha, uma interrompendo a outra; agora são portas
-          separadas, e esta fica no topo porque tem fim: os pontos acabam. */}
-      <section className="mt-8">
-        <h2 className="text-[11px] font-bold uppercase tracking-widest text-content-tertiary mb-2.5">
-          Conferir o que marcaram
-        </h2>
+      {/* PRÓXIMA OPORTUNIDADE.
 
-        <Link
-          to="/conferir"
-          className="flex items-center gap-3.5 rounded-2xl border border-brand/30 bg-brand-subtleBg px-4 py-4 active:scale-[0.99] transition-transform"
-        >
-          <span className="shrink-0 w-11 h-11 rounded-xl bg-surface-raised ring-1 ring-brand/20 flex items-center justify-center">
-            <ClipboardCheck size={20} className="text-brand" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-bold text-content-primary leading-tight">
-              Conferir problemas marcados
-            </p>
-            <p className="text-xs text-content-secondary mt-0.5 leading-snug">
-              Alguém marcou de passagem, sem foto. Vá até lá e responda se o
-              problema está mesmo ali.
-            </p>
+          A patrulha de iluminação fica desabilitada de dia — poste apagado ao
+          sol é invisível, e o alerta pediria um julgamento impossível. Mas a
+          tela só mostrava o botão apagado, o que lê como "quebrado".
+
+          Dito como espera, vira convite para voltar: o app deixa de negar e
+          passa a marcar hora. */}
+      {noite === false && adiadasParaANoite.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-[11px] font-bold uppercase tracking-widest text-content-tertiary mb-2.5">
+            Próxima oportunidade
+          </h2>
+          <div className="flex items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-subtle px-4 py-3.5">
+            <span className="shrink-0 w-9 h-9 rounded-xl bg-surface-raised ring-1 ring-edge-subtle flex items-center justify-center">
+              <Moon size={17} className="text-content-tertiary" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-content-primary leading-tight">
+                {adiadasParaANoite.map((c) => `Patrulha de ${c.name.toLowerCase()}`).join(' · ')}
+              </p>
+              <p className="text-xs text-content-secondary mt-0.5 leading-snug">
+                Abre quando escurecer — de dia não dá para saber se o poste está
+                aceso.
+              </p>
+            </div>
           </div>
-          <ChevronRight size={18} className="shrink-0 text-content-tertiary" />
-        </Link>
-      </section>
+        </section>
+      )}
 
-      <section id="patrulhas" className="mt-8 scroll-mt-4">
-        {/* Não existe "patrulha completa".
+      {/* SAÍRAM DAQUI (ago/2026): o cartão "Conferir problemas marcados" e a
+          lista de categorias de patrulha.
 
-            Uma patrulha de tudo entregava alertas de categorias misturadas, e
-            quem sai à noite para conferir postes não quer parar num buraco. Com
-            uma categoria por vez, o corredor traz só o que interessa, o card
-            sabe o que dizer, e a sinalização já abre no tipo certo — um toque a
-            menos e nenhuma escolha errada possível. */}
-        <h2 className="text-[11px] font-bold uppercase tracking-widest text-content-tertiary mb-2.5">
-          Escolha o que procurar
-        </h2>
+          Os dois eram porta de entrada, e nenhum dos dois sumiu do app — só
+          deixou de ocupar espaço numa tela que agora tem um fluxo: nível, o que
+          continuar, patrulha em andamento, as missões.
 
-        <div className="flex flex-col gap-2.5">
-          {/* CATEGORIAS_SINAL é a lista sem "outros" — a mesma que a folha de
-              sinalização usa, e pela mesma razão: uma patrulha de "outros" não
-              conseguiria dizer o que procurar. Quem encontrar algo fora das
-              categorias registra pela patrulha completa. */}
-          {CATEGORIAS_SINAL.map((categoria) => {
-            const soANoite = NAV_ALERTA.categoriasNoturnas.includes(categoria.id);
-            // Só desabilita quando SABEMOS que é dia. Sem posição, entra com o
-            // aviso — a regra é do alerta, e ele explica de novo lá dentro.
-            const bloqueada = soANoite && noite === false;
-
-            return (
-              <CartaoPatrulha
-                key={categoria.id}
-                icone={categoria.icon}
-                titulo={`Patrulha de ${categoria.name.toLowerCase()}`}
-                descricao={
-                  soANoite
-                    ? 'Confira se os postes da sua rua estão acesos'
-                    : `Só as broncas de ${categoria.name.toLowerCase()}`
-                }
-                aviso={
-                  soANoite
-                    ? bloqueada
-                      ? 'Disponível quando escurecer por aqui'
-                      : 'Só alerta depois que escurece'
-                    : null
-                }
-                desabilitado={bloqueada}
-                onClick={() => patrulhar(categoria.id)}
-              />
-            );
-          })}
-        </div>
-      </section>
-
-      {/* "Suas patrulhas" saiu daqui em ago/2026 e foi para o perfil, junto de
-          "Meu Painel" e "Broncas Favoritas".
-
-          Esta tela é sobre o que fazer AGORA — as missões abertas e o botão de
-          sair patrulhando. Histórico é sobre o que já foi feito, e essa é a
-          pergunta que se leva ao perfil. Ter os dois aqui fazia a tela terminar
-          olhando para trás. */}
+          Conferir continua alcançável pelo botão da própria missão que pede
+          isso ("Confira problemas marcados" → /conferir). Patrulhar ganhou tela
+          própria em /patrulhar, e é para lá que apontam tanto as missões da
+          trilha quanto o "Continuar patrulha" do bloco acima. */}
     </div>
   );
 }
