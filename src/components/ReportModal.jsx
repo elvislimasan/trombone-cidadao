@@ -1513,9 +1513,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
           ],
         }));
 
-        toast({
-          title: "✅ Foto adicionada!",
-        });
+        // Sem toast: a miniatura entra na lista de mídias logo acima, na mesma
+        // tela. O toast chegava depois para anunciar o que já estava à vista.
         return;
       }
 
@@ -1551,10 +1550,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         ],
       }));
 
-      toast({
-        title: "Foto adicionada",
-        description: "Foto adicionada (modo compatibilidade)",
-      });
+      // Sem toast: a miniatura já entrou na lista acima.
     } catch (error) {
       console.error("Erro ao processar foto de URI:", error);
       // Não lançar erro para não quebrar a UI, apenas logar
@@ -1619,11 +1615,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
           ],
         }));
 
-        toast({
-          title: "Vídeo capturado!",
-          description: "Vídeo adicionado com sucesso.",
-        });
-
+        // Sem toast: o vídeo entra na lista com nome e ícone de play, mesmo
+        // quando ainda não há thumbnail.
         return;
       }
 
@@ -1692,10 +1685,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         ],
       }));
 
-      toast({
-        title: "Foto capturada!",
-        description: "Imagem adicionada com sucesso.",
-      });
+      // Sem toast: a miniatura já entrou na lista acima.
     } catch (error) {
       console.error("Erro ao processar captura in-app:", error);
       toast({
@@ -1821,11 +1811,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             ],
           }));
 
-          toast({
-            title: "✅ Foto adicionada!",
-            description: "Processamento em background concluído",
-            variant: "default",
-          });
+          // Sem toast: a miniatura já entrou na lista acima.
         }
       }
     } catch (error) {
@@ -1899,7 +1885,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             ],
           }));
 
-          toast({ title: "✅ Foto adicionada!" });
+          // Sem toast: a miniatura já entrou na lista acima.
         } else if (image && (image.base64String || image.dataUrl)) {
           await processPhotoFromBase64Optimized(image);
         }

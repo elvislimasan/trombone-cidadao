@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { caixaDeRaio, haversine } from '@/lib/navGeo';
+import { guardarReserva, lerReserva } from '@/lib/corridorCache';
 
 // Broncas do corredor por onde o usuário está passando.
 //
@@ -19,6 +20,16 @@ import { caixaDeRaio, haversine } from '@/lib/navGeo';
 // e coordenadas, sem agregação (migração 171). Não há RPC nova nem migração.
 
 const RAIO_M = 2000;
+
+/**
+ * Raio da RESERVA, buscada uma vez no começo da saída.
+ *
+ * 8 km cobre uma patrulha inteira numa cidade do porte de Floresta e boa parte
+ * de um bairro numa capital. Maior que isso começa a trazer bronca que a pessoa
+ * nunca vai chegar perto, e a consulta pesa no primeiro segundo da tela — que é
+ * justamente quando ela está esperando o mapa aparecer.
+ */
+const RAIO_RESERVA_M = 8000;
 const REFETCH_M = 1000;
 
 /**
@@ -39,12 +50,16 @@ export function useNavCorridor(posicao, { categoria = null } = {}) {
   const [broncas, setBroncas] = useState([]);
   const [carregando, setCarregando] = useState(false);
   const [erroRede, setErroRede] = useState(false);
+  // Os alertas estão saindo do que foi guardado, não do servidor.
+  const [deReserva, setDeReserva] = useState(false);
 
   const centroRef = useRef(null);
   const emVooRef = useRef(false);
   // Contador de requisições: descarta resposta de um fetch antigo que chegou
   // depois de um mais novo, senão o cache volta para um trecho já percorrido.
   const seqRef = useRef(0);
+  // A reserva e baixada uma vez por saida.
+  const reservaRef = useRef(false);
 
   const buscar = useCallback(async (centro) => {
     if (emVooRef.current) return;
@@ -98,32 +113,107 @@ export function useNavCorridor(posicao, { categoria = null } = {}) {
       );
       centroRef.current = centro;
       setErroRede(false);
+      setDeReserva(false);
     } catch (err) {
       console.error('[useNavCorridor] falha ao buscar corredor:', err);
       // Mantém o cache anterior de propósito: perder sinal no meio do trajeto
       // não deve apagar as broncas que já sabemos estar à frente.
       setErroRede(true);
+
+      // E vai buscar na reserva o que existe À FRENTE, não só o que sobrou do
+      // último trecho com sinal. É a diferença entre alertar por mais dois
+      // quarteirões e alertar pelo resto da saída.
+      const reserva = await lerReserva(categoria);
+      if (reserva?.broncas?.length) {
+        const caixa = caixaDeRaio(centro, RAIO_M);
+        const perto = reserva.broncas.filter(
+          (b) =>
+            b.lat >= caixa.minLat && b.lat <= caixa.maxLat &&
+            b.lng >= caixa.minLng && b.lng <= caixa.maxLng
+        );
+        if (perto.length > 0) {
+          setBroncas(perto);
+          setDeReserva(true);
+          // O centro NÃO é marcado: assim que a rede voltar, o próximo passo
+          // refaz a busca de verdade em vez de esperar mais um quilômetro.
+        }
+      }
     } finally {
       emVooRef.current = false;
       setCarregando(false);
     }
   }, [categoria]);
 
+  /**
+   * Baixa a reserva: um raio grande, uma vez só, no começo da saída.
+   *
+   * POR QUE NO COMEÇO E NÃO SOB DEMANDA
+   *
+   * Porque quando a rede cai já é tarde. A reserva só serve se tiver sido
+   * baixada ENQUANTO havia sinal — e o momento em que isso é mais provável é o
+   * primeiro, quando a pessoa ainda está saindo de casa ou do trabalho.
+   *
+   * Falhar aqui não impede nada: a patrulha começa normal e o corredor comum
+   * segue funcionando. O que se perde é a rede de segurança.
+   */
+  const precarregar = useCallback(async (centro) => {
+    if (!centro || reservaRef.current) return;
+    reservaRef.current = true;
+    try {
+      const caixa = caixaDeRaio(centro, RAIO_RESERVA_M);
+      const { data, error } = await supabase.rpc('reports_map_clusters', {
+        min_lat: caixa.minLat,
+        max_lat: caixa.maxLat,
+        min_lng: caixa.minLng,
+        max_lng: caixa.maxLng,
+        zoom: 18,
+        status_filter: 'active',
+        category_filter: categoria,
+      });
+      if (error) throw error;
+
+      const lista = (data || [])
+        .filter((row) => !row.is_cluster && row.report)
+        .map((row) => ({
+          id: row.report.id,
+          title: row.report.title,
+          status: row.report.status,
+          category: row.report.category_id,
+          categoryName: row.report.category_name || row.report.category_id,
+          coverImage: row.report.cover_image,
+          author_id: row.report.author_id ?? null,
+          lat: row.report.lat,
+          lng: row.report.lng,
+        }));
+
+      await guardarReserva(categoria, lista, centro);
+    } catch (err) {
+      console.error('[useNavCorridor] reserva nao foi baixada:', err);
+      // Deixa tentar de novo no proximo trecho: sem isto, uma queda no primeiro
+      // segundo da patrulha condenaria a saida inteira a ficar sem reserva.
+      reservaRef.current = false;
+    }
+  }, [categoria]);
+
   useEffect(() => {
     if (!posicao) return;
+    precarregar({ lat: posicao.lat, lng: posicao.lng });
     const centro = centroRef.current;
     if (!centro || haversine(centro, posicao) > REFETCH_M) {
       buscar({ lat: posicao.lat, lng: posicao.lng });
     }
-  }, [posicao, buscar]);
+  }, [posicao, buscar, precarregar]);
 
   // Troca de categoria invalida o cache: o filtro é aplicado no servidor.
-  useEffect(() => { centroRef.current = null; }, [categoria]);
+  useEffect(() => {
+    centroRef.current = null;
+    reservaRef.current = false;
+  }, [categoria]);
 
   /** Remove uma bronca do cache após confirmação, para não realertar. */
   const descartar = useCallback((id) => {
     setBroncas((atual) => atual.filter((b) => b.id !== id));
   }, []);
 
-  return { broncas, carregando, erroRede, descartar };
+  return { broncas, carregando, erroRede, deReserva, precarregar, descartar };
 }

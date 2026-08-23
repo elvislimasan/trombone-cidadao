@@ -213,8 +213,8 @@ const ManageReportsPage = () => {
     const result = await handleUpvoteHook(id);
 
     if (result.success) {
+      // Sem toast: o refetch abaixo já mostra o contador de apoios novo.
       fetchReports();
-      toast({ title: result.action === 'added' ? "Apoio registrado! 👍" : "Apoio removido." });
     } else {
       toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
     }
@@ -450,17 +450,15 @@ const ManageReportsPage = () => {
 
     if (isFavorited) {
       const { error } = await supabase.from('favorite_reports').delete().match({ user_id: user.id, report_id: reportId });
+      // Sem toast no sucesso: o refetch e o setSelectedReport abaixo já viram o
+      // coração. "Sucesso / Adicionado aos seus favoritos" só repete o ícone.
       if (error) {
         toast({ title: "Erro", description: "Não foi possível remover dos favoritos.", variant: "destructive" });
-      } else {
-        toast({ title: "Sucesso", description: "Removido dos seus favoritos." });
       }
     } else {
       const { error } = await supabase.from('favorite_reports').insert({ user_id: user.id, report_id: reportId });
       if (error) {
         toast({ title: "Erro", description: "Não foi possível adicionar aos favoritos.", variant: "destructive" });
-      } else {
-        toast({ title: "Sucesso", description: "Adicionado aos seus favoritos!" });
       }
     }
     fetchReports();

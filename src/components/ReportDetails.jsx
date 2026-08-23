@@ -22,6 +22,7 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { validateVideoFile } from '@/utils/videoProcessor';
 import { ShareModal } from './PetitionComponents';
+import { mascarar } from '@/lib/profanity';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -523,8 +524,8 @@ const ReportDetails = ({
           text: shareText,
         };
 
+        // Sem toast: a folha do sistema já confirmou ao fechar.
         await Share.share(shareData);
-        toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
         return;
       }
 
@@ -543,7 +544,6 @@ const ReportDetails = ({
         }
         
         await navigator.share(webShareData);
-      toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
         return;
       }
 
@@ -600,20 +600,25 @@ const ReportDetails = ({
     }
     if (!newComment.trim()) return;
 
+    // Publica na hora (migração 193). O baixo calão sai mascarado na escrita —
+    // o que vai para o banco é o que todo mundo vai ler.
+    const { texto, mascarou } = mascarar(newComment);
+
     const { error } = await supabase
       .from('comments')
       .insert({
         report_id: report.id,
         author_id: user.id,
-        text: newComment,
-        moderation_status: 'pending_approval',
+        text: texto,
+        moderation_status: 'approved',
       });
 
     if (error) {
       toast({ title: "Erro ao enviar comentário", description: error.message, variant: "destructive" });
     } else {
       setNewComment('');
-      toast({ title: "Comentário enviado! 💬", description: "Seu comentário foi enviado para moderação e será publicado em breve." });
+      // Sem toast: o refetch abaixo põe o comentário na lista, com os asteriscos
+      // à vista se houve mascaramento. Avisar do que já está na tela é ruído.
       onUpdate({ id: report.id }); // Trigger a refetch
     }
   };

@@ -625,7 +625,7 @@ const WorkDetailsPage = () => {
       if (error) {
         toast({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Obra removida dos favoritos! 💔" });
+        // Sem toast: o coração troca de estado na hora, embaixo do dedo.
         setIsFavorited(false);
       }
     } else {
@@ -633,7 +633,6 @@ const WorkDetailsPage = () => {
       if (error) {
         toast({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Obra adicionada aos favoritos! ⭐" });
         setIsFavorited(true);
       }
     }

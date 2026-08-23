@@ -148,9 +148,8 @@ export default function PatrolReportModal({
   const bloqueado =
     salvando || enviando || semFoto || !titulo.trim() || foraDeAlcance || faltaCategoria;
 
-  const enviarMidia = useCallback(async (reportId) => {
-    const arquivos = await cam.resolveForUpload();
-    if (arquivos.length === 0) return;
+  const enviarMidia = useCallback(async (reportId, arquivos) => {
+    if (!arquivos || arquivos.length === 0) return;
 
     const enviados = await Promise.all(
       arquivos.map(async (arquivo) => {
@@ -170,7 +169,7 @@ export default function PatrolReportModal({
     );
     const { error } = await supabase.from('report_media').insert(enviados);
     if (error) throw new Error(error.message);
-  }, [cam, user]);
+  }, [user]);
 
   const submeter = useCallback(async () => {
     if (bloqueado) return;
@@ -184,12 +183,24 @@ export default function PatrolReportModal({
       // declarar o que produziu.
       const idDaBronca = ehMissao ? missao.id : null;
 
+      // OS ARQUIVOS SAEM DA CÂMERA ANTES DA REDE.
+      //
+      // A ordem "primeiro a bronca, depois o upload" continua valendo online —
+      // ela evita foto órfã paga no storage quando a escrita é recusada.
+      //
+      // Mas offline a bronca não é escrita agora: ela vai para a fila, e a foto
+      // precisa ir junto no mesmo item. Resolver os arquivos aqui é o que
+      // permite isso — e não muda nada no caminho com rede, onde eles seguem
+      // sendo enviados só depois.
+      const arquivos = await cam.resolveForUpload();
+
       const r = ehMissao
         ? await onCumprir(missao.id, {
             titulo: titulo.trim(),
             descricao: descricao.trim(),
             novoPonto: houveAjuste ? ponto : null,
             extras,
+            arquivos,
           })
         : await onCriar({
             categoryId: categoria,
@@ -197,6 +208,7 @@ export default function PatrolReportModal({
             descricao: descricao.trim(),
             ponto,
             extras,
+            arquivos,
           });
 
       if (!r?.ok) {
@@ -208,8 +220,19 @@ export default function PatrolReportModal({
         return;
       }
 
+      // Foi para a fila: a foto já está guardada com ela, e não há id de bronca
+      // para anexar mídia ainda.
+      if (r.offline) {
+        toast({
+          title: 'Guardado para enviar',
+          description: 'Sem conexão agora. Sobe sozinho assim que o sinal voltar.',
+        });
+        onFechar({ concluida: true, modo, id: idDaBronca ?? null });
+        return;
+      }
+
       try {
-        await enviarMidia(idDaBronca ?? r.id);
+        await enviarMidia(idDaBronca ?? r.id, arquivos);
       } catch (err) {
         // A bronca já existe — dizer que tudo falhou seria mentira, e o usuário
         // tentaria de novo numa missão que não está mais aberta.
@@ -231,7 +254,7 @@ export default function PatrolReportModal({
     }
   }, [
     bloqueado, ehMissao, onCumprir, onCriar, missao, categoria, titulo,
-    descricao, ponto, deslocamento, extras, toast, enviarMidia, onFechar, modo,
+    descricao, ponto, deslocamento, extras, toast, enviarMidia, onFechar, modo, cam,
   ]);
 
   if (ehMissao && !missao) return null;

@@ -2,21 +2,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useMissionProgress } from '@/contexts/MissionProgressContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { mascarar } from '@/lib/profanity';
 
 /**
  * Comentarios de uma bronca, para a folha do feed.
  *
- * Comentarios entram como `pending_approval` e so aparecem para todos depois da
- * moderacao. Aqui mostramos os aprovados MAIS os pendentes do proprio autor:
- * sem isso, enviar um comentario nao muda nada na tela e parece que falhou.
- * O pendente vai marcado (`isPending`) para a UI deixar claro que ainda nao
- * esta publico — nao e o mesmo que ja ter sido publicado.
+ * Comentario publica na hora (migracao 193). O que segura o conteudo ruim vem
+ * depois da publicacao, em duas camadas:
+ *   - baixo calao sai mascarado na escrita (src/lib/profanity.js);
+ *   - 3 denuncias tiram o comentario do ar e o mandam para a moderacao.
  *
- * Moderador (admin/master) ve TODOS os pendentes e pode aprovar ali mesmo.
- * Duas razoes: a RLS ja entrega essas linhas para ele (entao o contador do card
- * as somava enquanto a folha as escondia — "1 pessoas ja comentaram" numa folha
- * vazia), e a fila de /admin/moderacao/comentarios exige sair do feed para
- * liberar uma frase de tres palavras.
+ * Por isso `isPending` aqui nao quer mais dizer "esperando aprovacao": quer
+ * dizer "foi denunciado e esta em revisao". So o autor e a moderacao enxergam
+ * um comentario nesse estado — a RLS cuida disso, o filtro abaixo so repete a
+ * regra para o caso do proprio autor.
  */
 export function useReportComments(reportId, { enabled = true } = {}) {
   const { user } = useAuth();
@@ -36,7 +35,13 @@ export function useReportComments(reportId, { enabled = true } = {}) {
     try {
       const { data, error: err } = await supabase
         .from('comments')
-        .select('id, text, created_at, author_id, moderation_status, author:profiles!comments_author_id_fkey(name, avatar_url)')
+        .select(
+          'id, text, created_at, author_id, moderation_status, ' +
+          'author:profiles!comments_author_id_fkey(name, avatar_url), ' +
+          // Só para saber se ESTA pessoa já denunciou: a RLS de comment_reports
+          // entrega as próprias denúncias, e a moderação, todas.
+          'denuncias:comment_reports(id, reporter_id, resolved_at)'
+        )
         .eq('report_id', reportId)
         .order('created_at', { ascending: true });
       if (err) throw err;
@@ -51,15 +56,19 @@ export function useReportComments(reportId, { enabled = true } = {}) {
             // feed e para o que ainda esta em decisao.
             (canModerate && c.moderation_status === 'pending_approval')
         )
-        .map((c) => ({
-          id: c.id,
-          text: c.text,
-          created_at: c.created_at,
-          authorName: c.author?.name || 'Anônimo',
-          authorAvatar: c.author?.avatar_url || null,
-          isPending: c.moderation_status !== 'approved',
-          isMine: Boolean(user && c.author_id === user.id),
-        }));
+        .map((c) => {
+          const abertas = (c.denuncias || []).filter((d) => !d.resolved_at);
+          return {
+            id: c.id,
+            text: c.text,
+            created_at: c.created_at,
+            authorName: c.author?.name || 'Anônimo',
+            authorAvatar: c.author?.avatar_url || null,
+            isPending: c.moderation_status !== 'approved',
+            isMine: Boolean(user && c.author_id === user.id),
+            jaDenunciei: Boolean(user && abertas.some((d) => d.reporter_id === user.id)),
+          };
+        });
 
       setComments(visible);
     } catch (e) {
@@ -80,6 +89,11 @@ export function useReportComments(reportId, { enabled = true } = {}) {
       const trimmed = (text || '').trim();
       if (!trimmed || !reportId || !user) return { ok: false };
 
+      // Mascara ANTES de gravar: o texto que vai para o banco é o mesmo que
+      // todo mundo lê, inclusive quem escreveu. Sem isso o autor veria a
+      // própria frase inteira e ninguém mais.
+      const { texto, mascarou } = mascarar(trimmed);
+
       setSubmitting(true);
       try {
         const { data, error: err } = await supabase
@@ -87,8 +101,8 @@ export function useReportComments(reportId, { enabled = true } = {}) {
           .insert({
             report_id: reportId,
             author_id: user.id,
-            text: trimmed,
-            moderation_status: 'pending_approval',
+            text: texto,
+            moderation_status: 'approved',
           })
           .select('id, text, created_at')
           .single();
@@ -107,11 +121,12 @@ export function useReportComments(reportId, { enabled = true } = {}) {
             created_at: data.created_at,
             authorName: user.name || 'Você',
             authorAvatar: user.avatar_url || null,
-            isPending: true,
+            isPending: false,
             isMine: true,
+            jaDenunciei: false,
           },
         ]);
-        return { ok: true };
+        return { ok: true, mascarou };
       } catch (e) {
         return { ok: false, error: e?.message || 'Não foi possível enviar o comentário.' };
       } finally {
@@ -122,9 +137,71 @@ export function useReportComments(reportId, { enabled = true } = {}) {
   );
 
   /**
-   * Aprova ou rejeita sem sair do feed. So o moderador chega aqui — a RLS de
-   * `comments` recusa a troca de status de qualquer outra pessoa, entao o botao
-   * escondido na UI nao e a unica tranca.
+   * Denuncia. Na terceira denuncia aberta, um gatilho no banco tira o
+   * comentario do ar — a conta nao passa pelo cliente, senao bastaria mentir
+   * sobre ela.
+   *
+   * O UNIQUE (comment_id, reporter_id) e o que impede uma pessoa sozinha de
+   * derrubar qualquer comentario clicando tres vezes; o 23505 que ele devolve
+   * nao e erro para quem usa, e "voce ja denunciou".
+   */
+  const denunciar = useCallback(
+    async (commentId, reason = null) => {
+      if (!commentId || !user) return { ok: false };
+
+      try {
+        const { error: err } = await supabase
+          .from('comment_reports')
+          .insert({ comment_id: commentId, reporter_id: user.id, reason });
+
+        if (err && err.code !== '23505') throw err;
+
+        // Refaz a busca: se esta foi a terceira, o comentario ja saiu do ar e
+        // some da lista sozinho.
+        await fetch();
+        return { ok: true, repetida: err?.code === '23505' };
+      } catch (e) {
+        return { ok: false, error: e?.message || 'Não foi possível registrar a denúncia.' };
+      }
+    },
+    [user, fetch]
+  );
+
+  /**
+   * Apaga o proprio comentario. Some de vez, para todo mundo — quem escreveu
+   * pode se arrepender, e a RLS da 170 ja permitia isso sem que a tela
+   * oferecesse.
+   *
+   * Aqui e DELETE mesmo, nao 'rejected': o autor apagando o proprio texto nao
+   * e materia de moderacao, e nao ha o que arquivar.
+   */
+  const excluir = useCallback(
+    async (commentId) => {
+      if (!commentId || !user) return { ok: false };
+
+      setModeratingId(commentId);
+      try {
+        const { error: err } = await supabase.from('comments').delete().eq('id', commentId);
+        if (err) throw err;
+
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e?.message || 'Não foi possível excluir o comentário.' };
+      } finally {
+        setModeratingId(null);
+      }
+    },
+    [user]
+  );
+
+  /**
+   * Decisao da moderacao sobre um comentario denunciado.
+   *
+   * Vai por RPC porque restaurar o comentario e zerar as denuncias precisam
+   * acontecer juntos: um comentario restaurado com o placar cheio cairia de
+   * novo na denuncia seguinte. A RPC tambem confere `is_admin` no servidor — o
+   * item escondido no menu nao e a tranca.
    */
   const moderate = useCallback(
     async (commentId, status) => {
@@ -132,15 +209,15 @@ export function useReportComments(reportId, { enabled = true } = {}) {
 
       setModeratingId(commentId);
       try {
-        const { error: err } = await supabase
-          .from('comments')
-          .update({ moderation_status: status })
-          .eq('id', commentId);
+        const { error: err } = await supabase.rpc('moderar_comentario', {
+          p_comment_id: commentId,
+          p_status: status,
+        });
         if (err) throw err;
 
         setComments((prev) =>
           status === 'approved'
-            ? prev.map((c) => (c.id === commentId ? { ...c, isPending: false } : c))
+            ? prev.map((c) => (c.id === commentId ? { ...c, isPending: false, jaDenunciei: false } : c))
             : prev.filter((c) => c.id !== commentId)
         );
         return { ok: true };
@@ -153,8 +230,8 @@ export function useReportComments(reportId, { enabled = true } = {}) {
     [canModerate]
   );
 
-  // Contagem publica: pendentes do proprio autor nao entram, senao o numero no
-  // card divergiria do que as outras pessoas veem.
+  // Contagem publica: o denunciado em revisao nao entra, senao o numero no card
+  // divergiria do que as outras pessoas veem.
   const publicCount = comments.filter((c) => !c.isPending).length;
 
   return {
@@ -168,5 +245,7 @@ export function useReportComments(reportId, { enabled = true } = {}) {
     canModerate,
     moderate,
     moderatingId,
+    denunciar,
+    excluir,
   };
 }

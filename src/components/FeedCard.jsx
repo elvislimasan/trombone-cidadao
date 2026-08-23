@@ -66,6 +66,10 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
   // Status local: o modal de atualizacao pode mudar o status da bronca, e o
   // card precisa refletir isso sem esperar um refresh do feed inteiro.
   const [localStatus, setLocalStatus] = useState(report.status);
+  // Favorito local, pelo mesmo motivo do status: o feed pai nao e reconsultado
+  // ao salvar, entao sem espelho o icone ficava no estado antigo e a unica
+  // prova do toque era um toast.
+  const [localFav, setLocalFav] = useState(report.is_favorited);
   // O download do video para o cache local pode levar alguns segundos em rede
   // movel; sem indicador o usuario acha que o toque nao registrou.
   const [sharingStory, setSharingStory] = useState(false);
@@ -73,6 +77,10 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
   useEffect(() => {
     setLocalStatus(report.status);
   }, [report.status]);
+
+  useEffect(() => {
+    setLocalFav(report.is_favorited);
+  }, [report.is_favorited]);
 
   useEffect(() => {
     setCommentsCount(report.comments_count);
@@ -224,8 +232,12 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
       navigate('/login');
       return;
     }
+    // O icone vira antes da rede: e ele a confirmacao do toque, no lugar do
+    // toast que existia so porque nada mudava na tela. Volta atras se falhar.
+    const eraFavorito = localFav;
+    setLocalFav(!eraFavorito);
     try {
-      if (report.is_favorited) {
+      if (eraFavorito) {
         await supabase.from('favorite_reports').delete()
           .eq('user_id', user.id).eq('report_id', report.id);
       } else {
@@ -234,14 +246,11 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
           { onConflict: 'user_id,report_id' }
         );
       }
-      toast({
-        title: report.is_favorited ? 'Removido dos favoritos' : 'Salvo nos favoritos',
-        duration: 1500,
-      });
     } catch {
+      setLocalFav(eraFavorito);
       toast({ title: 'Erro ao salvar', variant: 'destructive', duration: 2000 });
     }
-  }, [user, report, navigate, toast]);
+  }, [user, report.id, localFav, navigate, toast]);
 
 
   const isActive = localStatus !== 'resolved' && localStatus !== 'duplicate';
@@ -398,10 +407,10 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             <button
               type="button"
               onClick={handleBookmark}
-              aria-label={report.is_favorited ? 'Deixar de acompanhar' : 'Acompanhar bronca'}
-              aria-pressed={report.is_favorited}
+              aria-label={localFav ? 'Deixar de acompanhar' : 'Acompanhar bronca'}
+              aria-pressed={localFav}
               className={`p-1.5 rounded-lg transition-colors ${
-                report.is_favorited
+                localFav
                   ? 'text-brand'
                   : 'text-content-secondary hover:text-content-primary'
               }`}

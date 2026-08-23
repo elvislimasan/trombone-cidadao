@@ -1086,12 +1086,21 @@ const ManageNewsPage = () => {
     setDeletingNews(null);
   };
 
+  // Desde a 193 esta lista não é mais fila de aprovação: comentário de notícia
+  // publica na hora, e só chega aqui o que 3 denúncias tiraram do ar.
+  //
+  // Vai pela RPC, e não por update direto, porque restaurar o comentário e
+  // zerar as denúncias precisam acontecer juntos — senão o restaurado cai de
+  // novo na denúncia seguinte, com as três antigas ainda contando.
   const handleCommentModeration = async (commentId, newStatus) => {
-    const { error } = await supabase.from('comments').update({ moderation_status: newStatus }).eq('id', commentId);
+    const { error } = await supabase.rpc('moderar_comentario', {
+      p_comment_id: commentId,
+      p_status: newStatus,
+    });
     if (error) {
       toast({ title: "Erro ao moderar comentário", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Comentário ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'}!` });
+      toast({ title: `Comentário ${newStatus === 'approved' ? 'restaurado' : 'removido'}!` });
       fetchNewsAndComments();
     }
   };

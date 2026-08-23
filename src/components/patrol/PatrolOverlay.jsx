@@ -8,6 +8,7 @@ import { App as CapApp } from '@capacitor/app';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { useOfflineQueueContext } from '@/contexts/OfflineQueueContext';
 import {
   enviarAtualizacaoDeBronca,
   computeDisabledUpdateTypes,
@@ -76,6 +77,7 @@ export default function PatrolOverlay({
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const filaOffline = useOfflineQueueContext();
 
   const [avisoAceito, aceitarAviso] = useAvisoAceito();
   /**
@@ -131,7 +133,7 @@ export default function PatrolOverlay({
   // A categoria filtra na FONTE, não na exibição: o corredor traz só o que
   // interessa, e o mapa desenha menos pinos. Numa patrulha de buracos, os
   // postes nem chegam ao aparelho.
-  const { broncas, erroRede, descartar } = useNavCorridor(posicao, { categoria });
+  const { broncas, erroRede, deReserva, descartar } = useNavCorridor(posicao, { categoria });
   const { rua, bairro, cidadeId } = useNavStreet(posicao);
   const { anunciar, preparar, mudo, alternarMudo, suportada: somSuportado } = useNavVoice();
 
@@ -708,9 +710,12 @@ export default function PatrolOverlay({
         rua={rua}
         sinalFraco={sinalFraco}
         semRede={erroRede}
+        deReserva={deReserva}
         totalNaFila={fila.length}
         cardVisivel={camada === 'alerta'}
         onSair={sair}
+        pendentes={filaOffline.pendentes}
+        enviandoFila={filaOffline.enviando}
         mudo={mudo}
         onAlternarSom={alternarMudo}
         somSuportado={somSuportado}

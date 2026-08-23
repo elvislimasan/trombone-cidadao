@@ -9,6 +9,7 @@ import { CityProvider } from '@/contexts/CityContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { MapModeProvider } from './contexts/MapModeContext';
 import { MissionProgressProvider } from './contexts/MissionProgressContext';
+import { OfflineQueueProvider } from './contexts/OfflineQueueContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from '@/design-system/theme/ThemeProvider';
 import { Capacitor } from '@capacitor/core';
@@ -251,7 +252,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 {/* Dentro do Auth e do Router: precisa do usuário para buscar os
                     contadores, e do Link do aviso para levar às missões. */}
                 <MissionProgressProvider>
-                  <App />
+                  {/* O carteiro da fila offline. Uma instância só — ver o
+                      cabeçalho do contexto. */}
+                  <OfflineQueueProvider>
+                    <App />
+                  </OfflineQueueProvider>
                 </MissionProgressProvider>
               </HelmetProvider>
               </MapModeProvider>

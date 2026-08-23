@@ -20,6 +20,7 @@ import { Share } from '@capacitor/share';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
+import { mascarar } from '@/lib/profanity';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
@@ -162,8 +163,8 @@ const NewsDetailsPage = () => {
       const safeIds = Array.isArray(ids) ? ids : [];
       const nextIds = safeIds.includes(newsId) ? safeIds.filter((id) => id !== newsId) : [newsId, ...safeIds];
       localStorage.setItem(key, JSON.stringify(nextIds));
+      // Sem toast: o ícone de salvar troca de estado na hora.
       setIsSaved(nextIds.includes(newsId));
-      toast({ title: nextIds.includes(newsId) ? "Notícia salva" : "Removida das salvas" });
     } catch {}
   }, [newsId, toast, user?.id]);
 
@@ -178,13 +179,12 @@ const NewsDetailsPage = () => {
     const title = 'Trombone Cidadão';
     try {
       if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
+        // Sem toast: a folha do sistema já confirmou ao fechar.
         await Share.share({ title, text: shareText });
-        toast({ title: 'Compartilhado com sucesso! 📣' });
         return;
       }
       if (navigator.share) {
         await navigator.share({ title, text: shareText });
-        toast({ title: 'Compartilhado com sucesso! 📣' });
         return;
       }
       await navigator.clipboard.writeText(shareText);
@@ -335,21 +335,28 @@ const NewsDetailsPage = () => {
       return;
     }
     
+    // Mesma regra do comentário de bronca (migração 193): publica na hora, com
+    // o baixo calão mascarado na escrita.
+    const { texto, mascarou } = mascarar(newComment);
+
     const { error } = await supabase
       .from('comments')
       .insert({
         report_id: null, // This is a news comment, not a report comment
         news_id: newsId, // You'll need to add a news_id column to your comments table
         author_id: user.id,
-        text: newComment,
-        moderation_status: 'pending_approval'
+        text: texto,
+        moderation_status: 'approved'
       });
 
     if (error) {
       toast({ title: "Erro ao enviar comentário", description: error.message, variant: "destructive" });
     } else {
       setNewComment('');
-      toast({ title: "Comentário enviado! 💬", description: "Seu comentário foi enviado para moderação." });
+      toast({
+        title: "Comentário publicado! 💬",
+        description: mascarou ? "Algumas palavras foram mascaradas." : undefined,
+      });
       // Optionally refetch comments or optimistically update UI
     }
   };

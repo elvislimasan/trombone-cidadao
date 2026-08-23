@@ -171,7 +171,8 @@ const FavoritesPage = () => {
       if (error) {
         toast({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Removido dos favoritos! 💔" });
+        // Sem toast: nesta página o card sai da lista ao ser desfavoritado —
+        // não há confirmação mais direta do que a bronca sumir dos favoritos.
         fetchFavorites(page);
         if (selectedReport?.id === reportId) {
           setSelectedReport(prev => ({ ...prev, is_favorited: false }));
@@ -183,7 +184,6 @@ const FavoritesPage = () => {
       if (error) {
         toast({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Adicionado aos favoritos! ⭐" });
         fetchFavorites(page);
         if (selectedReport?.id === reportId) {
           setSelectedReport(prev => ({ ...prev, is_favorited: true }));

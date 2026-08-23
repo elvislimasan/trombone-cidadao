@@ -816,8 +816,7 @@ const PetitionPage = () => {
         }, 
         ...prev
       ]);
-      
-      toast({ title: "Comentário publicado!", description: "Obrigado por compartilhar sua opinião." });
+      // Sem toast: o comentário acabou de entrar no topo da lista acima.
     } catch (error) {
       toast({ title: "Erro ao publicar", description: error.message, variant: "destructive" });
     }

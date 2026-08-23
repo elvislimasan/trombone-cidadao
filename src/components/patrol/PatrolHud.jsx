@@ -1,4 +1,4 @@
-import { X, Navigation2, SatelliteDish, WifiOff, ListChecks, Square, Volume2, VolumeX } from 'lucide-react';
+import { X, Navigation2, SatelliteDish, WifiOff, ListChecks, Square, Volume2, VolumeX, CloudOff, Loader2, DatabaseBackup } from 'lucide-react';
 
 // Painel do modo patrulha: velocidade, rua, avisos e a ação da vez.
 //
@@ -24,7 +24,14 @@ const AVISOS = {
   },
   semRede: {
     Icon: WifiOff,
-    texto: 'Sem conexão — usando dados já carregados',
+    texto: 'Sem conexão — usando o que já estava carregado',
+  },
+  // Diferente do de cima: aqui os alertas continuam saindo, e saem da reserva
+  // baixada no início da saída. Dizer só "sem conexão" faria parecer que o app
+  // parou de avisar — e ele não parou.
+  deReserva: {
+    Icon: DatabaseBackup,
+    texto: 'Sem conexão — alertando pelo mapa guardado',
   },
 };
 
@@ -33,15 +40,27 @@ export default function PatrolHud({
   rua,
   sinalFraco,
   semRede,
+  deReserva = false,
   totalNaFila,
   cardVisivel,
   acao,
   onSair,
+  pendentes = 0,
+  enviandoFila = false,
   mudo = false,
   onAlternarSom,
   somSuportado = true,
 }) {
-  const aviso = sinalFraco ? AVISOS.sinalFraco : semRede ? AVISOS.semRede : null;
+  // A reserva vence o "sem rede" na hora de avisar: as duas coisas são
+  // verdade ao mesmo tempo, mas só uma diz o que está acontecendo com os
+  // ALERTAS — que é o que a pessoa quer saber enquanto dirige.
+  const aviso = sinalFraco
+    ? AVISOS.sinalFraco
+    : deReserva
+    ? AVISOS.deReserva
+    : semRede
+    ? AVISOS.semRede
+    : null;
 
   return (
     <>
@@ -73,6 +92,25 @@ export default function PatrolHud({
               <aviso.Icon size={15} className="text-status-pendingFg shrink-0" />
               <span className="text-xs font-semibold text-status-pendingFg">
                 {aviso.texto}
+              </span>
+            </div>
+          )}
+
+          {/* O QUE AINDA NÃO SUBIU.
+              Sem este contador, uma patrulha inteira sem sinal parece ter dado
+              certo — e a pessoa só descobre que nada chegou quando abre o feed
+              em casa. Com ele, ela sabe que o app guardou, e por quantos. */}
+          {pendentes > 0 && (
+            <div className="flex items-center gap-1.5 rounded-xl bg-status-pendingBg border border-status-pendingBorder px-3 py-2 pointer-events-auto">
+              {enviandoFila ? (
+                <Loader2 size={15} className="text-status-pendingFg shrink-0 animate-spin" />
+              ) : (
+                <CloudOff size={15} className="text-status-pendingFg shrink-0" />
+              )}
+              <span className="text-xs font-bold text-status-pendingFg">
+                {enviandoFila
+                  ? 'Enviando…'
+                  : `${pendentes} ${pendentes === 1 ? 'guardado' : 'guardados'} para enviar`}
               </span>
             </div>
           )}

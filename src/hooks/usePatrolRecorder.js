@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { deveRegistrarPonto, distanciaTotal, rastroParaBanco } from '@/lib/navGeo';
+import { enfileirar } from '@/lib/offlineQueue';
+import { ehErroDeRede } from '@/lib/offlineSenders';
 
 // Grava a sessão de patrulha: rastro na tela, distância, tempo e o que foi
 // patrulhado.
@@ -280,6 +282,27 @@ export function usePatrolRecorder(posicao, { cityId = null, kind = 'patrol' } = 
             .select()
             .single();
 
+      // SEM REDE, A SAÍDA VAI INTEIRA PARA A FILA — COM O PERCURSO.
+      //
+      // É a última coisa que acontece numa patrulha, e é onde a rede mais falta:
+      // a pessoa está longe de casa, terminando. Perder aqui apagaria a medida
+      // de tudo que ela acabou de andar.
+      //
+      // Só na PRIMEIRA gravação: um update que falha por rede é a fila de
+      // confirmações do resumo, e essa já foi enfileirada uma por uma.
+      if (error && ehErroDeRede(error) && !salva) {
+        const caminho = rastroParaBanco(rastro);
+        await enfileirar('saida', {
+          patrulha: { user_id: user.id, city_id: cityId ?? null, kind, ...medidas, is_public: publica },
+          percurso: {
+            user_id: user.id,
+            path: caminho,
+            points: caminho.length,
+            actions: acoesRef.current.slice(0, 500),
+          },
+        });
+        return { ok: true, offline: true };
+      }
       if (error) throw error;
       const primeiraGravacao = !salva;
       salvaRef.current = data;
@@ -295,7 +318,7 @@ export function usePatrolRecorder(posicao, { cityId = null, kind = 'patrol' } = 
     } finally {
       setSalvando(false);
     }
-  }, [user, cityId, kind, distanciaM, guardarPercurso]);
+  }, [user, cityId, kind, distanciaM, rastro, guardarPercurso]);
 
 
   /** Segundos desde a primeira leitura de GPS. Lido ao abrir o resumo. */

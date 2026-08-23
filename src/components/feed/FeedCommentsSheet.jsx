@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Send, Clock, Check, X, MoreVertical } from 'lucide-react';
+import { Send, Clock, Check, X, MoreVertical, Flag, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,14 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { TimeAgo } from '@/components/TimeAgo';
 import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -42,7 +50,7 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
   const [text, setText] = useState('');
   const listEndRef = useRef(null);
 
-  const { comments, loading, error, submit, submitting, publicCount, canModerate, moderate, moderatingId } =
+  const { comments, loading, error, submit, submitting, publicCount, canModerate, moderate, moderatingId, denunciar, excluir } =
     useReportComments(reportId, { enabled: open });
 
   // Mantem o card do feed em sincronia quando a moderacao ja aprovou algo novo.
@@ -57,6 +65,9 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
     const result = await submit(text);
     if (result.ok) {
       setText('');
+      // Sem toast, nem para o mascaramento: o comentário aparece na lista com os
+      // asteriscos à vista, e a rolagem abaixo leva o olho até ele. Um aviso
+      // dizendo o que já está escrito na tela é ruído.
       requestAnimationFrame(() => {
         listEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       });
@@ -73,15 +84,56 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
     const result = await moderate(commentId, status);
     if (result.ok) {
       toast({
-        title: status === 'approved' ? 'Visível para todos' : 'Comentário rejeitado',
+        title: status === 'approved' ? 'Comentário restaurado' : 'Comentário removido',
         description:
           status === 'approved'
-            ? 'O comentário saiu da análise e já aparece no feed.'
-            : 'Ele não será publicado.',
+            ? 'As denúncias foram zeradas e ele voltou para o feed.'
+            : 'Ele não aparece mais para ninguém.',
       });
     } else {
       toast({
         title: 'Erro ao moderar',
+        description: result.error,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Confirmação porque não há desfazer: o DELETE leva a linha embora. Em
+  // diálogo do app, não em `window.confirm` — o nativo do browser abre com
+  // "localhost:3002 diz" no topo e, dentro do app empacotado, é uma caixa de
+  // sistema no meio de uma tela desenhada.
+  const [aExcluir, setAExcluir] = useState(null);
+
+  const confirmarExclusao = async () => {
+    const commentId = aExcluir;
+    setAExcluir(null);
+    if (!commentId) return;
+
+    const result = await excluir(commentId);
+    if (!result.ok) {
+      toast({
+        title: 'Erro ao excluir',
+        description: result.error,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDenunciar = async (commentId) => {
+    const result = await denunciar(commentId);
+    if (result.ok) {
+      // Sem número de denúncias na tela: dizer "faltam 2" convida a juntar as
+      // outras duas. O limiar é assunto do banco.
+      toast({
+        title: result.repetida ? 'Você já denunciou' : 'Denúncia registrada',
+        description: result.repetida
+          ? 'Esta denúncia já estava no ar.'
+          : 'A moderação vai avaliar este comentário.',
+      });
+    } else {
+      toast({
+        title: 'Erro ao denunciar',
         description: result.error,
         variant: 'destructive',
       });
@@ -128,17 +180,18 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
                         <TimeAgo date={c.created_at} />
                       </span>
 
-                      {/* Moderação no lugar onde o comentário é lido, sem virar
-                          um par de botões coloridos dentro da conversa: quem lê
-                          a folha na maior parte das vezes não vai moderar nada.
-                          A fila do admin continua para o volume; isto aqui é o
-                          atalho de quem já está com a bronca na frente. */}
-                      {c.isPending && canModerate && (
+                      {/* Todo comentário tem menu para quem está logado — o que
+                          muda é o que há dentro. Denúncia mora aqui, e não num
+                          botão fixo, porque o normal é ler e seguir em frente:
+                          quem precisa dela sabe procurar. Deslogado não tem
+                          menu: denúncia anônima é convite para derrubar
+                          comentário alheio. */}
+                      {user && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              aria-label="Moderar comentário"
+                              aria-label="Opções do comentário"
                               disabled={moderatingId === c.id}
                               className="ml-auto -mr-1 flex-shrink-0 rounded-full p-1 text-content-tertiary hover:bg-surface-raised hover:text-content-primary disabled:opacity-40"
                             >
@@ -146,17 +199,49 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="min-w-[190px]">
-                            <DropdownMenuItem onSelect={() => handleModerate(c.id, 'approved')}>
-                              <Check size={14} className="mr-2" />
-                              Deixar visível para todos
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => handleModerate(c.id, 'rejected')}
-                              className="text-danger focus:text-danger"
-                            >
-                              <X size={14} className="mr-2" />
-                              Rejeitar
-                            </DropdownMenuItem>
+                            {!c.isMine && (
+                              <DropdownMenuItem
+                                onSelect={() => handleDenunciar(c.id)}
+                                disabled={c.jaDenunciei}
+                              >
+                                <Flag size={14} className="mr-2" />
+                                {c.jaDenunciei ? 'Você já denunciou' : 'Denunciar'}
+                              </DropdownMenuItem>
+                            )}
+
+                            {/* Quem escreveu se apaga sozinho, sem passar por
+                                moderação nenhuma — o texto é dele. */}
+                            {c.isMine && (
+                              <DropdownMenuItem
+                                onSelect={() => setAExcluir(c.id)}
+                                className="text-danger focus:text-danger"
+                              >
+                                <Trash2 size={14} className="mr-2" />
+                                Excluir comentário
+                              </DropdownMenuItem>
+                            )}
+
+                            {/* A moderação alcança qualquer comentário, não só
+                                o que as denúncias já derrubaram: esperar as 3
+                                para poder agir sobre algo que o admin está
+                                lendo agora é esperar por nada. */}
+                            {canModerate && !c.isMine && (
+                              <>
+                                {c.isPending && (
+                                  <DropdownMenuItem onSelect={() => handleModerate(c.id, 'approved')}>
+                                    <Check size={14} className="mr-2" />
+                                    Restaurar comentário
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  onSelect={() => handleModerate(c.id, 'rejected')}
+                                  className="text-danger focus:text-danger"
+                                >
+                                  <X size={14} className="mr-2" />
+                                  Remover comentário
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
@@ -165,14 +250,15 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
                       {c.text}
                     </p>
                   </div>
-                  {/* O autor precisa saber que o próprio comentário ainda não é
-                      público — senão acharia que já está publicado para todo
-                      mundo. Para o moderador basta o estado: a ação está no
-                      menu, não faz sentido repeti-la aqui. */}
+                  {/* Denunciado, fora do ar. O autor precisa saber que ninguém
+                      mais está lendo aquilo — senão segue a conversa achando
+                      que falou com alguém. */}
                   {c.isPending && (
                     <p className="mt-1 ml-1 flex items-center gap-1 text-2xs text-content-tertiary">
                       <Clock size={11} />
-                      {canModerate ? 'Em análise' : 'Em análise — visível só para você'}
+                      {canModerate
+                        ? 'Denunciado — em revisão'
+                        : 'Denunciado — em revisão, visível só para você'}
                     </p>
                   )}
                 </div>
@@ -215,6 +301,34 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
           )}
         </div>
       </DrawerContent>
+
+      {/* Sai por cima da folha: o Dialog é z-[10000] e o Drawer, z-[3001]. */}
+      <Dialog open={Boolean(aExcluir)} onOpenChange={(aberto) => { if (!aberto) setAExcluir(null); }}>
+        <DialogContent className="max-w-xs rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Excluir comentário?</DialogTitle>
+            <DialogDescription>
+              Ele some para todo mundo e não dá para desfazer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex-row gap-2">
+            <button
+              type="button"
+              onClick={() => setAExcluir(null)}
+              className="flex-1 rounded-xl border border-edge-default px-4 py-2.5 text-sm font-semibold text-content-secondary"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmarExclusao}
+              className="flex-1 rounded-xl bg-danger px-4 py-2.5 text-sm font-bold text-white"
+            >
+              Excluir
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Drawer>
   );
 };

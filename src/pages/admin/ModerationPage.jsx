@@ -14,7 +14,7 @@ import {
   ArrowLeft, Check, X, Eye, ChevronLeft, ChevronRight, Search,
   AlertCircle, FileText, CheckCircle2, Info,
   User, Clock, Image as ImageIcon, Trash2,
-  ZoomIn, ExternalLink, Loader2, MapPin
+  ZoomIn, ExternalLink, Loader2, MapPin, Flag
 } from 'lucide-react';
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -128,7 +128,7 @@ const ModerationPage = () => {
                    isResolutionModeration ? 'Moderação de Resoluções' :
                    isReportModeration ? 'Moderação de Broncas' :
                    isPetitionModeration ? 'Moderação de Abaixo-Assinados' :
-                   'Moderação de Comentários';
+                   'Comentários Denunciados';
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -176,6 +176,29 @@ const ModerationPage = () => {
           .order('created_at', { ascending: true });
         if (error) throw error;
         setItems(data || []);
+      } else if (isCommentModeration) {
+        // O que entra nesta fila é DENÚNCIA ABERTA, não status.
+        //
+        // O corte de 3 é quando o comentário some do feed sozinho — não é
+        // quando a moderação fica sabendo. Amarrar a fila ao status deixava o
+        // admin cego justamente na janela em que dá para agir cedo: a primeira
+        // denúncia chegava e a tela dizia "tudo limpo por aqui".
+        //
+        // `!inner` é o que faz o filtro da denúncia recortar o comentário: sem
+        // ele, viria todo comentário do banco com a lista de denúncias vazia.
+        const { data, error } = await supabase
+          .from('comments')
+          .select(
+            '*, author:profiles!author_id(name), report:reports(id, title), ' +
+            'denuncias:comment_reports!inner(id, reason, created_at, resolved_at)'
+          )
+          .is('denuncias.resolved_at', null)
+          // Comentário de notícia tem fila própria dentro de "Gerenciar
+          // Notícias"; aqui ele viria sem contexto nenhum.
+          .not('report_id', 'is', null)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        setItems(data || []);
       } else {
         const tableToFetch = isReportModeration ? 'reports' : 'comments';
         const statusField = 'moderation_status';
@@ -188,10 +211,6 @@ const ModerationPage = () => {
           // autor e protocolo, e a única coisa que diz se a bronca é real —
           // a foto — exigia abrir o modal de revisão, um por um. A fila de
           // moderação existe para ser percorrida rápido.
-          //
-          // No comentário vem junto a bronca comentada: sem ela o cartão mostra
-          // uma frase solta ("concordo", "de novo isso") e não há como julgar
-          // se ela cabe ali.
           .select(
             isReportModeration
               ? '*, author:profiles!author_id(name), report_media(url, type)'
@@ -206,13 +225,6 @@ const ModerationPage = () => {
         // teria como aprovar nem rejeitar.
         if (isReportModeration) {
           query = query.or('signal_status.is.null,signal_status.in.(done,empty)');
-        }
-
-        // Comentário de notícia (news_id) tem fila própria dentro de "Gerenciar
-        // Notícias". Trazê-lo aqui também faria o mesmo item aparecer em dois
-        // lugares — e nesta tela ele viria sem contexto nenhum.
-        if (isCommentModeration) {
-          query = query.not('report_id', 'is', null);
         }
 
         const { data, error } = await query.order('created_at', { ascending: true });
@@ -387,6 +399,29 @@ const ModerationPage = () => {
             }
           } catch (_) {}
         }
+      } else if (isCommentModeration) {
+        // RPC, e não um update direto, porque restaurar o comentário e zerar as
+        // denúncias precisam acontecer juntos: um comentário restaurado com o
+        // placar cheio voltaria a cair na denúncia seguinte.
+        const { error } = await supabase.rpc('moderar_comentario', {
+          p_comment_id: item.id,
+          p_status: newStatus,
+        });
+        if (error) throw error;
+
+        // O modal promete ao moderador que "o autor receberá esta
+        // justificativa" — sem isto o motivo digitado morre na tela.
+        if (newStatus === 'rejected' && item.author_id) {
+          await supabase.from('notifications').insert({
+            user_id: item.author_id,
+            type: 'moderation_update',
+            title: 'Comentário removido',
+            message: `Seu comentário em "${item.report?.title || 'uma bronca'}" foi removido após denúncias. Motivo: ${rejectionReason}`,
+            link: item.report_id ? `/bronca/${item.report_id}` : null,
+            report_id: item.report_id || null,
+            is_read: false,
+          });
+        }
       } else {
         const tableToUpdate = isReportModeration ? 'reports' : 'comments';
         let updateData = { moderation_status: newStatus };
@@ -414,21 +449,6 @@ const ModerationPage = () => {
           ({ error } = await supabase.from(tableToUpdate).update(stripRejectionFields(updateData)).eq('id', item.id));
         }
         if (error) throw error;
-
-        // O modal promete ao moderador que "o autor receberá esta
-        // justificativa" — para comentário, ninguém enviava nada. O motivo
-        // digitado morria na tela.
-        if (isCommentModeration && newStatus === 'rejected' && item.author_id) {
-          await supabase.from('notifications').insert({
-            user_id: item.author_id,
-            type: 'moderation_update',
-            title: 'Comentário não aprovado',
-            message: `Seu comentário em "${item.report?.title || 'uma bronca'}" não foi aprovado. Motivo: ${rejectionReason}`,
-            link: item.report_id ? `/bronca/${item.report_id}` : null,
-            report_id: item.report_id || null,
-            is_read: false,
-          });
-        }
 
         if (isReportModeration && newStatus === 'rejected' && item.author_id) {
           try {
@@ -592,7 +612,7 @@ const ModerationPage = () => {
               )}
             </div>
             <p className="text-muted-foreground ml-10 md:ml-12 text-sm md:text-base">
-              {isUpdateModeration ? 'Revise atualizações enviadas antes de ficarem visíveis ao público' : isWorkMediaModeration ? 'Aprove ou rejeite fotos e vídeos enviados pelos cidadãos' : isResolutionModeration ? 'Valide as resoluções enviadas' : 'Garanta a qualidade do conteúdo da plataforma'}
+              {isUpdateModeration ? 'Revise atualizações enviadas antes de ficarem visíveis ao público' : isWorkMediaModeration ? 'Aprove ou rejeite fotos e vídeos enviados pelos cidadãos' : isResolutionModeration ? 'Valide as resoluções enviadas' : isCommentModeration ? 'Comentários com denúncia aberta. Na terceira, saem do ar sozinhos' : 'Garanta a qualidade do conteúdo da plataforma'}
             </p>
           </div>
           
@@ -658,7 +678,20 @@ const ModerationPage = () => {
                         texto: nomeDaCategoria(item.category_id),
                         classe: 'bg-brand-subtleBg text-brand border-brand/20',
                       }
-                    : null;
+                    : isCommentModeration
+                      // Denunciado ainda no ar e denunciado já fora do ar
+                      // pedem decisões diferentes, e a fila agora mistura os
+                      // dois. Sem este selo, são cartões idênticos.
+                      ? (item.moderation_status === 'approved'
+                          ? {
+                              texto: 'No ar',
+                              classe: 'bg-status-pendingBg text-status-pendingFg border-status-pendingBorder',
+                            }
+                          : {
+                              texto: 'Fora do ar',
+                              classe: 'bg-danger-subtleBg text-danger-subtleFg border-danger/25',
+                            })
+                      : null;
 
                 return (
                 <motion.div
@@ -779,6 +812,35 @@ const ModerationPage = () => {
                                 </p>
                               )}
 
+                              {/* Por que este comentário está aqui.
+                                  Sem os motivos, o moderador lê uma frase que
+                                  pode ser inofensiva e não tem como saber o que
+                                  três pessoas viram nela — e a denúncia
+                                  coordenada contra desafeto fica indistinguível
+                                  da denúncia legítima. */}
+                              {isCommentModeration && (() => {
+                                const abertas = (item.denuncias || []).filter((d) => !d.resolved_at);
+                                if (abertas.length === 0) return null;
+                                const motivos = abertas.map((d) => (d.reason || '').trim()).filter(Boolean);
+                                return (
+                                  <div className="mt-2 rounded-xl border border-danger/25 bg-danger-subtleBg px-3 py-2">
+                                    <p className="flex items-center gap-1.5 text-[11px] font-bold text-danger-subtleFg">
+                                      <Flag className="w-3.5 h-3.5" />
+                                      {abertas.length} {abertas.length === 1 ? 'denúncia' : 'denúncias'}
+                                    </p>
+                                    {motivos.length > 0 && (
+                                      <ul className="mt-1 space-y-0.5">
+                                        {motivos.map((motivo, i) => (
+                                          <li key={i} className="text-[11px] text-content-secondary break-words">
+                                            — {motivo}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
                               {isUpdateModeration && item.media && item.media.length > 0 && (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 mt-3">
                                   {item.media.map((m) => (
@@ -884,7 +946,16 @@ const ModerationPage = () => {
                               size="sm"
                               className="h-9 px-3 md:px-4 bg-success-bg text-success-fg border border-success-border hover:bg-success-fg hover:text-white text-xs md:text-sm font-bold disabled:opacity-50"
                               onClick={() => handleAction(item, 'approved')}
-                              title="Aprovar"
+                              title={
+                                isCommentModeration
+                                  // Mesma ação, dois significados, conforme as
+                                  // denúncias já tenham derrubado o comentário
+                                  // ou não. Em ambos, zera o placar.
+                                  ? (item.moderation_status === 'approved'
+                                      ? 'Manter no ar (descarta as denúncias)'
+                                      : 'Restaurar (descarta as denúncias)')
+                                  : 'Aprovar'
+                              }
                               disabled={!!actionLoadingId}
                             >
                               {actionLoadingId === `${item.id}-approved` ? (
@@ -892,14 +963,18 @@ const ModerationPage = () => {
                               ) : (
                                 <Check className="w-4 h-4 md:mr-1.5" />
                               )}
-                              <span className="hidden md:inline">Aprovar</span>
+                              <span className="hidden md:inline">
+                                {isCommentModeration
+                                  ? (item.moderation_status === 'approved' ? 'Manter' : 'Restaurar')
+                                  : 'Aprovar'}
+                              </span>
                             </Button>
 
                             <Button
                               size="sm"
                               className="h-9 px-3 md:px-4 bg-danger-subtleBg text-danger-subtleFg border border-danger/30 hover:bg-danger hover:text-white text-xs md:text-sm font-bold disabled:opacity-50"
                               onClick={() => handleAction(item, 'rejected')}
-                              title="Rejeitar (mantém registro)"
+                              title={isCommentModeration ? 'Remover de vez' : 'Rejeitar (mantém registro)'}
                               disabled={!!actionLoadingId}
                             >
                               {actionLoadingId === `${item.id}-rejected` ? (
@@ -907,7 +982,7 @@ const ModerationPage = () => {
                               ) : (
                                 <X className="w-4 h-4 md:mr-1.5" />
                               )}
-                              <span className="hidden md:inline">Rejeitar</span>
+                              <span className="hidden md:inline">{isCommentModeration ? 'Remover' : 'Rejeitar'}</span>
                             </Button>
 
                             {isUpdateModeration && (
@@ -1198,7 +1273,7 @@ const ModerationPage = () => {
               <AlertCircle className="w-6 h-6 text-danger" /> {isReportModeration ? 'Mensagem de Recusa' : 'Motivo da Rejeição'}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              {isReportModeration ? 'Envie uma mensagem clara ao autor explicando por que a bronca foi recusada.' : 'Explique por que este conteúdo não foi aprovado. O autor receberá esta justificativa.'}
+              {isReportModeration ? 'Envie uma mensagem clara ao autor explicando por que a bronca foi recusada.' : isCommentModeration ? 'Explique por que o comentário foi removido. O autor receberá esta justificativa.' : 'Explique por que este conteúdo não foi aprovado. O autor receberá esta justificativa.'}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">

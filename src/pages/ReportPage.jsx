@@ -490,13 +490,13 @@ const ReportPage = () => {
         Capacitor.isNativePlatform() &&
         Capacitor.isPluginAvailable("Share")
       ) {
+        // Sem toast: a folha de compartilhamento do sistema já confirmou o
+        // envio ao fechar. O toast só chega depois, para dizer o mesmo.
         await Share.share({ title, text: shareText });
-        toast({ title: "Compartilhado com sucesso! 📣" });
         return;
       }
       if (navigator.share) {
         await navigator.share({ title, text: shareText });
-        toast({ title: "Compartilhado com sucesso! 📣" });
         return;
       }
       await navigator.clipboard.writeText(shareText);
@@ -1367,10 +1367,8 @@ const ReportPage = () => {
           description: error.message,
           variant: "destructive",
         });
-      else {
-        toast({ title: "Removido dos favoritos! 💔" });
-        setReport((prev) => ({ ...prev, is_favorited: false }));
-      }
+      // Sem toast: o coração troca de estado na hora, embaixo do próprio dedo.
+      else setReport((prev) => ({ ...prev, is_favorited: false }));
     } else {
       const { error } = await supabase
         .from("favorite_reports")
@@ -1381,10 +1379,7 @@ const ReportPage = () => {
           description: error.message,
           variant: "destructive",
         });
-      else {
-        toast({ title: "Adicionado aos favoritos! ⭐" });
-        setReport((prev) => ({ ...prev, is_favorited: true }));
-      }
+      else setReport((prev) => ({ ...prev, is_favorited: true }));
     }
   };
 

@@ -778,9 +778,9 @@ function HomePage() {
             .from('favorite_reports')
             .insert({ user_id: user.id, report_id: reportId });
           
+          // Sem toast: o coração já trocou de estado na atualização otimista
+          // acima, antes mesmo de a requisição sair.
           if (error) throw error;
-          
-          toast({ title: "Adicionado aos favoritos! ⭐", description: "A bronca foi salva nos seus favoritos." });
         } else {
           // Remover dos favoritos
           const { error } = await supabase
@@ -789,8 +789,6 @@ function HomePage() {
             .match({ user_id: user.id, report_id: reportId });
           
           if (error) throw error;
-          
-          toast({ title: "Removido dos favoritos! 💔", description: "A bronca foi removida dos seus favoritos." });
         }
 
       } catch (error) {
@@ -914,15 +912,9 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
         description: "Não foi possível processar sua ação. Tente novamente.", 
         variant: "destructive" 
       });
-    } else {
-      
-      // Feedback visual baseado na ação
-      if (result.action === 'added') {
-        toast({ title: "Apoio registrado! 👍", description: "Sua bronca ganhou um apoio!" });
-      } else {
-        toast({ title: "Apoio removido! 👎", description: "Seu apoio foi retirado." });
-      }
     }
+    // Sucesso não precisa de toast: o contador de apoios e o estado do botão já
+    // mudaram na atualização otimista, no card que está debaixo do dedo.
 
   } catch (error) {
     console.error('Erro no processo de upvote:', error);

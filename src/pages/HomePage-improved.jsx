@@ -617,8 +617,8 @@ function HomePageImproved() {
     const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${url}`;
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
       try {
+        // Sem toast: a folha do sistema já confirmou ao fechar.
         await Share.share({ title: 'Trombone Cidadão', text: shareText });
-        toast({ title: 'Compartilhado com sucesso! 📣' });
       } catch {}
       return;
     }
@@ -645,8 +645,8 @@ function HomePageImproved() {
     const shareText = `*Trombone Cidadão*\n\n*${petition.title || 'Abaixo-assinado'}*\n\nVeja em:\n${url}`;
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
       try {
+        // Sem toast: a folha do sistema já confirmou ao fechar.
         await Share.share({ title: 'Trombone Cidadão', text: shareText });
-        toast({ title: 'Compartilhado com sucesso! 📣' });
       } catch {}
       return;
     }

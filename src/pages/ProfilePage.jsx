@@ -346,6 +346,26 @@ const ProfilePage = () => {
                   <Icon name="chevronright" size={16} />
                 </Button>
               </Link>
+              {/* Veio do cartão de configurações, onde era uma linha chamada
+                  "Admin" entre "Privacidade" e "Sair da conta" — o lugar de
+                  quem mexe numa preferência uma vez por ano, não o de quem
+                  entra no painel várias vezes por dia.
+
+                  Logo abaixo do CTA porque, para quem é admin, esta é a tela
+                  mais visitada da lista: ordem por frequência de uso, não por
+                  hierarquia. Mesma condição do AdminRoute (`is_admin`), senão o
+                  atalho levaria a um redirecionamento silencioso. */}
+              {user?.is_admin && (
+                <Link to="/admin" className="w-full block">
+                  <Button variant="outline" className="w-full justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Painel Administrativo
+                    </span>
+                    <Icon name="chevronright" size={16} />
+                  </Button>
+                </Link>
+              )}
               {/* "Minhas Broncas" saiu daqui em ago/2026: apontava para
                   /painel-usuario?tab=reports, e a aba de broncas ja e a que o
                   painel abre por padrao — eram dois botoes para a mesma tela.
@@ -490,13 +510,7 @@ const ProfilePage = () => {
                   to="/perfil/preferencias"
                 />
               )}
-              {user?.is_admin && (
-                <SettingsRow
-                  icon={<Shield className="w-4 h-4" />}
-                  label="Admin"
-                  to="/admin"
-                />
-              )}
+              {/* "Admin" ficava aqui; subiu para o cartão de atalhos. */}
               <SettingsRow
                 icon={<LogOut className="w-4 h-4" />}
                 label="Sair da conta"

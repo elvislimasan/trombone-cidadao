@@ -807,8 +807,8 @@ export default function WorkDetailsPageProject() {
         .delete()
         .eq("user_id", user.id)
         .eq("work_id", workId);
+      // Sem toast: o ícone troca de estado na hora, embaixo do dedo.
       setIsFavorited(false);
-      toast("Removido dos favoritos");
       return;
     }
 
@@ -816,7 +816,6 @@ export default function WorkDetailsPageProject() {
       .from("favorite_works")
       .insert({ user_id: user.id, work_id: workId });
     setIsFavorited(true);
-    toast("Adicionado aos favoritos");
   }, [user?.id, workId, isFavorited]);
 
   useEffect(() => {

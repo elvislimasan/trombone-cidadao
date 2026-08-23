@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { enfileirar } from '@/lib/offlineQueue';
+import { ehErroDeRede } from '@/lib/offlineSenders';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { haversine } from '@/lib/navGeo';
 import { nomeDaCategoria } from '@/lib/reportCategories';
@@ -182,14 +184,46 @@ export function usePatrolSignals(
 
     setEnviando(true);
     try {
-      const { data, error } = await supabase.rpc('create_patrol_signal', {
+      const carga = {
         p_lat: posicao.lat,
         p_lng: posicao.lng,
         p_category_id: categoryId,
         p_city_id: cityId ? Number(cityId) : null,
         p_neighborhood: bairroRef.current,
         p_address: ruaRef.current,
-      });
+        // A hora do FATO, não a do envio. Online os dois coincidem; na fila,
+        // não — e é o servidor que decide se acredita (hora_confiavel, na 193).
+        p_quando: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase.rpc('create_patrol_signal', carga);
+
+      // SEM REDE NÃO É FALHA — É ESPERA.
+      //
+      // Sinalizar é um toque dado em movimento, muitas vezes onde o sinal cai.
+      // Dizer "não foi possível" ali obrigaria a pessoa a parar o carro e
+      // tentar de novo, ou a desistir do ponto. A ação vai para a fila e sobe
+      // sozinha; para quem tocou, aconteceu.
+      if (error && ehErroDeRede(error)) {
+        await enfileirar('sinal', carga);
+        setMissoes((atual) => [
+          {
+            id: `local-${Date.now()}`,
+            lat: posicao.lat,
+            lng: posicao.lng,
+            category: categoryId,
+            categoryName: nomeDaCategoria(categoryId),
+            bairro: bairroRef.current,
+            criadaEm: new Date().toISOString(),
+            autorId: user.id,
+            autorNome: null,
+            minha: true,
+            pendente: true,
+          },
+          ...atual,
+        ]);
+        return { ok: true, offline: true };
+      }
       if (error) throw error;
 
       const linha = data?.[0];
@@ -288,11 +322,11 @@ export function usePatrolSignals(
    * opcional — sem ele o ponto original permanece —, e o servidor confere os
    * limites de novo: aqui o mapa apenas impede o arrasto de sair da área.
    */
-  const cumprir = useCallback(async (missaoId, { titulo, descricao, novoPonto, extras }) => {
+  const cumprir = useCallback(async (missaoId, { titulo, descricao, novoPonto, extras, arquivos }) => {
     if (!posicao) return { ok: false, error: new Error('sem posição') };
     setEnviando(true);
     try {
-      const { error } = await supabase.rpc('complete_patrol_signal', {
+      const carga = {
         p_signal_id: missaoId,
         p_title: titulo,
         p_description: descricao ?? null,
@@ -312,7 +346,21 @@ export function usePatrolSignals(
         p_issue_type: extras?.issue_type ?? null,
         p_pole_number: extras?.pole_number ?? null,
         p_is_from_water_utility: extras?.is_from_water_utility ?? null,
-      });
+      };
+
+      const { error } = await supabase.rpc('complete_patrol_signal', carga);
+
+      // AS FOTOS VÃO JUNTO PARA A FILA.
+      //
+      // Esta é a ação mais cara de perder do app: a pessoa desceu do carro,
+      // andou até o poste e fotografou. Guardar só a intenção e descartar o
+      // arquivo faria a fila subir uma bronca sem prova — que é justamente o
+      // que ela existe para evitar.
+      if (error && ehErroDeRede(error)) {
+        await enfileirar('missao', carga, arquivos || [], { usuarioId: user.id });
+        setMissoes((atual) => atual.filter((m) => m.id !== missaoId));
+        return { ok: true, offline: true };
+      }
       if (error) throw error;
       setMissoes((atual) => atual.filter((m) => m.id !== missaoId));
       return { ok: true };
@@ -321,18 +369,26 @@ export function usePatrolSignals(
     } finally {
       setEnviando(false);
     }
-  }, [posicao, cityId]);
+  }, [posicao, cityId, user]);
 
   /** "Nada aqui": encerra a missão e o sinal deixa de pontuar. */
   const descartar = useCallback(async (missaoId) => {
     if (!posicao) return { ok: false, error: new Error('sem posição') };
     setEnviando(true);
     try {
-      const { error } = await supabase.rpc('mark_patrol_signal_empty', {
+      const carga = {
         p_signal_id: missaoId,
         p_lat: posicao.lat,
         p_lng: posicao.lng,
-      });
+        p_quando: new Date().toISOString(),
+      };
+      const { error } = await supabase.rpc('mark_patrol_signal_empty', carga);
+
+      if (error && ehErroDeRede(error)) {
+        await enfileirar('vistoria', carga);
+        setMissoes((atual) => atual.filter((m) => m.id !== missaoId));
+        return { ok: true, offline: true };
+      }
       if (error) throw error;
       setMissoes((atual) => atual.filter((m) => m.id !== missaoId));
       return { ok: true };
@@ -401,15 +457,13 @@ export function usePatrolSignals(
    *
    * @returns {Promise<{ok:boolean, id?:string, error?:Error}>}
    */
-  const criarBroncaCompleta = useCallback(async ({ categoryId, titulo, descricao, ponto, extras }) => {
+  const criarBroncaCompleta = useCallback(async ({ categoryId, titulo, descricao, ponto, extras, arquivos }) => {
     if (!user) return { ok: false, error: new Error('sem usuário') };
     if (!posicao) return { ok: false, error: new Error('sem posição') };
 
     setEnviando(true);
     try {
-      const { data, error } = await supabase
-        .from('reports')
-        .insert({
+      const linha = {
           title: titulo?.trim() || nomeDaCategoria(categoryId),
           description: descricao?.trim() || null,
           category_id: categoryId,
@@ -435,10 +489,23 @@ export function usePatrolSignals(
           // criação gravam a mesma coisa no mesmo lugar.
           address: ruaRef.current,
           is_anonymous: false,
-        })
+          // Insert direto, sem RPC: a data vai na própria linha. O gatilho
+          // `a_reports_created_at` (193) prende o valor entre 7 dias atrás e
+          // agora, então relógio adiantado não vira bronca do futuro.
+          created_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from('reports')
+        .insert(linha)
         .select('id')
         .single();
 
+      // Mesma razão do `cumprir`: a foto é o produto da ida até lá.
+      if (error && ehErroDeRede(error)) {
+        await enfileirar('bronca', linha, arquivos || []);
+        return { ok: true, offline: true };
+      }
       if (error) throw error;
       return { ok: true, id: data.id };
     } catch (err) {

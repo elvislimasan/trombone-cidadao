@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, Clock, CheckCircle } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { enfileirar } from '@/lib/offlineQueue';
+import { ehErroDeRede } from '@/lib/offlineErros';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useNativeCamera } from '@/hooks/useNativeCamera';
@@ -122,17 +124,36 @@ export async function enviarAtualizacaoDeBronca({
   const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
 
   try {
+    const linha = {
+      report_id: report.id,
+      author_id: user.id,
+      update_type: updateType,
+      message: message || null,
+      status: statusInicialDaAtualizacao(updateType, isAuthorOrAdmin),
+      // A hora do FATO. O gatilho `a_reports_created_at` da 193 prende o valor
+      // entre 7 dias atrás e agora, então relógio adiantado não vira futuro.
+      created_at: new Date().toISOString(),
+    };
+
     const { data: newUpdate, error: insertError } = await supabase
       .from('report_updates')
-      .insert({
-        report_id: report.id,
-        author_id: user.id,
-        update_type: updateType,
-        message: message || null,
-        status: statusInicialDaAtualizacao(updateType, isAuthorOrAdmin),
-      })
+      .insert(linha)
       .select()
       .single();
+
+    // SEM REDE, A CONFIRMAÇÃO ESPERA EM VEZ DE SUMIR.
+    //
+    // É a ação mais frequente da patrulha — a resposta ao card que sobe no
+    // caminho — e a mais barata de perder por engano: um toque, num carro
+    // andando, muitas vezes fora de cobertura. Sem fila, o alerta some da tela
+    // como se tivesse sido respondido e nada chega ao banco.
+    //
+    // Fotos ficam de fora: só a atualização feita pela tela de detalhe manda
+    // foto, e aquela tela não roda em movimento.
+    if (insertError && ehErroDeRede(insertError)) {
+      await enfileirar('confirmacao', linha);
+      return { ok: true, offline: true, update: { id: `local-${Date.now()}` } };
+    }
 
     if (insertError) throw insertError;
 
