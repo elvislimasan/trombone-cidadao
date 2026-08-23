@@ -15,6 +15,13 @@ import {
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
+/**
+ * O zoom do mapa da patrulha (NAV_ZOOM, em MapView.jsx) e o do prefetch de
+ * tiles (ZOOMS, em lib/tileCache.js). Os três precisam concordar: é o que faz o
+ * mapa deste modal abrir sobre tiles que já estão no aparelho.
+ */
+const ZOOM_PATRULHA = 18;
+
 // Registrar a bronca no local — nos dois caminhos que levam até aqui:
 //
 //   modo 'missao' → completa o sinal de outra pessoa (RPC, +12)
@@ -244,10 +251,15 @@ export default function PatrolReportModal({
         return;
       }
 
-      toast({
-        title: ehMissao ? 'Missão cumprida 🎯' : 'Bronca registrada 📣',
-        description: 'Vai passar pela revisão antes de aparecer no feed.',
-      });
+      /* SEM TOAST DE SUCESSO.
+         ──────────────────────────────────────────────────────────────────────
+         Dizia "Missão cumprida 🎯 / Vai passar pela revisão antes de aparecer
+         no feed" e caía na base da tela de patrulha, sobre o velocímetro e o
+         botão de encerrar. O modal fechando já é a resposta, e o +12 sobe logo
+         atrás; o pin da missão some do mapa no mesmo instante, que é a prova
+         mais direta de que ela foi consumida.
+         Os toasts que restam neste fluxo avisam de algo que a tela NÃO mostra:
+         a fila offline e a foto que não subiu. */
       onFechar({ concluida: true, modo, id: idDaBronca ?? r.id });
     } finally {
       setSalvando(false);
@@ -327,6 +339,15 @@ export default function PatrolReportModal({
                   <LocationPickerMap
                     initialPosition={ponto}
                     onLocationChange={moverPonto}
+                    // Esta é A tela que precisa funcionar sem rede: quem chegou
+                    // até aqui está de pé no local do problema, que é onde o
+                    // sinal falta. Lê os tiles que a patrulha baixou de véspera
+                    // e desenha o pino em SVG, sem depender de nenhum PNG.
+                    offline
+                    // O mesmo zoom da patrulha (MapView NAV_ZOOM). Abrindo em
+                    // 19, como era o padrão, o mapa pedia uma grade de tiles
+                    // que ninguém tinha buscado — cinza garantido offline.
+                    initialZoom={ZOOM_PATRULHA}
                   />
                 </Suspense>
               </div>

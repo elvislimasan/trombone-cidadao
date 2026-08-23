@@ -158,6 +158,13 @@
   /* Ponto "voce esta aqui". */
   --pin-user-bg: var(--tc-blue-600);
 
+  /* Sinal de patrulha: o ponto que alguem marcou de passagem e que ainda espera
+     cadastro completo. Vermelho, e nao a cor de status da bronca, porque nao e
+     uma bronca ainda — e um aviso deixado no chao. E a mesma cor do pino que se
+     arrasta no registro, que marca esse mesmo ponto. */
+  --pin-signal-bg: var(--tc-red-600);
+  --pin-signal-fg: var(--tc-neutral-0);
+
   /* --- Graficos ---
      As tres series de status usam a mesma matiz dos --status-* (o usuario ja
      associa laranja=pendente, azul=andamento, verde=resolvida), mas em tom
@@ -330,6 +337,9 @@
   --pin-cluster-high-fg: var(--tc-neutral-950);
 
   --pin-user-bg: var(--tc-blue-300);
+
+  --pin-signal-bg: var(--tc-red-400);
+  --pin-signal-fg: var(--tc-neutral-950);
 
   /* Graficos no escuro: as series clareiam um degrau. O tom cheio do tema claro
      fica escuro demais contra o fundo do card e as barras somem. */

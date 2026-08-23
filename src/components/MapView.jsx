@@ -109,13 +109,21 @@ const navMarkerIcon = L.divIcon({
 // semantica, nao decorativa: uma bronca e um problema JA documentado, com foto
 // e revisao; uma missao e a palavra de quem passou por ali. Desenhar as duas
 // iguais faria o mapa afirmar sobre a missao mais do que se sabe.
+//
+// O CORPO E VERMELHO, E E ELE QUE AVISA
+//
+// Era azul translucido, e o pin sumia no mapa. Isso importava pouco enquanto o
+// aviso de "sinalizado" era um toast — e passou a importar quando o toast saiu:
+// o pin virou a UNICA confirmacao de que a marcacao pegou. Ele precisa ser
+// achavel de relance, com o celular no suporte e o carro andando.
 const missionMarkerIcon = L.divIcon({
   html: `
     <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
       <div style="
         width:26px;height:26px;border-radius:999px;
         border:2.5px dashed rgb(var(--pin-ring));
-        background: rgba(var(--pin-user-bg), 0.35);
+        background: rgb(var(--pin-signal-bg));
+        color: rgb(var(--pin-signal-fg));
         display:flex;align-items:center;justify-content:center;
         font-size:13px;line-height:1;
         box-shadow: 0 2px 6px rgba(0,0,0,0.3);

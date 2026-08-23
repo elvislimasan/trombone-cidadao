@@ -22,6 +22,7 @@ import { useNavStreet } from '@/hooks/useNavStreet';
 import { usePatrolRecorder } from '@/hooks/usePatrolRecorder';
 import { usePatrolGame } from '@/hooks/usePatrolGame';
 import { usePatrolSignals } from '@/hooks/usePatrolSignals';
+import { usePatrolTilePrefetch } from '@/hooks/usePatrolTilePrefetch';
 import { frasear } from '@/lib/navGeo';
 import { PONTOS } from '@/lib/patrolGame';
 import { getPatrolShareUrl } from '@/lib/shareUtils';
@@ -70,6 +71,7 @@ export default function PatrolOverlay({
   onPosicao,
   onBroncas,
   onRastro,
+  onMissoes,
   categoria = null,
   cityId: cidadeDoMapa,
   onSair,
@@ -209,6 +211,10 @@ export default function PatrolOverlay({
   // nível do usuário, que é onde valem pontos.
   const sinais = usePatrolSignals(posicao, { cityId, bairro, rua, categoria });
 
+  // Baixa o mapa do caminho enquanto ainda há rede, para o modal de registro
+  // ter o que desenhar quando o sinal cair — ver hooks/usePatrolTilePrefetch.
+  usePatrolTilePrefetch(posicao, { ativo });
+
   const [mostrarSinalizar, setMostrarSinalizar] = useState(false);
   // O modal de registro atende dois caminhos — completar a missão de alguém ou
   // criar a bronca do zero. Um estado só, com o modo dentro, porque os dois
@@ -228,7 +234,33 @@ export default function PatrolOverlay({
   // link do story sai do id dela.
   const [story, setStory] = useState(null);
 
-  // As missões sobem para a MapPage desenhar os pins tracejados.
+  /**
+   * O que esta patrulha marcou — e SÓ isso — vira pin no mapa.
+   *
+   * POR QUE NÃO TODAS AS MISSÕES ABERTAS
+   *
+   * O `usePatrolSignals` conhece cinquenta sinais num raio de 2 km, de todo
+   * mundo. Desenhar os cinquenta cobre o mapa de bandeiras vermelhas: as ruas
+   * somem atrás delas, e o pin que acabou de nascer — que é o único que importa
+   * neste segundo — fica indistinguível de outros trinta que já estavam lá.
+   *
+   * O pin aqui tem uma função só: confirmar que a marcação pegou, agora que o
+   * toast saiu. Isso é sobre o que EU acabei de fazer. As missões dos outros
+   * continuam existindo e sendo alcançáveis pelo hub de missões, que é a tela
+   * feita para escolher aonde ir.
+   */
+  const [sinaisDaSessao, setSinaisDaSessao] = useState([]);
+
+  const missoesDaSessao = useMemo(
+    () => sinais.missoes.filter((m) => sinaisDaSessao.includes(m.id)),
+    [sinais.missoes, sinaisDaSessao]
+  );
+
+  // O `sinalizar` insere o ponto na lista local antes de qualquer resposta do
+  // servidor, então o pin aparece no toque, não no round-trip.
+  const onMissoesRef = useRef(onMissoes);
+  useEffect(() => { onMissoesRef.current = onMissoes; }, [onMissoes]);
+  useEffect(() => { onMissoesRef.current?.(missoesDaSessao); }, [missoesDaSessao]);
 
   /** Vibração + "+N" subindo. Chega antes da rede: o toque já aconteceu. */
   const comemorar = useCallback((pontos) => {
@@ -265,13 +297,27 @@ export default function PatrolOverlay({
 
     setFeitosNaSessao((f) => ({ ...f, sinais: f.sinais + 1 }));
     // O id vai para a linha da patrulha: é o que permite refazer o card depois,
-    // e o que deixa o número auditável.
+    // e o que deixa o número auditável. Sem rede não há id ainda, e `registrarSinal`
+    // já ignora o vazio — o número entra quando a fila subir.
     registrarSinal(r.id);
+
+    // E vira pin no mapa. `idLocal` cobre o caso offline, em que a linha ainda
+    // não existe no banco mas o ponto já está desenhado.
+    const idDoPin = r.id ?? r.idLocal;
+    if (idDoPin) setSinaisDaSessao((atual) => [...atual, idDoPin]);
+
+    /* SEM TOAST AQUI — O MAPA JÁ RESPONDE.
+       ────────────────────────────────────────────────────────────────────────
+       Havia um: "Sinalizado 🚩 / Virou missão. Outro cidadão completa o
+       cadastro com foto." Ele nascia na base da tela, que é exatamente onde
+       moram o velocímetro e o botão de encerrar — a confirmação tapava os
+       controles da atividade que ela estava confirmando, por três segundos,
+       toda vez.
+       O texto também não era notícia: explicava a regra do jogo, e quem toca em
+       Sinalizar já a conhece. O que a pessoa precisa saber é se PEGOU, e isso
+       duas coisas dizem melhor que uma frase — o +3 subindo e o pin vermelho
+       aparecendo no ponto, que continua lá depois da animação. */
     comemorar(PONTOS.sinal);
-    toast({
-      title: 'Sinalizado 🚩',
-      description: 'Virou missão. Outro cidadão completa o cadastro com foto.',
-    });
   }, [sinais, toast, comemorar, registrarSinal]);
 
   const aoCadastroCompleto = useCallback((categoryId) => {
@@ -436,16 +482,15 @@ export default function PatrolOverlay({
     // aconteceu, e esperar a rede tornaria o retorno indiferente ao toque.
     comemorar(PONTOS.atualizacao);
 
-    // Autor e admin não precisam de aviso: o +N já subiu e a atualização deles
-    // entra direto, sem fila. O toast diria "Confirmado" seguido do rótulo do
-    // botão que o dedo acabou de tocar. Para os demais ele fica, porque avisa de
-    // algo que a tela não mostra — a atualização ainda vai passar por revisão.
-    if (!r.isAuthorOrAdmin) {
-      toast({
-        title: 'Enviado 📢',
-        description: 'Sua atualização será revisada.',
-      });
-    }
+    /* SEM TOAST DE "ENVIADO" — MESMA RAZÃO DO SINAL.
+       ────────────────────────────────────────────────────────────────────────
+       Ele existia para avisar que a atualização passaria por revisão. Mas caía
+       na base da tela, sobre o velocímetro e o botão de encerrar, num momento
+       em que a pessoa está dirigindo — e o aviso de moderação não é acionável
+       ali: não há nada a fazer com ele até parar o carro.
+       A informação não se perdeu: o card do trajeto já sai da fila ao ser
+       respondido, e a revisão aparece onde ela é acionável, na página da
+       bronca. Aqui fica só o +5. */
     return true;
   }, [user, navigate, toast, removerDaFila, descartar, registrarConfirmacao, comemorar]);
 

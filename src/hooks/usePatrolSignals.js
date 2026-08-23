@@ -206,9 +206,13 @@ export function usePatrolSignals(
       // sozinha; para quem tocou, aconteceu.
       if (error && ehErroDeRede(error)) {
         await enfileirar('sinal', carga);
+        // Id provisório, só para o mapa ter uma chave estável até a fila subir.
+        // Vai de volta como `idLocal`, e NÃO como `id`: quem recebe grava o id
+        // na coluna uuid[] da patrulha, e "local-…" não é uuid.
+        const idLocal = `local-${Date.now()}`;
         setMissoes((atual) => [
           {
-            id: `local-${Date.now()}`,
+            id: idLocal,
             lat: posicao.lat,
             lng: posicao.lng,
             category: categoryId,
@@ -222,7 +226,7 @@ export function usePatrolSignals(
           },
           ...atual,
         ]);
-        return { ok: true, offline: true };
+        return { ok: true, offline: true, idLocal };
       }
       if (error) throw error;
 

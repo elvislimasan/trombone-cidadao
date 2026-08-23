@@ -43,6 +43,10 @@ export default function PatrolRunPage() {
   const [posicao, setPosicao] = useState(null);
   const [broncas, setBroncas] = useState([]);
   const [rastro, setRastro] = useState([]);
+  // Sinais abertos no entorno, incluindo o que a pessoa acabou de marcar. O
+  // pin deles é a confirmação da sinalização desde que o toast saiu — ver o
+  // comentário em PatrolOverlay, no `aoSoAlertar`.
+  const [missoes, setMissoes] = useState([]);
 
   // O mapa desenha o corredor, não o enquadramento: são poucas dezenas de pinos
   // em vez de centenas, e a referência só muda quando o corredor é rebuscado.
@@ -86,6 +90,7 @@ export default function PatrolRunPage() {
               navMode
               navPosition={posicao}
               navTrail={rastro}
+              navMissoes={missoes}
               showLegend={false}
               showModeToggle={false}
               interactive={false}
@@ -108,6 +113,7 @@ export default function PatrolRunPage() {
           onPosicao={setPosicao}
           onBroncas={setBroncas}
           onRastro={setRastro}
+          onMissoes={setMissoes}
           onSair={sair}
         />
       </Suspense>

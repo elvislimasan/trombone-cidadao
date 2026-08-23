@@ -1,4 +1,5 @@
 import ThemedTileLayer from '@/components/map/ThemedTileLayer';
+import OfflineTileLayer from '@/components/map/OfflineTileLayer';
 import React, { useState, useEffect, useRef } from "react";
 import { Layers, LocateFixed } from "lucide-react";
 import {
@@ -52,8 +53,39 @@ const ZoomLimiter = ({ maxZoom }) => {
   return null;
 };
 
+/**
+ * Pino arrastavel desenhado em SVG, sem imagem nenhuma.
+ *
+ * O padrao do Leaflet sao tres PNGs (icone, retina e sombra) que o Vite serve
+ * como assets separados. Nas telas que precisam funcionar sem rede eles sao
+ * mais um jeito de a tela quebrar: o service worker so guarda o que ja foi
+ * pedido uma vez, e este modal e carregado sob demanda — na primeira vez que
+ * alguem o abre offline, o pino vira o retangulo de imagem quebrada. Foi o que
+ * apareceu no registro em modo patrulha.
+ *
+ * Em SVG inline o pino vem junto do bundle e acompanha o tema pelos tokens.
+ */
+const pinoArrastavelIcon = L.divIcon({
+  html: `
+    <div style="width:32px;height:42px;filter:drop-shadow(0 3px 5px rgba(0,0,0,0.35));">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 42" width="32" height="42">
+        <path d="M16 1.5c-7.2 0-13 5.8-13 13 0 9.4 11.4 24.2 12 25 .3.4.7.4 1 0 .6-.8 12-15.6 12-25 0-7.2-5.8-13-12-13z"
+              fill="rgb(var(--pin-signal-bg))"
+              stroke="rgb(var(--pin-ring))"
+              stroke-width="2"
+              stroke-linejoin="round" />
+        <circle cx="16" cy="14.5" r="4.5" fill="rgb(var(--pin-ring))" />
+      </svg>
+    </div>
+  `,
+  className: 'picker-leaflet-icon',
+  iconSize: [32, 42],
+  // Ancora na PONTA: a gota aponta a coordenada com o bico, nao com o centro.
+  iconAnchor: [16, 42],
+});
+
 // Draggable marker component
-const DraggableMarker = ({ position, onPositionChange }) => {
+const DraggableMarker = ({ position, onPositionChange, icon }) => {
   const markerRef = useRef(null);
 
   const eventHandlers = {
@@ -70,6 +102,10 @@ const DraggableMarker = ({ position, onPositionChange }) => {
       draggable={true}
       eventHandlers={eventHandlers}
       position={position}
+      // Espalhado condicionalmente: `icon={undefined}` nao cai no padrao do
+      // Leaflet — ele sobrescreve `options.icon` com undefined e `_initIcon`
+      // quebra ao chamar `createIcon` em cima disso.
+      {...(icon ? { icon } : {})}
       ref={markerRef}
     />
   );
@@ -141,6 +177,21 @@ const LocationPickerMap = ({
   showLocateButton = false,
   fallbackCityCenter = null, // { name, uf } — centraliza aqui quando não há initialPosition
   flyToCity = null, // { name, uf, nonce } — força o mapa a voar para a cidade mesmo com view já definida (ex: admin trocando a cidade manualmente)
+  /**
+   * Esta tela precisa funcionar sem rede.
+   *
+   * Liga a camada de tiles que lê do cache antes de tentar a rede e troca o
+   * pino de PNG por SVG inline. Não é o padrão porque cobra uma volta a mais
+   * por tile (fetch + blob em vez de `img.src`) — num mapa de tela cheia com
+   * dezenas deles isso apareceria. Ver components/map/OfflineTileLayer.jsx.
+   */
+  offline = false,
+  /**
+   * Zoom de abertura, quando há `initialPosition`. Sem isto o mapa abre em 19,
+   * e o registro da patrulha — que vem de um mapa em 18 — pedia uma grade de
+   * tiles que ninguém tinha buscado ainda: cinza garantido sem rede.
+   */
+  initialZoom = null,
 }) => {
   const [position, setPosition] = useState(initialPosition || FLORESTA_COORDS);
   const [mapLayer, setMapLayer] = useState("osm");
@@ -162,10 +213,10 @@ const LocationPickerMap = ({
   const activeMaxZoom =
     mapLayer === "satellite" ? SATELLITE_MAX_ZOOM : OSM_MAX_ZOOM;
 
-  // Zoom inicial: respeita o limite do layer ativo
-  const initialZoom = initialPosition
-    ? Math.min(19, activeMaxZoom)
-    : INITIAL_ZOOM;
+  // Zoom com posição em mãos: o pedido pela prop, ou 19, sempre dentro do
+  // limite do layer ativo.
+  const zoomComPosicao = Math.min(initialZoom || 19, activeMaxZoom);
+  const zoomDeAbertura = initialPosition ? zoomComPosicao : INITIAL_ZOOM;
 
   useEffect(() => {
     if (initialPosition && !userMovedRef.current) {
@@ -174,8 +225,7 @@ const LocationPickerMap = ({
       // Centraliza o mapa UMA VEZ (carga inicial)
       if (mapRef.current && !hasSetInitialView.current) {
         hasSetInitialView.current = true;
-        const zoom = Math.min(19, activeMaxZoom);
-        mapRef.current.setView(initialPosition, zoom, { animate: false });
+        mapRef.current.setView(initialPosition, zoomComPosicao, { animate: false });
       }
     }
   }, [initialPosition]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -248,7 +298,7 @@ const LocationPickerMap = ({
     <div className="relative w-full h-full">
       <MapContainer
         center={position}
-        zoom={initialZoom}
+        zoom={zoomDeAbertura}
         maxZoom={activeMaxZoom}
         scrollWheelZoom={true}
         className="w-full h-full"
@@ -258,9 +308,15 @@ const LocationPickerMap = ({
         {/* Limita o zoom dinamicamente quando troca de layer */}
         <ZoomLimiter maxZoom={activeMaxZoom} />
 
-        {/* So o mapa de ruas acompanha o tema; satelite e foto aerea. */}
+        {/* So o mapa de ruas acompanha o tema; satelite e foto aerea. O
+            satelite nao tem versao offline: o Esri nao e pre-carregado e a
+            troca de camada so acontece onde ha rede para ela. */}
         {mapLayer === "osm" ? (
-          <ThemedTileLayer maxZoom={OSM_MAX_ZOOM} />
+          offline ? (
+            <OfflineTileLayer maxZoom={OSM_MAX_ZOOM} />
+          ) : (
+            <ThemedTileLayer maxZoom={OSM_MAX_ZOOM} />
+          )
         ) : (
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -274,6 +330,7 @@ const LocationPickerMap = ({
         <DraggableMarker
           position={position}
           onPositionChange={handlePositionChange}
+          icon={offline ? pinoArrastavelIcon : undefined}
         />
 
         {overlayMarkers.map(
