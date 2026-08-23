@@ -337,11 +337,23 @@ const ProfilePage = () => {
             </div>
 
             <div className="w-full mt-5 space-y-2">
-              <Link to="/minhas-peticoes" className="w-full block">
+              {/* "Minhas Broncas" saiu daqui em ago/2026: apontava para
+                  /painel-usuario?tab=reports, e a aba de broncas ja e a que o
+                  painel abre por padrao — eram dois botoes para a mesma tela.
+                  Ficou "Meu Painel", que e o nome da tela de verdade.
+
+                  Os atalhos abaixo vieram do menu do avatar no header. O avatar
+                  saiu de la no mobile (virou a aba Perfil da barra inferior),
+                  entao eles se juntaram aos que ja existiam aqui.
+
+                  O destaque em vermelho é dele, e não de "Minhas Petições":
+                  petição é o que uma minoria das pessoas cria, o painel é para
+                  onde todo mundo volta. */}
+              <Link to="/painel-usuario" className="w-full block">
                 <Button variant="default" className="w-full justify-between gap-2 bg-cta-bg text-cta-fg border border-cta-border hover:bg-brand-hover">
                   <span className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Minhas Petições
+                    <LayoutDashboard className="w-4 h-4" />
+                    Meu Painel
                   </span>
                   <Icon name="chevronright" size={16} />
                 </Button>
@@ -366,19 +378,11 @@ const ProfilePage = () => {
                   </Button>
                 </Link>
               )}
-              {/* "Minhas Broncas" saiu daqui em ago/2026: apontava para
-                  /painel-usuario?tab=reports, e a aba de broncas ja e a que o
-                  painel abre por padrao — eram dois botoes para a mesma tela.
-                  Ficou "Meu Painel", que e o nome da tela de verdade.
-
-                  Os atalhos abaixo vieram do menu do avatar no header. O avatar
-                  saiu de la no mobile (virou a aba Perfil da barra inferior),
-                  entao eles se juntaram aos que ja existiam aqui. */}
-              <Link to="/painel-usuario" className="w-full block">
+              <Link to="/minhas-peticoes" className="w-full block">
                 <Button variant="outline" className="w-full justify-between gap-2">
                   <span className="flex items-center gap-2">
-                    <LayoutDashboard className="w-4 h-4" />
-                    Meu Painel
+                    <FileText className="w-4 h-4" />
+                    Minhas Petições
                   </span>
                   <Icon name="chevronright" size={16} />
                 </Button>
