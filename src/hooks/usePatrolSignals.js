@@ -246,8 +246,10 @@ export function usePatrolSignals(
     if (texto.includes('missao indisponivel')) {
       return 'Esta missão já foi atendida por outra pessoa.';
     }
+    // Mantida para bancos onde a 191 ainda não rodou: sem ela, a pessoa
+    // receberia o texto cru do Postgres em vez de uma frase.
     if (texto.includes('autor nao cumpre')) {
-      return 'Quem sinaliza não cumpre a própria missão — ela é de outro cidadão.';
+      return 'Este servidor ainda não permite registrar a própria sinalização. Falta aplicar uma migração.';
     }
     if (texto.includes('ajuste longe da marcacao')) {
       return `O ponto corrigido precisa ficar a menos de ${RAIO_AJUSTE_M} m da marcação original.`;
@@ -354,8 +356,17 @@ export function usePatrolSignals(
   const missaoAoAlcance = useMemo(() => {
     if (!posicao) return null;
     return (
+      // NÃO HÁ MAIS FILTRO DE `minha` AQUI.
+      //
+      // O próprio sinal era escondido porque o servidor recusava que o autor o
+      // cumprisse. Desde a 191 não recusa mais: marcar de passagem e voltar
+      // depois com a foto é o caminho normal, não um atalho — o equilíbrio
+      // passou a vir da contagem (fazer os dois rende os mesmos 10 de um
+      // cadastro direto).
+      //
+      // Esconder o próprio ponto era, na prática, escondê-lo de quem tinha mais
+      // chance de resolvê-lo: quem sabia que ele estava lá.
       missoes
-        .filter((m) => !m.minha)
         // A categoria peneira ANTES da ordenação por distância, e a ordem
         // importa: filtrando depois, um poste sinalizado a 40 m venceria a
         // escolha do mais próximo e seria descartado em seguida — levando

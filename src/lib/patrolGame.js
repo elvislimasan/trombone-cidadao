@@ -325,6 +325,17 @@ export const PONTOS = {
   bronca: 10,
   missao: 12,
   sinal: 3,
+  /**
+   * Ir ao ponto e confirmar que NAO ha nada ali.
+   *
+   * Vale o mesmo que sinalizar, e pela mesma razão: é a mesma ida ao local, um
+   * toque, sem foto. Valia zero — e valer zero ao lado de um botão que paga 12
+   * fazia a única resposta honesta ("já taparam o buraco") ser a única que não
+   * rende nada. O incentivo apontava para inventar bronca onde não há.
+   *
+   * Espelha a migração 190, nos dois lugares em que ela soma.
+   */
+  vistoria: 3,
   atualizacao: 5,
   comentario: 2,
   apoio: 1,

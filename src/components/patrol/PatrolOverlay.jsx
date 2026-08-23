@@ -22,7 +22,7 @@ import { useNavStreet } from '@/hooks/useNavStreet';
 import { usePatrolRecorder } from '@/hooks/usePatrolRecorder';
 import { usePatrolGame } from '@/hooks/usePatrolGame';
 import { usePatrolSignals } from '@/hooks/usePatrolSignals';
-import { frasear, haversine } from '@/lib/navGeo';
+import { frasear } from '@/lib/navGeo';
 import { PONTOS } from '@/lib/patrolGame';
 import { getPatrolShareUrl } from '@/lib/shareUtils';
 
@@ -35,8 +35,6 @@ import PatrolPointsBurst from './PatrolPointsBurst';
 import PatrolAchievementUnlocked from './PatrolAchievementUnlocked';
 import PatrolSignalButton from './PatrolSignalButton';
 import PatrolSignalSheet from './PatrolSignalSheet';
-import PatrolMissionCard from './PatrolMissionCard';
-import PatrolMissionBar from './PatrolMissionBar';
 import PatrolReportModal from './PatrolReportModal';
 import PatrolStoryModal from './PatrolStoryModal';
 
@@ -69,12 +67,9 @@ const useAvisoAceito = () => {
  * @param {string|null} [props.categoria]  patrulha de uma categoria só; null = tudo.
  */
 export default function PatrolOverlay({
-  missaoEscolhida,
-  onEscolherMissao,
   onPosicao,
   onBroncas,
   onRastro,
-  onMissoes,
   categoria = null,
   cityId: cidadeDoMapa,
   onSair,
@@ -139,7 +134,22 @@ export default function PatrolOverlay({
   // postes nem chegam ao aparelho.
   const { broncas, erroRede, descartar } = useNavCorridor(posicao, { categoria });
   const { rua, bairro, cidadeId } = useNavStreet(posicao);
-  const { anunciar } = useNavVoice();
+  const { anunciar, preparar, mudo, alternarMudo, suportada: somSuportado } = useNavVoice();
+
+  /**
+   * Destrava áudio e voz assim que a patrulha começa.
+   *
+   * Tem que ser aqui, e não na primeira vez que o app precisa falar: navegador
+   * nenhum libera som fora de um gesto do usuário, e o primeiro alerta chega
+   * minutos depois do último toque. Ver o cabeçalho de useNavVoice.
+   *
+   * O gesto existe mesmo sem toque nesta tela: chegar em `/patrulhar/:categoria`
+   * exigiu tocar num botão da tela anterior, e a ativação vale para o documento
+   * inteiro — a navegação do React Router não troca de documento.
+   */
+  useEffect(() => {
+    if (ativo) preparar();
+  }, [ativo, preparar]);
 
   // A cidade de tudo que a patrulha grava e a do CHAO, nao a do seletor.
   //
@@ -205,7 +215,6 @@ export default function PatrolOverlay({
   const [registro, setRegistro] = useState(null);
   // Missões que o usuário dispensou com "agora não". Só nesta sessão: passar de
   // novo pelo ponto amanhã deve perguntar de novo.
-  const [missoesAdiadas, setMissoesAdiadas] = useState(() => new Set());
   // Contadores da sessão, para o resumo. Locais porque a tabela `patrols` não
   // guarda sinais — e não deveria: seus contadores estão amarrados por check a
   // ids de broncas confirmadas.
@@ -219,9 +228,6 @@ export default function PatrolOverlay({
   const [story, setStory] = useState(null);
 
   // As missões sobem para a MapPage desenhar os pins tracejados.
-  const onMissoesRef = useRef(onMissoes);
-  useEffect(() => { onMissoesRef.current = onMissoes; }, [onMissoes]);
-  useEffect(() => { onMissoesRef.current?.(sinais.missoes); }, [sinais.missoes]);
 
   /** Vibração + "+N" subindo. Chega antes da rede: o toque já aconteceu. */
   const comemorar = useCallback((pontos) => {
@@ -272,21 +278,6 @@ export default function PatrolOverlay({
     setRegistro({ modo: 'nova', categoria: categoryId });
   }, []);
 
-  const aoDescartarMissao = useCallback(async (missao) => {
-    const r = await sinais.descartar(missao.id);
-    if (!r.ok) {
-      toast({
-        title: 'Não foi possível encerrar',
-        description: r.motivo,
-        variant: 'destructive',
-      });
-      return;
-    }
-    toast({
-      title: 'Missão encerrada',
-      description: 'Obrigado por conferir — o sinal deixa de valer pontos.',
-    });
-  }, [sinais, toast]);
 
   const aoFecharRegistro = useCallback(({ concluida, modo, id }) => {
     setRegistro(null);
@@ -307,44 +298,6 @@ export default function PatrolOverlay({
       comemorar(PONTOS.bronca);
     }
   }, [comemorar, registrarBronca]);
-
-  /**
-   * A missão ao alcance, descontadas as adiadas nesta sessão.
-   *
-   * FILTRA POR CATEGORIA, COMO TUDO O MAIS
-   *
-   * A regra da patrulha por categoria é uma só: numa patrulha de buracos, só
-   * buraco aparece. O corredor já obedecia (useNavCorridor recebe `categoria`),
-   * mas a missão não — `patrol_missions_nearby` devolve todo sinal aberto num
-   * raio de 2 km, sem categoria, e nada filtrava isso depois.
-   *
-   * O resultado era o card de um poste sinalizado interrompendo uma patrulha de
-   * buracos, com o formulário de iluminação junto: uma categoria que a pessoa
-   * não escolheu, pedindo a plaqueta de um poste que ela não veio ver.
-   *
-   * O filtro mora no hook, junto da escolha do mais próximo — e não aqui,
-   * depois dela. Peneirar por último faria um poste a 40 m ganhar a disputa de
-   * proximidade e ser descartado em seguida, levando junto o buraco a 80 m que
-   * era a missão desta patrulha.
-   *
-   * Também não está na RPC: `patrol_missions_nearby` serve o mapa igualmente,
-   * onde ver todos os sinais é o certo.
-   */
-  const missaoAoAlcance = useMemo(() => {
-    const m = sinais.missaoAoAlcance;
-    return m && !missoesAdiadas.has(m.id) ? m : null;
-  }, [sinais.missaoAoAlcance, missoesAdiadas]);
-
-  // Chegou: a barra cumpriu o papel e sai de cena.
-  //
-  // Sem isto, ela continuaria montada sob o card de missão — invisível pela
-  // ordem das camadas, mas viva —, e cancelar o card devolveria uma barra
-  // apontando para onde a pessoa já está.
-  useEffect(() => {
-    if (missaoAoAlcance && missaoEscolhida && missaoAoAlcance.id === missaoEscolhida.id) {
-      onEscolherMissao?.(null);
-    }
-  }, [missaoAoAlcance, missaoEscolhida, onEscolherMissao]);
 
   // ── Fila de camadas ──
   //
@@ -370,13 +323,10 @@ export default function PatrolOverlay({
     if (registro) return 'registro';
     if (mostrarSinalizar) return 'sinalizar';
     if (alertaAtual) return 'alerta';
-    if (missaoAoAlcance) return 'missao';
-    // Chegar vence a escolha: a 15 m o card completo toma o lugar da barra.
-    if (missaoEscolhida) return 'escolhida';
     return 'livre';
   }, [
     novasConquistas.length, story, saida, registro,
-    mostrarSinalizar, alertaAtual, missaoAoAlcance, missaoEscolhida,
+    mostrarSinalizar, alertaAtual,
   ]);
 
 
@@ -653,12 +603,11 @@ export default function PatrolOverlay({
     if (registro) { setRegistro(null); return; }
     if (mostrarSinalizar) { setMostrarSinalizar(false); return; }
     if (alertaAtual) { adiar(); return; }
-    if (missaoEscolhida) { onEscolherMissao?.(null); return; }
     // Camada livre: abre a folha de saída, que é onde se decide.
     sair();
   }, [
     novasConquistas.length, story, saida, registro, mostrarSinalizar,
-    alertaAtual, missaoEscolhida, onEscolherMissao, adiar, sair, sairDaTela,
+    alertaAtual, adiar, sair, sairDaTela,
     encerrar, concluir,
   ]);
 
@@ -758,8 +707,11 @@ export default function PatrolOverlay({
         sinalFraco={sinalFraco}
         semRede={erroRede}
         totalNaFila={fila.length}
-        cardVisivel={camada === 'alerta' || camada === 'missao'}
+        cardVisivel={camada === 'alerta'}
         onSair={sair}
+        mudo={mudo}
+        onAlternarSom={alternarMudo}
+        somSuportado={somSuportado}
         // O botão entra COMO CONTEÚDO da faixa inferior, não sobre ela: é o
         // flex do HUD que garante que ele nunca alcance o velocímetro.
         acao={
@@ -782,28 +734,9 @@ export default function PatrolOverlay({
         />
       )}
 
-      {camada === 'escolhida' && (
-        <PatrolMissionBar
-          missao={missaoEscolhida}
-          distancia={posicao ? haversine(posicao, missaoEscolhida) : null}
-          onRegistrar={(m) => setRegistro({ modo: 'missao', missao: m })}
-          onCancelar={() => onEscolherMissao?.(null)}
-        />
-      )}
-
-      {camada === 'missao' && (
-        <PatrolMissionCard
-          missao={missaoAoAlcance}
-          enviando={sinais.enviando}
-          onCumprir={(m) => setRegistro({ modo: 'missao', missao: m })}
-          onDescartar={aoDescartarMissao}
-          onAdiar={(m) => setMissoesAdiadas((atual) => new Set(atual).add(m.id))}
-        />
-      )}
-
       {camada === 'sinalizar' && (
         <PatrolSignalSheet
-          categoriaFixa={categoria}
+          categoriaPreferida={categoria}
           bairro={bairro}
           enviando={sinais.enviando}
           onSoAlertar={aoSoAlertar}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
-import { Moon, ChevronRight, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Moon, ChevronRight, Loader2, ClipboardCheck } from 'lucide-react';
 
 import PageHeader from '@/components/PageHeader';
 import MissionList from '@/components/missions/MissionList';
@@ -203,6 +203,37 @@ export default function MissionsPage() {
         )}
       </section>
 
+
+      {/* CONFERIR PONTOS: a outra atividade de rua, e ela vem primeiro.
+
+          Patrulhar é percorrer sem destino — o app avisa o que aparece. Conferir
+          é ir até pontos que já existem e fechá-los. As duas viviam na mesma
+          tela de patrulha, uma interrompendo a outra; agora são portas
+          separadas, e esta fica no topo porque tem fim: os pontos acabam. */}
+      <section className="mt-8">
+        <h2 className="text-[11px] font-bold uppercase tracking-widest text-content-tertiary mb-2.5">
+          Conferir o que marcaram
+        </h2>
+
+        <Link
+          to="/conferir"
+          className="flex items-center gap-3.5 rounded-2xl border border-brand/30 bg-brand-subtleBg px-4 py-4 active:scale-[0.99] transition-transform"
+        >
+          <span className="shrink-0 w-11 h-11 rounded-xl bg-surface-raised ring-1 ring-brand/20 flex items-center justify-center">
+            <ClipboardCheck size={20} className="text-brand" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-bold text-content-primary leading-tight">
+              Conferir problemas marcados
+            </p>
+            <p className="text-xs text-content-secondary mt-0.5 leading-snug">
+              Alguém marcou de passagem, sem foto. Vá até lá e responda se o
+              problema está mesmo ali.
+            </p>
+          </div>
+          <ChevronRight size={18} className="shrink-0 text-content-tertiary" />
+        </Link>
+      </section>
 
       <section id="patrulhas" className="mt-8 scroll-mt-4">
         {/* Não existe "patrulha completa".

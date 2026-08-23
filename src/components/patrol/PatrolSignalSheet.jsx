@@ -21,20 +21,34 @@ import { PONTOS } from '@/lib/patrolGame';
 // escolhe "só alertar" termina em dois toques e volta a olhar a rua.
 
 export default function PatrolSignalSheet({
-  categoriaFixa = null,
+  categoriaPreferida = null,
   bairro,
   enviando,
   onSoAlertar,
   onCadastroCompleto,
   onFechar,
 }) {
-  // Numa patrulha de categoria única, a primeira pergunta já está respondida:
-  // quem saiu para caçar buraco não vai sinalizar poste. A folha abre direto no
-  // segundo passo, e um toque some do caminho.
-  const [categoria, setCategoria] = useState(categoriaFixa);
+  // A GRADE VOLTOU A APARECER SEMPRE.
+  //
+  // A folha abria direto no segundo passo quando a patrulha tinha categoria:
+  // "quem saiu para caçar buraco não vai sinalizar poste". Estava errado — quem
+  // está na rua vê o que está na rua, e um poste quebrado no caminho de uma
+  // patrulha de buracos é exatamente o tipo de coisa que só aquela pessoa,
+  // naquele momento, pode marcar.
+  //
+  // A categoria da patrulha continua governando o que ALERTA. Não governa mais
+  // o que se pode registrar.
+  const [categoria, setCategoria] = useState(null);
+  const voltar = () => setCategoria(null);
 
-  // Sem volta quando a categoria veio da patrulha: não há passo anterior.
-  const voltar = categoriaFixa ? null : () => setCategoria(null);
+  // A da patrulha vem primeiro: é a mais provável, e poupar um olhar não custa
+  // nada quando as outras continuam todas ali.
+  const ordenadas = categoriaPreferida
+    ? [
+        ...CATEGORIAS_SINAL.filter((c) => c.id === categoriaPreferida),
+        ...CATEGORIAS_SINAL.filter((c) => c.id !== categoriaPreferida),
+      ]
+    : CATEGORIAS_SINAL;
 
   return (
     <div className="absolute inset-0 z-[1003] flex flex-col justify-end">
@@ -85,7 +99,7 @@ export default function PatrolSignalSheet({
         {!categoria ? (
           <>
             <div className="grid grid-cols-2 gap-2.5">
-              {CATEGORIAS_SINAL.map((item) => (
+              {ordenadas.map((item) => (
                 <button
                   key={item.id}
                   type="button"

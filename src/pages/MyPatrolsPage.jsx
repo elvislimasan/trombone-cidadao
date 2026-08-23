@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import {
   Loader2, Route as RouteIcon, Timer, CheckCircle2, Flame,
-  Radar, Globe, Lock, Share2, Trash2, AlertTriangle,
+  Radar, Globe, Lock, Share2, Trash2, AlertTriangle, ClipboardCheck,
   Map as MapIcon, Megaphone,
 } from 'lucide-react';
 
@@ -163,6 +163,16 @@ const CartaoPatrulha = ({
           uma cópia de si mesmo era navegação para lugar nenhum. */}
       <div className="block px-4 pt-3.5 pb-3">
         <div className="flex items-center gap-2">
+          {/* Conferir e patrulhar produzem linhas com os mesmos campos e
+              significados diferentes: uma saída de conferência com "0/0
+              conferidas" não falhou — ela nunca teve alerta para responder.
+              Sem esta marca, o histórico faz uma parecer uma patrulha ruim. */}
+          {p.kind === 'audit' && (
+            <span className="shrink-0 inline-flex items-center gap-1 rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-content-tertiary">
+              <ClipboardCheck size={10} />
+              Conferência
+            </span>
+          )}
           <span className="text-[15px] font-bold text-content-primary">
             {formatarData(p.ended_at)}
           </span>
@@ -210,14 +220,22 @@ const CartaoPatrulha = ({
               <Medida Icone={RouteIcon} valor={formatarDistancia(p.distance_meters)} rotulo="" />
             </div>
             <div className="flex items-center gap-x-4 gap-y-1 flex-wrap">
-              <Medida
-                Icone={CheckCircle2}
-                valor={`${p.confirmed_count}/${p.passed_count}`}
-                rotulo="conferidas"
-              />
+              {p.kind === 'audit' ? (
+                <Medida
+                  Icone={ClipboardCheck}
+                  valor={(p.reports_count || 0) + (p.emptied_count || 0)}
+                  rotulo="respondidos"
+                />
+              ) : (
+                <Medida
+                  Icone={CheckCircle2}
+                  valor={`${p.confirmed_count}/${p.passed_count}`}
+                  rotulo="conferidas"
+                />
+              )}
               {/* Só quando a saída rendeu alguma coisa: "0 registros" é ruído
                   numa lista em que a maioria das linhas seria isso. */}
-              {rendeu > 0 && (
+              {p.kind !== 'audit' && rendeu > 0 && (
                 <Medida
                   Icone={Megaphone}
                   valor={rendeu}
@@ -277,7 +295,7 @@ export default function MyPatrolsPage() {
   const buscarPagina = useCallback(async (desde) => {
     const { data, error } = await supabase
       .from('patrols')
-      .select('id, started_at, ended_at, duration_seconds, distance_meters, passed_count, confirmed_count, reports_count, signals_count, is_public, city:cities(name)')
+      .select('id, kind, started_at, ended_at, duration_seconds, distance_meters, passed_count, confirmed_count, reports_count, signals_count, emptied_count, is_public, city:cities(name)')
       .eq('user_id', user.id)
       .order('ended_at', { ascending: false })
       .range(desde, desde + POR_PAGINA);

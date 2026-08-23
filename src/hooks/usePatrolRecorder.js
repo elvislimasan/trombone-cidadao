@@ -11,7 +11,17 @@ import { deveRegistrarPonto, distanciaTotal, rastroParaBanco } from '@/lib/navGe
 // Gravar a rota levaria junto o ponto de partida, que costuma ser a casa da
 // pessoa; a tabela `patrols` guarda apenas números e a cidade.
 
-export function usePatrolRecorder(posicao, { cityId = null } = {}) {
+/**
+ * @param {object} posicao          leitura corrente do GPS
+ * @param {object} [opcoes]
+ * @param {number|null} [opcoes.cityId]
+ * @param {'patrol'|'audit'} [opcoes.kind]  que tipo de saída é esta.
+ *
+ * `kind` não é rótulo: `patrols_count` e a sequência de dias contam só
+ * `patrol`, porque a missão "Saia em patrulha" fala de percorrer, e conferir
+ * pontos é ir até o que já existe. Ver a migração 192.
+ */
+export function usePatrolRecorder(posicao, { cityId = null, kind = 'patrol' } = {}) {
   const { user } = useAuth();
 
   const [rastro, setRastro] = useState([]);
@@ -20,6 +30,7 @@ export function usePatrolRecorder(posicao, { cityId = null } = {}) {
     confirmadas: 0,
     registradas: 0,
     sinalizadas: 0,
+    vazias: 0,
   });
   const [salvando, setSalvando] = useState(false);
 
@@ -34,6 +45,8 @@ export function usePatrolRecorder(posicao, { cityId = null } = {}) {
   // que permite refazer o card de story a partir do histórico.
   const registradasRef = useRef(new Set());
   const sinalizadasRef = useRef(new Set());
+  // Pontos conferidos e confirmados vazios. Só a conferência produz isto.
+  const vaziasRef = useRef(new Set());
   // Onde a pessoa ESTAVA a cada ação, para desenhar os pontos no traçado.
   //
   // Não dá para deduzir isso depois a partir dos ids: a coordenada da bronca é
@@ -53,6 +66,7 @@ export function usePatrolRecorder(posicao, { cityId = null } = {}) {
       confirmadas: confirmadasRef.current.size,
       registradas: registradasRef.current.size,
       sinalizadas: sinalizadasRef.current.size,
+      vazias: vaziasRef.current.size,
     });
   }, []);
 
@@ -113,6 +127,14 @@ export function usePatrolRecorder(posicao, { cityId = null } = {}) {
     if (!id || sinalizadasRef.current.has(id)) return;
     sinalizadasRef.current.add(id);
     marcarAcao('sinal');
+    sincronizarContagens();
+  }, [sincronizarContagens, marcarAcao]);
+
+  /** Ponto conferido e sem nada. Vale ação — a saída não foi em vão. */
+  const registrarVistoria = useCallback((id) => {
+    if (!id || vaziasRef.current.has(id)) return;
+    vaziasRef.current.add(id);
+    marcarAcao('vistoria');
     sincronizarContagens();
   }, [sincronizarContagens, marcarAcao]);
 
@@ -214,6 +236,8 @@ export function usePatrolRecorder(posicao, { cityId = null } = {}) {
       registered_report_ids: [...registradasRef.current],
       signals_count: sinalizadasRef.current.size,
       signaled_report_ids: [...sinalizadasRef.current],
+      emptied_count: vaziasRef.current.size,
+      emptied_report_ids: [...vaziasRef.current],
     };
 
     setSalvando(true);
@@ -249,6 +273,7 @@ export function usePatrolRecorder(posicao, { cityId = null } = {}) {
             .insert({
               user_id: user.id,
               city_id: cityId ?? null,
+              kind,
               ...medidas,
               is_public: publica,
             })
@@ -270,7 +295,7 @@ export function usePatrolRecorder(posicao, { cityId = null } = {}) {
     } finally {
       setSalvando(false);
     }
-  }, [user, cityId, distanciaM, guardarPercurso]);
+  }, [user, cityId, kind, distanciaM, guardarPercurso]);
 
 
   /** Segundos desde a primeira leitura de GPS. Lido ao abrir o resumo. */
@@ -287,6 +312,7 @@ export function usePatrolRecorder(posicao, { cityId = null } = {}) {
     duracaoAgora,
     registrarPassagem,
     registrarConfirmacao,
+    registrarVistoria,
     registrarBronca,
     registrarSinal,
     finalizar,

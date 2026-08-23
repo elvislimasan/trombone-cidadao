@@ -46,6 +46,7 @@ export const pontosDeAcoes = (c = {}) =>
   (c?.reports_count || 0) * PONTOS.bronca +
   (c?.missions_count || 0) * PONTOS.missao +
   (c?.signals_count || 0) * PONTOS.sinal +
+  (c?.empties_count || 0) * PONTOS.vistoria +
   (c?.updates_count || 0) * PONTOS.atualizacao +
   (c?.comments_count || 0) * PONTOS.comentario +
   (c?.upvotes_given || 0) * PONTOS.apoio;

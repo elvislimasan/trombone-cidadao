@@ -43,10 +43,6 @@ export default function PatrolRunPage() {
   const [posicao, setPosicao] = useState(null);
   const [broncas, setBroncas] = useState([]);
   const [rastro, setRastro] = useState([]);
-  const [missoes, setMissoes] = useState([]);
-  // A missão que a pessoa tocou no mapa. Mora aqui, e não no overlay, porque é
-  // o mapa que a produz — e o mapa é desta página.
-  const [missaoEscolhida, setMissaoEscolhida] = useState(null);
 
   // O mapa desenha o corredor, não o enquadramento: são poucas dezenas de pinos
   // em vez de centenas, e a referência só muda quando o corredor é rebuscado.
@@ -90,8 +86,6 @@ export default function PatrolRunPage() {
               navMode
               navPosition={posicao}
               navTrail={rastro}
-              navMissoes={missoes}
-              onNavMissaoClick={setMissaoEscolhida}
               showLegend={false}
               showModeToggle={false}
               interactive={false}
@@ -111,12 +105,9 @@ export default function PatrolRunPage() {
       <Suspense fallback={null}>
         <PatrolOverlay
           categoria={categoria}
-          missaoEscolhida={missaoEscolhida}
-          onEscolherMissao={setMissaoEscolhida}
           onPosicao={setPosicao}
           onBroncas={setBroncas}
           onRastro={setRastro}
-          onMissoes={setMissoes}
           onSair={sair}
         />
       </Suspense>

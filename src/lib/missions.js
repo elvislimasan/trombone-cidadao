@@ -47,6 +47,8 @@ const CADASTRAR = { rotulo: 'Cadastrar bronca', para: '/?criar_bronca=1' };
 /** Âncora da própria central: a lista de patrulhas por categoria. */
 const PATRULHAR = { rotulo: 'Sair em patrulha', para: '#patrulhas' };
 const VER_BRONCAS = { rotulo: 'Ver broncas', para: '/' };
+/** O modo de conferir os pontos que alguém marcou de passagem. */
+const CONFERIR = { rotulo: 'Conferir', para: '/conferir' };
 
 /** Escadas reaproveitadas. Números diferentes por missão seriam ruído. */
 const ESCADA_CURTA = [1, 3, 5, 10];
@@ -130,15 +132,35 @@ export const MISSOES = [
   {
     id: 'cumprir_missoes',
     trilha: 'registro',
-    titulo: 'Cumpra missões de outros',
-    descricao: 'Vá ao ponto que alguém sinalizou e registre',
+    titulo: 'Registre problemas marcados',
+    descricao: 'Vá até um problema que alguém marcou e faça o cadastro completo',
     icone: '🎯',
     nivelMinimo: 2,
     alvos: ESCADA_CURTA,
     valor: (c) => c.missions_count,
     medalhasPor: 'missions_count',
     ganhoPorAcao: PONTOS.missao,
-    acao: PATRULHAR,
+    acao: CONFERIR,
+  },
+  {
+    id: 'auditar',
+    trilha: 'registro',
+    titulo: 'Confira problemas marcados',
+    // AS DUAS RESPOSTAS CONTAM, E É O PONTO DA MISSÃO.
+    //
+    // Auditar não é registrar bronca: é FECHAR o caso. Um ponto onde o buraco
+    // já foi tapado se resolve dizendo que não há nada ali, e isso vale tanto
+    // quanto encontrar o problema — some do mapa do mesmo jeito.
+    //
+    // Contar só os registros faria a missão empurrar para inventar bronca onde
+    // não há, que é exatamente o que a migração 190 existe para evitar.
+    descricao: 'Responda se o problema está lá — registrando ou dizendo que não há',
+    icone: '🔍',
+    nivelMinimo: 1,
+    alvos: ESCADA_MEDIA,
+    valor: (c) => (c.missions_count || 0) + (c.empties_count || 0),
+    ganhoPorAcao: PONTOS.vistoria,
+    acao: CONFERIR,
   },
 
   {
@@ -229,6 +251,7 @@ const CONTADORES_VAZIOS = {
   upvotes_given: 0,
   signals_count: 0,
   missions_count: 0,
+  empties_count: 0,
   patrols_count: 0,
   total_confirmed: 0,
   total_distance_meters: 0,

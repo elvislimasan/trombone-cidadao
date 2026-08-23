@@ -68,6 +68,7 @@ import HomePageImproved from './pages/HomePage-improved';
 import MapPage from './pages/MapPage';
 import MissionsPage from '@/pages/MissionsPage';
 import PatrolRunPage from '@/pages/PatrolRunPage';
+import AuditRunPage from '@/pages/AuditRunPage';
 import MyPatrolsPage from '@/pages/MyPatrolsPage';
 import HomeRouter from './pages/HomeRouter';
 import NotFoundPage from '@/pages/NotFoundPage';
@@ -288,7 +289,9 @@ function AppShell() {
   // `/patrulhar`, não `/patrulha/:id` — este segundo é a rota antiga da
   // patrulha compartilhada, hoje só um redirecionamento, e `/patrulha/buracos`
   // cairia nele como se "buracos" fosse um id.
-  const patrulhaAtiva = location.pathname.startsWith('/patrulhar');
+  const patrulhaAtiva =
+    location.pathname.startsWith('/patrulhar') ||
+    location.pathname.startsWith('/conferir');
 
   // A key remonta o ErrorBoundary a cada navegação para que a tela de erro não
   // sobreviva à saída da rota que quebrou.
@@ -676,6 +679,9 @@ function AppShell() {
               <Route path="/minhas-patrulhas" element={<PrivateRoute><MyPatrolsPage /></PrivateRoute>} />
               <Route path="/patrulhar" element={<PatrolRunPage />} />
               <Route path="/patrulhar/:categoria" element={<PatrolRunPage />} />
+              {/* Conferir os pontos marcados. Tela cheia como a patrulha, e
+                  privada: responder um ponto é ação de conta. */}
+              <Route path="/conferir" element={<PrivateRoute><AuditRunPage /></PrivateRoute>} />
               {/* Rota antiga da patrulha: links e atalhos salvos continuam
                   funcionando, agora caindo no hub em vez de numa tela morta. */}
               <Route path="/mapa/patrulha" element={<Navigate to="/missoes" replace />} />

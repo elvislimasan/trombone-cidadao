@@ -1,4 +1,4 @@
-import { X, Navigation2, SatelliteDish, WifiOff, ListChecks, Square } from 'lucide-react';
+import { X, Navigation2, SatelliteDish, WifiOff, ListChecks, Square, Volume2, VolumeX } from 'lucide-react';
 
 // Painel do modo patrulha: velocidade, rua, avisos e a ação da vez.
 //
@@ -37,6 +37,9 @@ export default function PatrolHud({
   cardVisivel,
   acao,
   onSair,
+  mudo = false,
+  onAlternarSom,
+  somSuportado = true,
 }) {
   const aviso = sinalFraco ? AVISOS.sinalFraco : semRede ? AVISOS.semRede : null;
 
@@ -129,6 +132,33 @@ export default function PatrolHud({
             </button>
           )}
         </div>
+
+        {/* SOM: ligado ou mudo.
+            Fica na faixa de baixo, à direita, espelhando o velocímetro à
+            esquerda — as duas coisas que se consulta de relance, nos cantos, e
+            o que se decide no meio.
+
+            Existe porque o alerta falava e não havia como calar: quem patrulha
+            ouvindo rádio, ou com passageiro no carro, só tinha a opção de
+            baixar o volume do aparelho inteiro — e aí perdia a chamada também.
+
+            Não some junto com o velocímetro quando um card sobe: calar o app é
+            justamente o que se quer poder fazer NO instante em que ele fala. */}
+        {somSuportado && (
+          <button
+            type="button"
+            onClick={onAlternarSom}
+            aria-label={mudo ? 'Ligar alertas por voz' : 'Silenciar alertas por voz'}
+            aria-pressed={!mudo}
+            className={`pointer-events-auto shrink-0 w-[52px] h-[52px] rounded-full backdrop-blur-sm border shadow-xl flex items-center justify-center transition-colors ${
+              mudo
+                ? 'bg-surface-overlay/95 border-edge-default text-content-tertiary'
+                : 'bg-brand border-brand text-content-onBrand'
+            }`}
+          >
+            {mudo ? <VolumeX size={22} /> : <Volume2 size={22} />}
+          </button>
+        )}
       </div>
     </>
   );
