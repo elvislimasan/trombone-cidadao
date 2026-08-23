@@ -1,4 +1,6 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 
 // As categorias, com o progresso de cada uma.
 //
@@ -49,6 +51,25 @@ const Bloco = ({ missao, categoria }) => (
 );
 
 export default function MissionCategoryGrid({ missoes, categorias }) {
+  const faixaRef = useRef(null);
+  const [temMais, setTemMais] = useState(false);
+
+  /** Ainda há conteúdo à direita? Medido do elemento, não chutado da contagem. */
+  const medir = useCallback(() => {
+    const el = faixaRef.current;
+    if (!el) return;
+    // A folga de 4 px absorve o arredondamento de zoom do navegador, que faz
+    // `scrollLeft + clientWidth` ficar meio pixel abaixo de `scrollWidth` mesmo
+    // com a faixa no fim — e a seta piscaria para sempre.
+    setTemMais(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    medir();
+    window.addEventListener('resize', medir);
+    return () => window.removeEventListener('resize', medir);
+  }, [medir, missoes]);
+
   if (!missoes || missoes.length === 0) return null;
 
   const porId = Object.fromEntries((categorias || []).map((c) => [c.id, c]));
@@ -58,9 +79,12 @@ export default function MissionCategoryGrid({ missoes, categorias }) {
       {/* Sem "Ver todas": a lista completa está logo abaixo, na mesma rolagem.
           Um link para dois dedos mais adiante é ruído — e havia três deles na
           tela, competindo entre si e com os botões que fazem alguma coisa. */}
-      <h2 className="text-base font-extrabold text-content-primary tracking-tight mb-2.5">
+      <h2 className="text-base font-extrabold text-content-primary tracking-tight mb-1">
         Explore por categoria
       </h2>
+      <p className="text-[11px] font-semibold text-content-tertiary tabular-nums mb-2.5">
+       Clique no card abaixo para iniciar patrulha
+      </p>  
 
       {/* UMA FILA, NÃO UMA GRADE.
           Em duas linhas de três, a seção comia um terço da tela para dizer seis
@@ -68,15 +92,42 @@ export default function MissionCategoryGrid({ missoes, categorias }) {
           faz a pessoa agir, para fora do primeiro olhar.
 
           Numa fila que rola, ela ocupa a altura de um item e as seis continuam
-          alcançáveis: o corte da sexta na borda é o que diz que há mais. */}
-      <div className="flex gap-2 overflow-x-auto snap-x -mx-4 px-4 pb-1 scrollbar-none">
-        {missoes.map((m) => (
-          <Bloco
-            key={m.id}
-            missao={m}
-            categoria={porId[m.id.replace('investigar_', '')]}
-          />
-        ))}
+          alcançáveis: o corte da sexta na borda é o que diz que há mais.
+
+          SEM `-mx-4 px-4`. Aquilo puxa a faixa até a borda da tela e devolve o
+          recuo por dentro, o que só alinha se o pai tiver exatamente `px-4`. O
+          container desta página é `max-w-2xl mx-auto px-4` e centraliza em tela
+          larga — então o negativo saía do CARTÃO, não da tela, e o primeiro
+          item ficava colado na borda enquanto todo o resto tinha margem. */}
+      {/* A SETA E O ESMAECIDO SÃO A MESMA MENSAGEM, DITA DUAS VEZES.
+
+          O corte do último item na borda só funciona quando sobra item para
+          cortar — com quatro categorias numa tela larga, a fila termina antes
+          da borda e nada indica que há rolagem. A seta diz explicitamente.
+
+          Ela some quando não há mais nada para o lado: apontar para o vazio é
+          pior que não apontar. E é `pointer-events-none` para não roubar o
+          toque do bloco que está embaixo dela. */}
+      <div className="relative">
+        <div
+          ref={faixaRef}
+          onScroll={medir}
+          className="flex gap-2 overflow-x-auto snap-x pb-1 pr-1 scrollbar-none"
+        >
+          {missoes.map((m) => (
+            <Bloco
+              key={m.id}
+              missao={m}
+              categoria={porId[m.id.replace('investigar_', '')]}
+            />
+          ))}
+        </div>
+
+        {temMais && (
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pl-6 pr-0.5 bg-gradient-to-l from-surface-base via-surface-base/80 to-transparent">
+            <ChevronRight size={18} className="text-content-tertiary" />
+          </div>
+        )}
       </div>
     </section>
   );

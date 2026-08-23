@@ -54,8 +54,8 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
         .from('petition-images')
         .getPublicUrl(filePath);
 
+      // Sem toast: a imagem aparece no formulário assim que a URL entra aqui.
       setFormData(prev => ({ ...prev, image_url: publicUrl }));
-      toast({ title: "Imagem enviada!" });
     } catch (error) {
       console.error('Error uploading image:', error);
       toast({ title: "Erro no upload", description: error.message, variant: "destructive" });

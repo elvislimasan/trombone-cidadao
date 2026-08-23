@@ -361,7 +361,7 @@ const RentalMediaManager = ({ propertyId }) => {
         const { error: dbError } = await supabase.from('rental_property_media').insert({ property_id: propertyId, url: publicUrl });
         if (dbError) throw dbError;
       }
-      toast({ title: 'Fotos adicionadas' });
+      // Sem toast: o fetchMedia abaixo põe as fotos na galeria da tela.
       await fetchMedia();
     } catch (error) {
       toast({ title: 'Erro ao enviar fotos', description: error.message, variant: 'destructive' });
@@ -384,7 +384,7 @@ const RentalMediaManager = ({ propertyId }) => {
         const { error: dbError } = await supabase.from('rental_property_documents').insert({ property_id: propertyId, type: docType, url: publicUrl, description: file.name });
         if (dbError) throw dbError;
       }
-      toast({ title: 'Documentos adicionados' });
+      // Sem toast: o fetchMedia abaixo põe os documentos na lista da tela.
       await fetchMedia();
     } catch (error) {
       toast({ title: 'Erro ao enviar documentos', description: error.message, variant: 'destructive' });

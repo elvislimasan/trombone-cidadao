@@ -138,7 +138,11 @@ export default function MissionsPage() {
         />
       </Helmet>
 
- 
+      <PageHeader
+        titulo="Missões"
+        subtitulo="Complete missões e fortaleça sua cidade"
+        paraOnde="/feed"
+      />
 
       {/* Estado pessoal antes das ações: quem abre a central quer saber onde
           está antes de escolher o que fazer. */}
@@ -188,7 +192,7 @@ export default function MissionsPage() {
                 assim que a lista estava. O filtro serve a quem já sabe o que
                 quer fazer hoje — "só quero patrulhar" — sem obrigar quem não
                 sabe a escolher: "Todas" é o padrão. */}
-            <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 mb-3 scrollbar-none">
+            <div className="flex gap-2 overflow-x-auto pb-1 pr-1 mb-3 scrollbar-none">
               {abas.map((aba) => (
                 <button
                   key={aba.id}
