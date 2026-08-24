@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download, ChevronLeft, ChevronRight, Check, Printer, FileText, Layout, Grid, Palette, Contrast } from "lucide-react";
 import { toPng } from 'html-to-image';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Media } from '@capacitor-community/media';
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { salvarImagemNaGaleria } from '@/lib/nativeDownload';
 import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -60,41 +58,12 @@ const PetitionFlyerModal = ({ isOpen, onClose, petition, qrCodeUrl }) => {
       const fileName = `panfleto-${petition.id}-${selectedTemplate}.png`;
 
       if (Capacitor.isNativePlatform()) {
-        const base64 = dataUrl.split(',')[1] || '';
-        const platform = Capacitor.getPlatform();
-        let directory = Directory.Documents;
-        let downloadPath = fileName;
-        
-        if (platform === 'android') {
-          directory = Directory.ExternalStorage;
-          downloadPath = `Pictures/TromboneCidadao/${fileName}`;
-        }
-
-        await Filesystem.writeFile({
-          path: downloadPath,
-          data: base64,
-          directory,
-          recursive: true,
+        // Escrevia em `Pictures/TromboneCidadao/` sob ExternalStorage, que o
+        // Android nega desde a API 29 — ver lib/nativeDownload.
+        await salvarImagemNaGaleria({
+          base64: dataUrl.split(',')[1] || '',
+          fileName,
         });
-
-        try {
-          const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
-          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
-          
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Panfleto baixado!',
-                body: 'O arquivo foi salvo na sua galeria.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-              },
-            ],
-          });
-        } catch (e) {
-          console.error("Error saving to media gallery", e);
-        }
       } else {
         const link = document.createElement('a');
         link.href = dataUrl;

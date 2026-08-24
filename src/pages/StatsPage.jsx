@@ -20,9 +20,9 @@ import CitySelector from '@/components/CitySelector';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { FileOpener } from '@capacitor-community/file-opener';
+import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 
 // Le o valor computado de um token de design em runtime. O Recharts recebe
@@ -482,78 +482,19 @@ const ReportsStats = () => {
     return doc;
   };
 
-  // Função para converter PDF para base64
-  const pdfToBase64 = async (doc) => {
-    return new Promise((resolve, reject) => {
-      try {
-        const pdfBlob = doc.output('blob');
-        const reader = new FileReader();
-        
-        reader.onloadend = () => {
-          const base64Data = reader.result.split(',')[1];
-          resolve(base64Data);
-        };
-        
-        reader.onerror = () => {
-          reject(new Error('Erro ao converter PDF para base64'));
-        };
-        
-        reader.readAsDataURL(pdfBlob);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  };
-
+  // Gravação do PDF.
+  //
+  // O caminho nativo mora em lib/nativeDownload: escrever direto em
+  // /storage/emulated/0/Download exigia WRITE_EXTERNAL_STORAGE, que o Android
+  // não concede desde a API 29 — era o EACCES que aparecia ao gerar relatório.
+  // Agora grava na área privada e abre no visualizador do sistema.
   const savePdfDocument = useCallback(async ({ doc, fileName, successTitle, successDescription }) => {
-    const isNative = Capacitor.isNativePlatform();
-
-    if (isNative) {
-      const permissionStatus = await LocalNotifications.checkPermissions();
-      if (permissionStatus.display !== 'granted') {
-        await LocalNotifications.requestPermissions();
-      }
-
-      const base64Data = await pdfToBase64(doc);
-      const platform = Capacitor.getPlatform();
-
-      let downloadPath = fileName;
-      let directory = Directory.Documents;
-
-      if (platform === 'android') {
-        try { await Filesystem.requestPermissions(); } catch {}
-        directory = Directory.ExternalStorage;
-        downloadPath = `Download/${fileName}`;
-      } else if (platform === 'ios') {
-        directory = Directory.Documents;
-        downloadPath = fileName;
-      }
-
-      await Filesystem.writeFile({
-        path: downloadPath,
-        data: base64Data,
-        directory,
-        recursive: true,
-      });
-
-      const uriResult = await Filesystem.getUri({
-        directory,
-        path: downloadPath,
-      });
-
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title: 'Download Concluído',
-            body: `${fileName} salvo com sucesso. Toque para abrir.`,
-            id: Math.floor(Date.now() % 2147483647),
-            schedule: { at: new Date(Date.now() + 100) },
-            extra: {
-              filePath: uriResult.uri,
-              contentType: 'application/pdf',
-            },
-          },
-        ],
+    if (Capacitor.isNativePlatform()) {
+      await salvarDocumento({
+        base64: pdfParaBase64(doc),
+        fileName,
+        contentType: 'application/pdf',
+        tituloShare: fileName,
       });
 
       toast({

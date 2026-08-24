@@ -24,9 +24,7 @@ import {
   User2Icon,
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Media } from '@capacitor-community/media';
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { salvarImagemNaGaleria } from '@/lib/nativeDownload';
 import { useToast } from '@/components/ui/use-toast';
 import { getCardInstagramPublicUrl } from '@/lib/cardInstagramAssets';
 
@@ -947,61 +945,12 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
       });
       const fileName = `story-${layout}-${safeTitle}.png`;
       if (Capacitor.isNativePlatform()) {
-        try {
-          const perm = await LocalNotifications.checkPermissions();
-          if (perm.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-        } catch {}
-
-        const base64 = dataUrl.split(',')[1] || '';
-        const platform = Capacitor.getPlatform();
-        let directory = Directory.Documents;
-        let downloadPath = fileName;
-        if (platform === 'android') {
-          try { await Filesystem.requestPermissions(); } catch {}
-          directory = Directory.ExternalStorage;
-          downloadPath = `Pictures/TromboneCidadao/Stories/${fileName}`;
-        }
-
-        await Filesystem.writeFile({
-          path: downloadPath,
-          data: base64,
-          directory,
-          recursive: true,
+        // Gravava em `Pictures/TromboneCidadao/Stories/` sob ExternalStorage,
+        // negado desde o Android 10 — ver lib/nativeDownload.
+        await salvarImagemNaGaleria({
+          base64: dataUrl.split(',')[1] || '',
+          fileName,
         });
-
-        const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
-        try {
-          if (Media.requestPermissions) {
-            await Media.requestPermissions();
-          }
-        } catch {}
-        try {
-          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
-        } catch {}
-        try {
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Card baixado!',
-                body: 'O card foi salvo na sua galeria. Toque para abrir.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-                extra: {
-                  filePath: uriResult.uri,
-                  contentType: 'image/png',
-                },
-              },
-            ],
-          });
-        } catch (e) {
-          toast({
-            title: 'Card salvo na galeria',
-            description: 'Notificação não disponível no dispositivo.',
-          });
-        }
       } else {
         const link = document.createElement('a');
         link.download = fileName;

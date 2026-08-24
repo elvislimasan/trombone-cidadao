@@ -36,6 +36,7 @@ const ReportSummary = ({
   isAnonymous,
   authorName,
   authorAvatar,
+  reportAgeStory,
 }) => {
   const showAuthor = !isAnonymous && !!authorName;
 
@@ -73,6 +74,20 @@ const ReportSummary = ({
 
         <TimeAgo date={createdAt} className="text-2xs text-content-tertiary flex-shrink-0" />
       </div>
+
+      {/* "Há X dias no escuro". Voltou depois de ter sumido no redesign — ver
+          o memo `reportAgeStory` em ReportPage. Fica abaixo do autor e acima do
+          protocolo porque é leitura, não metadado: quem abre a bronca lê o
+          título, vê quem denunciou e então descobre há quanto tempo ninguém
+          resolveu. */}
+      {reportAgeStory && (
+        <div className="flex items-start gap-2 rounded-xl bg-surface-subtle border border-edge-subtle px-3 py-2">
+          <Icon name="received" size={15} className="flex-shrink-0 mt-0.5 text-brand" />
+          <span className="text-xs font-semibold text-content-primary leading-snug">
+            {reportAgeStory}
+          </span>
+        </div>
+      )}
 
       {protocol && (
         <span className="inline-flex items-center bg-surface-subtle px-3 py-1 rounded-full font-mono text-2xs font-semibold text-content-secondary tabular-nums">

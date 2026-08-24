@@ -1,12 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Media } from '@capacitor-community/media';
-import { LocalNotifications } from '@capacitor/local-notifications';
 
 import { useToast } from '@/components/ui/use-toast';
-import { shareImageToInstagramStory } from '@/lib/instagramStory';
+import { shareImageToInstagramStory, canShareToStory } from '@/lib/instagramStory';
+import { salvarImagemNaGaleria, compartilharImagem } from '@/lib/nativeDownload';
 import { registrarCompartilhamento } from '@/lib/shareTracking';
 
 // Exportação de um card 1080×1920: rasterizar, baixar e mandar ao story.
@@ -49,6 +47,24 @@ export function useStoryExport({
 
   const ocupado = baixando || compartilhando;
 
+  // ── Quem consegue compartilhar, e por qual caminho ──────────────────────────
+  //
+  // `viaInstagram` é o deep link direto (plugin nativo + app id da Meta).
+  // `podeCompartilhar` é mais largo: inclui a folha do sistema, que existe no
+  // nativo sempre e no navegador quando há Web Share com arquivo.
+  //
+  // A distinção importa porque o botão principal do card era "Baixar imagem"
+  // em tudo que não fosse o caminho A — inclusive no Chrome do celular, onde a
+  // folha do sistema existe e leva ao Instagram. Quem abria o app pelo
+  // navegador só via o download e tinha que publicar o card à mão.
+  const viaInstagram = canShareToStory();
+  const podeCompartilhar =
+    viaInstagram ||
+    Capacitor.isNativePlatform() ||
+    (typeof navigator !== 'undefined' &&
+      typeof navigator.share === 'function' &&
+      typeof navigator.canShare === 'function');
+
   /**
    * Rasteriza o nó em PNG.
    *
@@ -71,84 +87,51 @@ export function useStoryExport({
     });
   }, []);
 
+  /**
+   * Entrega um PNG já rasterizado ao aparelho.
+   *
+   * Separado do `baixar` por causa do fallback do compartilhamento: quando a
+   * folha do sistema recusa arquivo, `compartilhar` precisa cair no download —
+   * e chamar `baixar()` de dentro dele não funcionava, porque o guarda de
+   * `ocupado` já estava fechado pelo próprio compartilhamento em andamento. O
+   * botão simplesmente não fazia nada.
+   */
+  const entregarDownload = useCallback(async (dataUrl) => {
+    const arquivo = `${nomeArquivo}.png`;
+
+    if (Capacitor.isNativePlatform()) {
+      // Gravava em `Pictures/TromboneCidadao/Stories/` sob ExternalStorage,
+      // o que é escrita em diretório público — negada desde o Android 10, e
+      // o card simplesmente nunca era salvo. Agora o arquivo vai para a área
+      // do app e entra na galeria pelo MediaStore, que não pede permissão.
+      // Ver lib/nativeDownload.
+      await salvarImagemNaGaleria({
+        base64: dataUrl.split(',')[1] || '',
+        fileName: arquivo,
+      });
+    } else {
+      const link = document.createElement('a');
+      link.download = arquivo;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Baixar para publicar à mão conta como compartilhar: é a mesma
+    // intenção, e no iOS sem Instagram é o único caminho que existe. A chave
+    // única da tabela garante que baixar e depois compartilhar não conte duas.
+    registrarCompartilhamento(tipoConteudo, contentId, 'download');
+
+    toast({ title: 'Card pronto!', description: 'A imagem foi gerada e baixada.' });
+  }, [nomeArquivo, tipoConteudo, contentId, toast]);
+
   const baixar = useCallback(async () => {
     if (!exportRef.current || ocupado || !pronto) return;
 
     try {
       setBaixando(true);
-      const dataUrl = await renderizar();
-      const arquivo = `${nomeArquivo}.png`;
-
-      if (Capacitor.isNativePlatform()) {
-        try {
-          const perm = await LocalNotifications.checkPermissions();
-          if (perm.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-        } catch {}
-
-        const base64 = dataUrl.split(',')[1] || '';
-        const platform = Capacitor.getPlatform();
-        let directory = Directory.Documents;
-        let downloadPath = arquivo;
-
-        // Android grava na pasta pública de imagens, senão o arquivo fica na
-        // área privada do app e a galeria nunca o enxerga.
-        if (platform === 'android') {
-          try { await Filesystem.requestPermissions(); } catch {}
-          directory = Directory.ExternalStorage;
-          downloadPath = `Pictures/TromboneCidadao/Stories/${arquivo}`;
-        }
-
-        await Filesystem.writeFile({
-          path: downloadPath,
-          data: base64,
-          directory,
-          recursive: true,
-        });
-
-        const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
-        try {
-          if (Media.requestPermissions) await Media.requestPermissions();
-        } catch {}
-        try {
-          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
-        } catch {}
-
-        try {
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Card baixado!',
-                body: 'O card foi salvo na sua galeria. Toque para abrir.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-                extra: { filePath: uriResult.uri, contentType: 'image/png' },
-              },
-            ],
-          });
-        } catch {
-          toast({
-            title: 'Card salvo na galeria',
-            description: 'Notificação não disponível no dispositivo.',
-          });
-        }
-      } else {
-        const link = document.createElement('a');
-        link.download = arquivo;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-
-      // Baixar para publicar à mão conta como compartilhar: é a mesma
-      // intenção, e no iOS sem Instagram é o único caminho que existe. A chave
-      // única da tabela garante que baixar e depois compartilhar não conte duas.
-      registrarCompartilhamento(tipoConteudo, contentId, 'download');
-
-      toast({ title: 'Card pronto!', description: 'A imagem foi gerada e baixada.' });
+      await entregarDownload(await renderizar());
       return true;
     } catch (error) {
       console.error('[useStoryExport] falha ao baixar:', error);
@@ -161,7 +144,7 @@ export function useStoryExport({
     } finally {
       setBaixando(false);
     }
-  }, [ocupado, pronto, renderizar, nomeArquivo, toast, tipoConteudo, contentId]);
+  }, [ocupado, pronto, renderizar, toast, entregarDownload]);
 
   const compartilhar = useCallback(async () => {
     if (!exportRef.current || ocupado || !pronto) return;
@@ -170,22 +153,57 @@ export function useStoryExport({
       setCompartilhando(true);
       const dataUrl = await renderizar();
 
-      const { linkAttached } = await shareImageToInstagramStory({
+      // ── Caminho A: deep link direto para o story ──
+      //
+      // Só existe onde o plugin nativo e o app id da Meta estão os dois
+      // presentes. É o melhor caminho — a pessoa cai no editor de story com a
+      // imagem já posta — mas é o mais restrito.
+      if (viaInstagram) {
+        const { linkAttached } = await shareImageToInstagramStory({
+          dataUrl,
+          reportId: contentId,
+          shareUrl,
+        });
+
+        if (linkAttached) {
+          // Não dá para saber se o Instagram renderizou o sticker: a permissão
+          // de link em story é da conta do usuário, invisível para o app.
+          toast({
+            title: 'Card enviado ao Instagram',
+            description:
+              'Se sua conta permitir link em story, o sticker do Trombone já vai estar lá.',
+            duration: 4000,
+          });
+        }
+        registrarCompartilhamento(tipoConteudo, contentId, 'story');
+        aoConcluirShare?.();
+        return true;
+      }
+
+      // ── Caminho B: folha de compartilhamento do sistema ──
+      //
+      // No navegador não existe deep link para o story do Instagram: a Meta só
+      // aceita o intent (Android) ou o pasteboard (iOS), e nenhum dos dois é
+      // alcançável de uma página. A folha do sistema com o PNG anexado é o que
+      // sobra — e resolve o mesmo problema, porque o Instagram aparece nela e
+      // oferece "Stories" ao receber a imagem.
+      //
+      // `compartilharImagem` devolve false quando a plataforma recusa arquivo
+      // (Chrome de desktop é o caso comum). Aí baixar não é consolo, é a única
+      // coisa que funciona ali.
+      const foi = await compartilharImagem({
         dataUrl,
-        reportId: contentId,
-        shareUrl,
+        base64: dataUrl.split(',')[1] || '',
+        fileName: `${nomeArquivo}.png`,
+        texto: 'Trombone Cidadão',
+        url: shareUrl,
       });
 
-      if (linkAttached) {
-        // Não dá para saber se o Instagram renderizou o sticker: a permissão de
-        // link em story é da conta do usuário, invisível para o app.
-        toast({
-          title: 'Card enviado ao Instagram',
-          description:
-            'Se sua conta permitir link em story, o sticker do Trombone já vai estar lá.',
-          duration: 4000,
-        });
+      if (!foi) {
+        await entregarDownload(dataUrl);
+        return true;
       }
+
       registrarCompartilhamento(tipoConteudo, contentId, 'story');
       aoConcluirShare?.();
       return true;
@@ -204,7 +222,13 @@ export function useStoryExport({
     } finally {
       setCompartilhando(false);
     }
-  }, [ocupado, pronto, renderizar, contentId, shareUrl, toast, aoConcluirShare, tipoConteudo]);
+  }, [
+    ocupado, pronto, renderizar, contentId, shareUrl, toast, aoConcluirShare,
+    tipoConteudo, nomeArquivo, entregarDownload, viaInstagram,
+  ]);
 
-  return { exportRef, baixando, compartilhando, ocupado, baixar, compartilhar, renderizar };
+  return {
+    exportRef, baixando, compartilhando, ocupado, baixar, compartilhar,
+    renderizar, podeCompartilhar, viaInstagram,
+  };
 }

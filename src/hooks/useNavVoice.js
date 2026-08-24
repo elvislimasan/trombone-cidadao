@@ -1,36 +1,59 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
 
 // Voz e som do alerta.
 //
-// Usa a Web Speech API, presente no WebView do Android e no WKWebView do iOS —
-// sem plugin nativo, sem `cap sync`. Quando ela não existe ou falha, sobra o
-// bipe: o alerta nunca fica só visual, porque quem está dirigindo pode não
-// estar olhando para a tela no instante em que o card sobe.
+// ── POR QUE NÃO DÁ PARA USAR SÓ A WEB SPEECH API ────────────────────────────
 //
-// O bipe é sintetizado com WebAudio em vez de um arquivo: dois tons curtos não
-// justificam um asset no bundle, e assim não há requisição para tocar.
+// Este hook usava `window.speechSynthesis` em todas as plataformas, e no app
+// nativo do Android a patrulha era MUDA. O motivo é traiçoeiro: o Android
+// System WebView EXPÕE `window.speechSynthesis` — o objeto existe, `speak()`
+// aceita a chamada e não lança — mas o Chromium nunca ligou essa API ao motor
+// de TTS do Android. Na prática `getVoices()` volta vazio e nada é falado.
+//
+// Como o gate era `!!window.speechSynthesis`, o app concluía "suporte tem",
+// mostrava o botão de som ligado e não falava nunca. Sem erro no console, sem
+// exceção — só silêncio, que é o pior modo de uma coisa quebrar.
+//
+// No iOS o WKWebView implementa a API de verdade (por cima do
+// AVSpeechSynthesizer), então lá a voz sempre funcionou. Era exatamente o tipo
+// de divergência de plataforma que o CLAUDE.md manda tratar.
+//
+// A saída é o plugin nativo, que fala pelo `android.speech.tts.TextToSpeech`
+// no Android e pelo `AVSpeechSynthesizer` no iOS. Na web continua a Web Speech
+// API, que ali funciona.
+//
+// ── O BIPE ──────────────────────────────────────────────────────────────────
+//
+// Sintetizado com WebAudio em vez de um arquivo: dois tons curtos não
+// justificam um asset no bundle. WebAudio funciona no WebView das duas
+// plataformas, então este caminho é o mesmo em tudo.
 //
 // ── POR QUE EXISTE UM `preparar()` ──────────────────────────────────────────
 //
-// Este é o motivo de a voz falhar sem dar erro, e vale ler antes de mexer.
-//
-// Navegador nenhum deixa uma página fazer barulho sozinha. Tanto o AudioContext
-// quanto o speechSynthesis só ficam liberados depois de um gesto do usuário —
-// e "depois" aqui é literal: o desbloqueio tem que ACONTECER dentro do gesto,
-// não minutos mais tarde.
+// Navegador nenhum deixa uma página fazer barulho sozinha. O AudioContext só
+// fica liberado depois de um gesto do usuário — e "depois" aqui é literal: o
+// desbloqueio tem que ACONTECER dentro da ativação, não minutos mais tarde.
 //
 // O código antigo criava o AudioContext na primeira vez que precisava bipar,
 // que é quando a primeira bronca aparece no caminho — dez minutos depois do
 // último toque na tela. Nesse instante o contexto nasce `suspended` e o
-// `resume()` é ignorado, porque já não há gesto ativo. Resultado: alerta mudo,
-// sem nenhum erro no console.
+// `resume()` é ignorado. Resultado: alerta mudo, sem nenhum erro no console.
 //
-// `preparar()` faz o desbloqueio no toque que INICIA a patrulha: liga o
-// contexto e emite uma fala vazia. A partir daí os dois respondem.
+// `preparar()` faz o desbloqueio no toque que INICIA a patrulha. No caminho
+// nativo o TTS não precisa de gesto, mas o bipe precisa — então `preparar()`
+// continua valendo nas duas plataformas.
 
 const CHAVE_MUDO = 'nav_voz_mudo';
 
-/** A voz de português que o aparelho tiver. */
+// O plugin existe no Android e no iOS. Na web ele tem implementação própria
+// sobre a Web Speech API, mas preferimos falar direto com a API ali: é um
+// caminho a menos e evita depender do proxy do Capacitor no navegador.
+const usaPluginNativo = () =>
+  Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('TextToSpeech');
+
+/** A voz de português que o aparelho tiver. Só usada no caminho web. */
 const escolherVoz = () => {
   try {
     const vozes = window.speechSynthesis?.getVoices?.() || [];
@@ -57,24 +80,61 @@ export function useNavVoice() {
     try { return localStorage.getItem(CHAVE_MUDO) === '1'; } catch { return false; }
   });
 
-  // `speechSynthesis` existe no navegador; `getVoices()` pode vir vazio no
-  // primeiro acesso — o catálogo carrega assíncrono e avisa por `voiceschanged`.
-  const suportada = typeof window !== 'undefined' && !!window.speechSynthesis;
+  // No nativo o suporte é o plugin, ponto. Na web é a Web Speech API — e ali
+  // `!!window.speechSynthesis` é um teste honesto, porque no navegador de
+  // verdade a API implementada é a que o objeto anuncia.
+  //
+  // Começa otimista no nativo e é confirmado pelo efeito abaixo: uma voz de
+  // português pode simplesmente não estar instalada no aparelho, e nesse caso
+  // é melhor esconder o botão do que oferecer um som que não sai.
+  const [suportada, setSuportada] = useState(() =>
+    usaPluginNativo()
+      ? true
+      : typeof window !== 'undefined' && !!window.speechSynthesis
+  );
 
   useEffect(() => {
+    let cancelado = false;
+
+    if (usaPluginNativo()) {
+      // Confere se o motor do aparelho tem português. `isLanguageSupported`
+      // devolve false em aparelho sem o pacote de voz pt-BR baixado — comum em
+      // aparelho novo ou com o Google TTS desativado.
+      (async () => {
+        try {
+          const { supported } = await TextToSpeech.isLanguageSupported({ lang: 'pt-BR' });
+          if (!cancelado && !supported) {
+            const { supported: ptGenerico } =
+              await TextToSpeech.isLanguageSupported({ lang: 'pt' });
+            if (!cancelado) setSuportada(!!ptGenerico);
+          }
+        } catch {
+          // Plugin presente mas o motor não respondeu. Deixa ligado: falhar ao
+          // falar é recuperável, esconder o botão à toa não.
+        }
+      })();
+      return () => { cancelado = true; };
+    }
+
     if (!suportada) return;
 
+    // `getVoices()` pode vir vazio no primeiro acesso — o catálogo carrega
+    // assíncrono e avisa por `voiceschanged`.
     const carregar = () => { vozRef.current = escolherVoz(); };
     carregar();
     window.speechSynthesis.addEventListener?.('voiceschanged', carregar);
 
     return () => {
+      cancelado = true;
       window.speechSynthesis.removeEventListener?.('voiceschanged', carregar);
     };
   }, [suportada]);
 
   useEffect(() => () => {
-    try { window.speechSynthesis?.cancel(); } catch {}
+    try {
+      if (usaPluginNativo()) TextToSpeech.stop();
+      else window.speechSynthesis?.cancel();
+    } catch {}
     try { audioCtxRef.current?.close?.(); } catch {}
   }, []);
 
@@ -95,6 +155,14 @@ export function useNavVoice() {
         }
       }
     } catch {}
+
+    // O motor nativo não tem trava de gesto: a fala vazia era um truque de
+    // navegador, e mandá-la ao plugin só faria o TTS abrir a sessão de áudio
+    // para não dizer nada.
+    if (usaPluginNativo()) {
+      preparadoRef.current = true;
+      return;
+    }
 
     try {
       const synth = window.speechSynthesis;
@@ -134,12 +202,33 @@ export function useNavVoice() {
 
   const falar = useCallback((texto) => {
     if (!texto) return;
+
+    if (usaPluginNativo()) {
+      // `category: 'playback'` é do iOS e importa aqui: sem ela a sessão nasce
+      // `ambient`, que fica em silêncio com o interruptor lateral no mudo e
+      // some quando a tela apaga. Numa patrulha o telefone passa a maior parte
+      // do tempo no bolso ou no suporte com a tela apagada — o alerta tem que
+      // sair mesmo assim.
+      //
+      // `QueueStrategy.Flush` é o padrão do plugin e é o que queremos: dois
+      // alertas seguidos empilhados fariam o segundo chegar depois que a pessoa
+      // já passou pela bronca.
+      TextToSpeech.speak({
+        text: texto,
+        lang: 'pt-BR',
+        rate: 1.05,
+        pitch: 1.0,
+        volume: 1.0,
+        category: 'playback',
+      }).catch(() => {});
+      return;
+    }
+
     try {
       const synth = window.speechSynthesis;
       if (!synth) return;
 
-      // Cancela a fala anterior: dois alertas seguidos empilhados fazem o
-      // segundo chegar depois que o usuário já passou pela bronca.
+      // Cancela a fala anterior — mesma razão do Flush acima.
       synth.cancel();
 
       const fala = new SpeechSynthesisUtterance(texto);
@@ -172,7 +261,10 @@ export function useNavVoice() {
       try { localStorage.setItem(CHAVE_MUDO, proximo ? '1' : '0'); } catch {}
 
       if (proximo) {
-        try { window.speechSynthesis?.cancel(); } catch {}
+        try {
+          if (usaPluginNativo()) TextToSpeech.stop();
+          else window.speechSynthesis?.cancel();
+        } catch {}
       } else {
         preparar();
         setTimeout(() => falar('Alertas por voz ligados'), 120);

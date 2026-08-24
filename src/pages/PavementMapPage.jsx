@@ -24,8 +24,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -326,23 +325,6 @@ const PavementMapPage = () => {
     return doc;
   };
 
-  const pdfToBase64 = async (doc) => {
-    return new Promise((resolve, reject) => {
-      try {
-        const pdfBlob = doc.output('blob');
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64String = reader.result.split(',')[1];
-          resolve(base64String);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(pdfBlob);
-      } catch (e) {
-        reject(e);
-      }
-    });
-  };
-
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
@@ -351,27 +333,14 @@ const PavementMapPage = () => {
       const isNative = Capacitor.isNativePlatform();
       if (isNative) {
         try {
-          const permissionStatus = await LocalNotifications.checkPermissions();
-          if (permissionStatus.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-          const base64Data = await pdfToBase64(doc);
-          const platform = Capacitor.getPlatform();
-          let downloadPath = fileName;
-          let directory = Directory.Documents;
-          if (platform === 'android') {
-            directory = Directory.Documents;
-            downloadPath = `Download/${fileName}`;
-          } else if (platform === 'ios') {
-            directory = Directory.Documents;
-            downloadPath = fileName;
-          }
-          await Filesystem.writeFile({ path: downloadPath, data: base64Data, directory, recursive: true });
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              { title: 'Download Concluído', body: 'Relatório salvo com sucesso. Toque para abrir.', id: notificationId, schedule: { at: new Date(Date.now() + 100) } },
-            ],
+          // Ver lib/nativeDownload: `Download/` sob Directory.Documents também
+          // caía em escrita fora da área do app, e a notificação nascia sem
+          // `extra.filePath` — tocar nela não abria nada.
+          await salvarDocumento({
+            base64: pdfParaBase64(doc),
+            fileName,
+            contentType: 'application/pdf',
+            tituloShare: fileName,
           });
           toast({ title: 'Download concluído!' });
         } catch (error) {

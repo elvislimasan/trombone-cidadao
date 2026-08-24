@@ -19,6 +19,13 @@
         <!-- Sem esta declaracao, no Android 11+ o resolveActivity do
              ADD_TO_STORY devolve null mesmo com o Instagram instalado. -->
         <package android:name="com.instagram.android" />
+        <!-- Motor de sintese de voz (alertas falados do modo patrulha).
+             As regras de visibilidade de pacote do Android 11+ escondem o
+             servico de TTS: sem esta intent o TextToSpeech nao encontra
+             nenhum engine e a patrulha volta a ficar muda. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
 
     <application

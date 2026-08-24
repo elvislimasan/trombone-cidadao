@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { X, Download, Send, Loader2 } from 'lucide-react';
 
 import { useStoryExport, STORY_WIDTH, STORY_HEIGHT } from '@/hooks/useStoryExport';
-import { canShareToStory } from '@/lib/instagramStory';
 import {
   toDataUri,
   bucketDataUri,
@@ -20,8 +19,6 @@ import PatrolStoryCard from './PatrolStoryCard';
 // A prévia usa `scale` sobre o mesmo componente em vez de uma versão simplificada
 // — assim o que a pessoa vê é o que ela publica, e não há um segundo layout
 // para manter em sincronia.
-
-const compartilhaNoStory = canShareToStory();
 
 export default function PatrolStoryModal({
   contagens,
@@ -55,14 +52,16 @@ export default function PatrolStoryModal({
     return () => { cancelado = true; };
   }, []);
 
-  const { exportRef, baixando, compartilhando, ocupado, baixar, compartilhar } =
-    useStoryExport({
-      nomeArquivo: `patrulha-${patrulhaId || Date.now()}`,
-      shareUrl,
-      tipoConteudo: 'patrol',
-      contentId: patrulhaId,
-      pronto: arte.pronta,
-    });
+  const {
+    exportRef, baixando, compartilhando, ocupado, baixar, compartilhar,
+    podeCompartilhar, viaInstagram,
+  } = useStoryExport({
+    nomeArquivo: `patrulha-${patrulhaId || Date.now()}`,
+    shareUrl,
+    tipoConteudo: 'patrol',
+    contentId: patrulhaId,
+    pronto: arte.pronta,
+  });
 
   const dados = {
     contagens,
@@ -141,7 +140,13 @@ export default function PatrolStoryModal({
             Agora não
           </button>
 
-          {compartilhaNoStory ? (
+          {/* O botão principal é COMPARTILHAR sempre que a plataforma tiver
+              algum caminho para o story — deep link do Instagram no nativo,
+              folha do sistema no navegador. Antes o gate era só o deep link, e
+              quem abria pelo Chrome do celular via apenas "Baixar imagem",
+              tendo que ir ao Instagram e procurar o arquivo na galeria. A
+              folha do sistema lista o Instagram e ele oferece "Stories". */}
+          {podeCompartilhar ? (
             <>
               <button
                 type="button"
@@ -172,7 +177,7 @@ export default function PatrolStoryModal({
                 ) : (
                   <>
                     <Send size={16} />
-                    Compartilhar
+                    {viaInstagram ? 'Compartilhar' : 'Publicar no story'}
                   </>
                 )}
               </button>

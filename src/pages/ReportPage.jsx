@@ -397,6 +397,48 @@ const ReportPage = () => {
     [mediaItems]
   );
 
+  // Há quanto tempo a bronca está de pé.
+  //
+  // Existia desde 9d1cca1 e sumiu no redesign do resumo (9d6a309): o
+  // ReportSummary foi reescrito e a prop `reportAgeStory` não foi religada, e
+  // o cálculo aqui virou código morto e acabou removido junto. Não foi decisão
+  // de produto — é regressão, e o "há X dias no escuro" era justamente o que
+  // dava peso à bronca de iluminação parada.
+  //
+  // Só a partir de sete dias: antes disso "há 2 dias sem solução" cobra uma
+  // resposta que ainda está dentro do prazo razoável e faz o app parecer
+  // impaciente em vez de vigilante.
+  const reportAgeStory = useMemo(() => {
+    if (!report?.created_at || report?.status === "resolved") return null;
+
+    const createdAt = new Date(report.created_at);
+    if (Number.isNaN(createdAt.getTime())) return null;
+
+    const ageDays = Math.max(
+      0,
+      Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    if (ageDays < 7) return null;
+
+    // A frase é da CATEGORIA, não genérica: "essa rua está no escuro" é o que
+    // a pessoa reconhece ao passar por lá, e "sem solução" não diz nada sobre
+    // o que continua acontecendo enquanto ninguém resolve.
+    const porCategoria = {
+      iluminacao: `Essa rua está há ${ageDays} dias no escuro.`,
+      buracos: `Esse buraco está há ${ageDays} dias na via.`,
+      esgoto: `Esse esgoto está há ${ageDays} dias correndo.`,
+      limpeza: `Esse ponto está há ${ageDays} dias sem limpeza.`,
+      poda: `Essa árvore está há ${ageDays} dias esperando poda.`,
+      "vazamento-de-agua": `Essa água está há ${ageDays} dias vazando.`,
+    };
+
+    return (
+      porCategoria[report.category] ||
+      `Esse problema está há ${ageDays} dias sem solução.`
+    );
+  }, [report?.category, report?.created_at, report?.status]);
+
   const waterUtilityName = useMemo(() => {
     if (!report || !report.is_from_water_utility) return null;
     const address = (report.address || "").toLowerCase();
@@ -1559,6 +1601,7 @@ const ReportPage = () => {
                       isAnonymous={report.is_anonymous}
                       authorName={report.authorName}
                       authorAvatar={report.authorAvatar}
+                      reportAgeStory={reportAgeStory}
                     />
                   </div>
 

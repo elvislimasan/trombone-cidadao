@@ -10,7 +10,6 @@ import { useStoryExport } from '@/hooks/useStoryExport';
 // lugares para redescobrir, no primeiro card que voltasse a falhar, que o
 // problema era CORS.
 import { toDataUri } from '@/lib/storyAssets';
-import { canShareToStory } from '@/lib/instagramStory';
 import {
   Download,
   Instagram,
@@ -884,19 +883,18 @@ const ReportStoryModal = ({
     );
   }, [bgType, customBgColor, report?.status, assets.backgrounds]);
 
-  // Sem suporte nativo (web, plugin ausente ou App ID faltando) o modal volta
-  // a ter apenas o download manual.
-  const storyShareAvailable = useMemo(() => canShareToStory(), []);
-
   const safeTitle = useMemo(
     () => getSafeFilename(report?.title || 'trombone-cidadao'),
     [report?.title]
   );
 
   // Rasterizar, salvar em disco e mandar ao story vivem no useStoryExport:
-  // o caminho nativo tem as partes difíceis (permissão de armazenamento,
-  // ExternalStorage no Android, álbum, notificação) e o card da patrulha usa
-  // exatamente o mesmo. Duas cópias divergiriam no primeiro conserto.
+  // o caminho nativo tem as partes difíceis (galeria via MediaStore, folha do
+  // sistema, notificação) e o card da patrulha usa exatamente o mesmo. Duas
+  // cópias divergiriam no primeiro conserto.
+  //
+  // `storyShareAvailable` vem do hook agora: ele sabe distinguir o deep link
+  // do Instagram da folha do sistema, e a folha existe também no navegador.
   const {
     exportRef,
     baixando: downloading,
@@ -904,6 +902,8 @@ const ReportStoryModal = ({
     ocupado,
     baixar: handleDownload,
     compartilhar: handleShareToStory,
+    podeCompartilhar: storyShareAvailable,
+    viaInstagram,
   } = useStoryExport({
     nomeArquivo: `story-${layout}-${safeTitle}`,
     shareUrl: report?.id ? getReportShareUrl(report.id) : undefined,
@@ -1288,7 +1288,7 @@ const ReportStoryModal = ({
                   ) : (
                     <>
                       <Send size={16} />
-                      Compartilhar
+                      {viaInstagram ? 'Compartilhar' : 'Publicar no story'}
                     </>
                   )}
                 </Button>

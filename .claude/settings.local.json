@@ -36,7 +36,23 @@
       "Bash(npm uninstall *)",
       "Bash(echo \"EXIT=$?\")",
       "Bash(git --no-pager diff --stat HEAD -- src/ package.json)",
-      "Bash(grep -o \"title: *['\\\\\"\\\\`][^'\\\\\"\\\\`]*['\\\\\"\\\\`]\")"
+      "Bash(grep -o \"title: *['\\\\\"\\\\`][^'\\\\\"\\\\`]*['\\\\\"\\\\`]\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\(p.type||'commonjs'\\)\")",
+      "Bash(node --test src/test/profanity.test.mjs)",
+      "Bash(npm test *)",
+      "Bash(rm -f RD_HEAD_tmp.jsx)",
+      "Bash(python -)",
+      "Bash(uv run *)",
+      "Bash(PYTHONIOENCODING=utf-8 uv run python \"C:/Users/lairt/AppData/Local/Temp/claude/c--dev-horizons-export-eff1a4c5-4884-43cf-92e9-e90f584b8f04/e874d85e-8258-41ef-8c46-882c4fc20148/scratchpad/listar_toasts.py\")",
+      "Bash(grep -o \"title: *['\\\\\"\\\\`][^'\\\\\"\\\\`]*\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\(p.dependencies['react-leaflet'],p.dependencies['leaflet'],p.dependencies['@react-leaflet/core']\\)\")",
+      "Bash(node -e \"console.log\\(JSON.stringify\\(require\\('./package.json'\\).scripts,null,1\\)\\)\")",
+      "Bash(node --test src/test/tileCache.test.mjs)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"LocationPickerMap: %{http_code}\\\\n\" \"http://localhost:3002/src/components/LocationPickerMap.jsx\")",
+      "Bash(curl -s -o /dev/null -w \"OfflineTileLayer: %{http_code}\\\\n\" \"http://localhost:3002/src/components/map/OfflineTileLayer.jsx\")",
+      "Bash(curl -s -o /dev/null -w \"tileCache: %{http_code}\\\\n\" \"http://localhost:3002/src/lib/tileCache.js\")",
+      "Bash(curl -s -o /dev/null -w \"tileSources: %{http_code}\\\\n\" \"http://localhost:3002/src/components/map/tileSources.js\")"
     ]
   }
 }
