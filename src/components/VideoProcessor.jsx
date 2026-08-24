@@ -393,15 +393,11 @@ const VideoProcessor = ({
     if (!videoToRemove) return;
 
     // Criar novo array sem o vídeo removido
+    // Sem toast: o vídeo sai da lista imediatamente abaixo do botão que o
+    // removeu. Repetir o nome do arquivo não acrescenta nada ao que sumiu.
     const newVideos = videos.filter((_, i) => i !== index);
     onVideosChange(newVideos);
-
-    toast({
-      title: 'Vídeo removido',
-      description: `${videoToRemove.name} foi removido`,
-      duration: 2000
-    });
-  }, [videos, onVideosChange, toast]);
+  }, [videos, onVideosChange]);
 
   // Renderizar vídeo individual (componente memoizado)
   const renderVideo = useCallback((video, index) => {
@@ -429,10 +425,10 @@ const VideoProcessor = ({
                 </div>
             </div>
           ) : (
-            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center rounded border border-gray-200 dark:border-gray-700 relative">
-                   <Video className="w-5 h-5 text-gray-400" />
+            <div className="w-12 h-12 bg-surface-sunken dark:bg-gray-800 flex flex-col items-center justify-center rounded border border-edge-subtle dark:border-gray-700 relative">
+                   <Video className="w-5 h-5 text-content-tertiary" />
                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Play className="w-3 h-3 text-gray-500 fill-gray-500 opacity-50" />
+                      <Play className="w-3 h-3 text-content-tertiary fill-gray-500 opacity-50" />
                    </div>
             </div>
           )}
@@ -471,10 +467,6 @@ const VideoProcessor = ({
     if (fileInputRef.current) fileInputRef.current.value = null;
     if (cameraInputRef.current) cameraInputRef.current.value = null;
     
-    toast({
-      title: 'Processamento cancelado',
-      description: 'O envio do vídeo foi cancelado.',
-    });
   }, [onProcessingChange, toast]);
 
   // Barra de progresso do processamento (REMOVIDA - Agora usa overlay)

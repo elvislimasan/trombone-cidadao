@@ -97,13 +97,13 @@ const MyPetitionsPage = () => {
       case 'rejected':
         return { label: 'Rejeitada', color: 'bg-red-100 text-red-800', icon: XCircle };
       case 'closed':
-        return { label: 'Encerrada', color: 'bg-gray-100 text-gray-800', icon: Clock };
+        return { label: 'Encerrada', color: 'bg-surface-sunken text-content-primary', icon: Clock };
       case 'draft':
-        return { label: 'Rascunho', color: 'bg-slate-100 text-slate-800', icon: FileText };
+        return { label: 'Rascunho', color: 'bg-surface-sunken text-content-primary', icon: FileText };
       case 'pending_moderation':
         return { label: 'Em Análise', color: 'bg-yellow-100 text-yellow-800', icon: Clock };
       default:
-        return { label: 'Status Desconhecido', color: 'bg-gray-100 text-gray-800', icon: Clock };
+        return { label: 'Status Desconhecido', color: 'bg-surface-sunken text-content-primary', icon: Clock };
     }
   };
 
@@ -150,10 +150,9 @@ const MyPetitionsPage = () => {
       // 3. Remover rascunho local se existir
       localStorage.removeItem(`petition_editor_draft_${petition.id}`);
 
-      toast({ 
-        title: "Petição excluída", 
-        description: "O abaixo-assinado foi removido permanentemente." 
-      });
+      // Sem toast: a petição some da lista. O aviso de que é permanente
+      // pertence ao diálogo ANTES de excluir, onde ainda dá para desistir —
+      // depois do fato ele não informa, só assusta.
 
       // 4. Atualizar o estado local
       setPetitions(prev => prev.filter(p => p.id !== petition.id));

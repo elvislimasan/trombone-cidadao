@@ -99,7 +99,7 @@ const AppLandingPage = () => {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button asChild className="bg-white text-[#c0392b] hover:bg-white/90">
+          <Button asChild className="bg-surface-raised text-[#c0392b] hover:bg-white/90">
             <a
               href={storeUrl}
               target="_blank"
@@ -136,10 +136,10 @@ const AppLandingPage = () => {
         <Helmet>
           <title>Redirecionando… – Trombone Cidadão</title>
         </Helmet>
-        <div className="w-full bg-[#F9FAFB]">
+        <div className="w-full bg-surface-base">
           <div className="container mx-auto px-4 py-10 md:py-14">
             {Banner}
-            <div className="mt-8 rounded-2xl border border-[#e6ded8] bg-white p-6 shadow-sm">
+            <div className="mt-8 rounded-2xl border border-[#e6ded8] bg-surface-raised p-6 shadow-sm">
               <h2 className="text-lg font-bold text-[#1a0a08]">
                 Redirecionando para a {storeName}…
               </h2>
@@ -172,12 +172,12 @@ const AppLandingPage = () => {
       <Helmet>
         <title>Baixar o app – Trombone Cidadão</title>
       </Helmet>
-      <div className="w-full bg-[#F9FAFB]">
+      <div className="w-full bg-surface-base">
         <div className="container mx-auto px-4 py-10 md:py-14">
           {Banner}
 
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-[#e6ded8] bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-[#e6ded8] bg-surface-raised p-6 shadow-sm">
               <h2 className="text-lg font-bold text-[#1a0a08]">
                 {isIOS ? "iOS (iPhone)" : "Android"}
               </h2>
@@ -216,7 +216,7 @@ const AppLandingPage = () => {
               )}
             </div>
 
-            <div className="rounded-2xl border border-[#e6ded8] bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-[#e6ded8] bg-surface-raised p-6 shadow-sm">
               <h2 className="text-lg font-bold text-[#1a0a08]">
                 {isDesktop ? "QR Code" : "Abrir no celular"}
               </h2>
@@ -234,7 +234,7 @@ const AppLandingPage = () => {
                 <img
                   src={qrCodeUrl}
                   alt="QR Code para baixar o app"
-                  className="h-[260px] w-[260px] rounded-xl border border-[#e6ded8] bg-white p-3"
+                  className="h-[260px] w-[260px] rounded-xl border border-[#e6ded8] bg-surface-raised p-3"
                   loading="lazy"
                 />
               </div>

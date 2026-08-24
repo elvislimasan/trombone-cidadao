@@ -82,6 +82,15 @@ const AmbassadorPage = () => {
       .select('id, title, category_id, created_at, moderation_status, city_id, category:category_id(name)')
       .in('city_id', cityIds)
       .eq('moderation_status', 'pending_approval')
+      // Sinal aberto usa 'pending_approval' para ficar FORA do feed, não para
+      // pedir aprovação: ele não tem foto nem descrição para julgar — é uma
+      // missão esperando alguém ir ao local.
+      //
+      // Sem este filtro os dois sentidos colidiam: o que mantinha o sinal
+      // escondido era o que o colocava aqui, e aprovar publicava no feed uma
+      // linha vazia. Foi o que aconteceu antes da migração 175, que agora
+      // impede pelo banco.
+      .or('signal_status.is.null,signal_status.in.(done,empty)')
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -173,7 +182,6 @@ const AmbassadorPage = () => {
     if (error) {
       toast({ title: 'Erro ao processar bronca', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: newStatus === 'approved' ? 'Bronca aprovada!' : 'Bronca rejeitada!' });
       const cityIds = myCities.map(c => c.city_id);
       fetchPendingReports(cityIds);
     }
@@ -190,7 +198,6 @@ const AmbassadorPage = () => {
     if (error) {
       toast({ title: 'Erro ao processar atualização', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: newStatus === 'approved' ? 'Atualização aprovada!' : 'Atualização rejeitada!' });
       const cityIds = myCities.map(c => c.city_id);
       fetchPendingUpdates(cityIds);
     }
@@ -230,7 +237,6 @@ const AmbassadorPage = () => {
           if (storagePath) await supabase.storage.from('work-media').remove([decodeURIComponent(storagePath)]);
         } catch (_) {}
       }
-      toast({ title: newStatus === 'approved' ? 'Mídia aprovada!' : 'Mídia rejeitada.' });
       const cityIds = myCities.map((c) => c.city_id);
       fetchPendingWorkMedia(cityIds);
     } catch (err) {

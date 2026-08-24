@@ -17,6 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from '@/lib/customSupabaseClient';
 import RichTextEditor from '@/components/petition/RichTextEditor';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 
 export const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [formData, setFormData] = useState(null);
@@ -788,6 +790,13 @@ const ManageNewsPage = () => {
     fetchNewsAndComments();
   }, [fetchNewsAndComments]);
 
+  // Recorte só da renderização. A consulta acima ainda traz `select('*')` — o
+  // corpo inteiro de cada notícia — porque o modal de edição recebe o item da
+  // lista, e não recarrega o registro. Enxugar a consulta exige buscar a
+  // notícia ao abrir a edição; enquanto isso, ao menos o DOM não monta todas.
+  const { visiveis: noticiasVisiveis, propsPaginacao: propsPaginacaoNoticias } =
+    useListaPaginada(news, { porPagina: 20 });
+
   const handleRunImporter = async () => {
     if (isImporting) return;
     setIsImporting(true);
@@ -1034,7 +1043,6 @@ const ManageNewsPage = () => {
       });
     }
 
-      toast({ title: `Notícia ${id ? 'atualizada' : 'adicionada'} com sucesso!` });
       fetchNewsAndComments();
     setEditingNews(null);
   };
@@ -1077,12 +1085,20 @@ const ManageNewsPage = () => {
     setDeletingNews(null);
   };
 
+  // Desde a 193 esta lista não é mais fila de aprovação: comentário de notícia
+  // publica na hora, e só chega aqui o que 3 denúncias tiraram do ar.
+  //
+  // Vai pela RPC, e não por update direto, porque restaurar o comentário e
+  // zerar as denúncias precisam acontecer juntos — senão o restaurado cai de
+  // novo na denúncia seguinte, com as três antigas ainda contando.
   const handleCommentModeration = async (commentId, newStatus) => {
-    const { error } = await supabase.from('comments').update({ moderation_status: newStatus }).eq('id', commentId);
+    const { error } = await supabase.rpc('moderar_comentario', {
+      p_comment_id: commentId,
+      p_status: newStatus,
+    });
     if (error) {
       toast({ title: "Erro ao moderar comentário", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Comentário ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'}!` });
       fetchNewsAndComments();
     }
   };
@@ -1133,7 +1149,7 @@ const ManageNewsPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {news.map(item => (
+                  {noticiasVisiveis.map(item => (
                     <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
                       <div>
                         <p className="font-semibold">{item.title}</p>
@@ -1146,6 +1162,8 @@ const ManageNewsPage = () => {
                     </div>
                   ))}
                 </div>
+
+                <PaginacaoLista {...propsPaginacaoNoticias} />
               </CardContent>
             </Card>
           </TabsContent>

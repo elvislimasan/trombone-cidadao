@@ -15,6 +15,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity } from '@/contexts/CityContext';
 import { Navigate } from 'react-router-dom';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Sub-component: Criar convite de embaixador
@@ -318,7 +320,7 @@ const CreateInviteSection = ({ user }) => {
               <Check className="w-4 h-4" /> Convite gerado!
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-white border border-green-200 rounded-lg p-2 break-all text-green-900">
+              <code className="flex-1 text-xs bg-surface-raised border border-green-200 rounded-lg p-2 break-all text-green-900">
                 {generatedLink}
               </code>
               <Button
@@ -360,6 +362,8 @@ const PendingInvitesSection = ({ user }) => {
   const [revokingId, setRevokingId] = useState(null);
   const [resendingId, setResendingId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  // Antes dos `return` de carregando/vazio: hook não pode ser condicional.
+  const { visiveis: convitesVisiveis, propsPaginacao } = useListaPaginada(invites, { porPagina: 15 });
 
   const fetchInvites = useCallback(async () => {
     setLoading(true);
@@ -391,7 +395,6 @@ const PendingInvitesSection = ({ user }) => {
     if (error) {
       toast({ title: 'Erro ao revogar convite', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Convite revogado.' });
       fetchInvites();
     }
     setRevokingId(null);
@@ -464,8 +467,9 @@ const PendingInvitesSection = ({ user }) => {
   }
 
   return (
-    <div className="space-y-3">
-      {invites.map((inv) => (
+    <>
+      <div className="space-y-3">
+        {convitesVisiveis.map((inv) => (
         <motion.div
           key={inv.id}
           initial={{ opacity: 0, y: 8 }}
@@ -541,7 +545,9 @@ const PendingInvitesSection = ({ user }) => {
           </Card>
         </motion.div>
       ))}
-    </div>
+      </div>
+      <PaginacaoLista {...propsPaginacao} />
+    </>
   );
 };
 
@@ -553,6 +559,7 @@ const ActiveAmbassadorsSection = () => {
   const [ambassadors, setAmbassadors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [suspendingId, setSuspendingId] = useState(null);
+  const { visiveis: embaixadoresVisiveis, propsPaginacao } = useListaPaginada(ambassadors, { porPagina: 15 });
 
   const fetchAmbassadors = useCallback(async () => {
     setLoading(true);
@@ -608,7 +615,6 @@ const ActiveAmbassadorsSection = () => {
         variant: 'destructive',
       });
     } else {
-      toast({ title: 'Embaixador suspenso.' });
       fetchAmbassadors();
     }
     setSuspendingId(null);
@@ -635,8 +641,9 @@ const ActiveAmbassadorsSection = () => {
   }
 
   return (
-    <div className="space-y-3">
-      {ambassadors.map((ac) => (
+    <>
+      <div className="space-y-3">
+        {embaixadoresVisiveis.map((ac) => (
         <motion.div
           key={ac.id}
           initial={{ opacity: 0, y: 8 }}
@@ -680,7 +687,9 @@ const ActiveAmbassadorsSection = () => {
           </Card>
         </motion.div>
       ))}
-    </div>
+      </div>
+      <PaginacaoLista {...propsPaginacao} />
+    </>
   );
 };
 
@@ -693,6 +702,7 @@ const ApplicationsSection = () => {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const { visiveis: candidaturasVisiveis, propsPaginacao } = useListaPaginada(apps, { porPagina: 15 });
 
   const fetchApps = useCallback(async () => {
     setLoading(true);
@@ -731,7 +741,6 @@ const ApplicationsSection = () => {
     const { error } = await supabase.rpc('approve_ambassador_application', { p_app_id: app.id });
     if (error) toast({ title: 'Erro ao aprovar', description: error.message, variant: 'destructive' });
     else {
-      toast({ title: 'Embaixador aprovado!' });
       sendApplicationEmail(app, 'approved');
       fetchApps();
     }
@@ -754,7 +763,6 @@ const ApplicationsSection = () => {
       is_read: false,
     });
     sendApplicationEmail(app, 'rejected', reason);
-    toast({ title: 'Candidatura rejeitada.' });
     fetchApps();
     setActionId(null);
   };
@@ -778,8 +786,9 @@ const ApplicationsSection = () => {
     );
   }
   return (
-    <div className="space-y-3">
-      {apps.map((app) => (
+    <>
+      <div className="space-y-3">
+        {candidaturasVisiveis.map((app) => (
         <motion.div key={app.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="border-border">
             <CardContent className="p-4 space-y-2">
@@ -815,7 +824,9 @@ const ApplicationsSection = () => {
           </Card>
         </motion.div>
       ))}
-    </div>
+      </div>
+      <PaginacaoLista {...propsPaginacao} />
+    </>
   );
 };
 

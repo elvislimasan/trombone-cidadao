@@ -1,694 +1,450 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Repeat, Megaphone, Volume2, VolumeX } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import EngagementBar from '@/components/EngagementBar';
+import { Instagram } from 'lucide-react';
 import TimeAgo from '@/components/TimeAgo';
+import FeedCardMedia from '@/components/feed/FeedCardMedia';
+import { computeSignals } from '@/components/feed/FeedCardSignals';
+import FeedCommentsSheet from '@/components/feed/FeedCommentsSheet';
+import StatusBadge from '@/design-system/primitives/StatusBadge';
+import Icon, { categoryIconName } from '@/design-system/icons';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getReportShareUrl } from '@/lib/shareUtils';
+import {
+  canShareToStory,
+  shareVideoToInstagramStory,
+} from '@/lib/instagramStory';
 
-// O som é uma preferência do feed inteiro, não de cada card: ao ativar num
-// vídeo, os próximos já vêm com som; ao desativar, os próximos vêm mudos.
-// Guardado fora do React para valer também nos cards montados depois.
-const FEED_AUDIO_EVENT = 'feed-video-audio-pref';
-let feedAudioEnabled = false;
-
-const videoThumbCache = new Map();
-const videoThumbPending = new Map();
-
-const trimVideoThumbCache = (max = 40) => {
-  while (videoThumbCache.size > max) {
-    const firstKey = videoThumbCache.keys().next().value;
-    const url = videoThumbCache.get(firstKey);
-    videoThumbCache.delete(firstKey);
-    if (typeof url === 'string' && url.startsWith('blob:')) {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {}
-    }
-  }
+// Distancia em linguagem de rua: abaixo de 1 km em metros arredondados a 50,
+// porque "a 347 m" sugere uma precisao que o GPS do celular nao tem.
+const formatDistance = (meters) => {
+  if (!Number.isFinite(meters)) return null;
+  if (meters < 1000) return `a ${Math.max(50, Math.round(meters / 50) * 50)} m`;
+  const km = meters / 1000;
+  return `a ${km.toFixed(km < 10 ? 1 : 0).replace('.', ',')} km`;
 };
 
-const waitForEvent = (el, event, timeoutMs = 8000) =>
-  new Promise((resolve, reject) => {
-    const t = setTimeout(() => {
-      cleanup();
-      reject(new Error(`timeout:${event}`));
-    }, timeoutMs);
-    const onOk = () => {
-      cleanup();
-      resolve();
-    };
-    const onErr = () => {
-      cleanup();
-      reject(new Error(`error:${event}`));
-    };
-    const cleanup = () => {
-      clearTimeout(t);
-      el.removeEventListener(event, onOk);
-      el.removeEventListener('error', onErr);
-    };
-    el.addEventListener(event, onOk, { once: true });
-    el.addEventListener('error', onErr, { once: true });
-  });
-
-const getVideoThumbnailUrl = async (videoUrl) => {
-  if (!videoUrl) return null;
-  if (videoThumbCache.has(videoUrl)) return videoThumbCache.get(videoUrl);
-  if (videoThumbPending.has(videoUrl)) return videoThumbPending.get(videoUrl);
-
-  const p = (async () => {
-    const video = document.createElement('video');
-    const host = document.createElement('div');
-    host.style.position = 'fixed';
-    host.style.left = '-99999px';
-    host.style.top = '0';
-    host.style.width = '1px';
-    host.style.height = '1px';
-    host.style.overflow = 'hidden';
-    host.appendChild(video);
-    document.body.appendChild(host);
-
-    try {
-      video.crossOrigin = 'anonymous';
-      video.muted = true;
-      video.setAttribute('muted', '');
-      video.playsInline = true;
-      video.setAttribute('playsinline', '');
-      video.preload = 'metadata';
-      video.src = videoUrl;
-      try {
-        video.load?.();
-      } catch {}
-
-      await waitForEvent(video, 'loadedmetadata', 8000);
-      try {
-        await waitForEvent(video, 'loadeddata', 8000);
-      } catch {}
-
-      const seekTo = Math.min(
-        0.2,
-        Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.05) : 0.2
-      );
-      try {
-        video.currentTime = seekTo;
-      } catch {}
-      await Promise.race([waitForEvent(video, 'seeked', 8000), waitForEvent(video, 'timeupdate', 8000)]);
-
-      const w = Math.max(1, video.videoWidth || 0);
-      const h = Math.max(1, video.videoHeight || 0);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      try {
-        ctx.drawImage(video, 0, 0, w, h);
-      } catch (e) {
-        throw e;
-      }
-
-      const blobUrl = await new Promise((resolve, reject) => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error('thumbnail:empty'));
-              return;
-            }
-            resolve(URL.createObjectURL(blob));
-          },
-          'image/jpeg',
-          0.82
-        );
-      });
-
-      videoThumbCache.set(videoUrl, blobUrl);
-      trimVideoThumbCache();
-      return blobUrl;
-    } finally {
-      try {
-        video.removeAttribute('src');
-        video.load?.();
-      } catch {}
-      try {
-        host.remove();
-      } catch {}
-    }
-  })();
-
-  videoThumbPending.set(videoUrl, p);
-  try {
-    return await p;
-  } finally {
-    videoThumbPending.delete(videoUrl);
-  }
-};
-
-const STATUS_CONFIG = {
-  pending: {
-    label: 'Pendente',
-    className: 'bg-orange-100 text-orange-700 border-orange-200',
-  },
-  'in-progress': {
-    label: 'Em Andamento',
-    className: 'bg-blue-100 text-blue-700 border-blue-200',
-  },
-  resolved: {
-    label: 'Resolvido',
-    className: 'bg-green-100 text-green-700 border-green-200',
-  },
-  duplicate: {
-    label: 'Duplicada',
-    className: 'bg-gray-100 text-gray-600 border-gray-200',
-  },
-};
-
-const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-9 h-9', textClassName = 'text-sm' }) => {
+const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-5 h-5', textClassName = 'text-2xs' }) => {
   if (avatarUrl) {
     return (
       <img
         src={avatarUrl}
         alt={name}
-        className={`${sizeClassName} rounded-full object-cover flex-shrink-0 bg-muted`}
+        className={`${sizeClassName} rounded-full object-cover flex-shrink-0 bg-surface-sunken`}
         loading="lazy"
       />
     );
   }
   const initial = (name || 'C')[0].toUpperCase();
   return (
-    <div className={`${sizeClassName} rounded-full bg-primary/10 text-primary flex items-center justify-center ${textClassName} font-bold flex-shrink-0 select-none`}>
+    <div className={`${sizeClassName} rounded-full bg-surface-sunken text-content-secondary flex items-center justify-center ${textClassName} font-bold flex-shrink-0 select-none`}>
       {initial}
     </div>
   );
 };
 
-const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
+const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isNew = false, index = 0 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const cardRef = useRef(null);
   const [isInView, setIsInView] = useState(false);
-
-  const [imgSrc, setImgSrc] = useState(report.coverImage || null);
-  const imgRetryRef = useRef(0);
-  const imgRetryTimerRef = useRef(null);
-
-  // ── Autoplay do vídeo no feed (estilo Instagram) ──
-  // Toca quando o card fica visível e pausa ao sair. Começa mudo (autoplay com
-  // áudio é bloqueado pelos navegadores); o botão no canto liga o som e essa
-  // escolha passa a valer para os próximos vídeos do feed.
-  const videoRef = useRef(null);
-  // Inicia com a preferência atual do feed (e não sempre mudo), para um card
-  // que monta depois já entrar com som se o usuário já ativou antes.
-  const [videoMuted, setVideoMuted] = useState(!feedAudioEnabled);
-  // Proporção do card de vídeo, no estilo do feed do Instagram: respeita a
-  // proporção real do vídeo, mas limitada entre 4:5 (mais alto permitido, para
-  // o card não virar uma tela cheia) e 1.91:1 (mais largo). Sem isso, vídeo
-  // vertical 9:16 ficava muito cortado no 4:3 fixo.
-  // Começa em 4:5 (mesmo padrão da imagem) para o card não "pular" de largo
-  // para alto quando os metadados do vídeo chegarem.
-  const [videoAspect, setVideoAspect] = useState(4 / 5);
-
-  const handleVideoMetadata = (e) => {
-    const v = e.currentTarget;
-    if (!v?.videoWidth || !v?.videoHeight) return;
-    const raw = v.videoWidth / v.videoHeight;
-    setVideoAspect(Math.min(1.91, Math.max(0.8, raw)));
-  };
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  // A contagem vem do feed, mas a folha traz o numero atualizado ao abrir —
+  // moderacao pode ter aprovado comentarios desde que o feed carregou.
+  const [commentsCount, setCommentsCount] = useState(report.comments_count);
+  // Status local: o modal de atualizacao pode mudar o status da bronca, e o
+  // card precisa refletir isso sem esperar um refresh do feed inteiro.
+  const [localStatus, setLocalStatus] = useState(report.status);
+  // Favorito local, pelo mesmo motivo do status: o feed pai nao e reconsultado
+  // ao salvar, entao sem espelho o icone ficava no estado antigo e a unica
+  // prova do toque era um toast.
+  const [localFav, setLocalFav] = useState(report.is_favorited);
+  // O download do video para o cache local pode levar alguns segundos em rede
+  // movel; sem indicador o usuario acha que o toque nao registrou.
+  const [sharingStory, setSharingStory] = useState(false);
 
   useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        // O mudo NÃO é resetado aqui: o som é preferência do feed e segue
-        // valendo para os próximos vídeos.
-        if (entry?.isIntersecting) {
-          // Pausa qualquer outro vídeo do feed antes de tocar este — em telas
-          // altas dois cards podem passar do threshold juntos e, com o som
-          // ligado, tocariam dois áudios ao mesmo tempo.
-          document.querySelectorAll('video[data-feed-video]').forEach((other) => {
-            if (other !== el) other.pause?.();
-          });
-          el.play?.().catch(() => {});
-        } else {
-          el.pause?.();
-        }
-      },
-      { threshold: 0.6 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [report.coverVideo]);
-
-  // A preferência de som mudou em algum card: todos acompanham.
-  useEffect(() => {
-    const onAudioPrefChange = (e) => setVideoMuted(!e.detail);
-    window.addEventListener(FEED_AUDIO_EVENT, onAudioPrefChange);
-    return () => window.removeEventListener(FEED_AUDIO_EVENT, onAudioPrefChange);
-  }, []);
+    setLocalStatus(report.status);
+  }, [report.status]);
 
   useEffect(() => {
-    setImgSrc(report.coverImage || null);
-    imgRetryRef.current = 0;
-    if (imgRetryTimerRef.current) clearTimeout(imgRetryTimerRef.current);
-  }, [report.coverImage]);
+    setLocalFav(report.is_favorited);
+  }, [report.is_favorited]);
 
   useEffect(() => {
-    return () => {
-      if (imgRetryTimerRef.current) clearTimeout(imgRetryTimerRef.current);
-    };
-  }, []);
+    setCommentsCount(report.comments_count);
+  }, [report.comments_count]);
 
+  // Reintroduzido na Task 13: a Task 12 removeu este observer do FeedCard ao
+  // extrair o efeito de thumbnail para FeedCardMedia. O card observa a propria
+  // entrada em tela e repassa isInView para FeedCardMedia habilitar o hook
+  // useVideoThumbnail. rootMargin de 200px para a midia comecar a carregar
+  // antes do card entrar em tela.
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
       (entries) => {
-        const [entry] = entries;
-        if (entry?.isIntersecting) {
+        if (entries[0]?.isIntersecting) {
           setIsInView(true);
           obs.disconnect();
         }
       },
-      { threshold: 0.15 }
+      { threshold: 0.15, rootMargin: '200px' }
     );
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (imgSrc) return;
-    if (!isInView) return;
-    if (index > 12) return;
-    if (!report.coverVideo) return;
-    if (report.coverImage) return;
-
-    let canceled = false;
-    let tries = 0;
-
-    const run = async () => {
-      try {
-        const thumb = await getVideoThumbnailUrl(report.coverVideo);
-        if (canceled) return;
-        // Serve de poster do <video>; se falhar, o vídeo carrega sem poster.
-        if (thumb) setImgSrc(thumb);
-      } catch {
-        if (canceled) return;
-        tries += 1;
-        if (tries <= 3) {
-          setTimeout(run, 900 * tries);
-        }
-      }
-    };
-
-    run();
-    return () => {
-      canceled = true;
-    };
-  }, [imgSrc, index, isInView, report.coverImage, report.coverVideo]);
-
-  const statusCfg = STATUS_CONFIG[report.status] || STATUS_CONFIG.pending;
-  const emoji = report.categoryEmoji || '📍';
   const createdAt = useMemo(() => new Date(report.created_at), [report.created_at]);
 
-  const ageDays = useMemo(() => {
+  const { ageDays, ageHours } = useMemo(() => {
     const ms = Date.now() - createdAt.getTime();
-    return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+    return {
+      ageDays: Math.max(0, Math.floor(ms / 86400000)),
+      ageHours: Math.max(0, Math.floor(ms / 3600000)),
+    };
   }, [createdAt]);
 
-  const ageHours = useMemo(() => {
-    const ms = Date.now() - createdAt.getTime();
-    return Math.max(0, Math.floor(ms / (1000 * 60 * 60)));
-  }, [createdAt]);
-
-  const signals = useMemo(() => {
-    const isResolved = report.status === 'resolved';
-    const support = Number(report.upvotes || 0);
-    const comments = Number(report.comments_count || 0);
-    const score = support * 2 + comments;
-    const isFresh = ageHours <= 6;
-    const isLighting = report.category_id === 'iluminacao';
-    const isOld = ageDays >= 7;
-    const isVeryOld = ageDays >= 14;
-
-    const chips = [];
-
-    if (!isResolved && (support >= 30 || score >= 70)) {
-      chips.push({
-        key: 'exploding',
-        label: '🔥 Explodindo agora',
-        className: 'bg-red-600 text-white border-red-700',
-      });
-    } else if (!isResolved && (support >= 12 || score >= 28)) {
-      chips.push({
-        key: 'rising',
-        label: '📈 Subindo',
-        className: 'bg-orange-500 text-white border-orange-600',
-      });
-    } else if (!isResolved && isFresh) {
-      chips.push({
-        key: 'fresh',
-        label: '🟣 Agora',
-        className: 'bg-violet-600 text-white border-violet-700',
-      });
-    }
-
-    if (!isResolved && (report.is_recurrent || isVeryOld || support >= 20)) {
-      chips.push({
-        key: 'urgent',
-        label: '⚠️ Urgente',
-        className: 'bg-amber-100 text-amber-900 border-amber-200',
-      });
-    }
-
-    if (isResolved && ageHours <= 24) {
-      chips.push({
-        key: 'resolvedToday',
-        label: '🟢 Resolvido HOJE',
-        className: 'bg-green-600 text-white border-green-700',
-      });
-    }
-
-    let story = null;
-    if (!isResolved && isOld) {
-      story = isLighting
-        ? `Essa rua está há ${ageDays} dias no escuro.`
-        : `Esse problema está há ${ageDays} dias sem solução.`;
-    } else if (!isResolved && support >= 30) {
-      story = `Mais de ${support} pessoas já apoiaram.`;
-    } else if (!isResolved && (support >= 10 || comments >= 5)) {
-      story = `${support} apoios e ${comments} comentários — a comunidade está em cima.`;
-    }
-
-    let community = null;
-    if (support > 0) {
-      community = report.user_has_upvoted
-        ? `Você e +${Math.max(0, support - 1)} pessoas apoiaram`
-        : `${support} pessoas já apoiaram`;
-    } else if (comments > 0) {
-      community = `${comments} pessoas já comentaram`;
-    }
-
-    return { chips, story, community, score };
-  }, [ageDays, ageHours, report]);
+  const signals = useMemo(
+    () => computeSignals(report, { ageDays, ageHours }),
+    [report, ageDays, ageHours]
+  );
 
   const goToReport = useCallback(() => {
     navigate(`/bronca/${report.id}`);
   }, [navigate, report.id]);
 
-  const goToComments = useCallback(() => {
-    navigate(`/bronca/${report.id}`);
-  }, [navigate, report.id]);
+  // Copiar link: acao direta, sem abrir a folha do sistema. Em contexto
+  // inseguro (http) o clipboard nao existe, entao caimos no share nativo.
+  const handleCopyLink = useCallback(async () => {
+    const url = getReportShareUrl(report.id);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast({ title: 'Link copiado!', description: 'Cole onde quiser compartilhar.', duration: 2000 });
+        return;
+      }
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({ title: report.title, url });
+      }
+    } catch {
+      // usuario cancelou ou clipboard indisponivel
+    }
+  }, [report.id, report.title, toast]);
 
-  const handleShare = useCallback(async () => {
+  // Folha de compartilhamento do sistema (WhatsApp, Telegram, etc).
+  const shareLink = useCallback(async () => {
     const url = getReportShareUrl(report.id);
     try {
       if (Capacitor.isNativePlatform()) {
-        await Share.share({
-          title: report.title,
-          text: `Veja esta bronca: ${report.title}`,
-          url,
-        });
+        await Share.share({ title: report.title, text: `Veja esta bronca: ${report.title}`, url });
       } else if (navigator.share) {
         await navigator.share({ title: report.title, url });
       } else {
-        await navigator.clipboard.writeText(url);
-        toast({ title: 'Link copiado!', description: 'Cole onde quiser compartilhar.' });
+        await handleCopyLink();
       }
     } catch {
-      // user cancelled or share not supported – silently ignore
+      // usuario cancelou ou share nao suportado
     }
-  }, [report.id, report.title, toast]);
+  }, [report.id, report.title, handleCopyLink]);
+
+  // Quem hospeda o modal do card e o FeedPage, pelo mesmo motivo do modal de
+  // atualizacao: o card tem transform, e um position:fixed dentro dele fica
+  // preso ao proprio card em vez de cobrir a tela.
+  const openStoryCard = useCallback(() => {
+    onRequestStory?.({ ...report, status: localStatus });
+  }, [onRequestStory, report, localStatus]);
+
+  const handleShareToStory = useCallback(async () => {
+    // Sem video (ou sem suporte nativo): cai no card estatico do story,
+    // que funciona com a foto de capa e leva o QR code do app.
+    if (!report.coverVideo || !canShareToStory()) {
+      openStoryCard();
+      return;
+    }
+
+    setSharingStory(true);
+    try {
+      const { linkAttached } = await shareVideoToInstagramStory({
+        videoUrl: report.coverVideo,
+        reportId: report.id,
+        shareUrl: getReportShareUrl(report.id),
+      });
+
+      if (linkAttached) {
+        // Nao da para saber se o Instagram renderizou o sticker: a permissao
+        // de link em story e da conta do usuario, invisivel para o app.
+        toast({
+          title: 'Vídeo enviado ao Instagram',
+          description:
+            'Se sua conta permitir link em story, o sticker do Trombone já vai estar lá.',
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      const reason = String(error?.message || '');
+
+      if (reason === 'INSTAGRAM_NOT_INSTALLED') {
+        toast({
+          title: 'Instagram não encontrado',
+          description: 'Instale o Instagram para postar direto no story.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Video fora dos limites do story: o card estatico ainda resolve.
+      if (reason === 'VIDEO_TOO_LONG' || reason === 'VIDEO_TOO_LARGE') {
+        toast({
+          title: 'Vídeo muito grande para o story',
+          description: 'Gerando um card com a imagem da bronca.',
+          duration: 3000,
+        });
+        openStoryCard();
+        return;
+      }
+
+      toast({
+        title: 'Não foi possível compartilhar',
+        description: 'Tente novamente ou compartilhe o link.',
+        variant: 'destructive',
+      });
+      await shareLink();
+    } finally {
+      setSharingStory(false);
+    }
+  }, [report.id, report.coverVideo, toast, shareLink, openStoryCard]);
 
   const handleBookmark = useCallback(async () => {
     if (!user) {
       navigate('/login');
       return;
     }
+    // O icone vira antes da rede: e ele a confirmacao do toque, no lugar do
+    // toast que existia so porque nada mudava na tela. Volta atras se falhar.
+    const eraFavorito = localFav;
+    setLocalFav(!eraFavorito);
     try {
-      if (report.is_favorited) {
-        await supabase
-          .from('favorite_reports')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('report_id', report.id);
+      if (eraFavorito) {
+        await supabase.from('favorite_reports').delete()
+          .eq('user_id', user.id).eq('report_id', report.id);
       } else {
-        await supabase
-          .from('favorite_reports')
-          .upsert(
-            { user_id: user.id, report_id: report.id },
-            { onConflict: 'user_id,report_id' }
-          );
+        await supabase.from('favorite_reports').upsert(
+          { user_id: user.id, report_id: report.id },
+          { onConflict: 'user_id,report_id' }
+        );
       }
-      // Optimistic feedback via toast; parent can refresh to get new state
-      toast({
-        title: report.is_favorited ? 'Removido dos favoritos' : 'Salvo nos favoritos',
-        duration: 1500,
-      });
     } catch {
+      setLocalFav(eraFavorito);
       toast({ title: 'Erro ao salvar', variant: 'destructive', duration: 2000 });
     }
-  }, [user, report, navigate, toast]);
+  }, [user, report.id, localFav, navigate, toast]);
+
+
+  const isActive = localStatus !== 'resolved' && localStatus !== 'duplicate';
 
   return (
-    <motion.div
+    <article
       ref={cardRef}
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 0.28, ease: 'easeOut' }}
-      className={`bg-card rounded-xl border shadow-sm overflow-hidden ${
-        signals.score >= 70 ? 'border-red-200' : 'border-border'
-      } ${isNew ? 'ring-2 ring-primary/25' : ''}`}
+      className={`tc-animate-in bg-surface-raised rounded-2xl border overflow-hidden shadow-elevation-1 ${
+        isNew ? 'border-brand ring-2 ring-brand/25' : 'border-edge-subtle'
+      }`}
+      style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
     >
-      {/* ── Card Header ── */}
-      <div className="flex items-start gap-3 p-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-extrabold leading-snug line-clamp-2 text-foreground">
-            {report.title}
-          </p>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-xs text-muted-foreground">
-              {emoji} {report.categoryName || report.category_id}
-            </span>
-            {report.is_recurrent && (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <Repeat size={11} className="text-orange-500 flex-shrink-0" />
-              </>
-            )}
-            <span className="text-muted-foreground">·</span>
-            <TimeAgo date={report.created_at} className="text-xs text-muted-foreground" />
-          </div>
-        </div>
-
-        {/* Status badge */}
-        <span
-          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${statusCfg.className}`}
+      {/* Cabecalho: titulo e status antes da midia. */}
+      <div className="flex items-start gap-3 px-3.5 pt-3.5 pb-2.5">
+        <button
+          onClick={goToReport}
+          className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
         >
-          {statusCfg.label}
-        </span>
+          <h3 className="font-display text-base font-bold leading-tight line-clamp-2 text-content-primary">
+            {report.title}
+          </h3>
+          <span className="flex items-center gap-1 mt-1 text-2xs text-content-tertiary min-w-0">
+            <Icon
+              name={categoryIconName(report.category_id)}
+              size={12}
+              className="flex-shrink-0"
+            />
+            <span className="truncate">{report.categoryName || report.category_id}</span>
+            <span aria-hidden="true">·</span>
+            <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
+          </span>
+        </button>
+        <StatusBadge status={localStatus} />
       </div>
 
-      {/* ── Cover image / placeholder ── */}
-      {/* div + role=button (nao <button>) porque o controle de som do video e
-          um <button> aninhado, o que e HTML invalido dentro de <button>. */}
-      <div
-        role="button"
-        tabIndex={0}
+      {/* Midia em largura cheia: a foto e a prova do problema. */}
+      <FeedCardMedia
+        report={report}
+        index={index}
+        isInView={isInView}
+        chips={signals.chips}
         onClick={goToReport}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            goToReport();
-          }
-        }}
-        className="w-full block text-left focus:outline-none cursor-pointer"
-        aria-label={`Ver detalhes: ${report.title}`}
-      >
-        {report.coverVideo ? (
-          <div
-            className="relative w-full bg-black overflow-hidden"
-            style={{ aspectRatio: videoAspect }}
-          >
-            <video
-              ref={videoRef}
-              data-feed-video=""
-              src={report.coverVideo}
-              // A thumbnail extraída do vídeo (ou a capa da bronca) vira poster:
-              // evita o retângulo cinza enquanto o vídeo carrega.
-              poster={imgSrc || undefined}
-              muted={videoMuted}
-              loop
-              playsInline
-              preload="metadata"
-              onLoadedMetadata={handleVideoMetadata}
-              className="w-full h-full object-cover"
-            />
-            <button
-              type="button"
-              aria-label={videoMuted ? 'Ativar som' : 'Desativar som'}
-              onClick={(e) => {
-                e.stopPropagation();
-                const v = videoRef.current;
-                const audioOn = videoMuted; // vai ligar o som?
-                feedAudioEnabled = audioOn;
-                setVideoMuted(!audioOn);
-                // Propaga para os outros cards já montados.
-                window.dispatchEvent(
-                  new CustomEvent(FEED_AUDIO_EVENT, { detail: audioOn })
-                );
-                // Ao ativar o som, garante que está tocando (o gesto do
-                // usuário libera o autoplay com áudio).
-                if (audioOn) v?.play?.().catch(() => {});
-              }}
-              className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/45 border border-white/10 flex items-center justify-center hover:bg-black/60 transition-colors"
-            >
-              {videoMuted
-                ? <VolumeX className="w-4 h-4 text-white" />
-                : <Volume2 className="w-4 h-4 text-white" />}
-            </button>
-            {signals.chips.length > 0 && (
-              <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
-                {signals.chips.slice(0, 2).map((chip, idx) => (
-                  <span
-                    key={chip.key}
-                    className={`text-[10px] font-extrabold tracking-tight px-2 py-1 rounded-full border shadow-sm ${
-                      chip.className
-                    } ${idx === 0 ? '-rotate-2' : 'rotate-1'}`}
-                  >
-                    {chip.label}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : imgSrc ? (
-          <div className="relative w-full aspect-[4/5] bg-muted overflow-hidden">
-            {/* 4:5 (retrato) em vez de 4:3: a maioria das fotos de bronca vem
-                do celular, na vertical, e o formato mais largo cortava demais. */}
-            <img
-              src={imgSrc}
-              alt={report.title}
-              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-              loading={index < 3 ? 'eager' : 'lazy'}
-              fetchPriority={index === 0 ? 'high' : 'auto'}
-              decoding="async"
-              onError={() => {
-                if (!imgSrc) return;
-                if (imgSrc.startsWith('blob:')) return;
-                if (imgRetryRef.current >= 4) return;
-                imgRetryRef.current += 1;
-                const delay = 650 * imgRetryRef.current;
-                if (imgRetryTimerRef.current) clearTimeout(imgRetryTimerRef.current);
-                imgRetryTimerRef.current = setTimeout(() => {
-                  const base = imgSrc.split('?')[0];
-                  setImgSrc(`${base}?v=${Date.now()}`);
-                }, delay);
-              }}
-            />
-            {signals.chips.length > 0 && (
-              <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
-                {signals.chips.slice(0, 2).map((chip, idx) => (
-                  <span
-                    key={chip.key}
-                    className={`text-[10px] font-extrabold tracking-tight px-2 py-1 rounded-full border shadow-sm ${
-                      chip.className
-                    } ${idx === 0 ? '-rotate-2' : 'rotate-1'}`}
-                  >
-                    {chip.label}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="relative w-full aspect-[4/5] bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center">
-            <span className="text-7xl select-none" aria-hidden="true">
-              {emoji}
-            </span>
-            {signals.chips.length > 0 && (
-              <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
-                {signals.chips.slice(0, 2).map((chip, idx) => (
-                  <span
-                    key={chip.key}
-                    className={`text-[10px] font-extrabold tracking-tight px-2 py-1 rounded-full border shadow-sm ${
-                      chip.className
-                    } ${idx === 0 ? '-rotate-2' : 'rotate-1'}`}
-                  >
-                    {chip.label}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Engagement bar ── */}
-      <EngagementBar
-        upvotes={report.upvotes}
-        commentsCount={report.comments_count}
-        isUpvoted={report.user_has_upvoted}
-        isFavorited={report.is_favorited}
-        onUpvote={() => onToggleUpvote?.(report.id)}
-        onComment={goToComments}
-        onShare={handleShare}
-        onBookmark={handleBookmark}
       />
 
-      {/* ── Text content ── */}
-      <button
-        onClick={goToReport}
-        className="w-full text-left px-4 pb-4 pt-2 focus:outline-none"
-      >
-        {(report.authorName || report.authorAvatar) && (
-          <div className="flex items-center gap-2 mb-2">
-            <AuthorAvatar
-              name={report.authorName}
-              avatarUrl={report.authorAvatar}
-              sizeClassName="w-5 h-5"
-              textClassName="text-[10px]"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              por{' '}
-              <span className="font-semibold text-foreground/80">
-                {report.authorName || 'Cidadão'}
-              </span>
-            </p>
-          </div>
-        )}
-        {signals.story && (
-          <div className="mb-2">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg bg-muted/70 text-foreground border border-border/60">
-              {signals.story}
-            </span>
-          </div>
-        )}
-        {signals.community && (
-          <p className="text-[11px] text-muted-foreground mb-1">
-            {signals.community}
-          </p>
-        )}
-        {report.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-            {report.description}
-          </p>
-        )}
-        {report.address && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin size={11} className="flex-shrink-0" />
-            <span className="truncate">{report.address}</span>
-          </div>
-        )}
-      </button>
+      <div className="flex flex-col p-3">
+        <div className="flex-1 min-w-0 flex flex-col">
+          {report.description && (
+            <button
+              onClick={goToReport}
+              className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+            >
+              <p className="text-2xs text-content-secondary line-clamp-2 leading-relaxed">
+                {report.description}
+              </p>
+            </button>
+          )}
 
-      {/* Update prompt — only for active reports */}
-      {report.status !== 'resolved' && report.status !== 'duplicate' && (
+          {/* py-0.5 dá folga vertical ao avatar: sem isso ele encostava na
+              linha de cima, que tem line-clamp e nao reserva descida. */}
+          {(report.authorName || report.authorAvatar) && (
+            <div className="flex items-center gap-2 mt-3 py-0.5 min-w-0">
+              <AuthorAvatar
+                name={report.authorName}
+                avatarUrl={report.authorAvatar}
+                sizeClassName="w-6 h-6"
+              />
+              <span className="text-2xs text-content-tertiary truncate">
+                por {report.authorName || 'Cidadão'}
+              </span>
+            </div>
+          )}
+
+          {/* Barra de acoes so com icone: apoiar, comentar e compartilhar a
+              esquerda; salvar isolado a direita, porque e a unica que age sobre
+              a bronca do proprio usuario e nao sobre a conversa. */}
+          <div className="mt-auto pt-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onToggleUpvote?.(report.id)}
+                aria-label="Apoiar bronca"
+                aria-pressed={report.user_has_upvoted}
+                className={`flex items-center gap-1.5 p-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  report.user_has_upvoted
+                    ? 'text-brand'
+                    : 'text-content-secondary hover:text-content-primary'
+                }`}
+              >
+                <Icon name="support" size={19} />
+                {report.upvotes > 0 && <span className="tabular-nums">{report.upvotes}</span>}
+              </button>
+
+              {/* Abre a folha no proprio feed: ir para a pagina de detalhes so
+                  para ler dois comentarios custava a posicao do scroll. */}
+              <button
+                type="button"
+                onClick={() => setCommentsOpen(true)}
+                aria-label="Ver comentários"
+                className="flex items-center gap-1.5 p-1.5 rounded-lg text-xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
+              >
+                <Icon name="comment" size={19} />
+                {commentsCount > 0 && <span className="tabular-nums">{commentsCount}</span>}
+              </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={sharingStory}
+                    aria-label="Compartilhar"
+                    aria-busy={sharingStory}
+                    className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary transition-colors disabled:opacity-60"
+                  >
+                    {sharingStory ? (
+                      <span className="block w-[19px] h-[19px] rounded-full border-2 border-current border-t-transparent animate-spin" />
+                    ) : (
+                      <Icon name="share" size={19} />
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={handleCopyLink}
+                  >
+                    <Icon name="save" size={14} />
+                    Copiar link da bronca
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={handleShareToStory}
+                  >
+                    <Instagram size={14} />
+                    {report.coverVideo && canShareToStory()
+                      ? 'Enviar vídeo ao story'
+                      : 'Gerar card para story'}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={shareLink}
+                  >
+                    <Icon name="share" size={14} />
+                    Mais opções…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleBookmark}
+              aria-label={localFav ? 'Deixar de acompanhar' : 'Acompanhar bronca'}
+              aria-pressed={localFav}
+              className={`p-1.5 rounded-lg transition-colors ${
+                localFav
+                  ? 'text-brand'
+                  : 'text-content-secondary hover:text-content-primary'
+              }`}
+            >
+              <Icon name="save" size={19} />
+            </button>
+          </div>
+
+          {/* O sinal de comunidade ja era calculado em computeSignals mas o card
+              nao mostrava — e ele que da a dimensao de quanta gente esta junto. */}
+          {signals.community && (
+            <p className="mt-3 text-2xs text-brand font-medium">{signals.community}</p>
+          )}
+
+          {(report.address || report.distanceMeters != null) && (
+            <div className="flex items-start gap-1 mt-1.5 text-2xs text-content-secondary">
+              <Icon name="location" size={12} className="flex-shrink-0 mt-0.5 text-content-tertiary" />
+              <span className="line-clamp-1">
+                {report.address}
+                {report.distanceMeters != null && (
+                  <>
+                    {report.address && ' · '}
+                    <span className="font-semibold text-content-primary whitespace-nowrap">
+                      {formatDistance(report.distanceMeters)}
+                    </span>
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isActive && (
         <button
           type="button"
           onClick={(e) => {
@@ -697,22 +453,50 @@ const FeedCard = ({ report, onToggleUpvote, isNew = false, index = 0 }) => {
               navigate('/login', { state: { from: `/bronca/${report.id}`, openUpdateModal: true } });
               return;
             }
-            navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
+            // Quem hospeda o modal e o FeedPage: um so modal para a lista
+            // inteira, e fora da arvore do card (que tem transform e prenderia
+            // o position:fixed do modal ao proprio card).
+            onRequestUpdate?.(report);
           }}
-          className="w-full flex items-center gap-2.5 px-4 py-3 mx-0 bg-[#fff7f7] hover:bg-[#ffe8e8] border-t border-[#f5c6c8] transition-colors rounded-b-[inherit] group"
+          className="w-full flex items-center gap-2.5 mx-3 mb-3 px-3 py-2.5 rounded-xl bg-brand-subtleBg text-brand-subtleFg transition-opacity hover:opacity-90 group"
+          style={{ width: 'calc(100% - 1.5rem)' }}
         >
-          <div className="w-7 h-7 rounded-full bg-[#b61722]/10 flex items-center justify-center flex-shrink-0">
-            <Megaphone className="w-3.5 h-3.5 text-[#b61722]" strokeWidth={1.5} />
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <span className="text-xs font-semibold text-[#b61722]">Esteve no local?</span>
-            <span className="text-xs text-[#9f3f3b]/70"> Informe o que viu</span>
-          </div>
-          <span className="text-xs font-bold text-[#b61722] group-hover:translate-x-0.5 transition-transform">→</span>
+          <Icon name="trombone" size={16} className="flex-shrink-0" />
+          <p className="flex-1 text-left text-2xs leading-snug min-w-0">
+            <span className="font-bold">Esteve no local?</span>{' '}
+            <span className="opacity-80">Informe o que viu</span>
+          </p>
+          <Icon
+            name="chevronright"
+            size={14}
+            className="flex-shrink-0 group-hover:translate-x-0.5 transition-transform"
+          />
         </button>
       )}
-    </motion.div>
+
+      <FeedCommentsSheet
+        open={commentsOpen}
+        onOpenChange={setCommentsOpen}
+        reportId={report.id}
+        reportTitle={report.title}
+        onCountChange={setCommentsCount}
+      />
+
+    </article>
   );
 };
 
-export default FeedCard;
+// Re-renderiza somente quando os campos exibidos mudam.
+export default React.memo(FeedCard, (prev, next) =>
+  prev.report.id === next.report.id &&
+  prev.report.status === next.report.status &&
+  prev.report.upvotes === next.report.upvotes &&
+  prev.report.comments_count === next.report.comments_count &&
+  prev.report.user_has_upvoted === next.report.user_has_upvoted &&
+  prev.report.is_favorited === next.report.is_favorited &&
+  prev.report.coverImage === next.report.coverImage &&
+  // coverVideo decide entre o layout de video e o horizontal.
+  prev.report.coverVideo === next.report.coverVideo &&
+  prev.isNew === next.isNew &&
+  prev.index === next.index
+);

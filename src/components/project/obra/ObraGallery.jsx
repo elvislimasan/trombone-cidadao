@@ -233,7 +233,7 @@ export function ObraGallery({
   const Container = embedded ? "div" : "section";
   const containerClassName = embedded
     ? "p-4 sm:p-6"
-    : "bg-card rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6";
+    : "bg-card rounded-xl border border-edge-subtle shadow-sm p-4 sm:p-6";
 
   const groups = Array.isArray(galleries) ? galleries : [];
   const galleryNames = useMemo(() => groups.map((g) => g.name).filter(Boolean), [groups]);

@@ -1,20 +1,15 @@
-import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { toPng } from 'html-to-image';
+import React, { useMemo, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Media } from '@capacitor-community/media';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { useToast } from '@/components/ui/use-toast';
 import { getCardInstagramPublicUrl } from '@/lib/cardInstagramAssets';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { getReportShareUrl } from '@/lib/shareUtils';
+import { useStoryExport } from '@/hooks/useStoryExport';
+// A conversao para data URI saiu daqui quando o card da patrulha passou a ter
+// fundo proprio no mesmo bucket: dois lugares convertendo imagem seriam dois
+// lugares para redescobrir, no primeiro card que voltasse a falhar, que o
+// problema era CORS.
+import { toDataUri } from '@/lib/storyAssets';
 import {
   Download,
   Instagram,
@@ -24,10 +19,16 @@ import {
   BadgeCheck,
   Clock3,
   Wrench,
+  Send,
+  X,
+  Loader2,
 } from 'lucide-react';
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
+
+const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.trombonecidadao.app&pcampaignid=web_share';
 
 const normalizeText = (text = '') =>
   String(text || '').replace(/\s+/g, ' ').trim();
@@ -258,31 +259,44 @@ function StatusTag({ statusConfig }) {
   );
 }
 
-function getStatusBackgroundStyle(bgType, customBgColor, reportStatus) {
+// Cor solida por status, usada como piso quando a textura de fundo nao carrega.
+// Sem isso o card cai para preto e perde a leitura de status.
+const FALLBACK_BG_COLOR = {
+  pending: '#8f2f10',
+  in_progress: '#24405f',
+  resolved: '#245536',
+};
+
+function resolveBgKey(bgType, reportStatus) {
+  if (bgType === 'auto') return getStatusConfig(reportStatus).bgKey;
+  return bgType;
+}
+
+const BG_FILE_BY_KEY = {
+  pending: 'bg-pending-1.png',
+  in_progress: 'bg-in-progress.png',
+  resolved: 'bg-resolved.png',
+};
+
+function getStatusBackgroundStyle(bgType, customBgColor, reportStatus, bgDataUri) {
   if (bgType === 'color') {
     return {
       backgroundColor: customBgColor,
     };
   }
 
-  let resolvedBgType = bgType;
+  const resolvedBgType = resolveBgKey(bgType, reportStatus);
+  const backgroundColor = FALLBACK_BG_COLOR[resolvedBgType] || '#111111';
 
-  if (bgType === 'auto') {
-    resolvedBgType = getStatusConfig(reportStatus).bgKey;
-  }
-
-  let bgUrl = getCardInstagramPublicUrl('bg-pending-1.png');
-
-  if (resolvedBgType === 'in_progress') {
-    bgUrl = getCardInstagramPublicUrl('bg-in-progress.png');
-  } else if (resolvedBgType === 'resolved') {
-    bgUrl = getCardInstagramPublicUrl('bg-resolved.png');
-  } else if (resolvedBgType === 'pending') {
-    bgUrl = getCardInstagramPublicUrl('bg-pending-1.png');
+  // Sem o data URI pronto, renderiza a cor solida: um backgroundImage com URL
+  // remota sujaria o canvas e faria o toPng falhar.
+  if (!bgDataUri) {
+    return { backgroundColor };
   }
 
   return {
-    backgroundImage: `url(${bgUrl})`,
+    backgroundColor,
+    backgroundImage: `url(${bgDataUri})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
@@ -417,19 +431,14 @@ function StoryTemplateInstagram({
   bgStyle,
   enableImageEffect = true,
   enableHoleEffect = false,
+  qrCodePlayStore = '',
+  likeIconUrl = '',
 }) {
   const title = report?.title || '';
   const address = report?.address || '';
   const fontSize = getDynamicFontSize(title, 68);
   const titleLines = splitHeadline(title, title.length > 40 ? 25 : 19, 6);
   const statusConfig = getStatusConfig(report?.status);
-
-  const playStoreUrl =
-    'https://play.google.com/store/apps/details?id=com.trombonecidadao.app&pcampaignid=web_share';
-
-  const qrCodePlayStore = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-    playStoreUrl
-  )}`;
 
   return (
     <div
@@ -659,11 +668,13 @@ function StoryTemplateInstagram({
                   boxShadow: '0 14px 26px rgba(0,0,0,0.18)',
                 }}
               >
-                  <img
-                    src={getCardInstagramPublicUrl('like-svgrepo-com (1).svg')}
-                    style={{ width: 75, height: 75 }}
-                    alt="Like"
-                  />
+                  {likeIconUrl && (
+                    <img
+                      src={likeIconUrl}
+                      style={{ width: 75, height: 75 }}
+                      alt="Like"
+                    />
+                  )}
               </div>
 
               <div
@@ -748,12 +759,13 @@ function StoryTemplateInstagram({
               boxShadow: '0 18px 36px rgba(0,0,0,0.22)',
             }}
           >
-            <img
-              src={qrCodePlayStore}
-              alt="QR Code Play Store"
-              style={{ width: '100%', height: '100%' }}
-              crossOrigin="anonymous"
-            />
+            {qrCodePlayStore && (
+              <img
+                src={qrCodePlayStore}
+                alt="QR Code Play Store"
+                style={{ width: '100%', height: '100%' }}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -768,6 +780,8 @@ const StoryRenderer = React.forwardRef(function StoryRenderer(
     bgStyle,
     enableImageEffect = true,
     enableHoleEffect = false,
+    qrCodePlayStore = '',
+    likeIconUrl = '',
   },
   ref
 ) {
@@ -779,6 +793,8 @@ const StoryRenderer = React.forwardRef(function StoryRenderer(
         bgStyle={bgStyle}
         enableImageEffect={enableImageEffect}
         enableHoleEffect={enableHoleEffect}
+        qrCodePlayStore={qrCodePlayStore}
+        likeIconUrl={likeIconUrl}
       />
     </div>
   );
@@ -799,147 +815,161 @@ const ReportStoryModal = ({
   qrCodeUrl,
   coverPhotoUrl,
 }) => {
-  const exportRef = useRef(null);
   const [layout, setLayout] = useState('instagram');
-  const [downloading, setDownloading] = useState(false);
   const [enableImageEffect, setEnableImageEffect] = useState(true);
   const [enableHoleEffect, setEnableHoleEffect] = useState(false);
-  const { toast } = useToast();
 
   const [bgType, setBgType] = useState('auto');
   const [customBgColor, setCustomBgColor] = useState('#111111');
 
+  // Todos os assets do card viram data URI antes da exportacao: o toPng falha
+  // se qualquer imagem do DOM vier de outra origem sem CORS.
+  const [assets, setAssets] = useState({
+    backgrounds: {},
+    likeIcon: '',
+    qrCode: '',
+    coverPhoto: '',
+  });
+  const [assetsReady, setAssetsReady] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+
+    (async () => {
+      setAssetsReady(false);
+
+      const [qrCode, likeIcon, coverPhoto, pending, inProgress, resolved] =
+        await Promise.all([
+          QRCode.toDataURL(PLAY_STORE_URL, {
+            width: 500,
+            margin: 1,
+            errorCorrectionLevel: 'M',
+          }).catch(() => ''),
+          toDataUri(getCardInstagramPublicUrl('like-svgrepo-com (1).svg')),
+          toDataUri(coverPhotoUrl),
+          toDataUri(getCardInstagramPublicUrl(BG_FILE_BY_KEY.pending)),
+          toDataUri(getCardInstagramPublicUrl(BG_FILE_BY_KEY.in_progress)),
+          toDataUri(getCardInstagramPublicUrl(BG_FILE_BY_KEY.resolved)),
+        ]);
+
+      if (cancelled) return;
+
+      setAssets({
+        qrCode,
+        likeIcon,
+        coverPhoto,
+        backgrounds: {
+          pending,
+          in_progress: inProgress,
+          resolved,
+        },
+      });
+      setAssetsReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, coverPhotoUrl]);
+
   const currentBgStyle = useMemo(() => {
-    return getStatusBackgroundStyle(bgType, customBgColor, report?.status);
-  }, [bgType, customBgColor, report?.status]);
+    const bgKey = resolveBgKey(bgType, report?.status);
+    return getStatusBackgroundStyle(
+      bgType,
+      customBgColor,
+      report?.status,
+      assets.backgrounds[bgKey]
+    );
+  }, [bgType, customBgColor, report?.status, assets.backgrounds]);
 
   const safeTitle = useMemo(
     () => getSafeFilename(report?.title || 'trombone-cidadao'),
     [report?.title]
   );
 
-  const handleDownload = useCallback(async () => {
-    if (!exportRef.current || downloading) return;
+  // Rasterizar, salvar em disco e mandar ao story vivem no useStoryExport:
+  // o caminho nativo tem as partes difíceis (galeria via MediaStore, folha do
+  // sistema, notificação) e o card da patrulha usa exatamente o mesmo. Duas
+  // cópias divergiriam no primeiro conserto.
+  //
+  // `storyShareAvailable` vem do hook agora: ele sabe distinguir o deep link
+  // do Instagram da folha do sistema, e a folha existe também no navegador.
+  const {
+    exportRef,
+    baixando: downloading,
+    compartilhando: sharing,
+    ocupado,
+    baixar: handleDownload,
+    compartilhar: handleShareToStory,
+    podeCompartilhar: storyShareAvailable,
+    viaInstagram,
+  } = useStoryExport({
+    nomeArquivo: `story-${layout}-${safeTitle}`,
+    shareUrl: report?.id ? getReportShareUrl(report.id) : undefined,
+    tipoConteudo: 'report',
+    contentId: report?.id,
+    pronto: assetsReady,
+    aoConcluirShare: onClose,
+  });
 
-    try {
-      setDownloading(true);
+  // Fechado é desmontado, não escondido: a FeedCard já monta este componente só
+  // quando abre, mas a ReportPage o mantém sempre montado e controla por prop.
+  // Sem esta saída, o painel animado apareceria na tela em ambas.
+  if (!isOpen) return null;
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const dataUrl = await toPng(exportRef.current, {
-        cacheBust: true,
-        pixelRatio: 2,
-        width: STORY_WIDTH,
-        height: STORY_HEIGHT,
-        canvasWidth: STORY_WIDTH,
-        canvasHeight: STORY_HEIGHT,
-        backgroundColor: '#111111',
-        skipAutoScale: true,
-      });
-
-      const fileName = `story-${layout}-${safeTitle}.png`;
-      if (Capacitor.isNativePlatform()) {
-        try {
-          const perm = await LocalNotifications.checkPermissions();
-          if (perm.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-        } catch {}
-
-        const base64 = dataUrl.split(',')[1] || '';
-        const platform = Capacitor.getPlatform();
-        let directory = Directory.Documents;
-        let downloadPath = fileName;
-        if (platform === 'android') {
-          try { await Filesystem.requestPermissions(); } catch {}
-          directory = Directory.ExternalStorage;
-          downloadPath = `Pictures/TromboneCidadao/Stories/${fileName}`;
-        }
-
-        await Filesystem.writeFile({
-          path: downloadPath,
-          data: base64,
-          directory,
-          recursive: true,
-        });
-
-        const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
-        try {
-          if (Media.requestPermissions) {
-            await Media.requestPermissions();
-          }
-        } catch {}
-        try {
-          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
-        } catch {}
-        try {
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Card baixado!',
-                body: 'O card foi salvo na sua galeria. Toque para abrir.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-                extra: {
-                  filePath: uriResult.uri,
-                  contentType: 'image/png',
-                },
-              },
-            ],
-          });
-        } catch (e) {
-          toast({
-            title: 'Card salvo na galeria',
-            description: 'Notificação não disponível no dispositivo.',
-          });
-        }
-      } else {
-        const link = document.createElement('a');
-        link.download = fileName;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-
-      toast({
-        title: 'Card pronto!',
-        description: 'O story foi gerado e baixado.',
-      });
-    } catch (error) {
-      console.error('Erro ao gerar story:', error);
-      toast({
-        title: 'Erro ao gerar story',
-        description: 'Tente novamente em instantes.',
-        variant: 'destructive',
-      });
-    } finally {
-      setDownloading(false);
-    }
-  }, [downloading, layout, safeTitle, toast]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-[95vw] h-[95vh] sm:h-[90vh] lg:h-[85vh] p-0 flex flex-col overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-4 sm:p-6 border-b bg-white flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Instagram className="text-pink-600" size={24} />
-            <DialogTitle className="text-xl sm:text-2xl font-black">
-              Criar Story para Instagram
-            </DialogTitle>
+    // Mesma concha do ReportUpdateModal: folha que sobe de baixo no celular e
+    // vira caixa centrada a partir de sm. Antes era um Dialog de 95vw × 95vh,
+    // que no celular ocupava a tela toda sem ser tela cheia — sobravam faixas
+    // de 2,5% nas laterais e o rodapé encostava na barra de gestos.
+    //
+    // A largura cresce só no lg, onde o corpo vira duas colunas: com max-w-lg
+    // ali a pré-visualização ficaria espremida ao lado dos controles.
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[3000]"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: '100%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: '100%', opacity: 0 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 380 }}
+        className="bg-surface-raised rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg lg:max-w-4xl flex flex-col overflow-hidden"
+        style={{ maxHeight: '94vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabeçalho */}
+        <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-4 flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Instagram className="text-pink-600 flex-shrink-0" size={20} />
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-extrabold text-content-primary tracking-tight truncate">
+                Criar Story
+              </h2>
+              <p className="text-xs text-content-tertiary mt-0.5 truncate">
+                Escolha o estilo e compartilhe no Instagram
+              </p>
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-surface-sunken text-content-secondary hover:bg-surface-subtleHover transition-colors active:scale-90"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-          <DialogDescription className="text-xs sm:text-sm hidden xs:block">
-            Escolha um estilo visual e baixe o card otimizado para os stories.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-4 bg-gray-50/30 no-scrollbar">
-          <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 sm:gap-8 lg:gap-4 h-full">
-            <div className="space-y-4 sm:space-y-6 lg:space-y-4">
+        <div className="flex-1 overflow-y-auto px-5 pb-4 no-scrollbar">
+          <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 lg:gap-5 h-full">
+            <div className="space-y-4 lg:space-y-4">
               <div>
-                <h3 className="text-[10px] sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-4 lg:mb-2">
+                <h3 className="text-[10px] sm:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-2 sm:mb-4 lg:mb-2">
                   Modelo de Layout
                 </h3>
 
@@ -953,15 +983,15 @@ const ReportStoryModal = ({
                         onClick={() => setLayout(item.value)}
                         className={`flex items-center sm:items-start flex-row gap-1.5 sm:gap-4 lg:gap-2 p-1.5 sm:p-4 lg:p-2 rounded-xl text-left transition-all border-2 flex-1 sm:flex-none ${
                           active
-                            ? 'border-tc-red bg-tc-red/10 shadow-sm ring-1 ring-tc-red/20'
-                            : 'border-transparent hover:bg-muted bg-white'
+                            ? 'border-brand bg-brand/10 shadow-sm ring-1 ring-brand/20'
+                            : 'border-transparent hover:bg-surface-subtleHover bg-surface-subtle'
                         }`}
                       >
                         <div
                           className={`p-1 sm:p-2 rounded-lg transition-colors ${
                             active
-                              ? 'bg-tc-red text-white'
-                              : 'bg-muted text-muted-foreground'
+                              ? 'bg-brand text-content-onBrand'
+                              : 'bg-surface-sunken text-content-tertiary'
                           }`}
                         >
                           <LayoutTemplate
@@ -973,19 +1003,19 @@ const ReportStoryModal = ({
                         <div className="flex flex-col min-w-0">
                           <div
                             className={`font-bold text-[10px] sm:text-sm lg:text-xs flex items-center gap-1 sm:gap-2 lg:gap-1 truncate ${
-                              active ? 'text-tc-red' : 'text-foreground'
+                              active ? 'text-brand' : 'text-content-primary'
                             }`}
                           >
                             {item.label}
                             {active && (
                               <Check
                                 size={10}
-                                className="text-tc-red sm:w-3.5 sm:h-3.5 lg:w-3 lg:h-3 flex-shrink-0"
+                                className="text-brand sm:w-3.5 sm:h-3.5 lg:w-3 lg:h-3 flex-shrink-0"
                               />
                             )}
                           </div>
 
-                          <p className="text-[10px] hidden sm:block text-muted-foreground mt-1 leading-relaxed lg:line-clamp-1">
+                          <p className="text-[10px] hidden sm:block text-content-tertiary mt-1 leading-relaxed lg:line-clamp-1">
                             {item.description}
                           </p>
                         </div>
@@ -996,9 +1026,9 @@ const ReportStoryModal = ({
               </div>
 
               {layout === 'instagram' && (
-                <div className="pt-2 border-t border-gray-100 space-y-4">
+                <div className="pt-2 border-t border-edge-subtle space-y-4">
                   <div>
-                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-3">
                       Fundo do Story
                     </h3>
 
@@ -1007,8 +1037,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('auto')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'auto'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         Automático
@@ -1018,8 +1048,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('pending')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'pending'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         Vermelho
@@ -1029,8 +1059,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('in_progress')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'in_progress'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         Azul
@@ -1040,8 +1070,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('resolved')}
                         className={`p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold ${
                           bgType === 'resolved'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         Verde
@@ -1051,8 +1081,8 @@ const ReportStoryModal = ({
                         onClick={() => setBgType('color')}
                         className={`col-span-2 p-2.5 rounded-xl border-2 transition-all text-[10px] font-bold flex items-center justify-between ${
                           bgType === 'color'
-                            ? 'border-tc-red bg-tc-red/5 text-tc-red'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-edge-default bg-surface-subtle text-content-primary'
                         }`}
                       >
                         <span>Cor personalizada</span>
@@ -1070,7 +1100,7 @@ const ReportStoryModal = ({
                   </div>
 
                   <div>
-                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-3">
                       Efeitos
                     </h3>
 
@@ -1078,17 +1108,18 @@ const ReportStoryModal = ({
                       onClick={() => setEnableImageEffect(!enableImageEffect)}
                       className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all ${
                         enableImageEffect
-                          ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold'
-                          : 'border-gray-200 bg-white text-gray-600'
+                          ? 'border-brand bg-brand/5 text-brand font-bold'
+                          : 'border-edge-default bg-surface-subtle text-content-secondary'
                       }`}
                     >
                       <span className="text-[10px]">
                         Suavizar imagem da bronca
                       </span>
 
+                      {/* Trilho/bolinha do toggle: sempre branco sobre fundo colorido/cinza, funciona igual nos dois temas */}
                       <div
                         className={`w-8 h-4 rounded-full relative transition-colors ${
-                          enableImageEffect ? 'bg-tc-red' : 'bg-gray-200'
+                          enableImageEffect ? 'bg-brand' : 'bg-surface-sunken'
                         }`}
                       >
                         <div
@@ -1103,8 +1134,8 @@ const ReportStoryModal = ({
                       onClick={() => setEnableHoleEffect(!enableHoleEffect)}
                       className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all mt-2 ${
                         enableHoleEffect
-                          ? 'border-tc-red bg-tc-red/5 text-tc-red font-bold'
-                          : 'border-gray-200 bg-white text-gray-600'
+                          ? 'border-brand bg-brand/5 text-brand font-bold'
+                          : 'border-edge-default bg-surface-subtle text-content-secondary'
                       }`}
                     >
                       <span className="text-[10px]">
@@ -1113,7 +1144,7 @@ const ReportStoryModal = ({
 
                       <div
                         className={`w-8 h-4 rounded-full relative transition-colors ${
-                          enableHoleEffect ? 'bg-tc-red' : 'bg-gray-200'
+                          enableHoleEffect ? 'bg-brand' : 'bg-surface-sunken'
                         }`}
                       >
                         <div
@@ -1128,8 +1159,15 @@ const ReportStoryModal = ({
               )}
             </div>
 
-            <div className="flex flex-col gap-3 sm:gap-4 lg:gap-2 h-full min-w-0">
-              <div className="bg-muted/30 rounded-2xl p-2 sm:p-4 lg:p-2 flex items-center justify-center border border-dashed border-muted-foreground/20 overflow-hidden h-[360px] xs:h-[400px] sm:h-[480px] lg:h-[350px] xl:h-[480px] flex-shrink-0 relative group">
+            <div className="flex flex-col gap-2.5 lg:gap-2 h-full min-w-0">
+              {/* Tokens semânticos no lugar de bg-muted/border-muted-foreground:
+                  o resto do modal já migrou, e os antigos não acompanham o tema.
+
+                  As alturas encolheram junto com o resto — a moldura só precisa
+                  caber o card, e o card mais alto aqui tem 307px (escala 0,159
+                  sobre 1920). Sobra folga, não vazio. */}
+              <div className="bg-surface-sunken rounded-2xl p-2 sm:p-4 lg:p-2 flex items-center justify-center border border-dashed border-edge-default overflow-hidden h-[330px] xs:h-[360px] sm:h-[440px] lg:h-[350px] xl:h-[460px] flex-shrink-0 relative group">
+                {/* Chip flutuante sobre a preview, sempre escuro/texto branco de proposito - overlay padrao sobre imagem, nao segue o tema */}
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/80 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
                   <Instagram size={12} className="text-pink-500" />
                   Visualização 1080x1920
@@ -1140,22 +1178,25 @@ const ReportStoryModal = ({
                     className="absolute top-0 left-0 w-[1080px] h-[1920px] origin-top-left !scale-[0.159] sm:!scale-[0.20] md:!scale-[0.22] lg:!scale-[0.15] xl:!scale-[0.20]"
                     style={{ transform: 'scale(0.159)' }}
                   >
+                    {/* Fundo do card do story em si (conteudo/artefato), fixo de proposito */}
                     <div className="w-full h-full relative overflow-hidden bg-black">
                       <StoryRenderer
                         report={report}
-                        coverPhotoUrl={coverPhotoUrl}
+                        coverPhotoUrl={assets.coverPhoto || coverPhotoUrl}
                         bgStyle={currentBgStyle}
                         enableImageEffect={enableImageEffect}
                         enableHoleEffect={enableHoleEffect}
+                        qrCodePlayStore={assets.qrCode}
+                        likeIconUrl={assets.likeIcon}
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="text-xs text-muted-foreground px-1">
+              <div className="text-xs text-content-tertiary px-1">
                 Status atual detectado:{' '}
-                <span className="font-bold text-foreground">
+                <span className="font-bold text-content-primary">
                   {getStatusConfig(report?.status).label}
                 </span>
               </div>
@@ -1163,28 +1204,117 @@ const ReportStoryModal = ({
           </div>
         </div>
 
-        <DialogFooter className="p-4 sm:p-6 lg:p-4 border-t bg-white flex flex-row items-center justify-between gap-3 flex-shrink-0">
-          <Button
-            variant="ghost"
-            onClick={onClose}
-            className="h-10 sm:h-12 lg:h-10 px-4 sm:px-8 lg:px-4 font-bold"
-          >
-            Cancelar
-          </Button>
+        {/* Rodapé
+            ────────────────────────────────────────────────────────────────────
+            Antes: três botões com rótulo por extenso numa linha só. Em tela
+            estreita "Compartilhar no story" quebrava em duas linhas e vazava
+            pela borda — era o que a captura mostrava.
 
-          <Button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="bg-tc-red hover:bg-tc-red/90 text-white gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-tc-red/20 flex-1 sm:flex-none"
-          >
-            {downloading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-            ) : (
-              <Download size={18} />
+            Agora a hierarquia decide o espaço. Compartilhar é a ação que o
+            modal existe para oferecer e fica com o dobro da largura de
+            Cancelar; Baixar é alternativa, e vira um quadrado de 48px com o
+            ícone. Três rótulos por extenso não cabem em 360px de tela sem
+            encolher a fonte abaixo do legível.
+
+            Quando não há compartilhamento nativo (web, iOS sem Instagram),
+            Baixar assume o lugar de ação principal e volta a ter rótulo — aí
+            são dois botões, e sobra espaço. */}
+        <div
+          className="flex-shrink-0 bg-surface-raised border-t border-edge-subtle"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+        >
+          {/* O aviso de "preparando" morava dentro do rótulo do botão. Com o
+              botão virando ícone, ele precisava de um lugar próprio — e uma
+              faixa que aparece e some não empurra o rodapé de forma permanente. */}
+          <AnimatePresence>
+            {!assetsReady && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="mx-5 mt-3 px-3.5 py-2 rounded-xl bg-surface-sunken flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-content-tertiary flex-shrink-0" />
+                  <span className="text-xs font-semibold text-content-secondary leading-tight">
+                    Preparando as imagens do card…
+                  </span>
+                </div>
+              </motion.div>
             )}
-            {downloading ? 'Gerando...' : 'Baixar para Instagram'}
-          </Button>
-        </DialogFooter>
+          </AnimatePresence>
+
+          <div className="flex gap-2.5 px-5 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={ocupado}
+              className="flex-1 rounded-2xl h-12 text-sm font-semibold border-edge-default text-content-primary"
+            >
+              Cancelar
+            </Button>
+
+            {storyShareAvailable ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDownload}
+                  disabled={ocupado || !assetsReady}
+                  aria-label="Baixar imagem"
+                  title="Baixar imagem"
+                  className="w-12 flex-shrink-0 p-0 rounded-2xl h-12 border-edge-default text-content-primary"
+                >
+                  {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download size={18} />
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={handleShareToStory}
+                  disabled={ocupado || !assetsReady}
+                  className="flex-[2] rounded-2xl h-12 gap-2 text-sm font-bold bg-cta-bg border border-cta-border text-cta-fg hover:brightness-110 shadow-elevation-2 active:scale-[0.98] disabled:opacity-60"
+                >
+                  {sharing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      {viaInstagram ? 'Compartilhar' : 'Publicar no story'}
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleDownload}
+                disabled={ocupado || !assetsReady}
+                className="flex-[2] rounded-2xl h-12 gap-2 text-sm font-bold bg-cta-bg border border-cta-border text-cta-fg hover:brightness-110 shadow-elevation-2 active:scale-[0.98] disabled:opacity-60"
+              >
+                {downloading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} />
+                    Baixar imagem
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
 
         <div
           style={{
@@ -1200,14 +1330,16 @@ const ReportStoryModal = ({
           <StoryRenderer
             ref={exportRef}
             report={report}
-            coverPhotoUrl={coverPhotoUrl}
+            coverPhotoUrl={assets.coverPhoto || coverPhotoUrl}
             bgStyle={currentBgStyle}
             enableImageEffect={enableImageEffect}
             enableHoleEffect={enableHoleEffect}
+            qrCodePlayStore={assets.qrCode}
+            likeIconUrl={assets.likeIcon}
           />
         </div>
-      </DialogContent>
-    </Dialog>
+      </motion.div>
+    </motion.div>
   );
 };
 

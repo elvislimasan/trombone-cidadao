@@ -6,6 +6,16 @@ import { formatCurrency } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useTheme } from '@/design-system/theme/ThemeProvider';
+
+// Le o valor computado de um token de design em runtime. O Recharts recebe
+// cor por prop JS (nao por classe CSS), entao os tokens de grafico (canal
+// RGB) precisam ser lidos do DOM e embrulhados em rgb().
+const readColorToken = (name) => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value ? `rgb(${value})` : undefined;
+};
 
 const StatCard = ({ icon: Icon, title, value, color, tooltipText, stacked }) => {
   const tooltipTitle =
@@ -105,6 +115,15 @@ const useSortableData = (items, config = null) => {
 
 
 const WorksStatsReports = ({ works }) => {
+  const { resolved: resolvedTheme } = useTheme();
+
+  // Cores dos graficos lidas dos tokens CSS em runtime, recalculadas quando o
+  // tema muda (Recharts so aceita cor via prop JS, nao via classe).
+  const chartColors = useMemo(() => ({
+    categories: [1, 2, 3, 4, 5, 6, 7].map((n) => readColorToken(`--chart-cat-${n}`)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [resolvedTheme]);
+
   const totalInvestment = works.reduce((acc, work) => acc + (work.total_value || 0), 0);
   const totalStalledValue = works
     .filter(w => w.status === 'stalled' || w.status === 'unfinished')
@@ -160,7 +179,14 @@ const WorksStatsReports = ({ works }) => {
 
   const pieData = Object.values(fundingData);
   const categoryBarData = Object.values(categoryData).sort((a, b) => b.value - a.value);
-  const COLORS = { Municipal: '#3b82f6', State: '#f97316', Federal: '#10b981', Unknown: '#6b7280' };
+  // Mesma paleta categorica usada em StatsPage (tokens --chart-cat-*), para as
+  // fontes de recurso falarem a mesma lingua visual do resto do app.
+  const COLORS = {
+    Municipal: chartColors.categories[0],
+    State: chartColors.categories[1],
+    Federal: chartColors.categories[2],
+    Unknown: chartColors.categories[3],
+  };
 
   const { items: sortedWorks, requestSort, sortConfig } = useSortableData(works);
 
@@ -198,7 +224,7 @@ const WorksStatsReports = ({ works }) => {
       'tendered': 'Licitada',
       'unfinished': 'Inacabada',
     };
-    return <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusMap[status] || 'bg-gray-100 text-gray-800'}`}>{statusText[status] || 'N/D'}</span>;
+    return <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusMap[status] || 'bg-surface-subtle text-content-secondary'}`}>{statusText[status] || 'N/D'}</span>;
   };
 
   return (
@@ -296,7 +322,7 @@ const WorksStatsReports = ({ works }) => {
             <div className="w-full h-[250px] sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" labelLine={false} outerRadius={70} fill="#8884d8" dataKey="value" nameKey="name">
+                  <Pie data={pieData} cx="50%" cy="50%" labelLine={false} outerRadius={70} fill={chartColors.categories[4]} dataKey="value" nameKey="name">
                   {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
                   ))}

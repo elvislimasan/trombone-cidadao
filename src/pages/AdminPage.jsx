@@ -69,10 +69,6 @@ const AdminPage = () => {
       return r;
     });
     updateReports(updatedReports);
-    toast({
-      title: `Bronca ${newStatus === 'approved' ? 'Aprovada' : 'Rejeitada'}!`,
-      description: `A solicitação foi movida para a seção correspondente.`,
-    });
   };
 
   const handleToggleVisibility = (reportId) => {
@@ -83,11 +79,10 @@ const AdminPage = () => {
       }
       return r;
     });
+    // Sem toast: é um interruptor, e o estado dele na linha JÁ é a resposta.
+    // O texto ainda precisava reler `reports` (o array pré-update) e inverter
+    // o valor para acertar a frase — trabalho para dizer o que o botão mostra.
     updateReports(updatedReports);
-    toast({
-      title: `Visibilidade alterada!`,
-      description: `A bronca agora está ${reports.find(r => r.id === reportId)?.moderationStatus === 'hidden' ? 'visível' : 'oculta'}.`,
-    });
   };
 
   const handleDeleteReport = (reportId) => {
@@ -115,10 +110,6 @@ const AdminPage = () => {
       return report;
     });
     updateReports(updatedReports);
-    toast({
-      title: `Comentário ${newStatus === 'approved' ? 'Aprovado' : 'Rejeitado'}!`,
-      description: `O comentário foi ${newStatus === 'approved' ? 'publicado' : 'removido'}.`,
-    });
   };
 
   const handleUpdateReport = (updatedReport) => {
@@ -143,7 +134,6 @@ const AdminPage = () => {
       return r;
     });
     updateReports(updatedReports);
-    toast({ title: "Bronca vinculada! 🔗", description: "A solicitação foi marcada como duplicada." });
     setShowLinkModal(false);
     setReportToLink(null);
   };
@@ -157,7 +147,7 @@ const AdminPage = () => {
       case 'approved': return <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">Aprovada</span>;
       case 'pending_approval': return <span className="px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">Pendente</span>;
       case 'rejected': return <span className="px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-full">Rejeitada</span>;
-      case 'hidden': return <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">Oculta</span>;
+      case 'hidden': return <span className="px-2 py-1 text-xs font-medium text-content-secondary bg-surface-sunken rounded-full">Oculta</span>;
       default: return null;
     }
   };

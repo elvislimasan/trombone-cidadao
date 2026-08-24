@@ -1,3 +1,12 @@
+/* Os @import PRECISAM vir antes das diretivas @tailwind: a especificacao CSS
+   exige @import antes de qualquer regra, e o PostCSS descarta em silencio os
+   que estiverem fora de ordem — sem erro de build. Se os tokens sairem daqui,
+   todo rgb(var(--token)) vira cor invalida e os elementos ficam transparentes. */
+@import './design-system/tokens/primitives.css';
+@import './design-system/tokens/semantic.css';
+@import './design-system/tokens/typography.css';
+@import './design-system/tokens/motion.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33,6 +42,11 @@
        quando já está abaixo da status bar. Com contentInset:'never' no iOS, este é
        o único inset aplicado (sem duplicação). */
     --header-safe-top: env(safe-area-inset-top, 0px);
+
+    /* Altura da barra do header, sem a safe area. Estava repetida como 4rem
+       literal no MobileHeader, no Header e no padding-top do <main> em App.jsx:
+       mudar a altura em um so lugar deixava um vao morto abaixo do header. */
+    --header-bar-height: 3.5rem;
   }
 
   /* Garantir que as variáveis sejam aplicadas mesmo em produção */
@@ -88,6 +102,19 @@
 }
 
 @layer utilities {
+  /* Rolagem horizontal sem barra visivel.
+     Usada nas faixas que rolam de lado (filtros de trilha, "Continue daqui").
+     A barra do desktop apareceria por cima do conteudo dentro de cartoes de
+     poucos pixels de altura; o encaixe (snap) e o corte da proxima carta ja
+     dizem que ha mais para o lado. */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Safe area utilities */
   .pt-safe {
     padding-top: var(--safe-area-top);
@@ -139,18 +166,6 @@
     bottom: var(--safe-area-bottom);
   }
   
-  /* Toast viewport - padding-top no mobile considerando header e safe area */
-  .toast-viewport-mobile {
-    padding-top: calc(4rem + var(--safe-area-top, 0px) + 1rem) !important;
-  }
-  
-  /* No desktop, o toast está no bottom-right, então resetar padding-top */
-  @media (min-width: 640px) {
-    .toast-viewport-mobile {
-      padding-top: 0 !important;
-    }
-  }
-
   /* Line clamp utilities (fallback without plugin) */
   .line-clamp-1 {
     display: -webkit-box;
@@ -175,6 +190,57 @@
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+}
+
+/* === MODO NAVEGAÇÃO: contra-giro dos pins === */
+/*
+ * O modo navegação gira o container inteiro do mapa por transform. Sem
+ * compensação, os pins giram junto e ficam deitados ou de cabeça para baixo.
+ *
+ * O contra-giro é aplicado no CONTEÚDO do divIcon (o filho direto de
+ * .leaflet-marker-icon), nunca no próprio .leaflet-marker-icon: é ele que
+ * carrega o translate3d de posicionamento do Leaflet, e sobrescrever esse
+ * transform jogaria todos os pins para o canto do mapa.
+ *
+ * --nav-rot é escrito pelo MapView a cada leitura do GPS.
+ *
+ * A geometria: o container gira por -rumo, então um filho com transform T
+ * aparece na tela em (-rumo + T). Para qualquer elemento ficar de pé,
+ * T = +rumo — que é exatamente o valor de --nav-rot.
+ *
+ * A seta do usuário segue a MESMA regra, e não uma exceção. Ela é desenhada
+ * apontando para cima no próprio espaço; sem a contra-rotação apareceria em
+ * -rumo, ou seja, torta em qualquer direção que não fosse o norte. Com ela,
+ * aponta sempre para o topo da tela — que, no mapa girado, é o sentido do
+ * deslocamento.
+ */
+.nav-rotating .leaflet-marker-icon > * {
+  transform: rotate(var(--nav-rot, 0deg));
+  transform-origin: center center;
+  transition: transform 500ms linear;
+}
+
+/* === MODO PATRULHA: pontos ganhos === */
+/*
+ * Sobe e some. `forwards` mantém o estado final para o elemento não reaparecer
+ * cheio no quadro anterior ao desmonte.
+ */
+@keyframes patrol-points-burst {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.85); }
+  18%  { opacity: 1; transform: translateY(0) scale(1.08); }
+  32%  { transform: translateY(-4px) scale(1); }
+  100% { opacity: 0; transform: translateY(-56px) scale(0.95); }
+}
+
+.patrol-points-burst {
+  animation: patrol-points-burst 1.2s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .patrol-points-burst {
+    animation: none;
+    opacity: 1;
   }
 }
 
@@ -267,6 +333,72 @@ body > * a:not(.leaflet-container a) {
   touch-action: auto !important;
 }
 
+/* === LEAFLET: NEUTRALIZAR O BRANCO PADRAO === */
+/* O leaflet.css pinta .leaflet-div-icon com `background:#fff` e uma borda
+   cinza. Como nossos pins sao SVG transparente, esse fundo aparecia como um
+   retangulo branco atras da gota - e no tema claro ainda escondia o icone
+   branco. O emoji antigo mascarava o problema porque desenhava sobre um div
+   opaco do mesmo tamanho. */
+.leaflet-container .leaflet-div-icon,
+.leaflet-container .custom-leaflet-icon,
+.leaflet-container .user-leaflet-icon,
+.leaflet-container .cluster-leaflet-icon {
+  background: transparent;
+  border: 0;
+}
+
+/* Popup: o leaflet.css pinta `.leaflet-popup-content-wrapper` e o `-tip` com
+   `background: white` fixo, entao no tema escuro o balao saia branco no meio do
+   mapa escuro. Precisa de `.leaflet-container` na frente porque este arquivo e
+   importado ANTES do leaflet.css (ver nota abaixo). */
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+  background: rgb(var(--surface-raised));
+  color: rgb(var(--text-primary));
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.3);
+}
+
+.leaflet-container .leaflet-popup-close-button {
+  color: rgb(var(--text-secondary));
+}
+
+/* O leaflet.css usa margin 13px 19px no conteudo, generoso demais para um
+   cartao pequeno - o balao ficava bem maior que o texto dentro dele. */
+.leaflet-container .leaflet-popup-content {
+  margin: 10px 12px;
+}
+
+/* Controles e atribuicao tambem vem com branco fixo do leaflet.css. O main.jsx
+   importa este arquivo ANTES do leaflet.css, entao empatar na especificidade
+   perde: as regras abaixo sobem para .leaflet-container <seletor> de proposito.
+   Sem isso o botao de zoom fica branco no tema escuro. */
+.leaflet-container .leaflet-bar a,
+.leaflet-container .leaflet-bar a:hover,
+.leaflet-container .leaflet-control-layers {
+  background-color: rgb(var(--surface-raised));
+  color: rgb(var(--text-secondary));
+}
+
+/* A atribuicao empata em especificidade com o leaflet.css (que tambem usa
+   .leaflet-container .leaflet-control-attribution) e ele carrega depois, entao
+   aqui precisa de um seletor mais especifico. Usa `background` porque e a
+   propriedade que o leaflet.css define - `background-color` sozinho perderia
+   para o shorthand dele. */
+.leaflet-container .leaflet-control-container .leaflet-control-attribution {
+  background: rgb(var(--surface-raised) / 0.8);
+  color: rgb(var(--text-secondary));
+}
+
+.leaflet-container .leaflet-bar a,
+.leaflet-container .leaflet-bar a:hover {
+  /* --border-subtle, nao --border: este ultimo e HSL (ponte do Tailwind). */
+  border-bottom-color: rgb(var(--border-subtle));
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: rgb(var(--text-secondary));
+}
+
 /* === AJUSTES PARA CONTROLES DO LEAFLET NÃO SOBREPOREM O BOTTOM NAV === */
 /* Controles de zoom do Leaflet - z-index menor que o BottomNav (900) */
 .leaflet-control-zoom {
@@ -289,70 +421,6 @@ body > * a:not(.leaflet-container a) {
   }
 }
 
-/* === SEUS ESTILOS ORIGINAIS (MANTIDOS INTACTOS) === */
-@layer base {
-  :root {
-    --background: 0 0% 100%; /* White */
-    --foreground: 222.2 84% 4.9%; /* Black */
-
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 222.2 84% 4.9%; /* Black */
-
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 222.2 84% 4.9%; /* Black */
-
-    --primary: 0 84.2% 60.2%; /* Red */
-    --primary-foreground: 210 20% 98%; /* White */
-
-    --secondary: 47.9 95.8% 53.1%; /* Yellow */
-    --secondary-foreground: 222.2 47.4% 11.2%; /* Black */
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 20% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.4rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%; /* Black */
-    --foreground: 210 20% 98%; /* White */
-
-    --card: 222.2 84% 4.9%; /* Black */
-    --card-foreground: 210 20% 98%; /* White */
-
-    --popover: 222.2 84% 4.9%; /* Black */
-    --popover-foreground: 210 20% 98%; /* White */
-
-    --primary: 0 84.2% 60.2%; /* Red */
-    --primary-foreground: 210 20% 98%; /* White */
-
-    --secondary: 47.9 95.8% 53.1%; /* Yellow */
-    --secondary-foreground: 222.2 47.4% 11.2%; /* Black */
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 20% 98%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 20% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-  }
-}
 
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {

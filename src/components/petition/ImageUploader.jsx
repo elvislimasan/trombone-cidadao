@@ -132,7 +132,6 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
   const finishUpload = () => {
     if (processedUrls.length > 0) {
       onUploadComplete(processedUrls);
-      toast({ title: "Upload concluído", description: `${processedUrls.length} imagens adicionadas.` });
     }
     setUploading(false);
     setCurrentFileIndex(-1);

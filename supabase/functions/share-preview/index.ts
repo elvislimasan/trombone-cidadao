@@ -41,8 +41,13 @@ Deno.serve(async (req) => {
       : `${appUrl}/images/thumbnail.jpg`;
 
     // Construct the destination URL
-    const redirectUrl = contentId 
-      ? (contentType === 'peticao' ? `${appUrl}/abaixo-assinado/${contentId}` : `${appUrl}/bronca/${contentId}`)
+    const destinoPorTipo: Record<string, string> = {
+      peticao: 'abaixo-assinado',
+      patrulha: 'patrulha',
+      bronca: 'bronca',
+    }
+    const redirectUrl = contentId
+      ? `${appUrl}/${destinoPorTipo[contentType] ?? 'bronca'}/${contentId}`
       : appUrl;
 
     // 1. User-Agent Detection
@@ -80,7 +85,39 @@ Deno.serve(async (req) => {
     let signatureCount = '0';
     let goal = '100';
 
-    if (contentType === 'peticao') {
+    if (contentType === 'patrulha') {
+      // Patrulha compartilhada: so numeros e cidade.
+      //
+      // A consulta usa a chave anonima de proposito - a policy `is_public` da
+      // tabela e quem decide o que aparece. Com service role, uma patrulha
+      // privada vazaria pelo preview do link.
+      const { data: patrulha, error } = await supabase
+        .from('patrols')
+        .select(
+          'passed_count, confirmed_count, distance_meters, ' +
+          'city:cities(name, state:states(uf)), ' +
+          'author:profiles!patrols_user_id_fkey(name)'
+        )
+        .eq('id', contentId)
+        .maybeSingle()
+
+      if (!error && patrulha) {
+        const autor = patrulha.author?.name || 'Um cidadão'
+        const cidade = patrulha.city?.name
+          ? `${patrulha.city.name}${patrulha.city.state?.uf ? `-${patrulha.city.state.uf}` : ''}`
+          : 'sua cidade'
+        const km = (Number(patrulha.distance_meters || 0) / 1000).toFixed(1).replace('.', ',')
+
+        title = `${autor} patrulhou ${patrulha.passed_count} ${
+          patrulha.passed_count === 1 ? 'bronca' : 'broncas'
+        } em ${cidade} - Trombone Cidadão`
+        description =
+          `${patrulha.confirmed_count} ${
+            patrulha.confirmed_count === 1 ? 'confirmação' : 'confirmações'
+          } em ${km} km percorridos. ` +
+          `Confirmar o que ainda não foi resolvido ajuda a cidade a priorizar o conserto.`
+      }
+    } else if (contentType === 'peticao') {
       // Fetch petition data
       const { data: petition, error } = await supabase
         .from('petitions')

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.6";
+import { isTypePreferenceDisabled } from "./gate.js";
 
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY");
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY");
@@ -667,7 +668,9 @@ serve(async (req) => {
     
     // Verificar se o tipo está explicitamente desabilitado (false)
     // Se não estiver definido, assumir que está habilitado (padrão)
-    if (notificationPrefs.hasOwnProperty(notificationType) && notificationPrefs[notificationType] === false) {
+    // `moderation_required` é exceção: quem decide é o gate de admin acima —
+    // ver comentário em gate.js.
+    if (isTypePreferenceDisabled(notificationPrefs, notificationType)) {
       return new Response(
         JSON.stringify({ 
           message: `Tipo de notificação '${notificationType}' desabilitado pelo usuário`, 

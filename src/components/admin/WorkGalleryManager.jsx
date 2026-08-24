@@ -191,7 +191,6 @@ export function WorkGalleryManager({
         }
         const { error } = await q;
         if (error) throw error;
-        toast({ title: "Galeria renomeada" });
         await loadMedia();
       } catch (e) {
         toast({ title: "Erro ao renomear galeria", description: e?.message || "Tente novamente.", variant: "destructive" });
@@ -216,7 +215,6 @@ export function WorkGalleryManager({
           await deleteFromStorageIfPossible(url);
         }
 
-        toast({ title: "Galeria excluída" });
         await loadMedia();
       } catch (e) {
         toast({ title: "Erro ao excluir galeria", description: e?.message || "Tente novamente.", variant: "destructive" });
@@ -355,7 +353,7 @@ export function WorkGalleryManager({
           if (dbError) throw dbError;
         }
 
-        toast({ title: "Arquivos adicionados" });
+        // Sem toast: o loadMedia abaixo põe os arquivos na galeria da tela.
         await loadMedia();
       } catch (e) {
         toast({ title: "Erro ao enviar arquivos", description: e?.message || "Tente novamente.", variant: "destructive" });
@@ -403,7 +401,7 @@ export function WorkGalleryManager({
           if (dbError) throw dbError;
         }
 
-        toast({ title: "Documento(s) adicionado(s)" });
+        // Sem toast: o loadMedia abaixo põe os documentos na lista da tela.
         await loadMedia();
       } catch (e) {
         toast({ title: "Erro ao enviar documentos", description: e?.message || "Tente novamente.", variant: "destructive" });

@@ -229,7 +229,6 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         }
       }
 
-      toast({ title: "Sucesso", description: "Pagamento registrado!" });
       setIsEditingPayment(false);
       if (onEditingChange) onEditingChange(false);
       fetchFinancialData();
@@ -243,7 +242,6 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
     try {
       const { error } = await supabase.from('public_work_payments').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: "Sucesso", description: "Pagamento excluído." });
       fetchFinancialData();
     } catch (error) {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
@@ -453,11 +451,11 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         </Card>
       ) : (
         <div className="space-y-4">
-          <Card className="bg-white border border-slate-200">
+          <Card className="bg-surface-raised border border-edge-subtle">
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900">Buscar pagamento</div>
+                  <div className="text-sm font-semibold text-content-primary">Buscar pagamento</div>
                   <div className="text-xs text-muted-foreground">Encontre rapidamente para editar ou excluir.</div>
                 </div>
                 {paymentsQuery ? (
@@ -473,16 +471,16 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                   value={paymentsQuery}
                   onChange={(e) => setPaymentsQuery(e.target.value)}
                   placeholder="Buscar por descrição, empenho, credor, fase, data ou valor..."
-                  className="pl-9 bg-white"
+                  className="pl-9 bg-surface-raised"
                 />
               </div>
 
               {paymentsQuery ? (
                 <div className="mt-3">
                   {paymentsSearchResults.length > 0 ? (
-                    <div className="overflow-x-auto border rounded-lg bg-white">
+                    <div className="overflow-x-auto border rounded-lg bg-surface-raised">
                       <table className="w-full text-sm">
-                        <thead className="text-left border-b bg-slate-50/60 text-slate-400 text-[10px] uppercase">
+                        <thead className="text-left border-b bg-slate-50/60 text-content-tertiary text-[10px] uppercase">
                           <tr>
                             <th className="px-3 py-2 font-bold">Fase</th>
                             <th className="px-3 py-2 font-bold">Data do pagamento</th>
@@ -497,13 +495,13 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                         <tbody className="divide-y text-xs">
                           {paymentsSearchResults.slice(0, 30).map(({ measurement, payment }) => (
                             <tr key={payment.id} className="hover:bg-slate-50/50">
-                              <td className="px-3 py-2 text-slate-700 font-semibold max-w-[220px]">
+                              <td className="px-3 py-2 text-content-secondary font-semibold max-w-[220px]">
                                 <span className="line-clamp-1">{measurement?.title || '-'}</span>
                               </td>
-                              <td className="px-3 py-2 whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-slate-600">{payment.commitment_date ? formatDate(payment.commitment_date) : '-'}</td>
-                              <td className="px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
-                              <td className="px-3 py-2 text-slate-600 max-w-[220px]">
+                              <td className="px-3 py-2 whitespace-nowrap font-medium text-content-secondary">{formatDate(payment.payment_date)}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-content-secondary">{payment.commitment_date ? formatDate(payment.commitment_date) : '-'}</td>
+                              <td className="px-3 py-2 text-content-secondary">{payment.commitment_number || payment.banking_order || '-'}</td>
+                              <td className="px-3 py-2 text-content-secondary max-w-[220px]">
                                 <span className="line-clamp-1">{payment.creditor_name || '-'}</span>
                               </td>
                               <td className="px-3 py-2 font-bold text-blue-600 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
@@ -532,7 +530,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                       </table>
                     </div>
                   ) : (
-                    <div className="text-center py-6 bg-slate-50/40 rounded-lg border border-dashed border-slate-200">
+                    <div className="text-center py-6 bg-slate-50/40 rounded-lg border border-dashed border-edge-subtle">
                       <p className="text-xs italic text-muted-foreground">Nenhum pagamento encontrado para esta busca.</p>
                     </div>
                   )}
@@ -562,11 +560,11 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div className="bg-white p-2 rounded border shadow-sm">
+                    <div className="bg-surface-raised p-2 rounded border shadow-sm">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase">Valor do Contrato</p>
                       <p className="font-bold text-emerald-700">{formatCurrency(measurement.value)}</p>
                     </div>
-                    <div className="bg-white p-2 rounded border shadow-sm">
+                    <div className="bg-surface-raised p-2 rounded border shadow-sm">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase">Total Pago</p>
                       <p className="font-bold text-blue-700">{formatCurrency(totalPaid)}</p>
                     </div>
@@ -574,19 +572,19 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                 </CardHeader>
                 <CardContent className="p-4 bg-slate-50/30">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500 tracking-wider">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase text-content-tertiary tracking-wider">
                       <Calculator className="w-3.5 h-3.5" />
                       Pagamentos ({measurement.payments?.length || 0})
                     </div>
-                    <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold bg-white" onClick={() => handleEditPayment(measurement.id)}>
+                    <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold bg-surface-raised" onClick={() => handleEditPayment(measurement.id)}>
                       <PlusCircle className="w-3 h-3 mr-1" /> Adicionar pagamento
                     </Button>
                   </div>
 
                   {measurement.payments && measurement.payments.length > 0 ? (
-                    <div className="overflow-x-auto border rounded-lg bg-white">
+                    <div className="overflow-x-auto border rounded-lg bg-surface-raised">
                       <table className="w-full text-sm">
-                        <thead className="text-left border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
+                        <thead className="text-left border-b bg-slate-50/50 text-content-tertiary text-[10px] uppercase">
                           <tr>
                             <th className="px-3 py-2 font-bold">Data do pagamento</th>
                             <th className="px-3 py-2 font-bold">Data do empenho</th>
@@ -604,12 +602,12 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                             .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
                             .map((payment) => (
                               <tr key={payment.id} className="hover:bg-slate-50/50">
-                                <td className="px-3 py-2 whitespace-nowrap font-medium text-slate-700">{formatDate(payment.payment_date)}</td>
-                                <td className="px-3 py-2 whitespace-nowrap text-slate-600">{payment.commitment_date ? formatDate(payment.commitment_date) : '-'}</td>
-                                <td className="px-3 py-2 text-slate-600">{payment.commitment_number || payment.banking_order || '-'}</td>
-                                <td className="px-3 py-2 text-slate-600 max-w-[280px]"><span className="line-clamp-2">{payment.payment_description || '-'}</span></td>
-                                <td className="px-3 py-2 text-slate-600">{payment.installment || '-'}</td>
-                                <td className="px-3 py-2 text-slate-600">{payment.creditor_name || '-'}</td>
+                                <td className="px-3 py-2 whitespace-nowrap font-medium text-content-secondary">{formatDate(payment.payment_date)}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-content-secondary">{payment.commitment_date ? formatDate(payment.commitment_date) : '-'}</td>
+                                <td className="px-3 py-2 text-content-secondary">{payment.commitment_number || payment.banking_order || '-'}</td>
+                                <td className="px-3 py-2 text-content-secondary max-w-[280px]"><span className="line-clamp-2">{payment.payment_description || '-'}</span></td>
+                                <td className="px-3 py-2 text-content-secondary">{payment.installment || '-'}</td>
+                                <td className="px-3 py-2 text-content-secondary">{payment.creditor_name || '-'}</td>
                                 <td className="px-3 py-2 font-bold text-blue-600 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
                                 <td className="px-3 py-2">
                                   {payment.portal_link ? (
@@ -632,7 +630,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                       </table>
                     </div>
                   ) : (
-                    <div className="text-center py-6 bg-white rounded-lg border border-dashed border-slate-200">
+                    <div className="text-center py-6 bg-surface-raised rounded-lg border border-dashed border-edge-subtle">
                       <p className="text-xs italic text-muted-foreground">Nenhum pagamento registrado.</p>
                     </div>
                   )}

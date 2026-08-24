@@ -106,6 +106,22 @@ export function formatPhone(phone) {
   }
 }
 
+/**
+ * Telefone brasileiro -> numero no formato que o wa.me aceita.
+ *
+ * O cadastro guarda o telefone como a pessoa digitou: "(87) 99948-8360",
+ * "87 99948 8360", "+55 87 999488360". O wa.me so aceita digitos, com DDI.
+ * Devolve null quando nao da para ter certeza — telefone curto demais, ou um
+ * internacional que nao sabemos completar. Melhor esconder o botao do que
+ * abrir uma conversa com o numero de outra pessoa.
+ */
+export function whatsappNumber(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits;
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return null;
+}
+
 export function validateEmail(email) {
   if (!email) return false;
   // Regex mais robusta para validação de email

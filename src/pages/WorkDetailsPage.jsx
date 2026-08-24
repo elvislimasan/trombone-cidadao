@@ -1,3 +1,4 @@
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -31,7 +32,7 @@ import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { WorkEditModal } from './admin/ManageWorksPage';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { FLORESTA_COORDS } from '@/config/mapConfig';
@@ -77,10 +78,7 @@ const WorkMap = ({ location, bairro }) => {
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={false}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ThemedTileLayer />
         <Marker position={position}>
           <Popup>
             {bairro || 'Localização da Obra'}
@@ -99,7 +97,7 @@ const getStatusInfo = (status) => {
     case 'unfinished': return { text: 'Inacabada', icon: AlertTriangle, color: 'text-rose-800', bg: 'bg-gradient-to-r from-rose-50 to-rose-100', border: 'border-rose-200' };
     case 'planned': return { text: 'Planejamento', icon: Calendar, color: 'text-violet-800', bg: 'bg-gradient-to-r from-violet-50 to-violet-100', border: 'border-violet-200' };
     case 'tendered': return { text: 'Em Licitação', icon: FileText, color: 'text-orange-800', bg: 'bg-gradient-to-r from-orange-50 to-orange-100', border: 'border-orange-200' };
-    default: return { text: 'Não definido', icon: HelpCircle, color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-200' };
+    default: return { text: 'Não definido', icon: HelpCircle, color: 'text-content-secondary', bg: 'bg-surface-sunken', border: 'border-edge-subtle' };
   }
 };
 
@@ -560,7 +558,6 @@ const WorkDetailsPage = () => {
       const { error } = await supabase.from('public_work_payments').insert([payload]);
       if (error) throw error;
 
-      toast({ title: 'Pagamento registrado', description: 'O pagamento foi adicionado com sucesso.' });
       setShowPaymentDialog(false);
       fetchWorkDetails();
     } catch (error) {
@@ -627,7 +624,7 @@ const WorkDetailsPage = () => {
       if (error) {
         toast({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Obra removida dos favoritos! 💔" });
+        // Sem toast: o coração troca de estado na hora, embaixo do dedo.
         setIsFavorited(false);
       }
     } else {
@@ -635,7 +632,6 @@ const WorkDetailsPage = () => {
       if (error) {
         toast({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Obra adicionada aos favoritos! ⭐" });
         setIsFavorited(true);
       }
     }
@@ -914,7 +910,7 @@ const WorkDetailsPage = () => {
   if (!work) {
     return (
       <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold text-slate-800">Obra não encontrada</h1>
+        <h1 className="text-2xl font-bold text-content-primary">Obra não encontrada</h1>
         <Button asChild className="mt-4" variant="default">
           <Link to="/obras-publicas">Voltar para Obras</Link>
         </Button>
@@ -1071,10 +1067,10 @@ const WorkDetailsPage = () => {
                   <div className="bg-muted/40 rounded-xl p-5 border border-border mb-8">
                     <div className="flex justify-between items-end mb-2">
                       <div className="flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-slate-400" />
-                        <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Progresso da Obra</span>
+                        <Activity className="w-5 h-5 text-content-tertiary" />
+                        <span className="text-sm font-bold text-content-secondary uppercase tracking-wide">Progresso da Obra</span>
                       </div>
-                      <span className="text-2xl font-bold text-slate-900">{executionPct}%</span>
+                      <span className="text-2xl font-bold text-content-primary">{executionPct}%</span>
                     </div>
                     
                     <Progress 
@@ -1105,7 +1101,7 @@ const WorkDetailsPage = () => {
                 
                 {/* 1. Execução e Responsáveis */}
                 <div>
-                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                   <h3 className="text-sm font-bold text-content-tertiary uppercase tracking-wide mb-3 flex items-center gap-2">
                      <Building className="w-4 h-4" /> Execução e Responsáveis
                    </h3>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
@@ -1115,8 +1111,8 @@ const WorkDetailsPage = () => {
                              <Building className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Construtora</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{displayContractor.name}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Construtora</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{displayContractor.name}</p>
                           </div>
                        </div>
                      )}
@@ -1127,8 +1123,8 @@ const WorkDetailsPage = () => {
                              <FileText className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">CNPJ</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatCnpj(displayContractor.cnpj)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">CNPJ</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatCnpj(displayContractor.cnpj)}</p>
                           </div>
                        </div>
                      )}
@@ -1139,8 +1135,8 @@ const WorkDetailsPage = () => {
                              <Briefcase className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Categoria</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.work_category.name}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Categoria</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{work.work_category.name}</p>
                           </div>
                        </div>
                      )}
@@ -1149,18 +1145,18 @@ const WorkDetailsPage = () => {
 
                 {/* 3. Financeiro */}
                 <div>
-                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                   <h3 className="text-sm font-bold text-content-tertiary uppercase tracking-wide mb-3 flex items-center gap-2">
                      <DollarSign className="w-4 h-4" /> Financeiro
                    </h3>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
                      {Array.isArray(displayFundingSource) && displayFundingSource.length > 0 && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Landmark className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Fonte de Recurso</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Fonte de Recurso</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">
                                {displayFundingSource.map(source => source).join(', ')}
                              </p>
                           </div>
@@ -1168,40 +1164,40 @@ const WorkDetailsPage = () => {
                      )}
 
                      {work.parliamentary_amendment?.has && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <User className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Emenda Parlamentar</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{work.parliamentary_amendment.author}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Emenda Parlamentar</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{work.parliamentary_amendment.author}</p>
                           </div>
                        </div>
                      )}
 
                      {currentPhaseExpectedValue != null && (
-                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                         <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Previsto (Fase Atual)</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatCurrency(currentPhaseExpectedValue)}</p>
+                           <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Valor Previsto (Fase Atual)</p>
+                           <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatCurrency(currentPhaseExpectedValue)}</p>
                         </div>
                      </div>
                      )}
 
                      {(currentPhaseSpentFromPayments > 0 || totalSpentFromPayments > 0) && (
-                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
                         <div className="bg-emerald-50 text-emerald-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
                         </div>
                         <div className="w-full min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pago na Fase Atual</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(currentPhaseSpentFromPayments)}</p>
+                           <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Pago na Fase Atual</p>
+                           <p className="text-sm font-bold text-content-primary leading-tight mb-1 break-words">{formatCurrency(currentPhaseSpentFromPayments)}</p>
                            <Progress 
                              value={currentPhaseExpectedValue ? Math.min(((currentPhaseSpentFromPayments || 0) / (Number(currentPhaseExpectedValue) || 0)) * 100, 100) : 0} 
-                             className="h-1.5 bg-slate-100 w-full" 
+                             className="h-1.5 bg-surface-sunken w-full" 
                              indicatorClassName="bg-emerald-500" 
                            />
                         </div>
@@ -1209,13 +1205,13 @@ const WorkDetailsPage = () => {
                      )}
 
                      {totalSpentFromPayments > 0 && (
-                     <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow sm:col-span-2 xl:col-span-1">
                         <div className="bg-blue-50 text-blue-600 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                            <DollarSign className="w-5 h-5" />
                         </div>
                         <div className="w-full min-w-0">
-                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Pago (Todas as Fases)</p>
-                           <p className="text-sm font-bold text-slate-900 leading-tight mb-1 break-words">{formatCurrency(totalSpentFromPayments)}</p>
+                           <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Total Pago (Todas as Fases)</p>
+                           <p className="text-sm font-bold text-content-primary leading-tight mb-1 break-words">{formatCurrency(totalSpentFromPayments)}</p>
                         </div>
                      </div>
                      )}
@@ -1224,114 +1220,114 @@ const WorkDetailsPage = () => {
 
                 {/* 4. Prazos e Cronograma */}
                 <div>
-                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                   <h3 className="text-sm font-bold text-content-tertiary uppercase tracking-wide mb-3 flex items-center gap-2">
                      <Calendar className="w-4 h-4" /> Prazos e Cronograma
                    </h3>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
                      {displayExecutionPeriodDays && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Clock className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Prazo de Execução</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{displayExecutionPeriodDays} dias</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Prazo de Execução</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{displayExecutionPeriodDays} dias</p>
                           </div>
                        </div>
                      )}
 
                      {displayContractSignatureDate && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Calendar className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Assinatura</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayContractSignatureDate)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Assinatura</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatDate(displayContractSignatureDate)}</p>
                           </div>
                        </div>
                      )}
 
                      {displayServiceOrderDate && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <FileText className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Ordem de Serviço</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayServiceOrderDate)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Ordem de Serviço</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatDate(displayServiceOrderDate)}</p>
                           </div>
                        </div>
                      )}
                      
                      {displayPredictedStartDate && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Calendar className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Previsão Início</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayPredictedStartDate)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Previsão Início</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatDate(displayPredictedStartDate)}</p>
                           </div>
                        </div>
                      )}
 
                      {displayStartDate && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <CheckCircle className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Início Real</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayStartDate)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Início Real</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatDate(displayStartDate)}</p>
                           </div>
                        </div>
                      )}
 
                      {displayExpectedEndDate && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Calendar className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Previsão de Conclusão</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayExpectedEndDate)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Previsão de Conclusão</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatDate(displayExpectedEndDate)}</p>
                           </div>
                        </div>
                      )}
 
                      {displayEndDate && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <CheckCircle className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Término Real</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayEndDate)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Término Real</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatDate(displayEndDate)}</p>
                           </div>
                        </div>
                      )}
 
                      {displayInaugurationDate && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <Award className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Data de Inauguração</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayInaugurationDate)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Data de Inauguração</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatDate(displayInaugurationDate)}</p>
                           </div>
                        </div>
                      )}
 
                      {displayStalledDate && (
-                       <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-raised border border-edge-subtle shadow-sm hover:shadow-md transition-shadow">
                           <div className="bg-red-50 text-red-500 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              <AlertTriangle className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Data de Paralisação</p>
-                             <p className="text-sm font-bold text-slate-900 leading-tight break-words">{formatDate(displayStalledDate)}</p>
+                             <p className="text-xs font-bold text-content-tertiary uppercase tracking-wider mb-1">Data de Paralisação</p>
+                             <p className="text-sm font-bold text-content-primary leading-tight break-words">{formatDate(displayStalledDate)}</p>
                           </div>
                        </div>
                      )}
@@ -1352,13 +1348,13 @@ const WorkDetailsPage = () => {
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="h-3 w-1 rounded-full bg-blue-600" />
-                    <div className="min-w-0 text-[14px] font-semibold uppercase tracking-wider text-slate-500 truncate">
+                    <div className="min-w-0 text-[14px] font-semibold uppercase tracking-wider text-content-tertiary truncate">
                       Pagamentos{currentMeasurement?.title ? ` — ${currentMeasurement.title}` : ''}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="hidden sm:block text-sm font-semibold text-slate-700 whitespace-nowrap">
+                    <div className="hidden sm:block text-sm font-semibold text-content-secondary whitespace-nowrap">
                       Total: {formatCurrency(paymentsTotalFiltered || 0)}
                     </div>
                     {user?.is_admin ? (
@@ -1377,18 +1373,18 @@ const WorkDetailsPage = () => {
                 <div className="mb-5 grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
                   <div className="lg:col-span-6">
                     <div className="relative">
-                      <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Search className="h-4 w-4 text-content-tertiary absolute left-3 top-1/2 -translate-y-1/2" />
                       <Input
                         value={paymentsQuery}
                         onChange={(e) => setPaymentsQuery(e.target.value)}
                         placeholder="Buscar por descrição, empenho ou credor..."
-                        className="bg-white pl-9"
+                        className="bg-surface-raised pl-9"
                       />
                     </div>
                   </div>
                   <div className="lg:col-span-2">
                     <select
-                      className="h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background"
+                      className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 py-2 text-sm ring-offset-background"
                       value={paymentsYearFilter}
                       onChange={(e) => setPaymentsYearFilter(e.target.value)}
                     >
@@ -1402,7 +1398,7 @@ const WorkDetailsPage = () => {
                   </div>
                   <div className="lg:col-span-2">
                     <select
-                      className="h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background"
+                      className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 py-2 text-sm ring-offset-background"
                       value={paymentsCommitmentFilter}
                       onChange={(e) => setPaymentsCommitmentFilter(e.target.value)}
                     >
@@ -1415,12 +1411,12 @@ const WorkDetailsPage = () => {
                     </select>
                   </div>
                   <div className="lg:col-span-2 flex items-center gap-3 justify-between">
-                    <div className="text-xs text-slate-500 whitespace-nowrap">{sortedPaymentGroups.length} registros</div>
+                    <div className="text-xs text-content-tertiary whitespace-nowrap">{sortedPaymentGroups.length} registros</div>
                     {(paymentsQuery || paymentsYearFilter !== 'all' || paymentsCommitmentFilter !== 'all') ? (
                       <Button
                         type="button"
                         variant="ghost"
-                        className="text-slate-500"
+                        className="text-content-tertiary"
                         onClick={() => {
                           setPaymentsQuery('');
                           setPaymentsYearFilter('all');
@@ -1445,42 +1441,42 @@ const WorkDetailsPage = () => {
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span className="inline-flex h-6 w-6 items-center justify-center text-slate-400 shrink-0">
+                                    <span className="inline-flex h-6 w-6 items-center justify-center text-content-tertiary shrink-0">
                                       {isOpen ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                                     </span>
-                                    <div className="text-sm font-semibold text-slate-800 whitespace-normal break-words">
+                                    <div className="text-sm font-semibold text-content-primary whitespace-normal break-words">
                                       {group.commitment_number || '-'}
                                     </div>
                                   </div>
-                                  <div className="mt-1 text-xs text-slate-500">Data: {firstDateLabel}</div>
-                                  <div className="mt-1 text-xs text-slate-500">Credor: {group.creditorLabel}</div>
-                                  {!currentMeasurement?.id ? <div className="mt-1 text-xs text-slate-500">Fase: {group.phaseLabel}</div> : null}
+                                  <div className="mt-1 text-xs text-content-tertiary">Data: {firstDateLabel}</div>
+                                  <div className="mt-1 text-xs text-content-tertiary">Credor: {group.creditorLabel}</div>
+                                  {!currentMeasurement?.id ? <div className="mt-1 text-xs text-content-tertiary">Fase: {group.phaseLabel}</div> : null}
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-xs text-slate-500">Total</div>
-                                  <div className="text-sm font-extrabold text-slate-900 whitespace-nowrap">{formatCurrency(group.total)}</div>
-                                  <div className="mt-1 text-xs text-slate-500">{group.count} pagamento{group.count === 1 ? '' : 's'}</div>
+                                  <div className="text-xs text-content-tertiary">Total</div>
+                                  <div className="text-sm font-extrabold text-content-primary whitespace-nowrap">{formatCurrency(group.total)}</div>
+                                  <div className="mt-1 text-xs text-content-tertiary">{group.count} pagamento{group.count === 1 ? '' : 's'}</div>
                                 </div>
                               </div>
                             </button>
                             {isOpen ? (
                               <div className="border-t bg-slate-50/40 p-4 space-y-3">
                                 {group.items.map((p) => (
-                                  <div key={p.id} className="bg-white border border-slate-100 rounded-lg p-3">
+                                  <div key={p.id} className="bg-surface-raised border border-edge-subtle rounded-lg p-3">
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="min-w-0">
                                         <div className="text-sm font-semibold text-blue-700 whitespace-normal break-words">
                                           {group.commitment_number || '-'} • {formatDate(p.payment_date)}
                                         </div>
-                                        <div className="mt-1 text-sm text-slate-700 whitespace-normal break-words">{p.payment_description || '-'}</div>
+                                        <div className="mt-1 text-sm text-content-secondary whitespace-normal break-words">{p.payment_description || '-'}</div>
                                         {p.installment ? (
                                           <div className="mt-2">
-                                            <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px]">Parcela {p.installment}</span>
+                                            <span className="px-2 py-1 rounded-md bg-surface-sunken text-content-secondary text-[11px]">Parcela {p.installment}</span>
                                           </div>
                                         ) : null}
                                       </div>
                                       <div className="text-right shrink-0">
-                                        <div className="text-sm font-extrabold text-slate-900 whitespace-nowrap">{formatCurrency(p.value)}</div>
+                                        <div className="text-sm font-extrabold text-content-primary whitespace-nowrap">{formatCurrency(p.value)}</div>
                                         {p.portal_link ? (
                                           <a href={p.portal_link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-700 underline underline-offset-2">
                                             Ver
@@ -1498,7 +1494,7 @@ const WorkDetailsPage = () => {
                     </div>
 
                     <div className="sm:hidden mt-4 flex flex-col gap-3">
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-content-tertiary">
                         Exibindo {(paymentsPageSafe - 1) * PAYMENTS_PAGE_SIZE + 1}–{Math.min(sortedPaymentGroups.length, paymentsPageSafe * PAYMENTS_PAGE_SIZE)} de {sortedPaymentGroups.length} registros
                       </div>
                       <div className="flex items-center justify-between gap-2">
@@ -1527,9 +1523,9 @@ const WorkDetailsPage = () => {
 
                     <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
                       <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-                        <div className="border rounded-xl bg-white">
+                        <div className="border rounded-xl bg-surface-raised">
                           <table className="w-full text-sm table-auto">
-                            <thead className="text-center border-b bg-slate-50/50 text-slate-400 text-[10px] uppercase">
+                            <thead className="text-center border-b bg-slate-50/50 text-content-tertiary text-[10px] uppercase">
                               <tr>
                                 <th className="hidden sm:table-cell px-3 py-2 font-bold text-left">
                                   <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('commitment_number')}>
@@ -1568,30 +1564,30 @@ const WorkDetailsPage = () => {
                                 return (
                                   <React.Fragment key={group.key}>
                                     <tr className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => togglePaymentGroupOpen(group.key)}>
-                                      <td className="hidden sm:table-cell px-3 py-2 text-slate-600">
+                                      <td className="hidden sm:table-cell px-3 py-2 text-content-secondary">
                                         <div className="flex items-center gap-2">
-                                          <span className="inline-flex h-6 w-6 items-center justify-center text-slate-400">
+                                          <span className="inline-flex h-6 w-6 items-center justify-center text-content-tertiary">
                                             {isOpen ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                                           </span>
-                                          <span className="font-semibold text-slate-800">{group.commitment_number || 'Não informado'}</span>
+                                          <span className="font-semibold text-content-primary">{group.commitment_number || 'Não informado'}</span>
                                         </div>
                                       </td>
                                       <td className="px-3 py-2 align-center">
-                                        <div className="whitespace-nowrap font-medium text-slate-700">
+                                        <div className="whitespace-nowrap font-medium text-content-secondary">
                                           {group.firstDate ? group.firstDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                                         </div>
                                       </td>
-                                      <td className="hidden md:table-cell px-3 py-2 text-slate-600 whitespace-normal break-words">
+                                      <td className="hidden md:table-cell px-3 py-2 text-content-secondary whitespace-normal break-words">
                                         <div className="whitespace-normal break-words">
                                           {group.items?.[0]?.payment_description || '-'}
-                                          {group.count > 1 ? <span className="text-slate-400"> (+{group.count - 1})</span> : null}
+                                          {group.count > 1 ? <span className="text-content-tertiary"> (+{group.count - 1})</span> : null}
                                         </div>
                                       </td>
-                                      <td className="hidden md:table-cell px-3 py-2 text-slate-600 whitespace-nowrap">
+                                      <td className="hidden md:table-cell px-3 py-2 text-content-secondary whitespace-nowrap">
                                         {group.count === 1 ? (group.items?.[0]?.installment || '-') : '-'}
                                       </td>
-                                      <td className="hidden xl:table-cell px-3 py-2 text-slate-600 whitespace-normal break-words">{group.creditorLabel}</td>
-                                      <td className="px-3 py-2 align-center font-bold text-slate-900 text-right whitespace-nowrap">{formatCurrency(group.total)}</td>
+                                      <td className="hidden xl:table-cell px-3 py-2 text-content-secondary whitespace-normal break-words">{group.creditorLabel}</td>
+                                      <td className="px-3 py-2 align-center font-bold text-content-primary text-right whitespace-nowrap">{formatCurrency(group.total)}</td>
                                       <td className="px-3 py-2 align-top text-center">
                                         {group.count === 1 && group.items?.[0]?.portal_link ? (
                                           <Button asChild size="sm" variant="ghost" className="text-blue-700 hover:bg-blue-50">
@@ -1607,12 +1603,12 @@ const WorkDetailsPage = () => {
                                     {isOpen ? (
                                       <tr>
                                         <td colSpan={7} className="px-3 py-3 bg-slate-50/40">
-                                          <div className="text-xs text-slate-500 mb-2">
+                                          <div className="text-xs text-content-tertiary mb-2">
                                             {group.count} pagamento{group.count === 1 ? '' : 's'} neste empenho
                                           </div>
-                                          <div className="overflow-x-auto border rounded-lg bg-white">
+                                          <div className="overflow-x-auto border rounded-lg bg-surface-raised">
                                             <table className="w-full text-xs">
-                                              <thead className="bg-slate-50 text-slate-500">
+                                              <thead className="bg-surface-subtle text-content-tertiary">
                                                 <tr>
                                                   <th className="text-left px-3 py-2">Nº Empenho</th>
                                                   <th className="text-left px-3 py-2">Data</th>
@@ -1631,7 +1627,7 @@ const WorkDetailsPage = () => {
                                                     <td className="px-3 py-2 whitespace-normal break-words">{p.payment_description || '-'}</td>
                                                     <td className="px-3 py-2 whitespace-nowrap">{p.installment || '-'}</td>
                                                     <td className="px-3 py-2 whitespace-normal break-words">{p.creditor_name || '-'}</td>
-                                                    <td className="px-3 py-2 text-right font-semibold text-slate-900 whitespace-nowrap">{formatCurrency(p.value)}</td>
+                                                    <td className="px-3 py-2 text-right font-semibold text-content-primary whitespace-nowrap">{formatCurrency(p.value)}</td>
                                                     <td className="px-3 py-2 text-center">
                                                       {p.portal_link ? (
                                                         <Button asChild size="sm" variant="ghost" className="text-blue-700 hover:bg-blue-50">
@@ -1657,10 +1653,10 @@ const WorkDetailsPage = () => {
                             </tbody>
                             <tfoot className="border-t bg-slate-50/50">
                               <tr>
-                                <td className="px-3 py-2 font-bold text-slate-600" colSpan={6}>
+                                <td className="px-3 py-2 font-bold text-content-secondary" colSpan={6}>
                                   Somatório
                                 </td>
-                                <td className="px-3 py-2 font-extrabold text-slate-900 text-right whitespace-nowrap">{formatCurrency(paymentsTotalFiltered || 0)}</td>
+                                <td className="px-3 py-2 font-extrabold text-content-primary text-right whitespace-nowrap">{formatCurrency(paymentsTotalFiltered || 0)}</td>
                               </tr>
                             </tfoot>
                           </table>
@@ -1669,7 +1665,7 @@ const WorkDetailsPage = () => {
                     </div>
 
                     <div className="hidden sm:flex items-center justify-end w-full gap-3 mt-4">
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-content-tertiary">
                         Exibindo {(paymentsPageSafe - 1) * PAYMENTS_PAGE_SIZE + 1}–{Math.min(sortedPaymentGroups.length, paymentsPageSafe * PAYMENTS_PAGE_SIZE)} de {sortedPaymentGroups.length} registros
                       </div>
                       <div className="flex items-center gap-2">
@@ -1697,11 +1693,11 @@ const WorkDetailsPage = () => {
                     </div>
                   </>
                 ) : (
-                  <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
-                    <p className="text-sm text-slate-400">Nenhum pagamento encontrado.</p>
+                  <div className="text-center py-10 bg-surface-raised rounded-xl border border-dashed border-edge-subtle">
+                    <p className="text-sm text-content-tertiary">Nenhum pagamento encontrado.</p>
                     {user?.is_admin && (
                       <div className="mt-4">
-                        <Button variant="outline" className="bg-white" onClick={openNewPaymentDialog}>
+                        <Button variant="outline" className="bg-surface-raised" onClick={openNewPaymentDialog}>
                           <DollarSign className="w-4 h-4 mr-2" />
                           Adicionar primeiro pagamento
                         </Button>
@@ -1864,8 +1860,8 @@ const WorkDetailsPage = () => {
                        <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                           <ImageIcon className="w-6 h-6 text-slate-300" />
                        </div>
-                       <p className="text-sm text-slate-500 font-medium">Nenhuma mídia disponível</p>
-                       <p className="text-xs text-slate-400 mt-1">As fotos e vídeos desta obra aparecerão aqui.</p>
+                       <p className="text-sm text-content-tertiary font-medium">Nenhuma mídia disponível</p>
+                       <p className="text-xs text-content-tertiary mt-1">As fotos e vídeos desta obra aparecerão aqui.</p>
                     </div>
                   );
                 }
@@ -1973,7 +1969,7 @@ const WorkDetailsPage = () => {
                 Histórico de Licitações
               </h3>
 
-              <div className="relative pl-4 sm:pl-6 space-y-8 before:absolute before:left-4 sm:before:left-6 before:h-full before:w-[2px] before:bg-slate-100">
+              <div className="relative pl-4 sm:pl-6 space-y-8 before:absolute before:left-4 sm:before:left-6 before:h-full before:w-[2px] before:bg-surface-sunken">
                 {measurements.length > 0 ? (
                   measurements.map((item) => {
                     const phaseMedia = viewableMedia.filter(m => m.measurement_id === item.id);
@@ -1981,30 +1977,30 @@ const WorkDetailsPage = () => {
                     return (
                       <div key={item.id} className="relative pl-8">
                         <div className={`absolute -left-[7px] top-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm ${getStatusInfo(item.status).bg.replace('bg-', 'bg-')}`} />
-                        <div className="bg-muted/30 p-5 rounded-xl border transition-colors border-border hover:border-slate-300">
+                        <div className="bg-muted/30 p-5 rounded-xl border transition-colors border-border hover:border-edge-default">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                             <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-base text-slate-800">
+                              <h4 className="font-bold text-base text-content-primary">
                                 {item.title}
                               </h4>
                             </div>
                           </div>
                           
                           {item.description && (
-                            <p className="text-slate-600 mb-4 text-sm leading-relaxed">{item.description}</p>
+                            <p className="text-content-secondary mb-4 text-sm leading-relaxed">{item.description}</p>
                           )}
                           
                           {item.contractor && (
-                            <div className="flex items-center gap-2 mb-4 text-sm text-slate-700 bg-white/60 p-2.5 rounded-lg border border-slate-200/60">
-                              <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                              <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 whitespace-nowrap">Construtora:</span>
+                            <div className="flex items-center gap-2 mb-4 text-sm text-content-secondary bg-white/60 p-2.5 rounded-lg border border-slate-200/60">
+                              <Briefcase className="w-4 h-4 text-content-tertiary flex-shrink-0" />
+                              <span className="font-semibold text-xs uppercase tracking-wider text-content-tertiary whitespace-nowrap">Construtora:</span>
                               <span className="font-medium truncate">{item.contractor.name}</span>
                             </div>
                           )}
                           
                           <div className="grid grid-cols-2 gap-4 mb-4">
                             <div className="col-span-2 sm:col-span-1">
-                              <span className="text-xs text-slate-400 block mb-1">Status</span>
+                              <span className="text-xs text-content-tertiary block mb-1">Status</span>
                               <Badge variant="outline" className={`${getStatusInfo(item.status).color} ${getStatusInfo(item.status).bg} border-none`}>
                                 {getStatusInfo(item.status).text}
                               </Badge>
@@ -2012,8 +2008,8 @@ const WorkDetailsPage = () => {
 
                             {item.execution_percentage != null && (
                               <div className="col-span-2 sm:col-span-1">
-                                <span className="text-xs text-slate-400 block mb-1">Execução</span>
-                                <span className="text-sm font-semibold text-slate-700">
+                                <span className="text-xs text-content-tertiary block mb-1">Execução</span>
+                                <span className="text-sm font-semibold text-content-secondary">
                                   {`${item.execution_percentage}%`}
                                 </span>
                               </div>
@@ -2024,26 +2020,26 @@ const WorkDetailsPage = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {item.start_date && (
                                 <div>
-                                  <span className="text-slate-400 font-medium mb-1 block">Início</span>
-                                  <span className="text-slate-700 font-medium text-sm">{formatDate(item.start_date)}</span>
+                                  <span className="text-content-tertiary font-medium mb-1 block">Início</span>
+                                  <span className="text-content-secondary font-medium text-sm">{formatDate(item.start_date)}</span>
                                 </div>
                               )}
                               {item.end_date && (
                                 <div>
-                                  <span className="text-slate-400 font-medium mb-1 block">Término</span>
-                                  <span className="text-slate-700 font-medium text-sm">{formatDate(item.end_date)}</span>
+                                  <span className="text-content-tertiary font-medium mb-1 block">Término</span>
+                                  <span className="text-content-secondary font-medium text-sm">{formatDate(item.end_date)}</span>
                                 </div>
                               )}
                               {item.predicted_start_date && (
                                 <div>
-                                  <span className="text-slate-400 font-medium mb-1 block">Previsão Início</span>
-                                  <span className="text-slate-700 font-medium text-sm">{formatDate(item.predicted_start_date)}</span>
+                                  <span className="text-content-tertiary font-medium mb-1 block">Previsão Início</span>
+                                  <span className="text-content-secondary font-medium text-sm">{formatDate(item.predicted_start_date)}</span>
                                 </div>
                               )}
                               {item.expected_end_date && (
                                 <div>
-                                  <span className="text-slate-400 font-medium mb-1 block">Previsão Conclusão</span>
-                                  <span className="text-slate-700 font-medium text-sm">{formatDate(item.expected_end_date)}</span>
+                                  <span className="text-content-tertiary font-medium mb-1 block">Previsão Conclusão</span>
+                                  <span className="text-content-secondary font-medium text-sm">{formatDate(item.expected_end_date)}</span>
                                 </div>
                               )}
                             </div>
@@ -2052,7 +2048,7 @@ const WorkDetailsPage = () => {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="w-full bg-white hover:bg-slate-50 hover:text-red-800 text-red-600 border-slate-200 h-auto py-2 whitespace-normal text-left justify-center sm:justify-start"
+                            className="w-full bg-surface-raised hover:bg-surface-subtle hover:text-red-800 text-red-600 border-edge-subtle h-auto py-2 whitespace-normal text-left justify-center sm:justify-start"
                             onClick={() => setSelectedMeasurement({...item, media: phaseMedia, docs: phaseDocs})}
                           >
                             <Eye className="w-4 h-4 mr-2 flex-shrink-0" />
@@ -2063,7 +2059,7 @@ const WorkDetailsPage = () => {
                     );
                   })
                 ) : (
-                  <p className="text-slate-500 text-center py-8">Nenhuma atividade registrada.</p>
+                  <p className="text-content-tertiary text-center py-8">Nenhuma atividade registrada.</p>
                 )}
               </div>
             </div>
@@ -2121,7 +2117,7 @@ const WorkDetailsPage = () => {
                  <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                     <div>
-                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
+                       <span className="text-xs font-bold text-content-tertiary uppercase tracking-wider block">Endereço</span>
                        <p className="text-sm font-medium text-foreground leading-tight">{work.address || 'Não informado'}</p>
                     </div>
                  </div>
@@ -2130,7 +2126,7 @@ const WorkDetailsPage = () => {
                    <div className="flex items-start gap-3 pt-3 border-t border-border">
                       <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                       <div>
-                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
+                         <span className="text-xs font-bold text-content-tertiary uppercase tracking-wider block">Bairro</span>
                          <p className="text-sm font-medium text-foreground leading-tight">{work.bairro.name}</p>
                       </div>
                    </div>
@@ -2188,7 +2184,7 @@ const WorkDetailsPage = () => {
                  <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                     <div>
-                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Endereço</span>
+                       <span className="text-xs font-bold text-content-tertiary uppercase tracking-wider block">Endereço</span>
                        <p className="text-sm font-medium text-foreground leading-tight">{work.address || 'Não informado'}</p>
                     </div>
                  </div>
@@ -2197,7 +2193,7 @@ const WorkDetailsPage = () => {
                    <div className="flex items-start gap-3 pt-3 border-t border-border">
                       <Home className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                       <div>
-                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bairro</span>
+                         <span className="text-xs font-bold text-content-tertiary uppercase tracking-wider block">Bairro</span>
                          <p className="text-sm font-medium text-foreground leading-tight">{work.bairro.name}</p>
                       </div>
                    </div>
@@ -2284,7 +2280,7 @@ const WorkDetailsPage = () => {
 
       {/* Report Error Dialog */}
       <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-surface-raised">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-neutral-800 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
@@ -2313,10 +2309,10 @@ const WorkDetailsPage = () => {
       </Dialog>
 
       <Dialog open={showContribDialog} onOpenChange={setShowContribDialog}>
-        <DialogContent className="sm:max-w-lg bg-white">
+        <DialogContent className="sm:max-w-lg bg-surface-raised">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-800">Contribuir com esta obra</DialogTitle>
-            <p className="text-sm text-slate-500">Ajude a monitorar o progresso enviando fotos ou informações.</p>
+            <DialogTitle className="text-xl font-bold text-content-primary">Contribuir com esta obra</DialogTitle>
+            <p className="text-sm text-content-tertiary">Ajude a monitorar o progresso enviando fotos ou informações.</p>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid gap-2">
@@ -2332,9 +2328,9 @@ const WorkDetailsPage = () => {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="contrib_files">Fotos/Vídeos</Label>
-              <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm text-slate-600">Clique para selecionar arquivos</p>
+              <div className="border-2 border-dashed border-edge-subtle rounded-lg p-6 text-center hover:bg-surface-subtle transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                <UploadCloud className="w-8 h-8 text-content-tertiary mx-auto mb-2" />
+                <p className="text-sm text-content-secondary">Clique para selecionar arquivos</p>
                 <Input 
                   id="contrib_files" 
                   ref={fileInputRef} 
@@ -2370,9 +2366,9 @@ const WorkDetailsPage = () => {
 
       {/* Measurement Details Dialog */}
       <Dialog open={!!selectedMeasurement && !viewerState.isOpen} onOpenChange={(open) => !open && setSelectedMeasurement(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-raised">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <DialogTitle className="text-xl font-bold text-content-primary flex items-center gap-2">
               <Briefcase className="w-5 h-5 text-primary" />
               {selectedMeasurement?.title}
               {selectedMeasurement?.contractor?.name ? ` — Empresa responsável: ${selectedMeasurement.contractor.name}` : ''}
@@ -2389,9 +2385,9 @@ const WorkDetailsPage = () => {
           <div className="space-y-6 py-4">
             {/* Description */}
             {selectedMeasurement?.description && (
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <h4 className="text-sm font-semibold text-slate-700 mb-2">Descrição da Fase</h4>
-                <p className="text-slate-600 text-sm leading-relaxed">
+              <div className="bg-surface-subtle p-4 rounded-lg border border-edge-subtle">
+                <h4 className="text-sm font-semibold text-content-secondary mb-2">Descrição da Fase</h4>
+                <p className="text-content-secondary text-sm leading-relaxed">
                   {selectedMeasurement.description}
                 </p>
               </div>
@@ -2400,22 +2396,22 @@ const WorkDetailsPage = () => {
             {/* Info Cards */}
             <div className="space-y-4">
               {/* Main Contract Info */}
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-slate-500" />
-                  <h4 className="font-semibold text-slate-700 text-sm">Dados do Contrato</h4>
+              <div className="bg-surface-raised border border-edge-subtle rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-slate-50/80 px-4 py-3 border-b border-edge-subtle flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-content-tertiary" />
+                  <h4 className="font-semibold text-content-secondary text-sm">Dados do Contrato</h4>
                 </div>
                 <div className="p-5">
                   {(selectedMeasurement?.contractor?.name || selectedMeasurement?.execution_percentage != null) ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {selectedMeasurement?.contractor?.name && (
                         <div className="space-y-1">
-                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Empresa Responsável</span>
-                          <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">
+                          <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">Empresa Responsável</span>
+                          <p className="font-semibold text-content-primary text-sm md:text-base leading-tight">
                             {selectedMeasurement.contractor.name}
                           </p>
                           {selectedMeasurement?.contractor?.cnpj && (
-                            <p className="text-xs text-slate-500">CNPJ: {selectedMeasurement.contractor.cnpj}</p>
+                            <p className="text-xs text-content-tertiary">CNPJ: {selectedMeasurement.contractor.cnpj}</p>
                           )}
                         </div>
                       )}
@@ -2423,9 +2419,9 @@ const WorkDetailsPage = () => {
                       {selectedMeasurement?.execution_percentage != null && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1">
-                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Execução</span>
+                            <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">Execução</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-800 text-sm md:text-base">
+                              <span className="font-semibold text-content-primary text-sm md:text-base">
                                 {`${selectedMeasurement.execution_percentage}%`}
                               </span>
                               <Progress value={selectedMeasurement.execution_percentage} className="h-2 w-full" />
@@ -2438,16 +2434,16 @@ const WorkDetailsPage = () => {
                         <div className="grid grid-cols-2 gap-4 md:col-span-2">
                           {selectedMeasurement?.expected_value != null && (
                             <div className="space-y-1">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Previsto</span>
-                              <p className="font-semibold text-slate-800 text-sm md:text-base">
+                              <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">Valor Previsto</span>
+                              <p className="font-semibold text-content-primary text-sm md:text-base">
                                 {formatCurrency(selectedMeasurement.expected_value)}
                               </p>
                             </div>
                           )}
                           {selectedMeasurement?.amount_spent != null && Number(selectedMeasurement.amount_spent) > 0 && (
                             <div className="space-y-1">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Pago</span>
-                              <p className="font-semibold text-slate-800 text-sm md:text-base">
+                              <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">Valor Pago</span>
+                              <p className="font-semibold text-content-primary text-sm md:text-base">
                                 {formatCurrency(selectedMeasurement.amount_spent)}
                               </p>
                             </div>
@@ -2457,14 +2453,14 @@ const WorkDetailsPage = () => {
 
                       {Array.isArray(selectedMeasurement?.funding_source) && selectedMeasurement.funding_source.length > 0 && (
                         <div className="md:col-span-2 space-y-2">
-                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Fontes do Recurso</span>
+                          <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">Fontes do Recurso</span>
                           <div className="flex flex-wrap gap-2">
                             {selectedMeasurement.funding_source.map((src) => {
                               const label = src === 'federal' ? 'Federal' : src === 'estadual' ? 'Estadual' : src === 'municipal' ? 'Municipal' : src;
                               const styles = src === 'federal' ? 'bg-blue-50 text-blue-700' :
                                              src === 'estadual' ? 'bg-orange-50 text-orange-700' :
                                              src === 'municipal' ? 'bg-emerald-50 text-emerald-700' :
-                                             'bg-slate-100 text-slate-700';
+                                             'bg-surface-sunken text-content-secondary';
                               return (
                                 <span key={src} className={`text-xs font-semibold px-2 py-1 rounded-full border ${styles}`}>
                                   {label}
@@ -2476,53 +2472,53 @@ const WorkDetailsPage = () => {
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500 italic">Sem informações nesta seção.</p>
+                    <p className="text-sm text-content-tertiary italic">Sem informações nesta seção.</p>
                   )}
                 </div>
               </div>
 
               {/* Timeline Card */}
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-slate-500" />
-                  <h4 className="font-semibold text-slate-700 text-sm">Cronograma e Prazos</h4>
+              <div className="bg-surface-raised border border-edge-subtle rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-slate-50/80 px-4 py-3 border-b border-edge-subtle flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-content-tertiary" />
+                  <h4 className="font-semibold text-content-secondary text-sm">Cronograma e Prazos</h4>
                 </div>
                 <div className="p-5">
                   {(selectedMeasurement?.contract_signature_date || selectedMeasurement?.service_order_date || selectedMeasurement?.predicted_start_date || selectedMeasurement?.start_date || selectedMeasurement?.expected_end_date || selectedMeasurement?.end_date || selectedMeasurement?.inauguration_date || selectedMeasurement?.stalled_date) ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-6 gap-x-4">
                        {selectedMeasurement?.contract_signature_date && (
                          <div>
-                           <span className="text-xs text-slate-400 block mb-1">Assinatura do contrato</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.contract_signature_date)}</span>
+                           <span className="text-xs text-content-tertiary block mb-1">Assinatura do contrato</span>
+                           <span className="font-medium text-content-secondary text-sm block">{formatDate(selectedMeasurement.contract_signature_date)}</span>
                          </div>
                        )}
                        {selectedMeasurement?.service_order_date && (
                          <div>
-                           <span className="text-xs text-slate-400 block mb-1">Ordem de Serviço</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.service_order_date)}</span>
+                           <span className="text-xs text-content-tertiary block mb-1">Ordem de Serviço</span>
+                           <span className="font-medium text-content-secondary text-sm block">{formatDate(selectedMeasurement.service_order_date)}</span>
                          </div>
                        )}
                        {selectedMeasurement?.predicted_start_date && (
                          <div>
-                           <span className="text-xs text-slate-400 block mb-1">Previsão Início</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.predicted_start_date)}</span>
+                           <span className="text-xs text-content-tertiary block mb-1">Previsão Início</span>
+                           <span className="font-medium text-content-secondary text-sm block">{formatDate(selectedMeasurement.predicted_start_date)}</span>
                          </div>
                        )}
                        {selectedMeasurement?.start_date && (
                          <div>
-                           <span className="text-xs text-slate-400 block mb-1">Início Real</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.start_date)}</span>
+                           <span className="text-xs text-content-tertiary block mb-1">Início Real</span>
+                           <span className="font-medium text-content-secondary text-sm block">{formatDate(selectedMeasurement.start_date)}</span>
                          </div>
                        )}
                        {selectedMeasurement?.expected_end_date && (
                          <div>
-                           <span className="text-xs text-slate-400 block mb-1">Previsão Conclusão</span>
-                           <span className="font-medium text-slate-700 text-sm block">{formatDate(selectedMeasurement.expected_end_date)}</span>
+                           <span className="text-xs text-content-tertiary block mb-1">Previsão Conclusão</span>
+                           <span className="font-medium text-content-secondary text-sm block">{formatDate(selectedMeasurement.expected_end_date)}</span>
                          </div>
                        )}
                        {selectedMeasurement?.end_date && (
                          <div>
-                           <span className={`text-xs block mb-1 ${selectedMeasurement.status === 'unfinished' ? 'text-orange-600' : 'text-slate-400'}`}>
+                           <span className={`text-xs block mb-1 ${selectedMeasurement.status === 'unfinished' ? 'text-orange-600' : 'text-content-tertiary'}`}>
                              {selectedMeasurement.status === 'unfinished' ? 'Encerramento/Rescisão' : 'Conclusão Real'}
                            </span>
                            <span className={`font-bold text-sm block ${selectedMeasurement.status === 'unfinished' ? 'text-orange-700' : 'text-emerald-700'}`}>
@@ -2544,12 +2540,12 @@ const WorkDetailsPage = () => {
                        )}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500 italic">Sem informações nesta seção.</p>
+                    <p className="text-sm text-content-tertiary italic">Sem informações nesta seção.</p>
                   )}
                   {selectedMeasurement?.execution_period_days != null && (
                     <div className="mt-4">
-                      <span className="text-xs text-slate-400 block mb-1">Prazo de Execução</span>
-                      <span className="font-semibold text-slate-700 text-sm">{selectedMeasurement.execution_period_days} dias</span>
+                      <span className="text-xs text-content-tertiary block mb-1">Prazo de Execução</span>
+                      <span className="font-semibold text-content-secondary text-sm">{selectedMeasurement.execution_period_days} dias</span>
                     </div>
                   )}
                 </div>
@@ -2558,7 +2554,7 @@ const WorkDetailsPage = () => {
 
             {/* Media Gallery */}
             <div>
-              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <h4 className="font-bold text-content-primary mb-3 flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-primary" />
                 Galeria de Fotos e Vídeos
               </h4>
@@ -2583,7 +2579,7 @@ const WorkDetailsPage = () => {
                     return sortedGroups.map((group) => (
                       <div key={group.name} className="space-y-3">
                         {(sortedGroups.length > 1 || (group.name !== 'Geral' && group.name !== selectedMeasurement.title)) && (
-                          <h5 className="text-sm font-semibold text-slate-700 border-l-4 border-primary pl-3 bg-slate-50 py-1 rounded-r-lg">
+                          <h5 className="text-sm font-semibold text-content-secondary border-l-4 border-primary pl-3 bg-surface-subtle py-1 rounded-r-lg">
                             {group.name}
                           </h5>
                         )}
@@ -2617,13 +2613,13 @@ const WorkDetailsPage = () => {
                   })()}
                 </div>
               ) : (
-                <p className="text-slate-500 italic">Nenhuma mídia registrada para esta fase.</p>
+                <p className="text-content-tertiary italic">Nenhuma mídia registrada para esta fase.</p>
               )}
             </div>
 
             {/* Documents */}
             <div>
-              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <h4 className="font-bold text-content-primary mb-3 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" />
                 Documentos Anexados
               </h4>
@@ -2635,21 +2631,21 @@ const WorkDetailsPage = () => {
                         href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-lg bg-white border border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all group"
+                        className="flex items-center gap-3 p-3 rounded-lg bg-surface-raised border border-edge-subtle hover:border-primary/50 hover:bg-surface-subtle transition-all group"
                       >
                         <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                           <FileText className="w-5 h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-700 truncate group-hover:text-primary transition-colors">{doc.name}</p>
-                          {doc.description && <p className="text-xs text-slate-500 truncate">{doc.description}</p>}
+                          <p className="font-medium text-content-secondary truncate group-hover:text-primary transition-colors">{doc.name}</p>
+                          {doc.description && <p className="text-xs text-content-tertiary truncate">{doc.description}</p>}
                         </div>
-                        <Download className="w-4 h-4 text-slate-400 group-hover:text-primary transition-colors" />
+                        <Download className="w-4 h-4 text-content-tertiary group-hover:text-primary transition-colors" />
                       </a>
                   ))}
                 </div>
               ) : (
-                <p className="text-slate-500 italic">Nenhum documento anexado.</p>
+                <p className="text-content-tertiary italic">Nenhum documento anexado.</p>
               )}
             </div>
 
@@ -2682,7 +2678,6 @@ const WorkDetailsPage = () => {
             if (result.error) {
               toast({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
             } else {
-              toast({ title: "Obra atualizada com sucesso!" });
               setShowAdminEditModal(false);
               fetchWorkDetails();
             }

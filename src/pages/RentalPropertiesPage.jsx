@@ -10,7 +10,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import RentalPropertiesMapView from '@/components/RentalPropertiesMapView';
 import CitySelector from '@/components/CitySelector';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -34,7 +34,7 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
 );
 
 const RentalPropertiesPage = () => {
-  const { activeCityId, activeCityName } = useCity();
+  const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const { toast } = useToast();
@@ -156,7 +156,12 @@ const RentalPropertiesPage = () => {
     const largest = withArea.length ? withArea.reduce((a, b) => (Number(b.area_m2) > Number(a.area_m2) ? b : a)) : null;
     const smallest = withArea.length ? withArea.reduce((a, b) => (Number(b.area_m2) < Number(a.area_m2) ? b : a)) : null;
     const annualTotal = active.reduce((sum, p) => sum + Number(p.monthly_value || 0), 0) * 12;
-    return { mostExpensive, cheapest, largest, smallest, annualTotal };
+    // Contagem de ativos por is_active, sem exigir valor mensal: o numero
+    // responde "quantos imoveis a prefeitura aluga hoje", e um contrato ainda
+    // sem valor cadastrado continua sendo um imovel alugado. `active` acima e
+    // outra coisa — a base do calculo de gasto, onde sem valor nao ha o que somar.
+    const activeCount = filteredProperties.filter((p) => p.is_active).length;
+    return { mostExpensive, cheapest, largest, smallest, annualTotal, activeCount };
   }, [filteredProperties]);
 
   const handleDownloadReport = () => {
@@ -205,6 +210,14 @@ const RentalPropertiesPage = () => {
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-[900] text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Imóveis Alugados pela Prefeitura</h1>
           <p className="mt-2 text-muted-foreground">Acompanhe os gastos e o uso de cada imóvel alugado</p>
+          {!loading && (
+            <div className="mt-3 flex justify-center">
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-sm font-bold">
+                <Building2 className="w-4 h-4" />
+                {stats.activeCount} {stats.activeCount === 1 ? 'imóvel alugado' : 'imóveis alugados'} (ativos)
+              </span>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             <CitySelector />
             {canManageProperties && (
@@ -275,7 +288,7 @@ const RentalPropertiesPage = () => {
                     )}
                     <span
                       className={`absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-semibold ${
-                        p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                        p.is_active ? 'bg-green-100 text-green-700' : 'bg-surface-sunken text-content-secondary'
                       }`}
                     >
                       {p.is_active ? 'Ativo' : 'Encerrado'}
@@ -319,4 +332,11 @@ const RentalPropertiesPage = () => {
   );
 };
 
-export default RentalPropertiesPage;
+// Filtro de cidade local a esta tela — nao altera o feed nem persiste.
+export default function RentalPropertiesPageWithCityView() {
+  return (
+    <CityViewProvider>
+      <RentalPropertiesPage />
+    </CityViewProvider>
+  );
+}

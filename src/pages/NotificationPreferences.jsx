@@ -318,7 +318,7 @@ const NotificationPreferences = () => {
                 <div className={`p-2 rounded-full ${
                   pushEnabled 
                     ? 'bg-green-100 text-green-600 dark:bg-green-900/30' 
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-900/30'
+                    : 'bg-surface-sunken text-content-secondary dark:bg-gray-900/30'
                 }`}>
                   <Smartphone className="h-5 w-5" />
                 </div>
@@ -402,7 +402,7 @@ const NotificationPreferences = () => {
                     <div className={`p-2 rounded-full ${
                       type.enabled && notificationsEnabled
                         ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-900/30'
+                        : 'bg-surface-sunken text-content-secondary dark:bg-gray-900/30'
                     }`}>
                       <type.icon className="h-5 w-5" />
                     </div>

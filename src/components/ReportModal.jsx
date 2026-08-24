@@ -18,6 +18,7 @@ import {
   Film,
   Play,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import ReCAPTCHA from "react-google-recaptcha";
@@ -35,6 +36,8 @@ import { Filesystem, Directory } from "@capacitor/filesystem";
 import { VideoProcessor } from "@/plugins/VideoProcessor";
 import { useBackgroundUpload } from "@/hooks/useBackgroundUpload";
 import { useCityIdFromLocation } from "@/hooks/useCityIdFromLocation";
+import { CATEGORIAS_BRONCA } from "@/lib/reportCategories";
+import { TIPOS_DE_PROBLEMA_ILUMINACAO } from "@/lib/reportCategoryFields";
 import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { FLORESTA_COORDS } from "@/config/mapConfig";
@@ -92,6 +95,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const { toast } = useToast();
   const { registerUpload, updateUploadProgress, queueWebUpload } = useUpload();
   const { user, session } = useAuth();
+  // Mesma regra que decide moderation_status no envio: admin/master publicam
+  // direto, todo o resto passa pela moderação. Uma constante só, para o aviso
+  // na tela nunca contradizer o que o insert realmente faz.
+  const isPublishedDirectly = Boolean(user?.is_admin || user?.is_master);
   const { uploadVideo, uploads } = useBackgroundUpload();
   const [anonCaptchaValue, setAnonCaptchaValue] = useState(null);
   const anonRecaptchaRef = useRef(null);
@@ -189,19 +196,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
       })
       .catch(() => {});
   }, []);
+  // A lista mora em @/lib/reportCategoryFields: o registro em patrulha oferece
+  // o mesmo select, e duas cópias divergiriam na primeira vez que um tipo fosse
+  // acrescentado aqui — com a bronca da patrulha gravando um valor que esta
+  // tela não sabe exibir.
   const lightingIssueTypes = useMemo(
-    () => [
-      { value: "lamp_off", label: "lâmpada apagada" },
-      { value: "lamp_blinking", label: "piscando" },
-      { value: "lamp_on_daytime", label: "acesa durante o dia" },
-      { value: "no_lighting", label: "poste sem iluminação" },
-      { value: "arm_damaged", label: "braço/luminária danificado" },
-      { value: "exposed_wiring", label: "fiação exposta" },
-      { value: "pole_leaning", label: "poste inclinado" },
-      { value: "pole_broken", label: "poste quebrado" },
-      { value: "no_identifier", label: "sem identificação" },
-      { value: "other", label: "outro" },
-    ],
+    () => TIPOS_DE_PROBLEMA_ILUMINACAO,
     []
   );
 
@@ -335,7 +335,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // Resolve o city_id SEMPRE a partir das coordenadas do marcador (não do usuário).
   // Chamado no submit para garantir um valor confiável e não-nulo, sem depender
   // do useEffect assíncrono com debounce (que sofre de race conditions).
-  const { resolveCityIdFromLocation, resetCityCache } = useCityIdFromLocation();
+  const { resolveCityIdFromLocation, resetCityCache, getResolvedNeighborhood } =
+    useCityIdFromLocation();
 
   // Atualizar flag de montagem
   useEffect(() => {
@@ -948,15 +949,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
     };
   }, [isTakingPhoto]);
 
-  const categories = [
-    { id: "iluminacao", name: "Iluminação", icon: "💡" },
-    { id: "buracos", name: "Buracos na Via", icon: "🕳️" },
-    { id: "esgoto", name: "Esgoto Entupido", icon: "🚰" },
-    { id: "limpeza", name: "Limpeza Urbana", icon: "🧹" },
-    { id: "poda", name: "Poda de Árvore", icon: "🌳" },
-    { id: "vazamento-de-agua", name: "Vazamento de Água", icon: "💧" },
-    { id: "outros", name: "Outros", icon: "📍" },
-  ];
+  // A lista mora em @/lib/reportCategories: a sinalização rápida do modo
+  // patrulha oferece as mesmas categorias, e duas cópias divergiriam na
+  // primeira vez que uma fosse acrescentada aqui.
+  const categories = CATEGORIAS_BRONCA;
 
   // FUNÇÃO CRÍTICA: Processamento otimizado para câmeras de alta resolução com limite de 10MB
   const processHighResolutionImage = async (
@@ -1517,9 +1513,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
           ],
         }));
 
-        toast({
-          title: "✅ Foto adicionada!",
-        });
+        // Sem toast: a miniatura entra na lista de mídias logo acima, na mesma
+        // tela. O toast chegava depois para anunciar o que já estava à vista.
         return;
       }
 
@@ -1555,10 +1550,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         ],
       }));
 
-      toast({
-        title: "Foto adicionada",
-        description: "Foto adicionada (modo compatibilidade)",
-      });
+      // Sem toast: a miniatura já entrou na lista acima.
     } catch (error) {
       console.error("Erro ao processar foto de URI:", error);
       // Não lançar erro para não quebrar a UI, apenas logar
@@ -1623,11 +1615,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
           ],
         }));
 
-        toast({
-          title: "Vídeo capturado!",
-          description: "Vídeo adicionado com sucesso.",
-        });
-
+        // Sem toast: o vídeo entra na lista com nome e ícone de play, mesmo
+        // quando ainda não há thumbnail.
         return;
       }
 
@@ -1696,10 +1685,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         ],
       }));
 
-      toast({
-        title: "Foto capturada!",
-        description: "Imagem adicionada com sucesso.",
-      });
+      // Sem toast: a miniatura já entrou na lista acima.
     } catch (error) {
       console.error("Erro ao processar captura in-app:", error);
       toast({
@@ -1825,11 +1811,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             ],
           }));
 
-          toast({
-            title: "✅ Foto adicionada!",
-            description: "Processamento em background concluído",
-            variant: "default",
-          });
+          // Sem toast: a miniatura já entrou na lista acima.
         }
       }
     } catch (error) {
@@ -1903,7 +1885,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             ],
           }));
 
-          toast({ title: "✅ Foto adicionada!" });
+          // Sem toast: a miniatura já entrou na lista acima.
         } else if (image && (image.base64String || image.dataUrl)) {
           await processPhotoFromBase64Optimized(image);
         }
@@ -2948,7 +2930,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
         setIsSubmitting(false);
         return;
       }
-      const finalFormData = { ...formData, city_id: resolvedCityId };
+      // O bairro sai da MESMA resposta que resolveu a cidade — nenhuma chamada
+      // extra. Nulo é aceitável: a bronca conta no placar da cidade e fica de
+      // fora do placar de bairro, que é melhor que atribuí-la a um bairro
+      // adivinhado.
+      const finalFormData = {
+        ...formData,
+        city_id: resolvedCityId,
+        neighborhood: getResolvedNeighborhood(),
+      };
       await onSubmit(finalFormData, uploadMediaWrapper);
       clearReportDraft();
 
@@ -3193,6 +3183,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         issue_type: formData.issue_type,
         is_from_water_utility: formData.is_from_water_utility,
         city_id: anonCityId,
+        neighborhood: getResolvedNeighborhood(),
       };
 
       // Detectar plataforma nativa com plugin disponível
@@ -4251,6 +4242,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 </div>
               )}
 
+              {/* Aviso ANTES de enviar, não só no toast depois.
+                  O toast some em segundos e some junto com a explicação de por
+                  que a bronca não apareceu no feed. Aqui a pessoa lê enquanto
+                  decide enviar, que é quando a informação muda alguma coisa. */}
+              {!isSubmitting && wizardStep === 2 && !isPublishedDirectly && (
+                <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
+                  <p className="text-xs leading-relaxed">
+                    Sua bronca passa por <strong>moderação</strong> antes de ficar visível no app.
+                    Você é avisado assim que ela for aprovada.
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3 pb-2">
                 <Button
                   type="button"
@@ -5053,6 +5058,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
               </div>
 
               <div className="flex flex-col space-y-3 pt-4">
+                {!isSubmitting && !isPublishedDirectly && (
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                    <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
+                    <p className="text-xs leading-relaxed">
+                      Sua bronca passa por <strong>moderação</strong> antes de ficar visível no app.
+                      Você é avisado assim que ela for aprovada.
+                    </p>
+                  </div>
+                )}
                 <div className="flex space-x-3">
                   <Button
                     type="button"

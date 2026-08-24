@@ -258,10 +258,10 @@ const PetitionPageModern = () => {
 
           if (error) throw error;
           
+          // Sem toast: o comentário aparece na assinatura logo acima.
           setSignatures(prev => prev.map(s => s.user_id === user.id ? { ...s, comment } : s));
           setNewComment('');
-          toast({ title: "Comentário publicado!", description: "Obrigado por compartilhar sua opinião." });
-          
+
       } catch (error) {
           console.error("Error posting comment", error);
           toast({ title: "Erro", description: "Não foi possível postar o comentário." });

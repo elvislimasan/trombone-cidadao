@@ -678,10 +678,6 @@ function HomePage() {
       // Buscar dados atualizados
       await fetchReports();
       
-      toast({ 
-        title: "Bronca atualizada com sucesso! ✨",
-        description: "As informações foram atualizadas e o mapa foi renovado."
-      });
       setSelectedReport(null);
       
     } catch (error) {
@@ -719,7 +715,6 @@ function HomePage() {
         throw error;
       }
 
-      toast({ title: "Bronca vinculada! 🔗", description: "A solicitação foi marcada como duplicada." });
       setShowLinkModal(false);
       setReportToLink(null);
       setSelectedReport(null);
@@ -778,9 +773,9 @@ function HomePage() {
             .from('favorite_reports')
             .insert({ user_id: user.id, report_id: reportId });
           
+          // Sem toast: o coração já trocou de estado na atualização otimista
+          // acima, antes mesmo de a requisição sair.
           if (error) throw error;
-          
-          toast({ title: "Adicionado aos favoritos! ⭐", description: "A bronca foi salva nos seus favoritos." });
         } else {
           // Remover dos favoritos
           const { error } = await supabase
@@ -789,8 +784,6 @@ function HomePage() {
             .match({ user_id: user.id, report_id: reportId });
           
           if (error) throw error;
-          
-          toast({ title: "Removido dos favoritos! 💔", description: "A bronca foi removida dos seus favoritos." });
         }
 
       } catch (error) {
@@ -914,15 +907,9 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
         description: "Não foi possível processar sua ação. Tente novamente.", 
         variant: "destructive" 
       });
-    } else {
-      
-      // Feedback visual baseado na ação
-      if (result.action === 'added') {
-        toast({ title: "Apoio registrado! 👍", description: "Sua bronca ganhou um apoio!" });
-      } else {
-        toast({ title: "Apoio removido! 👎", description: "Seu apoio foi retirado." });
-      }
     }
+    // Sucesso não precisa de toast: o contador de apoios e o estado do botão já
+    // mudaram na atualização otimista, no card que está debaixo do dedo.
 
   } catch (error) {
     console.error('Erro no processo de upvote:', error);
@@ -981,7 +968,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
           style={{
             backgroundColor: '#F05045',
             paddingTop: 'calc(var(--safe-area-top))',
-            top: 'calc(4rem + var(--safe-area-top))'
+            top: 'calc(var(--header-bar-height) + var(--safe-area-top))'
           }}
         >
           <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 relative">
@@ -992,7 +979,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
               <Button
                 size="sm"
                 onClick={() => navigate('/abaixo-assinados')}
-                className="bg-white text-[#F05045] hover:bg-white/90 rounded-full font-bold border border-white text-sm"
+                className="bg-surface-raised text-[#F05045] hover:bg-white/90 rounded-full font-bold border border-white text-sm"
               >
                 Começar Agora →
               </Button>

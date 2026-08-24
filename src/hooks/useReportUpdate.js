@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, Clock, CheckCircle } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { enfileirar } from '@/lib/offlineQueue';
+import { ehErroDeRede } from '@/lib/offlineErros';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useNativeCamera } from '@/hooks/useNativeCamera';
@@ -50,11 +52,39 @@ export const getUpdateTypeInfo = (updateType) => {
 
 // Rate limit por tipo: mapeia tipo → Date de liberação (se bloqueado).
 // Cada usuário só pode enviar o mesmo tipo de atualização a cada 7 dias.
+/**
+ * Status inicial de uma atualização.
+ *
+ * QUEM ESCAPA DA MODERAÇÃO, E POR QUÊ
+ *
+ * `still_here` é o único tipo que NÃO move a bronca: os três levam um
+ * `reportStatus`, e o dele é 'pending' — o mesmo em que a bronca já está.
+ * Confirmar que o problema continua não promove, não resolve e não reabre nada.
+ *
+ * É também o tipo que o modo patrulha produz com um toque, em volume, e o que
+ * a fiscalização existe para colher. Passar cada um deles por um moderador
+ * enche a fila de aprovações triviais e atrasa justamente o sinal mais barato
+ * de obter.
+ *
+ * O teto de abuso já existe e é estreito: a policy do banco permite um envio
+ * do mesmo tipo por bronca a cada 7 dias.
+ *
+ * 'pending' não é "aprovado sem olhar": a atualização aparece para todos, mas
+ * o autor da bronca continua com os botões de confirmar ou recusar. O que se
+ * dispensa é a fila do moderador, não a validação de quem é dono do problema.
+ */
+export const statusInicialDaAtualizacao = (updateType, isAuthorOrAdmin) =>
+  isAuthorOrAdmin || updateType === 'still_here' ? 'pending' : 'pending_moderation';
+
 export const computeDisabledUpdateTypes = (reportUpdates, user) => {
   if (!user) return {};
   const cutoff = new Date(Date.now() - SEVEN_DAYS_MS);
   const result = {};
   (reportUpdates || []).forEach((u) => {
+    // Rejeitada não bloqueia — precisa casar com a policy do banco (185).
+    // Divergir aqui é pior que os dois estarem errados juntos: a tela
+    // desabilitaria um tipo que o servidor aceita, e ninguém descobriria.
+    if (u.status === 'rejected') return;
     if (u.author_id === user.id && new Date(u.created_at) > cutoff) {
       const unlockDate = new Date(new Date(u.created_at).getTime() + SEVEN_DAYS_MS);
       if (!result[u.update_type] || unlockDate > result[u.update_type]) {
@@ -64,6 +94,132 @@ export const computeDisabledUpdateTypes = (reportUpdates, user) => {
   });
   return result;
 };
+
+/**
+ * Envia uma atualização de bronca. Contém as regras de negócio inteiras:
+ * moderação por perfil, upload de fotos com rollback, auto-confirmação para
+ * autor/admin e mudança de status derivada do tipo.
+ *
+ * Separado do hook porque nem todo chamador tem um formulário. O modo navegação
+ * envia com um toque só, sem foto e sem texto, a partir de um alerta — precisa
+ * das mesmas regras sem o estado de React que o hook carrega.
+ *
+ * Não emite toast: quem chama decide como reportar (o hook mostra toast; a
+ * navegação prefere um aviso discreto que não tire o olho da via).
+ *
+ * @returns {Promise<{ok:boolean, isAuthorOrAdmin?:boolean, newStatus?:string|null,
+ *                    update?:object, error?:Error, isRateLimit?:boolean}>}
+ */
+export async function enviarAtualizacaoDeBronca({
+  report,
+  updateType,
+  user,
+  message = '',
+  photos = [],
+  onOptimisticInsert,
+}) {
+  if (!user || !report || !updateType) {
+    return { ok: false, error: new Error('parâmetros insuficientes') };
+  }
+  const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
+
+  try {
+    const linha = {
+      report_id: report.id,
+      author_id: user.id,
+      update_type: updateType,
+      message: message || null,
+      status: statusInicialDaAtualizacao(updateType, isAuthorOrAdmin),
+      // A hora do FATO. O gatilho `a_reports_created_at` da 193 prende o valor
+      // entre 7 dias atrás e agora, então relógio adiantado não vira futuro.
+      created_at: new Date().toISOString(),
+    };
+
+    const { data: newUpdate, error: insertError } = await supabase
+      .from('report_updates')
+      .insert(linha)
+      .select()
+      .single();
+
+    // SEM REDE, A CONFIRMAÇÃO ESPERA EM VEZ DE SUMIR.
+    //
+    // É a ação mais frequente da patrulha — a resposta ao card que sobe no
+    // caminho — e a mais barata de perder por engano: um toque, num carro
+    // andando, muitas vezes fora de cobertura. Sem fila, o alerta some da tela
+    // como se tivesse sido respondido e nada chega ao banco.
+    //
+    // Fotos ficam de fora: só a atualização feita pela tela de detalhe manda
+    // foto, e aquela tela não roda em movimento.
+    if (insertError && ehErroDeRede(insertError)) {
+      await enfileirar('confirmacao', linha);
+      return { ok: true, offline: true, update: { id: `local-${Date.now()}` } };
+    }
+
+    if (insertError) throw insertError;
+
+    if (photos && photos.length > 0) {
+      try {
+        const mediaRecords = await Promise.all(
+          photos.map(async (photo) => {
+            const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${photo.name}`;
+            const { error: uploadError } = await supabase.storage
+              .from('reports-media')
+              .upload(filePath, photo);
+            if (uploadError) throw uploadError;
+            const {
+              data: { publicUrl },
+            } = supabase.storage.from('reports-media').getPublicUrl(filePath);
+            return { report_update_id: newUpdate.id, url: publicUrl, type: 'photo' };
+          })
+        );
+        await supabase.from('report_update_media').insert(mediaRecords);
+      } catch {
+        // Rollback: exclui o update para não deixar registro órfão
+        await supabase.from('report_updates').delete().eq('id', newUpdate.id);
+        throw new Error(
+          'Falha no upload das fotos. A atualização não foi enviada. Tente novamente ou envie sem fotos.'
+        );
+      }
+    }
+
+    onOptimisticInsert?.({
+      id: newUpdate.id,
+      report_id: report.id,
+      author_id: user.id,
+      update_type: updateType,
+      message: message || null,
+      status: statusInicialDaAtualizacao(updateType, isAuthorOrAdmin),
+      created_at: new Date().toISOString(),
+      media: [],
+      author: { name: user.name || 'Você' },
+    });
+
+    let newStatus = null;
+    if (isAuthorOrAdmin) {
+      const typeInfo = getUpdateTypeInfo(updateType);
+      newStatus =
+        updateType === 'solved' && user.is_admin ? 'resolved' : typeInfo.reportStatus;
+
+      await supabase
+        .from('report_updates')
+        .update({
+          status: 'confirmed',
+          confirmed_by: user.id,
+          confirmed_at: new Date().toISOString(),
+        })
+        .eq('id', newUpdate.id);
+
+      await supabase.from('reports').update({ status: newStatus }).eq('id', report.id);
+    }
+
+    return { ok: true, isAuthorOrAdmin, newStatus, update: newUpdate };
+  } catch (err) {
+    // O limite semanal é imposto por RLS: a policy recusa o insert e volta 42501.
+    const isRateLimit =
+      err.message?.includes('row-level security') || err.code === '42501';
+    return { ok: false, error: err, isRateLimit };
+  }
+}
 
 /**
  * Lógica compartilhada de "enviar atualização de bronca".
@@ -106,96 +262,35 @@ export function useReportUpdate(report, reportUpdates = [], { onSuccess, onOptim
     if (!user || !report || !updateType) return;
     const photos = await cam.resolveForUpload();
     setSubmitting(true);
-    const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
 
-    try {
-      const { data: newUpdate, error: insertError } = await supabase
-        .from('report_updates')
-        .insert({
-          report_id: report.id,
-          author_id: user.id,
-          update_type: updateType,
-          message: message || null,
-          // Autor e admin auto-confirmam; outros entram em moderação
-          status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
-        })
-        .select()
-        .single();
+    const r = await enviarAtualizacaoDeBronca({
+      report,
+      updateType,
+      user,
+      message,
+      photos,
+      onOptimisticInsert,
+    });
+    setSubmitting(false);
 
-      if (insertError) throw insertError;
-
-      if (photos && photos.length > 0) {
-        try {
-          const mediaRecords = await Promise.all(
-            photos.map(async (photo) => {
-              const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${photo.name}`;
-              const { error: uploadError } = await supabase.storage
-                .from('reports-media')
-                .upload(filePath, photo);
-              if (uploadError) throw uploadError;
-              const {
-                data: { publicUrl },
-              } = supabase.storage.from('reports-media').getPublicUrl(filePath);
-              return { report_update_id: newUpdate.id, url: publicUrl, type: 'photo' };
-            })
-          );
-          await supabase.from('report_update_media').insert(mediaRecords);
-        } catch (uploadErr) {
-          // Rollback: exclui o update para não deixar registro órfão
-          await supabase.from('report_updates').delete().eq('id', newUpdate.id);
-          throw new Error(
-            'Falha no upload das fotos. A atualização não foi enviada. Tente novamente ou envie sem fotos.'
-          );
-        }
-      }
-
-      onOptimisticInsert?.({
-        id: newUpdate.id,
-        report_id: report.id,
-        author_id: user.id,
-        update_type: updateType,
-        message: message || null,
-        status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
-        created_at: new Date().toISOString(),
-        media: [],
-        author: { name: user.name || 'Você' },
-      });
-
-      let newStatus = null;
-      if (isAuthorOrAdmin) {
-        const typeInfo = getUpdateTypeInfo(updateType);
-        newStatus =
-          updateType === 'solved' && user.is_admin ? 'resolved' : typeInfo.reportStatus;
-
-        await supabase
-          .from('report_updates')
-          .update({
-            status: 'confirmed',
-            confirmed_by: user.id,
-            confirmed_at: new Date().toISOString(),
-          })
-          .eq('id', newUpdate.id);
-
-        await supabase.from('reports').update({ status: newStatus }).eq('id', report.id);
-      }
-
-      reset();
-      onSuccess?.({ isAuthorOrAdmin, newStatus, updateId: newUpdate.id });
-      return { ok: true, isAuthorOrAdmin, newStatus };
-    } catch (err) {
-      const isRlsError =
-        err.message?.includes('row-level security') || err.code === '42501';
+    if (!r.ok) {
       toast({
-        title: isRlsError ? 'Limite semanal atingido' : 'Erro ao enviar atualização',
-        description: isRlsError
+        title: r.isRateLimit ? 'Limite semanal atingido' : 'Erro ao enviar atualização',
+        description: r.isRateLimit
           ? 'Você já enviou este tipo de atualização esta semana. Tente outro tipo ou aguarde.'
-          : err.message,
+          : r.error?.message,
         variant: 'destructive',
       });
       return { ok: false };
-    } finally {
-      setSubmitting(false);
     }
+
+    reset();
+    onSuccess?.({
+      isAuthorOrAdmin: r.isAuthorOrAdmin,
+      newStatus: r.newStatus,
+      updateId: r.update.id,
+    });
+    return { ok: true, isAuthorOrAdmin: r.isAuthorOrAdmin, newStatus: r.newStatus };
   };
 
   return {

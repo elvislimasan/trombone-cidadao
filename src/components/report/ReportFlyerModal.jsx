@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Check, FileText, Layout, Grid, Palette, Contrast, ThumbsUp, Megaphone, MapPin, AlertCircle } from "lucide-react";
 import { toPng } from 'html-to-image';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Media } from '@capacitor-community/media';
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { salvarImagemNaGaleria } from '@/lib/nativeDownload';
 import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -60,41 +58,12 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
       const fileName = `panfleto-bronca-${report?.id || 'id'}-${selectedTemplate}.png`;
 
       if (Capacitor.isNativePlatform()) {
-        const base64 = dataUrl.split(',')[1] || '';
-        const platform = Capacitor.getPlatform();
-        let directory = Directory.Documents;
-        let downloadPath = fileName;
-        
-        if (platform === 'android') {
-          directory = Directory.ExternalStorage;
-          downloadPath = `Pictures/TromboneCidadao/${fileName}`;
-        }
-
-        await Filesystem.writeFile({
-          path: downloadPath,
-          data: base64,
-          directory,
-          recursive: true,
+        // Escrevia em `Pictures/TromboneCidadao/` sob ExternalStorage, que o
+        // Android nega desde a API 29 — ver lib/nativeDownload.
+        await salvarImagemNaGaleria({
+          base64: dataUrl.split(',')[1] || '',
+          fileName,
         });
-
-        try {
-          const uriResult = await Filesystem.getUri({ directory, path: downloadPath });
-          await Media.savePhoto({ path: uriResult.uri, album: 'Trombone Cidadão' });
-          
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: 'Panfleto baixado!',
-                body: 'O arquivo foi salvo na sua galeria.',
-                id: notificationId,
-                schedule: { at: new Date(Date.now() + 100) },
-              },
-            ],
-          });
-        } catch (e) {
-          console.error("Error saving to media gallery", e);
-        }
       } else {
         const link = document.createElement('a');
         link.href = dataUrl;
@@ -121,6 +90,11 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
     }
   }, [report, selectedTemplate, onClose, toast]);
 
+  // ATENCAO: tudo dentro de renderFlyerTemplate() e o CONTEUDO do panfleto
+  // (a imagem baixada via toPng, ver flyerRef). As cores aqui (bg-white,
+  // text-gray-*, text-black, tc-red, etc.) sao fixas de proposito: o
+  // panfleto e impresso/compartilhado e deve ficar igual independente do
+  // tema do app. Nao trocar por tokens do design system.
   const renderFlyerTemplate = () => {
     const title = report?.title || 'Título da Bronca';
     const logoClass = isColor ? 'h-10 w-auto' : 'h-10 w-auto grayscale';
@@ -263,18 +237,19 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl w-[95vw] h-[95vh] sm:h-[90vh] lg:h-[85vh] p-0 flex flex-col overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-4 sm:p-6 border-b bg-white flex-shrink-0">
-          <DialogTitle className="text-xl sm:text-2xl">Escolha um modelo de panfleto</DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm hidden xs:block">
+        {/* Interface do modal (cabecalho) - acompanha o tema */}
+        <DialogHeader className="p-4 sm:p-6 border-b border-edge-subtle bg-surface-raised flex-shrink-0">
+          <DialogTitle className="text-xl sm:text-2xl text-content-primary">Escolha um modelo de panfleto</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm hidden xs:block text-content-secondary">
             Baixe e imprima para divulgar a sua bronca.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-4 bg-gray-50/30 no-scrollbar">
+        <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-4 bg-surface-base no-scrollbar">
           <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 sm:gap-8 lg:gap-4 h-full">
             <div className="space-y-4 sm:space-y-6 lg:space-y-4">
               <div>
-                <h3 className="text-[10px] sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-4 lg:mb-2">
+                <h3 className="text-[10px] sm:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-2 sm:mb-4 lg:mb-2">
                   Modelos Disponíveis
                 </h3>
                 <div className="flex flex-row sm:flex-col gap-1.5 sm:gap-2 overflow-x-visible sm:overflow-x-auto pb-1 sm:pb-0">
@@ -283,20 +258,20 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
                       key={t.id}
                       onClick={() => setSelectedTemplate(t.id)}
                       className={`flex items-center sm:items-start flex-row gap-1.5 sm:gap-4 lg:gap-2 p-1.5 sm:p-4 lg:p-2 rounded-xl text-left transition-all border-2 flex-1 sm:flex-none ${
-                        selectedTemplate === t.id 
-                          ? 'border-tc-red bg-tc-red/10 shadow-sm ring-1 ring-tc-red/20' 
-                          : 'border-transparent hover:bg-muted bg-white'
+                        selectedTemplate === t.id
+                          ? 'border-brand bg-brand/10 shadow-sm ring-1 ring-brand/20'
+                          : 'border-transparent hover:bg-surface-subtleHover bg-surface-subtle'
                       }`}
                     >
-                      <div className={`p-1 sm:p-2 rounded-lg transition-colors ${selectedTemplate === t.id ? 'bg-tc-red text-white' : 'bg-muted text-muted-foreground'}`}>
+                      <div className={`p-1 sm:p-2 rounded-lg transition-colors ${selectedTemplate === t.id ? 'bg-brand text-content-onBrand' : 'bg-surface-sunken text-content-tertiary'}`}>
                         <t.icon size={14} className="sm:w-5 sm:h-5 lg:w-4 lg:h-4" />
                       </div>
                       <div className='flex flex-col min-w-0'>
-                        <div className={`font-bold text-[10px] sm:text-sm lg:text-xs flex items-center gap-1 sm:gap-2 lg:gap-1 truncate ${selectedTemplate === t.id ? 'text-tc-red' : 'text-foreground'}`}>
+                        <div className={`font-bold text-[10px] sm:text-sm lg:text-xs flex items-center gap-1 sm:gap-2 lg:gap-1 truncate ${selectedTemplate === t.id ? 'text-brand' : 'text-content-primary'}`}>
                           {t.name === 'Minimalista' ? 'Minimal' : t.name}
-                          {selectedTemplate === t.id && <Check size={10} className="text-tc-red sm:w-3.5 sm:h-3.5 lg:w-3 lg:h-3 flex-shrink-0" />}
+                          {selectedTemplate === t.id && <Check size={10} className="text-brand sm:w-3.5 sm:h-3.5 lg:w-3 lg:h-3 flex-shrink-0" />}
                         </div>
-                        <p className="text-[10px] hidden sm:block text-muted-foreground mt-1 leading-relaxed lg:line-clamp-1">
+                        <p className="text-[10px] hidden sm:block text-content-tertiary mt-1 leading-relaxed lg:line-clamp-1">
                           {t.description}
                         </p>
                       </div>
@@ -305,32 +280,32 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
                 </div>
               </div>
 
-              <div className="pt-2 sm:pt-2 border-t border-gray-100 sm:border-none">
-                <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 sm:mb-3">
+              <div className="pt-2 sm:pt-2 border-t border-edge-subtle sm:border-none">
+                <h3 className="text-[10px] xl:text-sm font-semibold uppercase tracking-wider text-content-tertiary mb-2 sm:mb-3">
                   Estilo e Cores
                 </h3>
-                <div className="bg-muted/30 rounded-xl p-1 sm:p-1.5">
+                <div className="bg-surface-sunken rounded-xl p-1 sm:p-1.5">
                   <ToggleGroup type="single" value={isColor ? 'color' : 'bw'} onValueChange={(v) => v && setIsColor(v === 'color')} className="flex flex-row sm:flex-col lg:flex-row gap-1">
-                    <ToggleGroupItem 
-                      value="color" 
+                    <ToggleGroupItem
+                      value="color"
                       className={`flex-1 gap-1.5 px-3 h-9 sm:h-10 lg:h-9 justify-center sm:justify-start lg:justify-center rounded-lg transition-all duration-200 ${
-                        isColor 
-                          ? 'bg-white text-tc-red shadow-sm border border-tc-red/20 font-bold' 
-                          : 'text-muted-foreground hover:bg-white/50'
+                        isColor
+                          ? 'bg-surface-raised text-brand shadow-sm border border-brand/20 font-bold'
+                          : 'text-content-tertiary hover:bg-surface-raised/50'
                       }`}
                     >
-                      <Palette size={14} className={isColor ? 'text-tc-red' : 'text-muted-foreground'} />
+                      <Palette size={14} className={isColor ? 'text-brand' : 'text-content-tertiary'} />
                       <span className="text-[10px] sm:text-xs">Colorido</span>
                     </ToggleGroupItem>
-                    <ToggleGroupItem 
-                      value="bw" 
+                    <ToggleGroupItem
+                      value="bw"
                       className={`flex-1 gap-1.5 px-3 h-9 sm:h-10 lg:h-9 justify-center sm:justify-start lg:justify-center rounded-lg transition-all duration-200 ${
-                        !isColor 
-                          ? 'bg-white text-black shadow-sm border border-black/20 font-bold' 
-                          : 'text-muted-foreground hover:bg-white/50'
+                        !isColor
+                          ? 'bg-surface-raised text-content-primary shadow-sm border border-edge-strong font-bold'
+                          : 'text-content-tertiary hover:bg-surface-raised/50'
                       }`}
                     >
-                      <Contrast size={14} className={!isColor ? 'text-black' : 'text-muted-foreground'} />
+                      <Contrast size={14} className={!isColor ? 'text-content-primary' : 'text-content-tertiary'} />
                       <span className="text-[10px] sm:text-xs">P & B</span>
                     </ToggleGroupItem>
                   </ToggleGroup>
@@ -339,10 +314,11 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
             </div>
 
             <div className="flex flex-col gap-3 sm:gap-4 lg:gap-2 h-full">
-              <div className="bg-muted/30 rounded-2xl p-2 sm:p-4 lg:p-2 flex items-start justify-center border border-dashed border-muted-foreground/20 overflow-hidden h-[360px] xs:h-[400px] sm:h-[480px] lg:h-[350px] xl:h-[480px] flex-shrink-0">
+              <div className="bg-surface-sunken rounded-2xl p-2 sm:p-4 lg:p-2 flex items-start justify-center border border-dashed border-edge-default overflow-hidden h-[360px] xs:h-[400px] sm:h-[480px] lg:h-[350px] xl:h-[480px] flex-shrink-0">
                   <div className="transform scale-[0.5] xs:scale-[0.55] sm:scale-[0.6] lg:scale-[0.45] xl:scale-[0.65] origin-top center flex-shrink-0 pt-2">
-                    <div 
-                      ref={flyerRef} 
+                    {/* Este e o no capturado por toPng (flyerRef): bg-white e o fundo do panfleto gerado, fixo de proposito */}
+                    <div
+                      ref={flyerRef}
                       className="w-[400px] shadow-2xl relative overflow-hidden bg-white"
                     >
                       <AnimatePresence mode="wait">
@@ -363,20 +339,22 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 lg:p-4 border-t bg-white flex items-center justify-center sm:justify-end gap-3 flex-shrink-0">
-          <Button 
-            onClick={handleDownload} 
+        {/* Interface do modal (rodape) - acompanha o tema */}
+        <div className="p-4 sm:p-6 lg:p-4 border-t border-edge-subtle bg-surface-raised flex items-center justify-center sm:justify-end gap-3 flex-shrink-0">
+          <Button
+            onClick={handleDownload}
             disabled={isGenerating}
-            className="bg-tc-red hover:bg-tc-red/90 text-white gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-tc-red/20 flex-1 sm:flex-none"
+            className="bg-cta-bg hover:bg-cta-bg/90 text-cta-fg border border-cta-border gap-2 h-10 sm:h-12 lg:h-10 px-6 sm:px-8 lg:px-6 font-bold shadow-lg shadow-brand/20 flex-1 sm:flex-none"
           >
             {isGenerating ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cta-fg"></div>
             ) : (
               <Download size={18} className="lg:w-4 lg:h-4" />
             )}
             {isGenerating ? 'Gerando...' : 'Baixar Panfleto'}
           </Button>
-          <Button variant="ghost" onClick={onClose} className="h-10 sm:h-12 lg:h-10 px-4 sm:px-8 lg:px-4 font-bold">
+          {/* variant ghost nao define cor de texto propria; sem token explicito o texto fica invisivel no tema escuro */}
+          <Button variant="ghost" onClick={onClose} className="h-10 sm:h-12 lg:h-10 px-4 sm:px-8 lg:px-4 font-bold text-content-primary">
             Fechar
           </Button>
         </div>

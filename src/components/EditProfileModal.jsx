@@ -18,11 +18,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Combobox } from '@/components/ui/combobox';
+import { useCity } from '@/contexts/CityContext';
 
 const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => {
   const { toast } = useToast();
+  const { cities, loadingCities } = useCity();
   const [name, setName] = useState('');
   const [userType, setUserType] = useState('citizen');
+  // Cidade padrão do perfil (profiles.city_id). Era definida uma única vez em
+  // /completar-cadastro e depois ficava presa: quem se mudava não tinha por
+  // onde trocar, e o feed continuava abrindo na cidade antiga para sempre.
+  const [cityId, setCityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarType, setAvatarType] = useState('generated');
   const [avatarFile, setAvatarFile] = useState(null);
@@ -50,6 +57,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
   useEffect(() => {
     if (user) {
       setName(user.name);
+      setCityId(user.city_id ? String(user.city_id) : '');
       setUserType(user.user_type || 'citizen');
       setAvatarType(user.avatar_type || 'generated');
       setAvatarUrl(user.avatar_url || '');
@@ -185,6 +193,10 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
         avatar_type: nextAvatarType,
         avatar_url: nextAvatarType === 'generated' ? null : (nextAvatarUrl || null),
         avatar_config: nextAvatarType === 'generated' ? avatarConfig : null,
+        // city_id é bigint no banco; o Combobox devolve string. Converter aqui
+        // (e não no handler) para o valor chegar pronto em quem salva.
+        city_id: cityId ? Number(cityId) : null,
+        city: cityId ? (cities.find((c) => String(c.id) === String(cityId))?.name ?? null) : null,
       };
 
       if (isAdminEditing) {
@@ -228,6 +240,28 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
               onChange={(e) => setName(e.target.value)}
               className="col-span-3 bg-background border-input"
             />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right text-muted-foreground">
+              Cidade
+            </Label>
+            <div className="col-span-3">
+              <Combobox
+                options={cities.map((c) => ({
+                  value: String(c.id),
+                  label: c.state?.uf ? `${c.name} · ${c.state.uf}` : c.name,
+                }))}
+                value={cityId}
+                onChange={setCityId}
+                placeholder={loadingCities ? 'Carregando cidades...' : 'Selecione sua cidade'}
+                searchPlaceholder="Buscar cidade..."
+                notFoundText="Nenhuma cidade encontrada."
+                modal
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                É a cidade que o app abre por padrão. Pode ser trocada quando quiser.
+              </p>
+            </div>
           </div>
           {isAdminEditing && (
             <div className="grid grid-cols-4 items-center gap-4">

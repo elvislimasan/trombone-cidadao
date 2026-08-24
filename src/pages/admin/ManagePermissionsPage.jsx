@@ -17,8 +17,6 @@ const ROLES = [
   { key: 'admin', label: 'Admin' },
 ];
 
-const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
-
 const ManagePermissionsPage = () => {
   const { toast } = useToast();
   const [rules, setRules] = useState([]);
@@ -50,19 +48,28 @@ const ManagePermissionsPage = () => {
     const term = userSearch.trim();
     if (term.length < 2) { setCandidates([]); return; }
     let cancelled = false;
-    // profiles não tem e-mail; identificamos por nome, cidade e telefone.
+    // A busca acontece no servidor.
+    //
+    // Antes vinham as 200 primeiras linhas e o filtro rodava sobre elas: quem
+    // estivesse na posição 201 era, na prática, inencontrável — e a ordem nem
+    // era definida. Com a rede de embaixadores crescendo por todo o país isso
+    // deixaria gente fora do painel sem nenhum aviso.
+    //
+    // profiles não tem e-mail; identificamos por nome ou telefone.
+    const termoSeguro = term.replace(/[,()%\\]/g, ' ').trim();
+    if (!termoSeguro) { setCandidates([]); return; }
+
     supabase
       .from('profiles')
       .select('id, name, phone, city, is_admin, is_ambassador, is_master')
       .or('is_admin.eq.true,is_ambassador.eq.true')
       .eq('is_master', false)
-      .limit(200)
+      .or(`name.ilike.%${termoSeguro}%,phone.ilike.%${termoSeguro}%`)
+      .order('name')
+      .limit(8)
       .then(({ data }) => {
         if (cancelled) return;
-        const t = norm(term);
-        setCandidates((data || []).filter(
-          (u) => norm(u.name).includes(t) || (u.phone || '').includes(term)
-        ).slice(0, 8));
+        setCandidates(data || []);
       });
     return () => { cancelled = true; };
   }, [userSearch]);

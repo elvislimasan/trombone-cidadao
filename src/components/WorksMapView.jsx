@@ -1,7 +1,8 @@
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
-import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck } from 'lucide-react';
+import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck, LocateFixed } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
@@ -13,8 +14,38 @@ import { useToast } from '@/components/ui/use-toast';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
 import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
+import { createMapPin, ICON_SIZE } from '@/components/map/pinIcon';
+
+// Status de obra -> sufixo do token --pin-work-*. Fora dessa lista cai em
+// 'unknown', o cinza neutro.
+const WORK_STATUS_TOKEN = {
+  planned: 'planned',
+  tendered: 'tendered',
+  'in-progress': 'progress',
+  stalled: 'stalled',
+  unfinished: 'unfinished',
+  completed: 'completed',
+};
+
+// Capacete de obra, sem equivalente no design system (la os icones sao por
+// categoria de bronca). currentColor recebe o token de fg via createMapPin.
+const WorkIcon = () => (
+  <svg
+    width={ICON_SIZE}
+    height={ICON_SIZE}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v5Z" />
+    <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
+  </svg>
+);
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
@@ -81,7 +112,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { mode } = useMapModeToggle();
-  const { activeCity } = useCity();
+  const { city: activeCity } = useCityView();
 
   const fetchWorkModalData = useCallback(async (workId) => {
     if (!workId) return;
@@ -168,51 +199,60 @@ const WorksMapView = forwardRef(({ works }, ref) => {
     }
   }));
 
+  /**
+   * Centraliza o mapa na posição do usuário.
+   *
+   * Sem isto, quem abre o mapa de obras cai na vista que enquadra TODAS as
+   * obras da cidade (FitToWorks) e tem que arrastar até o próprio bairro para
+   * saber o que tem por perto — que é a pergunta que a maioria das pessoas
+   * chega fazendo.
+   *
+   * Não marca posição nem altera filtro: só move a câmera. Falha em silêncio
+   * quando a permissão é negada — o mapa continua utilizável, e um toast de
+   * erro para uma ação que a pessoa pode simplesmente não repetir só atrapalha.
+   */
+  const recenterToUser = useCallback(() => {
+    if (!mapRef.current || !navigator?.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos?.coords?.latitude;
+        const lng = pos?.coords?.longitude;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        try {
+          mapRef.current.flyTo([lat, lng], Math.max(mapRef.current.getZoom(), 15), { animate: true, duration: 0.6 });
+        } catch {}
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  }, []);
+
   const getStatusInfo = (status) => {
     switch (status) {
       case 'planned':
-        return { icon: CalendarClock, color: 'bg-purple-500', markerColor: '#a855f7', text: 'Prevista' };
+        return { icon: CalendarClock, color: 'bg-purple-500', text: 'Prevista' };
       case 'tendered':
-        return { icon: FileText, color: 'bg-orange-500', markerColor: '#f97316', text: 'Licitada' };
+        return { icon: FileText, color: 'bg-orange-500', text: 'Licitada' };
       case 'in-progress':
-        return { icon: HardHat, color: 'bg-blue-500', markerColor: '#3b82f6', text: 'Em Andamento' };
+        return { icon: HardHat, color: 'bg-blue-500', text: 'Em Andamento' };
       case 'stalled':
-        return { icon: PauseCircle, color: 'bg-amber-500', markerColor: '#f59e0b', text: 'Paralisada' };
+        return { icon: PauseCircle, color: 'bg-amber-500', text: 'Paralisada' };
       case 'unfinished':
-        return { icon: Wrench, color: 'bg-red-500', markerColor: '#ef4444', text: 'Inacabada' };
+        return { icon: Wrench, color: 'bg-red-500', text: 'Inacabada' };
       case 'completed':
-        return { icon: CheckCircle, color: 'bg-green-500', markerColor: '#22c55e', text: 'Concluída' };
+        return { icon: CheckCircle, color: 'bg-green-500', text: 'Concluída' };
       default:
-        return { icon: HardHat, color: 'bg-gray-500', markerColor: '#6b7280', text: 'Desconhecido' };
+        return { icon: HardHat, color: 'bg-gray-500', text: 'Desconhecido' };
     }
   };
 
   const createWorkMarkerIcon = (status) => {
-    const { markerColor } = getStatusInfo(status);
-    const iconHtml = `
-      <div style="
-        background-color: ${markerColor};
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 50%;
-        border: 2px solid white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      ">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v5Z"/>
-          <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z"/>
-        </svg>
-      </div>
-    `;
-    return L.divIcon({
-      html: iconHtml,
-      className: 'custom-work-marker',
-      iconSize: [40, 40],
-      iconAnchor: [20, 40],
-      popupAnchor: [0, -40]
+    const token = WORK_STATUS_TOKEN[status] || 'unknown';
+    return createMapPin({
+      cacheKey: `work|${token}`,
+      bgToken: `--pin-work-${token}-bg`,
+      fgToken: `--pin-work-${token}-fg`,
+      icon: <WorkIcon />,
     });
   };
 
@@ -281,10 +321,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
         {!isSingleWorkView && <FitToWorks works={works} activeCity={activeCity} />}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ThemedTileLayer />
         {works.map((work) => (
           work.location &&
           <Marker
@@ -483,7 +520,25 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       </AnimatePresence>
 
       <div className="absolute top-4 right-4 z-[800]">
-        <MapModeToggle />
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              recenterToUser();
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="w-10 h-10 inline-flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
+            title="Ir para minha posição"
+            aria-label="Ir para minha posição"
+          >
+            <LocateFixed className="w-4 h-4" />
+          </button>
+          <div className="h-px w-full bg-border" />
+          <MapModeToggle className="w-10 h-10 p-0 bg-transparent shadow-none border-0 rounded-none hover:bg-muted/60" />
+        </div>
       </div>
 
       {!isSingleWorkView && (

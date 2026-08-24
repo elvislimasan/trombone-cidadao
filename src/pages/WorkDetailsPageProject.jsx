@@ -256,8 +256,8 @@ function getStatusInfo(status) {
     default:
       return {
         text: "Não definido",
-        color: "text-slate-700",
-        bg: "bg-slate-100",
+        color: "text-content-secondary",
+        bg: "bg-surface-sunken",
       };
   }
 }
@@ -807,8 +807,8 @@ export default function WorkDetailsPageProject() {
         .delete()
         .eq("user_id", user.id)
         .eq("work_id", workId);
+      // Sem toast: o ícone troca de estado na hora, embaixo do dedo.
       setIsFavorited(false);
-      toast("Removido dos favoritos");
       return;
     }
 
@@ -816,7 +816,6 @@ export default function WorkDetailsPageProject() {
       .from("favorite_works")
       .insert({ user_id: user.id, work_id: workId });
     setIsFavorited(true);
-    toast("Adicionado aos favoritos");
   }, [user?.id, workId, isFavorited]);
 
   useEffect(() => {
@@ -2193,7 +2192,7 @@ export default function WorkDetailsPageProject() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f9fafb]">
+    <div className="min-h-screen bg-surface-base">
       {Capacitor.isNativePlatform() && isInteractive ? null : (
         <ObraHeader
           title={work.title}
@@ -2211,7 +2210,7 @@ export default function WorkDetailsPageProject() {
       <main className="container max-w-full 4xl:max-w-[1680px] 3xl:max-w-[1500px] 2xl:max-w-[1380px] xl:max-w-[1120px] mx-auto px-2 sm:px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-12 2xl:col-span-9 3xl:col-span-9  space-y-6">
-            <section className="bg-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <section className="bg-card rounded-xl border border-edge-subtle shadow-sm overflow-hidden">
               {heroImageUrl ? (
                 <ObraHero imageUrl={heroImageUrl} title={work.title} />
               ) : null}
@@ -2347,7 +2346,7 @@ export default function WorkDetailsPageProject() {
                   />
                 </div>
               </div>
-              <div className="mx-0 lg:mx-6 border-r-2 shadow-md rounded-xl bg-[#f9fafb] mb-0 lg:mb-8 overflow-hidden min-h-[400px]">
+              <div className="mx-0 lg:mx-6 border-r-2 shadow-md rounded-xl bg-surface-base mb-0 lg:mb-8 overflow-hidden min-h-[400px]">
                 {currentPhaseView === "general" ? (
                   <>
                     <ObraCurrentPhase
@@ -2369,7 +2368,7 @@ export default function WorkDetailsPageProject() {
                       />
                     </div>
 
-                    <div className="h-4 bg-[#f9fafb]" />
+                    <div className="h-4 bg-surface-base" />
 
                     <div className="bg-background">
                       <ObraTimeline
@@ -2381,7 +2380,7 @@ export default function WorkDetailsPageProject() {
 
                     {showFinancialSection ? (
                       <>
-                        <div className="h-4 bg-[#f9fafb]" />
+                        <div className="h-4 bg-surface-base" />
                         <div className="bg-background">
                           <ObraFinancial
                             fundingSource={fundingSourceText}
@@ -2398,7 +2397,7 @@ export default function WorkDetailsPageProject() {
                       </>
                     ) : null}
 
-                    <div className="h-4 bg-[#f9fafb]" />
+                    <div className="h-4 bg-surface-base" />
                     <div className="bg-background">
                       <ObraPaymentsSummary
                         phaseName={currentMeasurement?.title || ""}
@@ -2410,7 +2409,7 @@ export default function WorkDetailsPageProject() {
                       />
                     </div>
 
-                    <div className="h-4 bg-[#f9fafb]" />
+                    <div className="h-4 bg-surface-base" />
                     <div className="bg-background">
                       <ObraGallery
                         galleries={currentGalleries}
@@ -2433,7 +2432,7 @@ export default function WorkDetailsPageProject() {
                       />
                     </div>
 
-                    <div className="h-4 bg-[#f9fafb]" />
+                    <div className="h-4 bg-surface-base" />
                     <div className="bg-background px-4 sm:px-6 py-6 sm:py-8">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                         <div className="flex items-center gap-2">
@@ -3036,9 +3035,9 @@ export default function WorkDetailsPageProject() {
         open={!!selectedMeasurement}
         onOpenChange={(open) => !open && setSelectedMeasurement(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-raised">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <DialogTitle className="text-xl font-bold text-content-primary flex items-center gap-2">
               <Briefcase className="w-5 h-5 text-primary" />
               {selectedMeasurement?.title || "Detalhes da Fase"}
             </DialogTitle>
@@ -3057,21 +3056,21 @@ export default function WorkDetailsPageProject() {
           {selectedMeasurement ? (
             <div className="space-y-6 py-4">
               {selectedMeasurement.description ? (
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">
+                <div className="bg-surface-subtle p-4 rounded-lg border border-edge-subtle">
+                  <h4 className="text-sm font-semibold text-content-secondary mb-2">
                     Descrição da Fase
                   </h4>
-                  <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">
+                  <p className="text-content-secondary text-sm leading-relaxed whitespace-pre-wrap">
                     {selectedMeasurement.description}
                   </p>
                 </div>
               ) : null}
 
               <div className="space-y-4">
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                  <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-slate-500" />
-                    <h4 className="font-semibold text-slate-700 text-sm">
+                <div className="bg-surface-raised border border-edge-subtle rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-surface-subtle px-4 py-3 border-b border-edge-subtle flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-content-tertiary" />
+                    <h4 className="font-semibold text-content-secondary text-sm">
                       Dados do Contrato
                     </h4>
                   </div>
@@ -3081,14 +3080,14 @@ export default function WorkDetailsPageProject() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {selectedMeasurement?.contractor?.name ? (
                           <div className="space-y-1">
-                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                            <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                               Empresa Responsável
                             </span>
-                            <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">
+                            <p className="font-semibold text-content-primary text-sm md:text-base leading-tight">
                               {selectedMeasurement.contractor.name}
                             </p>
                             {selectedMeasurement?.contractor?.cnpj ? (
-                              <p className="text-xs text-slate-500">
+                              <p className="text-xs text-content-tertiary">
                                 CNPJ:{" "}
                                 {formatCnpj(
                                   selectedMeasurement.contractor.cnpj
@@ -3100,7 +3099,7 @@ export default function WorkDetailsPageProject() {
 
                         {selectedMeasurement?.contract_number ? (
                           <div className="space-y-1">
-                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                            <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                               Número do contrato
                             </span>
                             {selectedMeasurement?.contract_portal_link ||
@@ -3117,7 +3116,7 @@ export default function WorkDetailsPageProject() {
                                 {selectedMeasurement.contract_number}
                               </a>
                             ) : (
-                              <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">
+                              <p className="font-semibold text-content-primary text-sm md:text-base leading-tight">
                                 {selectedMeasurement.contract_number}
                               </p>
                             )}
@@ -3126,7 +3125,7 @@ export default function WorkDetailsPageProject() {
 
                         {selectedMeasurement?.bidding_process_number ? (
                           <div className="space-y-1">
-                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                            <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                               Processo licitatório
                             </span>
                             {selectedMeasurement?.bidding_process_portal_link ||
@@ -3143,7 +3142,7 @@ export default function WorkDetailsPageProject() {
                                 {selectedMeasurement.bidding_process_number}
                               </a>
                             ) : (
-                              <p className="font-semibold text-slate-800 text-sm md:text-base leading-tight">
+                              <p className="font-semibold text-content-primary text-sm md:text-base leading-tight">
                                 {selectedMeasurement.bidding_process_number}
                               </p>
                             )}
@@ -3175,7 +3174,7 @@ export default function WorkDetailsPageProject() {
                           if (same) {
                             return (
                               <div className="space-y-1 md:col-span-2">
-                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                                <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                                   Portal da Transparência
                                 </span>
                                 <a
@@ -3194,7 +3193,7 @@ export default function WorkDetailsPageProject() {
                             <div className="space-y-3 md:col-span-2">
                               {showContract ? (
                                 <div className="space-y-1">
-                                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                                  <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                                     Portal do contrato
                                   </span>
                                   <a
@@ -3209,7 +3208,7 @@ export default function WorkDetailsPageProject() {
                               ) : null}
                               {showProcess ? (
                                 <div className="space-y-1">
-                                  <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                                  <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                                     Portal do processo
                                   </span>
                                   <a
@@ -3229,11 +3228,11 @@ export default function WorkDetailsPageProject() {
                         {selectedMeasurement?.execution_percentage != null ? (
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                              <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                                 Execução
                               </span>
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-slate-800 text-sm md:text-base">{`${selectedMeasurement.execution_percentage}%`}</span>
+                                <span className="font-semibold text-content-primary text-sm md:text-base">{`${selectedMeasurement.execution_percentage}%`}</span>
                                 <Progress
                                   value={
                                     Number(
@@ -3251,10 +3250,10 @@ export default function WorkDetailsPageProject() {
                           <div className="grid grid-cols-2 gap-4 md:col-span-2">
                             {selectedMeasurement?.expected_value != null ? (
                               <div className="space-y-1">
-                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                                <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                                   Valor Previsto
                                 </span>
-                                <p className="font-semibold text-slate-800 text-sm md:text-base">
+                                <p className="font-semibold text-content-primary text-sm md:text-base">
                                   {formatCurrency(
                                     selectedMeasurement.expected_value
                                   )}
@@ -3263,8 +3262,8 @@ export default function WorkDetailsPageProject() {
                             ) : null}
                             {/* {selectedMeasurement?.amount_spent != null && Number(selectedMeasurement.amount_spent) > 0 ? (
                               <div className="space-y-1">
-                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">Valor Pago</span>
-                                <p className="font-semibold text-slate-800 text-sm md:text-base">{formatCurrency(selectedMeasurement.amount_spent)}</p>
+                                <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">Valor Pago</span>
+                                <p className="font-semibold text-content-primary text-sm md:text-base">{formatCurrency(selectedMeasurement.amount_spent)}</p>
                               </div>
                             ) : null} */}
                           </div>
@@ -3273,7 +3272,7 @@ export default function WorkDetailsPageProject() {
                         {Array.isArray(selectedMeasurement?.funding_source) &&
                         selectedMeasurement.funding_source.length > 0 ? (
                           <div className="md:col-span-2 space-y-2">
-                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
+                            <span className="text-xs font-medium text-content-tertiary uppercase tracking-wider block">
                               Fontes do Recurso
                             </span>
                             <div className="flex flex-wrap gap-2">
@@ -3296,7 +3295,7 @@ export default function WorkDetailsPageProject() {
                                       ? "bg-orange-50 text-orange-700"
                                       : src === "municipal"
                                       ? "bg-emerald-50 text-emerald-700"
-                                      : "bg-slate-100 text-slate-700";
+                                      : "bg-surface-sunken text-content-secondary";
                                   const amount =
                                     src === "federal"
                                       ? Number(
@@ -3329,17 +3328,17 @@ export default function WorkDetailsPageProject() {
                         ) : null}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-500 italic">
+                      <p className="text-sm text-content-tertiary italic">
                         Sem informações nesta seção.
                       </p>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                  <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-slate-500" />
-                    <h4 className="font-semibold text-slate-700 text-sm">
+                <div className="bg-surface-raised border border-edge-subtle rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-surface-subtle px-4 py-3 border-b border-edge-subtle flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-content-tertiary" />
+                    <h4 className="font-semibold text-content-secondary text-sm">
                       Cronograma e Prazos
                     </h4>
                   </div>
@@ -3355,10 +3354,10 @@ export default function WorkDetailsPageProject() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-6 gap-x-4">
                         {selectedMeasurement?.contract_signature_date ? (
                           <div>
-                            <span className="text-xs text-slate-400 block mb-1">
+                            <span className="text-xs text-content-tertiary block mb-1">
                               Assinatura do contrato
                             </span>
-                            <span className="font-medium text-slate-700 text-sm block">
+                            <span className="font-medium text-content-secondary text-sm block">
                               {formatDate(
                                 selectedMeasurement.contract_signature_date
                               )}
@@ -3367,10 +3366,10 @@ export default function WorkDetailsPageProject() {
                         ) : null}
                         {selectedMeasurement?.service_order_date ? (
                           <div>
-                            <span className="text-xs text-slate-400 block mb-1">
+                            <span className="text-xs text-content-tertiary block mb-1">
                               Ordem de Serviço
                             </span>
-                            <span className="font-medium text-slate-700 text-sm block">
+                            <span className="font-medium text-content-secondary text-sm block">
                               {formatDate(
                                 selectedMeasurement.service_order_date
                               )}
@@ -3379,10 +3378,10 @@ export default function WorkDetailsPageProject() {
                         ) : null}
                         {selectedMeasurement?.predicted_start_date ? (
                           <div>
-                            <span className="text-xs text-slate-400 block mb-1">
+                            <span className="text-xs text-content-tertiary block mb-1">
                               Previsão Início
                             </span>
-                            <span className="font-medium text-slate-700 text-sm block">
+                            <span className="font-medium text-content-secondary text-sm block">
                               {formatDate(
                                 selectedMeasurement.predicted_start_date
                               )}
@@ -3391,20 +3390,20 @@ export default function WorkDetailsPageProject() {
                         ) : null}
                         {selectedMeasurement?.start_date ? (
                           <div>
-                            <span className="text-xs text-slate-400 block mb-1">
+                            <span className="text-xs text-content-tertiary block mb-1">
                               Início Real
                             </span>
-                            <span className="font-medium text-slate-700 text-sm block">
+                            <span className="font-medium text-content-secondary text-sm block">
                               {formatDate(selectedMeasurement.start_date)}
                             </span>
                           </div>
                         ) : null}
                         {selectedMeasurement?.expected_end_date ? (
                           <div>
-                            <span className="text-xs text-slate-400 block mb-1">
+                            <span className="text-xs text-content-tertiary block mb-1">
                               Previsão Conclusão
                             </span>
-                            <span className="font-medium text-slate-700 text-sm block">
+                            <span className="font-medium text-content-secondary text-sm block">
                               {formatDate(
                                 selectedMeasurement.expected_end_date
                               )}
@@ -3417,7 +3416,7 @@ export default function WorkDetailsPageProject() {
                               className={`text-xs block mb-1 ${
                                 selectedMeasurement.status === "unfinished"
                                   ? "text-orange-600"
-                                  : "text-slate-400"
+                                  : "text-content-tertiary"
                               }`}
                             >
                               {selectedMeasurement.status === "unfinished"
@@ -3459,17 +3458,17 @@ export default function WorkDetailsPageProject() {
                         ) : null}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-500 italic">
+                      <p className="text-sm text-content-tertiary italic">
                         Sem informações nesta seção.
                       </p>
                     )}
 
                     {selectedMeasurement?.execution_period_days != null ? (
                       <div className="mt-4">
-                        <span className="text-xs text-slate-400 block mb-1">
+                        <span className="text-xs text-content-tertiary block mb-1">
                           Prazo de Execução
                         </span>
-                        <span className="font-semibold text-slate-700 text-sm">
+                        <span className="font-semibold text-content-secondary text-sm">
                           {selectedMeasurement.execution_period_days} dias
                         </span>
                       </div>
@@ -3477,10 +3476,10 @@ export default function WorkDetailsPageProject() {
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                  <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-slate-500" />
-                    <h4 className="font-semibold text-slate-700 text-sm">
+                <div className="bg-surface-raised border border-edge-subtle rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-surface-subtle px-4 py-3 border-b border-edge-subtle flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-content-tertiary" />
+                    <h4 className="font-semibold text-content-secondary text-sm">
                       Pagamentos
                     </h4>
                   </div>
@@ -3489,9 +3488,9 @@ export default function WorkDetailsPageProject() {
                     selectedMeasurement.payments.length > 0 ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="text-sm text-slate-600">
+                          <div className="text-sm text-content-secondary">
                             Total pago:{" "}
-                            <span className="font-semibold text-slate-800">
+                            <span className="font-semibold text-content-primary">
                               {formatCurrency(
                                 selectedMeasurement.payments.reduce(
                                   (s, p) => s + (Number(p.value) || 0),
@@ -3502,10 +3501,10 @@ export default function WorkDetailsPageProject() {
                           </div>
                         </div>
 
-                        <div className="overflow-x-auto rounded-lg border border-slate-200">
+                        <div className="overflow-x-auto rounded-lg border border-edge-subtle">
                           <table className="w-full text-sm">
-                            <thead className="bg-slate-50">
-                              <tr className="text-left text-slate-600">
+                            <thead className="bg-surface-subtle">
+                              <tr className="text-left text-content-secondary">
                                 <th className="p-3 font-semibold">
                                   Data do pagamento
                                 </th>
@@ -3523,7 +3522,7 @@ export default function WorkDetailsPageProject() {
                             </thead>
                             <tbody className="divide-y">
                               {selectedMeasurement.payments.map((p) => (
-                                <tr key={p.id} className="text-slate-700">
+                                <tr key={p.id} className="text-content-secondary">
                                   <td className="p-3 whitespace-nowrap">
                                     {p.payment_date
                                       ? formatDateDisplay(p.payment_date)
@@ -3569,7 +3568,7 @@ export default function WorkDetailsPageProject() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-500 italic">
+                      <p className="text-sm text-content-tertiary italic">
                         Nenhum pagamento registrado para esta fase.
                       </p>
                     )}
@@ -3578,7 +3577,7 @@ export default function WorkDetailsPageProject() {
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <h4 className="font-bold text-content-primary mb-3 flex items-center gap-2">
                   <ImageIcon className="w-5 h-5 text-primary" />
                   Galeria de Fotos e Vídeos
                 </h4>
@@ -3609,7 +3608,7 @@ export default function WorkDetailsPageProject() {
                           {sortedGroups.length > 1 ||
                           (group.name !== "Geral" &&
                             group.name !== selectedMeasurement.title) ? (
-                            <h5 className="text-sm font-semibold text-slate-700 border-l-4 border-primary pl-3 bg-slate-50 py-1 rounded-r-lg">
+                            <h5 className="text-sm font-semibold text-content-secondary border-l-4 border-primary pl-3 bg-surface-subtle py-1 rounded-r-lg">
                               {group.name}
                             </h5>
                           ) : null}
@@ -3622,7 +3621,7 @@ export default function WorkDetailsPageProject() {
                               return (
                                 <div
                                   key={mediaItem.id}
-                                  className="aspect-square rounded-lg overflow-hidden cursor-pointer bg-slate-200 relative group shadow-sm hover:shadow-md transition-all"
+                                  className="aspect-square rounded-lg overflow-hidden cursor-pointer bg-surface-sunken relative group shadow-sm hover:shadow-md transition-all"
                                   onClick={() =>
                                     openViewer(
                                       selectedMeasurement.media,
@@ -3640,14 +3639,14 @@ export default function WorkDetailsPageProject() {
                     })()}
                   </div>
                 ) : (
-                  <p className="text-slate-500 italic">
+                  <p className="text-content-tertiary italic">
                     Nenhuma mídia registrada para esta fase.
                   </p>
                 )}
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <h4 className="font-bold text-content-primary mb-3 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-primary" />
                   Documentos Anexados
                 </h4>
@@ -3660,27 +3659,27 @@ export default function WorkDetailsPageProject() {
                         href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-lg bg-white border border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all group"
+                        className="flex items-center gap-3 p-3 rounded-lg bg-surface-raised border border-edge-subtle hover:border-primary/50 hover:bg-surface-subtle transition-all group"
                       >
                         <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                           <FileText className="w-5 h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-700 truncate group-hover:text-primary transition-colors">
+                          <p className="font-medium text-content-secondary truncate group-hover:text-primary transition-colors">
                             {doc.title || doc.name}
                           </p>
                           {doc.description ? (
-                            <p className="text-xs text-slate-500 truncate">
+                            <p className="text-xs text-content-tertiary truncate">
                               {doc.description}
                             </p>
                           ) : null}
                         </div>
-                        <Download className="w-4 h-4 text-slate-400 group-hover:text-primary transition-colors" />
+                        <Download className="w-4 h-4 text-content-tertiary group-hover:text-primary transition-colors" />
                       </a>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-slate-500 italic">
+                  <p className="text-content-tertiary italic">
                     Nenhum documento anexado.
                   </p>
                 )}
@@ -3695,7 +3694,7 @@ export default function WorkDetailsPageProject() {
       </Dialog>
 
       <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-surface-raised">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-neutral-800 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />

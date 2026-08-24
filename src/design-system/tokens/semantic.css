@@ -1,0 +1,441 @@
+/* Papeis semanticos. Componentes consomem SOMENTE esta camada.
+   Bloco 1: tokens novos (RGB).
+   Bloco 2: ponte para os tokens shadcn legados (HSL) - mantem telas nao
+   migradas funcionando sem alteracao. */
+
+:root {
+  /* --- Superficies --- */
+  --surface-base:     var(--tc-neutral-100);
+  --surface-raised:   var(--tc-neutral-0);
+  --surface-sunken:   var(--tc-neutral-200);
+  --surface-overlay:  var(--tc-neutral-0);
+
+  /* --- Texto --- */
+  --text-primary:     var(--tc-neutral-900);
+  --text-secondary:   var(--tc-neutral-600);
+  --text-tertiary:    var(--tc-neutral-500);
+  --text-on-brand:    var(--tc-neutral-0);
+
+  /* --- Bordas --- */
+  --border-subtle:    var(--tc-neutral-200);
+  --border-default:   var(--tc-neutral-300);
+  --border-strong:    var(--tc-neutral-400);
+
+  /* --- Marca (CTA, tab ativa, links) --- */
+  --brand:            var(--tc-red-600);
+  --brand-hover:      var(--tc-red-700);
+  --brand-subtle-bg:  var(--tc-red-50);
+  --brand-subtle-fg:  var(--tc-red-700);
+
+  /* --- Perigo (destrutivo/erro) - distinto de brand --- */
+  --danger:           var(--tc-red-800);
+  --danger-subtle-bg: var(--tc-red-50);
+  --danger-subtle-fg: var(--tc-red-800);
+
+  /* --- Status de bronca --- */
+  --status-pending-bg:     var(--tc-amber-100);
+  --status-pending-fg:     var(--tc-amber-700);
+  --status-pending-border: var(--tc-amber-200);
+
+  --status-progress-bg:     var(--tc-blue-100);
+  --status-progress-fg:     var(--tc-blue-700);
+  --status-progress-border: var(--tc-blue-200);
+
+  --status-resolved-bg:     var(--tc-green-100);
+  --status-resolved-fg:     var(--tc-green-700);
+  --status-resolved-border: var(--tc-green-200);
+
+  --status-duplicate-bg:     var(--tc-neutral-100);
+  --status-duplicate-fg:     var(--tc-neutral-600);
+  --status-duplicate-border: var(--tc-neutral-200);
+
+  /* --- Pins do mapa ---
+     Distintos dos --status-* acima: aquele par e de badge (fundo pastel, texto
+     escuro) e le contra o card. O pin le contra o mapa, entao o corpo usa a cor
+     cheia e o icone inverte.
+
+     A cor do pin de bronca vem do STATUS - laranja pendente, azul em andamento,
+     verde resolvida. A categoria e dita pelo emoji dentro do disco. Os
+     --pin-<categoria>-* abaixo seguem em uso pelos chips de filtro e pelas
+     capas dos cards do feed. */
+  --pin-pending-bg:   var(--tc-status-pending);
+  --pin-pending-fg:   var(--tc-neutral-950);
+
+  --pin-progress-bg:  var(--tc-status-progress);
+  --pin-progress-fg:  var(--tc-neutral-950);
+
+  --pin-resolved-bg:  var(--tc-status-resolved);
+  --pin-resolved-fg:  var(--tc-neutral-950);
+
+  --pin-duplicate-bg: var(--tc-status-duplicate);
+  --pin-duplicate-fg: var(--tc-neutral-950);
+
+  --pin-pothole-bg:   var(--tc-cat-pothole);
+  --pin-pothole-fg:   var(--tc-neutral-950);
+
+  --pin-lighting-bg:  var(--tc-cat-lighting);
+  --pin-lighting-fg:  var(--tc-neutral-950);
+
+  --pin-sewage-bg:    var(--tc-cat-sewage);
+  --pin-sewage-fg:    var(--tc-neutral-950);
+
+  --pin-cleaning-bg:  var(--tc-cat-cleaning);
+  --pin-cleaning-fg:  var(--tc-neutral-950);
+
+  /* Roxo e slate sao os dois tons mais escuros do guia: com icone escuro por
+     cima o hex original fica em 4.43/3.94 e reprova AA, entao usam a variante
+     clareada tambem no tema claro. */
+  --pin-greenery-bg:  var(--tc-cat-greenery);
+  --pin-greenery-fg:  var(--tc-neutral-950);
+
+  --pin-waterleak-bg: var(--tc-cat-sewage);
+  --pin-waterleak-fg: var(--tc-neutral-950);
+
+  --pin-other-bg:     var(--tc-cat-other);
+  --pin-other-fg:     var(--tc-neutral-950);
+
+  /* Anel branco, fino, nos dois temas. O anel nao existe para contrastar com o
+     corpo do pin - ele separa o pin DO MAPA. A versao escura anterior somava
+     peso: com dezenas de pins juntos os contornos se fundiam numa massa preta
+     que escondia as ruas. Com a cor dessaturada o branco volta a funcionar. */
+  --pin-ring: var(--tc-neutral-0);
+
+  /* "Em alta" sobrepoe a cor de status com o vermelho de alerta; "selecionado"
+     nao muda de cor, so engrossa o anel (tratado no componente). */
+  --pin-hot-bg: var(--tc-cat-alert);
+  --pin-hot-fg: var(--tc-neutral-950);
+
+  /* Imoveis alugados: tokens proprios em vez de reusar os de bronca, para que
+     mudar a cor de uma categoria nao mexa nesta tela sem querer. */
+  --pin-rental-active-bg:   var(--tc-cat-cleaning);
+  --pin-rental-active-fg:   var(--tc-neutral-950);
+  --pin-rental-inactive-bg: var(--tc-cat-other);
+  --pin-rental-inactive-fg: var(--tc-neutral-950);
+
+  /* Status de obra. Sao seis, e a paleta tem cinco familias cromaticas, entao
+     "licitada" e "paralisada" dividem o ambar - distinguem-se pelo icone e pelo
+     popup, nao pela cor. Se as duas precisarem ser separaveis so pela cor, o
+     caminho e uma familia laranja nova em primitives.css. */
+  --pin-work-planned-bg:    var(--tc-violet-600);
+  --pin-work-planned-fg:    var(--tc-neutral-0);
+  --pin-work-tendered-bg:   var(--tc-amber-700);
+  --pin-work-tendered-fg:   var(--tc-neutral-0);
+  --pin-work-progress-bg:   var(--tc-blue-700);
+  --pin-work-progress-fg:   var(--tc-neutral-0);
+  --pin-work-stalled-bg:    var(--tc-amber-700);
+  --pin-work-stalled-fg:    var(--tc-neutral-0);
+  --pin-work-unfinished-bg: var(--tc-red-700);
+  --pin-work-unfinished-fg: var(--tc-neutral-0);
+  --pin-work-completed-bg:  var(--tc-green-700);
+  --pin-work-completed-fg:  var(--tc-neutral-0);
+  --pin-work-unknown-bg:    var(--tc-neutral-500);
+  --pin-work-unknown-fg:    var(--tc-neutral-0);
+
+  /* Pavimentacao: escala neutra para "tem asfalto", ambar para a ausencia dele,
+     que e o caso que o cidadao quer achar no mapa. */
+  --pin-pav-paved-bg:     var(--tc-neutral-700);
+  --pin-pav-paved-fg:     var(--tc-neutral-0);
+  --pin-pav-partial-bg:   var(--tc-neutral-500);
+  --pin-pav-partial-fg:   var(--tc-neutral-0);
+  --pin-pav-unpaved-bg:   var(--tc-amber-700);
+  --pin-pav-unpaved-fg:   var(--tc-neutral-0);
+  --pin-pav-unknown-bg:   var(--tc-neutral-500);
+  --pin-pav-unknown-fg:   var(--tc-neutral-0);
+
+  /* Badge "tem obra vinculada", sobreposto no canto do pin. */
+  --pin-badge-bg: var(--tc-blue-700);
+  --pin-badge-fg: var(--tc-neutral-0);
+
+  /* Cluster: o numero fica dentro, entao o contraste e de texto. A intensidade
+     cresce com a quantidade agregada. */
+  --pin-cluster-low-bg:  var(--tc-blue-700);
+  --pin-cluster-low-fg:  var(--tc-neutral-0);
+  --pin-cluster-mid-bg:  var(--tc-amber-700);
+  --pin-cluster-mid-fg:  var(--tc-neutral-0);
+  --pin-cluster-high-bg: var(--tc-red-700);
+  --pin-cluster-high-fg: var(--tc-neutral-0);
+
+  /* Ponto "voce esta aqui". */
+  --pin-user-bg: var(--tc-blue-600);
+
+  /* Sinal de patrulha: o ponto que alguem marcou de passagem e que ainda espera
+     cadastro completo. Vermelho, e nao a cor de status da bronca, porque nao e
+     uma bronca ainda — e um aviso deixado no chao. E a mesma cor do pino que se
+     arrasta no registro, que marca esse mesmo ponto. */
+  --pin-signal-bg: var(--tc-red-600);
+  --pin-signal-fg: var(--tc-neutral-0);
+
+  /* --- Graficos ---
+     As tres series de status usam a mesma matiz dos --status-* (o usuario ja
+     associa laranja=pendente, azul=andamento, verde=resolvida), mas em tom
+     cheio: a badge le contra o card, a barra le contra a grade do grafico.
+     O Recharts recebe cor por prop JS, nao por classe, entao o componente
+     resolve estes tokens com getComputedStyle e reage a troca de tema. */
+  --chart-pending:  var(--tc-amber-600);
+  --chart-progress: var(--tc-blue-600);
+  --chart-resolved: var(--tc-green-600);
+
+  /* Paleta categorica para series sem significado semantico (broncas por
+     categoria). Reusa as cores de categoria dos pins, para o mapa e o grafico
+     falarem a mesma lingua. */
+  --chart-cat-1: var(--tc-cat-alert);
+  --chart-cat-2: var(--tc-cat-pothole);
+  --chart-cat-3: var(--tc-cat-sewage);
+  --chart-cat-4: var(--tc-cat-lighting);
+  --chart-cat-5: var(--tc-cat-cleaning);
+  --chart-cat-6: var(--tc-cat-greenery);
+  --chart-cat-7: var(--tc-cat-other);
+
+  /* --- Sinais do feed --- */
+  --signal-hot-bg:     var(--tc-red-600);
+  --signal-hot-fg:     var(--tc-neutral-0);
+  --signal-rising-bg:  var(--tc-amber-600);
+  --signal-rising-fg:  var(--tc-neutral-0);
+  --signal-fresh-bg:   var(--tc-violet-600);
+  --signal-fresh-fg:   var(--tc-neutral-0);
+
+  /* --- Header ---
+     Vinho no tema claro: a faixa escura no topo separa a navegacao do feed
+     e devolve a presenca da marca. No escuro o header segue neutro (abaixo),
+     porque sobre fundo preto o vinho vira uma mancha sem contraste. */
+  --header-bg: 91 21 21;
+  --header-fg: 255 255 255;
+
+  /* --- CTA principal ---
+     No claro e preenchido; no escuro vira contorno, porque um bloco vermelho
+     solido sobre fundo escuro domina a tela. O contraste do texto e o mesmo
+     (4.85:1) nos dois casos. */
+  --cta-bg: var(--tc-red-600);
+  --cta-fg: var(--tc-neutral-0);
+  --cta-border: var(--tc-red-600);
+
+  /* --- Superficie sutil NEUTRA ---
+     Fundo de faixas e rodapes dentro do card. Substitui os fundos rosados:
+     o vermelho fica reservado para acao (botoes, links, estados ativos). */
+  --surface-subtle: var(--tc-neutral-50);
+  --surface-subtle-hover: var(--tc-neutral-100);
+
+  /* --- Sucesso (estado ativo de acompanhar) --- */
+  --success-bg: 236 253 243;
+  --success-fg: var(--tc-green-600);
+  --success-border: var(--tc-green-200);
+
+  /* --- Destaque secundario --- */
+  --accent-highlight: var(--tc-yellow-500);
+
+  /* --- Skeleton (shimmer) ---
+     Par proprio para garantir contraste da faixa de brilho. Nao derivar de
+     --surface-sunken/--border-subtle: no claro os dois sao neutral-200. */
+  --skeleton-base:  var(--tc-neutral-200);
+  --skeleton-sheen: var(--tc-neutral-100);
+
+  /* --- Elevacao --- */
+  --elevation-1: 0 1px 3px rgb(var(--tc-neutral-950) / 0.05);
+  --elevation-2: 0 4px 14px rgb(var(--tc-neutral-950) / 0.06);
+  --elevation-3: 0 8px 24px rgb(var(--tc-neutral-950) / 0.06);
+}
+
+.dark {
+  --surface-base:     var(--tc-neutral-950);
+  --surface-raised:   var(--tc-neutral-900);
+  --surface-sunken:   var(--tc-neutral-950);
+  --surface-overlay:  var(--tc-neutral-850);
+
+  --text-primary:     var(--tc-neutral-50);
+  --text-secondary:   var(--tc-neutral-400);
+  --text-tertiary:    var(--tc-neutral-500);
+  /* No escuro a marca e um vermelho claro, entao o texto sobre ela e ESCURO.
+     Branco sobre red-400 daria 2.79:1; neutral-950 da 6.87:1. */
+  --text-on-brand:    var(--tc-neutral-950);
+
+  --border-subtle:    var(--tc-neutral-800);
+  --border-default:   var(--tc-neutral-700);
+  --border-strong:    var(--tc-neutral-600);
+
+  /* Vermelho vivo da marca. Como texto sobre o card da 4.54:1 e como fundo de
+     botao com --text-on-brand escuro da 4.95:1. Com texto branco daria 3.87:1,
+     abaixo de AA — por isso o texto sobre a marca e escuro no tema escuro. */
+  --brand:            var(--tc-red-450);
+  --brand-hover:      var(--tc-red-400);
+  /* Fundo sutil no escuro e NEUTRO elevado, nao vermelho: red-950 preenchendo
+     blocos grandes vira um vinho saturado que domina a tela. O vinculo com a
+     marca fica no texto e na borda. */
+  --brand-subtle-bg:  var(--tc-neutral-850);
+  --brand-subtle-fg:  var(--tc-red-300);
+
+  --danger:           var(--tc-red-300);
+  --danger-subtle-bg: var(--tc-red-950);
+  --danger-subtle-fg: var(--tc-red-300);
+
+  --status-pending-bg:     var(--tc-amber-950);
+  --status-pending-fg:     var(--tc-amber-300);
+  --status-pending-border: var(--tc-amber-900);
+
+  --status-progress-bg:     var(--tc-blue-950);
+  --status-progress-fg:     var(--tc-blue-300);
+  --status-progress-border: var(--tc-blue-900);
+
+  --status-resolved-bg:     var(--tc-green-950);
+  --status-resolved-fg:     var(--tc-green-300);
+  --status-resolved-border: var(--tc-green-900);
+
+  --status-duplicate-bg:     var(--tc-neutral-850);
+  --status-duplicate-fg:     var(--tc-neutral-400);
+  --status-duplicate-border: var(--tc-neutral-800);
+
+  /* Corpo suavizado (*-300) para nao brilhar contra o CARTO Dark Matter. Isso
+     obriga o icone a inverter: branco sobre amber-300 daria 1.44, ilegivel;
+     neutral-950 sobre o mesmo tom da 13.01. A cor do status continua sendo a
+     mesma familia, entao "ambar = pendente" nao muda de sentido entre os temas. */
+  --pin-rental-active-bg:   var(--tc-cat-cleaning);
+  --pin-rental-active-fg:   var(--tc-neutral-950);
+  --pin-rental-inactive-bg: var(--tc-cat-other);
+  --pin-rental-inactive-fg: var(--tc-neutral-950);
+
+  /* --pin-ring segue branco tambem no escuro (herda do :root): o anel separa o
+     pin do mapa, e sobre o CARTO Dark Matter o branco e justamente o que da
+     essa separacao. */
+
+  --pin-work-planned-bg:    var(--tc-violet-300);
+  --pin-work-planned-fg:    var(--tc-neutral-950);
+  --pin-work-tendered-bg:   var(--tc-amber-300);
+  --pin-work-tendered-fg:   var(--tc-neutral-950);
+  --pin-work-progress-bg:   var(--tc-blue-300);
+  --pin-work-progress-fg:   var(--tc-neutral-950);
+  --pin-work-stalled-bg:    var(--tc-amber-300);
+  --pin-work-stalled-fg:    var(--tc-neutral-950);
+  --pin-work-unfinished-bg: var(--tc-red-300);
+  --pin-work-unfinished-fg: var(--tc-neutral-950);
+  --pin-work-completed-bg:  var(--tc-green-300);
+  --pin-work-completed-fg:  var(--tc-neutral-950);
+  --pin-work-unknown-bg:    var(--tc-neutral-400);
+  --pin-work-unknown-fg:    var(--tc-neutral-950);
+
+  /* Os pins de categoria NAO sao redefinidos aqui: a cor dessaturada e a mesma
+     nos dois temas, com icone escuro por cima. Repetir os mesmos valores no
+     .dark so criava duas fontes de verdade para dessincronizar depois. */
+
+  /* No escuro a escala neutra inverte: pavimentada fica clara sobre o mapa
+     escuro, mantendo a distancia visual para "sem pavimentacao". */
+  --pin-pav-paved-bg:     var(--tc-neutral-300);
+  --pin-pav-paved-fg:     var(--tc-neutral-950);
+  --pin-pav-partial-bg:   var(--tc-neutral-400);
+  --pin-pav-partial-fg:   var(--tc-neutral-950);
+  --pin-pav-unpaved-bg:   var(--tc-amber-300);
+  --pin-pav-unpaved-fg:   var(--tc-neutral-950);
+  --pin-pav-unknown-bg:   var(--tc-neutral-400);
+  --pin-pav-unknown-fg:   var(--tc-neutral-950);
+
+  --pin-badge-bg: var(--tc-blue-300);
+  --pin-badge-fg: var(--tc-neutral-950);
+
+  --pin-cluster-low-bg:  var(--tc-blue-300);
+  --pin-cluster-low-fg:  var(--tc-neutral-950);
+  --pin-cluster-mid-bg:  var(--tc-amber-300);
+  --pin-cluster-mid-fg:  var(--tc-neutral-950);
+  --pin-cluster-high-bg: var(--tc-red-300);
+  --pin-cluster-high-fg: var(--tc-neutral-950);
+
+  --pin-user-bg: var(--tc-blue-300);
+
+  --pin-signal-bg: var(--tc-red-400);
+  --pin-signal-fg: var(--tc-neutral-950);
+
+  /* Graficos no escuro: as series clareiam um degrau. O tom cheio do tema claro
+     fica escuro demais contra o fundo do card e as barras somem. */
+  --chart-pending:  var(--tc-amber-300);
+  --chart-progress: var(--tc-blue-300);
+  --chart-resolved: var(--tc-green-300);
+
+  /* As cores de categoria ja sao dessaturadas e funcionam nos dois temas — sao
+     as mesmas dos pins do mapa, que leem sobre tiles claros e escuros. */
+  /* Sobre foto, no escuro, chip solido saturado pesa. Fundo escuro com texto
+     colorido le igual e nao briga com a imagem. */
+
+  --signal-hot-bg:     var(--tc-neutral-950);
+  --signal-hot-fg:     var(--tc-red-300);
+  --signal-rising-bg:  var(--tc-neutral-950);
+  --signal-rising-fg:  var(--tc-amber-300);
+  --signal-fresh-bg:   var(--tc-neutral-950);
+  --signal-fresh-fg:   var(--tc-violet-300);
+
+  --header-bg: var(--tc-neutral-950);
+  --header-fg: var(--tc-neutral-50);
+
+  /* Contorno em vez de preenchido: o vermelho solido pesava demais. */
+  --cta-bg: var(--tc-neutral-950);
+  --cta-fg: var(--tc-red-450);
+  --cta-border: var(--tc-red-450);
+
+  --surface-subtle: var(--tc-neutral-850);
+  --surface-subtle-hover: var(--tc-neutral-800);
+
+  --success-bg: var(--tc-green-950);
+  --success-fg: var(--tc-green-300);
+  --success-border: var(--tc-green-900);
+
+  --accent-highlight: var(--tc-yellow-400);
+
+  /* No escuro a base e neutral-800: --surface-sunken e neutral-950, igual ao
+     fundo da pagina, e o skeleton sumiria contra ele. */
+  --skeleton-base:  var(--tc-neutral-800);
+  --skeleton-sheen: var(--tc-neutral-700);
+
+  /* No escuro a profundidade vem da BORDA CLARA + sombra difusa, nao do
+     contraste de fundo (card vs fundo rende so ~1.1 de razao). E o que
+     separa o card do fundo em apps como o Linear. */
+  --elevation-1: 0 1px 2px rgb(0 0 0 / 0.3), inset 0 0 0 1px rgb(255 255 255 / 0.04);
+  --elevation-2: 0 4px 12px rgb(0 0 0 / 0.35), inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  --elevation-3: 0 12px 30px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+/* ============================================================
+   PONTE PARA OS TOKENS SHADCN LEGADOS (HSL)
+   Consumidos por hsl(var(--x)) no tailwind.config.js.
+   Equivalentes aos semanticos acima. Ao alterar um semantico,
+   atualizar o par correspondente aqui.
+   ============================================================ */
+:root {
+  --background: 220 20% 97.1%;    /* = --surface-base (neutral-100) */
+  --foreground: 218.2 18% 12%; /* = --text-primary (neutral-900) */
+  --card: 0 0% 100%;              /* = --surface-raised */
+  --card-foreground: 218.2 18% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 218.2 18% 12%;
+  --primary: 4.2 74.3% 48.8%;     /* = --brand (red-600) */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45.4 93.4% 47.5%;  /* = amarelo da marca */
+  --secondary-foreground: 218.2 18% 12%;
+  --muted: 220 20% 97.1%;
+  --muted-foreground: 215 13.8% 34.1%;  /* = --text-secondary (neutral-600) */
+  --accent: 220 20% 97.1%;
+  --accent-foreground: 218.2 18% 12%;
+  --destructive: 4 71.6% 33.1%;   /* = --danger (red-800) - distinto de primary */
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 13% 91%;          /* = --border-subtle */
+  --input: 220 13% 91%;
+  --ring: 4.2 74.3% 48.8%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 216 13.5% 7.3%;     /* = --surface-base (neutral-950) */
+  --foreground: 210 25% 98.4%;
+  --card: 218.2 18% 12%;      /* = --surface-raised (neutral-900) */
+  --card-foreground: 210 25% 98.4%;
+  --popover: 216.9 17.3% 14.7%;   /* = --surface-overlay dark (neutral-850) */
+  --popover-foreground: 210 25% 98.4%;
+  --primary: 356.3 90.7% 58%;     /* = --brand dark (red-450) */
+  --primary-foreground: 216 13.5% 7.3%;  /* = --text-on-brand dark */
+  --secondary: 47.9 95.8% 53.1%;
+  --secondary-foreground: 218.2 18% 12%;
+  --muted: 220 17.2% 17.1%;
+  --muted-foreground: 217.9 10.6% 64.9%;
+  --accent: 220 17.2% 17.1%;
+  --accent-foreground: 210 25% 98.4%;
+  --destructive: 4.3 96.1% 80%;   /* = --danger dark (red-300) */
+  --destructive-foreground: 218.2 18% 12%;
+  --border: 220 17.2% 17.1%;
+  --input: 220 17.2% 17.1%;
+  --ring: 356.3 90.7% 58%;        /* = --brand dark (red-450) */
+}

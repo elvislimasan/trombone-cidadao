@@ -4,25 +4,29 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, Bus, Landmark, Building, ShoppingCart, Mail, Search, ArrowRight, PlusCircle, Download, Loader2 } from 'lucide-react';
+import { MapPin, Phone, Bus, Bike, Car, CarTaxiFront, Truck, Landmark, Building, ShoppingCart, ArrowRight, PlusCircle, Download, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { useCity } from '@/contexts/CityContext';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import CitySelector from '@/components/CitySelector';
+import { TIPOS_TRANSPORTE, nomeDoTipoTransporte, iconeDoTipoTransporte } from '@/lib/transportTypes';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+// Componentes lucide dos tipos de transporte. O modulo de tipos guarda so o
+// nome do icone (para nao importar React); a resolucao acontece aqui, onde ja
+// se desenha.
+const TRANSPORT_ICONS = { Bike, CarTaxiFront, Car, Truck, Bus };
+
 const ServicesPage = () => {
-  const [streetSearch, setStreetSearch] = useState('');
-  const [selectedBairro, setSelectedBairro] = useState('all');
   const [selectedDestination, setSelectedDestination] = useState('all');
+  const [selectedVehicleType, setSelectedVehicleType] = useState('all');
   const { toast } = useToast();
-  const { activeCityId, activeCityName } = useCity();
+  const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
 
@@ -39,7 +43,6 @@ const ServicesPage = () => {
   const [transportOptions, setTransportOptions] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
   const [directory, setDirectory] = useState({ public: [], commerce: [] });
-  const [streetsData, setStreetsData] = useState([]);
 
   const fetchData = useCallback(async () => {
     let transportQuery = supabase.from('transport').select('*');
@@ -65,12 +68,6 @@ const ServicesPage = () => {
       });
     }
 
-    let streetsQuery = supabase.from('pavement_streets').select('*');
-    if (activeCityId) streetsQuery = streetsQuery.eq('city_id', activeCityId);
-    const { data: streets, error: streetsError } = await streetsQuery;
-    if (streetsError) toast({ title: "Erro ao buscar ruas", description: streetsError.message, variant: "destructive" });
-    else setStreetsData(streets);
-
   }, [toast, activeCityId]);
 
   useEffect(() => {
@@ -91,25 +88,20 @@ const ServicesPage = () => {
     return [...new Set(transportOptions.map(item => item.destination).filter(Boolean))].sort();
   }, [transportOptions]);
 
-  const bairros = useMemo(() => {
-    const uniqueBairros = [...new Set(streetsData.map(street => street.bairro).filter(Boolean))];
-    return uniqueBairros.sort((a, b) => a.localeCompare(b));
-  }, [streetsData]);
-
-  const filteredStreets = useMemo(() => {
-    return streetsData.filter(street => {
-      const searchMatch = street.name.toLowerCase().includes(streetSearch.toLowerCase()) || (street.cep && street.cep.includes(streetSearch));
-      const bairroMatch = selectedBairro === 'all' || street.bairro === selectedBairro;
-      return searchMatch && bairroMatch;
-    });
-  }, [streetSearch, selectedBairro, streetsData]);
+  // So os tipos que existem na cidade — oferecer "Tuk Tuk" onde nao ha nenhum
+  // e prometer um filtro que sempre volta vazio.
+  const transportVehicleTypes = useMemo(() => {
+    const presentes = new Set(transportOptions.map((t) => t.vehicle_type).filter(Boolean));
+    return TIPOS_TRANSPORTE.filter((t) => presentes.has(t.id));
+  }, [transportOptions]);
 
   const filteredTransport = useMemo(() => {
-    if (selectedDestination === 'all') {
-      return transportOptions;
-    }
-    return transportOptions.filter(option => option.destination === selectedDestination);
-  }, [selectedDestination, transportOptions]);
+    return transportOptions.filter((option) => {
+      const destinationMatch = selectedDestination === 'all' || option.destination === selectedDestination;
+      const typeMatch = selectedVehicleType === 'all' || option.vehicle_type === selectedVehicleType;
+      return destinationMatch && typeMatch;
+    });
+  }, [selectedDestination, selectedVehicleType, transportOptions]);
 
   const [downloadingTransport, setDownloadingTransport] = useState(false);
 
@@ -122,24 +114,29 @@ const ServicesPage = () => {
       doc.text(title, 14, 18);
       doc.setFontSize(10);
       doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 26);
-      if (selectedDestination !== 'all') {
-        doc.text(`Destino: ${selectedDestination}`, 14, 32);
+      const filtrosAtivos = [
+        selectedDestination !== 'all' ? `Destino: ${selectedDestination}` : null,
+        selectedVehicleType !== 'all' ? `Tipo: ${nomeDoTipoTransporte(selectedVehicleType)}` : null,
+      ].filter(Boolean);
+      if (filtrosAtivos.length > 0) {
+        doc.text(filtrosAtivos.join('  ·  '), 14, 32);
       }
 
       const rows = filteredTransport.map((t) => [
         t.name || '-',
+        nomeDoTipoTransporte(t.vehicle_type) || '-',
         t.destination || '-',
         t.schedule || '-',
         t.phone || '-',
       ]);
 
       doc.autoTable({
-        head: [['Transporte', 'Destino', 'Horários', 'Contato']],
+        head: [['Transporte', 'Tipo', 'Destino', 'Horários', 'Contato']],
         body: rows,
-        startY: selectedDestination !== 'all' ? 38 : 32,
+        startY: filtrosAtivos.length > 0 ? 38 : 32,
         styles: { fontSize: 9, cellPadding: 3 },
         headStyles: { fillColor: [182, 23, 34] },
-        columnStyles: { 2: { cellWidth: 60 } },
+        columnStyles: { 3: { cellWidth: 50 } },
       });
 
       // Observação pedida: direciona o público para a lista sempre atualizada.
@@ -208,11 +205,16 @@ const ServicesPage = () => {
         </div>
 
         <Tabs defaultValue="tourist" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-card border border-border h-auto">
+          {/* A aba "Ruas e CEPs" saiu daqui em ago/2026. A consulta lia
+              pavement_streets, uma tabela alimentada a mao por cidade, e so
+              tinha resposta para Floresta — em qualquer outra cidade era uma
+              busca que nunca achava nada. O Google resolve isso melhor e para
+              o Brasil inteiro; a tabela continua servindo o mapa de
+              pavimentacao, que e o uso real dela. */}
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 bg-card border border-border h-auto">
             <TabsTrigger value="tourist" className="gap-2 py-2"><Landmark className="w-4 h-4" /> Pontos Turísticos</TabsTrigger>
             <TabsTrigger value="transport" className="gap-2 py-2"><Bus className="w-4 h-4" /> Transportes</TabsTrigger>
             <TabsTrigger value="directory" className="gap-2 py-2"><Phone className="w-4 h-4" /> Guia Comercial</TabsTrigger>
-            <TabsTrigger value="streets" className="gap-2 py-2"><Mail className="w-4 h-4" /> Ruas e CEPs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tourist" className="mt-8">
@@ -244,7 +246,7 @@ const ServicesPage = () => {
             <Card className="border-border">
               <CardHeader>
                 <CardTitle>Opções de Transporte</CardTitle>
-                <p className="text-muted-foreground text-sm">Filtre por destino para encontrar sua viagem.</p>
+                <p className="text-muted-foreground text-sm">Filtre por destino ou tipo de transporte para encontrar sua viagem.</p>
               </CardHeader>
               <CardContent>
                 <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -259,6 +261,19 @@ const ServicesPage = () => {
                     searchPlaceholder="Buscar destino..."
                     className="w-full sm:w-[280px]"
                   />
+                  {transportVehicleTypes.length > 0 && (
+                    <Combobox
+                      value={selectedVehicleType}
+                      onChange={setSelectedVehicleType}
+                      options={[
+                        { value: "all", label: "Todos os Tipos" },
+                        ...transportVehicleTypes.map((t) => ({ value: t.id, label: t.name }))
+                      ]}
+                      placeholder="Filtrar por tipo..."
+                      searchPlaceholder="Buscar tipo..."
+                      className="w-full sm:w-[220px]"
+                    />
+                  )}
                   {filteredTransport.length > 0 && (
                     <Button
                       variant="outline"
@@ -274,16 +289,24 @@ const ServicesPage = () => {
                   )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  {filteredTransport.map((option) => (
+                  {filteredTransport.map((option) => {
+                    const TypeIcon = TRANSPORT_ICONS[iconeDoTipoTransporte(option.vehicle_type)] || Bus;
+                    const typeName = nomeDoTipoTransporte(option.vehicle_type);
+                    return (
                     <motion.div key={option.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
                       <Card className="h-full flex flex-col justify-between hover:border-primary transition-colors">
                         <CardHeader className="p-4 md:p-6">
                           <CardTitle className="flex items-center gap-2 md:gap-3 text-sm md:text-base">
-                            <Bus className="w-4 h-4 md:w-6 md:h-6 text-primary" />
+                            <TypeIcon className="w-4 h-4 md:w-6 md:h-6 text-primary shrink-0" />
                             {option.name}
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="px-4 md:px-6 py-0">
+                          {typeName && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 mb-2 rounded-full bg-primary/10 text-primary text-[10px] md:text-xs font-semibold">
+                              <TypeIcon className="w-3 h-3" /> {typeName}
+                            </span>
+                          )}
                           <p className="text-[10px] md:text-sm text-muted-foreground">Destino: <span className="font-semibold text-foreground">{option.destination}</span></p>
                           <p className="text-[10px] md:text-sm text-muted-foreground mt-1">{option.schedule}</p>
                         </CardContent>
@@ -296,7 +319,8 @@ const ServicesPage = () => {
                         </div>
                       </Card>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -316,59 +340,18 @@ const ServicesPage = () => {
               </div>
             </div>
           </TabsContent>
-
-          <TabsContent value="streets" className="mt-8">
-            <Card className="border-border">
-              <CardHeader>
-                <CardTitle>Consulta de Ruas e CEPs</CardTitle>
-                <p className="text-muted-foreground text-sm">Pesquise pelo nome da rua, CEP ou filtre por bairro.</p>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                  <div className="relative flex-grow">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Digite o nome da rua ou CEP..."
-                      className="pl-10"
-                      value={streetSearch}
-                      onChange={(e) => setStreetSearch(e.target.value)}
-                    />
-                  </div>
-                  <Combobox 
-                    value={selectedBairro} 
-                    onChange={setSelectedBairro}
-                    options={[
-                      { value: "all", label: "Todos os bairros" },
-                      ...bairros.map(bairro => ({ value: bairro, label: bairro }))
-                    ]}
-                    placeholder="Filtrar por bairro"
-                    searchPlaceholder="Buscar bairro..."
-                    className="sm:w-[200px]"
-                  />
-                </div>
-                <div className="max-h-96 overflow-y-auto pr-2 space-y-2">
-                  {filteredStreets.length > 0 ? (
-                    filteredStreets.map((street, index) => (
-                      <div key={street.id || index} className="p-3 bg-background rounded-md border border-border flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                        <div>
-                          <p className="font-medium text-foreground">{street.name}</p>
-                          <p className="text-sm text-muted-foreground">{street.bairro}</p>
-                        </div>
-                        <p className="text-sm text-primary font-mono bg-primary/10 px-2 py-1 rounded">{street.cep}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-center text-muted-foreground py-4">Nenhuma rua encontrada para os filtros selecionados.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </motion.div>
     </>
   );
 };
 
-export default ServicesPage;
+// Filtro de cidade local a esta tela — ver os servicos de outra cidade e uma
+// consulta, nao uma mudanca de onde o usuario mora.
+export default function ServicesPageWithCityView() {
+  return (
+    <CityViewProvider>
+      <ServicesPage />
+    </CityViewProvider>
+  );
+}

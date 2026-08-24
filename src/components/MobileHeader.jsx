@@ -4,8 +4,8 @@ import { ChevronLeft, Search, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import Notifications from '@/components/Notifications';
+import FeedCitySelector from '@/components/feed/FeedCitySelector';
 import { Capacitor } from '@capacitor/core';
-import { defaultMenuSettings } from '@/config/menuConfig';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
@@ -17,7 +17,6 @@ const MobileHeader = () => {
   const [siteName, setSiteName] = useState('Trombone Cidadão');
   const [logoUrl, setLogoUrl] = useState('/logo.png');
   const [pageTitle, setPageTitle] = useState('');
-  const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
 
   // Rotas que são consideradas "raízes" (mostram logo em vez de botão voltar)
   const rootRoutes = ['/', '/estatisticas', '/favoritos', '/perfil', '/buscar'];
@@ -26,6 +25,12 @@ const MobileHeader = () => {
   const isAuthRoute = authRoutes.includes(location.pathname);
   const shouldShowBack = typeof ctxShowBack === 'boolean' ? ctxShowBack : !isRoot;
   
+  // So no feed. O seletor do header muda a cidade do APP (persiste); telas de
+  // exploracao — obras, estatisticas, servicos — tem filtro proprio, local, e
+  // mostrar os dois juntos daria dois controles com escopos diferentes e
+  // aparencia parecida na mesma tela.
+  const showCitySelector = location.pathname === '/';
+
   const headerTitle = (() => {
     const path = location.pathname;
     if (path === '/') return siteName;
@@ -50,33 +55,23 @@ const MobileHeader = () => {
     return ctxTitle || pageTitle || siteName;
   })();
 
+  // Header neutro: branco no claro, preto no escuro. A cor da marca fica no
+  // logo e nos icones, nao no fundo. Os tokens --header-* ja acompanham o tema.
   const headerStyle = {
-    backgroundColor: menuSettings?.colors?.background || defaultMenuSettings.colors.background,
-    color: menuSettings?.colors?.text || defaultMenuSettings.colors.text,
+    backgroundColor: 'rgb(var(--header-bg))',
+    color: 'rgb(var(--header-fg))',
   };
 
   const fetchSiteSettings = useCallback(async () => {
     const { data } = await supabase
       .from('site_config')
-      .select('site_name, logo_url, menu_settings')
+      .select('site_name, logo_url')
       .eq('id', 1)
       .single();
 
     if (data) {
       setSiteName(data.site_name || 'Trombone Cidadão');
       setLogoUrl(data.logo_url || '/logo.png');
-      if (data.menu_settings) {
-        setMenuSettings({
-          ...defaultMenuSettings,
-          ...data.menu_settings,
-          colors: {
-            ...defaultMenuSettings.colors,
-            ...(data.menu_settings.colors || {}),
-          },
-        });
-      } else {
-        setMenuSettings(defaultMenuSettings);
-      }
     }
   }, []);
 
@@ -111,7 +106,7 @@ const MobileHeader = () => {
       style={{
         ...headerStyle,
         paddingTop: 'var(--header-safe-top)',
-        height: 'calc(4rem + var(--header-safe-top))'
+        height: 'calc(var(--header-bar-height) + var(--header-safe-top))'
       }}
     >
       {/* Preenche o vão acima do header durante o overscroll (rubber-band) do iOS,
@@ -121,7 +116,10 @@ const MobileHeader = () => {
         className="absolute left-0 right-0 bottom-full h-screen pointer-events-none"
         style={{ backgroundColor: headerStyle.backgroundColor }}
       />
-      <div className="container h-16 px-4 flex items-center justify-between">
+      <div
+        className="container px-4 flex items-center justify-between"
+        style={{ height: 'var(--header-bar-height)' }}
+      >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {shouldShowBack ? (
             <Button 
@@ -148,7 +146,7 @@ const MobileHeader = () => {
             </Button>
           ) : (
             <Link to="/" className="flex items-center">
-              <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
+              <img src={logoUrl} alt="Logo" className="h-7 w-auto" />
             </Link>
           )}
           <span className="font-bold text-base truncate max-w-[56vw]">
@@ -157,6 +155,10 @@ const MobileHeader = () => {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* A cidade ativa virou um pin no lado direito: o nome dela competia
+              com o titulo da tela pelo mesmo espaco. Segue so no feed, onde o
+              filtro define o conteudo. */}
+          {showCitySelector && <FeedCitySelector iconOnly />}
           {isRoot && location.pathname !== '/buscar' && (!ctxActions || ctxActions.length === 0) && (
             <Button variant="ghost" size="icon" onClick={() => navigate('/buscar')} className="rounded-full">
               <Search size={22} />

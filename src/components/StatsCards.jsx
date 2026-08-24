@@ -36,7 +36,7 @@ const StatsCards = ({ stats, onCardClick, user, compact = false }) => {
                   {card.value}
                 </p>
               </div>
-              <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-surface-raised/10 flex items-center justify-center flex-shrink-0">
                 <Icon className="w-3.5 h-3.5 text-white" />
               </div>
             </motion.button>

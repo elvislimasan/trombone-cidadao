@@ -110,11 +110,9 @@ const ManageCategoriesPage = () => {
     let updatedCategories;
     if (categoryToSave.id) {
       updatedCategories = categories.map(c => c.id === categoryToSave.id ? categoryToSave : c);
-      toast({ title: "Categoria atualizada com sucesso! ✅" });
     } else {
       const newCategory = { ...categoryToSave, id: categoryToSave.name.toLowerCase().replace(/\s+/g, '-') };
       updatedCategories = [...categories, newCategory];
-      toast({ title: "Categoria adicionada com sucesso! ✨" });
     }
     updateCategoriesData(updatedCategories);
     setEditingCategory(null);

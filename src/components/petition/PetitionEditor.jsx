@@ -28,6 +28,7 @@ import { PetitionTour } from './PetitionTour';
 import PetitionHero from '../petition-modern/PetitionHero';
 import PetitionContent from '../petition-modern/PetitionContent';
 import PetitionSignatureCard from '../petition-modern/PetitionSignatureCard';
+import PetitionUpdatesManager from './PetitionUpdatesManager';
 
 const ICON_MAP = {
   Users,
@@ -367,7 +368,6 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
             navigate(`/abaixo-assinado/${petition.id}`);
           }, 1500);
       } else {
-          toast({ title: "Alterações salvas", description: "O rascunho foi atualizado com sucesso." });
           setIsDirty(false);
           localStorage.removeItem(STORAGE_KEY);
           // Redirecionar para a página da petição após salvar rascunho
@@ -418,8 +418,9 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
       localStorage.removeItem(STORAGE_KEY);
       setIsDirty(false);
       
-      toast({ title: "Rascunho descartado", description: "Voltando para a versão publicada." });
-      
+      // Sem toast: o editor acabou de ser repovoado com a versão publicada —
+      // o conteúdo mudando na frente da pessoa é o retorno.
+
       if (onSave) {
         onSave({ ...petition, draft_data: null });
       }
@@ -445,10 +446,6 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
 
       setFormData(prev => ({ ...prev, status: 'closed' }));
       
-      toast({ 
-        title: "Petição encerrada", 
-        description: "A petição foi encerrada com sucesso." 
-      });
 
       if (onSave) {
         onSave({ ...petition, status: 'closed' });
@@ -488,10 +485,8 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
       if (error) throw error;
 
       localStorage.removeItem(STORAGE_KEY);
-      toast({ 
-        title: "Petição excluída", 
-        description: "A petição foi removida permanentemente." 
-      });
+      // Sem toast: `onCancel` tira a pessoa do editor. O aviso de permanência
+      // pertence ao diálogo de confirmação, antes do fato.
 
       if (onCancel) {
         onCancel(); // Voltar para a página anterior

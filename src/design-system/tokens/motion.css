@@ -1,0 +1,148 @@
+:root {
+  --duration-instant: 100ms;
+  --duration-fast:    160ms;
+  --duration-normal:  240ms;
+  --duration-slow:    400ms;
+
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring:cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Entrada de card do feed - substitui o whileInView do framer-motion */
+@keyframes tc-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tc-animate-in {
+  animation: tc-fade-up var(--duration-normal) var(--ease-out) both;
+}
+
+/* Troca de aba por arrasto: a lista entra pelo lado de onde veio, para que o
+   gesto tenha resposta visual. Sem isso a aba troca sem aviso e um disparo
+   acidental parece bug. Deslocamento curto (12px) — a intencao e dar direcao,
+   nao encenar uma transicao de pagina. */
+@keyframes tc-slide-from-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes tc-slide-from-left {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tc-tab-from-right {
+  animation: tc-slide-from-right var(--duration-fast) var(--ease-out) both;
+}
+
+.tc-tab-from-left {
+  animation: tc-slide-from-left var(--duration-fast) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-tab-from-right,
+  .tc-tab-from-left {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Shimmer do skeleton */
+@keyframes tc-shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* Ondas do loading do Trombone */
+@keyframes tc-wave {
+  0%   { opacity: 0; transform: scale(0.6); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+@keyframes tc-draw {
+  from { stroke-dashoffset: var(--tc-draw-length, 46); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-animate-in,
+  .tc-shimmer,
+  .tc-wave,
+  .tc-draw {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* TromboneSpinner - cascata de arcos concentricos */
+@keyframes tc-arc-pulse {
+  0%, 100% { opacity: 0.15; }
+  40%      { opacity: 1; }
+}
+
+.tc-spin-arc,
+.tc-spin-dot {
+  animation: tc-arc-pulse 1.1s var(--ease-in-out) infinite;
+  transform-origin: 7px 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-spin-arc,
+  .tc-spin-dot {
+    animation: none !important;
+    opacity: 0.6 !important;
+  }
+}
+
+/* TromboneSplash - desenho do trombone + ondas de propagacao */
+.tc-splash-draw {
+  stroke-dasharray: var(--tc-draw-length, 46);
+  stroke-dashoffset: var(--tc-draw-length, 46);
+  animation: tc-draw 900ms var(--ease-out) forwards;
+}
+
+.tc-splash-wave {
+  transform-origin: 14px 12px;
+  animation: tc-wave 1.6s var(--ease-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-splash-draw {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+  .tc-splash-wave {
+    animation: none !important;
+    opacity: 0.6 !important;
+  }
+}
+
+/* Skeleton shimmer - superficie de carregamento */
+/* A faixa de brilho usa --skeleton-* (definidos em semantic.css por tema).
+   Nao usar --surface-sunken/--border-subtle aqui: no tema claro os dois
+   apontam para o mesmo primitivo e o gradiente ficaria de cor unica. */
+.tc-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    rgb(var(--skeleton-base)) 0%,
+    rgb(var(--skeleton-base)) 40%,
+    rgb(var(--skeleton-sheen)) 50%,
+    rgb(var(--skeleton-base)) 60%,
+    rgb(var(--skeleton-base)) 100%
+  );
+  background-size: 200% 100%;
+  animation: tc-shimmer 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-shimmer {
+    animation: none !important;
+    background-image: none;
+    background-color: rgb(var(--skeleton-base));
+  }
+}

@@ -43,7 +43,6 @@ const ErrorReportsPage = () => {
     if (error) {
       toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Status atualizado com sucesso!" });
       fetchReports();
     }
   };
@@ -58,7 +57,6 @@ const ErrorReportsPage = () => {
     if (error) {
       toast({ title: "Erro ao deletar relatório", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Relatório deletado com sucesso!" });
       fetchReports();
     }
     setDeletingReport(null);
@@ -68,7 +66,7 @@ const ErrorReportsPage = () => {
     switch (status) {
       case 'new': return <span className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">Novo</span>;
       case 'resolved': return <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">Resolvido</span>;
-      default: return <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">{status}</span>;
+      default: return <span className="px-2 py-1 text-xs font-medium text-content-secondary bg-surface-sunken rounded-full">{status}</span>;
     }
   };
 

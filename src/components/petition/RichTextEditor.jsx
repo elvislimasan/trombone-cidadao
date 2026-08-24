@@ -207,7 +207,7 @@ const RichTextEditor = ({ value, onChange, placeholder, isMobile = false }) => {
                     {colors.map((color) => (
                       <button
                         key={color}
-                        className="w-6 h-6 rounded-sm border border-gray-200 hover:scale-110 transition-transform"
+                        className="w-6 h-6 rounded-sm border border-edge-subtle hover:scale-110 transition-transform"
                         style={{ backgroundColor: color }}
                         onClick={() => execCommand('foreColor', color)}
                         title={color}
@@ -228,7 +228,7 @@ const RichTextEditor = ({ value, onChange, placeholder, isMobile = false }) => {
                     {colors.map((color) => (
                       <button
                         key={color}
-                        className="w-6 h-6 rounded-sm border border-gray-200 hover:scale-110 transition-transform"
+                        className="w-6 h-6 rounded-sm border border-edge-subtle hover:scale-110 transition-transform"
                         style={{ backgroundColor: color }}
                         onClick={() => execCommand('hiliteColor', color)}
                         title={color}

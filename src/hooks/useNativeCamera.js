@@ -64,19 +64,32 @@ export const isUserCancelled = (err) =>
 
 /** Compressão web via Canvas (fallback browser) */
 export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
+  let objectUrl = null;
   try {
-    const dataUrl = await new Promise((res) => {
-      const r = new FileReader();
-      r.onloadend = () => res(r.result);
-      r.readAsDataURL(file);
-    });
-    const img = await new Promise((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = rej;
-      i.src = dataUrl;
-    });
-    let { width, height } = img;
+    // createObjectURL em vez de readAsDataURL: nao carrega a imagem inteira em
+    // base64 na memoria (fotos de 12MP viravam strings de ~16MB) e evita o
+    // FileReader travar sem onerror.
+    objectUrl = URL.createObjectURL(file);
+
+    const img = new Image();
+    img.src = objectUrl;
+
+    // `onload` sinaliza metadados prontos, NAO pixels decodificados: em alguns
+    // browsers o drawImage logo apos onload pinta um canvas vazio e o JPEG sai
+    // preto — sem lancar erro. `decode()` espera a decodificacao de verdade.
+    if (typeof img.decode === 'function') {
+      await img.decode();
+    } else {
+      await new Promise((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error('falha ao carregar a imagem'));
+      });
+    }
+
+    let width = img.naturalWidth || img.width;
+    let height = img.naturalHeight || img.height;
+    if (!width || !height) throw new Error('imagem sem dimensoes');
+
     if (width > maxPx || height > maxPx) {
       const r = Math.min(maxPx / width, maxPx / height);
       width = Math.floor(width * r);
@@ -85,16 +98,26 @@ export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+    const ctx = canvas.getContext('2d');
+    // JPEG nao tem canal alfa: sem um fundo explicito, area transparente de PNG
+    // sai PRETA. Pintar branco antes preserva a aparencia original.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
     const blob = await new Promise((res, rej) => {
-      if (canvas.convertToBlob) {
-        canvas.convertToBlob({ type: 'image/jpeg', quality }).then(res).catch(rej);
-      } else {
+      // toBlob e o metodo do HTMLCanvasElement; convertToBlob so existe em
+      // OffscreenCanvas. Testar toBlob primeiro evita cair no caminho errado
+      // caso o browser exponha os dois.
+      if (typeof canvas.toBlob === 'function') {
         canvas.toBlob(
-          (b) => (b ? res(b) : rej(new Error('toBlob failed'))),
+          (b) => (b ? res(b) : rej(new Error('toBlob retornou null'))),
           'image/jpeg',
           quality
         );
+      } else if (typeof canvas.convertToBlob === 'function') {
+        canvas.convertToBlob({ type: 'image/jpeg', quality }).then(res).catch(rej);
+      } else {
+        rej(new Error('canvas sem toBlob/convertToBlob'));
       }
     });
     return new File(
@@ -102,8 +125,15 @@ export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
       (file.name || 'photo').replace(/\.(webp|png|heic)$/i, '.jpg'),
       { type: 'image/jpeg' }
     );
-  } catch (_) {
+  } catch (err) {
+    // Devolver o arquivo original mantem o envio funcionando, mas o preview
+    // pode falhar (HEIC do iPhone, por exemplo, o browser nao renderiza).
+    // Sem este log o motivo real ficava invisivel.
+    console.warn('[useNativeCamera] compressToJpeg falhou, usando original:', err);
     return file;
+  } finally {
+    // A imagem ja foi copiada para o canvas; segurar a URL so vazaria memoria.
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
 };
 
@@ -184,13 +214,23 @@ const consumePendingPhoto = () => {
 /**
  * @param {object} options
  * @param {number} [options.maxPhotos=5]       - Limite de fotos
- * @param {string} [options.toastSuccess]      - Mensagem de sucesso (padrão '✅ Foto adicionada!')
+ *
+ * `toastSuccess` saiu junto com o toast de "foto adicionada": nenhum chamador
+ * passava um valor, e a miniatura entrando na grade já é o retorno.
  */
-export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicionada!' } = {}) => {
+export const useNativeCamera = ({ maxPhotos = 5 } = {}) => {
   const { toast } = useToast();
 
   // Estado unificado — cada item: { id, preview, nativePath?, file?, name }
   const [photoItems, setPhotoItems] = useState([]);
+  // Espelho do estado, legível DENTRO de um laço assíncrono.
+  //
+  // `photoItems` da closure envelhece entre uma foto e outra (compressToJpeg é
+  // async), e o valor certo só existe depois do próximo render — que não
+  // acontece no meio do laço. O ref é o único jeito de saber quantas já
+  // entraram sem perguntar ao React.
+  const photoItemsRef = useRef([]);
+  useEffect(() => { photoItemsRef.current = photoItems; }, [photoItems]);
   const [addingPhoto, setAddingPhoto] = useState(false);
 
   // Ref para evitar double-tap sem causar re-render
@@ -256,9 +296,11 @@ export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicio
         },
       ]);
 
-      toast({ title: toastSuccess });
+      // Sem toast: o `setPhotoItems` acima põe a miniatura na tela. A foto
+      // aparecendo é a confirmação — o aviso "✅ Foto adicionada!" tapava
+      // justamente a grade onde ela acabara de entrar.
     },
-    [toast, toastSuccess]
+    []
   );
 
   // ── Recuperação de foto pendente no mount ─────────────────────────────
@@ -301,23 +343,60 @@ export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicio
   // ── Web file input ──────────────────────────────────────────────────────
   const handleFileChange = useCallback(
     async (e) => {
-      const files = Array.from(e.target.files || []);
+      const input = e.target;
+      const files = Array.from(input.files || []);
       if (!files.length) return;
-      for (const file of files.slice(0, maxPhotos - photoItems.length)) {
-        const compressed = await compressToJpeg(file);
-        setPhotoItems((prev) => [
-          ...prev,
-          {
-            id: Date.now() + Math.random(),
-            file: compressed,
-            preview: URL.createObjectURL(compressed),
-            name: compressed.name,
-          },
-        ]);
+
+      // Limpa o input ANTES do await: se o usuario escolher a mesma imagem de
+      // novo, o `change` so dispara se o value tiver sido zerado — e depois do
+      // await o React ja pode ter reciclado o evento.
+      input.value = '';
+
+      setAddingPhoto(true);
+      try {
+        // ⚠️ NÃO VOLTE A DECIDIR ISTO DENTRO DO `setPhotoItems`.
+        //
+        // Havia aqui um `let added = false` marcado dentro do updater e lido na
+        // linha seguinte, para revogar o blob quando a foto não coubesse. O
+        // React não promete rodar o updater na hora: com o batching automático
+        // do 18 ele roda na fase de render, DEPOIS desta linha. Então `added`
+        // ainda era `false`, o `revokeObjectURL` disparava sobre a foto que
+        // tinha acabado de entrar, e a miniatura aparecia quebrada.
+        //
+        // Foi o que apareceu no registro pela web: a foto na lista, com o botão
+        // de remover, e um ícone de imagem quebrada no lugar dela.
+        //
+        // A contagem agora é local ao laço, decidida ANTES de gastar trabalho
+        // comprimindo — e o updater voltou a ser o que deve ser: uma função
+        // pura de `prev` para o próximo estado.
+        let cabem = Math.max(0, maxPhotos - photoItemsRef.current.length);
+
+        for (const file of files) {
+          if (cabem <= 0) break;
+
+          const compressed = await compressToJpeg(file);
+          const preview = URL.createObjectURL(compressed);
+          cabem -= 1;
+
+          setPhotoItems((prev) =>
+            prev.length >= maxPhotos
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id: Date.now() + Math.random(),
+                    file: compressed,
+                    preview,
+                    name: compressed.name,
+                  },
+                ]
+          );
+        }
+      } finally {
+        setAddingPhoto(false);
       }
-      e.target.value = '';
     },
-    [maxPhotos, photoItems.length]
+    [maxPhotos]
   );
 
   // ── Câmera ──────────────────────────────────────────────────────────────
@@ -364,12 +443,33 @@ export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicio
           clearPendingPhoto(); // limpa após sucesso
         }
       } else {
+        // O INPUT PRECISA ESTAR NO DOM.
+        //
+        // Este elemento era criado solto e clicado assim mesmo. No Chrome de
+        // desktop funciona; em Safari (iOS) e em vários navegadores Android um
+        // input DESTACADO não dispara `change` — a câmera abre, a pessoa tira a
+        // foto, e nada volta para a tela. Foi o que aconteceu no registro pela
+        // web.
+        //
+        // Anexado ao body (invisível), o `change` dispara em todos eles.
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
         input.capture = 'environment';
-        input.onchange = (e) => handleFileChange(e);
+        input.style.display = 'none';
+        input.onchange = (e) => {
+          handleFileChange(e);
+          input.remove();
+        };
+        document.body.appendChild(input);
         input.click();
+
+        // Cancelar o seletor não dispara evento nenhum em boa parte dos
+        // navegadores: sem esta limpeza, cada tentativa cancelada deixaria um
+        // input órfão no body para sempre.
+        setTimeout(() => {
+          if (input.isConnected && !input.files?.length) input.remove();
+        }, 120000);
       }
     } catch (err) {
       clearCameraContext();

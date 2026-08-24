@@ -109,4 +109,25 @@ export interface VideoProcessorPlugin {
    * @deprecated Use getImageMetadata or generic thumbnail generation
    */
   generateImageThumbnail(options: { filePath: string; maxWidth?: number; maxHeight?: number; quality?: number }): Promise<{ thumbnailPath: string }>;
+
+  /**
+   * Compartilha um vídeo ou imagem local diretamente no story do Instagram.
+   *
+   * Requer um Facebook App ID registrado — sem ele o Instagram recusa o asset.
+   * O `filePath` precisa ser um caminho LOCAL (URL remota não funciona).
+   *
+   * ATENÇÃO: o sticker de link (`contentUrl`) só é renderizado se a conta do
+   * usuário tiver permissão de link em story. Isso é regra da Meta e não pode
+   * ser detectado pelo app — `linkAttached: true` significa apenas que o
+   * parâmetro foi enviado, NÃO que o link apareceu para o usuário.
+   *
+   * Rejeita com "INSTAGRAM_NOT_INSTALLED" quando o Instagram não está presente.
+   */
+  shareToInstagramStory(options: {
+    filePath: string;
+    facebookAppId: string;
+    contentUrl?: string;
+    /** Padrao 'video'. Define o mime (Android) e a chave de pasteboard (iOS). */
+    mediaType?: 'video' | 'image';
+  }): Promise<{ shared: boolean; linkAttached: boolean }>;
 }

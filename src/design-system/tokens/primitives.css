@@ -1,0 +1,103 @@
+/* Paleta bruta do Trombone Cidadao.
+   Valores em canal RGB separado por espaco, para permitir rgb(var(--x) / alpha).
+   Esta camada NAO muda entre temas. */
+:root {
+  /* Vermelho da marca */
+  --tc-red-50:  254 243 242;
+  --tc-red-100: 254 228 226;
+  --tc-red-200: 254 205 202;
+  --tc-red-300: 253 162 155;
+  --tc-red-400: 249 112 102;
+  /* Vermelho vivo da marca no tema escuro: mais saturado que o 400, ainda com
+     4.54:1 como texto sobre o card. Nao usar como fundo com texto branco
+     (3.87:1) — sobre ele o texto e escuro. */
+  --tc-red-450: 245 51 63;
+  --tc-red-500: 240 72 62;
+  --tc-red-600: 217 45 32;
+  --tc-red-700: 180 35 24;
+  --tc-red-800: 145 32 24;
+  --tc-red-900: 122 32 26;
+  --tc-red-950: 85 15 12;
+
+  /* Neutros levemente frios (leitura mais sobria; o tom quente puxava para
+     bege e competia com o vermelho da marca). */
+  --tc-neutral-0:   255 255 255;
+  --tc-neutral-50:  250 251 252;
+  --tc-neutral-100: 246 247 249;
+  --tc-neutral-200: 229 231 235;
+  --tc-neutral-300: 209 213 219;
+  --tc-neutral-400: 156 163 175;
+  --tc-neutral-500: 107 114 128;
+  --tc-neutral-600: 75 85 99;
+  --tc-neutral-700: 55 65 81;
+  --tc-neutral-800: 36 41 51;
+  --tc-neutral-850: 31 36 44;
+  --tc-neutral-900: 25 29 36;
+  --tc-neutral-950: 16 18 21;
+
+  /* Ambar - status pendente */
+  --tc-amber-100: 254 243 199;
+  --tc-amber-200: 253 230 138;
+  --tc-amber-300: 252 211 77;
+  --tc-amber-600: 217 119 6;
+  --tc-amber-700: 180 83 9;
+  --tc-amber-900: 120 53 15;
+  --tc-amber-950: 69 26 3;
+
+  /* Azul - status em andamento */
+  --tc-blue-100: 219 234 254;
+  --tc-blue-200: 191 219 254;
+  --tc-blue-300: 147 197 253;
+  --tc-blue-600: 37 99 235;
+  --tc-blue-700: 29 78 216;
+  --tc-blue-900: 30 58 138;
+  --tc-blue-950: 23 37 84;
+
+  /* Verde - status resolvido */
+  --tc-green-100: 220 252 231;
+  --tc-green-200: 187 247 208;
+  --tc-green-300: 134 239 172;
+  --tc-green-600: 22 163 74;
+  --tc-green-700: 21 128 61;
+  --tc-green-900: 20 83 45;
+  --tc-green-950: 5 46 22;
+
+  /* Violeta - sinal "agora" */
+  --tc-violet-300: 196 181 253;
+  --tc-violet-600: 124 58 237;
+  --tc-violet-950: 46 16 101;
+
+  /* Amarelo da marca - destaque secundario */
+  --tc-yellow-400: 250 204 21;
+  --tc-yellow-500: 234 179 8;
+
+  /* --- Categorias de bronca (pins do mapa) ---
+     Um tom por categoria, usado nos DOIS temas com icone escuro por cima.
+     Sao as cores do guia com ~22% de dessaturacao: no guia elas aparecem
+     isoladas, mas no mapa real, com dezenas de pins juntos, a saturacao cheia
+     competia com as ruas e a tela virava uma mancha de cor. A matiz continua a
+     mesma, entao laranja segue lendo como laranja.
+     Ficam aqui, e nao em semantic.css, porque sao valores de paleta. */
+  --tc-cat-pothole:   233 141 34;   /* base #FF8A00 */
+  --tc-cat-lighting:  241 193 48;   /* base #FFC107 */
+  --tc-cat-sewage:     55 146 219;  /* base #2196F3 */
+  --tc-cat-cleaning:   61 188 107;  /* base #22C55E */
+  --tc-cat-greenery:  170 144 228;  /* base #8B5CF6 */
+  /* Clareado alem dos 22%: no tom dessaturado puro o icone escuro caia para
+     4.33 e reprovava AA. */
+  /* Vermelho: usado pelo estado "em alta" do pin e pela primeira serie dos
+     graficos. Nao e mais cor de categoria - 'seguranca' foi removida. */
+  --tc-cat-alert:     219  95  95;  /* base #EF4444 */
+  --tc-cat-other:     149 158 170;  /* base #64748B */
+
+  /* --- Status de bronca no mapa ---
+     As cores originais do app (laranja/azul/verde), com a mesma dessaturacao de
+     22% aplicada as categorias: sobre o mapa, o tom cheio competia com as ruas.
+     Valem nos dois temas. */
+  --tc-status-pending:   224 120  47;  /* base #F97316 */
+  --tc-status-progress:   73 129 219;  /* base #3B82F6 */
+  --tc-status-resolved:   61 188 107;  /* base #22C55E */
+  /* Clareado alem dos 22%: no tom dessaturado puro o icone escuro caia para
+     3.88 e reprovava AA. */
+  --tc-status-duplicate: 125 131 142;  /* base #6B7280 */
+}

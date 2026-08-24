@@ -8,16 +8,15 @@ import React, {
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  computeDisabledUpdateTypes,
+  statusInicialDaAtualizacao,
+} from "@/hooks/useReportUpdate";
 import { Button } from "@/components/ui/button";
 import LinkReportModal from "@/components/LinkReportModal";
 import ReportDetails from "@/components/ReportDetails";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
+import { useReportPermissions } from "@/hooks/useReportPermissions";
 import { supabase } from "@/lib/customSupabaseClient";
 import { getReportShareUrl } from "@/lib/shareUtils";
 import { useUpvote } from "../hooks/useUpvotes";
@@ -25,101 +24,50 @@ import DynamicSEO from "../components/DynamicSeo";
 import DonationModal from "@/components/DonationModal";
 import MarkResolvedModal from "@/components/MarkResolvedModal";
 import MediaViewer from "@/components/MediaViewer";
-import { Combobox } from "@/components/ui/combobox";
 import {
-  ArrowLeft,
-  MapPin,
-  Calendar,
   ThumbsUp,
   Star,
   Share2,
-  Flag,
-  MessageSquare,
-  Send,
   FileSignature,
-  Hash,
-  Droplet,
-  Shield,
-  Edit,
   CheckCircle,
-  Link as LinkIcon,
-  Play,
   Image,
   Instagram,
-  Sparkles,
-  Heart,
   FileText,
-  X,
   Download,
   User2Icon,
   Megaphone,
   Clock,
-  Trash2,
-  Loader2,
 } from "lucide-react";
 import { Share } from "@capacitor/share";
 import { toPng } from "html-to-image";
 import ReportFlyerModal from "@/components/report/ReportFlyerModal";
 import ReportStoryModal from "@/components/report/ReportStoryModal";
 import ReportUpdateModal from "@/components/report/ReportUpdateModal";
+import ReportHeader from "@/components/report/ReportHeader";
+import ReportLocation from "@/components/report/ReportLocation";
+import {
+  ReportProblemDescription,
+  ReportProblemDetails,
+} from "@/components/report/ReportProblem";
+import ReportSummary from "@/components/report/ReportSummary";
+import ReportProgress from "@/components/report/ReportProgress";
+import ReportUpdates from "@/components/report/ReportUpdates";
+import { ReportMediaHero, ReportMediaGallery } from "@/components/report/ReportMedia";
+import {
+  ReportManagementPanel,
+  ReportModerationBar,
+} from "@/components/report/ReportActionsMenu";
+import ReportComments from "@/components/report/ReportComments";
+import Icon from "@/design-system/icons";
 import { useNativeCamera } from "@/hooks/useNativeCamera";
 import {
   AlertCircle,
   Layout as LayoutIcon,
   Grid as GridIcon,
   Home,
-  Navigation,
 } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { FLORESTA_COORDS } from "@/config/mapConfig";
 import { useMobileHeader } from "@/contexts/MobileHeaderContext";
 import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
-
-// Fix for Leaflet default icon
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
-
-const ReportMap = ({ location, address }) => {
-  const position = useMemo(() => {
-    if (
-      location &&
-      typeof location.lat === "number" &&
-      typeof location.lng === "number"
-    ) {
-      return [location.lat, location.lng];
-    }
-    return FLORESTA_COORDS;
-  }, [location]);
-
-  return (
-    <div className="h-48 w-full rounded-2xl overflow-hidden relative z-0 shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
-      <MapContainer
-        center={position}
-        zoom={15}
-        style={{ height: "100%", width: "100%" }}
-        scrollWheelZoom={false}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={position}>
-          <Popup>{address || "Localização da Bronca"}</Popup>
-        </Marker>
-      </MapContainer>
-    </div>
-  );
-};
 
 // ─────────────────────────────────────────────
 // Main ReportPage
@@ -139,6 +87,7 @@ const ReportPage = () => {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [showMarkResolvedModal, setShowMarkResolvedModal] = useState(false);
+  const [showRepublishOptions, setShowRepublishOptions] = useState(false);
   const [showFlyerModal, setShowFlyerModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [reportToLink, setReportToLink] = useState(null);
@@ -161,30 +110,31 @@ const ReportPage = () => {
   const [updateType, setUpdateType] = useState(null);
   const [updateMessage, setUpdateMessage] = useState('');
 
-  // ── Moderação (embaixador vindo do painel) ──
-  // Ativa quando navegamos com state.moderation=true a partir do Painel do Embaixador.
-  const cameFromModeration = !!location.state?.moderation;
-  const [canModerate, setCanModerate] = useState(false);
   const [moderating, setModerating] = useState(false);
+  const {
+    isAdmin,
+    isPublicOfficial,
+    isAuthorOrAdmin,
+    canModerate,
+    canEditCategory,
+    canEditWaterUtility,
+    canMarkResolved,
+    canConfirmUpdate,
+    canDeleteUpdate,
+  } = useReportPermissions(report);
 
   const UPDATES_VISIBLE_COUNT = 3;
-  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-  // Rate limit por tipo: mapeia tipo → Date de liberação (se bloqueado)
-  const disabledUpdateTypes = useMemo(() => {
-    if (!user) return {};
-    const cutoff = new Date(Date.now() - SEVEN_DAYS_MS);
-    const result = {};
-    reportUpdates.forEach((u) => {
-      if (u.author_id === user.id && new Date(u.created_at) > cutoff) {
-        const unlockDate = new Date(new Date(u.created_at).getTime() + SEVEN_DAYS_MS);
-        if (!result[u.update_type] || unlockDate > result[u.update_type]) {
-          result[u.update_type] = unlockDate;
-        }
-      }
-    });
-    return result;
-  }, [reportUpdates, user]);
+  // Rate limit por tipo: mapeia tipo → Date de liberação (se bloqueado).
+  //
+  // A conta vinha copiada aqui, idêntica à de useReportUpdate.js. A cópia já
+  // custou caro: a correção de "atualização rejeitada não bloqueia" foi feita
+  // lá e não chegou nesta tela — que é justamente onde o usuário encontra o
+  // bloqueio.
+  const disabledUpdateTypes = useMemo(
+    () => computeDisabledUpdateTypes(reportUpdates, user),
+    [reportUpdates, user]
+  );
 
   const canSendAnyUpdate = useMemo(() => {
     if (!user) return false;
@@ -385,7 +335,7 @@ const ReportPage = () => {
       },
       duplicate: {
         text: "Duplicada",
-        colorClasses: "bg-gray-100 text-gray-500",
+        colorClasses: "bg-surface-sunken text-content-tertiary",
       },
       pending_resolution: {
         text: "Verificando Resolução",
@@ -447,6 +397,17 @@ const ReportPage = () => {
     [mediaItems]
   );
 
+  // Há quanto tempo a bronca está de pé.
+  //
+  // Existia desde 9d1cca1 e sumiu no redesign do resumo (9d6a309): o
+  // ReportSummary foi reescrito e a prop `reportAgeStory` não foi religada, e
+  // o cálculo aqui virou código morto e acabou removido junto. Não foi decisão
+  // de produto — é regressão, e o "há X dias no escuro" era justamente o que
+  // dava peso à bronca de iluminação parada.
+  //
+  // Só a partir de sete dias: antes disso "há 2 dias sem solução" cobra uma
+  // resposta que ainda está dentro do prazo razoável e faz o app parecer
+  // impaciente em vez de vigilante.
   const reportAgeStory = useMemo(() => {
     if (!report?.created_at || report?.status === "resolved") return null;
 
@@ -460,9 +421,22 @@ const ReportPage = () => {
 
     if (ageDays < 7) return null;
 
-    return report.category === "iluminacao"
-      ? `Essa rua está há ${ageDays} dias no escuro.`
-      : `Esse problema está há ${ageDays} dias sem solução.`;
+    // A frase é da CATEGORIA, não genérica: "essa rua está no escuro" é o que
+    // a pessoa reconhece ao passar por lá, e "sem solução" não diz nada sobre
+    // o que continua acontecendo enquanto ninguém resolve.
+    const porCategoria = {
+      iluminacao: `Essa rua está há ${ageDays} dias no escuro.`,
+      buracos: `Esse buraco está há ${ageDays} dias na via.`,
+      esgoto: `Esse esgoto está há ${ageDays} dias correndo.`,
+      limpeza: `Esse ponto está há ${ageDays} dias sem limpeza.`,
+      poda: `Essa árvore está há ${ageDays} dias esperando poda.`,
+      "vazamento-de-agua": `Essa água está há ${ageDays} dias vazando.`,
+    };
+
+    return (
+      porCategoria[report.category] ||
+      `Esse problema está há ${ageDays} dias sem solução.`
+    );
   }, [report?.category, report?.created_at, report?.status]);
 
   const waterUtilityName = useMemo(() => {
@@ -490,13 +464,6 @@ const ReportPage = () => {
   }, [report]);
 
   const isFromWaterUtility = !!report?.is_from_water_utility;
-  const canChangeStatus =
-    !!user &&
-    !!report &&
-    (user.is_admin || user.user_type === "public_official");
-  const canEditCategory = !!user && !!report && user.is_admin;
-  const canManageWaterUtility =
-    !!report && report.category === "buracos" && canEditCategory;
 
   const handleSubmitComment = async (e) => {
     e.preventDefault();
@@ -565,13 +532,13 @@ const ReportPage = () => {
         Capacitor.isNativePlatform() &&
         Capacitor.isPluginAvailable("Share")
       ) {
+        // Sem toast: a folha de compartilhamento do sistema já confirmou o
+        // envio ao fechar. O toast só chega depois, para dizer o mesmo.
         await Share.share({ title, text: shareText });
-        toast({ title: "Compartilhado com sucesso! 📣" });
         return;
       }
       if (navigator.share) {
         await navigator.share({ title, text: shareText });
-        toast({ title: "Compartilhado com sucesso! 📣" });
         return;
       }
       await navigator.clipboard.writeText(shareText);
@@ -613,7 +580,7 @@ const ReportPage = () => {
   };
 
   const handleAdminStatusChange = async (newStatus) => {
-    if (!report || !canChangeStatus) return;
+    if (!report || !canMarkResolved) return;
     const { error } = await supabase
       .from("reports")
       .update({ status: newStatus })
@@ -626,13 +593,10 @@ const ReportPage = () => {
       });
       return;
     }
+    // Sem toast: a etiqueta de status na tela muda para o valor novo. O toast
+    // lia o mesmo `getStatusInfo` do selo para repetir a palavra que o selo
+    // acabara de exibir.
     setReport((prev) => (prev ? { ...prev, status: newStatus } : prev));
-    toast({
-      title: "Status atualizado",
-      description: `A bronca agora está como "${
-        getStatusInfo(newStatus).text
-      }".`,
-    });
   };
 
   const handleAdminCategoryChange = async (newCategory) => {
@@ -661,11 +625,11 @@ const ReportPage = () => {
           }
         : prev
     );
-    toast({ title: "Categoria atualizada" });
+    // Sem toast: a categoria exibida troca junto.
   };
 
   const handleAdminWaterUtilityChange = async (value) => {
-    if (!report || !canManageWaterUtility) return;
+    if (!report || !canEditWaterUtility) return;
     const isYes = value === "yes";
     const { error } = await supabase
       .from("reports")
@@ -679,10 +643,11 @@ const ReportPage = () => {
       });
       return;
     }
+    // Sem toast: a linha "Abertura COMPESA" na grade de Informações passa a
+    // mostrar o valor escolhido.
     setReport((prev) =>
       prev ? { ...prev, is_from_water_utility: isYes } : prev
     );
-    toast({ title: "Informação atualizada" });
   };
 
   const handleUpvoteClick = async () => {
@@ -715,7 +680,7 @@ const ReportPage = () => {
       navigate("/login");
       return;
     }
-    if (!(user.is_admin || user.user_type === "public_official")) {
+    if (!canMarkResolved) {
       toast({
         title: "Acesso restrito",
         description: "Somente gestores podem editar esta bronca.",
@@ -733,7 +698,7 @@ const ReportPage = () => {
       navigate("/login");
       return;
     }
-    if (!(user.is_admin || user.user_type === "public_official")) {
+    if (!canMarkResolved) {
       toast({ title: "Acesso restrito", variant: "destructive" });
       return;
     }
@@ -790,7 +755,6 @@ const ReportPage = () => {
         .getPublicUrl(filePath);
       publicURLData = data;
     }
-    const isAdmin = user && user.is_admin;
     const updatedReport = {
       status: isAdmin ? "resolved" : "pending_resolution",
       resolution_submission: {
@@ -815,12 +779,16 @@ const ReportPage = () => {
     }
     setReport((prev) => (prev ? { ...prev, ...updatedReport } : prev));
     setShowMarkResolvedModal(false);
-    toast({
-      title: "Bronca atualizada",
-      description: isAdmin
-        ? "Bronca marcada como resolvida."
-        : "Resolução enviada para revisão.",
-    });
+    // O toast sobrou SÓ para quem não é admin, e por um motivo: para o admin a
+    // bronca vira "Resolvida" na tela e o aviso repetia o selo. Para o cidadão
+    // ela NÃO muda de status — vai para revisão — e sem esta linha a tela fica
+    // idêntica a antes de enviar, como se o botão não tivesse funcionado.
+    if (!isAdmin) {
+      toast({
+        title: "Resolução enviada para revisão",
+        description: "A bronca muda de status quando a revisão aprovar.",
+      });
+    }
   };
 
   const formatRelativeDate = (dateString) => {
@@ -892,7 +860,6 @@ const ReportPage = () => {
     const photos = await updateCam.resolveForUpload();
     const message = updateMessage;
     setSubmittingUpdate(true);
-    const isAuthorOrAdmin = user.is_admin || user.id === report.author_id;
     try {
       const { data: newUpdate, error: insertError } = await supabase
         .from("report_updates")
@@ -901,8 +868,9 @@ const ReportPage = () => {
           author_id: user.id,
           update_type: updateType,
           message: message || null,
-          // Autor e admin auto-confirmam; outros entram em moderação
-          status: isAuthorOrAdmin ? 'pending' : 'pending_moderation',
+          // A regra mora em useReportUpdate.js: repeti-la aqui já custou uma
+          // divergência entre esta tela e o envio da patrulha.
+          status: statusInicialDaAtualizacao(updateType, isAuthorOrAdmin),
         })
         .select()
         .single();
@@ -935,7 +903,7 @@ const ReportPage = () => {
       }
 
       // Atualização otimista
-      const optimisticStatus = isAuthorOrAdmin ? 'pending' : 'pending_moderation';
+      const optimisticStatus = statusInicialDaAtualizacao(updateType, isAuthorOrAdmin);
       setReportUpdates((prev) => [
         {
           id: newUpdate.id,
@@ -955,7 +923,7 @@ const ReportPage = () => {
       if (isAuthorOrAdmin) {
         const typeInfo = getUpdateTypeInfo(updateType);
         const newStatus =
-          updateType === "solved" && user.is_admin
+          updateType === "solved" && isAdmin
             ? "resolved"
             : typeInfo.reportStatus;
 
@@ -977,10 +945,6 @@ const ReportPage = () => {
         updateCam.clearPhotos();
         setUpdateType(null);
         setUpdateMessage('');
-        toast({
-          title: "Atualização confirmada! ✅",
-          description: `Status da bronca atualizado para "${getStatusInfo(newStatus).text}".`,
-        });
       } else {
         setShowUpdateModal(false);
         updateCam.clearPhotos();
@@ -1015,7 +979,7 @@ const ReportPage = () => {
     if (!user || !report) return;
     const typeInfo = getUpdateTypeInfo(update.update_type);
     const newReportStatus =
-      update.update_type === "solved" && user.is_admin
+      update.update_type === "solved" && isAdmin
         ? "resolved"
         : typeInfo.reportStatus;
 
@@ -1042,10 +1006,6 @@ const ReportPage = () => {
       .update({ status: newReportStatus })
       .eq("id", report.id);
 
-    toast({
-      title: "Atualização confirmada!",
-      description: `Status da bronca atualizado para "${getStatusInfo(newReportStatus).text}".`,
-    });
     fetchReport();
   };
 
@@ -1057,44 +1017,11 @@ const ReportPage = () => {
       toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
       return;
     }
+    // Sem toast de sucesso: a atualização desaparece da lista logo abaixo do
+    // botão. O de ERRO fica — falha silenciosa deixaria a linha na tela sem
+    // explicação de por que não sumiu.
     setReportUpdates((prev) => prev.filter((u) => u.id !== upd.id));
-    toast({ title: 'Atualização excluída.' });
   };
-
-  // Verifica se o usuário pode moderar esta bronca (admin/master, ou embaixador
-  // ativo da cidade dela). Só roda quando viemos do painel de moderação e a
-  // bronca ainda está aguardando aprovação.
-  useEffect(() => {
-    let cancelled = false;
-    const check = async () => {
-      if (
-        !cameFromModeration ||
-        !user ||
-        !report ||
-        report.moderation_status !== 'pending_approval'
-      ) {
-        if (!cancelled) setCanModerate(false);
-        return;
-      }
-      if (user.is_admin || user.is_master) {
-        if (!cancelled) setCanModerate(true);
-        return;
-      }
-      if (!user.is_ambassador || !report.city_id) {
-        if (!cancelled) setCanModerate(false);
-        return;
-      }
-      const { data, error } = await supabase.rpc('is_ambassador_of', {
-        p_user: user.id,
-        p_city_id: report.city_id,
-      });
-      if (!cancelled) setCanModerate(!error && data === true);
-    };
-    check();
-    return () => {
-      cancelled = true;
-    };
-  }, [cameFromModeration, user, report?.moderation_status, report?.city_id]);
 
   const handleModerate = async (approve) => {
     if (!report) return;
@@ -1119,82 +1046,24 @@ const ReportPage = () => {
     navigate(-1);
   };
 
-  const managementPanel =
-    canChangeStatus && report?.moderation_status === "approved" ? (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-        <Accordion type="single" collapsible defaultValue="">
-          <AccordionItem value="management" className="border-b-0">
-            <AccordionTrigger className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2 hover:no-underline">
-              <span className="inline-flex items-center gap-2">
-                <Shield className="w-3.5 h-3.5 text-blue-600" />
-                <span className="tracking-[0.18em]">Painel de Gestão</span>
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-5 py-4 space-y-4">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
-                  Alterar Status
-                </div>
-                <Combobox
-                  options={[
-                    { value: "pending", label: "Pendente" },
-                    { value: "in-progress", label: "Em Andamento" },
-                    {
-                      value: "pending_resolution",
-                      label: "Verificando Resolução",
-                    },
-                    ...(user?.is_admin
-                      ? [{ value: "resolved", label: "Resolvido" }]
-                      : []),
-                  ]}
-                  value={report.status}
-                  onChange={handleAdminStatusChange}
-                  placeholder="Selecione o status"
-                  searchPlaceholder="Buscar status..."
-                  notFoundText="Status não encontrado"
-                />
-              </div>
-              {canEditCategory && (
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
-                    Alterar Categoria
-                  </div>
-                  <Combobox
-                    options={Object.entries(categories).map(([key, value]) => ({
-                      value: key,
-                      label: value,
-                    }))}
-                    value={report.category}
-                    onChange={handleAdminCategoryChange}
-                    placeholder="Selecione a categoria"
-                    searchPlaceholder="Buscar categoria..."
-                    notFoundText="Categoria não encontrada"
-                  />
-                </div>
-              )}
-              {canManageWaterUtility && (
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 mb-1">
-                    Aberto pela COMPESA?
-                  </div>
-                  <Combobox
-                    options={[
-                      { value: "yes", label: "Sim" },
-                      { value: "no", label: "Não" },
-                    ]}
-                    value={isFromWaterUtility ? "yes" : "no"}
-                    onChange={handleAdminWaterUtilityChange}
-                    placeholder="Selecione"
-                    searchPlaceholder="Buscar..."
-                    notFoundText="Opção não encontrada"
-                  />
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </div>
-    ) : null;
+  const showManagementPanel =
+    canMarkResolved && report?.moderation_status === "approved";
+  const managementPanel = showManagementPanel ? (
+    <ReportManagementPanel
+      canMarkResolved={canMarkResolved}
+      moderationStatus={report?.moderation_status}
+      reportStatus={report?.status}
+      reportCategory={report?.category}
+      isFromWaterUtility={isFromWaterUtility}
+      isUserAdmin={!!user?.is_admin}
+      canEditCategory={canEditCategory}
+      canEditWaterUtility={canEditWaterUtility}
+      categories={categories}
+      handleAdminStatusChange={handleAdminStatusChange}
+      handleAdminCategoryChange={handleAdminCategoryChange}
+      handleAdminWaterUtilityChange={handleAdminWaterUtilityChange}
+    />
+  ) : null;
 
   useEffect(() => {
     const imageToUse = seoImage || `${baseUrl}/images/thumbnail.jpg`;
@@ -1515,7 +1384,6 @@ const ReportPage = () => {
         });
       }
     }
-    toast({ title: "Bronca atualizada com sucesso! ✨" });
     fetchReport();
   };
 
@@ -1536,10 +1404,8 @@ const ReportPage = () => {
           description: error.message,
           variant: "destructive",
         });
-      else {
-        toast({ title: "Removido dos favoritos! 💔" });
-        setReport((prev) => ({ ...prev, is_favorited: false }));
-      }
+      // Sem toast: o coração troca de estado na hora, embaixo do próprio dedo.
+      else setReport((prev) => ({ ...prev, is_favorited: false }));
     } else {
       const { error } = await supabase
         .from("favorite_reports")
@@ -1550,10 +1416,7 @@ const ReportPage = () => {
           description: error.message,
           variant: "destructive",
         });
-      else {
-        toast({ title: "Adicionado aos favoritos! ⭐" });
-        setReport((prev) => ({ ...prev, is_favorited: true }));
-      }
+      else setReport((prev) => ({ ...prev, is_favorited: true }));
     }
   };
 
@@ -1587,62 +1450,11 @@ const ReportPage = () => {
         variant: "destructive",
       });
     else {
-      toast({ title: "Bronca vinculada! 🔗" });
       fetchReport();
     }
     setShowLinkModal(false);
     setReportToLink(null);
   };
-
-  const hasMedia = viewerMedia.length > 0;
-  const firstMedia = hasMedia ? viewerMedia[0] : null;
-  const firstIsVideo =
-    firstMedia &&
-    (firstMedia.type === "video" || firstMedia.type === "video_url");
-  const [firstVideoThumb, setFirstVideoThumb] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setFirstVideoThumb(null);
-    if (!firstIsVideo || !firstMedia?.url) return;
-    try {
-      const video = document.createElement("video");
-      Object.assign(video, {
-        crossOrigin: "anonymous",
-        muted: true,
-        playsInline: true,
-        preload: "metadata",
-      });
-      video.addEventListener(
-        "loadedmetadata",
-        () => {
-          const t = Math.min(0.2, Math.max(0.05, (video.duration || 1) * 0.1));
-          video.addEventListener(
-            "seeked",
-            () => {
-              try {
-                const c = document.createElement("canvas");
-                c.width = video.videoWidth || 1280;
-                c.height = video.videoHeight || 720;
-                c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
-                if (!cancelled)
-                  setFirstVideoThumb(c.toDataURL("image/jpeg", 0.7));
-              } catch {}
-            },
-            { once: true }
-          );
-          try {
-            video.currentTime = t;
-          } catch {}
-        },
-        { once: true }
-      );
-      video.src = firstMedia.url;
-    } catch {}
-    return () => {
-      cancelled = true;
-    };
-  }, [firstIsVideo, firstMedia?.url]);
 
   useEffect(() => {
     if (!isInteractive) return;
@@ -1728,1000 +1540,314 @@ const ReportPage = () => {
         <>
           {/* ── TOP NAV ── */}
           {!isInteractive && (
-            <div className="bg-white/90 backdrop-blur-sm sticky top-0 z-30 shadow-[0_1px_0_0_rgba(25,28,30,0.06)]">
-              <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-14 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-9 w-9 rounded-xl bg-[#f2f4f7] hover:bg-[#e8eaed]"
-                    onClick={() => navigate(-1)}
-                  >
-                    <ArrowLeft className="w-4 h-4 text-[#191c1e]" strokeWidth={1.5} />
-                  </Button>
-                  <span className="text-sm font-bold tracking-tight text-[#191c1e]">
-                    Voltar para página inicial
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className={`h-9 w-9 rounded-xl ${
-                      report.is_favorited
-                        ? "bg-red-50 hover:bg-red-100"
-                        : "bg-[#f2f4f7] hover:bg-[#e8eaed]"
-                    }`}
-                    onClick={() =>
-                      handleFavoriteToggle(report.id, report.is_favorited)
-                    }
-                  >
-                    <Star
-                      className={`w-4 h-4 ${
-                        report.is_favorited
-                          ? "fill-[#b61722] text-[#b61722]"
-                          : "text-[#191c1e]"
-                      }`}
-                      strokeWidth={1.5}
-                    />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-9 w-9 rounded-xl bg-[#f2f4f7] hover:bg-[#e8eaed]"
-                    onClick={handleShare}
-                  >
-                    <Share2 className="w-4 h-4 text-[#191c1e]" strokeWidth={1.5} />
-                  </Button>
-                </div>
-              </div>
-              <div className="hidden lg:block bg-[#f7f9fc]">
-                <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-[11px] text-[#6b7280] flex items-center gap-1">
-                  <Link to="/" className="hover:text-[#b61722] transition-colors">
+            <>
+              <ReportHeader
+                onBack={() => navigate(-1)}
+                protocol={report.protocol}
+                showAdminActions={isAdmin || isPublicOfficial}
+                handleOpenLinkModal={() => handleOpenLinkModal(report)}
+                handleEditClick={handleEditClick}
+                handleReportError={handleReportError}
+                handleWhatsAppShare={handleWhatsAppShare}
+                handleCopyShareLink={handleCopyShareLink}
+                handleShare={handleShare}
+              />
+              <div className="hidden lg:block bg-surface-subtle">
+                <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-2xs text-content-tertiary flex items-center gap-1">
+                  <Link to="/" className="hover:text-brand transition-colors">
                     Início
                   </Link>
                   <span className="opacity-50">›</span>
                   <span>Broncas</span>
                   <span className="opacity-50">›</span>
-                  <span className="text-[#191c1e] truncate">{report.title}</span>
+                  <span className="text-content-primary truncate">{report.title}</span>
                 </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* ── PAGE ── */}
-          <div className="bg-[#f7f9fc] min-h-screen overflow-x-hidden">
+          <div className="bg-surface-base min-h-screen overflow-x-hidden">
             <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-4 lg:py-8 grid gap-6 grid-cols-1 lg:grid-cols-3">
               <div className="lg:col-span-2">
                 {managementPanel && (
                   <div className="mb-4 lg:hidden">{managementPanel}</div>
                 )}
-                <div className="bg-white shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] rounded-2xl overflow-hidden">
-                  <div className="relative overflow-hidden">
-                    <div className="w-full max-w-full h-[64vw] sm:h-64 lg:h-80 bg-slate-900 relative overflow-hidden">
-                      <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[length:20px_20px]" />
-                      {hasMedia ? (
-                        <button
-                          type="button"
-                          className="absolute inset-0 w-full h-full "
-                          onClick={() =>
-                            setMediaViewerState({ isOpen: true, startIndex: 0 })
-                          }
-                        >
-                          {firstIsVideo ? (
-                            firstVideoThumb ? (
-                              <div className="w-full h-full relative">
-                                <img
-                                  src={firstVideoThumb}
-                                  alt="Thumbnail do vídeo"
-                                  className="w-full h-full max-w-full object-cover rounded-2xl"
-                                />
-                                <div className="absolute inset-0 bg-black/10" />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="w-12 h-12 rounded-full bg-black/30 border border-white/20 flex items-center justify-center">
-                                    <Play className="w-6 h-6 text-white drop-shadow" />
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                                <Play className="w-10 h-10 text-white drop-shadow" />
-                              </div>
-                            )
-                          ) : (
-                            <img
-                              src={firstMedia.url}
-                              alt="Mídia da bronca"
-                              className="w-full h-full max-w-full object-cover"
-                            />
-                          )}
-                        </button>
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center">
-                            <MapPin className="w-7 h-7 text-white/60" />
-                          </div>
-                        </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                      <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2 pointer-events-none">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] bg-white/90 backdrop-blur-md text-[#191c1e] shadow-sm">
-                          {getCategoryName(report.category)}
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.15em] shadow-sm ${
-                            getStatusInfo(report.status).colorClasses
-                          }`}
-                        >
-                          <span className="w-2 h-2 rounded-full bg-current mr-2 animate-pulse" />
-                          {getStatusInfo(report.status).text}
-                        </span>
-                      </div>
-                      {/* <div className="absolute left-4 right-4 bottom-4 flex flex-wrap items-center gap-3 pointer-events-none">
-                        {hasMedia && viewerMedia.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMediaViewerState({
-                                isOpen: true,
-                                startIndex: 0,
-                              });
-                            }}
-                            className="ml-auto px-2.5 py-1.5 rounded-full bg-black/50 border border-white/15 text-[11px] text-white/90 flex items-center gap-1.5 backdrop-blur-sm hover:bg-black/60 transition-colors cursor-pointer pointer-events-auto z-20"
-                          >
-                            <Image className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">
-                              Ver todas as mídias ({viewerMedia.length})
-                            </span>
-                            <span className="sm:hidden">
-                              Ver todas ({viewerMedia.length})
-                            </span>
-                          </button>
-                        )}
-                      </div> */}
-                    </div>
+                <div className="space-y-4">
+                  <div className="bg-surface-raised shadow-elevation-1 rounded-2xl overflow-hidden">
+                    <ReportMediaHero
+                      viewerMedia={viewerMedia}
+                      getCategoryName={getCategoryName}
+                      category={report.category}
+                      status={report.status}
+                      mediaViewerState={mediaViewerState}
+                      setMediaViewerState={setMediaViewerState}
+                    />
                   </div>
 
-                  <div className="relative -mt-5 px-3 pb-4 lg:-mt-10 lg:px-4">
-                    <div className="bg-white rounded-2xl p-4 space-y-4 shadow-[0_4px_16px_-4px_rgba(25,28,30,0.08)] lg:rounded-[2rem] lg:p-8 lg:space-y-8 lg:shadow-[0_12px_32px_-4px_rgba(25,28,30,0.10)]">
+                  {/* summary */}
+                  <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4">
+                    <ReportSummary
+                      title={report.title}
+                      address={report.address}
+                      createdAt={report.created_at}
+                      protocol={report.protocol}
+                      isAnonymous={report.is_anonymous}
+                      authorName={report.authorName}
+                      authorAvatar={report.authorAvatar}
+                      reportAgeStory={reportAgeStory}
+                    />
+                  </div>
 
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-[-0.02em] text-[#191c1e] leading-tight">
-                            {report.title}
-                          </h1>
-                          <span
-                            className={`hidden lg:inline-flex items-center px-3 py-1 rounded-full text-xs font-bold flex-shrink-0 ${
-                              getStatusInfo(report.status).colorClasses
-                            }`}
-                          >
-                            {getStatusInfo(report.status).text}
-                          </span>
-                        </div>
+                  {/* gallery */}
+                  {viewerMedia.length > 1 && (
+                    <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4">
+                      <ReportMediaGallery
+                        viewerMedia={viewerMedia}
+                        setMediaViewerState={setMediaViewerState}
+                      />
+                    </div>
+                  )}
 
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#6b7280]">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />
-                            <span>
-                              {formatDateTime(report.created_at).replace(",", " às")}
-                            </span>
-                          </div>
-                          {report.protocol && (
-                            <span className="bg-[#e0e3e6] px-3 py-1 rounded-full font-mono text-[10px] font-semibold text-[#191c1e] tabular-nums">
-                              #{report.protocol}
-                            </span>
-                          )}
-                        </div>
+                  {/* description */}
+                  <ReportProblemDescription description={report.description} />
 
-                        {reportAgeStory && (
-                          <div>
-                            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg bg-muted/70 text-foreground border border-border/60">
-                              {reportAgeStory}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                  {/* details */}
+                  <ReportProblemDetails
+                    category={report.category}
+                    createdAt={report.created_at}
+                    waterUtilityName={waterUtilityName}
+                    isFromWaterUtility={isFromWaterUtility}
+                    issueType={report.issue_type}
+                    pole={report.pole}
+                    poleNumber={report.pole_number}
+                    reportedPlate={report.reported_plate}
+                    reportedPostIdentifier={report.reported_post_identifier}
+                    formatDateTime={formatDateTime}
+                    getLightingIssueTypeLabel={getLightingIssueTypeLabel}
+                    formatPoleLabel={formatPoleLabel}
+                  />
 
-                      {viewerMedia.length > 1 && (
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-bold text-[#191c1e] flex items-center gap-1.5">
-                              <Image className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
-                              Galeria
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setMediaViewerState({ isOpen: true, startIndex: 0 })
-                              }
-                              className="text-xs font-semibold text-[#b61722] hover:underline"
-                            >
-                              Ver todas ({viewerMedia.length})
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                            {viewerMedia.slice(1, 8).map((m, idx) => (
-                              <button
-                                key={`${m.type}-${m.url}-${idx}`}
-                                type="button"
-                                onClick={() =>
-                                  setMediaViewerState({
-                                    isOpen: true,
-                                    startIndex: idx + 1,
-                                  })
-                                }
-                                className="relative aspect-square rounded-xl overflow-hidden bg-[#f2f4f7] hover:opacity-90 transition-opacity"
-                              >
-                                {m.type === "image" ? (
-                                  <img
-                                    src={m.url}
-                                    alt="Mídia da bronca"
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center">
-                                    <div className="w-9 h-9 rounded-full bg-black/40 border border-white/15 flex items-center justify-center">
-                                      <Play className="w-5 h-5 text-white" strokeWidth={1.5} />
-                                    </div>
-                                  </div>
-                                )}
-                                {idx === 6 && viewerMedia.length > 8 && (
-                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                    <span className="text-white text-sm font-bold">+{viewerMedia.length - 8}</span>
-                                  </div>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    {/* description */}
-                    {report.description && (
-                      <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b] mb-2">
-                          <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
-                          Descrição
-                        </div>
-                        <p className="text-sm leading-relaxed text-[#191c1e] whitespace-pre-line break-words [overflow-wrap:anywhere]">
-                          {report.description}
+                  {/* timeline */}
+                  <ReportProgress
+                    status={report.status}
+                    timeline={report.timeline}
+                    formatDateTime={formatDateTime}
+                  />
+
+                  {/* mobile upvote */}
+                  <div className="bg-surface-subtle rounded-2xl px-4 py-4 lg:hidden">
+                    <div className="text-2xs font-bold uppercase tracking-[0.15em] text-content-tertiary mb-1 text-center">
+                      Apoios da comunidade
+                    </div>
+                    <div className="text-3xl font-extrabold text-content-primary tracking-[-0.02em] text-center">
+                      {report.upvotes || 0}
+                    </div>
+                    <div className="text-xs text-content-tertiary mt-1 mb-4 text-center">
+                      pessoas já apoiaram
+                    </div>
+                    <Button
+                      className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-brand hover:bg-brand/90 text-content-onBrand shadow-elevation-2"
+                      onClick={handleUpvoteClick}
+                    >
+                      <ThumbsUp
+                        className={`w-4 h-4 ${report.user_has_upvoted ? "fill-content-onBrand" : ""}`}
+                        strokeWidth={1.5}
+                      />
+                      {report.user_has_upvoted ? "Apoiada" : "Apoiar"}
+                    </Button>
+                    <Button
+                      className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-content-primary shadow-elevation-1"
+                      onClick={handleShare}
+                    >
+                      <Share2 className="w-4 h-4" strokeWidth={1.5} />
+                      Compartilhar
+                    </Button>
+                    {/* O botão de enviar atualização mora na seção Atualizações,
+                        logo abaixo. Aqui era o mesmo botão pela segunda vez na
+                        mesma tela — e o de lá é melhor: fica junto da lista que
+                        ele alimenta e, quando o limite semanal está batido,
+                        informa quando libera em vez de simplesmente sumir. */}
+                    <Button
+                      className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-raised hover:bg-surface-subtleHover shadow-elevation-1"
+                      onClick={() =>
+                        handleFavoriteToggle(report.id, report.is_favorited)
+                      }
+                    >
+                      <Star
+                        className={`w-4 h-4 ${
+                          report.is_favorited
+                            ? "fill-amber-400 text-amber-400"
+                            : ""
+                        }`}
+                        strokeWidth={1.5}
+                      />
+                      {report.is_favorited ? "Favoritada" : "Favoritar"}
+                    </Button>
+                    {report.petitionId && (
+                      <Button
+                        asChild
+                        className="w-full mt-2 justify-center gap-2 text-sm bg-surface-raised text-content-primary"
+                      >
+                        <Link to={`/abaixo-assinado/${report.petitionId}`}>
+                          <FileSignature className="w-4 h-4" />
+                          Ver abaixo-assinado ligado
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* ── COMMUNITY UPDATES ── */}
+                  <ReportUpdates
+                    user={user}
+                    isAdmin={isAdmin}
+                    visibleUpdates={visibleUpdates}
+                    showAllUpdates={showAllUpdates}
+                    setShowAllUpdates={setShowAllUpdates}
+                    canSendAnyUpdate={canSendAnyUpdate}
+                    nextAvailableLabel={nextAvailableLabel}
+                    setShowUpdateModal={setShowUpdateModal}
+                    UPDATES_VISIBLE_COUNT={UPDATES_VISIBLE_COUNT}
+                    confirmingUpdateId={confirmingUpdateId}
+                    setConfirmingUpdateId={setConfirmingUpdateId}
+                    deletingUpdateId={deletingUpdateId}
+                    setDeletingUpdateId={setDeletingUpdateId}
+                    canConfirmUpdate={canConfirmUpdate}
+                    canDeleteUpdate={canDeleteUpdate}
+                    handleConfirmUpdate={handleConfirmUpdate}
+                    handleDeleteUpdate={handleDeleteUpdate}
+                    getUpdateTypeInfo={getUpdateTypeInfo}
+                    getStatusInfo={getStatusInfo}
+                    formatRelativeDate={formatRelativeDate}
+                    formatDateTime={formatDateTime}
+                    setUpdateMediaViewer={setUpdateMediaViewer}
+                  />
+
+                  {/* Map Section (Mobile Only) */}
+                  <ReportLocation
+                    location={report.location}
+                    address={report.address}
+                    onNavigate={handleNavigateToReport}
+                    variant="mobile"
+                  />
+
+                  {/* comments */}
+                  <ReportComments
+                    comments={comments}
+                    user={user}
+                    newComment={newComment}
+                    setNewComment={setNewComment}
+                    handleSubmitComment={handleSubmitComment}
+                    formatDateTime={formatDateTime}
+                  />
+
+                  {/* ── REPUBLICAR ──
+                      Faixa compacta como na referencia: titulo, subtitulo e um
+                      botao. As tres opcoes (copiar link, panfleto, card de
+                      stories) e o QR ficam num painel que abre ao tocar, em vez
+                      de ocuparem a pagina toda o tempo todo. */}
+                  <section className="bg-surface-subtle rounded-2xl px-4 py-3.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-brand">
+                          Republicar esta denúncia
+                        </h3>
+                        <p className="text-2xs text-content-secondary mt-0.5">
+                          Ajude a divulgar e cobrar uma solução
                         </p>
                       </div>
-                    )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowRepublishOptions((v) => !v)}
+                        aria-expanded={showRepublishOptions}
+                        className="flex-shrink-0 justify-center gap-2 rounded-xl border-cta-border text-brand bg-transparent hover:bg-surface-subtleHover"
+                      >
+                        <Icon name="share" size={14} />
+                        Republicar
+                      </Button>
+                    </div>
 
-                    {/* Map Section (Mobile Only) */}
-                    <div className="lg:hidden">
-                      <div className="bg-[#f2f4f7] rounded-2xl overflow-hidden">
-                        <div className="px-4 pt-4 pb-3 flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]">
-                            <MapPin className="w-4 h-4" strokeWidth={1.5} />
-                          </div>
-                          <h3 className="font-bold text-[#191c1e] text-sm">Localização</h3>
+                    {showRepublishOptions && (
+                      <div className="mt-4 pt-4 border-t border-edge-subtle flex flex-col sm:flex-row items-center gap-4">
+                        <div className="flex-1 w-full flex flex-col gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCopyShareLink}
+                            className="w-full justify-center gap-2 rounded-xl border-edge-default text-content-primary bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <Icon name="share" size={14} />
+                            Copiar link da bronca
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowFlyerModal(true)}
+                            className="w-full justify-center gap-2 rounded-xl border-edge-default text-content-primary bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Baixar QR Code / Panfleto
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowStoryModal(true)}
+                            className="w-full justify-center gap-2 rounded-xl border-edge-default text-content-primary bg-transparent hover:bg-surface-subtleHover"
+                          >
+                            <Instagram className="w-4 h-4" />
+                            Baixar card de stories
+                          </Button>
                         </div>
-                        <div className="h-48 mx-3 rounded-xl overflow-hidden">
-                          <ReportMap
-                            location={report.location}
-                            address={report.address}
-                          />
-                        </div>
-                        {report.address && (
-                          <div className="mt-3 flex items-start gap-2 px-4">
-                            <MapPin className="w-4 h-4 text-[#b61722] mt-0.5 shrink-0" strokeWidth={1.5} />
-                            <p className="text-sm font-medium text-[#191c1e] leading-tight">
-                              {report.address}
-                            </p>
+                        {qrCodeUrl && (
+                          <div className="flex-shrink-0 rounded-2xl bg-surface-raised border border-edge-subtle p-3">
+                            <img
+                              src={qrCodeUrl}
+                              alt="QR Code da bronca"
+                              className="w-24 h-24 rounded-xl"
+                              loading="lazy"
+                            />
                           </div>
                         )}
-                        {report?.location?.lat && report?.location?.lng && (
-                          <div className="px-3 py-3">
-                            <button
-                              onClick={handleNavigateToReport}
-                              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white text-sm font-semibold transition-colors active:scale-[0.98]"
-                            >
-                              <Navigation className="w-4 h-4" strokeWidth={1.5} />
-                              Traçar Rota
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* details */}
-                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4 space-y-3">
-                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
-                        <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
-                        Informações
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {[
-                          {
-                            icon: <Calendar className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
-                            label: "Cadastrado",
-                            value: formatDateTime(report.created_at).replace(",", " às"),
-                          },
-                          report.category === "buracos" && {
-                            icon: <Droplet className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
-                            label: `Abertura ${waterUtilityName || "COMPESA"}`,
-                            value: isFromWaterUtility ? "Sim" : "Não",
-                          },
-                          report.category === "iluminacao" && {
-                            icon: <AlertCircle className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
-                            label: "Tipo",
-                            value: report.issue_type
-                              ? getLightingIssueTypeLabel(report.issue_type)
-                              : "—",
-                          },
-                          report.category === "iluminacao" && {
-                            icon: <Hash className="w-4 h-4 text-[#b61722]" strokeWidth={1.5} />,
-                            label: "Poste / plaqueta",
-                            value:
-                              formatPoleLabel(
-                                report?.pole?.plate ||
-                                  report?.pole?.identifier ||
-                                  report?.pole_number ||
-                                  report?.reported_plate ||
-                                  report?.reported_post_identifier
-                              ) || "—",
-                          },
-                        ]
-                          .filter(Boolean)
-                          .map((item, i) => (
-                            <div
-                              key={i}
-                              className="flex items-center gap-3 bg-white px-3 py-2.5 rounded-xl shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]"
-                            >
-                              <div className="w-8 h-8 rounded-lg bg-[#b61722]/10 flex items-center justify-center flex-shrink-0">
-                                {item.icon}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-semibold text-[#6b7280] leading-tight">
-                                  {item.label}
-                                </div>
-                                <div className="text-xs text-[#191c1e] break-words leading-tight">
-                                  {item.value}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-
-                    {/* timeline */}
-                    {report.timeline && report.timeline.length > 0 && (
-                      <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b] mb-3">
-                          <span className="inline-block w-1 h-3.5 rounded bg-[#b61722]" />
-                          Atualizações
-                        </div>
-                        <div className="relative pl-4">
-                          <div className="absolute left-1 top-1 bottom-1 w-px bg-[#b61722]/20" />
-                          <div className="space-y-4">
-                            {report.timeline.map((item) => (
-                              <div
-                                key={item.id}
-                                className="relative flex gap-3"
-                              >
-                                <div className="mt-1 w-3 h-3 rounded-full bg-[#b61722] border-2 border-white shadow-sm ring-2 ring-[#b61722]/30" />
-                                <div>
-                                  <div className="text-[11px] text-[#6b7280]">
-                                    {formatDateTime(item.date)}
-                                  </div>
-                                  <div className="text-sm font-medium text-[#191c1e] leading-snug">
-                                    {item.description}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                       </div>
                     )}
-
-                    {/* admin actions */}
-                    {(user?.is_admin ||
-                      user?.user_type === "public_official") && (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <Button
-                            variant="outline"
-                            className="hidden sm:flex justify-center gap-2 text-sm border-emerald-500 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                            onClick={handleWhatsAppShare}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              className="w-4 h-4 fill-current"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.347-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                            </svg>
-                            WhatsApp Web
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="justify-center gap-2 text-sm"
-                            onClick={handleShare}
-                          >
-                            <Share2 className="w-4 h-4" />
-                            Compartilhar
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="justify-center gap-2 text-sm"
-                            onClick={handleEditClick}
-                          >
-                            <Edit className="w-4 h-4" />
-                            Editar
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="justify-center gap-2 text-sm"
-                            onClick={() => handleOpenLinkModal(report)}
-                          >
-                            <LinkIcon className="w-4 h-4" />
-                            Vincular
-                          </Button>
-                        </div>
-                       
-                        <button
-                          type="button"
-                          onClick={handleReportError}
-                          className="w-full inline-flex items-center justify-center gap-2 text-[11px] text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <Flag className="w-4 h-4" />
-                          Sugerir correção
-                        </button>
-                      </div>
-                    )}
-
-                    {/* mobile upvote */}
-                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4 lg:hidden">
-                      <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#6b7280] mb-1 text-center">
-                        Apoios da comunidade
-                      </div>
-                      <div className="text-3xl font-extrabold text-[#191c1e] tracking-[-0.02em] text-center">
-                        {report.upvotes || 0}
-                      </div>
-                      <div className="text-xs text-[#6b7280] mt-1 mb-4 text-center">
-                        pessoas já apoiaram
-                      </div>
-                      <Button
-                        className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-gradient-to-r from-[#b61722] to-[#da3437] hover:from-[#9f1520] hover:to-[#c22e30] text-white shadow-[0_12px_32px_-4px_rgba(182,23,34,0.25)]"
-                        onClick={handleUpvoteClick}
-                      >
-                        <ThumbsUp
-                          className={`w-4 h-4 ${report.user_has_upvoted ? "fill-white" : ""}`}
-                          strokeWidth={1.5}
-                        />
-                        {report.user_has_upvoted ? "Apoiada" : "Apoiar"}
-                      </Button>
-                      <Button
-                        className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-white hover:bg-[#f2f4f7] text-[#191c1e] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
-                        onClick={handleShare}
-                      >
-                        <Share2 className="w-4 h-4" strokeWidth={1.5} />
-                        Compartilhar
-                      </Button>
-                      {user && canSendAnyUpdate && (
-                        <Button
-                          className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#fff7f7] hover:bg-[#ffe8e8] text-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
-                          onClick={() => setShowUpdateModal(true)}
-                        >
-                          <Megaphone className="w-4 h-4" strokeWidth={1.5} />
-                          Enviar Atualização
-                        </Button>
-                      )}
-                      <Button
-                        className="w-full mt-2 justify-center gap-2 text-sm text-[#191c1e] rounded-full bg-white hover:bg-[#f2f4f7] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.08)]"
-                        onClick={() =>
-                          handleFavoriteToggle(report.id, report.is_favorited)
-                        }
-                      >
-                        <Star
-                          className={`w-4 h-4 ${
-                            report.is_favorited
-                              ? "fill-amber-400 text-amber-400"
-                              : ""
-                          }`}
-                          strokeWidth={1.5}
-                        />
-                        {report.is_favorited ? "Favoritada" : "Favoritar"}
-                      </Button>
-                      {report.petitionId && (
-                        <Button
-                          asChild
-                          className="w-full mt-2 justify-center gap-2 text-sm bg-muted text-black "
-                        >
-                          <Link to={`/abaixo-assinado/${report.petitionId}`}>
-                            <FileSignature className="w-4 h-4" />
-                            Ver abaixo-assinado ligado
-                          </Link>
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* ── SHARE SECTION ── */}
-                    <section>
-                      <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-r from-primary/10 via-rose-50 to-amber-50 dark:from-primary/20 dark:via-slate-900 dark:to-amber-900/40 p-6 sm:p-8 flex flex-col lg:flex-row items-center gap-6">
-                        <div className="absolute inset-0 pointer-events-none opacity-40">
-                          <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/25 rounded-full blur-3xl" />
-                          <div className="absolute -bottom-10 -left-10 w-52 h-52 bg-amber-300/40 rounded-full blur-3xl" />
-                        </div>
-                        <div className="relative flex-1 space-y-4">
-                          <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-primary shadow-sm">
-                            <Sparkles className="w-3 h-3" />
-                            <span>Compartilhe nos stories e grupos</span>
-                          </div>
-                          <h3 className="text-2xl sm:text-3xl font-bold leading-tight">
-                            Leve esta bronca para o Instagram e para seus amigos
-                          </h3>
-                          <p className="text-sm sm:text-base text-muted-foreground max-w-xl">
-                            Use o QR Code ou o link da bronca para convidar mais
-                            pessoas a apoiar. Quanto mais gente ver esta página,
-                            maior a pressão por mudança.
-                          </p>
-
-                          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 pt-2">
-                            <Button
-                              size="sm"
-                              onClick={handleCopyShareLink}
-                              className="w-full sm:w-auto justify-center bg-primary text-primary-foreground hover:bg-primary/90"
-                            >
-                              <Share2 className="w-4 h-4 mr-2" />
-                              Copiar link da bronca
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowFlyerModal(true)}
-                              className="w-full sm:w-auto justify-center border-primary/40 text-primary hover:bg-primary/5"
-                            >
-                              <FileText className="w-4 h-4 mr-2" />
-                              Baixar QR Code / Panfleto
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowStoryModal(true)}
-                              className="w-full sm:w-auto justify-center border-[#E53935]/60 text-[#E53935] hover:bg-[#E53935] hover:text-white hover:shadow-md transition-colors"
-                            >
-                              <Instagram className="w-4 h-4 mr-2" />
-                              Baixar card de stories
-                            </Button>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            Dica: adicione o link nos stories e mostre o QR Code
-                            na tela para quem estiver por perto.
-                          </p>
-                        </div>
-                        <div className="relative flex-shrink-0">
-                          <div className="relative z-10 flex items-center justify-center rounded-2xl bg-white/90 shadow-xl p-3">
-                            {qrCodeUrl ? (
-                              <img
-                                src={qrCodeUrl}
-                                alt="QR Code da bronca"
-                                className="w-32 h-32 sm:w-36 sm:h-36 rounded-xl"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-xl bg-gray-100 flex items-center justify-center">
-                                <span className="text-xs text-gray-500">
-                                  QR Code
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="absolute -bottom-3 -right-3 rounded-full bg-primary text-primary-foreground p-2 shadow-lg">
-                            <Heart className="w-4 h-4" />
-                          </div>
-                        </div>
-                      </div>
-                    </section>
-
-                    {/* ── COMMUNITY UPDATES ── */}
-                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-1.5">
-                          <Megaphone className="w-3.5 h-3.5 text-[#9f3f3b]" strokeWidth={1.5} />
-                          <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
-                            Atualizações
-                          </h2>
-                          {visibleUpdates.length > 0 && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-white font-semibold text-[#6b7280]">
-                              {visibleUpdates.length}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Send button or rate-limit info */}
-                        {user ? (
-                          canSendAnyUpdate ? (
-                            <button
-                              type="button"
-                              onClick={() => setShowUpdateModal(true)}
-                              className="text-[11px] font-semibold text-[#b61722] hover:underline"
-                            >
-                              + Enviar atualização
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-[#9b9fa3]">
-                              disponível {nextAvailableLabel}
-                            </span>
-                          )
-                        ) : null}
-                      </div>
-
-                      {/* Update list */}
-                      {visibleUpdates.length === 0 ? (
-                        <div className="py-3 flex items-center gap-3">
-                          <p className="text-xs text-[#9b9fa3] flex-1">
-                            Esteve no local? Informe o status atual.
-                          </p>
-                          {/* Usuário logado já tem o botão "+ Enviar atualização" no header acima;
-                              aqui mostramos apenas o atalho de login para quem está deslogado. */}
-                          {!user && (
-                            <Link
-                              to="/login"
-                              className="text-[11px] font-semibold text-[#b61722] hover:underline whitespace-nowrap"
-                            >
-                              Fazer login
-                            </Link>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="space-y-2">
-                            {(showAllUpdates
-                              ? visibleUpdates
-                              : visibleUpdates.slice(0, UPDATES_VISIBLE_COUNT)
-                            ).map((upd) => {
-                              const typeInfo = getUpdateTypeInfo(upd.update_type);
-                              const TypeIcon = typeInfo.Icon;
-                              const isOwnPending =
-                                upd.status === "pending" && upd.author_id === user?.id;
-                              const isPendingModeration = upd.status === "pending_moderation";
-                              const isRejected = upd.status === "rejected";
-                              const canConfirm =
-                                upd.status === "pending" &&
-                                user &&
-                                (user.is_admin || report?.author_id === user?.id);
-                              const isConfirming = confirmingUpdateId === upd.id;
-                              const isDeleting = deletingUpdateId === upd.id;
-                              // Admin: exclui qualquer status. Autor: só se ainda não confirmada.
-                              const canDelete = user?.is_admin ||
-                                (upd.author_id === user?.id && ['pending_moderation', 'pending'].includes(upd.status));
-                              const confirmStatusText = getStatusInfo(
-                                upd.update_type === "solved" && user?.is_admin
-                                  ? "resolved"
-                                  : typeInfo.reportStatus
-                              ).text;
-                              return (
-                                <div key={upd.id} className={`rounded-2xl border overflow-hidden ${typeInfo.cardBorder} ${typeInfo.cardBg}`}>
-
-                                  {/* Main row */}
-                                  <div className="flex items-start gap-3 px-3.5 pt-3 pb-3">
-                                    {/* Icon */}
-                                    <div className={`w-9 h-9 rounded-xl ${typeInfo.iconBg} flex items-center justify-center flex-shrink-0`}>
-                                      <TypeIcon className={`w-4.5 h-4.5 ${typeInfo.color}`} strokeWidth={2.5} />
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-start justify-between gap-2">
-                                        <span className={`text-[13px] font-bold leading-tight ${typeInfo.color}`}>
-                                          {typeInfo.label}
-                                        </span>
-                                        {upd.status === "confirmed" && (
-                                          <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                            <CheckCircle className="w-3 h-3" strokeWidth={2.5} />
-                                            Confirmada
-                                          </span>
-                                        )}
-                                        {isPendingModeration && (
-                                          <span className="flex-shrink-0 text-[10px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
-                                            Em moderação
-                                          </span>
-                                        )}
-                                        {isOwnPending && (
-                                          <span className="flex-shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                                            Aguardando
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      {upd.message && (
-                                        <p className="text-xs text-[#374151] mt-1 leading-relaxed">
-                                          {upd.message}
-                                        </p>
-                                      )}
-
-                                      {/* Inline photo thumbnails — click to expand */}
-                                      {upd.media && upd.media.length > 0 && (
-                                        <div className="flex gap-2 mt-2 flex-wrap">
-                                          {upd.media.slice(0, 4).map((m, idx) => (
-                                            <button
-                                              key={m.id}
-                                              type="button"
-                                              onClick={() =>
-                                                setUpdateMediaViewer({
-                                                  isOpen: true,
-                                                  media: upd.media.map((mm) => ({ ...mm, url: mm.url, type: 'image' })),
-                                                  startIndex: idx,
-                                                })
-                                              }
-                                              className="relative flex-shrink-0 hover:opacity-90 transition-opacity"
-                                            >
-                                              <img
-                                                src={m.url}
-                                                alt=""
-                                                className="w-20 h-20 rounded-xl object-cover"
-                                                loading="lazy"
-                                              />
-                                              {idx === 3 && upd.media.length > 4 && (
-                                                <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
-                                                  <span className="text-white text-xs font-bold">+{upd.media.length - 4}</span>
-                                                </div>
-                                              )}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      )}
-
-                                      {/* Autor + data */}
-                                      <div className="mt-2 flex items-start justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <span className="text-[10px] text-[#6b7280]">
-                                            {upd.author?.name || "Usuário"}
-                                          </span>
-                                          <span className="text-[10px] text-[#9b9fa3] ml-1">
-                                            · {formatRelativeDate(upd.created_at)}
-                                          </span>
-                                          <span className="text-[10px] text-[#b0b5bc] ml-1 hidden sm:inline">
-                                            · {formatDateTime(upd.created_at).replace(",", " às")}
-                                          </span>
-                                          {/* data completa em linha própria no mobile */}
-                                          <div className="text-[10px] text-[#b0b5bc] sm:hidden">
-                                            {formatDateTime(upd.created_at).replace(",", " às")}
-                                          </div>
-                                        </div>
-
-                                        {/* Ações: confirmar ou excluir — nunca os dois ao mesmo tempo */}
-                                        {!isDeleting && canConfirm && !isConfirming && (
-                                          <div className="flex items-center gap-2 flex-shrink-0">
-                                            {canDelete && (
-                                              <button
-                                                type="button"
-                                                onClick={() => { setConfirmingUpdateId(null); setDeletingUpdateId(upd.id); }}
-                                                className="p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                                                title="Excluir atualização"
-                                              >
-                                                <Trash2 className="w-3 h-3" />
-                                              </button>
-                                            )}
-                                            <button
-                                              type="button"
-                                              onClick={() => setConfirmingUpdateId(upd.id)}
-                                              className={`text-[11px] font-bold ${typeInfo.color} underline underline-offset-2 hover:opacity-70 transition-opacity`}
-                                            >
-                                              Confirmar →
-                                            </button>
-                                          </div>
-                                        )}
-                                        {!isDeleting && canDelete && !canConfirm && !isConfirming && (
-                                          <button
-                                            type="button"
-                                            onClick={() => setDeletingUpdateId(upd.id)}
-                                            className="flex-shrink-0 p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                                            title="Excluir atualização"
-                                          >
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        )}
-
-                                        {/* Confirmação de exclusão inline */}
-                                        {isDeleting && (
-                                          <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                                            <span className="text-[10px] text-[#6b7280] text-right">Excluir esta atualização?</span>
-                                            <div className="flex items-center gap-2">
-                                              <button type="button" onClick={() => setDeletingUpdateId(null)} className="text-[10px] text-[#9b9fa3]">
-                                                Cancelar
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => { setDeletingUpdateId(null); handleDeleteUpdate(upd); }}
-                                                className="text-[10px] font-bold text-white bg-red-500 px-2.5 py-1 rounded-full"
-                                              >
-                                                Excluir
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {/* Confirmação de confirmação inline */}
-                                        {canConfirm && isConfirming && (
-                                          <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                                            <span className="text-[10px] text-[#6b7280] text-right">
-                                              Muda para <strong>"{confirmStatusText}"</strong>
-                                            </span>
-                                            <div className="flex items-center gap-2">
-                                              <button type="button" onClick={() => setConfirmingUpdateId(null)} className="text-[10px] text-[#9b9fa3]">
-                                                Cancelar
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => { setConfirmingUpdateId(null); handleConfirmUpdate(upd); }}
-                                                className="text-[10px] font-bold text-white bg-[#b61722] px-2.5 py-1 rounded-full"
-                                              >
-                                                Confirmar
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Expand / collapse */}
-                          {visibleUpdates.length > UPDATES_VISIBLE_COUNT && (
-                            <button
-                              type="button"
-                              onClick={() => setShowAllUpdates((v) => !v)}
-                              className="mt-2 w-full text-center text-[11px] font-semibold text-[#6b7280] hover:text-[#191c1e] py-1.5 border-t border-gray-200 transition-colors"
-                            >
-                              {showAllUpdates
-                                ? "Ver menos"
-                                : `Ver mais ${visibleUpdates.length - UPDATES_VISIBLE_COUNT} atualização${
-                                    visibleUpdates.length - UPDATES_VISIBLE_COUNT > 1 ? "s" : ""
-                                  }`}
-                            </button>
-                          )}
-
-                          {/* Login prompt for guests */}
-                          {!user && (
-                            <p className="mt-3 pt-3 border-t border-gray-200 text-center text-[11px] text-[#9b9fa3]">
-                              <Link to="/login" className="font-semibold text-[#b61722] hover:underline">
-                                Faça login
-                              </Link>{" "}
-                              para enviar uma atualização
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    {/* comments */}
-                    <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
-                      <div className="flex items-center gap-2 mb-4">
-                        <MessageSquare className="w-4 h-4 text-[#9f3f3b]" strokeWidth={1.5} />
-                        <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9f3f3b]">
-                          Comentários
-                        </h2>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-white font-semibold text-[#6b7280]">
-                          {comments.length}
-                        </span>
-                      </div>
-                      <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
-                        {comments.length > 0 ? (
-                          comments.map((comment) => (
-                            <div
-                              key={comment.id}
-                              className="flex items-start gap-3"
-                            >
-                              <div className="w-8 h-8 rounded-full bg-[#b61722]/10 flex items-center justify-center text-xs font-bold text-[#b61722] flex-shrink-0">
-                                {(comment.authorName || comment.author?.name || "?")
-                                  .charAt(0)
-                                  .toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0 bg-white rounded-xl px-3 py-2.5 shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]">
-                                <div className="flex items-center justify-between gap-2 mb-1">
-                                  <p className="text-xs font-semibold text-[#191c1e] truncate">
-                                    {comment.authorName || comment.author?.name || "Anônimo"}
-                                  </p>
-                                  <p className="text-[10px] text-[#6b7280] flex-shrink-0">
-                                    {formatDateTime(comment.created_at)}
-                                  </p>
-                                </div>
-                                <p className="text-xs text-[#191c1e] break-words leading-relaxed">
-                                  {comment.text}
-                                </p>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-[#6b7280] text-center py-4">
-                            Ainda não há comentários.
-                          </p>
-                        )}
-                      </div>
-                      {user ? (
-                        <form
-                          onSubmit={handleSubmitComment}
-                          className="mt-4 flex gap-2 items-center"
-                        >
-                          <input
-                            type="text"
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="Adicione seu comentário..."
-                            className="flex-1 text-xs sm:text-sm bg-white px-4 py-2.5 rounded-full focus:outline-none focus:ring-2 focus:ring-[#b61722] shadow-[0_2px_8px_-2px_rgba(25,28,30,0.06)]"
-                          />
-                          <Button
-                            type="submit"
-                            size="icon"
-                            className="flex-shrink-0 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white"
-                          >
-                            <Send className="w-3.5 h-3.5" strokeWidth={1.5} />
-                          </Button>
-                        </form>
-                      ) : (
-                        <div className="mt-4 text-center px-4 py-3 bg-white rounded-xl text-xs text-[#6b7280]">
-                          <Link
-                            to="/login"
-                            className="font-semibold text-[#b61722] hover:underline"
-                          >
-                            Faça login
-                          </Link>{" "}
-                          ou{" "}
-                          <Link
-                            to="/cadastro"
-                            className="font-semibold text-[#b61722] hover:underline"
-                          >
-                            cadastre-se
-                          </Link>{" "}
-                          para comentar e acompanhar esta bronca.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  </section>
                 </div>
               </div>
 
               {/* ── SIDEBAR ── */}
               <aside className="space-y-4">
-                <div className="bg-white rounded-2xl shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] px-5 py-6 text-center hidden lg:block">
-                  <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#6b7280] mb-1">
+                <div className="bg-surface-raised border border-edge-subtle rounded-2xl shadow-elevation-1 px-5 py-6 text-center hidden lg:block">
+                  <div className="text-2xs font-bold uppercase tracking-[0.2em] text-content-tertiary mb-1">
                     Apoios
                   </div>
-                  <div className="text-4xl font-extrabold text-[#191c1e] tracking-[-0.02em]">
+                  <div className="text-4xl font-extrabold text-content-primary tracking-[-0.02em]">
                     {report.upvotes || 0}
                   </div>
-                  <div className="text-xs text-[#6b7280] mt-1 mb-4">
+                  <div className="text-xs text-content-tertiary mt-1 mb-4">
                     pessoas apoiaram essa bronca
                   </div>
                   <Button
-                    className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-gradient-to-r from-[#b61722] to-[#da3437] hover:from-[#9f1520] hover:to-[#c22e30] text-white shadow-[0_12px_32px_-4px_rgba(182,23,34,0.25)]"
+                    className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-brand hover:bg-brand/90 text-content-onBrand shadow-elevation-2"
                     onClick={handleUpvoteClick}
                   >
                     <ThumbsUp
-                      className={`w-4 h-4 ${report.user_has_upvoted ? "fill-white" : ""}`}
+                      className={`w-4 h-4 ${report.user_has_upvoted ? "fill-content-onBrand" : ""}`}
                       strokeWidth={1.5}
                     />
                     {report.user_has_upvoted ? "Apoiada" : "Apoiar essa bronca"}
                   </Button>
                   <Button
-                    className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#f2f4f7] hover:bg-[#e8eaed] text-[#191c1e]"
+                    className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-subtle hover:bg-surface-subtleHover text-content-primary"
                     onClick={handleShare}
                   >
                     <Share2 className="w-4 h-4" strokeWidth={1.5} />
                     Compartilhar bronca
                   </Button>
-                  {user && (
-                    <Button
-                      className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-[#fff7f7] hover:bg-[#ffe8e8] text-[#b61722]"
-                      onClick={() => setShowUpdateModal(true)}
-                    >
-                      <Megaphone className="w-4 h-4" strokeWidth={1.5} />
-                      Enviar Atualização
-                    </Button>
-                  )}
+                  {/* Duplicata do botão da seção Atualizações — ver comentário
+                      no bloco equivalente acima. */}
                   <Button
-                    className="w-full mt-2 justify-center gap-2 text-sm text-[#191c1e] rounded-full bg-[#f2f4f7] hover:bg-[#e8eaed]"
+                    className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-subtle hover:bg-surface-subtleHover"
                     onClick={() =>
                       handleFavoriteToggle(report.id, report.is_favorited)
                     }
@@ -2739,7 +1865,7 @@ const ReportPage = () => {
                   {report.petitionId && (
                     <Button
                       asChild
-                      className="w-full mt-2 justify-center gap-2 text-sm rounded-full bg-muted text-black"
+                      className="w-full mt-2 justify-center gap-2 text-sm rounded-full bg-surface-subtle text-content-primary"
                     >
                       <Link to={`/abaixo-assinado/${report.petitionId}`}>
                         <FileSignature className="w-4 h-4" strokeWidth={1.5} />
@@ -2750,42 +1876,12 @@ const ReportPage = () => {
                 </div>
 
                 {/* Map Card (Desktop Only) */}
-                <div className="hidden lg:block bg-white rounded-2xl shadow-[0_12px_32px_-4px_rgba(25,28,30,0.08)] overflow-hidden">
-                  <div className="px-4 pt-4 pb-3 flex items-center gap-3">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#f2f4f7] text-[#b61722]">
-                      <MapPin className="w-4 h-4" strokeWidth={1.5} />
-                    </div>
-                    <h3 className="font-bold text-[#191c1e] text-sm">Localização</h3>
-                  </div>
-                  <div className="h-48 mx-3 rounded-xl overflow-hidden">
-                    <ReportMap
-                      location={report.location}
-                      address={report.address}
-                    />
-                  </div>
-                  <div className="px-4 py-4 bg-[#f7f9fc] space-y-3">
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-4 h-4 text-[#b61722] mt-0.5 shrink-0" strokeWidth={1.5} />
-                      <div>
-                        <span className="text-[10px] font-bold text-[#6b7280] uppercase tracking-wider block">
-                          Endereço
-                        </span>
-                        <p className="text-sm font-medium text-[#191c1e] leading-tight">
-                          {report.address || "Não informado"}
-                        </p>
-                      </div>
-                    </div>
-                    {report?.location?.lat && report?.location?.lng && (
-                      <button
-                        onClick={handleNavigateToReport}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-[#b61722] hover:bg-[#9f1520] text-white text-sm font-semibold transition-colors"
-                      >
-                        <Navigation className="w-4 h-4" strokeWidth={1.5} />
-                        Traçar Rota
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <ReportLocation
+                  location={report.location}
+                  address={report.address}
+                  onNavigate={handleNavigateToReport}
+                  variant="desktop"
+                />
 
                 {managementPanel && (
                   <div className="hidden lg:block">{managementPanel}</div>
@@ -2800,15 +1896,6 @@ const ReportPage = () => {
               report={report}
               isOpen={showDonationModal}
               onClose={() => setShowDonationModal(false)}
-            />
-          )}
-          {mediaViewerState.isOpen && viewerMedia.length > 0 && (
-            <MediaViewer
-              media={viewerMedia}
-              startIndex={mediaViewerState.startIndex}
-              onClose={() =>
-                setMediaViewerState({ isOpen: false, startIndex: 0 })
-              }
             />
           )}
           {showEditDetails && report && (
@@ -2880,38 +1967,11 @@ const ReportPage = () => {
           />
 
           {/* Barra de moderação do embaixador (aprovar/rejeitar) */}
-          {canModerate && (
-            <div
-              className="fixed left-0 right-0 bottom-0 z-[1100] bg-white border-t border-border shadow-[0_-2px_12px_-4px_rgba(25,28,30,0.15)]"
-              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
-            >
-              <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  className="h-11 px-4 text-red-600 border-red-300 hover:bg-red-50 flex-1"
-                  disabled={moderating}
-                  onClick={() => handleModerate(false)}
-                >
-                  {moderating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <><X className="w-4 h-4 mr-1.5" /> Rejeitar</>
-                  )}
-                </Button>
-                <Button
-                  className="h-11 px-4 bg-green-600 hover:bg-green-700 text-white flex-1"
-                  disabled={moderating}
-                  onClick={() => handleModerate(true)}
-                >
-                  {moderating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <><CheckCircle className="w-4 h-4 mr-1.5" /> Aprovar bronca</>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
+          <ReportModerationBar
+            canModerate={canModerate}
+            moderating={moderating}
+            handleModerate={handleModerate}
+          />
         </>
       )}
     </>

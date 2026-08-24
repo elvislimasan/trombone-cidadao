@@ -30,7 +30,7 @@ const PetitionCard = ({ petition, onClick, onDonate }) => {
             </div>
           )}
           <div className="absolute top-2 left-2 z-10">
-            <div className="bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-bold shadow-sm flex items-center gap-1 text-slate-700 border border-white/20">
+            <div className="bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-bold shadow-sm flex items-center gap-1 text-content-secondary border border-white/20">
                <Users className="w-3 h-3 md:w-3.5 md:h-3.5 text-primary" />
                <span>{signaturesCount}</span>
             </div>

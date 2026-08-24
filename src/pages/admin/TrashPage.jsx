@@ -7,8 +7,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 
 const TrashPage = () => {
   const [rejectedReports, setRejectedReports] = useState([]);
@@ -46,14 +49,56 @@ const TrashPage = () => {
     if (error) {
       toast({ title: "Erro ao recuperar bronca", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca recuperada!", description: "A bronca foi enviada para moderação." });
       fetchRejectedReports();
     }
     setItemToConfirm(null);
   };
 
+  // Apagar a bronca não apaga as fotos.
+  //
+  // `report_media` cai por cascade no banco, mas os arquivos ficam no bucket
+  // `reports-media` — sem nenhuma linha apontando para eles, portanto sem
+  // nenhuma tela que os liste. Toda exclusão feita por aqui vinha deixando
+  // esse rastro, e a conta do Storage é por byte guardado.
+  const removerMidiasDoStorage = async (reportIds) => {
+    if (!reportIds || reportIds.length === 0) return;
+
+    const { data: media, error } = await supabase
+      .from('report_media')
+      .select('url')
+      .in('report_id', reportIds);
+
+    if (error || !media || media.length === 0) return;
+
+    const caminhos = media
+      .map((m) => {
+        try {
+          return new URL(m.url).pathname.split('/reports-media/')[1] || null;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    if (caminhos.length === 0) return;
+
+    const { error: storageError } = await supabase.storage.from('reports-media').remove(caminhos);
+    if (storageError) {
+      // Não interrompe a exclusão: melhor a bronca sair do ar com um arquivo
+      // órfão do que continuar publicada porque o bucket recusou.
+      toast({
+        title: 'Arquivos não removidos do armazenamento',
+        description: storageError.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleDelete = async (reportId) => {
-    // This is a permanent deletion
+    // Storage primeiro: depois do delete no banco não há mais como saber quais
+    // arquivos eram desta bronca.
+    await removerMidiasDoStorage([reportId]);
+
     const { error } = await supabase.from('reports').delete().eq('id', reportId);
 
     if (error) {
@@ -79,6 +124,8 @@ const TrashPage = () => {
       return;
     }
 
+    await removerMidiasDoStorage(idsToDelete);
+
     const { error } = await supabase.from('reports').delete().in('id', idsToDelete);
 
     if (error) {
@@ -94,6 +141,10 @@ const TrashPage = () => {
     setItemToConfirm(item);
     setActionType(type);
   };
+
+  const { visiveis: broncasVisiveis, propsPaginacao } = useListaPaginada(rejectedReports, {
+    porPagina: 20,
+  });
 
   const confirmAction = () => {
     if (!itemToConfirm) return;
@@ -114,7 +165,12 @@ const TrashPage = () => {
             <Link to="/admin"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Lixeira de Broncas</h1>
-              <p className="mt-2 text-lg text-muted-foreground">Broncas rejeitadas são mantidas aqui por 30 dias.</p>
+              {/* A frase anterior era "mantidas aqui por 30 dias", e não há
+                  nada que apague sozinho: a consulta lista todas as rejeitadas,
+                  desde sempre. Quem limpa é o botão ao lado, quando alguém o
+                  aperta. Prometer expiração automática faz o administrador
+                  supor que a lixeira se cuida — e ela não se cuida. */}
+              <p className="mt-2 text-lg text-muted-foreground">Broncas rejeitadas ficam aqui até serem excluídas.</p>
             </div>
           </div>
           <Button variant="destructive" onClick={() => openConfirmationModal({ id: 'empty' }, 'empty')} disabled={loading}>
@@ -129,12 +185,16 @@ const TrashPage = () => {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p>Carregando lixeira...</p>
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[84px] w-full rounded-lg" />
+                ))}
+              </div>
             ) : rejectedReports.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">A lixeira está vazia. ✨</p>
             ) : (
               <div className="space-y-3">
-                {rejectedReports.map(report => (
+                {broncasVisiveis.map(report => (
                   <div key={report.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
                     <div>
                       <p className="font-semibold">{report.title}</p>
@@ -152,6 +212,8 @@ const TrashPage = () => {
                 ))}
               </div>
             )}
+
+            {!loading && <PaginacaoLista {...propsPaginacao} />}
           </CardContent>
         </Card>
       </div>

@@ -55,6 +55,16 @@ export const getWorkShareUrl = (id) => {
   return `${prodUrl}/share/obra/${id}`;
 };
 
+export const getPatrolShareUrl = (id) => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+
+  const prodUrl = supabaseUrl.includes('xxdletrjyjajtrmhwzev')
+    ? 'https://trombone-cidadao.vercel.app'
+    : 'https://trombonecidadao.com.br';
+
+  return `${prodUrl}/share/patrulha/${id}`;
+};
+
 export const getNewsShareUrl = (id) => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 

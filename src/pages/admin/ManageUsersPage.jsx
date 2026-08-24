@@ -1,16 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, User, Briefcase, Shield, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Briefcase, Shield, Mail, Phone, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import ReportDetails from '@/components/ReportDetails';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Combobox } from "@/components/ui/combobox";
 import { Input } from '@/components/ui/input';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 
 const UserEditModal = ({ user, onSave, onClose }) => {
   const [name, setName] = useState('');
@@ -44,11 +47,11 @@ const UserEditModal = ({ user, onSave, onClose }) => {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">Nome</label>
+            <label htmlFor="name" className="block text-sm font-medium text-content-secondary">Nome</label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label htmlFor="userType" className="block text-sm font-medium text-gray-700">Tipo de Usuário</label>
+            <label htmlFor="userType" className="block text-sm font-medium text-content-secondary">Tipo de Usuário</label>
             <Combobox
               value={userType}
               onChange={setUserType}
@@ -74,19 +77,32 @@ const UserEditModal = ({ user, onSave, onClose }) => {
 const ManageUsersPage = () => {
   const { toast } = useToast();
   const [users, setUsers] = useState([]);
-  const [reports, setReports] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
   const [viewingUserReports, setViewingUserReports] = useState(null);
+  // As broncas do usuário são buscadas quando alguém clica em "Ver Broncas".
+  //
+  // Antes esta tela carregava a tabela `reports` INTEIRA no mount — com
+  // comentários, autores dos comentários e todas as mídias — só para poder
+  // filtrar por `author_id` dentro de um modal que talvez nunca fosse aberto.
+  // Era o download mais caro do painel, e acontecia sempre.
+  const [userReports, setUserReports] = useState([]);
+  const [loadingUserReports, setLoadingUserReports] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
 
   const fetchUsers = useCallback(async () => {
-    // Buscar dados dos perfis (incluindo telefone)
+    setLoadingUsers(true);
+    // Colunas nomeadas em vez de `*`: o perfil tem campos de avatar, de
+    // patrulha e de pontuação que esta lista nunca mostra.
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
-      .select('*');
-    
+      .select('id, name, avatar_url, user_type, is_admin, phone')
+      .order('name');
+
     if (profilesError) {
+      setLoadingUsers(false);
       toast({ title: "Erro ao buscar usuários", description: profilesError.message, variant: "destructive" });
       return;
     }
@@ -143,28 +159,39 @@ const ManageUsersPage = () => {
     }
 
     setUsers(usersWithEmails);
+    setLoadingUsers(false);
   }, [toast]);
 
-  const fetchReports = useCallback(async () => {
+  // Só as broncas de um autor, e só quando pedidas.
+  const fetchUserReports = useCallback(async (userId) => {
+    if (!userId) return;
+    setLoadingUserReports(true);
     const { data, error } = await supabase
       .from('reports')
-      .select('*, pole_number, author:author_id(name, avatar_url, avatar_config, avatar_type), category:category_id(name), comments:comments(*, author:author_id(name, avatar_url, avatar_config, avatar_type)), report_media(*)');
+      .select('*, pole_number, author:author_id(name, avatar_url, avatar_config, avatar_type), category:category_id(name), comments:comments(*, author:author_id(name, avatar_url, avatar_config, avatar_type)), report_media(*)')
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false });
     if (error) {
       toast({ title: "Erro ao buscar broncas", description: error.message, variant: "destructive" });
+      setUserReports([]);
     } else {
-      const formattedData = (data || []).map(r => ({
+      setUserReports((data || []).map(r => ({
         ...r,
         photos: (r.report_media || []).filter(m => m.type === 'photo'),
         videos: (r.report_media || []).filter(m => m.type === 'video'),
-      }));
-      setReports(formattedData);
+      })));
     }
+    setLoadingUserReports(false);
   }, [toast]);
 
   useEffect(() => {
     fetchUsers();
-    fetchReports();
-  }, [fetchUsers, fetchReports]);
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    if (viewingUserReports?.id) fetchUserReports(viewingUserReports.id);
+    else setUserReports([]);
+  }, [viewingUserReports, fetchUserReports]);
 
   const handleSaveUser = async (userToSave) => {
     const { error } = await supabase
@@ -175,7 +202,6 @@ const ManageUsersPage = () => {
     if (error) {
       toast({ title: "Erro ao atualizar usuário", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Usuário atualizado com sucesso! ✅" });
       fetchUsers();
     }
     setEditingUser(null);
@@ -191,17 +217,32 @@ const ManageUsersPage = () => {
     if (error) {
       toast({ title: "Erro ao atualizar bronca", description: error.message, variant: "destructive" });
     } else {
-      fetchReports();
+      fetchUserReports(viewingUserReports?.id);
       if (selectedReport) setSelectedReport(null);
     }
   };
-
-  const userReports = viewingUserReports ? reports.filter(r => r.author_id === viewingUserReports.id) : [];
 
   const userTypeDisplay = {
     citizen: { icon: User, text: 'Cidadão', color: 'text-blue-400' },
     public_official: { icon: Briefcase, text: 'Órgão Público', color: 'text-green-400' }
   };
+
+  // Busca por nome, e-mail ou telefone: com a base nacional, rolar até achar
+  // alguém deixou de ser possível.
+  const filteredUsers = useMemo(() => {
+    const termo = searchTerm.trim().toLowerCase();
+    if (!termo) return users;
+    return users.filter((u) =>
+      (u.name || '').toLowerCase().includes(termo) ||
+      (u.email || '').toLowerCase().includes(termo) ||
+      (u.phone || '').toLowerCase().includes(termo)
+    );
+  }, [users, searchTerm]);
+
+  const { visiveis: usuariosVisiveis, total, propsPaginacao } = useListaPaginada(filteredUsers, {
+    porPagina: 20,
+    chaveFiltro: searchTerm,
+  });
 
   return (
     <>
@@ -221,10 +262,35 @@ const ManageUsersPage = () => {
         </motion.div>
 
         <Card>
-          <CardHeader><CardTitle>Usuários Cadastrados</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Usuários Cadastrados</CardTitle>
+            <CardDescription>
+              {loadingUsers ? 'Carregando...' : `${total} usuário${total === 1 ? '' : 's'}.`}
+            </CardDescription>
+            <div className="relative mt-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, e-mail ou telefone..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </CardHeader>
           <CardContent>
+            {loadingUsers ? (
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[92px] w-full rounded-lg" />
+                ))}
+              </div>
+            ) : usuariosVisiveis.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10">
+                {searchTerm ? 'Nenhum usuário corresponde à busca.' : 'Nenhum usuário cadastrado.'}
+              </p>
+            ) : (
             <div className="space-y-3">
-              {users.map(user => {
+              {usuariosVisiveis.map(user => {
                 const UserTypeIcon = userTypeDisplay[user.user_type]?.icon || User;
                 return (
                   <div key={user.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
@@ -274,6 +340,9 @@ const ManageUsersPage = () => {
                 );
               })}
             </div>
+            )}
+
+            {!loadingUsers && <PaginacaoLista {...propsPaginacao} />}
           </CardContent>
         </Card>
       </div>
@@ -302,10 +371,14 @@ const ManageUsersPage = () => {
             <DialogDescription>Lista de todas as solicitações enviadas por este usuário.</DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto space-y-3 p-1">
-            {userReports.length > 0 ? userReports.map(report => (
-              <div key={report.id} className="flex justify-between items-center p-3 bg-background rounded-md border">
-                <p className="font-medium">{report.title}</p>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedReport(report)}>Ver/Editar</Button>
+            {loadingUserReports ? (
+              <p className="flex items-center justify-center gap-2 text-muted-foreground py-8">
+                <Loader2 className="w-4 h-4 animate-spin" /> Carregando broncas...
+              </p>
+            ) : userReports.length > 0 ? userReports.map(report => (
+              <div key={report.id} className="flex justify-between items-center p-3 bg-background rounded-md border gap-3">
+                <p className="font-medium min-w-0 truncate">{report.title}</p>
+                <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setSelectedReport(report)}>Ver/Editar</Button>
               </div>
             )) : <p className="text-center text-muted-foreground py-8">Este usuário ainda não registrou nenhuma bronca.</p>}
           </div>

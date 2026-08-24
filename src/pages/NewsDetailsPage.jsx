@@ -20,6 +20,7 @@ import { Share } from '@capacitor/share';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
+import { mascarar } from '@/lib/profanity';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
@@ -162,8 +163,8 @@ const NewsDetailsPage = () => {
       const safeIds = Array.isArray(ids) ? ids : [];
       const nextIds = safeIds.includes(newsId) ? safeIds.filter((id) => id !== newsId) : [newsId, ...safeIds];
       localStorage.setItem(key, JSON.stringify(nextIds));
+      // Sem toast: o ícone de salvar troca de estado na hora.
       setIsSaved(nextIds.includes(newsId));
-      toast({ title: nextIds.includes(newsId) ? "Notícia salva" : "Removida das salvas" });
     } catch {}
   }, [newsId, toast, user?.id]);
 
@@ -178,13 +179,12 @@ const NewsDetailsPage = () => {
     const title = 'Trombone Cidadão';
     try {
       if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
+        // Sem toast: a folha do sistema já confirmou ao fechar.
         await Share.share({ title, text: shareText });
-        toast({ title: 'Compartilhado com sucesso! 📣' });
         return;
       }
       if (navigator.share) {
         await navigator.share({ title, text: shareText });
-        toast({ title: 'Compartilhado com sucesso! 📣' });
         return;
       }
       await navigator.clipboard.writeText(shareText);
@@ -322,7 +322,6 @@ const NewsDetailsPage = () => {
       await Promise.all(uploadPromises);
     }
 
-    toast({ title: "Notícia atualizada com sucesso! ✨" });
     setShowEditModal(false);
     fetchNewsDetails();
   };
@@ -335,21 +334,28 @@ const NewsDetailsPage = () => {
       return;
     }
     
+    // Mesma regra do comentário de bronca (migração 193): publica na hora, com
+    // o baixo calão mascarado na escrita.
+    const { texto, mascarou } = mascarar(newComment);
+
     const { error } = await supabase
       .from('comments')
       .insert({
         report_id: null, // This is a news comment, not a report comment
         news_id: newsId, // You'll need to add a news_id column to your comments table
         author_id: user.id,
-        text: newComment,
-        moderation_status: 'pending_approval'
+        text: texto,
+        moderation_status: 'approved'
       });
 
     if (error) {
       toast({ title: "Erro ao enviar comentário", description: error.message, variant: "destructive" });
     } else {
       setNewComment('');
-      toast({ title: "Comentário enviado! 💬", description: "Seu comentário foi enviado para moderação." });
+      toast({
+        title: "Comentário publicado! 💬",
+        description: mascarou ? "Algumas palavras foram mascaradas." : undefined,
+      });
       // Optionally refetch comments or optimistically update UI
     }
   };
@@ -444,7 +450,7 @@ const NewsDetailsPage = () => {
                   onClick={() => setShowEditModal(true)}
                   variant="outline"
                   size="sm"
-                  className="gap-2 text-slate-600 border-slate-200 hover:bg-slate-50"
+                  className="gap-2 text-content-secondary border-edge-subtle hover:bg-surface-subtle"
                 >
                   <Edit className="w-4 h-4" />
                   Editar Notícia
@@ -544,13 +550,13 @@ const NewsDetailsPage = () => {
                       'stalled': 'text-amber-700 bg-amber-50',
                       'unfinished': 'text-rose-700 bg-rose-50',
                       'completed': 'text-emerald-700 bg-emerald-50',
-                    }[w.status]) || 'text-slate-700 bg-slate-100';
+                    }[w.status]) || 'text-content-secondary bg-surface-sunken';
                     const locationText = w.address || (w.bairro && w.bairro.name) || 'Local não informado';
                     return (
                       <CarouselItem key={w.id} className="pl-4 md:basis-1/2">
                         <Link
                           to={`/obras-publicas/${w.id}`}
-                          className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                          className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                         >
                           <div className="relative h-40 w-full overflow-hidden bg-muted">
               { w.thumbnail_url ||w.image_url ? (
@@ -603,13 +609,13 @@ const NewsDetailsPage = () => {
                     'stalled': 'text-amber-700 bg-amber-50',
                     'unfinished': 'text-rose-700 bg-rose-50',
                     'completed': 'text-emerald-700 bg-emerald-50',
-                  }[w.status]) || 'text-slate-700 bg-slate-100';
+                  }[w.status]) || 'text-content-secondary bg-surface-sunken';
                   const locationText = w.address || (w.bairro && w.bairro.name) || 'Local não informado';
                   return (
                     <Link
                       key={w.id}
                       to={`/obras-publicas/${w.id}`}
-                      className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                      className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                     >
                       <div className="relative h-40 w-full overflow-hidden bg-muted">
                         {w.thumbnail_url ? (
@@ -661,20 +667,20 @@ const NewsDetailsPage = () => {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.25 }}
-                          className="w-full h-full flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden h-full"
+                          className="w-full h-full flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden h-full"
                         >
                           <div className="relative h-40 w-full overflow-hidden bg-muted">
                             {p.image_url ? (
                               <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full bg-[#FEF2F2] flex items-center justify-center">
-                                <Megaphone className="w-8 h-8 text-[#F97316]" />
+                              <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
+                                <Megaphone className="w-8 h-8 text-status-pendingFg" />
                               </div>
                             )}
                           </div>
                           <div className="p-4 flex flex-col flex-1">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                              <span className="font-semibold text-[#F97316] flex items-center gap-1">
+                              <span className="font-semibold text-status-pendingFg flex items-center gap-1">
                                 <Megaphone className="w-3 h-3" />
                                 Petição Ativa
                               </span>
@@ -690,7 +696,7 @@ const NewsDetailsPage = () => {
                                 <span>{signatures} assinaturas</span>
                                 <span>Meta {displayGoal}</span>
                               </div>
-                              <Progress value={progress} className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full mb-3" />
+                              <Progress value={progress} className="h-1.5 bg-surface-base [&>div]:bg-tc-red rounded-full mb-3" />
                               <Button
                                 className="w-full h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
                                 onClick={() => navigate(`/abaixo-assinado/${p.id}`)}
@@ -717,20 +723,20 @@ const NewsDetailsPage = () => {
                   return (
                     <div
                       key={p.id}
-                      className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden h-full"
+                      className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden h-full"
                     >
                       <div className="relative h-40 w-full overflow-hidden bg-muted">
                         {p.image_url ? (
                           <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full bg-[#FEF2F2] flex items-center justify-center">
-                            <Megaphone className="w-8 h-8 text-[#F97316]" />
+                          <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
+                            <Megaphone className="w-8 h-8 text-status-pendingFg" />
                           </div>
                         )}
                       </div>
                       <div className="p-4 flex flex-col flex-1">
                         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                          <span className="font-semibold text-[#F97316] flex items-center gap-1">
+                          <span className="font-semibold text-status-pendingFg flex items-center gap-1">
                             <Megaphone className="w-3 h-3" />
                             Petição Ativa
                           </span>
@@ -746,7 +752,7 @@ const NewsDetailsPage = () => {
                             <span>{signatures} assinaturas</span>
                             <span>Meta {displayGoal}</span>
                           </div>
-                          <Progress value={progress} className="h-1.5 bg-[#F3F4F6] [&>div]:bg-tc-red rounded-full mb-3" />
+                          <Progress value={progress} className="h-1.5 bg-surface-base [&>div]:bg-tc-red rounded-full mb-3" />
                           <Button
                             className="w-full h-9 text-xs md:text-sm font-semibold bg-tc-red hover:bg-tc-red/90 rounded-full"
                             onClick={() => navigate(`/abaixo-assinado/${p.id}`)}
@@ -771,7 +777,7 @@ const NewsDetailsPage = () => {
                     <CarouselItem key={r.id} className="pl-4 md:basis-1/2">
                       <Link
                         to={`/bronca/${r.id}`}
-                        className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                        className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                       >
                         <div className="relative h-40 w-full overflow-hidden bg-muted">
                           {r.image_url ? (
@@ -813,7 +819,7 @@ const NewsDetailsPage = () => {
                   <Link
                     key={r.id}
                     to={`/bronca/${r.id}`}
-                    className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                    className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                   >
                     <div className="relative h-40 w-full overflow-hidden bg-muted">
                       {r.image_url ? (
@@ -858,13 +864,13 @@ const NewsDetailsPage = () => {
                     <CarouselItem key={n.id} className="pl-4 md:basis-1/2">
                       <Link
                         to={`/noticias/${n.id}`}
-                        className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                        className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                       >
                         <div className="relative h-40 w-full overflow-hidden bg-muted">
                           {n.image_url ? (
                             <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full bg-slate-100" />
+                            <div className="w-full h-full bg-surface-sunken" />
                           )}
                         </div>
                         <div className="p-4 flex flex-col flex-1">
@@ -897,13 +903,13 @@ const NewsDetailsPage = () => {
                   <Link
                     key={n.id}
                     to={`/noticias/${n.id}`}
-                    className="group flex flex-col rounded-2xl bg-white border border-[#F3F4F6] shadow-sm overflow-hidden hover:shadow-md transition h-full"
+                    className="group flex flex-col rounded-2xl bg-surface-raised border border-edge-subtle shadow-sm overflow-hidden hover:shadow-md transition h-full"
                   >
                     <div className="relative h-40 w-full overflow-hidden bg-muted">
                       {n.image_url ? (
                         <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-slate-100" />
+                        <div className="w-full h-full bg-surface-sunken" />
                       )}
                     </div>
                     <div className="p-4 flex flex-col flex-1">

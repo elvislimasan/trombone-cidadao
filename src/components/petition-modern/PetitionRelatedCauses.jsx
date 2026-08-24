@@ -52,7 +52,7 @@ const PetitionRelatedCauses = ({ causes = [] }) => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 <div className="absolute left-2 md:left-3 top-2 md:top-3 z-10">
-                  <div className="bg-white/90 backdrop-blur-md px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[10px] md:text-[11px] font-bold shadow-sm flex items-center gap-1 md:gap-1.5 text-slate-700 border border-white/20">
+                  <div className="bg-white/90 backdrop-blur-md px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[10px] md:text-[11px] font-bold shadow-sm flex items-center gap-1 md:gap-1.5 text-content-secondary border border-white/20">
                     <Users className="h-3 w-3 md:h-3.5 md:w-3.5 text-primary" />
                     <span>{signaturesCount}</span>
                   </div>

@@ -24,9 +24,8 @@ import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { useCity } from '@/contexts/CityContext';
+import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
+import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -42,7 +41,7 @@ const PavementMapPage = () => {
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
   const { toast } = useToast();
-  const { activeCityId, activeCityName } = useCity();
+  const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const [downloading, setDownloading] = useState(false);
@@ -326,23 +325,6 @@ const PavementMapPage = () => {
     return doc;
   };
 
-  const pdfToBase64 = async (doc) => {
-    return new Promise((resolve, reject) => {
-      try {
-        const pdfBlob = doc.output('blob');
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64String = reader.result.split(',')[1];
-          resolve(base64String);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(pdfBlob);
-      } catch (e) {
-        reject(e);
-      }
-    });
-  };
-
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
@@ -351,27 +333,14 @@ const PavementMapPage = () => {
       const isNative = Capacitor.isNativePlatform();
       if (isNative) {
         try {
-          const permissionStatus = await LocalNotifications.checkPermissions();
-          if (permissionStatus.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
-          }
-          const base64Data = await pdfToBase64(doc);
-          const platform = Capacitor.getPlatform();
-          let downloadPath = fileName;
-          let directory = Directory.Documents;
-          if (platform === 'android') {
-            directory = Directory.Documents;
-            downloadPath = `Download/${fileName}`;
-          } else if (platform === 'ios') {
-            directory = Directory.Documents;
-            downloadPath = fileName;
-          }
-          await Filesystem.writeFile({ path: downloadPath, data: base64Data, directory, recursive: true });
-          const notificationId = Math.floor(Date.now() % 2147483647);
-          await LocalNotifications.schedule({
-            notifications: [
-              { title: 'Download Concluído', body: 'Relatório salvo com sucesso. Toque para abrir.', id: notificationId, schedule: { at: new Date(Date.now() + 100) } },
-            ],
+          // Ver lib/nativeDownload: `Download/` sob Directory.Documents também
+          // caía em escrita fora da área do app, e a notificação nascia sem
+          // `extra.filePath` — tocar nela não abria nada.
+          await salvarDocumento({
+            base64: pdfParaBase64(doc),
+            fileName,
+            contentType: 'application/pdf',
+            tituloShare: fileName,
           });
           toast({ title: 'Download concluído!' });
         } catch (error) {
@@ -394,24 +363,24 @@ const PavementMapPage = () => {
         <title>Mapa de Pavimentação - Trombone Cidadão</title>
         <meta name="description" content="Acompanhe o status da pavimentação das ruas de Floresta-PE e veja os relatórios." />
       </Helmet>
-      <div className="flex flex-col bg-[#F9FAFB] md:px-6">
+      <div className="flex flex-col bg-surface-base md:px-6">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-8 space-y-8 max-w-[88rem] mx-auto w-full"
         >
           <div className="space-y-3">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
               <span className="inline-block w-1 h-3 rounded-full bg-tc-red" />
               Infraestrutura
             </p>
             <div>
-              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827]">Mapa de Pavimentação</h1>
-              <p className="text-xs lg:text-sm text-[#6B7280] max-w-2xl">
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-content-primary">Mapa de Pavimentação</h1>
+              <p className="text-xs lg:text-sm text-content-secondary max-w-2xl">
                 Visualize o status da pavimentação e acesse relatórios detalhados.
               </p>
               {lastUpdate && (
-                <p className="text-[11px] text-[#6B7280] mt-1 flex items-center gap-2">
+                <p className="text-[11px] text-content-secondary mt-1 flex items-center gap-2">
                   <RefreshCw className="w-3.5 h-3.5" />
                   Última atualização: {new Date(lastUpdate).toLocaleString('pt-BR')}
                 </p>
@@ -429,14 +398,14 @@ const PavementMapPage = () => {
             </div>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] text-[#6B7280]">Conteúdo do PDF:</span>
+                <span className="text-[10px] text-content-secondary">Conteúdo do PDF:</span>
                 <button
                   type="button"
                   onClick={() => setReportScope('streets')}
                   className={`px-2 py-0.5 rounded-full border text-[10px] ${
                     reportScope === 'streets'
-                      ? 'bg-[#111827] text-white border-[#111827]'
-                      : 'bg-white text-[#4B5563] border-[#E5E7EB]'
+                      ? 'bg-surface-sunken text-white border-[#111827]'
+                      : 'bg-surface-raised text-content-secondary border-edge-subtle'
                   }`}
                 >
                   Todas as ruas
@@ -446,8 +415,8 @@ const PavementMapPage = () => {
                   onClick={() => setReportScope('neighborhoods')}
                   className={`px-2 py-0.5 rounded-full border text-[10px] ${
                     reportScope === 'neighborhoods'
-                      ? 'bg-[#111827] text-white border-[#111827]'
-                      : 'bg-white text-[#4B5563] border-[#E5E7EB]'
+                      ? 'bg-surface-sunken text-white border-[#111827]'
+                      : 'bg-surface-raised text-content-secondary border-edge-subtle'
                   }`}
                 >
                   Resumo por bairro
@@ -472,7 +441,7 @@ const PavementMapPage = () => {
           </div>
 
         <motion.div
-          className="bg-white border border-[#E5E7EB] rounded-2xl p-3 shadow-sm"
+          className="bg-surface-raised border border-edge-subtle rounded-2xl p-3 shadow-sm"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -482,15 +451,15 @@ const PavementMapPage = () => {
               type="button"
               variants={itemVariants}
               onClick={() => handleStreetListClick('paved', 'Ruas Pavimentadas')}
-              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-[#16A34A]/40 hover:shadow-md"
+              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-status-resolvedBorder/40 hover:shadow-md"
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#15803D]">Pavimentadas</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#15803D] leading-tight">
+                <div className="text-[11px] md:text-xs text-status-resolvedFg">Pavimentadas</div>
+                <div className="text-xl md:text-2xl font-extrabold text-status-resolvedFg leading-tight">
                   {stats.paved}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#16A34A] text-white">
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-status-resolvedFg text-white">
                 <HardHat className="w-4 h-4" />
               </div>
             </motion.button>
@@ -499,15 +468,15 @@ const PavementMapPage = () => {
               type="button"
               variants={itemVariants}
               onClick={() => handleStreetListClick('partially_paved', 'Ruas Parcialmente Pavimentadas')}
-              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-[#D97706]/40 hover:shadow-md"
+              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-status-pendingBorder/40 hover:shadow-md"
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#B45309]">Parcialmente Pavimentadas</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#B45309] leading-tight">
+                <div className="text-[11px] md:text-xs text-status-pendingFg">Parcialmente Pavimentadas</div>
+                <div className="text-xl md:text-2xl font-extrabold text-status-pendingFg leading-tight">
                   {stats.partially_paved}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#D97706] text-white">
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-status-pendingFg text-white">
                 <Construction className="w-4 h-4" />
               </div>
             </motion.button>
@@ -516,15 +485,15 @@ const PavementMapPage = () => {
               type="button"
               variants={itemVariants}
               onClick={() => handleStreetListClick('unpaved', 'Ruas Sem Pavimentação')}
-              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-[#DC2626]/40 hover:shadow-md"
+              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-brand/40 hover:shadow-md"
             >
               <div>
-                <div className="text-[11px] md:text-xs text-[#B91C1C]">Sem Pavimentação</div>
-                <div className="text-xl md:text-2xl font-extrabold text-[#B91C1C] leading-tight">
+                <div className="text-[11px] md:text-xs text-brand">Sem Pavimentação</div>
+                <div className="text-xl md:text-2xl font-extrabold text-brand leading-tight">
                   {stats.unpaved}
                 </div>
               </div>
-              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#DC2626] text-white">
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand text-white">
                 <ThumbsDown className="w-4 h-4" />
               </div>
             </motion.button>
@@ -532,12 +501,12 @@ const PavementMapPage = () => {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          <motion.div variants={itemVariants} className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-[#E5E7EB] overflow-hidden">
-            <div className="px-3 pt-3 pb-2 border-b border-[#E5E7EB] space-y-2">
+          <motion.div variants={itemVariants} className="lg:col-span-2 bg-surface-raised rounded-2xl shadow-sm border border-edge-subtle overflow-hidden">
+            <div className="px-3 pt-3 pb-2 border-b border-edge-subtle space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-[11px] text-[#6B7280]">Explorar ruas</p>
-                  <p className="text-xs font-medium text-[#111827]">
+                  <p className="text-[11px] text-content-secondary">Explorar ruas</p>
+                  <p className="text-xs font-medium text-content-primary">
                     {stats.total} ruas mapeadas em Floresta
                   </p>
                 </div>
@@ -546,15 +515,15 @@ const PavementMapPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 px-3 rounded-full text-[11px] border-[#E5E7EB] text-[#374151] bg-white"
+                      className="h-8 px-3 rounded-full text-[11px] border-edge-subtle text-content-secondary bg-surface-raised"
                     >
                       <span>{getFilterLabel()}</span>
-                      <Filter className="w-3.5 h-3.5 ml-1 text-[#6B7280]" />
+                      <Filter className="w-3.5 h-3.5 ml-1 text-content-secondary" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-white text-foreground border border-[#E5E7EB]">
+                  <DropdownMenuContent className="w-56 bg-surface-raised text-foreground border border-edge-subtle">
                     <DropdownMenuLabel className="text-tc-red">Status</DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-[#E5E7EB]" />
+                    <DropdownMenuSeparator className="bg-surface-sunken" />
                     <DropdownMenuRadioGroup value={statusFilter} onValueChange={setStatusFilter}>
                       <DropdownMenuRadioItem value="all">Todos</DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="paved">Pavimentadas</DropdownMenuRadioItem>
@@ -565,12 +534,12 @@ const PavementMapPage = () => {
                 </DropdownMenu>
               </div>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-tertiary" />
                 <Input
                   id="search"
                   type="text"
                   placeholder="Buscar por rua ou bairro..."
-                  className="pl-9 h-9 text-xs md:text-sm bg-white border-[#E5E7EB]"
+                  className="pl-9 h-9 text-xs md:text-sm bg-surface-raised border-edge-subtle"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   list="street-list"
@@ -583,14 +552,14 @@ const PavementMapPage = () => {
             <div className="w-full h-[20rem] md:h-[24rem] lg:h-[26rem]">
               <PavementMapView ref={mapViewRef} streets={filteredStreets} onWorkClick={handleWorkClick} />
             </div>
-            <div className="border-t border-[#E5E7EB] px-3 py-2 bg-[#F9FAFB] flex flex-wrap items-center gap-3 text-[11px] text-[#4B5563]">
+            <div className="border-t border-edge-subtle px-3 py-2 bg-surface-base flex flex-wrap items-center gap-3 text-[11px] text-content-secondary">
               <span className="font-semibold">Legenda</span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-status-resolvedFg" />
                 Pavimentada
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-status-pendingFg" />
                 Parcialmente
               </span>
               <span className="inline-flex items-center gap-1">
@@ -599,7 +568,7 @@ const PavementMapPage = () => {
               </span>
             </div>
           </motion.div>
-          <motion.div variants={itemVariants} className="bg-white border border-[#E5E7EB] rounded-2xl p-6 flex flex-col shadow-sm">
+          <motion.div variants={itemVariants} className="bg-surface-raised border border-edge-subtle rounded-2xl p-6 flex flex-col shadow-sm">
             <h3 className="font-semibold mb-4 text-center text-foreground text-lg">Relatório de Pavimentação</h3>
             <div className="flex-grow h-[260px] md:h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -695,4 +664,11 @@ const PavementMapPage = () => {
   );
 };
 
-export default PavementMapPage;
+// Filtro de cidade local a esta tela — nao altera o feed nem persiste.
+export default function PavementMapPageWithCityView() {
+  return (
+    <CityViewProvider>
+      <PavementMapPage />
+    </CityViewProvider>
+  );
+}

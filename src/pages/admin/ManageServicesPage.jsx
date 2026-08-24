@@ -15,6 +15,37 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Combobox } from '@/components/ui/combobox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { TIPOS_TRANSPORTE } from '@/lib/transportTypes';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
+
+// Uma aba do guia: transportes, pontos turísticos, órgãos públicos, comércios.
+// As quatro têm a mesma linha e o mesmo par de botões — e agora o mesmo
+// recorte, que no celular rola e no desktop pagina.
+const ListaServicos = ({ data, type, onEdit, onDelete }) => {
+  const { visiveis, propsPaginacao } = useListaPaginada(data || [], { porPagina: 20 });
+
+  if (!data || data.length === 0) {
+    return <p className="text-center text-muted-foreground py-8">Nenhum item cadastrado nesta seção.</p>;
+  }
+
+  return (
+    <>
+      <div className="space-y-2">
+        {visiveis.map(item => (
+          <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 bg-background rounded-lg border gap-2">
+            <span className="font-medium">{item.name} {item.destination && `- ${item.destination}`} {item.bairro && `- ${item.bairro}`}</span>
+            <div className="flex-shrink-0 flex gap-2">
+              <Button variant="ghost" size="icon" title="Editar" onClick={() => onEdit(item)}><Edit className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" title="Remover" className="text-red-500 hover:text-red-600" onClick={() => onDelete(item)}><Trash2 className="w-4 h-4" /></Button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <PaginacaoLista {...propsPaginacao} />
+    </>
+  );
+};
 
 const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
   const [formData, setFormData] = useState(null);
@@ -65,6 +96,20 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
             <div className="grid gap-2">
               <Label htmlFor="destination">Destino</Label>
               <Input id="destination" name="destination" value={formData.destination} onChange={handleChange} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="vehicle_type">Tipo de transporte</Label>
+              <Combobox
+                options={TIPOS_TRANSPORTE.map((t) => ({ value: t.id, label: t.name }))}
+                value={formData.vehicle_type || ''}
+                onChange={(value) => setFormData((prev) => ({ ...prev, vehicle_type: value }))}
+                placeholder="Selecione o tipo (moto, tuk tuk, carro...)"
+                searchPlaceholder="Buscar tipo..."
+                notFoundText="Nenhum tipo encontrado."
+              />
+              <p className="text-xs text-muted-foreground">
+                Define o ícone e a imagem ilustrativa do serviço, e alimenta o filtro por tipo no guia.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="phone">Telefone</Label>
@@ -321,6 +366,10 @@ const ManageServicesPage = () => {
     let tableName = type;
     if (type.startsWith('directory')) tableName = 'directory';
 
+    // O Combobox devolve '' quando nada foi escolhido, e '' nao e "sem tipo":
+    // o filtro do guia compara por id e a coluna e nullable de proposito.
+    if (tableName === 'transport' && !dbData.vehicle_type) dbData.vehicle_type = null;
+
     const isScopedTable = tableName === 'transport' || tableName === 'tourist_spots' || tableName === 'directory';
     if (isScopedTable) {
       if (!dbData.city_id) {
@@ -347,11 +396,9 @@ const ManageServicesPage = () => {
     if (dbData.id) {
       const { error } = await supabase.from(tableName).update(dbData).eq('id', dbData.id);
       if (error) toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
-      else toast({ title: "Item atualizado!" });
     } else {
       const { error } = await supabase.from(tableName).insert(dbData);
       if (error) toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
-      else toast({ title: "Item adicionado!" });
     }
 
     fetchData();
@@ -381,7 +428,7 @@ const ManageServicesPage = () => {
     const targetTab = explicitTab || activeTab;
     let newItem, type;
     switch (targetTab) {
-      case 'transport': newItem = { name: '', destination: '', phone: '', instagram: '', schedule: '', details: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'transport'; break;
+      case 'transport': newItem = { name: '', destination: '', vehicle_type: '', phone: '', instagram: '', schedule: '', details: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'transport'; break;
       case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'tourist_spots'; break;
       case 'directory_public': newItem = { name: '', address: '', phone: '', image_url: '', type: 'public', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
       case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: 'commerce', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
@@ -398,23 +445,20 @@ const ManageServicesPage = () => {
     } else if (!data || data.length === 0) {
       toast({ title: "Fora da sua área", description: "Esta sugestão pertence a uma cidade fora do seu escopo de gestão.", variant: "destructive" });
     } else {
-      toast({ title: `Sugestão ${status === 'approved' ? 'aprovada' : 'rejeitada'}!` });
       fetchData();
     }
   };
 
+  // `renderList` virou componente porque a paginação é um hook, e hook não
+  // pode morar numa função chamada de dentro do JSX — cada aba tem a sua
+  // lista, e a ordem das chamadas mudaria ao trocar de aba.
   const renderList = (data, type) => (
-    <div className="space-y-2">
-      {data.map(item => (
-        <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 bg-background rounded-lg border gap-2">
-          <span className="font-medium">{item.name} {item.destination && `- ${item.destination}`} {item.bairro && `- ${item.bairro}`}</span>
-          <div className="flex-shrink-0 flex gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setEditingItem({ item, type })}><Edit className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingItem({ item, type })}><Trash2 className="w-4 h-4" /></Button>
-          </div>
-        </div>
-      ))}
-    </div>
+    <ListaServicos
+      data={data}
+      type={type}
+      onEdit={(item) => setEditingItem({ item, type })}
+      onDelete={(item) => setDeletingItem({ item, type })}
+    />
   );
 
   return (

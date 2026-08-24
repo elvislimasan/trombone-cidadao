@@ -171,7 +171,8 @@ const FavoritesPage = () => {
       if (error) {
         toast({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Removido dos favoritos! 💔" });
+        // Sem toast: nesta página o card sai da lista ao ser desfavoritado —
+        // não há confirmação mais direta do que a bronca sumir dos favoritos.
         fetchFavorites(page);
         if (selectedReport?.id === reportId) {
           setSelectedReport(prev => ({ ...prev, is_favorited: false }));
@@ -183,7 +184,6 @@ const FavoritesPage = () => {
       if (error) {
         toast({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Adicionado aos favoritos! ⭐" });
         fetchFavorites(page);
         if (selectedReport?.id === reportId) {
           setSelectedReport(prev => ({ ...prev, is_favorited: true }));
@@ -198,7 +198,6 @@ const FavoritesPage = () => {
     if (error) {
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca atualizada!" });
       fetchFavorites(page);
       setSelectedReport(null);
     }
@@ -214,7 +213,6 @@ const FavoritesPage = () => {
     if (error) {
       toast({ title: "Erro ao vincular", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca vinculada!" });
       fetchFavorites(page);
       setSelectedReport(null);
       setShowLinkModal(false);
@@ -276,8 +274,9 @@ const FavoritesPage = () => {
       const key = user?.id ? `tc_favorite_news_ids_${user.id}` : 'tc_favorite_news_ids';
       const ids = loadFavoriteNewsIds().filter((id) => id !== newsId);
       localStorage.setItem(key, JSON.stringify(ids));
+      // Sem toast: o card sai da lista na mesma hora. Anunciar "removida" por
+      // cima de uma lista que já encolheu é dizer o que está à vista.
       setFavoriteNews((prev) => prev.filter((n) => n.id !== newsId));
-      toast({ title: "Removida das salvas" });
     } catch {}
   };
 
@@ -286,7 +285,7 @@ const FavoritesPage = () => {
       <Helmet>
         <title>Meus Favoritos - Trombone Cidadão</title>
       </Helmet>
-      <div className="flex flex-col bg-[#F9FAFB] md:px-6">
+      <div className="flex flex-col bg-surface-base md:px-6">
         <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-8 space-y-6 max-w-[88rem] mx-auto w-full">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -294,15 +293,15 @@ const FavoritesPage = () => {
             transition={{ duration: 0.5 }}
             className="space-y-2"
           >
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9CA3AF] uppercase flex items-center gap-2">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
               <span className="inline-block w-1 h-3 rounded-full bg-tc-red" />
               Favoritos
             </p>
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#111827] flex items-center gap-2">
+            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-content-primary flex items-center gap-2">
               <Star className="w-6 h-6 text-yellow-400" />
               Favoritos
             </h1>
-            <p className="text-xs lg:text-sm text-[#6B7280] max-w-2xl">
+            <p className="text-xs lg:text-sm text-content-secondary max-w-2xl">
               Acesse rapidamente broncas e obras favoritas, e as notícias salvas.
             </p>
           </motion.div>
@@ -316,20 +315,20 @@ const FavoritesPage = () => {
 
             <TabsContent value="reports">
               {!loading && favoriteReports.length > 0 && (
-                <div className="flex flex-col gap-3 bg-white rounded-2xl border border-[#E5E7EB] shadow-sm p-3 md:p-4">
+                <div className="flex flex-col gap-3 bg-surface-raised rounded-2xl border border-edge-subtle shadow-sm p-3 md:p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-[11px] md:text-xs text-[#6B7280]">
+                    <div className="text-[11px] md:text-xs text-content-secondary">
                       {filteredFavorites.length} {filteredFavorites.length === 1 ? 'bronca favorita' : 'broncas favoritas'}
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] md:text-xs text-[#6B7280]">
+                    <div className="flex items-center gap-2 text-[11px] md:text-xs text-content-secondary">
                       <span>Ordenar por</span>
                       <button
                         type="button"
                         onClick={() => setSortBy('recent')}
                         className={`px-2 py-0.5 rounded-full border text-[11px] ${
                           sortBy === 'recent'
-                            ? 'bg-[#111827] text-white border-[#111827]'
-                            : 'bg-white text-[#4B5563] border-[#E5E7EB]'
+                            ? 'bg-surface-sunken text-white border-[#111827]'
+                            : 'bg-surface-raised text-content-secondary border-edge-subtle'
                         }`}
                       >
                         Mais recentes
@@ -339,8 +338,8 @@ const FavoritesPage = () => {
                         onClick={() => setSortBy('upvotes')}
                         className={`px-2 py-0.5 rounded-full border text-[11px] ${
                           sortBy === 'upvotes'
-                            ? 'bg-[#111827] text-white border-[#111827]'
-                            : 'bg-white text-[#4B5563] border-[#E5E7EB]'
+                            ? 'bg-surface-sunken text-white border-[#111827]'
+                            : 'bg-surface-raised text-content-secondary border-edge-subtle'
                         }`}
                       >
                         Mais apoiadas
@@ -355,8 +354,8 @@ const FavoritesPage = () => {
                         onClick={() => setStatusFilter(chip.key)}
                         className={`px-3 py-1 rounded-full border text-[11px] md:text-xs transition ${
                           statusFilter === chip.key
-                            ? 'bg-[#111827] text-white border-[#111827]'
-                            : 'bg-white text-[#4B5563] border-[#E5E7EB]'
+                            ? 'bg-surface-sunken text-white border-[#111827]'
+                            : 'bg-surface-raised text-content-secondary border-edge-subtle'
                         }`}
                       >
                         {chip.label}
@@ -367,18 +366,18 @@ const FavoritesPage = () => {
               )}
 
               {loading ? (
-                <p className="text-sm text-[#6B7280]">Carregando seus favoritos...</p>
+                <p className="text-sm text-content-secondary">Carregando seus favoritos...</p>
               ) : filteredFavorites.length === 0 ? (
                 totalFavorites === 0 && statusFilter === 'all' ? (
-                  <div className="text-center py-12 border-2 border-dashed rounded-xl bg-white border-[#E5E7EB]">
-                    <p className="text-sm text-[#6B7280]">Você ainda não favoritou nenhuma bronca.</p>
-                    <p className="text-xs md:text-sm text-[#6B7280] mt-2">
+                  <div className="text-center py-12 border-2 border-dashed rounded-xl bg-surface-raised border-edge-subtle">
+                    <p className="text-sm text-content-secondary">Você ainda não favoritou nenhuma bronca.</p>
+                    <p className="text-xs md:text-sm text-content-secondary mt-2">
                       Clique na estrela ⭐ em uma bronca para adicioná-la aqui.
                     </p>
                   </div>
                 ) : (
-                  <div className="text-center py-12 border-2 border-dashed rounded-xl bg-white border-[#E5E7EB]">
-                    <p className="text-sm text-[#6B7280]">Nenhuma bronca encontrada com os filtros atuais.</p>
+                  <div className="text-center py-12 border-2 border-dashed rounded-xl bg-surface-raised border-edge-subtle">
+                    <p className="text-sm text-content-secondary">Nenhuma bronca encontrada com os filtros atuais.</p>
                   </div>
                 )
               ) : (
@@ -393,7 +392,7 @@ const FavoritesPage = () => {
                     return (
                       <div
                         key={r.id}
-                        className="h-full bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden cursor-pointer hover:shadow-lg transition"
+                        className="h-full bg-surface-raised border border-edge-subtle rounded-2xl shadow-sm overflow-hidden cursor-pointer hover:shadow-lg transition"
                         onClick={() => setSelectedReport(r)}
                       >
                         <div className="relative h-36 md:h-40 w-full">
@@ -410,7 +409,7 @@ const FavoritesPage = () => {
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/0" />
                           <div className="absolute top-2 left-2">
-                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/90 text-[#111827] font-medium">
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/90 text-content-primary font-medium">
                               {getStatusLabel(r.status)}
                             </span>
                           </div>
@@ -426,22 +425,22 @@ const FavoritesPage = () => {
                           </div>
                         </div>
                         <div className="p-3 space-y-1.5">
-                          <p className="text-xs text-[#6B7280] flex items-center gap-1">
+                          <p className="text-xs text-content-secondary flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
                             <span className="truncate">{r.address || 'Endereço não informado'}</span>
                           </p>
-                          <p className="text-sm md:text-base font-semibold text-[#111827] leading-snug md:leading-snug line-clamp-2 min-h-[2.5rem] md:min-h-[3rem]">
+                          <p className="text-sm md:text-base font-semibold text-content-primary leading-snug md:leading-snug line-clamp-2 min-h-[2.5rem] md:min-h-[3rem]">
                             {r.title}
                           </p>
-                          <p className="text-xs md:text-sm text-[#6B7280] mt-0.5 leading-snug md:leading-snug line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
+                          <p className="text-xs md:text-sm text-content-secondary mt-0.5 leading-snug md:leading-snug line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
                             {r.description}
                           </p>
-                          <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[#6B7280]">
+                          <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-content-secondary">
                             <div className="flex items-center gap-1.5">
                               <span className="text-base">{r.categoryIcon}</span>
                               <span className="truncate">{r.categoryName}</span>
                             </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-medium">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-pendingBg text-[#92400E] font-medium">
                               Nos seus favoritos
                             </span>
                           </div>
@@ -453,7 +452,7 @@ const FavoritesPage = () => {
               )}
 
               {!loading && totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 text-[11px] md:text-xs text-[#6B7280]">
+                <div className="flex items-center justify-between mt-4 text-[11px] md:text-xs text-content-secondary">
                   <span>
                     Página {page} de {totalPages}
                   </span>
@@ -464,8 +463,8 @@ const FavoritesPage = () => {
                       onClick={() => fetchFavorites(page - 1)}
                       className={`px-3 py-1 rounded-full border ${
                         page === 1
-                          ? 'bg-[#E5E7EB] text-[#9CA3AF] border-[#E5E7EB] cursor-not-allowed'
-                          : 'bg-white text-[#4B5563] border-[#E5E7EB]'
+                          ? 'bg-surface-sunken text-content-tertiary border-edge-subtle cursor-not-allowed'
+                          : 'bg-surface-raised text-content-secondary border-edge-subtle'
                       }`}
                     >
                       Anterior
@@ -476,8 +475,8 @@ const FavoritesPage = () => {
                       onClick={() => fetchFavorites(page + 1)}
                       className={`px-3 py-1 rounded-full border ${
                         page === totalPages
-                          ? 'bg-[#E5E7EB] text-[#9CA3AF] border-[#E5E7EB] cursor-not-allowed'
-                          : 'bg-white text-[#4B5563] border-[#E5E7EB]'
+                          ? 'bg-surface-sunken text-content-tertiary border-edge-subtle cursor-not-allowed'
+                          : 'bg-surface-raised text-content-secondary border-edge-subtle'
                       }`}
                     >
                       Próxima
@@ -489,13 +488,13 @@ const FavoritesPage = () => {
 
             <TabsContent value="works">
               {worksLoading ? (
-                <div className="text-center py-12 border-2 border-dashed rounded-xl bg-white border-[#E5E7EB]">
-                  <p className="text-sm text-[#6B7280]">Carregando suas obras favoritas...</p>
+                <div className="text-center py-12 border-2 border-dashed rounded-xl bg-surface-raised border-edge-subtle">
+                  <p className="text-sm text-content-secondary">Carregando suas obras favoritas...</p>
                 </div>
               ) : favoriteWorks.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed rounded-xl bg-white border-[#E5E7EB]">
-                  <p className="text-sm text-[#6B7280]">Você ainda não favoritou nenhuma obra.</p>
-                  <p className="text-xs md:text-sm text-[#6B7280] mt-2">
+                <div className="text-center py-12 border-2 border-dashed rounded-xl bg-surface-raised border-edge-subtle">
+                  <p className="text-sm text-content-secondary">Você ainda não favoritou nenhuma obra.</p>
+                  <p className="text-xs md:text-sm text-content-secondary mt-2">
                     Clique na estrela ⭐ em uma obra para adicioná-la aqui.
                   </p>
                 </div>
@@ -504,27 +503,27 @@ const FavoritesPage = () => {
                   {favoriteWorks.map((work) => {
                     const statusInfo = getWorkStatusInfo(work.status);
                     return (
-                      <div key={work.id} className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm p-4 hover:shadow-lg transition">
+                      <div key={work.id} className="bg-surface-raised border border-edge-subtle rounded-2xl shadow-sm p-4 hover:shadow-lg transition">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <HardHat className="w-5 h-5 text-tc-red flex-shrink-0" />
-                            <p className="font-semibold text-[#111827] truncate">{work.title}</p>
+                            <p className="font-semibold text-content-primary truncate">{work.title}</p>
                           </div>
                           <span className={`text-[10px] px-2 py-1 rounded-full text-white ${statusInfo.color}`}>{statusInfo.text}</span>
                         </div>
                         {work.description && (
-                          <p className="text-xs text-[#6B7280] mt-2 line-clamp-2">{work.description}</p>
+                          <p className="text-xs text-content-secondary mt-2 line-clamp-2">{work.description}</p>
                         )}
                         {work.execution_percentage > 0 && (
                           <div className="mt-3">
-                            <div className="flex justify-between text-xs font-medium mb-1 text-[#4B5563]">
+                            <div className="flex justify-between text-xs font-medium mb-1 text-content-secondary">
                               <span>Progresso</span>
                               <span>{work.execution_percentage}%</span>
                             </div>
                             <Progress value={work.execution_percentage} className="h-2" />
                           </div>
                         )}
-                        <div className="text-[11px] text-[#6B7280] mt-3 space-y-1">
+                        <div className="text-[11px] text-content-secondary mt-3 space-y-1">
                           {work.total_value > 0 && <p>Valor: {formatCurrency(work.total_value)}</p>}
                           {work.last_update && <p>Atualização: {new Date(work.last_update).toLocaleDateString('pt-BR')}</p>}
                         </div>
@@ -540,12 +539,12 @@ const FavoritesPage = () => {
 
             <TabsContent value="news">
               {newsLoading ? (
-                <div className="text-center py-12 border-2 border-dashed rounded-xl bg-white border-[#E5E7EB]">
-                  <p className="text-sm text-[#6B7280]">Carregando notícias salvas...</p>
+                <div className="text-center py-12 border-2 border-dashed rounded-xl bg-surface-raised border-edge-subtle">
+                  <p className="text-sm text-content-secondary">Carregando notícias salvas...</p>
                 </div>
               ) : favoriteNews.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed rounded-xl bg-white border-[#E5E7EB]">
-                  <p className="text-sm text-[#6B7280]">Você ainda não salvou nenhuma notícia.</p>
+                <div className="text-center py-12 border-2 border-dashed rounded-xl bg-surface-raised border-edge-subtle">
+                  <p className="text-sm text-content-secondary">Você ainda não salvou nenhuma notícia.</p>
                   <Button className="mt-4" onClick={() => navigate('/noticias')}>
                     Ver notícias
                   </Button>
@@ -555,7 +554,7 @@ const FavoritesPage = () => {
                   {favoriteNews.map((n) => (
                     <div
                       key={n.id}
-                      className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition cursor-pointer"
+                      className="bg-surface-raised border border-edge-subtle rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition cursor-pointer"
                       onClick={() => navigate(`/noticias/${n.id}`)}
                     >
                       <div className="relative h-36 md:h-40 w-full">
@@ -579,13 +578,13 @@ const FavoritesPage = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/0" />
                       </div>
                       <div className="p-3 space-y-1.5">
-                        <p className="text-[11px] text-[#6B7280]">
+                        <p className="text-[11px] text-content-secondary">
                           {n.date ? new Date(n.date).toLocaleDateString('pt-BR') : ''}
                         </p>
-                        <p className="text-sm font-semibold text-[#111827] line-clamp-2">
+                        <p className="text-sm font-semibold text-content-primary line-clamp-2">
                           {n.title}
                         </p>
-                        <p className="text-xs text-[#6B7280] line-clamp-2">
+                        <p className="text-xs text-content-secondary line-clamp-2">
                           {n.description}
                         </p>
                       </div>

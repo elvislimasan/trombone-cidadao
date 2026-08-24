@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Map, PlusCircle, BarChart3, User } from 'lucide-react';
+import Avatar from 'react-nice-avatar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ReportModal from '@/components/ReportModal';
 import { useToast } from '@/components/ui/use-toast';
@@ -26,6 +27,30 @@ const NAV_ITEMS = [
   { path: '/estatisticas', icon: BarChart3, label: 'Estatísticas' },
   { path: '/perfil', icon: User, label: 'Perfil' },
 ];
+
+// Mesma resolucao de avatar do Header/ProfilePage: 'upload' e 'url' apontam
+// para uma imagem; 'generated' guarda a config do react-nice-avatar.
+const getAvatarComponent = (profile) => {
+  if (!profile) return <Avatar className="w-full h-full" />;
+
+  if ((profile.avatar_type === 'url' || profile.avatar_type === 'upload') && profile.avatar_url) {
+    return <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />;
+  }
+
+  if (profile.avatar_type === 'generated' && profile.avatar_config) {
+    let config = profile.avatar_config;
+    if (typeof config === 'string') {
+      try {
+        config = JSON.parse(config);
+      } catch {
+        config = {};
+      }
+    }
+    return <Avatar className="w-full h-full" {...config} />;
+  }
+
+  return <Avatar className="w-full h-full" />;
+};
 
 const BottomNav = () => {
   const location = useLocation();
@@ -132,10 +157,17 @@ const BottomNav = () => {
         });
       } catch {}
 
+      // O aviso de moderação não é enfeite: sem ele a pessoa envia, não vê a
+      // bronca no feed e conclui que o app perdeu o cadastro — reenvia, ou
+      // desiste. Só admin/master publicam direto (é o que a linha de
+      // moderation_status acima decide), então o texto segue a mesma regra.
+      const isPublishedDirectly = user?.is_admin || user?.is_master;
       toast({
         title: 'Você acabou de ajudar sua cidade 🔥',
-        description: `Bronca enviada. Total: ${nextSubmitted}`,
-        duration: 4500,
+        description: isPublishedDirectly
+          ? `Bronca publicada. Total: ${nextSubmitted}`
+          : `Bronca enviada para moderação — após aprovada, estará disponível no feed. Total: ${nextSubmitted}`,
+        duration: 5500,
       });
       setShowReportModal(false);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
@@ -151,8 +183,8 @@ const BottomNav = () => {
           : location.pathname.startsWith(path);
       return `flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
         isActive
-          ? 'text-primary scale-105 font-bold'
-          : 'text-muted-foreground hover:text-foreground'
+          ? 'text-brand scale-105 font-bold'
+          : 'text-content-tertiary hover:text-content-primary'
       }`;
     },
     [location.pathname]
@@ -161,11 +193,13 @@ const BottomNav = () => {
   return (
     <>
       <div
-        className="fixed left-0 right-0 bg-white border-t border-border z-[1000] lg:hidden"
+        className="fixed left-0 right-0 bg-surface-raised border-t border-edge-subtle z-[1000] lg:hidden"
+        /* Sem minHeight: a altura vem do conteudo (h-16) mais a safe area. O
+           4.5rem antigo deixava meia rem de fundo sobrando abaixo dos itens,
+           que aparecia como uma faixa clara acima da barra. */
         style={{
           bottom: 0,
           paddingBottom: 'max(env(safe-area-inset-bottom), 0px)',
-          minHeight: '4.5rem',
           marginBottom: 0,
         }}
       >
@@ -181,12 +215,20 @@ const BottomNav = () => {
                     className="justify-self-center flex flex-col items-center justify-center gap-1 -mt-8"
                     aria-label="Reportar nova bronca"
                   >
-                    <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-xl ring-4 ring-background">
+                    {/* O anel usa a cor da propria barra para o FAB parecer
+                        recortado nela, e nao colado por cima. */}
+                    <div className="w-14 h-14 rounded-full bg-brand flex items-center justify-center text-content-onBrand shadow-elevation-3 ring-4 ring-surface-raised active:scale-95 transition-transform">
                       <PlusCircle size={32} />
                     </div>
                   </button>
                 );
               }
+
+              // Aba Perfil: mostra a foto do usuario em vez do icone generico,
+              // no lugar onde o avatar do header ficava. Deslogado continua com
+              // o icone, que e o convite a entrar.
+              const isProfile = item.path === '/perfil';
+              const showAvatar = isProfile && !!user;
 
               return (
                 <NavLink
@@ -196,7 +238,19 @@ const BottomNav = () => {
                   className={`${navLinkClass(item.path)} justify-self-center`}
                   aria-label={item.label}
                 >
-                  <item.icon size={22} />
+                  {showAvatar ? (
+                    <span
+                      className={`w-[26px] h-[26px] rounded-full overflow-hidden bg-surface-subtle flex items-center justify-center ${
+                        location.pathname.startsWith('/perfil')
+                          ? 'ring-2 ring-brand'
+                          : 'ring-1 ring-edge-subtle'
+                      }`}
+                    >
+                      {getAvatarComponent(user)}
+                    </span>
+                  ) : (
+                    <item.icon size={22} />
+                  )}
                   <span className="text-[10px] font-medium">{item.label}</span>
                 </NavLink>
               );

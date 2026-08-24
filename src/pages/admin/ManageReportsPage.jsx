@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature, ExternalLink, Star } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature, ExternalLink, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,22 @@ import ReportDetails from '@/components/ReportDetails';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useUpvote } from '@/hooks/useUpvotes';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+
+// Quantas broncas por página.
+//
+// A lista carregava TODAS as broncas de uma vez — e cada linha vinha com
+// comentários, mídias, timeline e upvotes embutidos. Com 540 broncas isso é
+// alguns megabytes de JSON por abertura da tela, no celular do embaixador.
+// Vinte por página mantém o payload num tamanho que cabe em rede móvel e
+// preserva o modal de edição, que precisa da bronca inteira.
+const PAGE_SIZE = 20;
+
+// A busca vai para o servidor num filtro `or`, e vírgula/parêntese são
+// separadores da sintaxe do PostgREST — deixá-los passar quebra a consulta.
+// `%` é curinga do ilike: quem digita "50%" não está pedindo um curinga.
+const sanitizarBusca = (termo) => (termo || '').replace(/[,()%\\]/g, ' ').trim();
 
 const ManageReportsPage = () => {
   const { toast } = useToast();
@@ -20,92 +37,170 @@ const ManageReportsPage = () => {
   const { handleUpvote: handleUpvoteHook } = useUpvote();
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
-  const [filteredReports, setFilteredReports] = useState([]);
   const [filters, setFilters] = useState({ searchTerm: '', status: 'all', category: 'all' });
+  // O que o usuário digitou já apareceu no campo; o que vai para o servidor
+  // espera ele parar de digitar, senão cada tecla vira uma consulta.
+  const [buscaAtiva, setBuscaAtiva] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedReport, setSelectedReport] = useState(null);
   const [deletingReport, setDeletingReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Primeira carga mostra esqueleto; as seguintes (trocar de página, refetch
+  // após uma ação) mantêm a lista antiga visível para a tela não piscar.
+  const [primeiraCarga, setPrimeiraCarga] = useState(true);
+  // Respostas fora de ordem: trocar de página duas vezes rápido pode fazer a
+  // resposta da página 1 chegar depois da 2 e sobrescrever a lista certa.
+  const requisicaoRef = useRef(0);
+  // No celular a página seguinte se soma à lista em vez de substituí-la; no
+  // desktop, troca. Quem pede a página diz qual dos dois quer.
+  const acumularRef = useRef(false);
 
-  const categories = {
+  const isMobile = useIsMobile();
+
+  const categories = useMemo(() => ({
     'iluminacao': 'Iluminação Pública', 'buracos': 'Buracos na Via', 'esgoto': 'Esgoto Entupido',
     'limpeza': 'Limpeza Urbana', 'poda': 'Poda de Árvore', 'vazamento-de-agua': 'Vazamento de Água', 'outros': 'Outros',
-  };
+  }), []);
 
-  const statusOptions = [
+  const statusOptions = useMemo(() => [
     { value: 'all', label: 'Todos os Status' },
     { value: 'pending', label: 'Pendente' },
     { value: 'in-progress', label: 'Em Andamento' },
     { value: 'resolved', label: 'Resolvido' },
     { value: 'duplicate', label: 'Duplicada' },
     { value: 'pending_resolution', label: 'Verificando Resolução' },
-  ];
+  ], []);
 
-  const categoryOptions = [
+  const categoryOptions = useMemo(() => [
     { value: 'all', label: 'Todas as Categorias' },
     ...Object.entries(categories).map(([value, label]) => ({ value, label }))
-  ];
+  ], [categories]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const paginaSegura = Math.min(page, totalPages);
+
+  // Filtro trocado recomeça da primeira página: continuar na página 7 de um
+  // resultado que agora tem 2 páginas mostra uma lista vazia. O `setPage` anda
+  // junto do `setBuscaAtiva` (e do `setFilters`, em `handleFilterChange`) para
+  // que as duas mudanças entrem na mesma renderização — separadas, disparavam
+  // uma consulta a mais, do filtro novo na página antiga, jogada fora depois.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setBuscaAtiva(filters.searchTerm);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [filters.searchTerm]);
 
   const fetchReports = useCallback(async () => {
+    const requisicao = ++requisicaoRef.current;
     setLoading(true);
+
+    // No celular, recarregar sem acumular (troca de filtro, refetch depois de
+    // apagar ou favoritar) tem que trazer TUDO o que já estava na tela: a lista
+    // é uma rolagem contínua, e devolver só a última fatia apagaria o começo.
+    const de = (isMobile && !acumularRef.current) ? 0 : (paginaSegura - 1) * PAGE_SIZE;
+    const ate = paginaSegura * PAGE_SIZE - 1;
     let query = supabase
       .from('reports')
-      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*), favorite_reports!left(*), petitions(id, status)')
-      .order('created_at', { ascending: false });
+      .select(
+        '*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*), favorite_reports!left(*), petitions(id, status)',
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+      // Desempate estável: duas broncas criadas no mesmo instante poderiam
+      // trocar de lugar entre uma página e outra, sumindo ou duplicando.
+      .order('id', { ascending: false });
+
+    if (filters.status !== 'all') query = query.eq('status', filters.status);
+    if (filters.category !== 'all') query = query.eq('category_id', filters.category);
+
+    const termo = sanitizarBusca(buscaAtiva);
+    if (termo) {
+      query = query.or(`title.ilike.%${termo}%,description.ilike.%${termo}%,protocol.ilike.%${termo}%`);
+    }
 
     if (user) {
       query = query.eq('favorite_reports.user_id', user.id);
     }
-      
-    const { data, error } = await query;
+
+    const { data, error, count } = await query.range(de, ate);
+
+    if (requisicao !== requisicaoRef.current) return;
 
     if (error) {
       toast({ title: "Erro ao buscar broncas", description: error.message, variant: "destructive" });
     } else {
-      const formattedData = data.map(r => ({
+      const formattedData = (data || []).map(r => ({
         ...r,
         location: r.location ? { lat: r.location.coordinates[1], lng: r.location.coordinates[0] } : null,
         category: r.category_id,
         categoryName: r.category?.name,
         categoryIcon: r.category?.icon,
         authorName: r.author?.name || 'Anônimo',
-        upvotes: r.upvotes[0]?.count || 0,
+        upvotes: r.upvotes?.[0]?.count || 0,
         comments: (r.comments || []).filter(c => c.moderation_status === 'approved'),
-        photos: r.report_media.filter(m => m.type === 'photo'),
-        videos: r.report_media.filter(m => m.type === 'video'),
-        is_favorited: r.favorite_reports.length > 0,
+        photos: (r.report_media || []).filter(m => m.type === 'photo'),
+        videos: (r.report_media || []).filter(m => m.type === 'video'),
+        is_favorited: (r.favorite_reports || []).length > 0,
         petitionId: r.petitions?.[0]?.id || null,
         petitionStatus: r.petitions?.[0]?.status || null,
       }));
-      setReports(formattedData);
+      if (acumularRef.current) {
+        // Dedupe por id: uma bronca criada entre uma página e outra empurra as
+        // demais para baixo, e a linha da divisa apareceria duas vezes.
+        setReports(prev => {
+          const vistos = new Set(prev.map(r => r.id));
+          return [...prev, ...formattedData.filter(r => !vistos.has(r.id))];
+        });
+      } else {
+        setReports(formattedData);
+      }
+      if (typeof count === 'number') setTotalCount(count);
     }
+    acumularRef.current = false;
     setLoading(false);
-  }, [toast, user]);
+    setPrimeiraCarga(false);
+  }, [toast, user, paginaSegura, filters.status, filters.category, buscaAtiva, isMobile]);
 
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
 
+  // Apagar o último item de uma página deixa `page` além do fim.
   useEffect(() => {
-    let result = reports;
-    if (filters.searchTerm) {
-      result = result.filter(r =>
-        r.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-        r.description?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-        r.protocol.toLowerCase().includes(filters.searchTerm.toLowerCase())
-      );
-    }
-    if (filters.status !== 'all') {
-      result = result.filter(r => r.status === filters.status);
-    }
-    if (filters.category !== 'all') {
-      result = result.filter(r => r.category_id === filters.category);
-    }
-    setFilteredReports(result);
-  }, [filters, reports]);
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const handleFilterChange = (name, value) => {
     setFilters(prev => ({ ...prev, [name]: value }));
+    // A busca não: ela só chega ao servidor depois do debounce, e é lá que a
+    // página volta para 1.
+    if (name !== 'searchTerm') setPage(1);
   };
+
+  const irParaPagina = (destino) => {
+    const alvo = Math.min(Math.max(1, destino), totalPages);
+    if (alvo === paginaSegura) return;
+    acumularRef.current = false;
+    setPage(alvo);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const temMais = reports.length < totalCount;
+
+  const carregarMais = useCallback(() => {
+    if (loading || !temMais) return;
+    acumularRef.current = true;
+    setPage(p => p + 1);
+  }, [loading, temMais]);
+
+  // A sentinela só trabalha no celular; no desktop a lista continua paginada
+  // por botões, onde eles funcionam bem e dão o senso de tamanho do conjunto.
+  const sentinelaRef = useInfiniteScroll(carregarMais, {
+    enabled: isMobile && !loading && temMais,
+  });
 
   const handleUpvote = async (id) => {
     if (!user) {
@@ -118,8 +213,8 @@ const ManageReportsPage = () => {
     const result = await handleUpvoteHook(id);
 
     if (result.success) {
+      // Sem toast: o refetch abaixo já mostra o contador de apoios novo.
       fetchReports();
-      toast({ title: result.action === 'added' ? "Apoio registrado! 👍" : "Apoio removido." });
     } else {
       toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
     }
@@ -131,10 +226,6 @@ const ManageReportsPage = () => {
       const updates = { is_featured: toggled, featured_at: toggled ? new Date().toISOString() : null };
       const { error } = await supabase.from('reports').update(updates).eq('id', report.id);
       if (error) throw error;
-      toast({
-        title: toggled ? 'Marcada como destaque' : 'Removida dos destaques',
-        description: toggled ? 'Esta bronca aparecerá na Home em Destaques.' : 'Esta bronca não aparecerá mais em Destaques.'
-      });
       fetchReports();
       if (selectedReport?.id === report.id) {
         setSelectedReport(prev => ({ ...prev, ...updates }));
@@ -342,7 +433,6 @@ const ManageReportsPage = () => {
       }
     }
 
-    toast({ title: "Bronca atualizada com sucesso!" });
     fetchReports();
     setSelectedReport(null);
   };
@@ -355,17 +445,15 @@ const ManageReportsPage = () => {
 
     if (isFavorited) {
       const { error } = await supabase.from('favorite_reports').delete().match({ user_id: user.id, report_id: reportId });
+      // Sem toast no sucesso: o refetch e o setSelectedReport abaixo já viram o
+      // coração. "Sucesso / Adicionado aos seus favoritos" só repete o ícone.
       if (error) {
         toast({ title: "Erro", description: "Não foi possível remover dos favoritos.", variant: "destructive" });
-      } else {
-        toast({ title: "Sucesso", description: "Removido dos seus favoritos." });
       }
     } else {
       const { error } = await supabase.from('favorite_reports').insert({ user_id: user.id, report_id: reportId });
       if (error) {
         toast({ title: "Erro", description: "Não foi possível adicionar aos favoritos.", variant: "destructive" });
-      } else {
-        toast({ title: "Sucesso", description: "Adicionado aos seus favoritos!" });
       }
     }
     fetchReports();
@@ -456,14 +544,32 @@ const ManageReportsPage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Lista de Broncas</CardTitle>
-            <CardDescription>{filteredReports.length} broncas encontradas.</CardDescription>
+            <CardDescription>
+              {totalCount === 0
+                ? 'Nenhuma bronca encontrada.'
+                : isMobile
+                  // Rolando não há "página": o que interessa é quanto já veio.
+                  ? `${reports.length} de ${totalCount} broncas.`
+                  : `${totalCount} broncas encontradas — exibindo ${(paginaSegura - 1) * PAGE_SIZE + 1}–${Math.min(totalCount, (paginaSegura - 1) * PAGE_SIZE + reports.length)}.`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <p>Carregando broncas...</p>
-            ) : (
+            {primeiraCarga ? (
               <div className="space-y-2 md:space-y-3">
-                {filteredReports.map(report => (
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[72px] w-full rounded-lg" />
+                ))}
+              </div>
+            ) : reports.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10">
+                Nenhuma bronca corresponde aos filtros selecionados.
+              </p>
+            ) : (
+              // O esmaecido do refetch é só do desktop: no celular a lista
+              // cresce por baixo, e apagar o que já está lido a cada rolagem
+              // seria pior que não avisar nada.
+              <div className={`space-y-2 md:space-y-3 transition-opacity ${loading && !isMobile ? 'opacity-50 pointer-events-none' : ''}`}>
+                {reports.map(report => (
                   <div key={report.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 md:p-4 bg-background rounded-lg border gap-3 md:gap-4">
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-sm md:text-base truncate">{report.title}</p>
@@ -508,6 +614,56 @@ const ManageReportsPage = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Celular rola; desktop pagina.
+                Um par de botões no fim da lista é confortável com mouse e ruim
+                com o polegar: a cada 20 itens obriga a mirar num alvo pequeno
+                no rodapé para continuar lendo o que já se estava lendo. */}
+            {!primeiraCarga && isMobile && (temMais || loading) && (
+              <div ref={sentinelaRef} className="mt-6 flex flex-col items-center gap-3">
+                {loading ? (
+                  <>
+                    <Skeleton className="h-[72px] w-full rounded-lg" />
+                    <Skeleton className="h-[72px] w-full rounded-lg" />
+                  </>
+                ) : (
+                  // Rede de segurança: se o IntersectionObserver não disparar
+                  // (WebView antiga, rolagem dentro de outro contêiner), ainda
+                  // há como avançar.
+                  <Button variant="outline" size="sm" onClick={carregarMais}>
+                    Carregar mais
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {!primeiraCarga && !isMobile && totalPages > 1 && (
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Página {paginaSegura} de {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    disabled={loading || paginaSegura === 1}
+                    onClick={() => irParaPagina(paginaSegura - 1)}
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    disabled={loading || paginaSegura === totalPages}
+                    onClick={() => irParaPagina(paginaSegura + 1)}
+                  >
+                    Próxima <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

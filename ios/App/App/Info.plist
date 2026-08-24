@@ -33,15 +33,11 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
@@ -55,6 +51,13 @@
 	<string>O Trombone Cidadão salva fotos e vídeos dos seus relatos na galeria.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>O Trombone Cidadão usa sua localização para identificar o endereço do problema que você está relatando.</string>
+	<!-- Sem esta lista, canOpenURL("instagram-stories://") retorna false
+	     mesmo com o Instagram instalado no dispositivo. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram-stories</string>
+		<string>instagram</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

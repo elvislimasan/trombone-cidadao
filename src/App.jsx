@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { Toaster } from '@/components/ui/toaster';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import {Toaster as SonnerToast} from 'sonner'
+import { Toaster } from 'sonner';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
@@ -66,6 +65,11 @@ import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
 import HomePageImproved from './pages/HomePage-improved';
 import MapPage from './pages/MapPage';
+import MissionsPage from '@/pages/MissionsPage';
+import PatrolRunPage from '@/pages/PatrolRunPage';
+import AuditRunPage from '@/pages/AuditRunPage';
+import PatrolPickPage from '@/pages/PatrolPickPage';
+import MyPatrolsPage from '@/pages/MyPatrolsPage';
 import HomeRouter from './pages/HomeRouter';
 import NotFoundPage from '@/pages/NotFoundPage';
 import SearchPage from '@/pages/SearchPage';
@@ -277,6 +281,25 @@ function AppShell() {
   const { toast } = useToast();
   const { loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
+
+  // A patrulha é tela cheia: sem header, sem bottom nav e sem os paddings que
+  // reservam o espaço deles. Sair pelo botão voltar do aparelho vem de graça,
+  // por ser rota.
+  //
+  // `/patrulhar`, não `/patrulha/:id` — este segundo é a rota antiga da
+  // patrulha compartilhada, hoje só um redirecionamento, e `/patrulha/buracos`
+  // cairia nele como se "buracos" fosse um id.
+  const patrulhaAtiva =
+    location.pathname.startsWith('/patrulhar') ||
+    location.pathname.startsWith('/conferir');
+
+  // A key remonta o ErrorBoundary a cada navegação para que a tela de erro não
+  // sobreviva à saída da rota que quebrou.
+  //
+  // Antes havia uma exceção aqui: a patrulha era a MapPage com um overlay, e
+  // deixar a key mudar recarregaria o mapa inteiro. Agora a patrulha é página
+  // própria, e a regra volta a ser uma só.
+  const boundaryKey = location.pathname;
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -609,26 +632,33 @@ function AppShell() {
     <UploadProvider>
       <SEO />
       <MobileHeaderProvider>
-        <div className="min-h-screen bg-[#F9FAFB] text-foreground flex flex-col">
-          {(!isNative || !isInteractive) && <Header />}
-          {isNative && isInteractive && <MobileHeader />}
-          {!isNative && <AppDownloadBanner />}
+        {/* bg-surface-base em vez do #F9FAFB fixo: o padding inferior do <main>
+            (que reserva o espaco da bottom nav) deixava esse cinza claro
+            aparecer como uma faixa no tema escuro ao chegar no fim da pagina. */}
+        <div className="min-h-screen bg-surface-base text-content-primary flex flex-col">
+          {!patrulhaAtiva && (!isNative || !isInteractive) && <Header />}
+          {!patrulhaAtiva && isNative && isInteractive && <MobileHeader />}
+          {!isNative && !patrulhaAtiva && <AppDownloadBanner />}
           <main
-            className="flex-grow pb-20 lg:pb-0 flex flex-col min-h-0"
+            className={`flex-grow flex flex-col min-h-0 ${patrulhaAtiva ? '' : 'pb-20 lg:pb-0'}`}
             style={{
-              paddingTop: (isNative && isInteractive)
-                ? 'calc(4rem + var(--header-safe-top))'
-                : 'calc(4rem + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
-              paddingBottom: (isNative && isInteractive)
-                ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
-                : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+              paddingTop: patrulhaAtiva
+                ? 0
+                : (isNative && isInteractive)
+                  ? 'calc(var(--header-bar-height) + var(--header-safe-top))'
+                  : 'calc(var(--header-bar-height) + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
+              paddingBottom: patrulhaAtiva
+                ? 0
+                : (isNative && isInteractive)
+                  ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
+                  : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
             }}
           >
             <div className="flex-1 min-h-0 flex flex-col">
               <PendingInviteBanner />
               {/* key={pathname}: remonta o boundary a cada navegação, senão a tela
                   de erro persistiria mesmo depois de sair da rota que quebrou. */}
-              <ErrorBoundary key={location.pathname}>
+              <ErrorBoundary key={boundaryKey}>
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
@@ -641,6 +671,37 @@ function AppShell() {
               
               <Route path="/" element={<HomeRouter />} />
               <Route path="/mapa" element={<MapPage />} />
+              {/* Mesma MapPage: o modo navegação é um overlay sobre o mapa, e
+                  renderizar o mesmo componente evita desmontar o Leaflet ao
+                  entrar. O botão voltar do aparelho sai do modo. */}
+              <Route path="/missoes" element={<MissionsPage />} />
+              {/* Histórico é dado pessoal: exige sessão, como o painel. */}
+              <Route path="/minhas-patrulhas" element={<PrivateRoute><MyPatrolsPage /></PrivateRoute>} />
+              {/* Sem categoria, `/patrulhar` era PatrolRunPage e redirecionava
+                  de volta para a central. Agora e a tela de escolha — o destino
+                  natural de todo botao de patrulha. */}
+              <Route path="/patrulhar" element={<PatrolPickPage />} />
+              <Route path="/patrulhar/:categoria" element={<PatrolRunPage />} />
+              {/* Conferir os pontos marcados. Tela cheia como a patrulha, e
+                  privada: responder um ponto é ação de conta. */}
+              <Route path="/conferir" element={<PrivateRoute><AuditRunPage /></PrivateRoute>} />
+              {/* Rota antiga da patrulha: links e atalhos salvos continuam
+                  funcionando, agora caindo no hub em vez de numa tela morta. */}
+              <Route path="/mapa/patrulha" element={<Navigate to="/missoes" replace />} />
+              {/* A tela da patrulha de alguém deixou de existir (ago/2026).
+
+                  Ela mostrava três números e um convite — a mesma cara para uma
+                  volta no bairro inteiro e para vinte segundos abertos por
+                  engano. Quem chegava pelo story não encontrava razão para
+                  ficar, e quem era dono já via tudo no próprio histórico.
+
+                  A ROTA FICA. O sticker do story aponta para
+                  `/share/patrulha/:id`, que a share-preview responde com a
+                  prévia rica e depois redireciona o navegador para cá. Apagar a
+                  rota faria todo story já publicado terminar numa tela em
+                  branco. Ela vira porta de entrada: a prévia continua contando
+                  o que a pessoa fez, e o toque leva ao app. */}
+              <Route path="/patrulha/:id" element={<Navigate to="/" replace />} />
               <Route path="/home-legado" element={<HomePageImproved />} />
               <Route path="/buscar" element={<SearchPage />} />
               <Route path="/broncas" element={<HomePage />} />
@@ -703,10 +764,24 @@ function AppShell() {
               </ErrorBoundary>
             </div>
           </main>
-          {(!isNative || !isInteractive) && <Footer />}
-          <BottomNav />
-          <Toaster />
-          <SonnerToast position="top-right" richColors />
+          {!patrulhaAtiva && (!isNative || !isInteractive) && <Footer />}
+          {/* O modo navegação ocupa a tela inteira: a barra roubaria 64px da
+              via à frente e oferece destinos que ninguém deve tocar dirigindo.
+              Sair é pelo X do painel ou pelo botão voltar do aparelho. */}
+          {!patrulhaAtiva && <BottomNav />}
+          {/* Toast no rodapé, acima do BottomNav: no topo ele cobria o header e
+              o conteúdo que o usuário acabou de tocar. Só o cartão recebe
+              toque — o resto da tela continua respondendo enquanto ele aparece.
+              Fecha por toque, pelo X ou arrastando em qualquer direção. */}
+          <Toaster
+            position="bottom-center"
+            richColors
+            closeButton
+            visibleToasts={3}
+            swipeDirections={['bottom', 'left', 'right']}
+            offset={{ bottom: '1.5rem' }}
+            mobileOffset={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))', left: '0.75rem', right: '0.75rem' }}
+          />
           <WebUploadIndicator />
           <UploadStatusBar />
         </div>

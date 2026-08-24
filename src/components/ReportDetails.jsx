@@ -22,6 +22,7 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { validateVideoFile } from '@/utils/videoProcessor';
 import { ShareModal } from './PetitionComponents';
+import { mascarar } from '@/lib/profanity';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -87,9 +88,9 @@ const VideoThumbnail = React.memo(({ videoUrl, alt, className, hidePlaceholder =
 
   if (error || !thumbnail) {
     return (
-      <div className={`${className} bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center border border-gray-200 dark:border-gray-700`}>
-        <Video className="h-10 w-10 text-gray-400 mb-1" />
-        <span className="text-[10px] text-gray-500 font-medium">Vídeo</span>
+      <div className={`${className} bg-surface-sunken flex flex-col items-center justify-center border border-edge-default`}>
+        <Video className="h-10 w-10 text-content-tertiary mb-1" />
+        <span className="text-[10px] text-content-tertiary font-medium">Vídeo</span>
       </div>
     );
   }
@@ -225,9 +226,9 @@ const ReportDetails = ({
       'pending': { icon: AlertTriangle, text: 'Pendente', color: 'text-primary bg-primary/10', description: 'Aguardando análise da prefeitura' },
       'in-progress': { icon: Clock, text: 'Em Andamento', color: 'text-secondary bg-secondary/10', description: 'Equipe trabalhando na resolução' },
       'resolved': { icon: CheckCircle, text: 'Resolvido', color: 'text-green-500 bg-green-500/10', description: 'Problema solucionado' },
-      'duplicate': { icon: LinkIcon, text: 'Duplicada', color: 'text-gray-500 bg-gray-500/10', description: 'Esta solicitação é uma duplicata' },
+      'duplicate': { icon: LinkIcon, text: 'Duplicada', color: 'text-content-tertiary bg-surface-sunken', description: 'Esta solicitação é uma duplicata' },
       'pending_resolution': { icon: Hourglass, text: 'Verificando Resolução', color: 'text-blue-500 bg-blue-500/10', description: 'Aguardando aprovação da foto de resolução.' },
-      'pending_approval': { icon: Hourglass, text: 'Aguardando Aprovação', color: 'text-yellow-500 bg-yellow-500/10', description: 'Aguardando moderação.' }
+      'pending_approval': { icon: Hourglass, text: 'Aguardando Aprovação', color: 'text-status-pendingFg bg-status-pendingBg', description: 'Aguardando moderação.' }
     };
     return info[status] || info.pending;
   };
@@ -523,8 +524,8 @@ const ReportDetails = ({
           text: shareText,
         };
 
+        // Sem toast: a folha do sistema já confirmou ao fechar.
         await Share.share(shareData);
-        toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
         return;
       }
 
@@ -543,7 +544,6 @@ const ReportDetails = ({
         }
         
         await navigator.share(webShareData);
-      toast({ title: "Compartilhado com sucesso! 📣", description: "Obrigado por ajudar a divulgar." });
         return;
       }
 
@@ -600,20 +600,25 @@ const ReportDetails = ({
     }
     if (!newComment.trim()) return;
 
+    // Publica na hora (migração 193). O baixo calão sai mascarado na escrita —
+    // o que vai para o banco é o que todo mundo vai ler.
+    const { texto, mascarou } = mascarar(newComment);
+
     const { error } = await supabase
       .from('comments')
       .insert({
         report_id: report.id,
         author_id: user.id,
-        text: newComment,
-        moderation_status: 'pending_approval',
+        text: texto,
+        moderation_status: 'approved',
       });
 
     if (error) {
       toast({ title: "Erro ao enviar comentário", description: error.message, variant: "destructive" });
     } else {
       setNewComment('');
-      toast({ title: "Comentário enviado! 💬", description: "Seu comentário foi enviado para moderação e será publicado em breve." });
+      // Sem toast: o refetch abaixo põe o comentário na lista, com os asteriscos
+      // à vista se houve mascaramento. Avisar do que já está na tela é ruído.
       onUpdate({ id: report.id }); // Trigger a refetch
     }
   };
@@ -861,7 +866,6 @@ const ReportDetails = ({
     setStatusOverride(newStatus);
     try {
       await onUpdate({ id: report.id, status: newStatus });
-      toast({ title: "Status atualizado!", description: `A bronca agora está "${getStatusInfo(newStatus).text}".` });
     } catch (error) {
       setStatusOverride(previous);
       toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
@@ -874,7 +878,6 @@ const ReportDetails = ({
     setCategoryOverride(newCategory);
     try {
       await onUpdate({ id: report.id, category_id: newCategory, category: newCategory });
-      toast({ title: "Categoria atualizada!", description: `A bronca foi movida para "${getCategoryName(newCategory)}".` });
     } catch (error) {
       setCategoryOverride(previous);
       toast({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
@@ -888,7 +891,6 @@ const ReportDetails = ({
     }
     const updatedReport = { is_recurrent: !report.is_recurrent };
     onUpdate({ id: report.id, ...updatedReport });
-    toast({ title: `Bronca marcada como ${updatedReport.is_recurrent ? 'reincidente' : 'não reincidente'}.` });
   };
 
   const handleResolutionAction = async (action) => {
@@ -918,12 +920,6 @@ const ReportDetails = ({
     try {
       await onUpdate({ id: report.id, ...updateData });
       const actionText = action === 'approved' ? 'aprovada' : 'rejeitada';
-      toast({ 
-        title: `Resolução ${actionText} com sucesso!`,
-        description: action === 'approved' 
-          ? 'A bronca foi marcada como resolvida.' 
-          : 'A bronca voltou para o status pendente.'
-      });
       onClose();
     } catch (error) {
       toast({ 
@@ -968,10 +964,6 @@ const ReportDetails = ({
         }
         if (error) throw error;
       }
-      toast({ 
-        title: "Bronca aprovada com sucesso! ✅", 
-        description: "A bronca foi aprovada e agora está visível para todos." 
-      });
       setIsRejectingReport(false);
       setRejectionTitle('');
       setRejectionDescription('');
@@ -1073,7 +1065,13 @@ const ReportDetails = ({
   const StatusIcon = statusInfo.icon;
   const canEdit = user && (user.is_admin || (user.id === report.author_id && report.moderation_status === 'pending_approval'));
   const canChangeStatus = user && (user.is_admin || user.user_type === 'public_official');
-  const canModerate = user && user.is_admin; // Apenas admins podem moderar
+  // Sinal aberto não é matéria de moderação: não tem foto nem descrição para
+  // julgar, e a migração 175 impede publicá-lo pelo banco. Sem esta exceção o
+  // admin veria o botão Aprovar, clicaria e receberia um erro cru do Postgres —
+  // a trava funcionando, parecendo defeito.
+  const isSinalAberto = report.origin === 'signal' && report.signal_status === 'open';
+
+  const canModerate = user && user.is_admin && !isSinalAberto; // Apenas admins podem moderar
   // Determina se há resolução pendente para moderação (apenas para admins)
   const isResolutionModeration = canModerate && report.status === 'pending_resolution' && report.resolution_submission;
 
@@ -1566,7 +1564,7 @@ const ReportDetails = ({
                 <StatusIcon className="w-4 h-4 mr-2" />
                 {statusInfo.text}
                 {report.moderation_status === 'pending_approval' && !isResolutionModeration && (
-                  <span className="ml-2 text-xs bg-yellow-500 text-white px-2 py-1 rounded-full">
+                  <span className="ml-2 text-xs bg-status-pendingBg text-status-pendingFg px-2 py-1 rounded-full">
                     Aguardando Moderação
                   </span>
                 )}
@@ -1578,8 +1576,8 @@ const ReportDetails = ({
             </div>
             
             {report.status === 'duplicate' && (
-              <div className="p-4 bg-gray-500/10 rounded-lg text-center">
-                <h3 className="font-semibold text-gray-400 mb-2">Esta bronca foi marcada como duplicada.</h3>
+              <div className="p-4 bg-surface-sunken rounded-lg text-center">
+                <h3 className="font-semibold text-content-secondary mb-2">Esta bronca foi marcada como duplicada.</h3>
                 <p className="text-sm text-muted-foreground">Todas as atualizações serão concentradas na solicitação principal.</p>
               </div>
             )}
@@ -2070,7 +2068,7 @@ const ReportDetails = ({
       <DynamicSEO key={`report-${report?.id}`} {...seoData} />
 
       {isPageVariant ? (
-        <div className="flex flex-col min-h-screen bg-[#F9FAFB] md:px-6">
+        <div className="flex flex-col min-h-screen bg-surface-base md:px-6">
           <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-6 max-w-[88rem] mx-auto w-full">
             <div className="max-w-4xl mx-auto">{cardContent}</div>
           </div>

@@ -1,103 +1,54 @@
-import { useState, useEffect } from "react"
+/**
+ * Adaptador do `toast({ title, description, variant })` sobre o sonner.
+ *
+ * A assinatura é a mesma que os ~720 call sites do app já usam — nenhum deles
+ * precisa mudar. O que mudou é o motor por baixo: o toast antigo (Radix +
+ * store manual) montava um viewport `fixed top-0 w-full` que capturava o toque
+ * de toda a faixa superior enquanto estivesse visível, engolindo os botões do
+ * MobileHeader, e só oferecia como saída um swipe para a direita — com o X de
+ * fechar preso em `group-hover`, invisível no celular.
+ *
+ * O sonner resolve isso de fábrica: o cartão é o único elemento clicável,
+ * o swipe funciona em mais de uma direção e o botão de fechar é visível no
+ * toque. A configuração de posição fica em `<Toaster />` no App.jsx.
+ */
+import { toast as sonnerToast } from 'sonner';
 
-const TOAST_LIMIT = 1
+/**
+ * Erro pede mais tempo de leitura que confirmação: quem acabou de tocar em
+ * "salvar" já sabe o que fez e só precisa da confirmação de relance.
+ */
+const DURACAO = {
+	default: 3000,
+	destructive: 5000,
+};
 
-let count = 0
-function generateId() {
-  count = (count + 1) % Number.MAX_VALUE
-  return count.toString()
-}
+export const toast = ({ title, description, variant, duration, ...resto }) => {
+	const emitir = variant === 'destructive' ? sonnerToast.error : sonnerToast;
 
-const toastStore = {
-  state: {
-    toasts: [],
-  },
-  listeners: [],
-  
-  getState: () => toastStore.state,
-  
-  setState: (nextState) => {
-    if (typeof nextState === 'function') {
-      toastStore.state = nextState(toastStore.state)
-    } else {
-      toastStore.state = { ...toastStore.state, ...nextState }
-    }
-    
-    toastStore.listeners.forEach(listener => listener(toastStore.state))
-  },
-  
-  subscribe: (listener) => {
-    toastStore.listeners.push(listener)
-    return () => {
-      toastStore.listeners = toastStore.listeners.filter(l => l !== listener)
-    }
-  }
-}
+	// Sem título, a descrição vira a mensagem principal — o sonner não renderiza
+	// um cartão só com `description`.
+	const mensagem = title ?? description;
+	const detalhe = title ? description : undefined;
 
-export const toast = ({ ...props }) => {
-  const id = generateId()
+	const id = emitir(mensagem, {
+		description: detalhe,
+		duration: duration ?? DURACAO[variant] ?? DURACAO.default,
+		...resto,
+	});
 
-  const update = (props) =>
-    toastStore.setState((state) => ({
-      ...state,
-      toasts: state.toasts.map((t) =>
-        t.id === id ? { ...t, ...props } : t
-      ),
-    }))
-
-  const dismiss = () => toastStore.setState((state) => ({
-    ...state,
-    toasts: state.toasts.filter((t) => t.id !== id),
-  }))
-
-  toastStore.setState((state) => ({
-    ...state,
-    toasts: [
-      { ...props, id, dismiss },
-      ...state.toasts,
-    ].slice(0, TOAST_LIMIT),
-  }))
-
-  return {
-    id,
-    dismiss,
-    update,
-  }
-}
+	return {
+		id,
+		dismiss: () => sonnerToast.dismiss(id),
+		update: ({ title: novoTitulo, description: novaDescricao, ...novoResto }) =>
+			emitir(novoTitulo ?? novaDescricao, {
+				id,
+				description: novoTitulo ? novaDescricao : undefined,
+				...novoResto,
+			}),
+	};
+};
 
 export function useToast() {
-  const [state, setState] = useState(toastStore.getState())
-  
-  useEffect(() => {
-    const unsubscribe = toastStore.subscribe((state) => {
-      setState(state)
-    })
-    
-    return unsubscribe
-  }, [])
-  
-  useEffect(() => {
-    const timeouts = []
-
-    state.toasts.forEach((toast) => {
-      if (toast.duration === Infinity) {
-        return
-      }
-
-      const timeout = setTimeout(() => {
-        toast.dismiss()
-      }, toast.duration || 5000)
-
-      timeouts.push(timeout)
-    })
-
-    return () => {
-      timeouts.forEach((timeout) => clearTimeout(timeout))
-    }
-  }, [state.toasts])
-
-  return {
-    toast,
-    toasts: state.toasts,
-  }
+	return { toast };
 }

@@ -137,6 +137,81 @@ class VideoProcessorPlugin : Plugin() {
         call.resolve()
     }
 
+    /**
+     * Compartilha um vídeo ou imagem diretamente no story do Instagram.
+     *
+     * O sticker de link (contentURL) só é renderizado pelo Instagram se a conta do
+     * usuário tiver permissão de link em story — isso é regra da Meta, não do app.
+     * Quando a conta não tem, a mídia entra normalmente e o link é ignorado
+     * silenciosamente. Por isso o retorno traz `linkAttached` apenas como indicação
+     * de que enviamos o parâmetro, não de que ele apareceu.
+     */
+    @PluginMethod
+    fun shareToInstagramStory(call: PluginCall) {
+        val filePath = call.getString("filePath")
+        if (filePath.isNullOrBlank()) {
+            call.reject("filePath é obrigatório")
+            return
+        }
+
+        val file = File(filePath.removePrefix("file://"))
+        if (!file.exists()) {
+            call.reject("Arquivo não encontrado: ${file.absolutePath}")
+            return
+        }
+
+        // O Instagram distingue os dois fundos pelo mime do intent: um asset de
+        // imagem enviado como video/* e recusado em silencio.
+        val mediaType = call.getString("mediaType") ?: "video"
+        val mimeType = if (mediaType == "image") "image/*" else "video/*"
+
+        val appId = call.getString("facebookAppId")
+        if (appId.isNullOrBlank()) {
+            call.reject("facebookAppId é obrigatório para o Instagram aceitar o asset")
+            return
+        }
+
+        try {
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+
+            val intent = Intent("com.instagram.share.ADD_TO_STORY").apply {
+                setDataAndType(uri, mimeType)
+                putExtra("source_application", appId)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                call.getString("contentUrl")?.takeIf { it.isNotBlank() }?.let {
+                    putExtra("content_url", it)
+                }
+            }
+
+            // Sem o Instagram instalado, resolveActivity devolve null e o
+            // startActivity lançaria ActivityNotFoundException.
+            if (intent.resolveActivity(context.packageManager) == null) {
+                call.reject("INSTAGRAM_NOT_INSTALLED", "Instagram não está instalado")
+                return
+            }
+
+            context.grantUriPermission(
+                "com.instagram.android",
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+
+            activity.startActivity(intent)
+
+            val ret = JSObject()
+            ret.put("shared", true)
+            ret.put("linkAttached", !call.getString("contentUrl").isNullOrBlank())
+            call.resolve(ret)
+        } catch (e: Exception) {
+            Log.e("VideoProcessor", "Erro ao compartilhar no story", e)
+            call.reject("Erro ao abrir o Instagram: ${e.message}", e)
+        }
+    }
+
     @PluginMethod
     fun captureVideo(call: PluginCall) {
         if (getPermissionState("camera") != PermissionState.GRANTED) {

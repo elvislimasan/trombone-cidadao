@@ -28,7 +28,7 @@ export function ObraPhases({ phases, currentPhaseId, onOpenDetails, isAdmin = fa
   };
 
   return (
-    <section id="historico-licitacoes" className="bg-card rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6 scroll-mt-24">
+    <section id="historico-licitacoes" className="bg-card rounded-xl border border-edge-subtle shadow-sm p-4 sm:p-6 scroll-mt-24">
       <div className="flex items-center gap-2 mb-4">
         <History className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-semibold">Histórico de Licitações</h2>

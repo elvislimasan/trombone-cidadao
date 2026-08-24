@@ -14,6 +14,10 @@ const adminLinks = [
   { to: '/admin/moderacao/broncas', icon: 'ShieldCheck', title: 'Moderação de Broncas', description: 'Aprove ou rejeite novas broncas.', module: 'moderation' },
   { to: '/admin/moderacao/atualizacoes', icon: 'Megaphone', title: 'Moderar Atualizações', description: 'Revise atualizações de bronca antes de publicar.', module: 'moderation' },
   { to: '/admin/moderacao/resolucoes', icon: 'ShieldCheck', title: 'Moderar resoluções', description: 'Aprove ou rejeite provas de resolução', module: 'moderation' },
+  // Comentário publica na hora (migração 193); esta fila só recebe o que 3
+  // denúncias tiraram do ar. É a única moderação de comentário que existe — e,
+  // ao contrário da anterior, tem porta de entrada.
+  { to: '/admin/moderacao/comentarios', icon: 'Flag', title: 'Comentários Denunciados', description: 'Veja o que foi denunciado, antes e depois de sair do ar.', module: 'moderation' },
   { to: '/admin/usuarios', icon: 'Users', title: 'Gerenciar Usuários', description: 'Adicione, edite e remova usuários.' },
   { to: '/admin/moderacao/peticoes', icon: 'ShieldCheck', title: 'Moderar Petições', description: 'Aprove ou rejeite petições pendentes.', module: 'moderation' },
   { to: '/admin/assinaturas', icon: 'FileSignature', title: 'Gerenciar Petições', description: 'Acompanhe abaixo-assinados publicados.' },

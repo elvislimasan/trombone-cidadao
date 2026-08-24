@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { PlusCircle, Edit, Trash2, MapPin, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -15,8 +16,24 @@ import { supabase } from '@/lib/customSupabaseClient';
 import LocationPickerMap from '@/components/LocationPickerMap';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import PaginacaoLista from '@/components/admin/PaginacaoLista';
 
-const emptyContractForm = { owner_name: '', monthly_value: '', start_date: '', expected_end_date: '' };
+const emptyContractForm = {
+  owner_name: '',
+  monthly_value: '',
+  start_date: '',
+  expected_end_date: '',
+  contract_number: '',
+  contract_year: '',
+  contract_url: '',
+};
+
+// Ano do contrato: aceita o que existe de fato. Contratos anteriores a 2000
+// nao estao no portal de nenhuma prefeitura, e um ano no futuro distante e
+// sempre erro de digitacao (2205 no lugar de 2025).
+const CONTRACT_YEAR_MIN = 2000;
+const contractYearMax = () => new Date().getFullYear() + 5;
 
 const RentalContractsManager = ({ propertyId }) => {
   const { toast } = useToast();
@@ -41,12 +58,29 @@ const RentalContractsManager = ({ propertyId }) => {
 
   useEffect(() => { fetchContracts(); }, [fetchContracts]);
 
+  // Valida o ano só quando preenchido — o campo é opcional, mas um ano
+  // impossível vira lixo permanente no histórico.
+  const validateContractYear = (value) => {
+    if (!value) return true;
+    const year = Number(value);
+    if (!Number.isInteger(year) || year < CONTRACT_YEAR_MIN || year > contractYearMax()) {
+      toast({ title: `Ano do contrato inválido`, description: `Informe um ano entre ${CONTRACT_YEAR_MIN} e ${contractYearMax()}.`, variant: 'destructive' });
+      return false;
+    }
+    return true;
+  };
+
   const handleCreateContract = async (e) => {
     e.preventDefault();
-    if (!newContract.owner_name.trim() || !newContract.monthly_value || !newContract.start_date) {
-      toast({ title: 'Preencha proprietário, valor e data de início', variant: 'destructive' });
+    // Só o valor mensal é obrigatório: é o único campo sem o qual o registro não
+    // serve para nada (a tela existe para somar quanto a prefeitura gasta).
+    // Proprietário e datas costumam chegar depois do valor — exigi-los fazia o
+    // embaixador desistir do cadastro ou digitar "Não informado" no nome.
+    if (!newContract.monthly_value) {
+      toast({ title: 'Informe o valor mensal do contrato', variant: 'destructive' });
       return;
     }
+    if (!validateContractYear(newContract.contract_year)) return;
     setSaving(true);
     const current = contracts.find((c) => c.is_current);
     let closedCurrent = false;
@@ -54,17 +88,23 @@ const RentalContractsManager = ({ propertyId }) => {
       if (current) {
         const { error: closeError } = await supabase
           .from('rental_property_contracts')
-          .update({ is_current: false, end_date: current.end_date || newContract.start_date })
+          // Sem data de início no novo contrato não dá para inferir o fim do
+          // anterior — fica nulo ("em vigor até quando não se sabe") em vez de
+          // receber uma data inventada.
+          .update({ is_current: false, end_date: current.end_date || newContract.start_date || null })
           .eq('id', current.id);
         if (closeError) throw closeError;
         closedCurrent = true;
       }
       const { error: insertError } = await supabase.from('rental_property_contracts').insert({
         property_id: propertyId,
-        owner_name: newContract.owner_name.trim(),
+        owner_name: newContract.owner_name.trim() || null,
         monthly_value: Number(newContract.monthly_value),
-        start_date: newContract.start_date,
+        start_date: newContract.start_date || null,
         expected_end_date: newContract.expected_end_date || null,
+        contract_number: newContract.contract_number.trim() || null,
+        contract_year: newContract.contract_year ? Number(newContract.contract_year) : null,
+        contract_url: newContract.contract_url.trim() || null,
         is_current: true,
       });
       if (insertError) throw insertError;
@@ -96,24 +136,31 @@ const RentalContractsManager = ({ propertyId }) => {
       start_date: contract.start_date || '',
       end_date: contract.end_date || '',
       expected_end_date: contract.expected_end_date || '',
+      contract_number: contract.contract_number || '',
+      contract_year: contract.contract_year ?? '',
+      contract_url: contract.contract_url || '',
     });
   };
 
   const handleSaveEditContract = async (e) => {
     e.preventDefault();
-    if (!editForm.owner_name.trim() || !editForm.monthly_value || !editForm.start_date) {
-      toast({ title: 'Preencha proprietário, valor e data de início', variant: 'destructive' });
+    if (!editForm.monthly_value) {
+      toast({ title: 'Informe o valor mensal do contrato', variant: 'destructive' });
       return;
     }
+    if (!validateContractYear(editForm.contract_year)) return;
     setSaving(true);
     const { error } = await supabase
       .from('rental_property_contracts')
       .update({
-        owner_name: editForm.owner_name.trim(),
+        owner_name: editForm.owner_name.trim() || null,
         monthly_value: Number(editForm.monthly_value),
-        start_date: editForm.start_date,
+        start_date: editForm.start_date || null,
         end_date: editForm.end_date || null,
         expected_end_date: editForm.expected_end_date || null,
+        contract_number: editForm.contract_number.trim() || null,
+        contract_year: editForm.contract_year ? Number(editForm.contract_year) : null,
+        contract_url: editForm.contract_url.trim() || null,
       })
       .eq('id', editingContractId);
     setSaving(false);
@@ -121,7 +168,6 @@ const RentalContractsManager = ({ propertyId }) => {
       toast({ title: 'Erro ao salvar contrato', description: error.message, variant: 'destructive' });
       return;
     }
-    toast({ title: 'Contrato atualizado.' });
     setEditingContractId(null);
     await fetchContracts();
   };
@@ -132,7 +178,6 @@ const RentalContractsManager = ({ propertyId }) => {
     if (error) {
       toast({ title: 'Erro ao remover contrato', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Contrato removido.' });
       await fetchContracts();
     }
     setDeletingContract(null);
@@ -142,13 +187,14 @@ const RentalContractsManager = ({ propertyId }) => {
     <div className="space-y-4">
       <form onSubmit={handleCreateContract} className="p-4 border rounded-xl bg-muted/20 space-y-3">
         <p className="text-sm font-semibold text-foreground">Novo contrato</p>
+        <p className="text-xs text-muted-foreground">Só o valor mensal é obrigatório. Preencha o resto conforme for descobrindo.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="grid gap-1.5">
             <Label className="text-xs text-muted-foreground">Nome do proprietário</Label>
-            <Input value={newContract.owner_name} onChange={(e) => setNewContract((p) => ({ ...p, owner_name: e.target.value }))} />
+            <Input value={newContract.owner_name} onChange={(e) => setNewContract((p) => ({ ...p, owner_name: e.target.value }))} placeholder="Opcional" />
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Valor mensal</Label>
+            <Label className="text-xs text-muted-foreground">Valor mensal *</Label>
             <Input type="number" step="0.01" value={newContract.monthly_value} onChange={(e) => setNewContract((p) => ({ ...p, monthly_value: e.target.value }))} />
           </div>
           <div className="grid gap-1.5">
@@ -158,6 +204,18 @@ const RentalContractsManager = ({ propertyId }) => {
           <div className="grid gap-1.5">
             <Label className="text-xs text-muted-foreground">Previsão de encerramento</Label>
             <Input type="date" value={newContract.expected_end_date} onChange={(e) => setNewContract((p) => ({ ...p, expected_end_date: e.target.value }))} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Nº do contrato</Label>
+            <Input value={newContract.contract_number} onChange={(e) => setNewContract((p) => ({ ...p, contract_number: e.target.value }))} placeholder="Ex: 042/2025" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Ano do contrato</Label>
+            <Input type="number" inputMode="numeric" min={CONTRACT_YEAR_MIN} max={contractYearMax()} value={newContract.contract_year} onChange={(e) => setNewContract((p) => ({ ...p, contract_year: e.target.value }))} placeholder="Ex: 2025" />
+          </div>
+          <div className="grid gap-1.5 sm:col-span-2">
+            <Label className="text-xs text-muted-foreground">Link do contrato no site da prefeitura</Label>
+            <Input type="url" value={newContract.contract_url} onChange={(e) => setNewContract((p) => ({ ...p, contract_url: e.target.value }))} placeholder="https://transparencia.prefeitura.../contrato-042-2025.pdf" />
           </div>
         </div>
         <div className="flex justify-end">
@@ -178,10 +236,10 @@ const RentalContractsManager = ({ propertyId }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="grid gap-1.5">
                     <Label className="text-xs text-muted-foreground">Nome do proprietário</Label>
-                    <Input value={editForm.owner_name} onChange={(e) => setEditForm((p) => ({ ...p, owner_name: e.target.value }))} />
+                    <Input value={editForm.owner_name} onChange={(e) => setEditForm((p) => ({ ...p, owner_name: e.target.value }))} placeholder="Opcional" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-muted-foreground">Valor mensal</Label>
+                    <Label className="text-xs text-muted-foreground">Valor mensal *</Label>
                     <Input type="number" step="0.01" value={editForm.monthly_value} onChange={(e) => setEditForm((p) => ({ ...p, monthly_value: e.target.value }))} />
                   </div>
                   <div className="grid gap-1.5">
@@ -196,6 +254,18 @@ const RentalContractsManager = ({ propertyId }) => {
                     <Label className="text-xs text-muted-foreground">Fim real {c.is_current && '(deixe vazio se ainda em vigor)'}</Label>
                     <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm((p) => ({ ...p, end_date: e.target.value }))} />
                   </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Nº do contrato</Label>
+                    <Input value={editForm.contract_number} onChange={(e) => setEditForm((p) => ({ ...p, contract_number: e.target.value }))} placeholder="Ex: 042/2025" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Ano do contrato</Label>
+                    <Input type="number" inputMode="numeric" min={CONTRACT_YEAR_MIN} max={contractYearMax()} value={editForm.contract_year} onChange={(e) => setEditForm((p) => ({ ...p, contract_year: e.target.value }))} placeholder="Ex: 2025" />
+                  </div>
+                  <div className="grid gap-1.5 sm:col-span-2">
+                    <Label className="text-xs text-muted-foreground">Link do contrato no site da prefeitura</Label>
+                    <Input type="url" value={editForm.contract_url} onChange={(e) => setEditForm((p) => ({ ...p, contract_url: e.target.value }))} placeholder="https://transparencia.prefeitura.../contrato-042-2025.pdf" />
+                  </div>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <Button type="button" variant="outline" size="sm" onClick={() => setEditingContractId(null)}>Cancelar</Button>
@@ -205,8 +275,19 @@ const RentalContractsManager = ({ propertyId }) => {
             ) : (
               <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg text-sm gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">{c.owner_name} {c.is_current && <span className="text-xs text-green-600">(atual)</span>}</p>
+                  <p className="font-medium truncate">{c.owner_name || 'Proprietário não informado'} {c.is_current && <span className="text-xs text-green-600">(atual)</span>}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(c.start_date)} — {c.end_date ? formatDate(c.end_date) : 'em vigor'}</p>
+                  {(c.contract_number || c.contract_year) && (
+                    <p className="text-xs text-muted-foreground">
+                      Contrato {c.contract_number || 's/nº'}{c.contract_year ? `/${c.contract_year}` : ''}
+                      {c.contract_url && (
+                        <>
+                          {' · '}
+                          <a href={c.contract_url} target="_blank" rel="noopener noreferrer" className="text-tc-red hover:underline">ver no site da prefeitura</a>
+                        </>
+                      )}
+                    </p>
+                  )}
                   {c.expected_end_date && (
                     <p className="text-xs text-amber-600">Previsão de encerramento: {formatDate(c.expected_end_date)}</p>
                   )}
@@ -231,7 +312,7 @@ const RentalContractsManager = ({ propertyId }) => {
         <DialogContent className="sm:max-w-md bg-card border-border">
           <DialogHeader><DialogTitle className="text-xl font-bold text-foreground">Remover contrato</DialogTitle></DialogHeader>
           <p className="text-muted-foreground">
-            Tem certeza que deseja remover o contrato de "{deletingContract?.owner_name}"? Esta ação não pode ser desfeita.
+            Tem certeza que deseja remover o contrato de "{deletingContract?.owner_name || 'proprietário não informado'}"? Esta ação não pode ser desfeita.
           </p>
           <DialogFooter className="sm:justify-end gap-2">
             <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
@@ -278,7 +359,7 @@ const RentalMediaManager = ({ propertyId }) => {
         const { error: dbError } = await supabase.from('rental_property_media').insert({ property_id: propertyId, url: publicUrl });
         if (dbError) throw dbError;
       }
-      toast({ title: 'Fotos adicionadas' });
+      // Sem toast: o fetchMedia abaixo põe as fotos na galeria da tela.
       await fetchMedia();
     } catch (error) {
       toast({ title: 'Erro ao enviar fotos', description: error.message, variant: 'destructive' });
@@ -301,7 +382,7 @@ const RentalMediaManager = ({ propertyId }) => {
         const { error: dbError } = await supabase.from('rental_property_documents').insert({ property_id: propertyId, type: docType, url: publicUrl, description: file.name });
         if (dbError) throw dbError;
       }
-      toast({ title: 'Documentos adicionados' });
+      // Sem toast: o fetchMedia abaixo põe os documentos na lista da tela.
       await fetchMedia();
     } catch (error) {
       toast({ title: 'Erro ao enviar documentos', description: error.message, variant: 'destructive' });
@@ -446,7 +527,6 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
     onBairroCreated?.(data);
     setFormData((prev) => ({ ...prev, bairro_id: data.id }));
     setBairroSearch('');
-    toast({ title: `Bairro "${data.name}" criado.` });
   };
 
   const handleUseBairroFromMap = async () => {
@@ -758,7 +838,6 @@ const ManageRentalPropertiesPage = () => {
       toast({ title: 'Erro ao salvar imóvel', description: result.error.message, variant: 'destructive' });
       return null;
     }
-    toast({ title: `Imóvel ${id ? 'atualizado' : 'criado'} com sucesso!` });
     await fetchData();
     return result.data;
   };
@@ -799,6 +878,11 @@ const ManageRentalPropertiesPage = () => {
     return p.address.toLowerCase().includes(term) || (p.title || '').toLowerCase().includes(term);
   });
 
+  const { visiveis: imoveisVisiveis, propsPaginacao } = useListaPaginada(filteredProperties, {
+    porPagina: 12,
+    chaveFiltro: searchTerm,
+  });
+
   const fallbackCityCenter = isScopedAmbassador && myCities.length > 0 ? { name: myCities[0].name, uf: myCities[0].uf } : null;
   const defaultCityId = isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null;
 
@@ -821,10 +905,18 @@ const ManageRentalPropertiesPage = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-10">Carregando...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-[150px] w-full rounded-xl" />
+            ))}
+          </div>
+        ) : filteredProperties.length === 0 ? (
+          <p className="text-center text-muted-foreground py-10">
+            {searchTerm ? 'Nenhum imóvel corresponde à busca.' : 'Nenhum imóvel cadastrado ainda.'}
+          </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProperties.map((property) => {
+            {imoveisVisiveis.map((property) => {
               const currentContract = (property.contracts || []).find((c) => c.is_current);
               return (
                 <Card key={property.id}>
@@ -838,13 +930,15 @@ const ManageRentalPropertiesPage = () => {
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-1 mb-1">{property.address}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1"><MapPin className="w-3 h-3" /> {property.bairro?.name || 'Sem bairro'}</p>
-                    {currentContract && <p className="text-sm font-semibold text-tc-red">{currentContract.owner_name}</p>}
+                    {currentContract?.owner_name && <p className="text-sm font-semibold text-tc-red">{currentContract.owner_name}</p>}
                   </CardContent>
                 </Card>
               );
             })}
           </div>
         )}
+
+        {!loading && <PaginacaoLista {...propsPaginacao} />}
       </div>
 
       {editingProperty && (

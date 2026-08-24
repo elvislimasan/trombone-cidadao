@@ -9,6 +9,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { defaultMenuSettings } from '@/config/menuConfig';
 import Avatar from 'react-nice-avatar';
 import Notifications from '@/components/Notifications';
+import FeedCitySelector from '@/components/feed/FeedCitySelector';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
@@ -107,9 +108,11 @@ const Header = () => {
     `block py-3 text-2xl font-semibold transition-colors duration-300 ${isActive ? 'text-tc-red' : 'hover:text-tc-red'}`;
 
   const visibleMenuItems = menuSettings.items.filter(item => item.isVisible);
+  // Header neutro: branco no claro, preto no escuro. A cor da marca fica no
+  // logo e nos icones, nao no fundo. Os tokens --header-* ja acompanham o tema.
   const headerStyle = {
-    backgroundColor: menuSettings.colors.background,
-    color: menuSettings.colors.text,
+    backgroundColor: 'rgb(var(--header-bg))',
+    color: 'rgb(var(--header-fg))',
   };
 
   const getAvatarComponent = (user) => {
@@ -140,7 +143,7 @@ const Header = () => {
         ...headerStyle, 
         top: 0,
         paddingTop: 'var(--header-safe-top)',
-        height: 'calc(4rem + var(--header-safe-top))',
+        height: 'calc(var(--header-bar-height) + var(--header-safe-top))',
         marginTop: 0
       }} 
       className="fixed left-0 right-0 z-[1001] border-b"
@@ -152,25 +155,33 @@ const Header = () => {
         className="absolute left-0 right-0 bottom-full h-screen pointer-events-none"
         style={{ backgroundColor: headerStyle.backgroundColor }}
       />
-      <div className="container mx-auto px-4 h-16 flex justify-between items-center" style={{ marginTop: 0 }}>
-        <Link to="/" className="flex items-center gap-3">
-          <img 
-            src={logoError ? '/logo.png' : (logoUrl || '/logo.png')} 
-            alt={siteName} 
-            className="h-10 w-auto"
-            onError={(e) => {
-              if (!logoError) {
-                setLogoError(true);
-                // Tentar logo.png como fallback
-                e.target.src = '/logo.png';
-              } else {
-                // Se logo.png também falhar, usar um placeholder ou deixar vazio
-                e.target.style.display = 'none';
-              }
-            }}
-          />
-          <span className="font-extrabold text-lg tracking-tight">{siteName}</span>
-        </Link>
+      <div
+        className="container mx-auto px-4 flex justify-between items-center"
+        style={{ marginTop: 0, height: 'var(--header-bar-height)' }}
+      >
+        {/* A marca volta a ocupar o lado esquerdo em todas as telas. A cidade
+            ativa saiu daqui: virou um icone de pin no lado direito, para o nome
+            do site nao competir com o nome da cidade pelo mesmo espaco. */}
+        <div className="flex items-center gap-3 min-w-0">
+          <Link to="/" className="flex items-center gap-2 min-w-0">
+            <img
+              src={logoError ? '/logo.png' : (logoUrl || '/logo.png')}
+              alt={siteName}
+              className="h-10 w-auto shrink-0"
+              onError={(e) => {
+                if (!logoError) {
+                  setLogoError(true);
+                  // Tentar logo.png como fallback
+                  e.target.src = '/logo.png';
+                } else {
+                  // Se logo.png também falhar, usar um placeholder ou deixar vazio
+                  e.target.style.display = 'none';
+                }
+              }}
+            />
+            <span className="font-extrabold text-lg tracking-tight truncate">{siteName}</span>
+          </Link>
+        </div>
 
         <nav className="hidden lg:flex items-center gap-5">
           {visibleMenuItems.map(item => (
@@ -186,12 +197,18 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-4">
+          {/* Pin da cidade ativa: substitui o chip com o nome da cidade. Abre a
+              lista como sheet centralizado, que nao corta na borda da tela. */}
+          <FeedCitySelector iconOnly />
           {user ? (
             <>
               <Notifications />
+              {/* No mobile o acesso ao perfil e as opcoes de conta vive na aba
+                  Perfil da barra inferior, entao o avatar aparece so a partir
+                  de lg, onde essa barra nao existe. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 overflow-hidden">
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 overflow-hidden hidden lg:flex">
                     {getAvatarComponent(user)}
                   </Button>
                 </DropdownMenuTrigger>
@@ -289,7 +306,7 @@ const Header = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             style={{
-              backgroundColor: menuSettings.colors.background,
+              backgroundColor: headerStyle.backgroundColor,
               paddingTop: 'var(--safe-area-top)',
               paddingBottom: 'var(--safe-area-bottom)'
             }}
@@ -324,7 +341,7 @@ const Header = () => {
                     </div>
                     
                     <div className="flex flex-col gap-2">
-                      <Button asChild variant="secondary" className="w-full h-10 bg-white text-black hover:bg-gray-100 font-semibold border-0 transition-all hover:translate-y-[-1px] shadow-sm text-sm">
+                      <Button asChild variant="secondary" className="w-full h-10 bg-surface-raised text-black hover:bg-surface-sunken font-semibold border-0 transition-all hover:translate-y-[-1px] shadow-sm text-sm">
                         <Link to="/login" className="flex items-center justify-center gap-2">
                           <LucideIcons.LogIn className="w-4 h-4" />
                           <span>Entrar</span>

@@ -4,10 +4,14 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Phone, Clock, MapPin, Info, Instagram, Pencil } from 'lucide-react';
+import { ArrowLeft, Phone, Clock, MapPin, Info, Instagram, Pencil, MessageCircle, Share2, Bus, Bike, Car, CarTaxiFront, Truck } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { nomeDoTipoTransporte, iconeDoTipoTransporte } from '@/lib/transportTypes';
+import { whatsappNumber } from '@/lib/utils';
+
+const TRANSPORT_ICONS = { Bike, CarTaxiFront, Car, Truck, Bus };
 
 const TransportDetailsPage = () => {
   const { id } = useParams();
@@ -55,6 +59,39 @@ const TransportDetailsPage = () => {
     fetchTransport();
   }, [fetchTransport]);
 
+  const waNumber = whatsappNumber(transport?.phone);
+  const TypeIcon = TRANSPORT_ICONS[iconeDoTipoTransporte(transport?.vehicle_type)] || Bus;
+  const typeName = nomeDoTipoTransporte(transport?.vehicle_type);
+
+  const handleWhatsApp = () => {
+    if (!waNumber) return;
+    const texto = `Olá! Vi o transporte "${transport.name}" no Trombone Cidadão e gostaria de informações sobre a viagem para ${transport.destination || 'meu destino'}.`;
+    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(texto)}`, '_blank');
+  };
+
+  // Web Share quando existe (no app nativo e no celular abre a folha do
+  // sistema, com WhatsApp/Telegram/e-mail juntos); nos navegadores de desktop
+  // que nao implementam, cai para copiar o link. Nao ha um terceiro caminho:
+  // um botao que nao faz nada seria pior que nenhum botao.
+  const handleShare = async () => {
+    const url = window.location.href;
+    const texto = `${transport.name}${transport.destination ? ` — destino ${transport.destination}` : ''}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: transport.name, text: texto, url });
+        return;
+      } catch (error) {
+        if (error?.name === 'AbortError') return; // usuario fechou a folha
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${texto}\n${url}`);
+      toast({ title: 'Link copiado!', description: 'Cole onde quiser compartilhar.' });
+    } catch {
+      toast({ title: 'Não foi possível compartilhar', variant: 'destructive' });
+    }
+  };
+
   if (!transport) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
@@ -82,20 +119,40 @@ const TransportDetailsPage = () => {
               Voltar para o Guia de Serviços
             </Button>
           </Link>
-          {canEdit && (
-            <Link to={`/servicos/gerenciar?edit=${transport.id}&type=transport`}>
-              <Button variant="outline" className="gap-2 border-tc-red/30 text-tc-red hover:bg-tc-red/5">
-                <Pencil className="w-4 h-4" /> Editar serviço
-              </Button>
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-2" onClick={handleShare}>
+              <Share2 className="w-4 h-4" /> Compartilhar
+            </Button>
+            {canEdit && (
+              <Link to={`/servicos/gerenciar?edit=${transport.id}&type=transport`}>
+                <Button variant="outline" className="gap-2 border-tc-red/30 text-tc-red hover:bg-tc-red/5">
+                  <Pencil className="w-4 h-4" /> Editar serviço
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         <Card className="overflow-hidden border-border shadow-lg">
           <div className="relative">
-            <img alt={transport.name} className="h-64 w-full object-cover" src={transport.image_url} />
+            {transport.image_url ? (
+              <img alt={transport.name} className="h-64 w-full object-cover" src={transport.image_url} />
+            ) : (
+              /* Sem foto cadastrada o <img> quebrava e sobrava um retangulo com
+                 o alt text. A ilustracao do tipo de veiculo ocupa o mesmo
+                 espaco e ainda informa: da para ver que e mototaxi antes de
+                 ler qualquer texto. */
+              <div className="h-64 w-full flex items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/15">
+                <TypeIcon className="w-24 h-24 text-primary/50" strokeWidth={1.25} />
+              </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
             <div className="absolute bottom-0 left-0 p-6">
+              {typeName && (
+                <span className="inline-flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-full bg-white/90 text-primary text-xs font-bold">
+                  <TypeIcon className="w-3.5 h-3.5" /> {typeName}
+                </span>
+              )}
               <h1 className="text-4xl font-bold text-white">{transport.name}</h1>
               <p className="text-xl text-white/90">Destino: {transport.destination}</p>
             </div>
@@ -106,9 +163,24 @@ const TransportDetailsPage = () => {
                 <div className="bg-primary/10 text-primary p-3 rounded-lg">
                   <Phone className="w-6 h-6" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-semibold text-lg">Contato</h3>
-                  <p className="text-muted-foreground text-lg font-semibold text-primary">{transport.phone}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a href={`tel:${transport.phone}`} className="text-lg font-semibold text-primary hover:underline">
+                      {transport.phone}
+                    </a>
+                    {waNumber && (
+                      <button
+                        type="button"
+                        onClick={handleWhatsApp}
+                        title="Chamar no WhatsApp"
+                        aria-label="Chamar no WhatsApp"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#25D366] text-white text-xs font-bold hover:brightness-95 transition"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               {transport.instagram && (
