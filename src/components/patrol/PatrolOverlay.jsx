@@ -149,9 +149,41 @@ export default function PatrolOverlay({
    * O gesto existe mesmo sem toque nesta tela: chegar em `/patrulhar/:categoria`
    * exigiu tocar num botão da tela anterior, e a ativação vale para o documento
    * inteiro — a navegação do React Router não troca de documento.
+   *
+   * ── E FALA "MODO PATRULHA INICIADO" ────────────────────────────────────────
+   *
+   * O anúncio de abertura não é enfeite: é o ÚNICO teste de som que existe
+   * antes da primeira bronca. Sem ele, descobrir que o áudio não sai neste
+   * aparelho custava dirigir até uma bronca — e, quando o silêncio aparecia,
+   * não dava para saber se o app estava mudo ou se simplesmente não havia nada
+   * por perto. Agora as duas coisas se separam no primeiro segundo.
+   *
+   * Usa `anunciar` (bipe + fala), não só `falar`: o bipe passa pelo WebAudio e
+   * a fala pelo TTS, que são caminhos independentes. Ouvir os dois confirma os
+   * dois; ouvir só o bipe já diz onde está o problema.
+   *
+   * `anunciar` respeita o mudo, então quem silenciou continua no silêncio.
    */
+  const anunciarRef = useRef(anunciar);
+  useEffect(() => { anunciarRef.current = anunciar; }, [anunciar]);
+
+  const anunciouInicioRef = useRef(false);
   useEffect(() => {
-    if (ativo) preparar();
+    if (!ativo || anunciouInicioRef.current) return;
+    anunciouInicioRef.current = true;
+
+    preparar();
+
+    // A folga existe porque `preparar()` acabou de PEDIR o resume do
+    // AudioContext, que é assíncrono. Falar no mesmo tick pega o contexto ainda
+    // suspenso em parte dos aparelhos e o bipe sai mudo — justamente no aviso
+    // que existe para provar que o som funciona.
+    //
+    // Lido por ref para o efeito não depender de `anunciar`: ele muda a cada
+    // toque no botão de mudo, e a limpeza do efeito cancelaria o timer se
+    // alguém silenciasse dentro desta janela.
+    const t = setTimeout(() => anunciarRef.current('Modo patrulha iniciado'), 250);
+    return () => clearTimeout(t);
   }, [ativo, preparar]);
 
   // A cidade de tudo que a patrulha grava e a do CHAO, nao a do seletor.

@@ -92,8 +92,26 @@ export default function AuditOverlay({
 
   // Destrava áudio no toque que aceita o aviso — tem que ser dentro do gesto,
   // e o primeiro ponto ao alcance chega minutos depois. Ver useNavVoice.
+  //
+  // E fala "Modo missão iniciado", pelo mesmo motivo do anúncio da patrulha:
+  // é o único teste de som antes do primeiro ponto, e aqui o primeiro ponto
+  // pode estar a quilômetros. Sem ele, o silêncio no caminho é ambíguo — app
+  // mudo ou nada por perto? O bipe passa pelo WebAudio e a fala pelo TTS, que
+  // são caminhos independentes; ouvir os dois confirma os dois.
+  const anunciarRef = useRef(anunciar);
+  useEffect(() => { anunciarRef.current = anunciar; }, [anunciar]);
+
+  const anunciouInicioRef = useRef(false);
   useEffect(() => {
-    if (avisoAceito) preparar();
+    if (!avisoAceito || anunciouInicioRef.current) return;
+    anunciouInicioRef.current = true;
+
+    preparar();
+
+    // Ver PatrolOverlay: a folga cobre o resume assíncrono do AudioContext, e
+    // o ref evita que um toque no mudo dentro desta janela cancele o timer.
+    const t = setTimeout(() => anunciarRef.current('Modo missão iniciado'), 250);
+    return () => clearTimeout(t);
   }, [avisoAceito, preparar]);
 
   // Sem categoria: a conferência é sobre TUDO que está em aberto. É a diferença
