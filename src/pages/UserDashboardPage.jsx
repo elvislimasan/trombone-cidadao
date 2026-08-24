@@ -235,7 +235,6 @@ const UserDashboardPage = () => {
       return;
     }
     
-    toast({ title: "Bronca atualizada com sucesso!" });
     fetchUserContributions();
     if (reportParam) handleCloseReportDetails();
     else if (selectedReport) setSelectedReport(null);
@@ -320,7 +319,6 @@ const UserDashboardPage = () => {
 
     if (result.success) {
       fetchUserContributions();
-      toast({ title: result.action === 'added' ? "Apoio registrado! 👍" : "Apoio removido." });
     } else {
       toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
     }

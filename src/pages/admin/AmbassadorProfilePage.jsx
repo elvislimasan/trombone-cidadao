@@ -85,7 +85,6 @@ const AmbassadorProfilePage = () => {
       toast({ title: 'Sem permissão para adicionar cidades a este embaixador.', variant: 'destructive' });
     } else {
       const cityName = cities.find((c) => String(c.id) === String(newCityId))?.name;
-      toast({ title: `Cidade adicionada${cityName ? `: ${cityName}` : '.'}` });
       // Avisa a pessoa — best-effort, não desfaz a designação se falhar.
       supabase.from('notifications').insert({
         user_id: id,
@@ -125,7 +124,6 @@ const AmbassadorProfilePage = () => {
     } else if (!data || data.length === 0) {
       toast({ title: 'Sem permissão para remover cidades deste embaixador.', variant: 'destructive' });
     } else {
-      toast({ title: `${removingCity.city} removida da atuação.` });
       fetchProfile();
     }
     setRemovingCity(null);
@@ -144,7 +142,6 @@ const AmbassadorProfilePage = () => {
     } else if (!data || data.length === 0) {
       toast({ title: 'Sem permissão para alterar este embaixador.', variant: 'destructive' });
     } else {
-      toast({ title: status === 'active' ? 'Embaixador reativado.' : 'Embaixador suspenso.' });
       fetchProfile();
     }
     setActionId(null);

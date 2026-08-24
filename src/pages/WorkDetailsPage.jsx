@@ -558,7 +558,6 @@ const WorkDetailsPage = () => {
       const { error } = await supabase.from('public_work_payments').insert([payload]);
       if (error) throw error;
 
-      toast({ title: 'Pagamento registrado', description: 'O pagamento foi adicionado com sucesso.' });
       setShowPaymentDialog(false);
       fetchWorkDetails();
     } catch (error) {
@@ -2679,7 +2678,6 @@ const WorkDetailsPage = () => {
             if (result.error) {
               toast({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
             } else {
-              toast({ title: "Obra atualizada com sucesso!" });
               setShowAdminEditModal(false);
               fetchWorkDetails();
             }

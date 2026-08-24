@@ -198,7 +198,6 @@ const FavoritesPage = () => {
     if (error) {
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca atualizada!" });
       fetchFavorites(page);
       setSelectedReport(null);
     }
@@ -214,7 +213,6 @@ const FavoritesPage = () => {
     if (error) {
       toast({ title: "Erro ao vincular", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca vinculada!" });
       fetchFavorites(page);
       setSelectedReport(null);
       setShowLinkModal(false);
@@ -276,8 +274,9 @@ const FavoritesPage = () => {
       const key = user?.id ? `tc_favorite_news_ids_${user.id}` : 'tc_favorite_news_ids';
       const ids = loadFavoriteNewsIds().filter((id) => id !== newsId);
       localStorage.setItem(key, JSON.stringify(ids));
+      // Sem toast: o card sai da lista na mesma hora. Anunciar "removida" por
+      // cima de uma lista que já encolheu é dizer o que está à vista.
       setFavoriteNews((prev) => prev.filter((n) => n.id !== newsId));
-      toast({ title: "Removida das salvas" });
     } catch {}
   };
 

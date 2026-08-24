@@ -144,7 +144,8 @@ const ProfilePage = () => {
 
   const handleLogout = async () => {
     await signOut();
-    toast({ title: "Você saiu da sua conta.", description: "Até a próxima! 👋" });
+    // Sem toast: quem tocou em "Sair" sabe que saiu, e a tela de login que
+    // aparece em seguida é a confirmação. O toast só repetia o óbvio por cima.
     navigate('/login');
   };
 

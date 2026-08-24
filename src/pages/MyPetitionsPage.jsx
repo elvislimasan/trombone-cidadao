@@ -150,10 +150,9 @@ const MyPetitionsPage = () => {
       // 3. Remover rascunho local se existir
       localStorage.removeItem(`petition_editor_draft_${petition.id}`);
 
-      toast({ 
-        title: "Petição excluída", 
-        description: "O abaixo-assinado foi removido permanentemente." 
-      });
+      // Sem toast: a petição some da lista. O aviso de que é permanente
+      // pertence ao diálogo ANTES de excluir, onde ainda dá para desistir —
+      // depois do fato ele não informa, só assusta.
 
       // 4. Atualizar o estado local
       setPetitions(prev => prev.filter(p => p.id !== petition.id));

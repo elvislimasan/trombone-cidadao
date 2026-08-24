@@ -131,7 +131,6 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
       
       if (error) throw error;
 
-      toast({ title: "Novidade publicada com sucesso!" });
 
       // Trigger Notification
       if (notifySigners && data) {

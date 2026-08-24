@@ -136,10 +136,9 @@ const LoginPage = () => {
       // Try again silently for the user
       const { error: secondError } = await signIn(email, password);
       if (!secondError) {
-        toast({
-          title: `Bem-vindo(a) de volta!`,
-          description: "Login realizado com sucesso. 🎉",
-        });
+          // Sem toast de boas-vindas: o login termina navegando para o feed,
+          // e a tela que troca já diz que entrou. O toast chegava POR CIMA do
+          // destino, anunciando o que a pessoa estava vendo.
           let target = null;
           try {
             target = sessionStorage.getItem('tc_post_login_redirect');
@@ -185,10 +184,7 @@ const LoginPage = () => {
           });
         }
     } else {
-      toast({
-        title: `Bem-vindo(a) de volta!`,
-        description: "Login realizado com sucesso. 🎉",
-      });
+        // Ver acima: navegar já é o retorno visual do login.
         let target = null;
         try {
           target = sessionStorage.getItem('tc_post_login_redirect');

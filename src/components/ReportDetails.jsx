@@ -866,7 +866,6 @@ const ReportDetails = ({
     setStatusOverride(newStatus);
     try {
       await onUpdate({ id: report.id, status: newStatus });
-      toast({ title: "Status atualizado!", description: `A bronca agora está "${getStatusInfo(newStatus).text}".` });
     } catch (error) {
       setStatusOverride(previous);
       toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
@@ -879,7 +878,6 @@ const ReportDetails = ({
     setCategoryOverride(newCategory);
     try {
       await onUpdate({ id: report.id, category_id: newCategory, category: newCategory });
-      toast({ title: "Categoria atualizada!", description: `A bronca foi movida para "${getCategoryName(newCategory)}".` });
     } catch (error) {
       setCategoryOverride(previous);
       toast({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
@@ -893,7 +891,6 @@ const ReportDetails = ({
     }
     const updatedReport = { is_recurrent: !report.is_recurrent };
     onUpdate({ id: report.id, ...updatedReport });
-    toast({ title: `Bronca marcada como ${updatedReport.is_recurrent ? 'reincidente' : 'não reincidente'}.` });
   };
 
   const handleResolutionAction = async (action) => {
@@ -923,12 +920,6 @@ const ReportDetails = ({
     try {
       await onUpdate({ id: report.id, ...updateData });
       const actionText = action === 'approved' ? 'aprovada' : 'rejeitada';
-      toast({ 
-        title: `Resolução ${actionText} com sucesso!`,
-        description: action === 'approved' 
-          ? 'A bronca foi marcada como resolvida.' 
-          : 'A bronca voltou para o status pendente.'
-      });
       onClose();
     } catch (error) {
       toast({ 
@@ -973,10 +964,6 @@ const ReportDetails = ({
         }
         if (error) throw error;
       }
-      toast({ 
-        title: "Bronca aprovada com sucesso! ✅", 
-        description: "A bronca foi aprovada e agora está visível para todos." 
-      });
       setIsRejectingReport(false);
       setRejectionTitle('');
       setRejectionDescription('');

@@ -396,11 +396,9 @@ const ManageServicesPage = () => {
     if (dbData.id) {
       const { error } = await supabase.from(tableName).update(dbData).eq('id', dbData.id);
       if (error) toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
-      else toast({ title: "Item atualizado!" });
     } else {
       const { error } = await supabase.from(tableName).insert(dbData);
       if (error) toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
-      else toast({ title: "Item adicionado!" });
     }
 
     fetchData();
@@ -447,7 +445,6 @@ const ManageServicesPage = () => {
     } else if (!data || data.length === 0) {
       toast({ title: "Fora da sua área", description: "Esta sugestão pertence a uma cidade fora do seu escopo de gestão.", variant: "destructive" });
     } else {
-      toast({ title: `Sugestão ${status === 'approved' ? 'aprovada' : 'rejeitada'}!` });
       fetchData();
     }
   };

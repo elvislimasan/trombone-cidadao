@@ -322,7 +322,6 @@ const NewsDetailsPage = () => {
       await Promise.all(uploadPromises);
     }
 
-    toast({ title: "Notícia atualizada com sucesso! ✨" });
     setShowEditModal(false);
     fetchNewsDetails();
   };

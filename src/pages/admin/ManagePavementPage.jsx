@@ -83,7 +83,6 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
     onBairroCreated?.(data);
     handleSelectChange('bairro_id', data.id);
     setBairroSearch('');
-    toast({ title: `Bairro "${data.name}" criado.` });
   };
 
   const handleUseBairroFromMap = async () => {
@@ -414,7 +413,6 @@ const ManagePavementPage = () => {
     if (error) {
       toast({ title: "Erro ao salvar rua", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Rua ${id ? 'atualizada' : 'adicionada'} com sucesso!` });
       fetchStreets();
       setEditingStreet(null);
     }

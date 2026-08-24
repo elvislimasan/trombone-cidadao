@@ -393,15 +393,11 @@ const VideoProcessor = ({
     if (!videoToRemove) return;
 
     // Criar novo array sem o vídeo removido
+    // Sem toast: o vídeo sai da lista imediatamente abaixo do botão que o
+    // removeu. Repetir o nome do arquivo não acrescenta nada ao que sumiu.
     const newVideos = videos.filter((_, i) => i !== index);
     onVideosChange(newVideos);
-
-    toast({
-      title: 'Vídeo removido',
-      description: `${videoToRemove.name} foi removido`,
-      duration: 2000
-    });
-  }, [videos, onVideosChange, toast]);
+  }, [videos, onVideosChange]);
 
   // Renderizar vídeo individual (componente memoizado)
   const renderVideo = useCallback((video, index) => {
@@ -471,10 +467,6 @@ const VideoProcessor = ({
     if (fileInputRef.current) fileInputRef.current.value = null;
     if (cameraInputRef.current) cameraInputRef.current.value = null;
     
-    toast({
-      title: 'Processamento cancelado',
-      description: 'O envio do vídeo foi cancelado.',
-    });
   }, [onProcessingChange, toast]);
 
   // Barra de progresso do processamento (REMOVIDA - Agora usa overlay)

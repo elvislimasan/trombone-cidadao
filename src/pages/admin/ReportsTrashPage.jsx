@@ -61,7 +61,6 @@ const ReportsTrashPage = () => {
     if (error) {
       toast({ title: "Erro ao restaurar bronca", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca restaurada!", description: "A bronca foi enviada de volta para moderação." });
       fetchReports();
     }
     setReportToRestore(null);

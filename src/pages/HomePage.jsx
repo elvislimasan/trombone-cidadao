@@ -678,10 +678,6 @@ function HomePage() {
       // Buscar dados atualizados
       await fetchReports();
       
-      toast({ 
-        title: "Bronca atualizada com sucesso! ✨",
-        description: "As informações foram atualizadas e o mapa foi renovado."
-      });
       setSelectedReport(null);
       
     } catch (error) {
@@ -719,7 +715,6 @@ function HomePage() {
         throw error;
       }
 
-      toast({ title: "Bronca vinculada! 🔗", description: "A solicitação foi marcada como duplicada." });
       setShowLinkModal(false);
       setReportToLink(null);
       setSelectedReport(null);

@@ -43,7 +43,6 @@ const ErrorReportsPage = () => {
     if (error) {
       toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Status atualizado com sucesso!" });
       fetchReports();
     }
   };
@@ -58,7 +57,6 @@ const ErrorReportsPage = () => {
     if (error) {
       toast({ title: "Erro ao deletar relatório", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Relatório deletado com sucesso!" });
       fetchReports();
     }
     setDeletingReport(null);

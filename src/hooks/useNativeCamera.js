@@ -214,9 +214,11 @@ const consumePendingPhoto = () => {
 /**
  * @param {object} options
  * @param {number} [options.maxPhotos=5]       - Limite de fotos
- * @param {string} [options.toastSuccess]      - Mensagem de sucesso (padrão '✅ Foto adicionada!')
+ *
+ * `toastSuccess` saiu junto com o toast de "foto adicionada": nenhum chamador
+ * passava um valor, e a miniatura entrando na grade já é o retorno.
  */
-export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicionada!' } = {}) => {
+export const useNativeCamera = ({ maxPhotos = 5 } = {}) => {
   const { toast } = useToast();
 
   // Estado unificado — cada item: { id, preview, nativePath?, file?, name }
@@ -294,9 +296,11 @@ export const useNativeCamera = ({ maxPhotos = 5, toastSuccess = '✅ Foto adicio
         },
       ]);
 
-      toast({ title: toastSuccess });
+      // Sem toast: o `setPhotoItems` acima põe a miniatura na tela. A foto
+      // aparecendo é a confirmação — o aviso "✅ Foto adicionada!" tapava
+      // justamente a grade onde ela acabara de entrar.
     },
-    [toast, toastSuccess]
+    []
   );
 
   // ── Recuperação de foto pendente no mount ─────────────────────────────

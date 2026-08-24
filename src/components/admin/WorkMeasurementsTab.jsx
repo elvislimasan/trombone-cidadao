@@ -246,10 +246,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         if (dbError) throw dbError;
       }
 
-      toast({
-        title: "Sucesso",
-        description: "Mídias enviadas com sucesso!"
-      });
       
       if (currentMeasurement && currentMeasurement.id === measurementId) {
         fetchMeasurementMedia(measurementId);
@@ -310,10 +306,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       // Note: We're not deleting from storage here to keep it simple/safe, 
       // but ideally we should delete the file from storage too if it's not used elsewhere.
 
-      toast({
-        title: "Sucesso",
-        description: "Mídia removida com sucesso."
-      });
       
       if (currentMeasurement) {
         fetchMeasurementMedia(currentMeasurement.id);
@@ -620,10 +612,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         }
       }
 
-      toast({
-        title: "Sucesso",
-        description: `Medição ${currentMeasurement ? 'atualizada' : 'criada'} com sucesso.`
-      });
       
       await fetchMeasurements();
       await syncWorkFromLatestMeasurement();
@@ -669,10 +657,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
 
       if (error) throw error;
 
-      toast({
-        title: "Sucesso",
-        description: "Medição excluída com sucesso."
-      });
       await fetchMeasurements();
       await syncWorkFromLatestMeasurement();
       const { count, error: countError } = await supabase
@@ -741,7 +725,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       setFormData(prev => ({ ...prev, contractor_id: data.id }));
       setShowNewContractorDialog(false);
       setNewContractorForm({ name: '', cnpj: '' });
-      toast({ title: "Construtora criada", description: "A construtora foi adicionada e selecionada nesta fase." });
     } catch (error) {
       toast({ title: "Erro ao criar construtora", description: error.message, variant: "destructive" });
     } finally {

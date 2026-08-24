@@ -182,7 +182,6 @@ const AmbassadorPage = () => {
     if (error) {
       toast({ title: 'Erro ao processar bronca', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: newStatus === 'approved' ? 'Bronca aprovada!' : 'Bronca rejeitada!' });
       const cityIds = myCities.map(c => c.city_id);
       fetchPendingReports(cityIds);
     }
@@ -199,7 +198,6 @@ const AmbassadorPage = () => {
     if (error) {
       toast({ title: 'Erro ao processar atualização', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: newStatus === 'approved' ? 'Atualização aprovada!' : 'Atualização rejeitada!' });
       const cityIds = myCities.map(c => c.city_id);
       fetchPendingUpdates(cityIds);
     }
@@ -239,7 +237,6 @@ const AmbassadorPage = () => {
           if (storagePath) await supabase.storage.from('work-media').remove([decodeURIComponent(storagePath)]);
         } catch (_) {}
       }
-      toast({ title: newStatus === 'approved' ? 'Mídia aprovada!' : 'Mídia rejeitada.' });
       const cityIds = myCities.map((c) => c.city_id);
       fetchPendingWorkMedia(cityIds);
     } catch (err) {

@@ -69,10 +69,6 @@ const AdminPage = () => {
       return r;
     });
     updateReports(updatedReports);
-    toast({
-      title: `Bronca ${newStatus === 'approved' ? 'Aprovada' : 'Rejeitada'}!`,
-      description: `A solicitação foi movida para a seção correspondente.`,
-    });
   };
 
   const handleToggleVisibility = (reportId) => {
@@ -83,11 +79,10 @@ const AdminPage = () => {
       }
       return r;
     });
+    // Sem toast: é um interruptor, e o estado dele na linha JÁ é a resposta.
+    // O texto ainda precisava reler `reports` (o array pré-update) e inverter
+    // o valor para acertar a frase — trabalho para dizer o que o botão mostra.
     updateReports(updatedReports);
-    toast({
-      title: `Visibilidade alterada!`,
-      description: `A bronca agora está ${reports.find(r => r.id === reportId)?.moderationStatus === 'hidden' ? 'visível' : 'oculta'}.`,
-    });
   };
 
   const handleDeleteReport = (reportId) => {
@@ -115,10 +110,6 @@ const AdminPage = () => {
       return report;
     });
     updateReports(updatedReports);
-    toast({
-      title: `Comentário ${newStatus === 'approved' ? 'Aprovado' : 'Rejeitado'}!`,
-      description: `O comentário foi ${newStatus === 'approved' ? 'publicado' : 'removido'}.`,
-    });
   };
 
   const handleUpdateReport = (updatedReport) => {
@@ -143,7 +134,6 @@ const AdminPage = () => {
       return r;
     });
     updateReports(updatedReports);
-    toast({ title: "Bronca vinculada! 🔗", description: "A solicitação foi marcada como duplicada." });
     setShowLinkModal(false);
     setReportToLink(null);
   };

@@ -280,7 +280,6 @@ const ManageWorkOptionsPage = () => {
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Salvo com sucesso!" });
       if (type === 'bairros') {
         fetchBairros();
       } else {

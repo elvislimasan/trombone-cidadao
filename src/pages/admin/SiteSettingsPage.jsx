@@ -160,7 +160,6 @@ const SiteSettingsPage = () => {
         petitions_modal: { ...prev.petitions_modal, image_url: publicUrl }
       }));
 
-      toast({ title: "Imagem enviada!", description: "A imagem foi salva com sucesso." });
     } catch (error) {
       console.error('Erro no upload:', error);
       toast({ title: "Erro no upload", description: error.message, variant: "destructive" });

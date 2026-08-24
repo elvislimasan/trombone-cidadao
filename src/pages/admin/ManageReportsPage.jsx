@@ -226,10 +226,6 @@ const ManageReportsPage = () => {
       const updates = { is_featured: toggled, featured_at: toggled ? new Date().toISOString() : null };
       const { error } = await supabase.from('reports').update(updates).eq('id', report.id);
       if (error) throw error;
-      toast({
-        title: toggled ? 'Marcada como destaque' : 'Removida dos destaques',
-        description: toggled ? 'Esta bronca aparecerá na Home em Destaques.' : 'Esta bronca não aparecerá mais em Destaques.'
-      });
       fetchReports();
       if (selectedReport?.id === report.id) {
         setSelectedReport(prev => ({ ...prev, ...updates }));
@@ -437,7 +433,6 @@ const ManageReportsPage = () => {
       }
     }
 
-    toast({ title: "Bronca atualizada com sucesso!" });
     fetchReports();
     setSelectedReport(null);
   };

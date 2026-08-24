@@ -76,10 +76,6 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
       }
 
       if (initialStatus === 'open') {
-        toast({
-          title: "Abaixo-Assinado Criado! 🎉",
-          description: "A campanha foi criada com sucesso e já pode receber assinaturas.",
-        });
       } else {
         toast({
           title: "Abaixo-Assinado Enviado! ⏳",

@@ -1043,7 +1043,6 @@ const ManageNewsPage = () => {
       });
     }
 
-      toast({ title: `Notícia ${id ? 'atualizada' : 'adicionada'} com sucesso!` });
       fetchNewsAndComments();
     setEditingNews(null);
   };
@@ -1100,7 +1099,6 @@ const ManageNewsPage = () => {
     if (error) {
       toast({ title: "Erro ao moderar comentário", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Comentário ${newStatus === 'approved' ? 'restaurado' : 'removido'}!` });
       fetchNewsAndComments();
     }
   };

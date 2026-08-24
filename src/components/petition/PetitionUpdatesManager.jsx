@@ -89,7 +89,6 @@ const PetitionUpdatesManager = ({ petitionId }) => {
         savedUpdateId = data.id;
       }
 
-      toast({ title: "Novidade salva com sucesso!" });
 
       // Trigger Notification if requested and it's a new update (or user explicitly wants to send on edit?)
       // Usually only on creation or explicit action.
@@ -135,7 +134,7 @@ const PetitionUpdatesManager = ({ petitionId }) => {
     if (error) {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Novidade excluída" });
+      // Sem toast: `fetchUpdates` recarrega a lista sem a novidade.
       fetchUpdates();
     }
   };

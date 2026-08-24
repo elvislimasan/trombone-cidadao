@@ -660,14 +660,51 @@ export default function PatrolOverlay({
     encerrar, concluir,
   ]);
 
+  // A escada corrente, lida pelos listeners que são instalados UMA VEZ SÓ.
+  // Declarada aqui em cima porque os dois caminhos — Android e web — precisam
+  // dela; ver o efeito nativo logo abaixo e o de `popstate` mais adiante.
+  const voltarRef = useRef(voltarUmaCamada);
+  useEffect(() => { voltarRef.current = voltarUmaCamada; }, [voltarUmaCamada]);
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
+    // ── POR QUE ESTE EFEITO NÃO DEPENDE DE `voltarUmaCamada` ──
+    //
+    // Dependia, e VAZAVA UM LISTENER POR MUDANÇA DE CAMADA.
+    //
+    // `CapApp.addListener` é assíncrono: devolve promessa, e o handle só existe
+    // quando ela resolve. Com `[voltarUmaCamada]` na lista, todo alerta que
+    // aparecia, toda folha que abria — qualquer coisa que recriasse a função —
+    // reexecutava o efeito. A limpeza rodava ANTES da promessa anterior
+    // resolver, então `handle` ainda era `null` e o `remove()` não removia
+    // nada. O listener velho ficava vivo e um novo era somado.
+    //
+    // Depois de alguns alertas, um toque no voltar disparava vários handlers de
+    // uma vez, cada um enxergando o estado congelado de quando foi registrado.
+    // O da camada livre abria a folha de saída; um antigo, registrado quando
+    // `saida` valia 'resumo', chamava `concluir()` no mesmo toque — que grava,
+    // falha por ser chamada concorrente e cai no `sairDaTela()` do erro.
+    //
+    // Era exatamente o relato: a folha de confirmação não ficava, a tela
+    // voltava para as missões e subia "Não foi possível salvar a patrulha".
+    //
+    // A correção é a mesma que o caminho da web já usava: UM listener, que lê a
+    // escada por ref. O `cancelado` cobre o desmonte antes de a promessa
+    // resolver — senão o handle chega depois do cleanup e nunca é removido.
     let handle = null;
-    CapApp.addListener('backButton', voltarUmaCamada).then((h) => { handle = h; });
+    let cancelado = false;
 
-    return () => { handle?.remove(); };
-  }, [voltarUmaCamada]);
+    CapApp.addListener('backButton', () => voltarRef.current()).then((h) => {
+      if (cancelado) { h.remove(); return; }
+      handle = h;
+    });
+
+    return () => {
+      cancelado = true;
+      handle?.remove();
+    };
+  }, []);
 
   /**
    * O mesmo voltar, no navegador.
@@ -692,12 +729,11 @@ export default function PatrolOverlay({
    * endereço. Aí o navegador mostra o aviso genérico dele; o texto é ignorado
    * por todos eles desde 2019, e é por isso que não tentamos escrever um.
    */
-  // A escada corrente, lida pelo listener que é instalado uma vez só. Sem este
-  // ref, ele chamaria para sempre a versão de `voltarUmaCamada` capturada na
+  // `voltarRef` — a escada corrente — está declarada junto do efeito nativo,
+  // lá em cima: os dois caminhos leem por ela pelo mesmo motivo. Sem o ref, o
+  // listener chamaria para sempre a versão de `voltarUmaCamada` capturada na
   // montagem — a que enxerga a patrulha no primeiro segundo, sem alerta aberto,
   // sem fila, sem nada.
-  const voltarRef = useRef(voltarUmaCamada);
-  useEffect(() => { voltarRef.current = voltarUmaCamada; }, [voltarUmaCamada]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) return;

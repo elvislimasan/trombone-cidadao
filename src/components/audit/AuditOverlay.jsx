@@ -1,5 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, SatelliteDish, ClipboardCheck, X, Square } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, SatelliteDish, ClipboardCheck, X, Square, Volume2, VolumeX } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 
@@ -10,8 +10,10 @@ import { useNavStreet } from '@/hooks/useNavStreet';
 import { usePatrolRecorder } from '@/hooks/usePatrolRecorder';
 import { usePatrolSignals, RAIO_CARD_MISSAO_M, RAIO_REGISTRO_M } from '@/hooks/usePatrolSignals';
 import { useMissionProgress } from '@/contexts/MissionProgressContext';
+import { useNavVoice } from '@/hooks/useNavVoice';
 import { PONTOS } from '@/lib/patrolGame';
-import { haversine } from '@/lib/navGeo';
+import { haversine, frasear } from '@/lib/navGeo';
+import { nomeDaCategoria } from '@/lib/reportCategories';
 import { getPatrolShareUrl } from '@/lib/shareUtils';
 
 import AuditCard from './AuditCard';
@@ -77,6 +79,23 @@ export default function AuditOverlay({
   const { posicao, erro, sinalFraco } = useNavigationGps({ ativo: avisoAceito });
   const { rua, bairro, cidadeId } = useNavStreet(posicao);
 
+  // ── Voz, igual à patrulha ──
+  //
+  // A auditoria nasceu muda, e o custo é maior aqui do que lá. Na patrulha o
+  // alerta é uma surpresa no caminho; aqui o ponto é o DESTINO — a pessoa saiu
+  // de casa para chegar nele e passa o trajeto inteiro olhando a tela para
+  // saber se já chegou. É exatamente quem mais precisa ouvir em vez de olhar.
+  //
+  // Mesmo hook da patrulha: fala pelo TTS nativo no Android e no iOS, e pela
+  // Web Speech API no navegador. Ver o cabeçalho de useNavVoice.
+  const { anunciar, preparar, mudo, alternarMudo, suportada: somSuportado } = useNavVoice();
+
+  // Destrava áudio no toque que aceita o aviso — tem que ser dentro do gesto,
+  // e o primeiro ponto ao alcance chega minutos depois. Ver useNavVoice.
+  useEffect(() => {
+    if (avisoAceito) preparar();
+  }, [avisoAceito, preparar]);
+
   // Sem categoria: a conferência é sobre TUDO que está em aberto. É a diferença
   // central em relação à patrulha, que é de uma categoria só.
   // `rua` entra porque o que nasce aqui é bronca de verdade: sem ela o
@@ -134,6 +153,33 @@ export default function AuditOverlay({
   useEffect(() => {
     if (aoAlcance && escolhido && aoAlcance.id === escolhido.id) setEscolhido(null);
   }, [aoAlcance, escolhido, setEscolhido]);
+
+  /**
+   * Anuncia o ponto que entrou no alcance.
+   *
+   * POR ID, NÃO POR PRESENÇA. `aoAlcance` é um `useMemo` que recalcula a cada
+   * leitura de GPS — uma por segundo — e o objeto sai novo toda vez, porque o
+   * `.map` refaz `{ ...m, distancia }`. Reagir à identidade do objeto faria a
+   * voz repetir o mesmo ponto sem parar enquanto a pessoa caminha até ele.
+   *
+   * O ref guarda o ÚLTIMO id falado e só solta a voz quando ele muda. Voltar a
+   * null (ponto resolvido ou adiado) limpa o ref, então reaproximar-se de um
+   * ponto adiado volta a anunciar — que é o certo: a pessoa mudou de ideia e
+   * está indo até lá de novo.
+   */
+  const ultimoAnunciadoRef = useRef(null);
+  useEffect(() => {
+    const id = aoAlcance?.id ?? null;
+    if (id === ultimoAnunciadoRef.current) return;
+    ultimoAnunciadoRef.current = id;
+    if (!aoAlcance) return;
+
+    // "Conferir buraco a 40 metros" — o verbo separa isto do alerta da
+    // patrulha, que avisa de algo que se passa ao lado. Aqui a pessoa chegou no
+    // que foi buscar, e o que vem a seguir é uma pergunta a responder.
+    const frase = frasear(nomeDaCategoria(aoAlcance.category), aoAlcance.distancia);
+    anunciar(`Conferir ${frase.toLowerCase()}`);
+  }, [aoAlcance, anunciar]);
 
   const aoVazio = useCallback(async (sinal) => {
     const r = await sinais.descartar(sinal.id);
@@ -318,6 +364,26 @@ export default function AuditOverlay({
               )}
             </p>
           </div>
+          {/* Silenciar fica ANTES do X e sempre visível: calar o app é o que se
+              quer poder fazer no instante em que ele fala, e caçar o botão com
+              o veículo andando é pior que o próprio som. Mesma regra do
+              PatrolHud. */}
+          {somSuportado && (
+            <button
+              type="button"
+              onClick={alternarMudo}
+              aria-label={mudo ? 'Ligar alertas por voz' : 'Silenciar alertas por voz'}
+              aria-pressed={!mudo}
+              className={`shrink-0 w-11 h-11 inline-flex items-center justify-center rounded-full border transition-colors ${
+                mudo
+                  ? 'bg-transparent border-edge-default text-content-tertiary'
+                  : 'bg-brand border-brand text-content-onBrand'
+              }`}
+            >
+              {mudo ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={pedirSaida}

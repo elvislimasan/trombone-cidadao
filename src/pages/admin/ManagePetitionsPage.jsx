@@ -104,10 +104,6 @@ const ManagePetitionsPage = () => {
         p.id === petitionId ? { ...p, status: newStatus } : p
       ));
 
-      toast({
-        title: "Status atualizado",
-        description: `Abaixo-assinado atualizado com sucesso.`,
-      });
     } catch (error) {
       console.error('Error updating status:', error);
       toast({
@@ -126,7 +122,6 @@ const ManagePetitionsPage = () => {
       if (error) throw error;
       
       setPetitions(prev => prev.filter(p => p.id !== id));
-      toast({ title: "Abaixo-assinado excluído" });
     } catch (error) {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     }

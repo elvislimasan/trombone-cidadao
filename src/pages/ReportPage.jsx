@@ -593,13 +593,10 @@ const ReportPage = () => {
       });
       return;
     }
+    // Sem toast: a etiqueta de status na tela muda para o valor novo. O toast
+    // lia o mesmo `getStatusInfo` do selo para repetir a palavra que o selo
+    // acabara de exibir.
     setReport((prev) => (prev ? { ...prev, status: newStatus } : prev));
-    toast({
-      title: "Status atualizado",
-      description: `A bronca agora está como "${
-        getStatusInfo(newStatus).text
-      }".`,
-    });
   };
 
   const handleAdminCategoryChange = async (newCategory) => {
@@ -628,7 +625,7 @@ const ReportPage = () => {
           }
         : prev
     );
-    toast({ title: "Categoria atualizada" });
+    // Sem toast: a categoria exibida troca junto.
   };
 
   const handleAdminWaterUtilityChange = async (value) => {
@@ -646,10 +643,11 @@ const ReportPage = () => {
       });
       return;
     }
+    // Sem toast: a linha "Abertura COMPESA" na grade de Informações passa a
+    // mostrar o valor escolhido.
     setReport((prev) =>
       prev ? { ...prev, is_from_water_utility: isYes } : prev
     );
-    toast({ title: "Informação atualizada" });
   };
 
   const handleUpvoteClick = async () => {
@@ -781,12 +779,16 @@ const ReportPage = () => {
     }
     setReport((prev) => (prev ? { ...prev, ...updatedReport } : prev));
     setShowMarkResolvedModal(false);
-    toast({
-      title: "Bronca atualizada",
-      description: isAdmin
-        ? "Bronca marcada como resolvida."
-        : "Resolução enviada para revisão.",
-    });
+    // O toast sobrou SÓ para quem não é admin, e por um motivo: para o admin a
+    // bronca vira "Resolvida" na tela e o aviso repetia o selo. Para o cidadão
+    // ela NÃO muda de status — vai para revisão — e sem esta linha a tela fica
+    // idêntica a antes de enviar, como se o botão não tivesse funcionado.
+    if (!isAdmin) {
+      toast({
+        title: "Resolução enviada para revisão",
+        description: "A bronca muda de status quando a revisão aprovar.",
+      });
+    }
   };
 
   const formatRelativeDate = (dateString) => {
@@ -943,10 +945,6 @@ const ReportPage = () => {
         updateCam.clearPhotos();
         setUpdateType(null);
         setUpdateMessage('');
-        toast({
-          title: "Atualização confirmada! ✅",
-          description: `Status da bronca atualizado para "${getStatusInfo(newStatus).text}".`,
-        });
       } else {
         setShowUpdateModal(false);
         updateCam.clearPhotos();
@@ -1008,10 +1006,6 @@ const ReportPage = () => {
       .update({ status: newReportStatus })
       .eq("id", report.id);
 
-    toast({
-      title: "Atualização confirmada!",
-      description: `Status da bronca atualizado para "${getStatusInfo(newReportStatus).text}".`,
-    });
     fetchReport();
   };
 
@@ -1023,8 +1017,10 @@ const ReportPage = () => {
       toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
       return;
     }
+    // Sem toast de sucesso: a atualização desaparece da lista logo abaixo do
+    // botão. O de ERRO fica — falha silenciosa deixaria a linha na tela sem
+    // explicação de por que não sumiu.
     setReportUpdates((prev) => prev.filter((u) => u.id !== upd.id));
-    toast({ title: 'Atualização excluída.' });
   };
 
   const handleModerate = async (approve) => {
@@ -1388,7 +1384,6 @@ const ReportPage = () => {
         });
       }
     }
-    toast({ title: "Bronca atualizada com sucesso! ✨" });
     fetchReport();
   };
 
@@ -1455,7 +1450,6 @@ const ReportPage = () => {
         variant: "destructive",
       });
     else {
-      toast({ title: "Bronca vinculada! 🔗" });
       fetchReport();
     }
     setShowLinkModal(false);

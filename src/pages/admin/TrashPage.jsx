@@ -49,7 +49,6 @@ const TrashPage = () => {
     if (error) {
       toast({ title: "Erro ao recuperar bronca", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca recuperada!", description: "A bronca foi enviada para moderação." });
       fetchRejectedReports();
     }
     setItemToConfirm(null);

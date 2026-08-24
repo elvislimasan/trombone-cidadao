@@ -81,7 +81,7 @@ export const WorkMediaManager = ({ workId }) => {
       // Erro ao parsear ou deletar arquivo do storage
     }
 
-    toast({ title: "Mídia removida!" });
+    // Sem toast: `fetchMedia` redesenha a grade sem o item.
     fetchMedia();
   };
   
@@ -101,7 +101,6 @@ export const WorkMediaManager = ({ workId }) => {
       const toUpload = Array.from(files);
       try {
         await Promise.all(toUpload.map(file => uploadSingleFile(file)));
-        toast({ title: "Upload concluído!", description: "Os arquivos foram enviados." });
         fetchMedia();
         // Reset gallery selection if needed, or keep it for continuous upload
       } finally {

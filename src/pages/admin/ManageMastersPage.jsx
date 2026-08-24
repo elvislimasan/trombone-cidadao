@@ -395,7 +395,6 @@ const PendingInvitesSection = ({ user }) => {
     if (error) {
       toast({ title: 'Erro ao revogar convite', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Convite revogado.' });
       fetchInvites();
     }
     setRevokingId(null);
@@ -616,7 +615,6 @@ const ActiveAmbassadorsSection = () => {
         variant: 'destructive',
       });
     } else {
-      toast({ title: 'Embaixador suspenso.' });
       fetchAmbassadors();
     }
     setSuspendingId(null);
@@ -743,7 +741,6 @@ const ApplicationsSection = () => {
     const { error } = await supabase.rpc('approve_ambassador_application', { p_app_id: app.id });
     if (error) toast({ title: 'Erro ao aprovar', description: error.message, variant: 'destructive' });
     else {
-      toast({ title: 'Embaixador aprovado!' });
       sendApplicationEmail(app, 'approved');
       fetchApps();
     }
@@ -766,7 +763,6 @@ const ApplicationsSection = () => {
       is_read: false,
     });
     sendApplicationEmail(app, 'rejected', reason);
-    toast({ title: 'Candidatura rejeitada.' });
     fetchApps();
     setActionId(null);
   };

@@ -168,7 +168,6 @@ const RentalContractsManager = ({ propertyId }) => {
       toast({ title: 'Erro ao salvar contrato', description: error.message, variant: 'destructive' });
       return;
     }
-    toast({ title: 'Contrato atualizado.' });
     setEditingContractId(null);
     await fetchContracts();
   };
@@ -179,7 +178,6 @@ const RentalContractsManager = ({ propertyId }) => {
     if (error) {
       toast({ title: 'Erro ao remover contrato', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Contrato removido.' });
       await fetchContracts();
     }
     setDeletingContract(null);
@@ -529,7 +527,6 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
     onBairroCreated?.(data);
     setFormData((prev) => ({ ...prev, bairro_id: data.id }));
     setBairroSearch('');
-    toast({ title: `Bairro "${data.name}" criado.` });
   };
 
   const handleUseBairroFromMap = async () => {
@@ -841,7 +838,6 @@ const ManageRentalPropertiesPage = () => {
       toast({ title: 'Erro ao salvar imóvel', description: result.error.message, variant: 'destructive' });
       return null;
     }
-    toast({ title: `Imóvel ${id ? 'atualizado' : 'criado'} com sucesso!` });
     await fetchData();
     return result.data;
   };

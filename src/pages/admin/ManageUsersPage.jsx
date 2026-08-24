@@ -202,7 +202,6 @@ const ManageUsersPage = () => {
     if (error) {
       toast({ title: "Erro ao atualizar usuário", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Usuário atualizado com sucesso! ✅" });
       fetchUsers();
     }
     setEditingUser(null);

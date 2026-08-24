@@ -247,7 +247,6 @@ const ModerationPage = () => {
     try {
       const { error } = await supabase.rpc('delete_report_update', { p_update_id: item.id });
       if (error) throw error;
-      toast({ title: 'Atualização excluída definitivamente.' });
       fetchItems();
     } catch (err) {
       toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
@@ -306,7 +305,6 @@ const ModerationPage = () => {
             .eq('id', item.id);
           if (error) throw error;
         }
-        toast({ title: `Atualização ${newStatus === 'approved' ? 'aprovada' : 'rejeitada'} com sucesso!` });
         fetchItems();
         return;
       }
@@ -469,7 +467,6 @@ const ModerationPage = () => {
         }
       }
 
-      toast({ title: `Item ${newStatus === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso!` });
       fetchItems();
     } catch (error) {
       toast({ title: "Erro ao processar", description: error.message, variant: "destructive" });
@@ -1071,7 +1068,8 @@ const ModerationPage = () => {
           onUpdate={async (data) => {
             const { error } = await supabase.from('reports').update(data).eq('id', data.id);
             if (error) toast({ title: "Erro ao atualizar", variant: "destructive" });
-            else { toast({ title: "Atualizado!" }); fetchItems(); setSelectedReport(null); }
+            // Sem toast: `fetchItems` recarrega a fila e o modal fecha.
+            else { fetchItems(); setSelectedReport(null); }
           }}
           onUpvote={() => {}}
           onLink={() => {}}

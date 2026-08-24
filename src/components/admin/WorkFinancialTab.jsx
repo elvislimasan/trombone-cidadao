@@ -229,7 +229,6 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         }
       }
 
-      toast({ title: "Sucesso", description: "Pagamento registrado!" });
       setIsEditingPayment(false);
       if (onEditingChange) onEditingChange(false);
       fetchFinancialData();
@@ -243,7 +242,6 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
     try {
       const { error } = await supabase.from('public_work_payments').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: "Sucesso", description: "Pagamento excluído." });
       fetchFinancialData();
     } catch (error) {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });

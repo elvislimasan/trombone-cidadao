@@ -221,7 +221,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
     onBairroCreated?.(data);
     handleSelectChange('bairro_id', data.id);
     setBairroSearch('');
-    toast({ title: `Bairro "${data.name}" criado.` });
   };
 
   // Pega o bairro do reverse-geocode do marcador e cria/seleciona.
@@ -1161,7 +1160,6 @@ const ManageWorksPage = () => {
       const savedWorkId = result.data.id;
       console.log('Obra salva com ID:', savedWorkId);
 
-      toast({ title: `Obra ${id ? 'atualizada' : 'criada'} com sucesso!` });
       await fetchData();
       
       setEditingWork(null);
