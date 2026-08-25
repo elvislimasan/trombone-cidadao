@@ -8,9 +8,9 @@
 // e manter dois catálogos de bonecos garantiria que um dia a pessoa escolhesse
 // uma coisa e visse outra na rua.
 //
-// Então o que existe é uma configuração pequena e serializável (cor, estilo,
-// acessório, veículo). `patrolAvatarMarkup.js` monta o SVG a partir dela, e os
-// dois lados montam o mesmo.
+// Então o que existe é uma configuração pequena e serializável (cor da roupa,
+// sexo, tom de pele, estilo, acessório e veículo). `patrolAvatarMarkup.js` monta
+// o SVG a partir dela, e os dois lados montam o mesmo.
 //
 // AS CORES SÃO HEX, E NÃO TOKENS DO TEMA
 //
@@ -35,13 +35,31 @@ export const PATROL_AVATAR_COLORS = Object.freeze([
   Object.freeze({ id: 'branco', label: 'Branco', base: '#e8edf5', escura: '#b9c4d4', clara: '#ffffff', rgb: '232 237 245', rgbClara: '255 255 255' }),
 ]);
 
+// Sexo e pele são escolhas de identidade, não recompensas: ficam disponíveis
+// desde o primeiro nível. O desenho usa o sexo para a silhueta e o cabelo; o tom
+// de pele é uma cor independente da roupa para uma escolha nunca tingir a outra.
+export const PATROL_AVATAR_SEXOS = Object.freeze([
+  Object.freeze({ id: 'masculino', label: 'Masculino' }),
+  Object.freeze({ id: 'feminino', label: 'Feminino' }),
+]);
+
+export const PATROL_AVATAR_TONS_PELE = Object.freeze([
+  Object.freeze({ id: 'muito-claro', label: 'Muito clara', base: '#f6d2ba' }),
+  Object.freeze({ id: 'claro', label: 'Clara', base: '#edb98a' }),
+  // Mantém exatamente o tom que o avatar usava antes desta escolha existir.
+  Object.freeze({ id: 'medio', label: 'Média', base: '#e0a479' }),
+  Object.freeze({ id: 'moreno', label: 'Morena', base: '#b8734f' }),
+  Object.freeze({ id: 'escuro', label: 'Escura', base: '#7a4934' }),
+  Object.freeze({ id: 'retinto', label: 'Retinta', base: '#452b23' }),
+]);
+
 export const PATROL_AVATAR_STYLES = Object.freeze([
-  Object.freeze({ id: 'classico', label: 'Clássico', descricao: 'Cabelo à mostra e camiseta na sua cor.' }),
-  Object.freeze({ id: 'tatico', label: 'Tático', descricao: 'Colete, luvas e tudo escuro.' }),
-  Object.freeze({ id: 'urbano', label: 'Urbano', descricao: 'Moletom com capuz.' }),
-  Object.freeze({ id: 'night', label: 'Night', descricao: 'Faixas refletivas para o escuro.' }),
-  Object.freeze({ id: 'camuflado', label: 'Camuflado', descricao: 'Padrão camuflado e boné mole.' }),
-  Object.freeze({ id: 'rabo', label: 'Cabelo longo', descricao: 'Rabo de cavalo saindo do boné.' }),
+  Object.freeze({ id: 'classico', label: 'Clássico', descricao: 'Camiseta na sua cor; no feminino, saia com pregas.', nivelMinimo: 1 }),
+  Object.freeze({ id: 'tatico', label: 'Tático', descricao: 'Colete, luvas e equipamento escuro.', nivelMinimo: 2 }),
+  Object.freeze({ id: 'urbano', label: 'Urbano', descricao: 'Moletom com capuz; no feminino, saia urbana.', nivelMinimo: 1 }),
+  Object.freeze({ id: 'night', label: 'Night', descricao: 'Faixas refletivas para patrulhar no escuro.', nivelMinimo: 3 }),
+  Object.freeze({ id: 'camuflado', label: 'Camuflado', descricao: 'Padrão camuflado com cabelo à mostra.', nivelMinimo: 4 }),
+  Object.freeze({ id: 'rabo', label: 'Cabelo longo', descricao: 'Rabo de cavalo e, no feminino, saia com pregas.', nivelMinimo: 1 }),
 ]);
 
 export const PATROL_AVATAR_ACCESSORIES = Object.freeze([
@@ -64,6 +82,8 @@ export const PATROL_AVATAR_VEHICLES = Object.freeze([
 
 export const DEFAULT_PATROL_AVATAR = Object.freeze({
   cor: 'azul',
+  sexo: 'masculino',
+  tomPele: 'medio',
   estilo: 'classico',
   acessorio: 'mochila',
   veiculo: 'sedan',
@@ -89,6 +109,8 @@ export const normalizePatrolAvatar = (valor) => {
   const bruto = valor && typeof valor === 'object' ? valor : {};
   return {
     cor: escolher(PATROL_AVATAR_COLORS, bruto.cor, DEFAULT_PATROL_AVATAR.cor),
+    sexo: escolher(PATROL_AVATAR_SEXOS, bruto.sexo, DEFAULT_PATROL_AVATAR.sexo),
+    tomPele: escolher(PATROL_AVATAR_TONS_PELE, bruto.tomPele, DEFAULT_PATROL_AVATAR.tomPele),
     estilo: escolher(PATROL_AVATAR_STYLES, bruto.estilo, DEFAULT_PATROL_AVATAR.estilo),
     acessorio: escolher(PATROL_AVATAR_ACCESSORIES, bruto.acessorio, DEFAULT_PATROL_AVATAR.acessorio),
     veiculo: escolher(PATROL_AVATAR_VEHICLES, bruto.veiculo, DEFAULT_PATROL_AVATAR.veiculo),
@@ -96,9 +118,32 @@ export const normalizePatrolAvatar = (valor) => {
 };
 
 export const getPatrolAvatarColor = (id) => buscar(PATROL_AVATAR_COLORS, id);
+export const getPatrolAvatarSexo = (id) =>
+  PATROL_AVATAR_SEXOS.find((item) => item.id === id) ||
+  PATROL_AVATAR_SEXOS.find((item) => item.id === DEFAULT_PATROL_AVATAR.sexo);
+export const getPatrolAvatarTomPele = (id) =>
+  PATROL_AVATAR_TONS_PELE.find((item) => item.id === id) ||
+  PATROL_AVATAR_TONS_PELE.find((item) => item.id === DEFAULT_PATROL_AVATAR.tomPele);
 export const getPatrolAvatarStyle = (id) => buscar(PATROL_AVATAR_STYLES, id);
 export const getPatrolAvatarAccessory = (id) => buscar(PATROL_AVATAR_ACCESSORIES, id);
 export const getPatrolAvatarVehicle = (id) => buscar(PATROL_AVATAR_VEHICLES, id);
+
+/**
+ * Regras de desbloqueio ficam no catálogo, perto da aparência que governam.
+ * Um nível inválido equivale ao nível inicial; nunca pode abrir uma recompensa
+ * por acidente. O id desconhecido, por sua vez, não representa estilo algum.
+ */
+export const isPatrolAvatarStyleUnlocked = (id, nivel) => {
+  const estiloId = typeof id === 'string' ? id.trim().toLowerCase() : '';
+  const estilo = PATROL_AVATAR_STYLES.find((item) => item.id === estiloId);
+  if (!estilo) return false;
+
+  const numero = Number(nivel);
+  const nivelSeguro = Number.isFinite(numero) && numero >= 1
+    ? Math.floor(numero)
+    : 1;
+  return nivelSeguro >= estilo.nivelMinimo;
+};
 
 export const readStoredPatrolAvatar = (storage) => {
   try {
@@ -122,7 +167,11 @@ export const storePatrolAvatar = (storage, valor) => {
  * caminhada e o boneco piscaria no mapa a cada segundo.
  */
 export const patrolAvatarKey = (avatar, modo, emMovimento, gpsAtivo = true) => {
-  const { cor, estilo, acessorio, veiculo } = normalizePatrolAvatar(avatar);
-  const traje = modo === 'driving' ? veiculo : `${estilo}-${acessorio}`;
+  const { cor, sexo, tomPele, estilo, acessorio, veiculo } = normalizePatrolAvatar(avatar);
+  // Dentro do carro a pessoa não aparece. Ignorar escolhas invisíveis aumenta o
+  // reaproveitamento do ícone; a pé elas precisam invalidar o cache do Leaflet.
+  const traje = modo === 'driving'
+    ? veiculo
+    : `${sexo}-${tomPele}-${estilo}-${acessorio}`;
   return `${modo}|${cor}|${traje}|${emMovimento ? 'm' : 'p'}|${gpsAtivo ? 'g' : 'x'}`;
 };

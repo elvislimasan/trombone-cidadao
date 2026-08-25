@@ -28,6 +28,7 @@ import {
   storePatrolTravelMode,
 } from '@/lib/patrolTravelMode';
 import { readStoredPatrolAvatar, storePatrolAvatar } from '@/lib/patrolAvatarConfig';
+import { useMissions } from '@/hooks/useMissions';
 import { usePosicaoAproximada } from '@/hooks/usePosicaoAproximada';
 
 // Preparar a saída, antes de ligar o GPS.
@@ -71,6 +72,8 @@ export default function PatrolPickPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const posicao = usePosicaoAproximada();
+  const { nivel: progressoDoNivel, carregando: nivelCarregando } = useMissions();
+  const nivel = progressoDoNivel?.level ?? 1;
 
   // A aparência do boneco vive só no aparelho: é preferência de uso, não dado
   // de conta. Ela não entra na URL como as outras escolhas — não faria sentido
@@ -212,6 +215,8 @@ export default function PatrolPickPage() {
         <PatrolAvatarStudio
           modo={modoDeslocamento}
           avatar={avatar}
+          nivel={nivel}
+          nivelCarregando={nivelCarregando}
           onChange={escolherAvatar}
           onFechar={() => setPersonalizando(false)}
         />

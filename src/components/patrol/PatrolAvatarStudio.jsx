@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, Lock, X } from 'lucide-react';
 
 import PatrolAvatar from './PatrolAvatar';
 import {
   PATROL_AVATAR_ACCESSORIES,
   PATROL_AVATAR_COLORS,
+  PATROL_AVATAR_SEXOS,
   PATROL_AVATAR_STYLES,
+  PATROL_AVATAR_TONS_PELE,
   PATROL_AVATAR_VEHICLES,
   getPatrolAvatarColor,
+  isPatrolAvatarStyleUnlocked,
 } from '@/lib/patrolAvatarConfig';
 
 // Onde a pessoa monta o próprio boneco.
@@ -34,35 +37,70 @@ const Secao = ({ titulo, children }) => (
   </section>
 );
 
-const Opcao = ({ ativo, onClick, rotulo, descricao, children }) => (
+const Opcao = ({ ativo, onClick, rotulo, descricao, children, bloqueado = false, nivelMinimo = null }) => (
   <button
     type="button"
     role="radio"
     aria-checked={ativo}
+    aria-disabled={bloqueado}
+    disabled={bloqueado}
     onClick={onClick}
-    className={`relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-2.5 transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.97] ${
+    className={`relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-2.5 transition-[background-color,box-shadow,transform,opacity] duration-200 active:scale-[0.97] disabled:cursor-not-allowed ${
       ativo
         ? 'bg-brand-subtleBg shadow-elevation-1 ring-2 ring-brand'
         : 'bg-surface-subtle ring-1 ring-transparent hover:bg-surface-subtleHover'
     }`}
   >
-    {children}
+    {bloqueado && (
+      <span className="absolute right-1.5 top-1.5 z-10 inline-flex items-center gap-0.5 rounded-full bg-surface-overlay/95 px-1.5 py-1 text-[9px] font-extrabold leading-none text-content-secondary shadow-elevation-1 ring-1 ring-edge-subtle">
+        <Lock size={9} strokeWidth={2.8} aria-hidden="true" />
+        N{nivelMinimo}
+      </span>
+    )}
+    <span className={bloqueado ? 'opacity-45 grayscale' : ''}>{children}</span>
     <span className={`block max-w-full truncate text-[11px] font-bold leading-none ${
-      ativo ? 'text-brand' : 'text-content-secondary'
+      ativo ? 'text-brand' : bloqueado ? 'text-content-tertiary' : 'text-content-secondary'
     }`}>
       {rotulo}
     </span>
+    {bloqueado && (
+      <span className="text-[9px] font-semibold leading-none text-content-tertiary">
+        Libera no nível {nivelMinimo}
+      </span>
+    )}
     {descricao && (
       <span className="sr-only">{descricao}</span>
     )}
   </button>
 );
 
-export default function PatrolAvatarStudio({ modo, avatar, onChange, onFechar }) {
+export default function PatrolAvatarStudio({
+  modo,
+  avatar,
+  nivel = 1,
+  nivelCarregando = false,
+  onChange,
+  onFechar,
+}) {
   // A prévia da folha caminha mesmo com a patrulha parada: é um mostruário,
   // não um relato do GPS.
   const [aba, setAba] = useState(modo === 'driving' ? 'veiculo' : 'boneco');
-  const trocar = (peca, valor) => onChange({ ...avatar, [peca]: valor });
+  const [camera, setCamera] = useState('frente');
+  const nivelAtual = Math.max(1, Number(nivel) || 1);
+  const modoPreview = aba === 'veiculo' ? 'driving' : 'walking';
+  const estilosLiberados = PATROL_AVATAR_STYLES.filter(
+    (estilo) => isPatrolAvatarStyleUnlocked(estilo.id, nivelAtual) || estilo.id === avatar.estilo
+  ).length;
+
+  const trocar = (peca, valor) => {
+    if (
+      peca === 'estilo' &&
+      valor !== avatar.estilo &&
+      (nivelCarregando || !isPatrolAvatarStyleUnlocked(valor, nivelAtual))
+    ) return;
+
+    onChange({ ...avatar, [peca]: valor });
+  };
 
   return (
     <div className="fixed inset-0 z-[1010] flex items-end justify-center bg-black/60 sm:items-center">
@@ -85,10 +123,10 @@ export default function PatrolAvatarStudio({ modo, avatar, onChange, onFechar })
           <div className="relative flex items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-extrabold leading-tight tracking-tight">
-                Seu boneco na rua
+                Personalizar seu avatar
               </h2>
               <p className="mt-1 text-xs leading-relaxed text-content-onBrand/85">
-                É ele que vai aparecer no mapa durante a patrulha.
+                Veja de frente e de costas como ele aparece na patrulha.
               </p>
             </div>
             <button
@@ -101,10 +139,36 @@ export default function PatrolAvatarStudio({ modo, avatar, onChange, onFechar })
             </button>
           </div>
 
-          <div className="relative mt-3 flex h-[132px] items-start justify-center" aria-hidden="true">
+          <div
+            role="group"
+            aria-label="Lado do avatar na prévia"
+            className="relative mx-auto mt-3 flex w-fit gap-1 rounded-full bg-black/15 p-1 ring-1 ring-white/15"
+          >
+            {[
+              { id: 'frente', label: 'Frente' },
+              { id: 'costas', label: 'Costas' },
+            ].map((lado) => (
+              <button
+                key={lado.id}
+                type="button"
+                aria-pressed={camera === lado.id}
+                onClick={() => setCamera(lado.id)}
+                className={`rounded-full px-3 py-1 text-[10px] font-extrabold transition-colors ${
+                  camera === lado.id
+                    ? 'bg-white text-brand shadow-sm'
+                    : 'text-content-onBrand/80 active:bg-white/10'
+                }`}
+              >
+                {lado.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative mt-1 flex h-[124px] items-start justify-center" aria-hidden="true">
             <PatrolAvatar
-              modo={modo}
+              modo={modoPreview}
               avatar={avatar}
+              camera={camera}
               emMovimento
               sobreMarca
               tamanho={92}
@@ -113,8 +177,12 @@ export default function PatrolAvatarStudio({ modo, avatar, onChange, onFechar })
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-          <Secao titulo="Cor">
-            <div role="radiogroup" aria-label="Cor do avatar" className="flex flex-wrap gap-2.5">
+          <Secao titulo={aba === 'veiculo' ? 'Cor do carro' : 'Cor da roupa'}>
+            <div
+              role="radiogroup"
+              aria-label={aba === 'veiculo' ? 'Cor do carro' : 'Cor da roupa'}
+              className="flex flex-wrap gap-2.5"
+            >
               {PATROL_AVATAR_COLORS.map((cor) => {
                 const ativo = cor.id === avatar.cor;
                 return (
@@ -144,7 +212,7 @@ export default function PatrolAvatarStudio({ modo, avatar, onChange, onFechar })
             </div>
           </Secao>
 
-          {/* De carro nada do boneco aparece no mapa — mostrar mochila e boné ali
+          {/* De carro nada do boneco aparece no mapa — mostrar roupa e mochila ali
               seria oferecer uma escolha sem efeito. As duas listas ficam
               disponíveis pelas abas, porque o modo pode mudar depois. */}
           <div className="mt-6 flex gap-1.5 rounded-xl bg-surface-subtle p-1">
@@ -170,25 +238,101 @@ export default function PatrolAvatarStudio({ modo, avatar, onChange, onFechar })
 
           {aba === 'boneco' ? (
             <>
-              <Secao titulo="Estilo">
-                <div role="radiogroup" aria-label="Estilo do boneco" className="grid grid-cols-3 gap-2">
-                  {PATROL_AVATAR_STYLES.map((estilo) => (
+              <Secao titulo="Sexo">
+                <div role="radiogroup" aria-label="Sexo do avatar" className="grid grid-cols-2 gap-2">
+                  {PATROL_AVATAR_SEXOS.map((sexo) => (
                     <Opcao
-                      key={estilo.id}
-                      ativo={estilo.id === avatar.estilo}
-                      onClick={() => trocar('estilo', estilo.id)}
-                      rotulo={estilo.label}
-                      descricao={estilo.descricao}
+                      key={sexo.id}
+                      ativo={sexo.id === avatar.sexo}
+                      onClick={() => trocar('sexo', sexo.id)}
+                      rotulo={sexo.label}
                     >
                       <PatrolAvatar
                         modo="walking"
-                        avatar={{ ...avatar, estilo: estilo.id }}
+                        avatar={{ ...avatar, sexo: sexo.id }}
+                        camera={camera}
                         emMovimento={false}
-                        tamanho={54}
+                        tamanho={50}
                         className="patrol-avatar-chip"
                       />
                     </Opcao>
                   ))}
+                </div>
+              </Secao>
+
+              <Secao titulo="Tom de pele">
+                <div role="radiogroup" aria-label="Tom de pele" className="flex flex-wrap gap-2.5">
+                  {PATROL_AVATAR_TONS_PELE.map((tom) => {
+                    const ativo = tom.id === avatar.tomPele;
+                    const checkEscuro = tom.id === 'muito-claro' || tom.id === 'claro';
+                    return (
+                      <button
+                        key={tom.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={ativo}
+                        aria-label={tom.label}
+                        onClick={() => trocar('tomPele', tom.id)}
+                        className={`relative h-11 w-11 rounded-full shadow-inner transition-transform duration-200 active:scale-[0.94] ${
+                          ativo
+                            ? 'ring-2 ring-brand ring-offset-2 ring-offset-surface-base'
+                            : 'ring-1 ring-edge-strong'
+                        }`}
+                        style={{ backgroundColor: tom.base }}
+                      >
+                        {ativo && (
+                          <Check
+                            size={17}
+                            strokeWidth={3.4}
+                            className="absolute inset-0 m-auto"
+                            style={{ color: checkEscuro ? '#334155' : '#ffffff' }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Secao>
+
+              <Secao titulo="Estilo">
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-brand-subtleBg px-3 py-2 ring-1 ring-brand/15">
+                  <span className="text-[11px] font-extrabold text-brand">
+                    {nivelCarregando ? 'Carregando nível…' : `Nível ${nivelAtual}`}
+                  </span>
+                  <span className="text-right text-[10px] font-semibold leading-tight text-content-secondary">
+                    {estilosLiberados} de {PATROL_AVATAR_STYLES.length} estilos liberados
+                  </span>
+                </div>
+                <div role="radiogroup" aria-label="Estilo do boneco" className="grid grid-cols-3 gap-2">
+                  {PATROL_AVATAR_STYLES.map((estilo) => {
+                    const ativo = estilo.id === avatar.estilo;
+                    const bloqueado = !ativo && (
+                      nivelCarregando
+                        ? estilo.nivelMinimo > 1
+                        : !isPatrolAvatarStyleUnlocked(estilo.id, nivelAtual)
+                    );
+
+                    return (
+                      <Opcao
+                        key={estilo.id}
+                        ativo={ativo}
+                        bloqueado={bloqueado}
+                        nivelMinimo={estilo.nivelMinimo}
+                        onClick={() => trocar('estilo', estilo.id)}
+                        rotulo={estilo.label}
+                        descricao={estilo.descricao}
+                      >
+                        <PatrolAvatar
+                          modo="walking"
+                          avatar={{ ...avatar, estilo: estilo.id }}
+                          camera={camera}
+                          emMovimento={false}
+                          tamanho={54}
+                          className="patrol-avatar-chip"
+                        />
+                      </Opcao>
+                    );
+                  })}
                 </div>
               </Secao>
 
@@ -204,6 +348,7 @@ export default function PatrolAvatarStudio({ modo, avatar, onChange, onFechar })
                       <PatrolAvatar
                         modo="walking"
                         avatar={{ ...avatar, acessorio: acessorio.id }}
+                        camera={camera}
                         emMovimento={false}
                         tamanho={54}
                         className="patrol-avatar-chip"
@@ -226,6 +371,7 @@ export default function PatrolAvatarStudio({ modo, avatar, onChange, onFechar })
                     <PatrolAvatar
                       modo="driving"
                       avatar={{ ...avatar, veiculo: veiculo.id }}
+                      camera={camera}
                       emMovimento={false}
                       tamanho={54}
                       className="patrol-avatar-chip"

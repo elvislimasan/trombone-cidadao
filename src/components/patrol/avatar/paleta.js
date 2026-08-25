@@ -6,7 +6,7 @@
 // em que desenham, os tons derivados da cor escolhida e os ids dos gradientes.
 // Se cada peça calculasse o seu, ajustar um tom pediria a mesma edição em seis
 // arquivos — e no dia em que um ficasse para trás o boneco sairia com a manga
-// de um azul e o boné de outro.
+// de um azul e a mochila de outro.
 //
 // O QUADRO NÃO MUDA SOZINHO
 //
@@ -30,7 +30,10 @@
 // Nada disso é `filter`: são formas com `fill`, porque filtro em SVG dentro de
 // um marcador que anima a 60 quadros custa caro no celular.
 
-import { getPatrolAvatarColor } from '@/lib/patrolAvatarConfig';
+import {
+  getPatrolAvatarColor,
+  getPatrolAvatarTomPele,
+} from '@/lib/patrolAvatarConfig';
 
 export const QUADRO = { largura: 40, altura: 48, chao: 45.6 };
 
@@ -65,7 +68,6 @@ export const CORPO = {
 
 const NEUTRO = {
   cabelo: '#2b2118',
-  pele: '#e0a479',
   equipamento: '#232a38',
   vidro: '#26314a',
   refletivo: '#e6fa9c',
@@ -77,37 +79,35 @@ const NEUTRO = {
 
 // Cada estilo é uma combinação de peças e tons — não um desenho próprio.
 //
-// NENHUM BONÉ USA A COR DA CAMISETA, E ISSO CUSTOU UM ERRO PARA APRENDER
+// NENHUM ESTILO USA BONÉ
 //
-// Enquanto o boné era `chapeu: 'base'`, ele saía EXATAMENTE na cor da roupa.
-// Numa cabeça de catorze unidades vista a 52px, uma calota da cor da camiseta
-// logo acima dos olhos não lê como boné — lê como uma mancha da roupa no rosto.
-// O clássico perdeu o boné (o cabelo aparece, e o rosto fica inteiro); os
-// estilos que vivem do boné passaram a usar o tom ESCURO da cor, que separa a
-// cabeça do tronco em vez de fundi-los.
+// A antiga faixa inferior do boné usava um arco que descia até as bochechas.
+// Como o chapéu herdava tons da roupa, alguns rostos pareciam manchados pela
+// camiseta. Os trajes agora se distinguem por colete, capuz, faixas, estampa e
+// cabelo; a cabeça fica livre e a pele nunca recebe a cor da roupa.
 export const ESTILOS = {
   classico: {
-    roupa: 'base', calca: '#39435c', chapeu: null,
+    roupa: 'base', calca: '#39435c', saiaFeminina: true,
   },
   tatico: {
-    roupa: '#232b3b', calca: '#1b2130', chapeu: '#181e2a',
+    roupa: '#232b3b', calca: '#1b2130',
     colete: true, luvas: true, acento: 'base', mochilaEscura: true,
   },
   urbano: {
-    roupa: 'base', calca: '#2c3446', chapeu: null,
-    capuz: true,
+    roupa: 'base', calca: '#2c3446',
+    capuz: true, saiaFeminina: true,
   },
   night: {
-    roupa: '#1a2130', calca: '#171d2a', chapeu: '#11161f',
+    roupa: '#1a2130', calca: '#171d2a',
     refletivo: true, mochilaEscura: true,
   },
   camuflado: {
-    roupa: 'base', calca: '#4a5540', chapeu: 'escura',
+    roupa: 'base', calca: '#4a5540',
     camuflagem: true,
   },
   rabo: {
-    roupa: 'base', calca: '#39435c', chapeu: 'escura',
-    rabo: true,
+    roupa: 'base', calca: '#39435c',
+    rabo: true, saiaFeminina: true,
     // Castanho claro, e não o quase-preto padrão: o rabo cai POR CIMA da
     // mochila, e escuro sobre escuro ele desaparecia justamente no que define
     // o estilo.
@@ -133,6 +133,7 @@ export const escurecer = (hex, fator) => paraHex(paraRgb(hex).map((v) => v * (1 
 
 export const montarPaleta = (avatar) => {
   const cor = getPatrolAvatarColor(avatar.cor);
+  const tomPele = getPatrolAvatarTomPele(avatar.tomPele);
   const estilo = ESTILOS[avatar.estilo] || ESTILOS.classico;
   const tom = (valor) => {
     if (valor === 'base') return cor.base;
@@ -144,11 +145,13 @@ export const montarPaleta = (avatar) => {
   return {
     ...NEUTRO,
     cor,
+    sexo: avatar.sexo,
+    tomPele,
+    pele: tomPele.base,
     estilo,
     cabelo: estilo.cabelo || NEUTRO.cabelo,
     roupa: tom(estilo.roupa),
     calca: tom(estilo.calca),
-    chapeu: estilo.chapeu ? tom(estilo.chapeu) : null,
     acento: tom(estilo.acento || 'base'),
     // A MOCHILA DEIXOU DE SER CINZA, E ESSE FOI O MAIOR GANHO DE COR
     //
@@ -194,7 +197,6 @@ export const montarDefs = (p, sufixo) => `
     ${esferaGradiente(`g-cabelo-${sufixo}`, p.cabelo)}
     ${esferaGradiente(`g-pele-${sufixo}`, p.pele)}
     ${esferaGradiente(`g-luva-${sufixo}`, p.estilo.luvas ? escurecer(p.equipamento, 0.25) : p.pele)}
-    ${p.chapeu ? esferaGradiente(`g-chapeu-${sufixo}`, p.chapeu) : ''}
     ${verticalGradiente(`g-corpo-${sufixo}`, p.cor.base)}
     ${verticalGradiente(`g-teto-${sufixo}`, p.cor.escura)}
 

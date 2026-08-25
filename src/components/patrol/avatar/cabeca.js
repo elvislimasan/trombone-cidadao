@@ -1,4 +1,4 @@
-// A cabeça: crânio, cabelo, rosto, boné, capuz e o que se usa na orelha.
+// A cabeça: crânio, cabelo, rosto, capuz e o que se usa na orelha.
 //
 // É AQUI QUE O BONECO DEIXA DE SER UM ROBÔ
 //
@@ -8,16 +8,15 @@
 // achava nenhum.
 //
 // De frente o crânio é PELE e o cabelo entra por cima até a linha da testa,
-// deixando olhos, sobrancelha, nariz e boca. De costas o crânio é o cabelo
-// inteiro, mas com linha de nuca e mecha — o que impede que ele volte a ser uma
-// bola. Nos dois casos a orelha aparece na silhueta, porque é ela que diz de
-// que lado está a frente.
+// deixando olhos, sobrancelha, nariz e boca. De costas a pele continua por
+// baixo, com cabelo recortado, nuca e mechas próprias para cada sexo. Nos dois
+// casos a orelha aparece na silhueta, porque é ela que orienta a cabeça.
 //
 // AS MEDIDAS DO ROSTO SÃO BAIXAS DE PROPÓSITO
 //
 // Olhos em 13.4 num crânio que vai de 3.4 a 17.8 deixam bastante testa. Isso é
-// o que dá ar jovem em vez de adulto genérico, e é também o que abre espaço
-// para a aba do boné passar sem cobrir o olhar.
+// o que dá ar jovem em vez de adulto genérico e mantém o rosto legível até nas
+// miniaturas de 54px.
 
 import { CORPO, clarear, escurecer } from './paleta';
 
@@ -28,6 +27,14 @@ const { craneoCx: CX, craneoCy: CY, craneoRx: RX, craneoRy: RY } = CORPO;
 // De frente o cabelo é uma calota com franja: ele desce pelas laterais e para
 // na testa. O recorte irregular da franja é o que evita a borda de capacete.
 const cabeloFrente = (p, s) => `
+  ${p.sexo === 'feminino' && !p.estilo.rabo
+    ? `<g class="patrol-avatar__hair patrol-avatar__hair--long" stroke="none">
+         <path d="M13.8 8.2 C12.2 10.8 11.9 15.8 12.5 20.2 C12.8 22.2 14.2 22.7 15.1 20.8
+           C15.7 18.7 15.3 14.3 15.4 10.2 Z" fill="url(#g-cabelo-${s})" />
+         <path d="M26.2 8.2 C27.8 10.8 28.1 15.8 27.5 20.2 C27.2 22.2 25.8 22.7 24.9 20.8
+           C24.3 18.7 24.7 14.3 24.6 10.2 Z" fill="url(#g-cabelo-${s})" />
+       </g>`
+    : ''}
   <path d="M${CX - RX} ${CY + 0.9}
     C${CX - RX} ${CY - 5.4} ${CX - 4} ${CY - 7.2} ${CX} ${CY - 7.2}
     C${CX + 4} ${CY - 7.2} ${CX + RX} ${CY - 5.4} ${CX + RX} ${CY + 0.9}
@@ -37,21 +44,49 @@ const cabeloFrente = (p, s) => `
     fill="url(#g-cabelo-${s})" />
   <path d="M${CX - 3.8} ${CY - 5.8} C${CX - 2} ${CY - 7} ${CX + 2} ${CY - 7} ${CX + 3.8} ${CY - 5.8}"
     fill="none" stroke="${clarear(p.cabelo, 0.32)}" stroke-width="0.8" stroke-linecap="round" opacity="0.5" />
+  ${p.sexo === 'feminino' && !p.estilo.rabo
+    ? `<g fill="none" stroke="${clarear(p.cabelo, 0.26)}" stroke-width="0.48" stroke-linecap="round" opacity="0.48">
+         <path d="M13.5 9.1 C12.9 13.3 13.2 17.2 13.6 20.1" />
+         <path d="M26.5 9.1 C27.1 13.3 26.8 17.2 26.4 20.1" />
+       </g>`
+    : ''}
 `;
 
-// De costas o cabelo é o crânio inteiro. A linha da nuca e a mecha são o que
-// impedem a volta da bola lisa: sem elas não há como saber que aquilo é cabelo.
-const cabeloCostas = (p, s) => `
-  <ellipse cx="${CX}" cy="${CY - 0.2}" rx="${RX}" ry="${RY}" fill="url(#g-cabelo-${s})" />
-  <path d="M${CX - 5.4} ${CY + 4.6} C${CX - 3.4} ${CY + 6.1} ${CX + 3.4} ${CY + 6.1} ${CX + 5.4} ${CY + 4.6}
-    C${CX + 4.6} ${CY + 6.6} ${CX + 2.4} ${CY + 7.4} ${CX} ${CY + 7.4}
-    C${CX - 2.4} ${CY + 7.4} ${CX - 4.6} ${CY + 6.6} ${CX - 5.4} ${CY + 4.6} Z"
-    fill="${escurecer(p.cabelo, 0.32)}" stroke="none" />
-  <path d="M${CX - 3.6} ${CY - 6} C${CX - 1.6} ${CY - 7.1} ${CX + 1.6} ${CY - 7.1} ${CX + 3.6} ${CY - 6}"
-    fill="none" stroke="${clarear(p.cabelo, 0.34)}" stroke-width="0.85" stroke-linecap="round" opacity="0.55" />
-  <path d="M${CX} ${CY - 6.8} L${CX - 0.6} ${CY + 4.4}"
-    fill="none" stroke="${escurecer(p.cabelo, 0.28)}" stroke-width="0.5" stroke-linecap="round" opacity="0.5" />
-`;
+// De costas há dois cortes reconhecíveis na escala do mapa: curto com nuca
+// visível e longo com pontas sobre os ombros. Partes e mechas quebram a bola
+// lisa que o desenho antigo formava.
+const cabeloCostas = (p, s) => {
+  if (p.sexo === 'feminino' && !p.estilo.rabo) {
+    return `
+      <g class="patrol-avatar__hair patrol-avatar__hair--long">
+        <path d="M13.1 11.2 C13.1 5.7 15.8 3.2 20 3.2 C24.2 3.2 26.9 5.7 26.9 11.2
+          C27.2 14.8 28.1 18.6 26.1 21.5 C24.8 23.4 22.6 22.1 20 22.1
+          C17.4 22.1 15.2 23.4 13.9 21.5 C11.9 18.6 12.8 14.8 13.1 11.2 Z"
+          fill="url(#g-cabelo-${s})" />
+        <path d="M20 3.7 C18.8 8.1 19 14.7 18.4 20.6" fill="none"
+          stroke="${clarear(p.cabelo, 0.29)}" stroke-width="0.55" stroke-linecap="round" opacity="0.55" />
+        <path d="M20.2 4 C21.4 8.5 21.1 15.2 21.8 20.7" fill="none"
+          stroke="${escurecer(p.cabelo, 0.25)}" stroke-width="0.48" stroke-linecap="round" opacity="0.58" />
+        <path d="M14.2 18.3 C16.5 20.1 23.5 20.1 25.8 18.3" fill="none"
+          stroke="${escurecer(p.cabelo, 0.3)}" stroke-width="0.55" stroke-linecap="round" opacity="0.5" />
+      </g>
+    `;
+  }
+
+  return `
+    <g class="patrol-avatar__hair patrol-avatar__hair--short">
+      <path d="M13.1 11.6 C13.1 5.7 15.8 3.2 20 3.2 C24.2 3.2 26.9 5.7 26.9 11.6
+        C26.8 14.5 24.9 16.2 22.5 16.7 L21.6 15 C20.7 15.5 19.3 15.5 18.4 15
+        L17.5 16.7 C15.1 16.2 13.2 14.5 13.1 11.6 Z" fill="url(#g-cabelo-${s})" />
+      <path d="M16.5 15.2 C18.2 16.6 21.8 16.6 23.5 15.2" fill="none"
+        stroke="${escurecer(p.cabelo, 0.34)}" stroke-width="0.65" stroke-linecap="round" opacity="0.72" />
+      <path d="M16.4 5 C18 3.5 22 3.3 23.8 4.8" fill="none"
+        stroke="${clarear(p.cabelo, 0.34)}" stroke-width="0.85" stroke-linecap="round" opacity="0.55" />
+      <path d="M20 3.7 L19.5 13.8" fill="none"
+        stroke="${escurecer(p.cabelo, 0.28)}" stroke-width="0.5" stroke-linecap="round" opacity="0.48" />
+    </g>
+  `;
+};
 
 /* --- Rosto --- */
 
@@ -63,16 +98,25 @@ const olho = (cx, p) => `
   <circle cx="${cx - 0.34}" cy="12.94" r="0.38" fill="#ffffff" stroke="none" opacity="0.92" />
 `;
 
-const rosto = (p, comBone) => `
+const rosto = (p) => `
   <g class="patrol-avatar__face" stroke="none">
-    ${comBone
-      ? ''
+    ${p.sexo === 'feminino'
+      ? `<g fill="none" stroke="${escurecer(p.cabelo, 0.1)}" stroke-width="0.72" stroke-linecap="round" opacity="0.9">
+           <path d="M15.8 11.4 C16.6 10.8 17.8 10.7 18.6 11.2" />
+           <path d="M21.4 11.2 C22.2 10.7 23.4 10.8 24.2 11.4" />
+         </g>`
       : `<g fill="${escurecer(p.cabelo, 0.1)}" opacity="0.9">
            <rect x="15.9" y="11.1" width="2.7" height="0.75" rx="0.37" />
            <rect x="21.4" y="11.1" width="2.7" height="0.75" rx="0.37" />
          </g>`}
     ${olho(17.3, p)}
     ${olho(22.7, p)}
+    ${p.sexo === 'feminino'
+      ? `<g fill="none" stroke="${p.olho}" stroke-width="0.42" stroke-linecap="round" opacity="0.85">
+           <path d="M15.9 12.7 l-0.65 -0.45 M16.1 13.15 l-0.75 0" />
+           <path d="M24.1 12.7 l0.65 -0.45 M23.9 13.15 l0.75 0" />
+         </g>`
+      : ''}
     <!-- O nariz é sombra, não linha: um traço nesta escala vira um risco no
          meio do rosto. -->
     <ellipse cx="20" cy="14.9" rx="0.85" ry="0.6" fill="${escurecer(p.pele, 0.26)}" opacity="0.75" />
@@ -87,37 +131,6 @@ const rosto = (p, comBone) => `
 `;
 
 /* --- O que se veste na cabeça --- */
-
-const bone = (camera, p, s) => {
-  if (!p.chapeu) return '';
-
-  const aba = camera === 'frente'
-    ? `<path d="M12.7 10.2 C12.7 11.7 16 12.4 20 12.4 C24 12.4 27.3 11.7 27.3 10.2 Z"
-         fill="${escurecer(p.chapeu, 0.3)}" />
-       <path d="M13.6 10.6 C14.6 11.5 25.4 11.5 26.4 10.6" fill="none"
-         stroke="${escurecer(p.chapeu, 0.44)}" stroke-width="0.4" opacity="0.6" />`
-    : `<path d="M13.2 9.9c-1.8.3-2.7 1-2.7 1.8 0 .7 1 1 2.7.6Z" fill="${escurecer(p.chapeu, 0.24)}" />
-       <path d="M26.8 9.9c1.8.3 2.7 1 2.7 1.8 0 .7-1 1-2.7.6Z" fill="${escurecer(p.chapeu, 0.24)}" />`;
-
-  return `
-    <g class="patrol-avatar__cap">
-      <path d="M13 10.4a7 7 0 0 1 14 0Z" fill="url(#g-chapeu-${s})" />
-      ${aba}
-      <path d="M13 10.4h14v0.9a7 7.2 0 0 1-14 0Z" fill="${escurecer(p.chapeu, 0.3)}" stroke="none" opacity="0.5" />
-      <ellipse cx="16.8" cy="6.4" rx="2.6" ry="1.7" fill="#fff" opacity="0.2" stroke="none" transform="rotate(-18 16.8 6.4)" />
-      <circle cx="20" cy="3.7" r="1" fill="${escurecer(p.chapeu, 0.34)}" stroke="none" />
-      ${p.estilo.rabo && camera === 'costas'
-        ? `<rect x="18.2" y="9.2" width="3.6" height="2.2" rx="0.8" fill="${escurecer(p.cabelo, 0.2)}" stroke="none" />`
-        : ''}
-      ${p.estilo.camuflagem
-        ? `<g stroke="none" opacity="0.45">
-             <ellipse cx="16" cy="7.6" rx="2.5" ry="1.7" fill="${p.calca}" />
-             <ellipse cx="23.6" cy="6.6" rx="2.1" ry="1.5" fill="${escurecer(p.chapeu, 0.3)}" />
-           </g>`
-        : ''}
-    </g>
-  `;
-};
 
 const capuz = (camera, p, s) => {
   if (!p.estilo.capuz) return '';
@@ -156,11 +169,14 @@ const rabo = (camera, p, s) => {
   }
 
   return `
-    <g class="patrol-avatar__hair">
+    <g class="patrol-avatar__hair patrol-avatar__hair--ponytail">
       <path d="M17.8 11.4c0 5.4-1.4 7-1.4 10.6 0 2.4 1.7 3.9 3.6 3.9s3.6-1.5 3.6-3.9c0-3.6-1.4-5.2-1.4-10.6Z"
         fill="url(#g-cabelo-${s})" />
+      <ellipse cx="20" cy="12.1" rx="2.5" ry="1.3" fill="${p.acento}" stroke="none" />
       <path d="M18.6 14.4c-.4 3.6-1.2 5.4-1.2 7.8" fill="none"
         stroke="${clarear(p.cabelo, 0.28)}" stroke-width="0.5" stroke-linecap="round" opacity="0.5" />
+      <path d="M21.2 14.3c.6 3.4 1.3 5.4 1.3 7.8" fill="none"
+        stroke="${escurecer(p.cabelo, 0.3)}" stroke-width="0.45" stroke-linecap="round" opacity="0.55" />
     </g>
   `;
 };
@@ -201,13 +217,18 @@ const fone = (p, s) => `
 `;
 
 export const cabeca = (camera, p, s, acessorio) => {
-  const comBone = Boolean(p.chapeu);
   // Com fone a orelha some debaixo da concha; sem ele, a orelha é o detalhe que
   // faz a cabeça deixar de ser uma bola.
   const orelhas = acessorio === 'fone'
     ? ''
-    : `<ellipse cx="${CX - RX + 0.3}" cy="12.2" rx="1.35" ry="1.85" fill="url(#g-pele-${s})" />
-       <ellipse cx="${CX + RX - 0.3}" cy="12.2" rx="1.35" ry="1.85" fill="url(#g-pele-${s})" />`;
+    : `<g class="patrol-avatar__ears">
+         <ellipse cx="${CX - RX + 0.3}" cy="12.2" rx="1.35" ry="1.85" fill="url(#g-pele-${s})" />
+         <ellipse cx="${CX + RX - 0.3}" cy="12.2" rx="1.35" ry="1.85" fill="url(#g-pele-${s})" />
+         <path d="M13.5 11.5 C12.8 12.1 12.9 13.1 13.6 13.5" fill="none"
+           stroke="${escurecer(p.pele, 0.3)}" stroke-width="0.4" stroke-linecap="round" opacity="0.72" />
+         <path d="M26.5 11.5 C27.2 12.1 27.1 13.1 26.4 13.5" fill="none"
+           stroke="${escurecer(p.pele, 0.3)}" stroke-width="0.4" stroke-linecap="round" opacity="0.72" />
+       </g>`;
 
   return `
     <g class="patrol-avatar__head">
@@ -222,17 +243,16 @@ export const cabeca = (camera, p, s, acessorio) => {
       ${camera === 'frente'
         ? `<ellipse cx="${CX}" cy="${CY}" rx="${RX}" ry="${RY}" fill="url(#g-pele-${s})" />
            ${orelhas}
-           ${comBone ? '' : cabeloFrente(p, s)}
-           ${comBone
-             ? `<path d="M${CX - RX} ${CY + 0.6} C${CX - RX + 0.2} ${CY - 2.4} ${CX + RX - 0.2} ${CY - 2.4} ${CX + RX} ${CY + 0.6}
-                  C${CX + RX - 0.6} ${CY - 0.9} ${CX - RX + 0.6} ${CY - 0.9} ${CX - RX} ${CY + 0.6} Z"
-                  fill="url(#g-cabelo-${s})" stroke="none" />`
-             : ''}
-           ${rosto(p, comBone)}`
-        : `${cabeloCostas(p, s)}
-           ${orelhas}`}
+           ${cabeloFrente(p, s)}
+           ${rosto(p)}`
+        : `<ellipse cx="${CX}" cy="${CY}" rx="${RX}" ry="${RY}" fill="url(#g-pele-${s})" />
+           ${orelhas}
+           ${cabeloCostas(p, s)}
+           ${p.sexo === 'masculino' || p.estilo.rabo
+             ? `<path d="M17.8 16.1 C18.8 17.1 21.2 17.1 22.2 16.1" fill="none"
+                  stroke="${escurecer(p.pele, 0.34)}" stroke-width="0.5" stroke-linecap="round" opacity="0.7" />`
+             : ''}`}
 
-      ${bone(camera, p, s)}
       ${acessorio === 'oculos' ? oculos(camera, p) : ''}
       ${acessorio === 'fone' ? fone(p, s) : ''}
     </g>

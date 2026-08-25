@@ -47,10 +47,22 @@ const alcas = (camera, p, s) => {
 /* --- Corpo da mochila --- */
 
 const pacotePadrao = (p, s) => `
+  <path d="M16.8 20.2 C16.8 17.8 23.2 17.8 23.2 20.2" fill="none"
+    stroke="${escurecer(p.mochila, 0.34)}" stroke-width="1.25" stroke-linecap="round" />
   <path d="M13.4 23.6 C13.4 20.6 15.8 19.5 20 19.5 C24.2 19.5 26.6 20.6 26.6 23.6
     L26.2 30.4 C26 32.1 23.4 32.8 20 32.8 C16.6 32.8 14 32.1 13.8 30.4 Z"
     fill="url(#g-mochila-${s})" />
+  <path d="M20 20.1 L20 27.5" fill="none" stroke="${clarear(p.mochila, 0.42)}"
+    stroke-width="0.55" stroke-dasharray="0.65 0.55" stroke-linecap="round" opacity="0.82" />
   <path d="M16 27.9 h8 v3.4 c0 0.9 -8 0.9 -8 0 Z" fill="${clarear(p.mochila, 0.24)}" stroke="none" />
+  <path d="M16.5 28.7 C18.4 29.2 21.6 29.2 23.5 28.7" fill="none"
+    stroke="${escurecer(p.mochila, 0.28)}" stroke-width="0.45" stroke-linecap="round" opacity="0.7" />
+  <g class="patrol-avatar__backpack-buckles" stroke="none">
+    <rect x="13.5" y="25.8" width="2.1" height="1.5" rx="0.45" fill="${p.equipamento}" />
+    <rect x="24.4" y="25.8" width="2.1" height="1.5" rx="0.45" fill="${p.equipamento}" />
+    <rect x="14" y="26.2" width="1.1" height="0.7" rx="0.2" fill="${clarear(p.equipamento, 0.42)}" />
+    <rect x="24.9" y="26.2" width="1.1" height="0.7" rx="0.2" fill="${clarear(p.equipamento, 0.42)}" />
+  </g>
   ${marca(20, 24.4, 0.92, p.acento)}
   <path d="M13.4 23.6 C13.4 20.6 15.8 19.5 20 19.5 C24.2 19.5 26.6 20.6 26.6 23.6
     L26.2 30.4 C26 32.1 23.4 32.8 20 32.8 C16.6 32.8 14 32.1 13.8 30.4 Z"
@@ -59,6 +71,8 @@ const pacotePadrao = (p, s) => `
 `;
 
 const pacoteTatico = (p, s) => `
+  <path d="M16.8 20 C16.8 17.8 23.2 17.8 23.2 20" fill="none"
+    stroke="${clarear(p.equipamento, 0.18)}" stroke-width="1.35" stroke-linecap="round" />
   <path d="M13.2 22.8 C13.2 20.4 15.6 19.4 20 19.4 C24.4 19.4 26.8 20.4 26.8 22.8
     L26.4 30.6 C26.2 32.2 23.4 32.9 20 32.9 C16.6 32.9 13.8 32.2 13.6 30.6 Z"
     fill="url(#g-equip-${s})" />
@@ -66,6 +80,12 @@ const pacoteTatico = (p, s) => `
     <rect x="14.4" y="22.4" width="11.2" height="1.1" rx="0.55" fill="${clarear(p.equipamento, 0.34)}" />
     <rect x="14.4" y="25.2" width="11.2" height="1.1" rx="0.55" fill="${clarear(p.equipamento, 0.34)}" />
     <rect x="14.6" y="28" width="10.8" height="1.1" rx="0.55" fill="${clarear(p.equipamento, 0.34)}" />
+  </g>
+  <g class="patrol-avatar__backpack-buckles" stroke="none">
+    <rect x="15.1" y="23.1" width="1.5" height="6.8" rx="0.55" fill="${escurecer(p.equipamento, 0.28)}" />
+    <rect x="23.4" y="23.1" width="1.5" height="6.8" rx="0.55" fill="${escurecer(p.equipamento, 0.28)}" />
+    <rect x="14.7" y="25.7" width="2.3" height="1.3" rx="0.4" fill="${p.acento}" />
+    <rect x="23" y="25.7" width="2.3" height="1.3" rx="0.4" fill="${p.acento}" />
   </g>
   <rect x="16.4" y="30" width="7.2" height="2.6" rx="1.1" fill="${p.acento}" stroke="none" />
   <path d="M13.2 22.8 C13.2 20.4 15.6 19.4 20 19.4 C24.4 19.4 26.8 20.4 26.8 22.8

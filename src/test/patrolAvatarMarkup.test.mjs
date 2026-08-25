@@ -18,7 +18,9 @@ import { patrolAvatarHtml, PATROL_AVATAR_FRAME } from '@/components/patrol/avata
 import {
   PATROL_AVATAR_ACCESSORIES,
   PATROL_AVATAR_COLORS,
+  PATROL_AVATAR_SEXOS,
   PATROL_AVATAR_STYLES,
+  PATROL_AVATAR_TONS_PELE,
   PATROL_AVATAR_VEHICLES,
 } from '@/lib/patrolAvatarConfig';
 
@@ -28,11 +30,22 @@ const cadaCaminhada = function* () {
   for (const cor of PATROL_AVATAR_COLORS) {
     for (const estilo of PATROL_AVATAR_STYLES) {
       for (const acessorio of PATROL_AVATAR_ACCESSORIES) {
-        for (const camera of CAMERAS) {
-          yield {
-            camera,
-            avatar: { cor: cor.id, estilo: estilo.id, acessorio: acessorio.id, veiculo: 'sedan' },
-          };
+        for (const sexo of PATROL_AVATAR_SEXOS) {
+          for (const tomPele of PATROL_AVATAR_TONS_PELE) {
+            for (const camera of CAMERAS) {
+              yield {
+                camera,
+                avatar: {
+                  cor: cor.id,
+                  estilo: estilo.id,
+                  acessorio: acessorio.id,
+                  veiculo: 'sedan',
+                  sexo: sexo.id,
+                  tomPele: tomPele.id,
+                },
+              };
+            }
+          }
         }
       }
     }
@@ -106,6 +119,102 @@ test('so a camera frontal tem rosto', () => {
 
   assert.ok(patrolAvatarHtml('walking', { avatar, camera: 'frente' }).includes('patrol-avatar__face'));
   assert.ok(!patrolAvatarHtml('walking', { avatar, camera: 'costas' }).includes('patrol-avatar__face'));
+});
+
+test('nenhum estilo desenha bone ou deixa gradiente de chapeu', () => {
+  for (const estilo of PATROL_AVATAR_STYLES) {
+    for (const camera of CAMERAS) {
+      const html = patrolAvatarHtml('walking', {
+        camera,
+        avatar: {
+          cor: 'vermelho',
+          estilo: estilo.id,
+          acessorio: 'mochila',
+          veiculo: 'sedan',
+          sexo: 'masculino',
+          tomPele: 'medio',
+        },
+      });
+      assert.ok(!html.includes('patrol-avatar__cap'), `${estilo.id}/${camera} ainda desenha bone`);
+      assert.ok(!html.includes('g-chapeu-'), `${estilo.id}/${camera} ainda define chapeu`);
+    }
+  }
+});
+
+test('sexo e tom de pele mudam a pessoa sem herdar a cor da roupa', () => {
+  const base = {
+    cor: 'vermelho',
+    estilo: 'classico',
+    acessorio: 'nenhuma',
+    veiculo: 'sedan',
+  };
+  const masculinoClaro = patrolAvatarHtml('walking', {
+    camera: 'costas',
+    avatar: { ...base, sexo: 'masculino', tomPele: 'claro' },
+  });
+  const femininoRetinto = patrolAvatarHtml('walking', {
+    camera: 'costas',
+    avatar: { ...base, sexo: 'feminino', tomPele: 'retinto' },
+  });
+
+  assert.notEqual(masculinoClaro, femininoRetinto);
+  assert.ok(masculinoClaro.includes('patrol-avatar--masculino'));
+  assert.ok(femininoRetinto.includes('patrol-avatar--feminino'));
+  assert.ok(masculinoClaro.includes('patrol-avatar__hair--short'));
+  assert.ok(femininoRetinto.includes('patrol-avatar__hair--long'));
+  assert.ok(!masculinoClaro.includes('patrol-avatar__outfit--feminino'));
+  assert.ok(femininoRetinto.includes('patrol-avatar__outfit--feminino'));
+  assert.ok(!masculinoClaro.includes('patrol-avatar__skirt'));
+  assert.ok(femininoRetinto.includes('patrol-avatar__skirt'));
+
+  const idPele = (html) => [...idsDefinidos(html)].find((id) => id.startsWith('g-pele-'));
+  assert.notEqual(idPele(masculinoClaro), idPele(femininoRetinto));
+});
+
+test('saia feminina aparece nos estilos casuais e nao nos trajes tecnicos', () => {
+  const base = {
+    cor: 'roxo',
+    acessorio: 'nenhuma',
+    veiculo: 'sedan',
+    sexo: 'feminino',
+    tomPele: 'medio',
+  };
+
+  for (const estilo of ['classico', 'urbano', 'rabo']) {
+    for (const camera of CAMERAS) {
+      const html = patrolAvatarHtml('walking', {
+        camera,
+        avatar: { ...base, estilo },
+      });
+      assert.ok(html.includes('patrol-avatar__skirt'), `${estilo}/${camera} deveria usar saia`);
+    }
+  }
+
+  for (const estilo of ['tatico', 'night', 'camuflado']) {
+    const html = patrolAvatarHtml('walking', {
+      camera: 'frente',
+      avatar: { ...base, estilo },
+    });
+    assert.ok(!html.includes('patrol-avatar__skirt'), `${estilo} precisa manter a calca tecnica`);
+  }
+});
+
+test('camera traseira inclui detalhes de nuca roupa maos pernas e mochila', () => {
+  const avatar = {
+    cor: 'azul',
+    estilo: 'classico',
+    acessorio: 'mochila',
+    veiculo: 'sedan',
+    sexo: 'masculino',
+    tomPele: 'medio',
+  };
+  const costas = patrolAvatarHtml('walking', { avatar, camera: 'costas' });
+
+  assert.ok(costas.includes('patrol-avatar__back-details'));
+  assert.ok(costas.includes('patrol-avatar__hand-back'));
+  assert.ok(costas.includes('patrol-avatar__leg-back-details'));
+  assert.ok(costas.includes('patrol-avatar__backpack-buckles'));
+  assert.ok(costas.includes('patrol-avatar__hair--short'));
 });
 
 test('so a camera frontal do carro tem farol e retrovisor', () => {

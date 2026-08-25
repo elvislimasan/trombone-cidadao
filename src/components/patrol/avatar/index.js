@@ -50,6 +50,7 @@ import { figuraDirigindo } from './veiculo';
 
 const figuraCaminhando = (camera, avatar, s) => {
   const p = montarPaleta(avatar);
+  const comSaia = p.sexo === 'feminino' && p.estilo.saiaFeminina;
 
   return `
     ${montarDefs(p, s)}
@@ -60,7 +61,8 @@ const figuraCaminhando = (camera, avatar, s) => {
       ${braco('back', camera, p, s)}
       ${tronco(camera, p, s)}
       <!-- O tronco pousa sobre as pernas, e a sombra de contato diz isso. -->
-      <ellipse cx="20" cy="32.2" rx="6.4" ry="2.3" fill="url(#g-oc-${s})" stroke="none" />
+      <ellipse cx="20" cy="${comSaia ? 38.2 : 32.2}" rx="${comSaia ? 7.2 : 6.4}"
+        ry="${comSaia ? 1.5 : 2.3}" fill="url(#g-oc-${s})" stroke="none" />
       ${cargaFrente(avatar.acessorio, camera, p, s)}
       ${braco('front', camera, p, s)}
       ${cabeca(camera, p, s, avatar.acessorio)}
@@ -99,7 +101,7 @@ export const patrolAvatarHtml = (modo, {
   // frente e de costas não definem exatamente os mesmos gradientes.
   const sufixo = id === 'driving'
     ? `${id}-${lado}-${config.cor}-${config.veiculo}`
-    : `${id}-${lado}-${config.cor}-${config.estilo}-${config.acessorio}`;
+    : `${id}-${lado}-${config.cor}-${config.sexo}-${config.tomPele}-${config.estilo}-${config.acessorio}`;
 
   const figura = id === 'walking'
     ? figuraCaminhando(lado, config, sufixo)
@@ -109,6 +111,7 @@ export const patrolAvatarHtml = (modo, {
     'patrol-avatar',
     `patrol-avatar--${id}`,
     `patrol-avatar--${lado}`,
+    id === 'walking' ? `patrol-avatar--${config.sexo}` : '',
     emMovimento ? 'is-moving' : 'is-idle',
     gpsAtivo ? 'is-live' : 'is-searching',
     className,
