@@ -1,5 +1,5 @@
 import ThemedTileLayer from '@/components/map/ThemedTileLayer';
-import React, { useEffect, useMemo, useCallback, useRef, useState } from "react";
+import React, { useEffect, useCallback, useRef, useState } from "react";
 import {
   MapContainer,
 
@@ -25,6 +25,9 @@ import { useMapModeToggle } from "@/contexts/MapModeContext";
 import MapModeToggle from "@/components/MapModeToggle";
 import { createPinIcon } from "@/components/map/pinIcon";
 import { panParaOffsetDeTela } from "@/lib/navGeo";
+import { isPatrolTravelMode } from "@/lib/patrolTravelMode";
+import { patrolAvatarKey } from "@/lib/patrolAvatarConfig";
+import { patrolAvatarHtml } from "@/components/patrol/patrolAvatarMarkup";
 
 // Nivel de zoom ao enquadrar o usuario - na abertura da tela e no botao de
 // recentrar. Os dois usavam valores diferentes (16 e 17): o mapa abria mais
@@ -102,6 +105,57 @@ const navMarkerIcon = L.divIcon({
   iconSize: [46, 46],
   iconAnchor: [23, 23],
 });
+
+// Marcador proprio da patrulha. O modo de conferencia tambem usa `navMode`,
+// mas continua com a seta generica acima; o boneco e o carro so aparecem quando
+// a pagina de patrulha passa `navTravelMode` explicitamente.
+//
+// O DESENHO NAO MORA AQUI
+//
+// Ele vem de `patrolAvatarMarkup`, que a tela de preparacao tambem usa. Sao os
+// dois unicos lugares onde o avatar aparece, e eles precisam concordar: quem
+// escolhe "a pe" vendo um boneco andar espera encontrar esse mesmo boneco no
+// mapa. Ver o comentario de la para o porque de ser string, e nao componente.
+//
+// A raiz e contra-rotacionada pelo CSS junto dos demais pins. Toda animacao
+// acontece nos netos (a base luminosa, as pecas do SVG), para nunca sobrescrever
+// esse transform e perder o rumo do mapa.
+//
+// AQUI O BONECO E VISTO DE COSTAS
+//
+// E o unico lugar que pede a camera traseira: no mapa voce segue a si mesmo, e
+// e a nuca que se ve de quem caminha a sua frente. Nas telas de escolha ele
+// aparece de frente, porque la a pessoa esta decidindo o proprio rosto.
+const patrolNavMarkerHtml = (modo, emMovimento, avatar, gpsAtivo) => `
+  <div class="patrol-nav-marker patrol-nav-marker--${modo}">
+    ${patrolAvatarHtml(modo, { avatar, camera: 'costas', emMovimento, gpsAtivo, className: 'patrol-avatar-planted' })}
+  </div>
+`;
+
+const createPatrolNavMarkerIcon = (modo, emMovimento, avatar, gpsAtivo) => L.divIcon({
+  html: patrolNavMarkerHtml(modo, emMovimento, avatar, gpsAtivo),
+  className: 'patrol-nav-leaflet-icon',
+  iconSize: [58, 58],
+  iconAnchor: [29, 29],
+});
+
+// Cache, nao um divIcon novo a cada leitura. Recriar o no a cada segundo
+// reiniciaria a animacao e faria o boneco piscar no mapa.
+//
+// A chave inclui a aparencia escolhida (ver `patrolAvatarKey`): com a
+// personalizacao, "caminhando + em movimento" deixou de descrever um desenho
+// unico. Sao poucas combinacoes por sessao — a pessoa nao troca de mochila
+// enquanto anda.
+const patrolNavMarkerIcons = new Map();
+
+const getNavMarkerIcon = (modo, emMovimento, avatar, gpsAtivo) => {
+  if (!isPatrolTravelMode(modo)) return navMarkerIcon;
+  const chave = patrolAvatarKey(avatar, modo, emMovimento, gpsAtivo);
+  if (!patrolNavMarkerIcons.has(chave)) {
+    patrolNavMarkerIcons.set(chave, createPatrolNavMarkerIcon(modo, emMovimento, avatar, gpsAtivo));
+  }
+  return patrolNavMarkerIcons.get(chave);
+};
 
 // Missao: sinal que alguem deixou e que ainda espera cadastro completo.
 //
@@ -301,6 +355,11 @@ const MapView = ({
   // GPS por leituras identicas.
   navMode = false,
   navPosition = null,
+  // Identidade visual da patrulha. Nulo preserva a seta generica usada pela
+  // tela de conferencia, que tambem compartilha este MapView.
+  navTravelMode = null,
+  navAvatar = null,
+  navGpsAtivo = true,
   // Rastro percorrido na inspecao. Vive so em memoria de quem passa a prop -
   // nao e gravado em lugar nenhum.
   navTrail = null,
@@ -412,17 +471,22 @@ const MapView = ({
     } catch {}
   }, [interactive, userLocation]);
 
+  const flyToLat = flyToTarget?.lat;
+  const flyToLng = flyToTarget?.lng;
+  const flyToZoom = flyToTarget?.zoom;
+  const flyToNonce = flyToTarget?.nonce;
+
   useEffect(() => {
     const map = mapRef.current;
-    if (!interactive || !map || !flyToTarget) return;
-    const lat = Number(flyToTarget.lat);
-    const lng = Number(flyToTarget.lng);
+    if (!interactive || !map || flyToLat == null || flyToLng == null) return;
+    const lat = Number(flyToLat);
+    const lng = Number(flyToLng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     hasCenteredRef.current = true;
     try {
-      map.flyTo([lat, lng], flyToTarget.zoom ?? 18, { animate: true });
+      map.flyTo([lat, lng], flyToZoom ?? 18, { animate: true });
     } catch {}
-  }, [interactive, flyToTarget?.lat, flyToTarget?.lng, flyToTarget?.zoom, flyToTarget?.nonce]);
+  }, [interactive, flyToLat, flyToLng, flyToZoom, flyToNonce]);
 
   const formatDate = (dateString) => {
     if (!dateString || isNaN(new Date(dateString))) return "Data inválida";
@@ -445,7 +509,6 @@ const MapView = ({
 
   const MapScrollLock = () => {
     useMapScrollLock(mode);
-    useEffect(() => {}, [mode]);
     return null;
   };
 
@@ -541,7 +604,7 @@ const MapView = ({
         className={`absolute inset-0 overflow-hidden ${navMode ? 'nav-rotating' : ''}`}
         style={navMode ? { '--nav-rot': `${anguloContinuo}deg` } : undefined}
       >
-       <div style={estiloGiro}>
+       <div className={navMode ? 'nav-map-plane' : undefined} style={estiloGiro}>
         <MapContainer
           // Monta ja no ponto do usuario quando a pagina conseguiu o GPS antes
           // de renderizar o mapa. Sem isso o Leaflet montava em Floresta e so
@@ -595,7 +658,7 @@ const MapView = ({
               />
               <Marker
                 position={[navPosition.lat, navPosition.lng]}
-                icon={navMarkerIcon}
+                icon={getNavMarkerIcon(navTravelMode, navPosition.emMovimento, navAvatar, navGpsAtivo)}
                 zIndexOffset={1000}
               />
             </>

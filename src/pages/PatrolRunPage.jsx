@@ -1,8 +1,14 @@
 import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 
 import { categoriaPorId, nomeDaCategoria } from '@/lib/reportCategories';
+import { readStoredPatrolAvatar } from '@/lib/patrolAvatarConfig';
+import {
+  buildPatrolPickPath,
+  getPatrolTravelMode,
+  patrolTravelModeFromSearch,
+} from '@/lib/patrolTravelMode';
 
 const MapView = lazy(() => import('@/components/MapView'));
 const PatrolOverlay = lazy(() => import('@/components/patrol/PatrolOverlay'));
@@ -33,13 +39,28 @@ const PatrolOverlay = lazy(() => import('@/components/patrol/PatrolOverlay'));
 
 export default function PatrolRunPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { categoria: categoriaBruta } = useParams();
 
   // Toda patrulha é de uma categoria. Sem categoria válida — link velho de
   // quando existia a "patrulha completa", ou URL digitada errada — a pessoa vai
   // escolher uma, em vez de cair numa tela que não sabe o que procurar.
   const categoria = categoriaPorId(categoriaBruta) ? categoriaBruta : null;
+  // A tela que liga o GPS exige um modo EXPLICITO na URL. Isso impede que
+  // atalhos de missao e links antigos pulem o seletor de carro/caminhada.
+  const modoDeslocamento = useMemo(
+    () => patrolTravelModeFromSearch(location.search),
+    [location.search]
+  );
+  const modo = modoDeslocamento ? getPatrolTravelMode(modoDeslocamento) : null;
 
+  // A aparência escolhida na preparação. Lida uma vez: ela não muda com a
+  // patrulha em andamento, e reler a cada leitura de GPS tocaria o storage a
+  // cada segundo.
+  const [avatar] = useState(() => {
+    try { return readStoredPatrolAvatar(window.localStorage); } catch { return null; }
+  });
+  const [sinalFraco, setSinalFraco] = useState(false);
   const [posicao, setPosicao] = useState(null);
   const [broncas, setBroncas] = useState([]);
   const [rastro, setRastro] = useState([]);
@@ -68,9 +89,12 @@ export default function PatrolRunPage() {
     navigate('/missoes', { replace: true });
   }, [navigate]);
 
-  if (!categoria) return <Navigate to="/missoes" replace />;
+  if (!categoria) return <Navigate to="/patrulhar" replace />;
+  if (!modoDeslocamento) {
+    return <Navigate to={buildPatrolPickPath(categoria)} replace />;
+  }
 
-  const titulo = `Patrulha · ${nomeDaCategoria(categoria)}`;
+  const titulo = `${modo.activeLabel} · ${nomeDaCategoria(categoria)}`;
 
   return (
     <div className="fixed inset-0 bg-surface-base overflow-hidden">
@@ -89,6 +113,9 @@ export default function PatrolRunPage() {
               initialCenter={posicao}
               navMode
               navPosition={posicao}
+              navTravelMode={modoDeslocamento}
+              navAvatar={avatar}
+              navGpsAtivo={!sinalFraco}
               navTrail={rastro}
               navMissoes={missoes}
               showLegend={false}
@@ -110,7 +137,9 @@ export default function PatrolRunPage() {
       <Suspense fallback={null}>
         <PatrolOverlay
           categoria={categoria}
+          modoDeslocamento={modoDeslocamento}
           onPosicao={setPosicao}
+          onSinal={setSinalFraco}
           onBroncas={setBroncas}
           onRastro={setRastro}
           onMissoes={setMissoes}

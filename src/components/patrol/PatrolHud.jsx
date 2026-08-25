@@ -1,4 +1,6 @@
-import { X, Navigation2, SatelliteDish, WifiOff, ListChecks, Square, Volume2, VolumeX, CloudOff, Loader2, DatabaseBackup } from 'lucide-react';
+import { X, SatelliteDish, WifiOff, ListChecks, Square, Volume2, VolumeX, CloudOff, Loader2, DatabaseBackup } from 'lucide-react';
+import { PatrolTravelModeIcon } from './PatrolTravelModePicker';
+import { getPatrolTravelMode } from '@/lib/patrolTravelMode';
 
 // Painel do modo patrulha: velocidade, rua, avisos e a ação da vez.
 //
@@ -50,6 +52,9 @@ export default function PatrolHud({
   mudo = false,
   onAlternarSom,
   somSuportado = true,
+  modoDeslocamento = 'driving',
+  emMovimento = false,
+  categoriaNome = null,
 }) {
   // A reserva vence o "sem rede" na hora de avisar: as duas coisas são
   // verdade ao mesmo tempo, mas só uma diz o que está acontecendo com os
@@ -61,16 +66,23 @@ export default function PatrolHud({
     : semRede
     ? AVISOS.semRede
     : null;
+  const modo = getPatrolTravelMode(modoDeslocamento);
 
   return (
     <>
       {/* Faixa superior: rua atual, avisos e a contagem da fila */}
       <div className="absolute inset-x-0 top-0 z-[1001] pointer-events-none pt-[env(safe-area-inset-top,0px)]">
         <div className="mx-3 mt-2 flex items-center gap-3 rounded-2xl bg-surface-overlay/95 backdrop-blur-sm border border-edge-subtle shadow-xl px-4 py-3 pointer-events-auto">
-          <Navigation2 size={22} className="text-brand shrink-0" />
+          <span
+            className={`patrol-hud-mode-icon patrol-hud-mode-icon--${modo.id} ${emMovimento ? 'is-moving' : ''}`}
+            aria-label={`${modo.activeLabel}, ${emMovimento ? 'em movimento' : 'parada'}`}
+          >
+            <PatrolTravelModeIcon mode={modo.id} size={22} strokeWidth={2.5} />
+            <span className={`patrol-hud-mode-icon__status ${emMovimento ? 'is-moving' : ''}`} aria-hidden="true" />
+          </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-content-tertiary leading-none mb-1">
-              Você está em
+            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-brand leading-none mb-1">
+              {modo.shortLabel}{categoriaNome ? ` · ${categoriaNome}` : ' · Patrulha ativa'}
             </p>
             <p className="text-lg font-bold text-content-primary truncate leading-tight">
               {rua || 'Localizando…'}

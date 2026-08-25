@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { App as CapApp } from '@capacitor/app';
@@ -25,6 +24,8 @@ import { usePatrolTilePrefetch } from '@/hooks/usePatrolTilePrefetch';
 import { frasear } from '@/lib/navGeo';
 import { PONTOS } from '@/lib/patrolGame';
 import { getPatrolShareUrl } from '@/lib/shareUtils';
+import { nomeDaCategoria } from '@/lib/reportCategories';
+import { getPatrolTravelMode, normalizePatrolTravelMode } from '@/lib/patrolTravelMode';
 
 import PatrolHud from './PatrolHud';
 import PatrolAlertCard from './PatrolAlertCard';
@@ -37,6 +38,7 @@ import PatrolSignalButton from './PatrolSignalButton';
 import PatrolSignalSheet from './PatrolSignalSheet';
 import PatrolReportModal from './PatrolReportModal';
 import PatrolStoryModal from './PatrolStoryModal';
+import { PatrolTravelModeIcon } from './PatrolTravelModePicker';
 import { showAppError, showAppInfo } from '@/lib/appError';
 
 // Modo patrulha: junta GPS, corredor de broncas, alertas e envio.
@@ -48,31 +50,35 @@ import { showAppError, showAppInfo } from '@/lib/appError';
 // quando falar) moram nos hooks; aqui fica a ligação entre elas e o envio ao
 // banco, que é a única parte que precisa saber de usuário e de toast.
 
-const CHAVE_AVISO = 'nav_disclaimer_visto';
+const CHAVE_AVISO = 'nav_disclaimer_v2';
 
 // Notificar a posição a cada leitura do GPS re-executaria os efeitos ~1x/s.
 // Só quem precisa dessa cadência é o alerta; o mapa acompanha suave com menos.
-const useAvisoAceito = () => {
+const useAvisoAceito = (modoDeslocamento) => {
+  const chave = `${CHAVE_AVISO}_${normalizePatrolTravelMode(modoDeslocamento)}`;
   const [aceito, setAceito] = useState(() => {
-    try { return localStorage.getItem(CHAVE_AVISO) === '1'; } catch { return false; }
+    try { return localStorage.getItem(chave) === '1'; } catch { return false; }
   });
   const aceitar = useCallback(() => {
-    try { localStorage.setItem(CHAVE_AVISO, '1'); } catch {}
+    try { localStorage.setItem(chave, '1'); } catch {}
     setAceito(true);
-  }, []);
+  }, [chave]);
   return [aceito, aceitar];
 };
 
 /**
  * @param {object} props
  * @param {string|null} [props.categoria]  patrulha de uma categoria só; null = tudo.
+ * @param {'walking'|'driving'} [props.modoDeslocamento]
  */
 export default function PatrolOverlay({
   onPosicao,
+  onSinal,
   onBroncas,
   onRastro,
   onMissoes,
   categoria = null,
+  modoDeslocamento = 'driving',
   cityId: cidadeDoMapa,
   onSair,
 }) {
@@ -80,7 +86,8 @@ export default function PatrolOverlay({
   const { user } = useAuth();
   const filaOffline = useOfflineQueueContext();
 
-  const [avisoAceito, aceitarAviso] = useAvisoAceito();
+  const modo = useMemo(() => getPatrolTravelMode(modoDeslocamento), [modoDeslocamento]);
+  const [avisoAceito, aceitarAviso] = useAvisoAceito(modo.id);
   /**
    * A saída, em dois passos: `null` → 'decidir' → 'resumo'.
    *
@@ -181,9 +188,9 @@ export default function PatrolOverlay({
     // Lido por ref para o efeito não depender de `anunciar`: ele muda a cada
     // toque no botão de mudo, e a limpeza do efeito cancelaria o timer se
     // alguém silenciasse dentro desta janela.
-    const t = setTimeout(() => anunciarRef.current('Modo patrulha iniciado'), 250);
+    const t = setTimeout(() => anunciarRef.current(modo.announcement), 250);
     return () => clearTimeout(t);
-  }, [ativo, preparar]);
+  }, [ativo, preparar, modo.announcement]);
 
   // A cidade de tudo que a patrulha grava e a do CHAO, nao a do seletor.
   //
@@ -422,6 +429,13 @@ export default function PatrolOverlay({
   const onPosicaoRef = useRef(onPosicao);
   useEffect(() => { onPosicaoRef.current = onPosicao; }, [onPosicao]);
   useEffect(() => { if (posicao) onPosicaoRef.current?.(posicao); }, [posicao]);
+
+  // E a qualidade do sinal, para a BASE do avatar apagar quando o GPS deixa de
+  // ver a pessoa. A faixa de aviso do painel diz o mesmo em palavras, mas quem
+  // está dirigindo olha o mapa, não o texto.
+  const onSinalRef = useRef(onSinal);
+  useEffect(() => { onSinalRef.current = onSinal; }, [onSinal]);
+  useEffect(() => { onSinalRef.current?.(sinalFraco); }, [sinalFraco]);
 
   // E o corredor, para o mapa desenhar os pins.
   //
@@ -798,22 +812,37 @@ export default function PatrolOverlay({
     // Só na montagem: reinstalar a sentinela a cada mudança de camada
     // empilharia uma entrada por alerta respondido, e sair da patrulha passaria
     // a exigir vinte toques no voltar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
   if (!avisoAceito) {
-    return <PatrolDisclaimer onAceitar={aceitarAviso} onCancelar={sairDaTela} />;
+    return (
+      <PatrolDisclaimer
+        modoDeslocamento={modo.id}
+        onAceitar={aceitarAviso}
+        onCancelar={sairDaTela}
+      />
+    );
   }
 
   return (
     <>
       {!posicao && !erro && (
         <div className="absolute inset-0 z-[1002] flex flex-col items-center justify-center gap-3 bg-surface-base/80 backdrop-blur-sm">
-          <Loader2 size={36} className="animate-spin text-brand" />
-          <p className="text-sm font-medium text-content-secondary">
-            Procurando sinal de GPS…
-          </p>
+          <div className="relative h-16 w-16" aria-hidden="true">
+            <span className="absolute inset-0 rounded-2xl border-2 border-brand/20 border-t-brand animate-spin motion-reduce:animate-none" />
+            <span className="absolute inset-2 flex items-center justify-center rounded-xl bg-brand-subtleBg text-brand shadow-elevation-1">
+              <PatrolTravelModeIcon mode={modo.id} size={27} strokeWidth={2.5} />
+            </span>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-bold text-content-primary">
+              Preparando {modo.activeLabel.toLowerCase()}…
+            </p>
+            <p className="mt-1 text-xs font-medium text-content-secondary">
+              Buscando sinal de GPS
+            </p>
+          </div>
         </div>
       )}
 
@@ -831,6 +860,9 @@ export default function PatrolOverlay({
         mudo={mudo}
         onAlternarSom={alternarMudo}
         somSuportado={somSuportado}
+        modoDeslocamento={modo.id}
+        emMovimento={Boolean(posicao?.emMovimento)}
+        categoriaNome={nomeDaCategoria(categoria)}
         // O botão entra COMO CONTEÚDO da faixa inferior, não sobre ela: é o
         // flex do HUD que garante que ele nunca alcance o velocímetro.
         acao={
@@ -897,6 +929,7 @@ export default function PatrolOverlay({
           ranking={jogo.ranking}
           minhaPosicao={jogo.minhaPosicao}
           titulos={jogo.titulos}
+          modoDeslocamento={modo.id}
           onResponder={enviar}
           onCompartilhar={() => concluir({ publica: true })}
           onFechar={() => concluir({ publica: false })}

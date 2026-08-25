@@ -221,6 +221,469 @@
   transition: transform 500ms linear;
 }
 
+/* === MODO PATRULHA: escolha e avatar de deslocamento === */
+.patrol-mode-grid {
+  background-image:
+    radial-gradient(circle at 18% 24%, rgb(var(--text-on-brand) / 0.34) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 76% 68%, rgb(var(--text-on-brand) / 0.22) 0 1.5px, transparent 2px),
+    linear-gradient(115deg, transparent 0 42%, rgb(var(--text-on-brand) / 0.08) 42% 58%, transparent 58% 100%);
+  background-size: 38px 38px, 52px 52px, 100% 100%;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 28%, black);
+  mask-image: linear-gradient(to right, transparent, black 28%, black);
+}
+
+@keyframes patrol-mode-journey-glide {
+  0%, 100% { transform: translateX(-22px); }
+  50%      { transform: translateX(22px); }
+}
+
+@keyframes patrol-mode-car-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-2px) rotate(1deg); }
+}
+
+@keyframes patrol-mode-walk-step {
+  0%, 100% { transform: translateY(1px) rotate(-3deg); }
+  50%      { transform: translateY(-2px) rotate(3deg); }
+}
+
+/* O trecho de rota que o avatar percorre no cartão do ritmo.
+ *
+ * A caixa é centrada NA LINHA tracejada, e não no bloco: é ela que serve de
+ * chão para o `.patrol-avatar-planted` lá dentro. O boneco anda sozinho — aqui
+ * só acontece a travessia de um lado ao outro. */
+.patrol-mode-journey {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  animation: patrol-mode-journey-glide 3.2s var(--ease-in-out) infinite;
+}
+
+/* Na tela de conferência o avatar está parado esperando a partida: ele respira,
+   mas não atravessa nada. */
+.patrol-mode-journey--parada {
+  left: 50%;
+  animation: none;
+}
+
+.patrol-mode-option-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgb(var(--surface-raised));
+  color: rgb(var(--text-secondary));
+  box-shadow: inset 0 0 0 1px rgb(var(--border-subtle) / 0.65);
+}
+
+.patrol-mode-option-icon.is-active {
+  color: rgb(var(--brand));
+  box-shadow: inset 0 0 0 1px rgb(var(--brand) / 0.25);
+}
+
+.patrol-mode-option-icon--driving.is-active svg {
+  animation: patrol-mode-car-float 900ms var(--ease-in-out) infinite;
+}
+
+.patrol-mode-option-icon--walking.is-active svg {
+  animation: patrol-mode-walk-step 760ms var(--ease-in-out) infinite;
+}
+
+.patrol-hud-mode-icon {
+  position: relative;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  color: rgb(var(--brand));
+  background: rgb(var(--brand-subtle-bg));
+  box-shadow: inset 0 0 0 1px rgb(var(--brand) / 0.18);
+}
+
+.patrol-hud-mode-icon__status {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: rgb(var(--text-tertiary));
+  border: 2px solid rgb(var(--surface-overlay));
+}
+
+.patrol-hud-mode-icon__status.is-moving {
+  background: rgb(var(--success-fg));
+  box-shadow: 0 0 0 3px rgb(var(--success-bg));
+}
+
+.patrol-hud-mode-icon--driving.is-moving svg {
+  animation: patrol-mode-car-float 850ms var(--ease-in-out) infinite;
+}
+
+.patrol-hud-mode-icon--walking.is-moving svg {
+  animation: patrol-mode-walk-step 720ms var(--ease-in-out) infinite;
+}
+
+/* === MODO PATRULHA: o avatar, o marcador e a base luminosa === */
+/*
+ * O boneco é montado por peças em `patrolAvatarMarkup.js`, a partir da
+ * configuração de `patrolAvatarConfig.js` — cor, estilo, acessório, veículo.
+ * Aqui ele ganha proporção, base e movimento.
+ *
+ * A COR VEM DE VARIÁVEL INLINE, NÃO DE TOKEN DO TEMA
+ *
+ * O que a pessoa escolheu tem que continuar sendo aquilo nos dois temas. O
+ * markup escreve `--patrol-avatar-rgb` no próprio elemento; o CSS só lê.
+ *
+ * ANDAR E PARAR SÃO DOIS CICLOS, NÃO UM LIGA-DESLIGA
+ *
+ * Congelar o desenho no meio de uma passada parecia travamento, não parada.
+ * `is-moving` roda a caminhada; `is-idle` roda uma respiração lenta. E
+ * `is-live`/`is-searching` dizem, pela base, se o GPS ainda está lendo — a
+ * resposta para "ele ainda está me vendo?" sem ocupar uma linha de texto.
+ */
+.patrol-avatar {
+  position: relative;
+  display: inline-block;
+  /* O quadro do desenho é 40x48. A largura acompanha a altura na mesma
+     proporção — do contrário o boneco estica. */
+  height: var(--patrol-avatar-size, 56px);
+  width: calc(var(--patrol-avatar-size, 56px) * 0.8334);
+  --patrol-avatar-rgb: 37 99 235;
+  --patrol-avatar-light-rgb: 122 167 255;
+  --patrol-avatar-outline: #0b1220;
+}
+
+/* Sobre o vermelho da marca o contorno escuro some. */
+.patrol-avatar--on-brand {
+  --patrol-avatar-outline: rgba(255, 255, 255, 0.92);
+}
+
+/* --- A base: é ela que diz "este é você" --- */
+/*
+ * Antes do boneco ser reconhecível a distância, quem identifica o marcador é o
+ * disco aceso embaixo dele. Ele é mais largo que o corpo de propósito: num mapa
+ * carregado, um bonequinho de 12px de largura desaparece; um halo de 90px, não.
+ *
+ * Fica centrado nos PÉS (95% da altura do quadro), que é também o ponto do GPS.
+ */
+.patrol-avatar__base {
+  position: absolute;
+  left: 50%;
+  top: 95%;
+  width: 190%;
+  height: 78%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.patrol-avatar--driving .patrol-avatar__base {
+  /* O carro é ancorado pelo próprio corpo, não pelos pés. */
+  top: 66%;
+  width: 158%;
+  height: 66%;
+}
+
+.patrol-avatar__glow {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--patrol-avatar-rgb) / 0.5),
+    rgb(var(--patrol-avatar-rgb) / 0.2) 56%,
+    transparent 78%
+  );
+}
+
+.patrol-avatar__ring {
+  position: absolute;
+  inset: 15%;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--patrol-avatar-light-rgb) / 0.85);
+  box-shadow:
+    0 0 9px rgb(var(--patrol-avatar-rgb) / 0.55),
+    inset 0 0 7px rgb(var(--patrol-avatar-light-rgb) / 0.3);
+}
+
+/* O segundo anel é o radar: nasce no centro e se abre a cada volta. Só existe
+   enquanto há deslocamento — parado, ele mentiria. */
+.patrol-avatar__ring--pulse {
+  border-color: rgb(var(--patrol-avatar-light-rgb) / 0.75);
+  box-shadow: none;
+  opacity: 0;
+}
+
+/* O cone do rumo: uma lanterna no chão, e não uma seta.
+   A leitura de rumo do GPS a 4 km/h oscila muito, e uma ponta afiada afirmaria
+   mais precisão do que existe. Ele aponta para o topo da tela porque o mapa da
+   patrulha gira para o sentido do deslocamento. */
+.patrol-avatar__cone {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 172%;
+  height: 168%;
+  transform: translateX(-50%);
+  background: conic-gradient(
+    from -21deg at 50% 100%,
+    rgb(var(--patrol-avatar-light-rgb) / 0.5),
+    rgb(var(--patrol-avatar-light-rgb) / 0.1) 26deg,
+    transparent 42deg
+  );
+  -webkit-mask-image: linear-gradient(to top, black, transparent 80%);
+  mask-image: linear-gradient(to top, black, transparent 80%);
+}
+
+/* --- O corpo --- */
+.patrol-avatar__pod {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.patrol-avatar__svg {
+  width: 100%;
+  height: 100%;
+  /* No meio da passada a perna gira para fora da própria caixa. */
+  overflow: visible;
+  stroke: var(--patrol-avatar-outline);
+  /* O CONTORNO PRECISA SER FINO, E ESSE É UM AJUSTE CARO DE ACERTAR
+   *
+   * Ele existe por função: sem contorno o boneco some contra um mapa claro, e
+   * no `--on-brand` ele vira branco para sobreviver ao fundo colorido. Mas
+   * contorno de espessura CONSTANTE em toda peça é a assinatura visual de
+   * plástico moldado — foi o que mais fez o avatar parecer um robô, mais do
+   * que a cor. Em 0.7 ele ainda destaca a silhueta sem desenhar cada peça
+   * separadamente. O relevo agora vem da forma (ombro mais largo que cintura,
+   * coxa mais grossa que canela), não da borda.
+   *
+   * Os detalhes internos — rosto, camuflagem, faixas, solado — pedem
+   * `stroke="none"` na própria peça: contorno neles vira sujeira nesta escala. */
+  stroke-width: 0.7;
+  stroke-linejoin: round;
+  /* Contorno POR FORA do preenchimento: sem isso a borda come metade da perna,
+     que tem menos de seis unidades de largura. */
+  paint-order: stroke fill;
+}
+
+.patrol-avatar__figure {
+  transform-box: fill-box;
+  /* Os pés são o pivô: o corpo balança, o chão fica parado. */
+  transform-origin: 50% 100%;
+}
+
+.patrol-avatar__limb {
+  transform-box: fill-box;
+  transform-origin: 50% 8%;
+}
+
+.patrol-avatar__leg {
+  --patrol-avatar-swing: 21deg;
+}
+
+/* O braço acompanha a passada com pouco mais da metade da amplitude — mais que
+   isso vira marcha de desfile. */
+.patrol-avatar__arm {
+  --patrol-avatar-swing: 12deg;
+}
+
+@keyframes patrol-avatar-step {
+  0%   { transform: rotate(var(--patrol-avatar-swing, 20deg)); }
+  50%  { transform: rotate(calc(var(--patrol-avatar-swing, 20deg) * -1)); }
+  100% { transform: rotate(var(--patrol-avatar-swing, 20deg)); }
+}
+
+/* Duas subidas por ciclo: o corpo sobe a cada pé que passa, não a cada passada
+   completa. */
+@keyframes patrol-avatar-bob {
+  0%, 50%, 100% { transform: translateY(0.5px); }
+  25%, 75%      { transform: translateY(-0.6px); }
+}
+
+/* Parado, mas vivo: respira e troca o peso de pé. */
+@keyframes patrol-avatar-idle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  34%      { transform: translateY(-0.5px) rotate(-1.3deg); }
+  68%      { transform: translateY(-0.2px) rotate(1.3deg); }
+}
+
+@keyframes patrol-avatar-radar {
+  0%        { transform: scale(0.55); opacity: 0.8; }
+  80%, 100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes patrol-avatar-gps {
+  0%, 100% { opacity: 0.75; transform: scale(0.95); }
+  50%      { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes patrol-avatar-drive {
+  0%, 100% { transform: translateY(0.3px) rotate(-0.7deg); }
+  50%      { transform: translateY(-0.7px) rotate(0.7deg); }
+}
+
+@keyframes patrol-avatar-engine {
+  0%, 100% { transform: translateY(0.16px); }
+  50%      { transform: translateY(-0.16px); }
+}
+
+@keyframes patrol-avatar-taillight {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
+}
+
+.patrol-avatar--walking.is-moving .patrol-avatar__figure {
+  animation: patrol-avatar-bob 720ms var(--ease-in-out) infinite;
+}
+
+.patrol-avatar--walking.is-moving .patrol-avatar__leg--front,
+.patrol-avatar--walking.is-moving .patrol-avatar__arm--back {
+  animation: patrol-avatar-step 720ms var(--ease-in-out) infinite;
+}
+
+/* Meio ciclo de atraso: braço e perna do mesmo lado nunca vão juntos para a
+   frente — é o detalhe que separa "andando" de "boneco sacudindo". */
+.patrol-avatar--walking.is-moving .patrol-avatar__leg--back,
+.patrol-avatar--walking.is-moving .patrol-avatar__arm--front {
+  animation: patrol-avatar-step 720ms var(--ease-in-out) infinite;
+  animation-delay: -360ms;
+}
+
+.patrol-avatar--walking.is-idle .patrol-avatar__figure {
+  animation: patrol-avatar-idle 3.4s var(--ease-in-out) infinite;
+}
+
+.patrol-avatar--driving.is-moving .patrol-avatar__figure {
+  animation: patrol-avatar-drive 700ms var(--ease-in-out) infinite;
+}
+
+/* Parado com o motor ligado: uma trepidação curta, quase imperceptível, e as
+   lanternas acesas de freio. */
+.patrol-avatar--driving.is-idle .patrol-avatar__figure {
+  animation: patrol-avatar-engine 460ms linear infinite;
+}
+
+.patrol-avatar--driving.is-moving .patrol-avatar__taillights {
+  animation: patrol-avatar-taillight 900ms ease-in-out infinite;
+}
+
+.patrol-avatar.is-moving .patrol-avatar__ring--pulse {
+  animation: patrol-avatar-radar 1.9s var(--ease-out) infinite;
+}
+
+.patrol-avatar.is-live .patrol-avatar__glow {
+  animation: patrol-avatar-gps 2.4s var(--ease-in-out) infinite;
+}
+
+/* Sem sinal a base apaga e para de respirar, e o anel vira tracejado. É a
+   mesma informação que a faixa de aviso do painel dá em palavras — só que aqui
+   ela chega sem tirar os olhos do caminho. */
+.patrol-avatar.is-searching .patrol-avatar__glow {
+  opacity: 0.28;
+}
+
+.patrol-avatar.is-searching .patrol-avatar__ring {
+  opacity: 0.4;
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.patrol-avatar.is-searching .patrol-avatar__cone {
+  opacity: 0.25;
+}
+
+/* --- O avatar "plantado": os PÉS no ponto de ancoragem --- */
+/*
+ * No mapa esse ponto é a leitura do GPS — e também o eixo da contra-rotação, o
+ * que faz o boneco girar em torno de onde a pessoa está em vez de orbitar em
+ * volta dela quando o mapa muda de rumo. Na tela de preparação é a linha da
+ * rota, e o efeito é o mesmo: ele caminha SOBRE ela.
+ *
+ * As margens saem da geometria do quadro (pés a 95% da altura, largura igual a
+ * 0.8334 da altura), por isso são calculadas e não números soltos.
+ */
+.patrol-avatar-planted {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  margin-top: calc(var(--patrol-avatar-size, 56px) * -0.95);
+  margin-left: calc(var(--patrol-avatar-size, 56px) * -0.4167);
+}
+
+.patrol-avatar-planted.patrol-avatar--driving {
+  margin-top: calc(var(--patrol-avatar-size, 56px) * -0.66);
+}
+
+/* --- A miniatura das listas de personalização --- */
+/*
+ * A base cheia é larga de propósito para se achar no mapa; num botão de 90px
+ * ela invadiria o vizinho e passaria por cima do rótulo. Aqui ela encolhe, o
+ * cone sai (nenhuma miniatura tem rumo) e o radar para — seis anéis pulsando
+ * lado a lado só disputariam atenção entre si.
+ */
+.patrol-avatar-chip {
+  margin-bottom: 10px;
+}
+
+.patrol-avatar-chip .patrol-avatar__base {
+  top: 96%;
+  width: 116%;
+  height: 40%;
+}
+
+.patrol-avatar-chip .patrol-avatar__cone,
+.patrol-avatar-chip .patrol-avatar__ring--pulse {
+  display: none;
+}
+
+.patrol-avatar-chip .patrol-avatar__glow {
+  animation: none;
+}
+
+/* --- O marcador do mapa --- */
+/*
+ * Sobrou pouco dele: era um distintivo com halo, seta e sombra próprios, e todo
+ * esse trabalho agora é do avatar — que precisa fazê-lo também fora do mapa. O
+ * que resta é a caixa que o Leaflet ancora e que o CSS contra-rotaciona.
+ */
+.patrol-nav-marker {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  --patrol-avatar-size: 58px;
+  filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.3));
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-map-plane,
+  .nav-rotating .leaflet-marker-icon > * {
+    transition: none !important;
+  }
+
+  .patrol-mode-journey,
+  .patrol-mode-option-icon svg,
+  .patrol-hud-mode-icon svg,
+  .patrol-nav-marker__halo,
+  .patrol-avatar__figure,
+  .patrol-avatar__limb,
+  .patrol-avatar__ground,
+  .patrol-avatar__pod,
+  .patrol-avatar__headlights {
+    animation: none !important;
+  }
+}
+
 /* === MODO PATRULHA: pontos ganhos === */
 /*
  * Sobe e some. `forwards` mantém o estado final para o elemento não reaparecer
@@ -342,7 +805,10 @@ body > * a:not(.leaflet-container a) {
 .leaflet-container .leaflet-div-icon,
 .leaflet-container .custom-leaflet-icon,
 .leaflet-container .user-leaflet-icon,
-.leaflet-container .cluster-leaflet-icon {
+.leaflet-container .cluster-leaflet-icon,
+.leaflet-container .nav-leaflet-icon,
+.leaflet-container .patrol-nav-leaflet-icon,
+.leaflet-container .mission-leaflet-icon {
   background: transparent;
   border: 0;
 }

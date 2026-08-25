@@ -3,6 +3,7 @@
 // diretório não importam nada — esta precisa da lista de categorias, e o
 // caminho relativo funciona nos dois lados.
 import { CATEGORIAS_SINAL } from './reportCategories.js';
+import { buildPatrolPickPath } from './patrolTravelMode.js';
 // PONTOS e PONTOS_POR_ETAPA vêm de patrolGame, não de scoring: scoring já
 // importa este arquivo, e o caminho de volta fecharia um ciclo.
 import { CONQUISTAS, PONTOS, PONTOS_POR_ETAPA } from './patrolGame.js';
@@ -97,8 +98,9 @@ const missoesDeInvestigacao = CATEGORIAS_SINAL.map((categoria, i) => ({
   // então investigar buraco empurra as medalhas de confirmação, que são gerais.
   medalhasPor: 'total_confirmed',
   ganhoPorAcao: PONTOS.atualizacao,
-  // Direto para a patrulha DAQUELA categoria: é literalmente a missão.
-  acao: { rotulo: 'Patrulhar', para: `/patrulhar/${categoria.id}` },
+  // Leva o foco pronto, mas passa pelo pre-voo: mesmo vindo de uma missao, a
+  // pessoa precisa escolher carro ou caminhada antes de o GPS ligar.
+  acao: { rotulo: 'Patrulhar', para: buildPatrolPickPath(categoria.id) },
 }));
 
 export const MISSOES = [

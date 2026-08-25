@@ -163,6 +163,15 @@ test('toda missão aponta para uma trilha que existe', () => {
   }
 });
 
+test('missão de investigação passa pelo seletor antes de iniciar a patrulha', () => {
+  const investigacoes = MISSOES.filter((missao) => missao.trilha === 'investigacao');
+  assert.ok(investigacoes.length > 0);
+  for (const missao of investigacoes) {
+    assert.match(missao.acao.para, /^\/patrulhar\?categoria=/);
+    assert.doesNotMatch(missao.acao.para, /^\/patrulhar\//);
+  }
+});
+
 test('toda escada é crescente', () => {
   // Um degrau menor que o anterior seria alcançado no mesmo instante que ele, e
   // a missão pularia duas etapas de uma vez.

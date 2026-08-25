@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { AlertCircle, Check, CheckCircle, Clock, Loader2, Share2, Route, Timer, Flame, Star } from 'lucide-react';
 import { categoryEmoji } from '@/design-system/icons';
 import Confetti from './Confetti';
+import { PatrolTravelModeIcon } from './PatrolTravelModePicker';
 import { PONTOS, avaliarPatrulha } from '@/lib/patrolGame';
+import { getPatrolTravelMode } from '@/lib/patrolTravelMode';
 
 // Fim da patrulha: o que você percorreu, o que confirmou e o que ficou pendente.
 //
@@ -88,6 +90,7 @@ export default function PatrolSummary({
   minhaPosicao = null,
   titulos = [],
   feitosNaSessao = { sinais: 0, missoes: 0, broncas: 0 },
+  modoDeslocamento = 'driving',
 }) {
   // Guardar ou descartar. A regra é pura e testada — ver avaliarPatrulha.
   const veredito = avaliarPatrulha({
@@ -105,6 +108,7 @@ export default function PatrolSummary({
     (contagens.confirmadas || 0) * PONTOS.atualizacao;
 
   const nivelProgresso = progressoDoNivel(nivel);
+  const modo = getPatrolTravelMode(modoDeslocamento);
   // Só as que faltam pouco: uma grade com as oito medalhas transformaria a tela
   // de comemoração em lista de pendências.
   const proximas = conquistas
@@ -161,6 +165,10 @@ export default function PatrolSummary({
                 Você fez a diferença hoje
               </p>
             )}
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-subtleBg px-3 py-1.5 text-xs font-bold text-brand">
+              <PatrolTravelModeIcon mode={modo.id} size={15} strokeWidth={2.5} />
+              {modo.activeLabel}
+            </span>
           </div>
 
           {/* Aqui o aviso é constatação, não pergunta: a decisão já foi tomada
