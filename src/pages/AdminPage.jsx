@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Check, X, Eye, MessageSquare, FileText, Settings, Edit, Newspaper, Briefcase, Construction, Route as RoadIcon, Palette, Users, Filter, Search, EyeOff, Trash2, Shapes } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
@@ -21,7 +20,6 @@ const AdminPage = () => {
   const [reportToLink, setReportToLink] = useState(null);
   const [reportToDelete, setReportToDelete] = useState(null);
   const [filters, setFilters] = useState({ search: '', moderationStatus: 'all', category: 'all' });
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { handleUpvote, loading } = useUpvote();
 
@@ -89,11 +87,6 @@ const AdminPage = () => {
     const updatedReports = reports.filter(r => r.id !== reportId);
     updateReports(updatedReports);
     setReportToDelete(null);
-    toast({
-      title: "Bronca removida!",
-      description: "A solicitação foi excluída permanentemente.",
-      variant: "destructive"
-    });
   };
 
   const handleCommentModeration = (reportId, commentId, newStatus) => {

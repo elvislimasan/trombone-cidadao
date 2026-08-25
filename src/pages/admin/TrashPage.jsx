@@ -3,7 +3,6 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -12,13 +11,13 @@ import { ArrowLeft, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError } from '@/lib/appError';
 
 const TrashPage = () => {
   const [rejectedReports, setRejectedReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [itemToConfirm, setItemToConfirm] = useState(null);
   const [actionType, setActionType] = useState('');
-  const { toast } = useToast();
 
   const fetchRejectedReports = useCallback(async () => {
     setLoading(true);
@@ -29,12 +28,12 @@ const TrashPage = () => {
       .order('rejected_at', { ascending: false });
 
     if (error) {
-      toast({ title: "Erro ao buscar broncas rejeitadas", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar broncas rejeitadas", description: error.message, variant: "destructive" });
     } else {
       setRejectedReports(data);
     }
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchRejectedReports();
@@ -47,7 +46,7 @@ const TrashPage = () => {
       .eq('id', reportId);
 
     if (error) {
-      toast({ title: "Erro ao recuperar bronca", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao recuperar bronca", description: error.message, variant: "destructive" });
     } else {
       fetchRejectedReports();
     }
@@ -86,7 +85,7 @@ const TrashPage = () => {
     if (storageError) {
       // Não interrompe a exclusão: melhor a bronca sair do ar com um arquivo
       // órfão do que continuar publicada porque o bucket recusou.
-      toast({
+      showAppError({
         title: 'Arquivos não removidos do armazenamento',
         description: storageError.message,
         variant: 'destructive',
@@ -102,9 +101,8 @@ const TrashPage = () => {
     const { error } = await supabase.from('reports').delete().eq('id', reportId);
 
     if (error) {
-      toast({ title: "Erro ao excluir permanentemente", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao excluir permanentemente", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca excluída permanentemente!", variant: "destructive" });
       fetchRejectedReports();
     }
     setItemToConfirm(null);
@@ -119,7 +117,6 @@ const TrashPage = () => {
       .map(report => report.id);
 
     if (idsToDelete.length === 0) {
-      toast({ title: "Nenhuma bronca antiga para limpar.", description: "A lixeira está atualizada." });
       setItemToConfirm(null);
       return;
     }
@@ -129,9 +126,8 @@ const TrashPage = () => {
     const { error } = await supabase.from('reports').delete().in('id', idsToDelete);
 
     if (error) {
-      toast({ title: "Erro ao limpar a lixeira", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao limpar a lixeira", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Lixeira limpa!", description: `${idsToDelete.length} broncas antigas foram excluídas.` });
       fetchRejectedReports();
     }
     setItemToConfirm(null);

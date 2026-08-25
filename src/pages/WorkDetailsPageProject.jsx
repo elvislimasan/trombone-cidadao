@@ -4,7 +4,6 @@ import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
-import { toast } from "sonner";
 import { getWorkShareUrl } from "@/lib/shareUtils";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ObraHeader } from "@/components/project/obra/ObraHeader";
@@ -60,6 +59,7 @@ import MediaViewer from "@/components/MediaViewer";
 import { WorkEditModal } from "@/pages/admin/ManageWorksPage";
 import { useMobileHeader } from "@/contexts/MobileHeaderContext";
 import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
+import { showAppError, showAppInfo } from '@/lib/appError';
 
 function formatDateDisplay(dateString) {
   if (!dateString) return "-";
@@ -670,16 +670,14 @@ export default function WorkDetailsPageProject() {
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(url);
-        toast("Link copiado!", { description: "Cole nas suas redes sociais." });
         return;
       }
     } catch (error) {
       if (error?.name === "AbortError") return;
       try {
         await navigator.clipboard.writeText(url);
-        toast("Link copiado!", { description: "Cole nas suas redes sociais." });
       } catch (e) {
-        toast("Erro ao compartilhar", { variant: "destructive" });
+        showAppError("Erro ao compartilhar", { variant: "destructive" });
       }
     }
   }, [work, workId]);
@@ -739,7 +737,7 @@ export default function WorkDetailsPageProject() {
       setMeasurements(measurementsData || []);
       setMedia(mediaData || []);
     } catch (e) {
-      toast("Erro ao carregar obra", {
+      showAppError("Erro ao carregar obra", {
         description: e?.message || "Tente novamente.",
         variant: "destructive",
       });
@@ -755,7 +753,7 @@ export default function WorkDetailsPageProject() {
 
     const nextId = currentPhaseSelection || null;
     if (nextId && !(measurements || []).some((m) => m?.id === nextId)) {
-      toast("Fase inválida", {
+      showAppError("Fase inválida", {
         description: "Selecione uma fase existente para definir como atual.",
         variant: "destructive",
       });
@@ -770,15 +768,10 @@ export default function WorkDetailsPageProject() {
         .eq("id", work.id);
       if (error) throw error;
 
-      toast("Fase atual atualizada", {
-        description: nextId
-          ? "A fase atual foi definida manualmente."
-          : "Modo automático ativado (última fase cadastrada).",
-      });
       touchPageUpdatedAt();
       await loadData();
     } catch (e) {
-      toast("Erro ao atualizar fase atual", {
+      showAppError("Erro ao atualizar fase atual", {
         description: e?.message || "Tente novamente.",
         variant: "destructive",
       });
@@ -796,7 +789,10 @@ export default function WorkDetailsPageProject() {
 
   const handleFavoriteToggle = useCallback(async () => {
     if (!user?.id) {
-      toast("Faça login para favoritar");
+      showAppInfo({
+        title: 'Faça login para favoritar',
+        description: 'Entre na sua conta para salvar esta obra.',
+      });
       return;
     }
     if (!workId) return;
@@ -876,7 +872,7 @@ export default function WorkDetailsPageProject() {
 
   const handleOpenContrib = useCallback(() => {
     if (!user) {
-      toast("Faça login para contribuir", {
+      showAppError("Faça login para contribuir", {
         description: "Você precisa entrar para enviar fotos ou dados.",
         variant: "destructive",
       });
@@ -894,7 +890,7 @@ export default function WorkDetailsPageProject() {
   const handleSubmitContribution = useCallback(async () => {
     if (!user || !work || isSubmittingContribution) return;
     if (!currentMeasurement?.id) {
-      toast("Fase não encontrada", {
+      showAppError("Fase não encontrada", {
         description: "Cadastre uma fase para enviar contribuições.",
         variant: "destructive",
       });
@@ -956,9 +952,6 @@ export default function WorkDetailsPageProject() {
         if (linkErr) throw linkErr;
       }
 
-      toast("Contribuição enviada!", {
-        description: "Obrigado por colaborar com transparência.",
-      });
       touchPageUpdatedAt();
       setShowContribDialog(false);
       setContribDescription("");
@@ -967,7 +960,7 @@ export default function WorkDetailsPageProject() {
       if (contribFileInputRef.current) contribFileInputRef.current.value = "";
       await loadData();
     } catch (error) {
-      toast("Erro ao enviar contribuição", {
+      showAppError("Erro ao enviar contribuição", {
         description: error?.message || "Tente novamente.",
         variant: "destructive",
       });
@@ -1003,13 +996,12 @@ export default function WorkDetailsPageProject() {
         .eq("gallery_name", fromName);
 
       if (error) {
-        toast("Erro ao renomear galeria", {
+        showAppError("Erro ao renomear galeria", {
           description: error.message,
           variant: "destructive",
         });
         return;
       }
-      toast("Galeria atualizada");
       touchPageUpdatedAt();
       await loadData();
     },
@@ -1033,13 +1025,12 @@ export default function WorkDetailsPageProject() {
         .update(patch || {})
         .eq("id", id);
       if (error) {
-        toast("Erro ao atualizar mídia", {
+        showAppError("Erro ao atualizar mídia", {
           description: error.message,
           variant: "destructive",
         });
         return;
       }
-      toast("Mídia atualizada");
       touchPageUpdatedAt();
       setMedia((prev) =>
         Array.isArray(prev)
@@ -1047,7 +1038,7 @@ export default function WorkDetailsPageProject() {
           : prev
       );
     },
-    [toast, touchPageUpdatedAt, canManageWork]
+    [touchPageUpdatedAt, canManageWork]
   );
 
   const handleDeleteMediaItem = useCallback(
@@ -1061,7 +1052,7 @@ export default function WorkDetailsPageProject() {
         .delete()
         .eq("id", id);
       if (error) {
-        toast("Erro ao remover mídia", {
+        showAppError("Erro ao remover mídia", {
           description: error.message,
           variant: "destructive",
         });
@@ -1077,13 +1068,12 @@ export default function WorkDetailsPageProject() {
         }
       } catch (e) {}
 
-      toast("Mídia removida");
       touchPageUpdatedAt();
       setMedia((prev) =>
         Array.isArray(prev) ? prev.filter((m) => m?.id !== id) : prev
       );
     },
-    [toast, touchPageUpdatedAt, canManageWork]
+    [touchPageUpdatedAt, canManageWork]
   );
 
   const handleBulkUpdateMediaItems = useCallback(
@@ -1099,13 +1089,12 @@ export default function WorkDetailsPageProject() {
         .update(patch || {})
         .in("id", ids);
       if (error) {
-        toast("Erro ao atualizar mídias", {
+        showAppError("Erro ao atualizar mídias", {
           description: error.message,
           variant: "destructive",
         });
         return;
       }
-      toast("Mídias atualizadas");
       touchPageUpdatedAt();
       const setIds = new Set(ids);
       setMedia((prev) =>
@@ -1116,7 +1105,7 @@ export default function WorkDetailsPageProject() {
           : prev
       );
     },
-    [toast, touchPageUpdatedAt, canManageWork]
+    [touchPageUpdatedAt, canManageWork]
   );
 
   const handleBulkDeleteMediaItems = useCallback(
@@ -1131,7 +1120,7 @@ export default function WorkDetailsPageProject() {
         .delete()
         .in("id", ids);
       if (error) {
-        toast("Erro ao remover mídias", {
+        showAppError("Erro ao remover mídias", {
           description: error.message,
           variant: "destructive",
         });
@@ -1157,14 +1146,13 @@ export default function WorkDetailsPageProject() {
         } catch (e) {}
       }
 
-      toast("Mídias removidas");
       touchPageUpdatedAt();
       const setIds = new Set(ids);
       setMedia((prev) =>
         Array.isArray(prev) ? prev.filter((m) => !setIds.has(m?.id)) : prev
       );
     },
-    [toast, touchPageUpdatedAt, canManageWork]
+    [touchPageUpdatedAt, canManageWork]
   );
 
   const handleDeleteGallery = useCallback(
@@ -1182,7 +1170,7 @@ export default function WorkDetailsPageProject() {
         .delete()
         .in("id", ids);
       if (error) {
-        toast("Erro ao excluir galeria", {
+        showAppError("Erro ao excluir galeria", {
           description: error.message,
           variant: "destructive",
         });
@@ -1208,13 +1196,12 @@ export default function WorkDetailsPageProject() {
         } catch (e) {}
       }
 
-      toast("Galeria excluída");
       touchPageUpdatedAt();
       setMedia((prev) =>
         Array.isArray(prev) ? prev.filter((m) => !ids.includes(m?.id)) : prev
       );
     },
-    [toast, touchPageUpdatedAt, canManageWork]
+    [touchPageUpdatedAt, canManageWork]
   );
 
   const handleUploadGalleryFiles = useCallback(
@@ -1224,7 +1211,7 @@ export default function WorkDetailsPageProject() {
       const list = Array.isArray(files) ? files : [];
       const images = list.filter((f) => f?.type?.startsWith("image/"));
       if (images.length === 0) {
-        toast("Nenhuma imagem selecionada", { variant: "destructive" });
+        showAppError("Nenhuma imagem selecionada", { variant: "destructive" });
         return;
       }
 
@@ -1272,12 +1259,9 @@ export default function WorkDetailsPageProject() {
           }
         }
 
-        toast("Imagens adicionadas", {
-          description: "Os arquivos foram enviados para a galeria.",
-        });
         touchPageUpdatedAt();
       } catch (e) {
-        toast("Erro ao enviar arquivos", {
+        showAppError("Erro ao enviar arquivos", {
           description: e?.message || "Tente novamente.",
           variant: "destructive",
         });
@@ -1286,7 +1270,6 @@ export default function WorkDetailsPageProject() {
     [
       currentMeasurement?.id,
       currentMeasurement?.title,
-      toast,
       touchPageUpdatedAt,
       user?.id,
       canManageWork,
@@ -1343,10 +1326,9 @@ export default function WorkDetailsPageProject() {
           }
         }
 
-        toast("Documento(s) adicionado(s)");
         touchPageUpdatedAt();
       } catch (e) {
-        toast("Erro ao enviar documentos", {
+        showAppError("Erro ao enviar documentos", {
           description: e?.message || "Tente novamente.",
           variant: "destructive",
         });
@@ -1356,7 +1338,6 @@ export default function WorkDetailsPageProject() {
     },
     [
       currentMeasurement?.id,
-      toast,
       touchPageUpdatedAt,
       user?.id,
       canManageWork,
@@ -1466,7 +1447,7 @@ export default function WorkDetailsPageProject() {
       if (!canManageWork) return;
       const m = measurements.find((x) => x.id === measurementId) || null;
       if (!m) {
-        toast("Fase não encontrada", { variant: "destructive" });
+        showAppError("Fase não encontrada", { variant: "destructive" });
         return;
       }
 
@@ -1516,13 +1497,13 @@ export default function WorkDetailsPageProject() {
         });
         setShowCurrentPhaseEditDialog(true);
       } catch (e) {
-        toast("Erro ao abrir edição", {
+        showAppError("Erro ao abrir edição", {
           description: e?.message || "Tente novamente.",
           variant: "destructive",
         });
       }
     },
-    [ensureContractorsLoaded, measurements, toast, canManageWork]
+    [ensureContractorsLoaded, measurements, canManageWork]
   );
 
   const openCurrentPhaseEditDialog = useCallback(() => {
@@ -1538,7 +1519,7 @@ export default function WorkDetailsPageProject() {
 
     const title = String(currentPhaseForm.title || "").trim();
     if (!title) {
-      toast("Título obrigatório", {
+      showAppError("Título obrigatório", {
         description: "Informe o nome da fase.",
         variant: "destructive",
       });
@@ -1548,7 +1529,7 @@ export default function WorkDetailsPageProject() {
     const dateErrors = validateCurrentPhaseDates(currentPhaseForm);
     const hasDateErrors = Object.keys(dateErrors).length > 0;
     if (hasDateErrors) {
-      toast("Datas inválidas", {
+      showAppError("Datas inválidas", {
         description: Object.values(dateErrors)[0],
         variant: "destructive",
       });
@@ -1623,15 +1604,12 @@ export default function WorkDetailsPageProject() {
       if (error) throw error;
 
       await syncWorkFromLatestMeasurement();
-      toast("Fase atualizada", {
-        description: "As informações foram salvas com sucesso.",
-      });
       touchPageUpdatedAt();
       setShowCurrentPhaseEditDialog(false);
       setEditingMeasurementId(null);
       await loadData();
     } catch (e) {
-      toast("Erro ao salvar fase", {
+      showAppError("Erro ao salvar fase", {
         description: e?.message || "Tente novamente.",
         variant: "destructive",
       });
@@ -1689,12 +1667,11 @@ export default function WorkDetailsPageProject() {
           .eq("id", id);
         if (error) throw error;
 
-        toast("Obra atualizada com sucesso!");
         touchPageUpdatedAt();
         setShowAdminEditModal(false);
         await loadData();
       } catch (e) {
-        toast("Erro ao salvar obra", {
+        showAppError("Erro ao salvar obra", {
           description: e?.message || "Tente novamente.",
           variant: "destructive",
         });
@@ -1710,7 +1687,7 @@ export default function WorkDetailsPageProject() {
   useEffect(() => {
     if (!showAdminEditModal) return;
     loadWorkOptions().catch((e) => {
-      toast("Erro ao carregar opções", {
+      showAppError("Erro ao carregar opções", {
         description: e?.message || "Tente novamente.",
         variant: "destructive",
       });
@@ -1859,13 +1836,13 @@ export default function WorkDetailsPageProject() {
   const handleSavePayment = useCallback(async () => {
     if (!canManageWork) return;
     if (!paymentForm.measurement_id) {
-      toast("Selecione uma fase", { variant: "destructive" });
+      showAppError("Selecione uma fase", { variant: "destructive" });
       return;
     }
 
     const numericValue = parsePtBrNumber(paymentForm.value);
     if (!numericValue || numericValue <= 0) {
-      toast("Valor inválido", {
+      showAppError("Valor inválido", {
         description: "Informe um valor maior que zero.",
         variant: "destructive",
       });
@@ -1951,15 +1928,12 @@ export default function WorkDetailsPageProject() {
         }
       }
 
-      toast("Pagamento salvo", {
-        description: "O pagamento foi salvo com sucesso.",
-      });
       touchPageUpdatedAt();
       setShowPaymentDialog(false);
       setEditingPaymentId(null);
       await loadData();
     } catch (e) {
-      toast("Erro ao salvar pagamento", {
+      showAppError("Erro ao salvar pagamento", {
         description: e?.message || "Tente novamente.",
         variant: "destructive",
       });
@@ -1989,13 +1963,10 @@ export default function WorkDetailsPageProject() {
           .delete()
           .eq("id", id);
         if (error) throw error;
-        toast("Pagamento excluído", {
-          description: "O pagamento foi removido com sucesso.",
-        });
         touchPageUpdatedAt();
         await loadData();
       } catch (e) {
-        toast("Erro ao excluir pagamento", {
+        showAppError("Erro ao excluir pagamento", {
           description: e?.message || "Tente novamente.",
           variant: "destructive",
         });

@@ -2,11 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Search, MapPin, Megaphone, Building, ShoppingCart } from 'lucide-react';
+import { showAppError } from '@/lib/appError';
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -19,7 +19,6 @@ const SearchPage = () => {
     petitions: [],
     services: []
   });
-  const { toast } = useToast();
 
   const runSearch = useCallback(
     async (query, status = 'all') => {
@@ -75,7 +74,7 @@ const SearchPage = () => {
         ]);
 
         if (reportsRes.error || worksRes.error || petitionsRes.error || directoryRes.error) {
-          toast({
+          showAppError({
             title: 'Erro na busca',
             description: 'Não foi possível buscar pelos termos informados.',
             variant: 'destructive'
@@ -96,7 +95,7 @@ const SearchPage = () => {
         });
       } catch (error) {
         console.error('Search exception', error);
-        toast({
+        showAppError({
           title: 'Erro na busca',
           description: 'Ocorreu um erro inesperado ao buscar.',
           variant: 'destructive'
@@ -105,7 +104,7 @@ const SearchPage = () => {
         setLoading(false);
       }
     },
-    [toast]
+    []
   );
 
   useEffect(() => {

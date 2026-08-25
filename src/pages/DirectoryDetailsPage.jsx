@@ -3,18 +3,17 @@ import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MapPin, Phone, Instagram, Building, ShoppingCart } from 'lucide-react';
 import { formatAndCreateWhatsAppLink } from '@/lib/utils';
 import ServicesRankingSidebar from '@/components/ServicesRankingSidebar';
+import { showAppError } from '@/lib/appError';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
 const DirectoryDetailsPage = () => {
   const { id } = useParams();
-  const { toast } = useToast();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +29,7 @@ const DirectoryDetailsPage = () => {
       .single();
 
     if (error) {
-      toast({
+      showAppError({
         title: 'Erro ao buscar detalhes',
         description: 'Não foi possível carregar as informações. Tente novamente.',
         variant: 'destructive',
@@ -40,7 +39,7 @@ const DirectoryDetailsPage = () => {
       setItem(data);
     }
     setLoading(false);
-  }, [id, toast]);
+  }, [id]);
 
   useEffect(() => {
     fetchItem();

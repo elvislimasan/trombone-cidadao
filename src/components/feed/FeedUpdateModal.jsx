@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
-import { useReportUpdate, getUpdateTypeInfo } from '@/hooks/useReportUpdate';
+import { useReportUpdate } from '@/hooks/useReportUpdate';
 import ReportUpdateModal from '@/components/report/ReportUpdateModal';
 
 /**
@@ -16,7 +15,6 @@ import ReportUpdateModal from '@/components/report/ReportUpdateModal';
  * o envio so falharia no banco, com erro de RLS.
  */
 const FeedUpdateModal = ({ open, onClose, report, onStatusChange }) => {
-  const { toast } = useToast();
   const [reportUpdates, setReportUpdates] = useState([]);
   const [loadingUpdates, setLoadingUpdates] = useState(false);
 
@@ -49,15 +47,6 @@ const FeedUpdateModal = ({ open, onClose, report, onStatusChange }) => {
         // O card do feed reflete o novo status na hora; sem isso a bronca
         // continuaria "pendente" na lista ate o proximo refresh.
         onStatusChange?.(newStatus);
-        toast({
-          title: 'Atualização confirmada! ✅',
-          description: `A bronca foi marcada como "${getUpdateTypeInfo(updateType).label}".`,
-        });
-      } else {
-        toast({
-          title: 'Atualização enviada! 📢',
-          description: 'Sua atualização será revisada antes de aparecer para todos.',
-        });
       }
     },
   });

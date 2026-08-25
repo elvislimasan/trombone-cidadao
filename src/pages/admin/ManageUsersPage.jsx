@@ -6,7 +6,6 @@ import { ArrowLeft, Edit, Trash2, User, Briefcase, Shield, Mail, Phone, Search, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import ReportDetails from '@/components/ReportDetails';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -14,6 +13,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Input } from '@/components/ui/input';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError, showAppInfo } from '@/lib/appError';
 
 const UserEditModal = ({ user, onSave, onClose }) => {
   const [name, setName] = useState('');
@@ -75,7 +75,6 @@ const UserEditModal = ({ user, onSave, onClose }) => {
 };
 
 const ManageUsersPage = () => {
-  const { toast } = useToast();
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,7 +102,7 @@ const ManageUsersPage = () => {
 
     if (profilesError) {
       setLoadingUsers(false);
-      toast({ title: "Erro ao buscar usuários", description: profilesError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar usuários", description: profilesError.message, variant: "destructive" });
       return;
     }
 
@@ -160,7 +159,7 @@ const ManageUsersPage = () => {
 
     setUsers(usersWithEmails);
     setLoadingUsers(false);
-  }, [toast]);
+  }, []);
 
   // Só as broncas de um autor, e só quando pedidas.
   const fetchUserReports = useCallback(async (userId) => {
@@ -172,7 +171,7 @@ const ManageUsersPage = () => {
       .eq('author_id', userId)
       .order('created_at', { ascending: false });
     if (error) {
-      toast({ title: "Erro ao buscar broncas", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar broncas", description: error.message, variant: "destructive" });
       setUserReports([]);
     } else {
       setUserReports((data || []).map(r => ({
@@ -182,7 +181,7 @@ const ManageUsersPage = () => {
       })));
     }
     setLoadingUserReports(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -200,7 +199,7 @@ const ManageUsersPage = () => {
       .eq('id', userToSave.id);
     
     if (error) {
-      toast({ title: "Erro ao atualizar usuário", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar usuário", description: error.message, variant: "destructive" });
     } else {
       fetchUsers();
     }
@@ -208,14 +207,17 @@ const ManageUsersPage = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    toast({ title: "Função de exclusão não implementada", description: "A exclusão de usuários deve ser feita por uma função de administrador segura para evitar problemas de integridade de dados." });
     setDeletingUser(null);
+    showAppInfo({
+      title: 'Exclusão indisponível nesta tela',
+      description: 'A remoção de usuários exige a função administrativa segura para preservar a integridade dos dados.',
+    });
   };
 
   const handleUpdateReport = async (updatedReport) => {
     const { error } = await supabase.from('reports').update(updatedReport).eq('id', updatedReport.id);
     if (error) {
-      toast({ title: "Erro ao atualizar bronca", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar bronca", description: error.message, variant: "destructive" });
     } else {
       fetchUserReports(viewingUserReports?.id);
       if (selectedReport) setSelectedReport(null);

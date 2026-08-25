@@ -5,10 +5,10 @@ import { ShieldCheck, Loader2, Search, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { formatPhone } from '@/lib/utils';
+import { showAppError } from '@/lib/appError';
 
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
 
@@ -16,7 +16,6 @@ const CompleteProfilePage = () => {
   const { user, loading: authLoading, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -59,11 +58,11 @@ const CompleteProfilePage = () => {
   const alreadyComplete = user && user.phone && user.city_id && user.terms_accepted_at;
 
   const handleSave = async () => {
-    if (!name.trim()) { toast({ title: 'Informe seu nome', variant: 'destructive' }); return; }
+    if (!name.trim()) { showAppError({ title: 'Informe seu nome', variant: 'destructive' }); return; }
     const phoneDigits = phone.replace(/\D/g, '');
-    if (phoneDigits.length < 10) { toast({ title: 'Informe um telefone válido', variant: 'destructive' }); return; }
-    if (!stateId || !cityId) { toast({ title: 'Selecione estado e cidade', variant: 'destructive' }); return; }
-    if (!terms) { toast({ title: 'Aceite os termos de uso para continuar', variant: 'destructive' }); return; }
+    if (phoneDigits.length < 10) { showAppError({ title: 'Informe um telefone válido', variant: 'destructive' }); return; }
+    if (!stateId || !cityId) { showAppError({ title: 'Selecione estado e cidade', variant: 'destructive' }); return; }
+    if (!terms) { showAppError({ title: 'Aceite os termos de uso para continuar', variant: 'destructive' }); return; }
 
     setSaving(true);
     const selectedCity = cities.find((c) => String(c.id) === String(cityId));
@@ -81,11 +80,10 @@ const CompleteProfilePage = () => {
     setSaving(false);
 
     if (error) {
-      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
       return;
     }
     if (refreshUserProfile) await refreshUserProfile();
-    toast({ title: 'Cadastro concluído! 🎉' });
     // volta para onde o usuário queria ir, ou o painel
     const from = location.state?.from?.pathname;
     navigate(from && from !== '/completar-cadastro' ? from : '/painel-usuario', { replace: true });

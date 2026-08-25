@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
 import { Combobox } from '@/components/ui/combobox';
 import { ImageIcon, Video, Paperclip, FolderOpen, Trash2, Upload } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { showAppError } from '@/lib/appError';
 
 export const WorkMediaManager = ({ workId }) => {
   const { user } = useAuth();
@@ -14,15 +14,14 @@ export const WorkMediaManager = ({ workId }) => {
   const [uploading, setUploading] = useState(false);
   const [galleryName, setGalleryName] = useState('');
   const [isNewGallery, setIsNewGallery] = useState(false);
-  const { toast } = useToast();
   const fileInputRef = useRef(null);
   
   const fetchMedia = useCallback(async () => {
     if (!workId) return;
     const { data, error } = await supabase.from('public_work_media').select('*').eq('work_id', workId).order('created_at');
-    if (error) toast({ title: "Erro ao buscar mídias", variant: "destructive" });
+    if (error) showAppError({ title: "Erro ao buscar mídias", variant: "destructive" });
     else setMedia(data);
-  }, [workId, toast]);
+  }, [workId]);
 
   // Extract unique gallery names
   const existingGalleries = Array.from(new Set(media.map(m => m.gallery_name).filter(Boolean))).sort();
@@ -39,7 +38,7 @@ export const WorkMediaManager = ({ workId }) => {
     const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
     
     if (uploadError) {
-      toast({ title: `Erro no upload de ${file.name}`, description: uploadError.message, variant: "destructive" });
+      showAppError({ title: `Erro no upload de ${file.name}`, description: uploadError.message, variant: "destructive" });
       return;
     }
     
@@ -61,14 +60,14 @@ export const WorkMediaManager = ({ workId }) => {
     });
 
     if (dbError) {
-      toast({ title: `Erro ao salvar ${file.name}`, description: dbError.message, variant: "destructive" });
+      showAppError({ title: `Erro ao salvar ${file.name}`, description: dbError.message, variant: "destructive" });
     }
   };
 
   const deleteMedia = async (mediaId, mediaUrl) => {
     const { error: dbError } = await supabase.from('public_work_media').delete().eq('id', mediaId);
     if (dbError) {
-      toast({ title: "Erro ao remover mídia do banco", variant: "destructive" });
+      showAppError({ title: "Erro ao remover mídia do banco", variant: "destructive" });
       return;
     }
     

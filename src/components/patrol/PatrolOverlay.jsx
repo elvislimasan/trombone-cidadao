@@ -7,7 +7,6 @@ import { App as CapApp } from '@capacitor/app';
 
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import { useOfflineQueueContext } from '@/contexts/OfflineQueueContext';
 import {
   enviarAtualizacaoDeBronca,
@@ -38,6 +37,7 @@ import PatrolSignalButton from './PatrolSignalButton';
 import PatrolSignalSheet from './PatrolSignalSheet';
 import PatrolReportModal from './PatrolReportModal';
 import PatrolStoryModal from './PatrolStoryModal';
+import { showAppError, showAppInfo } from '@/lib/appError';
 
 // Modo patrulha: junta GPS, corredor de broncas, alertas e envio.
 //
@@ -78,7 +78,6 @@ export default function PatrolOverlay({
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const filaOffline = useOfflineQueueContext();
 
   const [avisoAceito, aceitarAviso] = useAvisoAceito();
@@ -310,14 +309,14 @@ export default function PatrolOverlay({
     setMostrarSinalizar(false);
 
     if (r.duplicado) {
-      toast({
-        title: 'Já tem um sinal aqui',
+      showAppInfo({
+        title: 'Já existe um sinal aqui',
         description: 'Alguém marcou este mesmo problema a poucos metros.',
       });
       return;
     }
     if (!r.ok) {
-      toast({
+      showAppError({
         title: 'Não foi possível sinalizar',
         // O motivo real, não um "tente de novo" que não ajuda ninguém a
         // entender por que não deu — nem quem usa, nem quem conserta.
@@ -350,7 +349,7 @@ export default function PatrolOverlay({
        duas coisas dizem melhor que uma frase — o +3 subindo e o pin vermelho
        aparecendo no ponto, que continua lá depois da animação. */
     comemorar(PONTOS.sinal);
-  }, [sinais, toast, comemorar, registrarSinal]);
+  }, [sinais, comemorar, registrarSinal]);
 
   const aoCadastroCompleto = useCallback((categoryId) => {
     setMostrarSinalizar(false);
@@ -437,7 +436,7 @@ export default function PatrolOverlay({
   // GPS negado é impeditivo: sem posição não existe modo patrulha.
   useEffect(() => {
     if (!erro) return;
-    toast({
+    showAppError({
       title: erro === 'negado' ? 'Localização negada' : 'GPS indisponível',
       description:
         erro === 'negado'
@@ -446,7 +445,7 @@ export default function PatrolOverlay({
       variant: 'destructive',
     });
     sairDaTela();
-  }, [erro, toast, sairDaTela]);
+  }, [erro, sairDaTela]);
 
   useEffect(() => {
     if (!user) return;
@@ -484,7 +483,7 @@ export default function PatrolOverlay({
     const r = await enviarAtualizacaoDeBronca({ report: bronca, updateType: tipo, user });
 
     if (!r.ok) {
-      toast({
+      showAppError({
         title: r.isRateLimit ? 'Limite semanal atingido' : 'Não foi possível enviar',
         description: r.isRateLimit
           ? 'Você já enviou este tipo de atualização para esta bronca esta semana.'
@@ -524,7 +523,7 @@ export default function PatrolOverlay({
        respondido, e a revisão aparece onde ela é acionável, na página da
        bronca. Aqui fica só o +5. */
     return true;
-  }, [user, navigate, toast, removerDaFila, descartar, registrarConfirmacao, comemorar]);
+  }, [user, navigate, removerDaFila, descartar, registrarConfirmacao, comemorar]);
 
   /**
    * Responde o card — e o card pode falar por várias broncas.
@@ -609,7 +608,7 @@ export default function PatrolOverlay({
     if (!r.ok) {
       // Sem rede no fim do trajeto não pode prender ninguém na tela: perde-se a
       // medida do percurso, não o que foi registrado nele.
-      toast({
+      showAppError({
         title: 'Não foi possível salvar a patrulha',
         description: 'Suas confirmações foram enviadas normalmente.',
         variant: 'destructive',
@@ -619,7 +618,7 @@ export default function PatrolOverlay({
     }
 
     setSaida('resumo');
-  }, [user, finalizar, toast, sairDaTela]);
+  }, [user, finalizar, sairDaTela]);
 
   /**
    * Os dois botões do resumo. A patrulha já está gravada quando eles aparecem;
@@ -636,7 +635,7 @@ export default function PatrolOverlay({
     if (!r.ok) {
       // Sem rede no fim do trajeto não pode prender o usuário na tela: os
       // números se perdem, a patrulha em si (as confirmações) já foi enviada.
-      toast({
+      showAppError({
         title: 'Não foi possível salvar a patrulha',
         description: 'Suas confirmações foram enviadas normalmente.',
         variant: 'destructive',
@@ -657,7 +656,7 @@ export default function PatrolOverlay({
     }
 
     await encerrar();
-  }, [user, finalizar, toast, sairDaTela, encerrar]);
+  }, [user, finalizar, sairDaTela, encerrar]);
 
   // ── Botão voltar do aparelho ──
   //

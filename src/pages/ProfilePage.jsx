@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { User, Briefcase, Edit, LogOut, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Trash2, LayoutDashboard, Star, HardHat, ShieldCheck, Radar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/components/ui/use-toast';
 import EditProfileModal from '@/components/EditProfileModal';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useNavigate, Link } from 'react-router-dom';
@@ -19,6 +18,7 @@ import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useCity } from '@/contexts/CityContext';
 import Icon from '@/design-system/icons';
+import { showAppError } from '@/lib/appError';
 
 // Meses abreviados em portugues para "Membro desde".
 const MONTHS_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -31,7 +31,6 @@ function formatMemberSince(createdAt) {
 }
 
 const ProfilePage = () => {
-  const { toast } = useToast();
   const { user, signOut, refreshUserProfile } = useAuth();
   const { preference, setPreference } = useTheme();
   const { notificationsEnabled, toggleNotifications, loading: notificationsLoading } = useNotifications();
@@ -129,7 +128,7 @@ const ProfilePage = () => {
       .eq('id', user.id);
 
     if (error) {
-      toast({ title: "Erro ao atualizar perfil", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar perfil", description: error.message, variant: "destructive" });
     } else {
       await refreshUserProfile();
       // Trocar a cidade do perfil não move sozinha a cidade ATIVA: essa é uma
@@ -138,7 +137,6 @@ const ProfilePage = () => {
       // fluxo "me mudei", manter o feed na cidade antiga é exatamente o bug
       // que essa tela veio consertar.
       if (cityChanged && updatedData.city_id) setActiveCity(updatedData.city_id);
-      toast({ title: "Perfil atualizado! ✨" });
     }
   };
 

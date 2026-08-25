@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useToast } from '@/components/ui/use-toast';
 import {
   listar,
   contar,
@@ -9,6 +8,7 @@ import {
   MAX_TENTATIVAS,
 } from '@/lib/offlineQueue';
 import { enviarItem, NOME_DO_TIPO } from '@/lib/offlineSenders';
+import { notifyNative } from '@/lib/nativeNotification';
 
 // O carteiro: esvazia a fila quando dá.
 //
@@ -35,7 +35,6 @@ import { enviarItem, NOME_DO_TIPO } from '@/lib/offlineSenders';
 const INTERVALO_MS = 60000;
 
 export function useOfflineQueue() {
-  const { toast } = useToast();
   const [pendentes, setPendentes] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const emVooRef = useRef(false);
@@ -98,22 +97,31 @@ export function useOfflineQueue() {
     }
 
     if (enviados > 0) {
-      toast({
+      void notifyNative({
         title: enviados === 1 ? 'Envio concluído' : `${enviados} envios concluídos`,
-        description: 'O que ficou pendente sem conexão já subiu.',
+        body: 'O conteúdo que ficou pendente sem conexão já foi enviado.',
+        dedupeKey: `fila-offline-enviada:${enviados}`,
       });
     }
 
-    // O aviso do descarte, que é a política combinada. Uma linha por item
-    // perdido, com o motivo — some em silêncio seria pior que não ter fila.
-    for (const d of descartados) {
-      toast({
-        title: `Não foi possível enviar: ${NOME_DO_TIPO[d.tipo] || d.tipo}`,
-        description: d.motivo,
-        variant: 'destructive',
+    // Descarte é terminal: o item não será tentado novamente, então precisa de
+    // um aviso persistente do sistema em vez de desaparecer silenciosamente.
+    if (descartados.length > 0) {
+      const primeiro = descartados[0];
+      const tipo = NOME_DO_TIPO[primeiro.tipo] || primeiro.tipo;
+      const complemento = descartados.length > 1
+        ? ` Outros ${descartados.length - 1} envios também não puderam ser concluídos.`
+        : '';
+
+      void notifyNative({
+        title: descartados.length === 1
+          ? `Não foi possível enviar: ${tipo}`
+          : `${descartados.length} envios não foram concluídos`,
+        body: `${primeiro.motivo}.${complemento}`,
+        dedupeKey: `fila-offline-descartada:${descartados.map((d) => d.tipo).join(',')}`,
       });
     }
-  }, [toast, atualizarContagem]);
+  }, [atualizarContagem]);
 
   useEffect(() => {
     atualizarContagem();

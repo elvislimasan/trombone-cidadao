@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -22,6 +21,7 @@ import { useCity } from '@/contexts/CityContext';
 import { nomeDaCategoria } from '@/lib/reportCategories';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { showAppError } from '@/lib/appError';
 
 // Normaliza para busca: sem acento, sem caixa. "Sao Vicente" acha "São Vicente".
 const normalizar = (s) =>
@@ -65,7 +65,6 @@ const UPDATE_TYPE_COLORS = {
 
 const ModerationPage = () => {
   const { type } = useParams();
-  const { toast } = useToast();
   const { user } = useAuth();
   const { cities, loadingCities } = useCity();
   const navigate = useNavigate();
@@ -232,11 +231,11 @@ const ModerationPage = () => {
         setItems(data || []);
       }
     } catch (error) {
-      toast({ title: `Erro ao buscar itens`, description: error.message, variant: "destructive" });
+      showAppError({ title: `Erro ao buscar itens`, description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [isReportModeration, isResolutionModeration, isPetitionModeration, isWorkMediaModeration, isUpdateModeration, isCommentModeration, toast]);
+  }, [isReportModeration, isResolutionModeration, isPetitionModeration, isWorkMediaModeration, isUpdateModeration, isCommentModeration]);
 
   useEffect(() => {
     fetchItems();
@@ -249,7 +248,7 @@ const ModerationPage = () => {
       if (error) throw error;
       fetchItems();
     } catch (err) {
-      toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
     } finally {
       setActionLoadingId(null);
     }
@@ -469,7 +468,7 @@ const ModerationPage = () => {
 
       fetchItems();
     } catch (error) {
-      toast({ title: "Erro ao processar", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao processar", description: error.message, variant: "destructive" });
     } finally {
       setActionLoadingId(null);
     }
@@ -570,7 +569,7 @@ const ModerationPage = () => {
       .single();
 
     if (error) {
-      toast({ title: "Erro ao buscar detalhes", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar detalhes", description: error.message, variant: "destructive" });
     } else {
       const formattedData = {
         ...data,
@@ -1067,7 +1066,7 @@ const ModerationPage = () => {
           onClose={() => setSelectedReport(null)}
           onUpdate={async (data) => {
             const { error } = await supabase.from('reports').update(data).eq('id', data.id);
-            if (error) toast({ title: "Erro ao atualizar", variant: "destructive" });
+            if (error) showAppError({ title: "Erro ao atualizar", variant: "destructive" });
             // Sem toast: `fetchItems` recarrega a fila e o modal fecha.
             else { fetchItems(); setSelectedReport(null); }
           }}

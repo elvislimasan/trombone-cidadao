@@ -10,11 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Navigate } from 'react-router-dom';
+import { showAppError } from '@/lib/appError';
 
 const STATUS_LABEL = {
   active: { text: 'Ativo', cls: 'text-green-700 bg-green-100' },
@@ -25,7 +25,6 @@ const STATUS_LABEL = {
 const AmbassadorProfilePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user } = useAuth();
 
   const { cities, loadingCities } = useCity();
@@ -49,13 +48,13 @@ const AmbassadorProfilePage = () => {
     setLoading(true);
     const { data, error } = await supabase.rpc('get_ambassador_profile', { p_user: id });
     if (error) {
-      toast({ title: 'Erro ao carregar perfil', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao carregar perfil', description: error.message, variant: 'destructive' });
       setProfile(null);
     } else {
       setProfile(data);
     }
     setLoading(false);
-  }, [id, toast]);
+  }, [id]);
 
   useEffect(() => {
     if (canAccess) fetchProfile();
@@ -78,11 +77,11 @@ const AmbassadorProfilePage = () => {
       .select('id');
 
     if (error) {
-      toast({ title: 'Erro ao adicionar cidade', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao adicionar cidade', description: error.message, variant: 'destructive' });
     } else if (!data || data.length === 0) {
       // INSERT sem linhas com error null = RLS barrou. Sem esta checagem, a
       // tela dizia "cidade adicionada" e nada tinha sido gravado.
-      toast({ title: 'Sem permissão para adicionar cidades a este embaixador.', variant: 'destructive' });
+      showAppError({ title: 'Sem permissão para adicionar cidades a este embaixador.', variant: 'destructive' });
     } else {
       const cityName = cities.find((c) => String(c.id) === String(newCityId))?.name;
       // Avisa a pessoa — best-effort, não desfaz a designação se falhar.
@@ -120,9 +119,9 @@ const AmbassadorProfilePage = () => {
       .select('id');
 
     if (error) {
-      toast({ title: 'Erro ao remover cidade', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao remover cidade', description: error.message, variant: 'destructive' });
     } else if (!data || data.length === 0) {
-      toast({ title: 'Sem permissão para remover cidades deste embaixador.', variant: 'destructive' });
+      showAppError({ title: 'Sem permissão para remover cidades deste embaixador.', variant: 'destructive' });
     } else {
       fetchProfile();
     }
@@ -138,9 +137,9 @@ const AmbassadorProfilePage = () => {
       .eq('id', acId)
       .select('id');
     if (error) {
-      toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
     } else if (!data || data.length === 0) {
-      toast({ title: 'Sem permissão para alterar este embaixador.', variant: 'destructive' });
+      showAppError({ title: 'Sem permissão para alterar este embaixador.', variant: 'destructive' });
     } else {
       fetchProfile();
     }

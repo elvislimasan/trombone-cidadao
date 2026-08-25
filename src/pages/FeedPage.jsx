@@ -20,7 +20,7 @@ import FeedStates, { FeedFatalState, FeedLoadMoreError } from '@/components/feed
 import FeedWelcomeCard from '@/components/feed/FeedWelcomeCard';
 import FeedLocationGate from '@/components/feed/FeedLocationGate';
 import FeedNewReportsBanner from '@/components/feed/FeedNewReportsBanner';
-import { useToast } from '@/components/ui/use-toast';
+import { showAppError } from '@/lib/appError';
 
 // Lazy: carrega html-to-image e qrcode, peso que so faz sentido quando o
 // usuario abre o card. Um unico modal serve a lista inteira.
@@ -47,7 +47,6 @@ const getInviteUrl = () => {
 export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
   const { activeCityId } = useCity();
 
   const [activeTab, setActiveTab] = useState('recent');
@@ -186,16 +185,14 @@ export default function FeedPage() {
         return;
       }
       await navigator.clipboard.writeText(url);
-      toast({ title: 'Link copiado!', description: 'Cole e envie para alguém contribuir.' });
     } catch {
       try {
         await navigator.clipboard.writeText(url);
-        toast({ title: 'Link copiado!', description: 'Cole e envie para alguém contribuir.' });
       } catch {
-        toast({ title: 'Não foi possível compartilhar', variant: 'destructive' });
+        showAppError({ title: 'Não foi possível compartilhar', variant: 'destructive' });
       }
     }
-  }, [toast]);
+  }, []);
 
   const hasReports = reports.length > 0;
 

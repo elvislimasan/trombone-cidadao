@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Video, Film, Trash2, AlertCircle, Play, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { addVideoFile, isVideoProcessorBusy, cleanupVideoProcessor, generateQuickWebThumbnail, setGlobalUserViewingMedia } from '@/utils/videoProcessor';
 import { VideoProcessor as VideoProcessorPlugin } from '@/plugins/VideoProcessor';
 import MediaViewer from '@/components/MediaViewer';
+import { showAppError } from '@/lib/appError';
 
 /**
  * Componente de Processamento de Vídeos Otimizado
@@ -21,7 +21,6 @@ const VideoProcessor = ({
   onRecordVideo, // Prop para override da gravação
   showList = true // Controla se a lista de vídeos é renderizada internamente
 }) => {
-  const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingMessage, setProcessingMessage] = useState('');
@@ -184,7 +183,7 @@ const VideoProcessor = ({
            // Se o erro for uma string, usa ela. Se for objeto, tenta message. Se não, usa genérico.
            const errorMessage = typeof error === 'string' ? error : (error.message || "O vídeo foi removido devido a um erro.");
            
-           toast({
+           showAppError({
              variant: "destructive",
              description: errorMessage
            });
@@ -211,7 +210,7 @@ const VideoProcessor = ({
       // Remover temp
       onVideosChange(prevVideos => prevVideos.filter(v => v.id !== tempId));
     }
-  }, [videos, onVideosChange, maxVideos, toast, onProcessingChange]);
+  }, [videos, onVideosChange, maxVideos, onProcessingChange]);
 
   // Monitorar estado global de processamento baseado na lista de vídeos
   useEffect(() => {
@@ -250,14 +249,14 @@ const VideoProcessor = ({
     
     // Feedback se algum foi ignorado
     if (validFiles.length < files.length) {
-      toast({
+      showAppError({
         title: "Alguns vídeos foram ignorados",
         description: `Vídeos maiores que ${MAX_GALLERY_VIDEO_MB}MB não são suportados.`,
         variant: "destructive"
       });
     }
 
-  }, [handleAddVideo, toast]);
+  }, [handleAddVideo]);
 
   // Handler para gravação de vídeo
   const handleRecordVideo = useCallback(async () => {
@@ -319,14 +318,14 @@ const VideoProcessor = ({
       const cancelled = /cancel|cancelad/i.test(msg);
       if (!cancelled) {
         console.error("Erro ao gravar vídeo:", e);
-        toast({
+        showAppError({
           variant: 'destructive',
           title: 'Não foi possível abrir a câmera de vídeo',
           description: msg || 'Verifique as permissões de câmera/microfone.'
         });
       }
     }
-  }, [disabled, isProcessing, onRecordVideo, handleAddVideo, toast]);
+  }, [disabled, isProcessing, onRecordVideo, handleAddVideo]);
 
   // Handler para galeria
   const handleGallerySelect = useCallback(async () => {
@@ -366,7 +365,7 @@ const VideoProcessor = ({
                              errorMsg.toLowerCase().includes('user cancelled');
         if (!isCancellation) {
           console.error('VideoProcessor: Error picking video:', e);
-          toast({
+          showAppError({
             title: "Erro ao selecionar vídeo",
             description: "Tente novamente",
             variant: "destructive"
@@ -383,7 +382,7 @@ const VideoProcessor = ({
         fileInputRef.current.click();
       }
     }
-  }, [disabled, isProcessing, handleAddVideo, toast]);
+  }, [disabled, isProcessing, handleAddVideo]);
 
   // Remover vídeo
   const handleRemoveVideo = useCallback((index) => {
@@ -467,7 +466,7 @@ const VideoProcessor = ({
     if (fileInputRef.current) fileInputRef.current.value = null;
     if (cameraInputRef.current) cameraInputRef.current.value = null;
     
-  }, [onProcessingChange, toast]);
+  }, [onProcessingChange]);
 
   // Barra de progresso do processamento (REMOVIDA - Agora usa overlay)
   const renderProgressBar = () => null;

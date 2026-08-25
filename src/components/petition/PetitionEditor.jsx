@@ -13,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Progress } from '@/components/ui/progress';
@@ -29,6 +28,7 @@ import PetitionHero from '../petition-modern/PetitionHero';
 import PetitionContent from '../petition-modern/PetitionContent';
 import PetitionSignatureCard from '../petition-modern/PetitionSignatureCard';
 import PetitionUpdatesManager from './PetitionUpdatesManager';
+import { showAppError } from '@/lib/appError';
 
 const ICON_MAP = {
   Users,
@@ -77,7 +77,6 @@ const useIsMobile = () => {
 };
 
 const PetitionEditor = ({ petition, onSave, onCancel }) => {
-  const { toast } = useToast();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
@@ -379,7 +378,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
       
     } catch (error) {
       console.error('Save error:', error);
-      toast({
+      showAppError({
         title: "Erro ao salvar",
         description: error.message,
         variant: "destructive"
@@ -426,7 +425,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
       }
     } catch (error) {
       console.error('Discard error:', error);
-      toast({ title: "Erro ao descartar", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao descartar", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -452,7 +451,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
       }
     } catch (error) {
       console.error('Close error:', error);
-      toast({ 
+      showAppError({ 
         title: "Erro ao encerrar", 
         description: error.message, 
         variant: "destructive" 
@@ -493,7 +492,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
       }
     } catch (error) {
       console.error('Delete error:', error);
-      toast({ 
+      showAppError({ 
         title: "Erro ao excluir", 
         description: error.message, 
         variant: "destructive" 
@@ -516,7 +515,6 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
         : defaultImportanceItems
     });
     
-    toast({ title: "Versão restaurada", description: "Clique em Salvar para aplicar as alterações." });
   };
 
   const handleAddImportanceItem = () => {

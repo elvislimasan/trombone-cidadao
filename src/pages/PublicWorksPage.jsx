@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, Check, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +16,7 @@ import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { showAppError } from '@/lib/appError';
 
 const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, onSelectionChange, searchPlaceholder }) => {
   const Icon = triggerIcon;
@@ -87,7 +87,6 @@ const PublicWorksPage = () => {
     bairros: [],
   });
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
   const { cityId: activeCityId } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
@@ -165,13 +164,13 @@ const PublicWorksPage = () => {
         bairros: bairros || [],
       });
     } catch (error) {
-      toast({
+      showAppError({
         title: 'Erro ao carregar opções de filtro',
         description: error.message,
         variant: 'destructive'
       });
     }
-  }, [toast, activeCityId]);
+  }, [activeCityId]);
 
   const fetchWorks = useCallback(async () => {
     setLoading(true);
@@ -199,7 +198,7 @@ const PublicWorksPage = () => {
       setWorks(formattedData);
       setFilteredWorks(formattedData);
     } catch (error) {
-      toast({
+      showAppError({
         title: "Erro ao buscar obras públicas",
         description: error.message,
         variant: "destructive"
@@ -207,7 +206,7 @@ const PublicWorksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, activeCityId]);
+  }, [activeCityId]);
 
   const fetchListWorks = useCallback(async (page = 1) => {
     setLoading(true);
@@ -254,7 +253,7 @@ const PublicWorksPage = () => {
       setListWorks(formattedData);
       setListTotal(count || 0);
     } catch (error) {
-      toast({
+      showAppError({
         title: "Erro ao carregar lista de obras",
         description: error.message,
         variant: "destructive"
@@ -262,7 +261,7 @@ const PublicWorksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize, activeCityId]);
+  }, [searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize, activeCityId]);
 
   useEffect(() => {
     fetchWorks();

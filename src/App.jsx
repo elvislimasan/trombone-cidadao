@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { Toaster } from 'sonner';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
@@ -43,7 +42,6 @@ import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import ReportPage from '@/pages/ReportPage';
 import PetitionPage from '@/pages/PetitionPage';
 import PetitionPageModern from '@/pages/PetitionPageModern';
@@ -87,6 +85,8 @@ import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 import PendingInviteBanner from '@/components/PendingInviteBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
+import { notifyNative } from '@/lib/nativeNotification';
+import AppFeedbackBanner from '@/components/AppFeedbackBanner';
 
 const SEO = () => {
   const location = useLocation();
@@ -278,7 +278,6 @@ const ModuleRoute = ({ module, adminOnly = false, children }) => {
 function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
   const { loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
 
@@ -307,9 +306,10 @@ function AppShell() {
     window.__tcNotifListenerInstalled = true;
 
     let listener = null;
+    let disposed = false;
     const setup = async () => {
       try {
-        listener = await LocalNotifications.addListener('localNotificationActionPerformed', async (notification) => {
+        const newListener = await LocalNotifications.addListener('localNotificationActionPerformed', async (notification) => {
           const filePath = notification.notification?.extra?.filePath;
           const contentType = notification.notification?.extra?.contentType;
           if (!filePath) return;
@@ -319,23 +319,33 @@ function AppShell() {
               contentType: contentType || 'application/octet-stream',
             });
           } catch {
-            toast({
-              title: 'Não foi possível abrir',
-              description: 'O arquivo pode não estar acessível no dispositivo.',
-              variant: 'destructive',
+            void notifyNative({
+              title: 'Não foi possível abrir o arquivo',
+              body: 'O arquivo pode não estar mais acessível no dispositivo.',
+              dedupeKey: `arquivo-indisponivel:${filePath}`,
             });
           }
         });
-      } catch {}
+
+        if (disposed) {
+          await newListener.remove();
+          return;
+        }
+        listener = newListener;
+      } catch {
+        if (!disposed) window.__tcNotifListenerInstalled = false;
+      }
     };
-    setup();
+    void setup();
 
     return () => {
+      disposed = true;
+      window.__tcNotifListenerInstalled = false;
       try {
         listener?.remove();
       } catch {}
     };
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     try {
@@ -391,9 +401,9 @@ function AppShell() {
       try {
         const recovered = await VideoProcessor.recoverLostPhoto();
         if (recovered && (recovered.filePath || recovered.nativePath)) {
+          const rawPath = recovered.filePath || recovered.nativePath;
           // Se câmera foi de outro contexto (ex: modal de atualização), não navega para /
           if (window.__NATIVE_CAMERA_CONTEXT__) {
-            const rawPath = recovered.filePath || recovered.nativePath;
             window.__NATIVE_CAMERA_PENDING_PHOTO__ = {
               rawPath,
               filename: `photo_restored_${Date.now()}.jpg`,
@@ -401,10 +411,10 @@ function AppShell() {
             window.__NATIVE_CAMERA_CONTEXT__ = null;
           } else {
             window.__PENDING_RESTORED_PHOTO__ = recovered;
-            toast({
-              title: "Foto recuperada!",
-              description: "Sua foto foi restaurada após o reinício.",
-              duration: 4000
+            void notifyNative({
+              title: 'Foto recuperada',
+              body: 'Sua foto foi restaurada após o reinício do aplicativo.',
+              dedupeKey: `foto-recuperada:${rawPath}`,
             });
             setTimeout(() => {
               window.dispatchEvent(new CustomEvent('open-report-modal-with-photo'));
@@ -421,13 +431,6 @@ function AppShell() {
       // 1. Listener padrão do Capacitor para restauração de plugin
       await CapacitorApp.addListener('appRestoredResult', (data) => {
 //         console.log('🔄 App restaurado com resultado (Global):', data);
-        
-        // Feedback visual imediato
-        toast({
-           title: "Restaurando aplicativo...",
-           description: "Recuperando sua sessão após uso da câmera.",
-           duration: 3000
-        });
         
         // Verificar se é resultado de foto
         if ((data.pluginId === 'VideoProcessor' && data.methodName === 'capturePhoto') || 
@@ -487,7 +490,7 @@ function AppShell() {
     };
     
     setupListener();
-  }, [navigate, toast]);
+  }, [navigate]);
 
   // ✅ Handler para navegação via eventos customizados (sem recarregar)
   useEffect(() => {
@@ -656,6 +659,7 @@ function AppShell() {
           >
             <div className="flex-1 min-h-0 flex flex-col">
               <PendingInviteBanner />
+              <AppFeedbackBanner />
               {/* key={pathname}: remonta o boundary a cada navegação, senão a tela
                   de erro persistiria mesmo depois de sair da rota que quebrou. */}
               <ErrorBoundary key={boundaryKey}>
@@ -769,19 +773,6 @@ function AppShell() {
               via à frente e oferece destinos que ninguém deve tocar dirigindo.
               Sair é pelo X do painel ou pelo botão voltar do aparelho. */}
           {!patrulhaAtiva && <BottomNav />}
-          {/* Toast no rodapé, acima do BottomNav: no topo ele cobria o header e
-              o conteúdo que o usuário acabou de tocar. Só o cartão recebe
-              toque — o resto da tela continua respondendo enquanto ele aparece.
-              Fecha por toque, pelo X ou arrastando em qualquer direção. */}
-          <Toaster
-            position="bottom-center"
-            richColors
-            closeButton
-            visibleToasts={3}
-            swipeDirections={['bottom', 'left', 'right']}
-            offset={{ bottom: '1.5rem' }}
-            mobileOffset={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))', left: '0.75rem', right: '0.75rem' }}
-          />
           <WebUploadIndicator />
           <UploadStatusBar />
         </div>

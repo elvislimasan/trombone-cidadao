@@ -10,13 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity } from '@/contexts/CityContext';
 import { Navigate } from 'react-router-dom';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError } from '@/lib/appError';
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Sub-component: Criar convite de embaixador
@@ -40,7 +40,6 @@ const buildWhatsAppLink = (link) =>
   `https://wa.me/?text=${encodeURIComponent(`Você foi convidado para ser embaixador do Trombone Cidadão! Acesse: ${link}`)}`;
 
 const CreateInviteSection = ({ user }) => {
-  const { toast } = useToast();
   const { cities, loadingCities } = useCity();
   const [selectedCityId, setSelectedCityId] = useState('');
   const [selectedCityLabel, setSelectedCityLabel] = useState('');
@@ -92,11 +91,11 @@ const CreateInviteSection = ({ user }) => {
 
   const handleGenerateInvite = async () => {
     if (!selectedCityId) {
-      toast({ title: 'Selecione uma cidade', variant: 'destructive' });
+      showAppError({ title: 'Selecione uma cidade', variant: 'destructive' });
       return;
     }
     if (!isValidEmail(inviteEmail)) {
-      toast({ title: 'Informe um e-mail válido para o convite', variant: 'destructive' });
+      showAppError({ title: 'Informe um e-mail válido para o convite', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
@@ -110,7 +109,7 @@ const CreateInviteSection = ({ user }) => {
       .limit(1)
       .maybeSingle();
     if (dup) {
-      toast({ title: 'Já existe um convite pendente para este e-mail nesta cidade', variant: 'destructive' });
+      showAppError({ title: 'Já existe um convite pendente para este e-mail nesta cidade', variant: 'destructive' });
       setSubmitting(false);
       return;
     }
@@ -133,7 +132,7 @@ const CreateInviteSection = ({ user }) => {
       .insert(insertData);
 
     if (error) {
-      toast({ title: 'Erro ao gerar convite', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao gerar convite', description: error.message, variant: 'destructive' });
     } else {
       const link = `${window.location.origin}/convite/${token}`;
       setGeneratedLink(link);
@@ -152,9 +151,8 @@ const CreateInviteSection = ({ user }) => {
           cityUf: city?.state?.uf,
           invitedByName: user?.name,
         });
-        toast({ title: 'Convite gerado e e-mail enviado!' });
       } catch (emailError) {
-        toast({
+        showAppError({
           title: 'Convite gerado, mas o e-mail não pôde ser enviado',
           description: 'Copie o link abaixo e envie manualmente.',
           variant: 'destructive',
@@ -173,7 +171,7 @@ const CreateInviteSection = ({ user }) => {
       .eq('id', existingPendingInvite.id);
 
     if (error) {
-      toast({ title: 'Erro ao revogar convite existente', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao revogar convite existente', description: error.message, variant: 'destructive' });
       setSubmitting(false);
       return;
     }
@@ -193,9 +191,8 @@ const CreateInviteSection = ({ user }) => {
       await navigator.clipboard.writeText(generatedLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      toast({ title: 'Link copiado!' });
     } catch {
-      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+      showAppError({ title: 'Erro ao copiar', variant: 'destructive' });
     }
   };
 
@@ -356,7 +353,6 @@ const CreateInviteSection = ({ user }) => {
 // Sub-component: Convites pendentes
 // ────────────────────────────────────────────────────────────────────────────────
 const PendingInvitesSection = ({ user }) => {
-  const { toast } = useToast();
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [revokingId, setRevokingId] = useState(null);
@@ -374,12 +370,12 @@ const PendingInvitesSection = ({ user }) => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast({ title: 'Erro ao buscar convites', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar convites', description: error.message, variant: 'destructive' });
     } else {
       setInvites(data || []);
     }
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchInvites();
@@ -393,7 +389,7 @@ const PendingInvitesSection = ({ user }) => {
       .eq('id', inviteId);
 
     if (error) {
-      toast({ title: 'Erro ao revogar convite', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao revogar convite', description: error.message, variant: 'destructive' });
     } else {
       fetchInvites();
     }
@@ -409,7 +405,7 @@ const PendingInvitesSection = ({ user }) => {
       .eq('id', invite.id);
 
     if (error) {
-      toast({ title: 'Erro ao reenviar convite', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao reenviar convite', description: error.message, variant: 'destructive' });
       setResendingId(null);
       return;
     }
@@ -422,9 +418,8 @@ const PendingInvitesSection = ({ user }) => {
         cityUf: invite.cities?.states?.uf,
         invitedByName: user?.name,
       });
-      toast({ title: 'E-mail reenviado e validade estendida por mais 7 dias.' });
     } catch (emailError) {
-      toast({
+      showAppError({
         title: 'Validade estendida, mas o e-mail não pôde ser reenviado',
         description: 'Copie o link e envie manualmente.',
         variant: 'destructive',
@@ -440,9 +435,8 @@ const PendingInvitesSection = ({ user }) => {
       await navigator.clipboard.writeText(link);
       setCopiedId(invite.id);
       setTimeout(() => setCopiedId(null), 2000);
-      toast({ title: 'Link copiado!' });
     } catch {
-      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+      showAppError({ title: 'Erro ao copiar', variant: 'destructive' });
     }
   };
 
@@ -555,7 +549,6 @@ const PendingInvitesSection = ({ user }) => {
 // Sub-component: Embaixadores ativos
 // ────────────────────────────────────────────────────────────────────────────────
 const ActiveAmbassadorsSection = () => {
-  const { toast } = useToast();
   const [ambassadors, setAmbassadors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [suspendingId, setSuspendingId] = useState(null);
@@ -570,7 +563,7 @@ const ActiveAmbassadorsSection = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast({ title: 'Erro ao buscar embaixadores', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar embaixadores', description: error.message, variant: 'destructive' });
       setLoading(false);
       return;
     }
@@ -583,7 +576,7 @@ const ActiveAmbassadorsSection = () => {
         .select('id, name')
         .in('id', userIds);
       if (profilesError) {
-        toast({ title: 'Erro ao buscar perfis dos embaixadores', description: profilesError.message, variant: 'destructive' });
+        showAppError({ title: 'Erro ao buscar perfis dos embaixadores', description: profilesError.message, variant: 'destructive' });
       } else {
         profilesById = Object.fromEntries((profilesData || []).map(p => [p.id, p]));
       }
@@ -591,7 +584,7 @@ const ActiveAmbassadorsSection = () => {
 
     setAmbassadors((data || []).map(ac => ({ ...ac, profiles: profilesById[ac.user_id] || null })));
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchAmbassadors();
@@ -606,10 +599,10 @@ const ActiveAmbassadorsSection = () => {
       .select('id');
 
     if (error) {
-      toast({ title: 'Erro ao suspender', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao suspender', description: error.message, variant: 'destructive' });
     } else if (!data || data.length === 0) {
       // UPDATE não afetou linhas — provavelmente RLS bloqueou (sem permissão)
-      toast({
+      showAppError({
         title: 'Não foi possível suspender',
         description: 'Você não tem permissão para alterar este embaixador.',
         variant: 'destructive',
@@ -697,7 +690,6 @@ const ActiveAmbassadorsSection = () => {
 // Sub-component: Candidaturas de embaixador
 // ────────────────────────────────────────────────────────────────────────────────
 const ApplicationsSection = () => {
-  const { toast } = useToast();
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState(null);
@@ -711,10 +703,10 @@ const ApplicationsSection = () => {
       .select('id, user_id, city_id, applicant_name, applicant_email, motivation, created_at, cities(name, states(uf))')
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
-    if (error) toast({ title: 'Erro ao buscar candidaturas', description: error.message, variant: 'destructive' });
+    if (error) showAppError({ title: 'Erro ao buscar candidaturas', description: error.message, variant: 'destructive' });
     else setApps(data || []);
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => { fetchApps(); }, [fetchApps]);
 
@@ -739,7 +731,7 @@ const ApplicationsSection = () => {
   const handleApprove = async (app) => {
     setActionId(`${app.id}-approve`);
     const { error } = await supabase.rpc('approve_ambassador_application', { p_app_id: app.id });
-    if (error) toast({ title: 'Erro ao aprovar', description: error.message, variant: 'destructive' });
+    if (error) showAppError({ title: 'Erro ao aprovar', description: error.message, variant: 'destructive' });
     else {
       sendApplicationEmail(app, 'approved');
       fetchApps();
@@ -754,7 +746,7 @@ const ApplicationsSection = () => {
       .from('ambassador_applications')
       .update({ status: 'rejected', rejection_reason: reason, reviewed_at: new Date().toISOString() })
       .eq('id', app.id);
-    if (error) { toast({ title: 'Erro ao rejeitar', description: error.message, variant: 'destructive' }); setActionId(null); return; }
+    if (error) { showAppError({ title: 'Erro ao rejeitar', description: error.message, variant: 'destructive' }); setActionId(null); return; }
     await supabase.from('notifications').insert({
       user_id: app.user_id,
       type: 'ambassador_application',

@@ -10,10 +10,10 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import { calcularSequencia } from '@/lib/patrolGame';
 import { getPatrolShareUrl } from '@/lib/shareUtils';
 import PatrolRouteThumb from '@/components/patrol/PatrolRouteThumb';
+import { showAppError } from '@/lib/appError';
 
 const PatrolStoryModal = lazy(() => import('@/components/patrol/PatrolStoryModal'));
 const PatrolRouteModal = lazy(() => import('@/components/patrol/PatrolRouteModal'));
@@ -268,7 +268,6 @@ const CartaoPatrulha = ({
 
 export default function MyPatrolsPage() {
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const [patrulhas, setPatrulhas] = useState([]);
   const [totais, setTotais] = useState(null);
@@ -443,13 +442,9 @@ export default function MyPatrolsPage() {
 
       setPatrulhas((atual) => atual.filter((p) => p.id !== aExcluir.id));
       setAExcluir(null);
-      toast({
-        title: 'Registro apagado',
-        description: 'Suas broncas e sinalizações continuam lá.',
-      });
     } catch (err) {
       console.error('[MyPatrolsPage] falha ao excluir:', err);
-      toast({
+      showAppError({
         title: 'Não foi possível apagar',
         description: 'Tente novamente em instantes.',
         variant: 'destructive',
@@ -457,7 +452,7 @@ export default function MyPatrolsPage() {
     } finally {
       setExcluindo(false);
     }
-  }, [aExcluir, toast]);
+  }, [aExcluir]);
 
   const resumo = useMemo(
     () => ({

@@ -4,7 +4,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Search, FileSignature, Plus, Eye, MoreHorizontal, Filter, Calendar, Users, CheckCircle2, XCircle, AlertCircle, Trophy, Trash2, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { exportPetitionPDF } from '@/utils/pdfExport';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
@@ -24,9 +23,9 @@ import PetitionUpdateModal from '@/components/petition/PetitionUpdateModal';
 import { Megaphone } from 'lucide-react';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError } from '@/lib/appError';
 
 const ManagePetitionsPage = () => {
-  const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [petitions, setPetitions] = useState([]);
@@ -79,7 +78,7 @@ const ManagePetitionsPage = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast({ title: "Erro ao buscar abaixo-assinados", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar abaixo-assinados", description: error.message, variant: "destructive" });
     } else {
       setPetitions((data || []).map((p) => ({
         ...p,
@@ -89,7 +88,7 @@ const ManagePetitionsPage = () => {
       })));
     }
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   const handleStatusChange = async (petitionId, newStatus) => {
     try {
@@ -106,7 +105,7 @@ const ManagePetitionsPage = () => {
 
     } catch (error) {
       console.error('Error updating status:', error);
-      toast({
+      showAppError({
         title: "Erro ao atualizar",
         description: "Não foi possível alterar o status.",
         variant: "destructive"
@@ -123,7 +122,7 @@ const ManagePetitionsPage = () => {
       
       setPetitions(prev => prev.filter(p => p.id !== id));
     } catch (error) {
-      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     }
   };
 
@@ -194,7 +193,7 @@ const ManagePetitionsPage = () => {
         if (error) throw error;
         navigate(`/abaixo-assinado/${newPetition.id}?edit=true`);
     } catch (error) {
-        toast({ title: "Erro ao criar", variant: "destructive" });
+        showAppError({ title: "Erro ao criar", variant: "destructive" });
     }
   };
 
@@ -400,7 +399,7 @@ const ManagePetitionsPage = () => {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem 
                                     className="rounded-lg gap-2 cursor-pointer"
-                                    onClick={() => exportPetitionPDF(petition, toast)}
+                                    onClick={() => exportPetitionPDF(petition)}
                                   >
                                     <FileDown className="w-4 h-4 text-green-600" /> Baixar PDF Assinaturas
                                   </DropdownMenuItem>

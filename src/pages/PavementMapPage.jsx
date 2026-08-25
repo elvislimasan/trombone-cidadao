@@ -19,7 +19,6 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import WorksMapView from '@/components/WorksMapView';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -29,6 +28,7 @@ import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { showAppError } from '@/lib/appError';
 
 const PavementMapPage = () => {
   const [streetData, setStreetData] = useState([]);
@@ -40,7 +40,6 @@ const PavementMapPage = () => {
   const [resolvedWork, setResolvedWork] = useState(null);
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
-  const { toast } = useToast();
   const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
@@ -75,7 +74,7 @@ const PavementMapPage = () => {
     if (activeCityId) query = query.eq('city_id', activeCityId);
     const { data, error } = await query;
     if (error) {
-      toast({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     } else {
       const formattedData = data.map(s => ({
         ...s,
@@ -90,13 +89,13 @@ const PavementMapPage = () => {
         if (mostRecent.getTime() > 0) setLastUpdate(mostRecent.toISOString());
       }
     }
-  }, [toast, activeCityId]);
+  }, [activeCityId]);
 
   const fetchWorks = useCallback(async () => {
     let query = supabase.from('public_works').select('id, title, description, status, location, city_id');
     if (activeCityId) query = query.eq('city_id', activeCityId);
     const { data, error } = await query;
-    if (error) toast({ title: "Erro ao buscar obras", description: error.message, variant: "destructive" });
+    if (error) showAppError({ title: "Erro ao buscar obras", description: error.message, variant: "destructive" });
     else {
         const formattedWorks = data.map(w => ({
             ...w,
@@ -104,7 +103,7 @@ const PavementMapPage = () => {
         }));
         setAllWorks(formattedWorks);
     }
-  }, [toast, activeCityId]);
+  }, [activeCityId]);
 
   useEffect(() => {
     fetchStreets();
@@ -138,7 +137,7 @@ const PavementMapPage = () => {
         .single();
       if (cancelled) return;
       if (error) {
-        toast({ title: "Erro ao buscar obra", description: error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao buscar obra", description: error.message, variant: "destructive" });
         setResolvedWork(null);
         return;
       }
@@ -149,7 +148,7 @@ const PavementMapPage = () => {
       setResolvedWork(formatted);
     })();
     return () => { cancelled = true; };
-  }, [selectedWorkId, allWorks, toast]);
+  }, [selectedWorkId, allWorks]);
 
   const handleStreetListClick = (statusType, title) => {
     const streets = streetData.filter(s => s.status === statusType);
@@ -342,16 +341,14 @@ const PavementMapPage = () => {
             contentType: 'application/pdf',
             tituloShare: fileName,
           });
-          toast({ title: 'Download concluído!' });
         } catch (error) {
-          toast({ title: 'Erro ao baixar relatório', description: 'Não foi possível salvar o relatório. Tente novamente.', variant: 'destructive' });
+          showAppError({ title: 'Erro ao baixar relatório', description: 'Não foi possível salvar o relatório. Tente novamente.', variant: 'destructive' });
         }
       } else {
         doc.save(fileName);
-        toast({ title: 'Download concluído!', description: 'O download do seu PDF foi iniciado.' });
       }
     } catch (error) {
-      toast({ title: 'Erro ao gerar relatório', description: error.message || 'Não foi possível gerar o relatório.', variant: 'destructive' });
+      showAppError({ title: 'Erro ao gerar relatório', description: error.message || 'Não foi possível gerar o relatório.', variant: 'destructive' });
     } finally {
       setTimeout(() => setDownloading(false), 800);
     }

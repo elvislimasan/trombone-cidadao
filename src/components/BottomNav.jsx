@@ -4,7 +4,6 @@ import { Home, Map, PlusCircle, BarChart3, User } from 'lucide-react';
 import Avatar from 'react-nice-avatar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ReportModal from '@/components/ReportModal';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -18,6 +17,13 @@ const readInt = (value, fallback = 0) => {
   const n = Number(value);
   if (Number.isFinite(n)) return Math.trunc(n);
   return fallback;
+};
+
+const throwIfAborted = (signal) => {
+  if (!signal?.aborted) return;
+  const error = new Error('Envio cancelado.');
+  error.name = 'AbortError';
+  throw error;
 };
 
 const NAV_ITEMS = [
@@ -55,7 +61,6 @@ const getAvatarComponent = (profile) => {
 const BottomNav = () => {
   const location = useLocation();
   const { user } = useAuth();
-  const { toast } = useToast();
   const [showReportModal, setShowReportModal] = useState(false);
 
   const triggerHaptic = useCallback(async () => {
@@ -72,8 +77,9 @@ const BottomNav = () => {
   }, [triggerHaptic]);
 
   const handleCreateReport = useCallback(
-    async (newReportData, uploadMediaCallback) => {
-      if (!user) return;
+    async (newReportData, uploadMediaCallback, { signal } = {}) => {
+      throwIfAborted(signal);
+      if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
 
       const {
         title, description, category, address, location,
@@ -88,7 +94,7 @@ const BottomNav = () => {
         String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
       const normalizedPole = normPole(pole_number);
 
-      const { data, error } = await supabase
+      let insertQuery = supabase
         .from('reports')
         .insert({
           title,
@@ -122,18 +128,25 @@ const BottomNav = () => {
         .select('id')
         .single();
 
-      if (error) {
-        toast({ title: 'Erro ao criar bronca', description: error.message, variant: 'destructive' });
-        return;
+      if (signal && typeof insertQuery.abortSignal === 'function') {
+        insertQuery = insertQuery.abortSignal(signal);
       }
 
-      if (uploadMediaCallback) {
-        try {
-          await uploadMediaCallback(data.id);
-        } catch (uploadError) {
-          await supabase.from('reports').delete().eq('id', data.id);
-          throw uploadError;
+      const { data, error } = await insertQuery;
+
+      if (error) {
+        throw error;
+      }
+
+      try {
+        throwIfAborted(signal);
+        if (uploadMediaCallback) {
+          await uploadMediaCallback(data.id, { signal });
+          throwIfAborted(signal);
         }
+      } catch (submitError) {
+        await supabase.from('reports').delete().eq('id', data.id);
+        throw submitError;
       }
 
       let nextSubmitted = 1;
@@ -157,22 +170,10 @@ const BottomNav = () => {
         });
       } catch {}
 
-      // O aviso de moderação não é enfeite: sem ele a pessoa envia, não vê a
-      // bronca no feed e conclui que o app perdeu o cadastro — reenvia, ou
-      // desiste. Só admin/master publicam direto (é o que a linha de
-      // moderation_status acima decide), então o texto segue a mesma regra.
-      const isPublishedDirectly = user?.is_admin || user?.is_master;
-      toast({
-        title: 'Você acabou de ajudar sua cidade 🔥',
-        description: isPublishedDirectly
-          ? `Bronca publicada. Total: ${nextSubmitted}`
-          : `Bronca enviada para moderação — após aprovada, estará disponível no feed. Total: ${nextSubmitted}`,
-        duration: 5500,
-      });
       setShowReportModal(false);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
     },
-    [user, toast]
+    [user]
   );
 
   const navLinkClass = useCallback(

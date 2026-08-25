@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
+import { showAppError } from '@/lib/appError';
 
 const PAGE_SIZE = 12;
 
@@ -14,7 +14,6 @@ const NewsPage = () => {
   const [newsItems, setNewsItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const { toast } = useToast();
 
   const fetchNews = useCallback(async (page) => {
     const offset = (page - 1) * PAGE_SIZE;
@@ -25,12 +24,12 @@ const NewsPage = () => {
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (error) {
-      toast({ title: "Erro ao buscar notícias", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar notícias", description: error.message, variant: "destructive" });
     } else {
       setNewsItems(data);
       setTotalCount(count || 0);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchNews(currentPage);

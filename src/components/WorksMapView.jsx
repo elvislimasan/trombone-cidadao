@@ -10,13 +10,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { formatCurrency, formatCnpj, formatDate } from '@/lib/utils';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
 import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
 import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
 import { createMapPin, ICON_SIZE } from '@/components/map/pinIcon';
+import { showAppError } from '@/lib/appError';
 
 // Status de obra -> sufixo do token --pin-work-*. Fora dessa lista cai em
 // 'unknown', o cinza neutro.
@@ -110,7 +110,6 @@ const WorksMapView = forwardRef(({ works }, ref) => {
   const mapRef = useRef();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const { mode } = useMapModeToggle();
   const { city: activeCity } = useCityView();
 
@@ -131,18 +130,18 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       ]);
 
       if (mediaRes.error) {
-        toast({ title: "Erro ao buscar mídias da obra", description: mediaRes.error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao buscar mídias da obra", description: mediaRes.error.message, variant: "destructive" });
         setWorkMedia([]);
       } else {
         setWorkMedia(mediaRes.data || []);
       }
 
       if (workRes.error) {
-        toast({ title: "Erro ao buscar dados da obra", description: workRes.error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao buscar dados da obra", description: workRes.error.message, variant: "destructive" });
       }
 
       if (measurementsRes.error) {
-        toast({ title: "Erro ao buscar fases da obra", description: measurementsRes.error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao buscar fases da obra", description: measurementsRes.error.message, variant: "destructive" });
       }
 
       let computedPaidTotal = 0;
@@ -175,7 +174,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
       setLoadingMedia(false);
       setLoadingLastUpdatedAt(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     if (selectedWork) {

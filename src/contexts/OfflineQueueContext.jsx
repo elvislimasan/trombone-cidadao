@@ -8,7 +8,7 @@ import { useOfflineQueue } from '@/hooks/useOfflineQueue';
 // `useOfflineQueue` liga um temporizador de 60 s e um listener de `online`.
 // Montado em três telas, seriam três carteiros correndo a mesma fila ao mesmo
 // tempo — e dois deles tentariam enviar itens que o primeiro já removeu, cada
-// um mostrando o próprio toast de "envio concluído".
+// um disparando o próprio aviso de "envio concluído".
 //
 // Aqui ele nasce uma vez, na raiz, e as telas leem o contador.
 

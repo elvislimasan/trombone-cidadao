@@ -6,13 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { ArrowDownToLine } from 'lucide-react';
+import { showAppError, showAppNotice } from '@/lib/appError';
 
 const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
-  const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -75,13 +74,12 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
         if (updateReportError) console.error("Erro ao atualizar flag na bronca:", updateReportError);
       }
 
-      if (initialStatus === 'open') {
-      } else {
-        toast({
-          title: "Abaixo-Assinado Enviado! ⏳",
-          description: "Sua campanha foi enviada para moderação e ficará visível após aprovação.",
-        });
-      }
+      showAppNotice({
+        title: initialStatus === 'open' ? 'Abaixo-assinado publicado' : 'Abaixo-assinado enviado',
+        description: initialStatus === 'open'
+          ? 'A campanha já está disponível para receber assinaturas.'
+          : 'A campanha aguarda moderação antes de aparecer publicamente.',
+      });
 
       if (onSuccess) onSuccess(newPetition);
       onClose();
@@ -92,7 +90,7 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
 
     } catch (error) {
       console.error(error);
-      toast({
+      showAppError({
         title: "Erro ao criar",
         description: error.message,
         variant: "destructive"

@@ -11,7 +11,6 @@ import StatusBadge from '@/design-system/primitives/StatusBadge';
 import Icon, { categoryIconName } from '@/design-system/icons';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +23,7 @@ import {
   canShareToStory,
   shareVideoToInstagramStory,
 } from '@/lib/instagramStory';
+import { showAppError } from '@/lib/appError';
 
 // Distancia em linguagem de rua: abaixo de 1 km em metros arredondados a 50,
 // porque "a 347 m" sugere uma precisao que o GPS do celular nao tem.
@@ -56,7 +56,6 @@ const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-5 h-5', textClassNam
 const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isNew = false, index = 0 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const cardRef = useRef(null);
   const [isInView, setIsInView] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -133,7 +132,6 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        toast({ title: 'Link copiado!', description: 'Cole onde quiser compartilhar.', duration: 2000 });
         return;
       }
       if (Capacitor.isNativePlatform()) {
@@ -142,7 +140,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
     } catch {
       // usuario cancelou ou clipboard indisponivel
     }
-  }, [report.id, report.title, toast]);
+  }, [report.id, report.title]);
 
   // Folha de compartilhamento do sistema (WhatsApp, Telegram, etc).
   const shareLink = useCallback(async () => {
@@ -186,18 +184,12 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
       if (linkAttached) {
         // Nao da para saber se o Instagram renderizou o sticker: a permissao
         // de link em story e da conta do usuario, invisivel para o app.
-        toast({
-          title: 'Vídeo enviado ao Instagram',
-          description:
-            'Se sua conta permitir link em story, o sticker do Trombone já vai estar lá.',
-          duration: 4000,
-        });
       }
     } catch (error) {
       const reason = String(error?.message || '');
 
       if (reason === 'INSTAGRAM_NOT_INSTALLED') {
-        toast({
+        showAppError({
           title: 'Instagram não encontrado',
           description: 'Instale o Instagram para postar direto no story.',
           variant: 'destructive',
@@ -207,16 +199,11 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
 
       // Video fora dos limites do story: o card estatico ainda resolve.
       if (reason === 'VIDEO_TOO_LONG' || reason === 'VIDEO_TOO_LARGE') {
-        toast({
-          title: 'Vídeo muito grande para o story',
-          description: 'Gerando um card com a imagem da bronca.',
-          duration: 3000,
-        });
         openStoryCard();
         return;
       }
 
-      toast({
+      showAppError({
         title: 'Não foi possível compartilhar',
         description: 'Tente novamente ou compartilhe o link.',
         variant: 'destructive',
@@ -225,7 +212,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
     } finally {
       setSharingStory(false);
     }
-  }, [report.id, report.coverVideo, toast, shareLink, openStoryCard]);
+  }, [report.id, report.coverVideo, shareLink, openStoryCard]);
 
   const handleBookmark = useCallback(async () => {
     if (!user) {
@@ -248,9 +235,9 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
       }
     } catch {
       setLocalFav(eraFavorito);
-      toast({ title: 'Erro ao salvar', variant: 'destructive', duration: 2000 });
+      showAppError({ title: 'Erro ao salvar', variant: 'destructive', duration: 2000 });
     }
-  }, [user, report.id, localFav, navigate, toast]);
+  }, [user, report.id, localFav, navigate]);
 
 
   const isActive = localStatus !== 'resolved' && localStatus !== 'duplicate';

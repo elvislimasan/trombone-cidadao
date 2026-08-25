@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Edit, Trash2, Eye, MessageSquare, FileText, Clock, CheckCircle, XCircle, PlusCircle, Send, Upload, Building, ShoppingCart, MapPin, Share2, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportDetails from '@/components/ReportDetails';
@@ -17,11 +16,18 @@ import { supabase } from '@/lib/customSupabaseClient';
 import ReportModal from '@/components/ReportModal';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useUpvote } from '../hooks/useUpvotes';
+import { showAppError } from '@/lib/appError';
+
+const throwIfAborted = (signal) => {
+  if (!signal?.aborted) return;
+  const error = new Error('Envio cancelado.');
+  error.name = 'AbortError';
+  throw error;
+};
 
 const UserDashboardPage = () => {
   const { user } = useAuth();
   const { activeCityId } = useCity();
-  const { toast } = useToast();
   const location = useLocation();
   const [reports, setReports] = useState([]);
   const [comments, setComments] = useState([]);
@@ -63,7 +69,7 @@ const UserDashboardPage = () => {
       .order('created_at', { ascending: false });
     
     if (reportsError) {
-      toast({ title: "Erro ao buscar suas broncas", description: reportsError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar suas broncas", description: reportsError.message, variant: "destructive" });
     } else {
       const formattedReports = reportsData.map(r => ({
         ...r,
@@ -86,11 +92,11 @@ const UserDashboardPage = () => {
       .eq('author_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (commentsError) toast({ title: "Erro ao buscar seus comentários", description: commentsError.message, variant: "destructive" });
+    if (commentsError) showAppError({ title: "Erro ao buscar seus comentários", description: commentsError.message, variant: "destructive" });
     else setComments(commentsData.map(c => ({...c, reportTitle: c.report?.title})));
 
     setLoading(false);
-  }, [user, toast]);
+  }, [user]);
 
   useEffect(() => {
     fetchUserContributions();
@@ -231,7 +237,7 @@ const UserDashboardPage = () => {
     }
 
     if (updateError) {
-      toast({ title: "Erro ao atualizar dados", description: updateError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar dados", description: updateError.message, variant: "destructive" });
       return;
     }
     
@@ -249,9 +255,8 @@ const UserDashboardPage = () => {
       .eq('id', reportToDelete.id);
 
     if (error) {
-      toast({ title: "Erro ao remover bronca", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao remover bronca", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca Removida!", description: "Sua solicitação foi removida com sucesso.", variant: "destructive" });
       fetchUserContributions();
     }
     setReportToDelete(null);
@@ -280,11 +285,11 @@ const UserDashboardPage = () => {
   const handleNewEntrySubmit = async (e) => {
     e.preventDefault();
     if (!newEntry.name || !newEntry.address || !newEntry.phone) {
-      toast({ title: "Campos obrigatórios", description: "Por favor, preencha nome, endereço e telefone.", variant: "destructive" });
+      showAppError({ title: "Campos obrigatórios", description: "Por favor, preencha nome, endereço e telefone.", variant: "destructive" });
       return;
     }
     if (!activeCityId) {
-      toast({ title: "Selecione uma cidade", description: "Escolha a cidade no topo da página antes de enviar sua sugestão.", variant: "destructive" });
+      showAppError({ title: "Selecione uma cidade", description: "Escolha a cidade no topo da página antes de enviar sua sugestão.", variant: "destructive" });
       return;
     }
 
@@ -301,16 +306,15 @@ const UserDashboardPage = () => {
       });
 
     if (error) {
-      toast({ title: "Erro ao enviar colaboração", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao enviar colaboração", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Colaboração enviada!", description: "Obrigado! Sua sugestão foi enviada para moderação." });
       setNewEntry({ name: '', address: '', phone: '', type: 'commerce', photo: null, photoPreview: null });
     }
   };
 
     const handleUpvote = async (id) => {
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -320,7 +324,7 @@ const UserDashboardPage = () => {
     if (result.success) {
       fetchUserContributions();
     } else {
-      toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
+      showAppError({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
     }
   };
 
@@ -333,8 +337,9 @@ const UserDashboardPage = () => {
     }
   };
 
-  const handleCreateReport = async (newReportData, uploadMediaCallback) => {
-    if (!user) return;
+  const handleCreateReport = async (newReportData, uploadMediaCallback, { signal } = {}) => {
+    throwIfAborted(signal);
+    if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
 
     const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility, city_id: geocodedCityId } = newReportData;
     const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
@@ -342,7 +347,7 @@ const UserDashboardPage = () => {
     const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
     const savedReportedPlate = reported_plate ? normalizePoleLabel(reported_plate) : (normalizedPole || null);
 
-    const { data, error } = await supabase
+    let insertQuery = supabase
       .from('reports')
       .insert({
         title,
@@ -366,20 +371,27 @@ const UserDashboardPage = () => {
       .select('id, title')
       .single();
 
+    if (signal && typeof insertQuery.abortSignal === 'function') {
+      insertQuery = insertQuery.abortSignal(signal);
+    }
+
+    const { data, error } = await insertQuery;
+
     if (error) {
-      toast({ title: "Erro ao criar bronca", description: error.message, variant: "destructive" });
-      return;
+      throw error;
     }
 
-    if (uploadMediaCallback) {
-      await uploadMediaCallback(data.id);
+    try {
+      throwIfAborted(signal);
+      if (uploadMediaCallback) {
+        await uploadMediaCallback(data.id, { signal });
+        throwIfAborted(signal);
+      }
+    } catch (submitError) {
+      await supabase.from('reports').delete().eq('id', data.id);
+      throw submitError;
     }
 
-    const toastMessage = user?.is_admin
-      ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
-      : { title: "Bronca enviada para moderação! 📬", description: "Após aprovada, estará disponível no feed." };
-
-    toast(toastMessage);
     setIsReportModalOpen(false);
 
     // Atualiza a lista de broncas do usuário

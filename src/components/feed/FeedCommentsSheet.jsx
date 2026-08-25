@@ -25,7 +25,7 @@ import { TimeAgo } from '@/components/TimeAgo';
 import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useReportComments } from '@/hooks/useReportComments';
-import { useToast } from '@/components/ui/use-toast';
+import { showAppError } from '@/lib/appError';
 
 const Avatar = ({ name, url }) => {
   if (url) {
@@ -46,7 +46,6 @@ const Avatar = ({ name, url }) => {
  */
 const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountChange }) => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [text, setText] = useState('');
   const listEndRef = useRef(null);
 
@@ -72,7 +71,7 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
         listEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       });
     } else {
-      toast({
+      showAppError({
         title: 'Erro ao enviar comentário',
         description: result.error,
         variant: 'destructive',
@@ -83,15 +82,8 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
   const handleModerate = async (commentId, status) => {
     const result = await moderate(commentId, status);
     if (result.ok) {
-      toast({
-        title: status === 'approved' ? 'Comentário restaurado' : 'Comentário removido',
-        description:
-          status === 'approved'
-            ? 'As denúncias foram zeradas e ele voltou para o feed.'
-            : 'Ele não aparece mais para ninguém.',
-      });
     } else {
-      toast({
+      showAppError({
         title: 'Erro ao moderar',
         description: result.error,
         variant: 'destructive',
@@ -112,7 +104,7 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
 
     const result = await excluir(commentId);
     if (!result.ok) {
-      toast({
+      showAppError({
         title: 'Erro ao excluir',
         description: result.error,
         variant: 'destructive',
@@ -125,14 +117,8 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
     if (result.ok) {
       // Sem número de denúncias na tela: dizer "faltam 2" convida a juntar as
       // outras duas. O limiar é assunto do banco.
-      toast({
-        title: result.repetida ? 'Você já denunciou' : 'Denúncia registrada',
-        description: result.repetida
-          ? 'Esta denúncia já estava no ar.'
-          : 'A moderação vai avaliar este comentário.',
-      });
     } else {
-      toast({
+      showAppError({
         title: 'Erro ao denunciar',
         description: result.error,
         variant: 'destructive',

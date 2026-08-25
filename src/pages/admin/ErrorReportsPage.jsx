@@ -3,14 +3,13 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Check, Trash2, User, Link as LinkIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { showAppError } from '@/lib/appError';
 
 const ErrorReportsPage = () => {
-  const { toast } = useToast();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingReport, setDeletingReport] = useState(null);
@@ -23,12 +22,12 @@ const ErrorReportsPage = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast({ title: "Erro ao buscar relatórios de erro", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar relatórios de erro", description: error.message, variant: "destructive" });
     } else {
       setReports(data);
     }
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchReports();
@@ -41,7 +40,7 @@ const ErrorReportsPage = () => {
       .eq('id', id);
 
     if (error) {
-      toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
     } else {
       fetchReports();
     }
@@ -55,7 +54,7 @@ const ErrorReportsPage = () => {
       .eq('id', deletingReport.id);
 
     if (error) {
-      toast({ title: "Erro ao deletar relatório", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao deletar relatório", description: error.message, variant: "destructive" });
     } else {
       fetchReports();
     }

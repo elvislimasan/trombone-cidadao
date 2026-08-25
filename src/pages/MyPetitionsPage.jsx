@@ -10,7 +10,6 @@ import { AlertTriangle, Clock, CheckCircle, XCircle, FileText, ExternalLink, Edi
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { useToast } from '@/components/ui/use-toast';
 import { exportPetitionPDF } from '@/utils/pdfExport';
 
 import { Input } from '@/components/ui/input';
@@ -23,11 +22,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { showAppError } from '@/lib/appError';
 
 const MyPetitionsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [petitions, setPetitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -159,7 +158,7 @@ const MyPetitionsPage = () => {
       
     } catch (error) {
       console.error('Error deleting petition:', error);
-      toast({ 
+      showAppError({ 
         title: "Erro ao excluir", 
         description: error.message, 
         variant: "destructive" 
@@ -171,7 +170,7 @@ const MyPetitionsPage = () => {
 
   const handleCreatePetition = async () => {
     if (!user) {
-      toast({ title: "Login necessário", description: "Você precisa estar logado para criar um abaixo-assinado.", variant: "destructive" });
+      showAppError({ title: "Login necessário", description: "Você precisa estar logado para criar um abaixo-assinado.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -196,7 +195,7 @@ const MyPetitionsPage = () => {
       navigate(`/abaixo-assinado/${data.id}?edit=true`);
     } catch (error) {
       console.error('Error creating draft:', error);
-      toast({ title: "Erro ao criar", description: "Não foi possível iniciar o abaixo-assinado.", variant: "destructive" });
+      showAppError({ title: "Erro ao criar", description: "Não foi possível iniciar o abaixo-assinado.", variant: "destructive" });
     } finally {
       setCreating(false);
     }
@@ -398,7 +397,7 @@ const MyPetitionsPage = () => {
                                                 variant="outline" 
                                                 size="sm" 
                                                 className="px-2 md:px-3 h-8 md:h-9" 
-                                                onClick={() => exportPetitionPDF(petition, toast)}
+                                                onClick={() => exportPetitionPDF(petition)}
                                                 title="Baixar PDF das Assinaturas"
                                             >
                                                 <FileDown className="w-3.5 h-3.5 md:w-4 md:h-4" />

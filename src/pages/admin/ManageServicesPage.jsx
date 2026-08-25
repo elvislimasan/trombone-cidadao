@@ -6,7 +6,6 @@ import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Save, X, Upl
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { TIPOS_TRANSPORTE } from '@/lib/transportTypes';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError } from '@/lib/appError';
 
 // Uma aba do guia: transportes, pontos turísticos, órgãos públicos, comércios.
 // As quatro têm a mesma linha e o mesmo par de botões — e agora o mesmo
@@ -50,7 +50,6 @@ const ListaServicos = ({ data, type, onEdit, onDelete }) => {
 const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
   const [formData, setFormData] = useState(null);
   const fileInputRef = useRef(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     if (item) {
@@ -71,7 +70,6 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, image_url: reader.result, image_file: file }));
-        toast({ title: "Imagem carregada!", description: "A nova imagem será salva ao confirmar." });
       };
       reader.readAsDataURL(file);
     }
@@ -252,7 +250,6 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
 };
 
 const ManageServicesPage = () => {
-  const { toast } = useToast();
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
   const [cityOptions, setCityOptions] = useState([]);
@@ -315,7 +312,7 @@ const ManageServicesPage = () => {
       if (isScopedAmbassador) query = query.in('city_id', myActiveCityIds);
       const { data, error } = await query;
       if (error) {
-        toast({ title: `Erro ao buscar ${table}`, description: error.message, variant: "destructive" });
+        showAppError({ title: `Erro ao buscar ${table}`, description: error.message, variant: "destructive" });
       } else {
         setters[table](data);
       }
@@ -325,11 +322,11 @@ const ManageServicesPage = () => {
     if (isScopedAmbassador) pendingQuery = pendingQuery.in('city_id', myActiveCityIds);
     const { data: pending, error: pendingError } = await pendingQuery;
     if (pendingError) {
-      toast({ title: "Erro ao buscar sugestões pendentes", description: pendingError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar sugestões pendentes", description: pendingError.message, variant: "destructive" });
     } else {
       setPendingEntries(pending);
     }
-  }, [toast, isScopedAmbassador, myActiveCityIds]);
+  }, [isScopedAmbassador, myActiveCityIds]);
 
   useEffect(() => {
     fetchData();
@@ -373,11 +370,11 @@ const ManageServicesPage = () => {
     const isScopedTable = tableName === 'transport' || tableName === 'tourist_spots' || tableName === 'directory';
     if (isScopedTable) {
       if (!dbData.city_id) {
-        toast({ title: "Selecione uma cidade", variant: "destructive" });
+        showAppError({ title: "Selecione uma cidade", variant: "destructive" });
         return;
       }
       if (isScopedAmbassador && !myActiveCityIds.includes(dbData.city_id)) {
-        toast({ title: "Fora da sua área", description: "Você só pode gerenciar itens nas suas cidades.", variant: "destructive" });
+        showAppError({ title: "Fora da sua área", description: "Você só pode gerenciar itens nas suas cidades.", variant: "destructive" });
         return;
       }
     }
@@ -386,7 +383,7 @@ const ManageServicesPage = () => {
       const filePath = `${tableName}/${Date.now()}-${image_file.name}`;
       const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, image_file);
       if (uploadError) {
-        toast({ title: "Erro no upload da imagem", description: uploadError.message, variant: "destructive" });
+        showAppError({ title: "Erro no upload da imagem", description: uploadError.message, variant: "destructive" });
         return;
       }
       const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(filePath);
@@ -395,10 +392,10 @@ const ManageServicesPage = () => {
 
     if (dbData.id) {
       const { error } = await supabase.from(tableName).update(dbData).eq('id', dbData.id);
-      if (error) toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+      if (error) showAppError({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
     } else {
       const { error } = await supabase.from(tableName).insert(dbData);
-      if (error) toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+      if (error) showAppError({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
     }
 
     fetchData();
@@ -413,9 +410,8 @@ const ManageServicesPage = () => {
 
     const { error } = await supabase.from(tableName).delete().eq('id', item.id);
     if (error) {
-      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao remover", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Item removido!", variant: "destructive" });
       fetchData();
     }
     setDeletingItem(null);
@@ -441,9 +437,9 @@ const ManageServicesPage = () => {
   const handleModeration = async (entry, status) => {
     const { data, error } = await supabase.from('directory').update({ status }).eq('id', entry.id).select();
     if (error) {
-      toast({ title: "Erro na moderação", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro na moderação", description: error.message, variant: "destructive" });
     } else if (!data || data.length === 0) {
-      toast({ title: "Fora da sua área", description: "Esta sugestão pertence a uma cidade fora do seu escopo de gestão.", variant: "destructive" });
+      showAppError({ title: "Fora da sua área", description: "Esta sugestão pertence a uma cidade fora do seu escopo de gestão.", variant: "destructive" });
     } else {
       fetchData();
     }

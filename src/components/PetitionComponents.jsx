@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from '@/components/ui/use-toast';
 import { getNextSignatureGoal } from '@/lib/utils';
 
 export const PetitionProgress = ({ signatures = 0, supporters = [] }) => {
@@ -100,7 +99,6 @@ export const PetitionActions = ({ onContribute, onShare }) => {
 export const ShareModal = ({ isOpen, onClose, url, title }) => {
     const handleCopy = () => {
         navigator.clipboard.writeText(url);
-        toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
     };
 
     const shareSocial = (platform) => {

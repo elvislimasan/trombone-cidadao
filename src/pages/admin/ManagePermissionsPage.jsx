@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { MODULES, MODULE_KEYS } from '@/hooks/usePermissions';
+import { showAppError } from '@/lib/appError';
 
 const ROLES = [
   { key: 'ambassador', label: 'Embaixador' },
@@ -18,7 +18,6 @@ const ROLES = [
 ];
 
 const ManagePermissionsPage = () => {
-  const { toast } = useToast();
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,12 +32,12 @@ const ManagePermissionsPage = () => {
       .from('permission_rules')
       .select('id, scope, role_name, user_id, module, allowed');
     if (error) {
-      toast({ title: 'Erro ao carregar permissões', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao carregar permissões', description: error.message, variant: 'destructive' });
     } else {
       setRules(data || []);
     }
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => { fetchRules(); }, [fetchRules]);
 
@@ -97,7 +96,7 @@ const ManagePermissionsPage = () => {
     }
     setSaving(false);
     if (error) {
-      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
       return;
     }
     fetchRules();
@@ -115,7 +114,7 @@ const ManagePermissionsPage = () => {
     }
     setSaving(false);
     if (error) {
-      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
       return;
     }
     fetchRules();
@@ -128,7 +127,7 @@ const ManagePermissionsPage = () => {
     const { error } = await supabase.from('permission_rules').delete().eq('id', existing.id);
     setSaving(false);
     if (error) {
-      toast({ title: 'Erro ao remover exceção', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao remover exceção', description: error.message, variant: 'destructive' });
       return;
     }
     fetchRules();

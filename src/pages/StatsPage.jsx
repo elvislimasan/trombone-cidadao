@@ -3,7 +3,6 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar, Cell, PieChart, Pie, LabelList, Label } from 'recharts';
 import { toPng } from 'html-to-image';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Clock, CheckCircle, BarChart3, Download, HardHat, Wrench, Loader2, LineChart as LineChartIcon, Layers, RefreshCw, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
@@ -24,6 +23,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { FileOpener } from '@capacitor-community/file-opener';
 import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
+import { showAppError } from '@/lib/appError';
 
 // Le o valor computado de um token de design em runtime. O Recharts recebe
 // cor por prop JS (nao por classe CSS), entao os tokens de grafico (canal
@@ -188,7 +188,6 @@ const ReportsStats = () => {
   const [downloading, setDownloading] = useState(false);
   const [chartDownloading, setChartDownloading] = useState(false);
   const [timelineTooltip, setTimelineTooltip] = useState(null);
-  const { toast } = useToast();
   const timelineChartRef = useRef(null);
   const timelineTooltipLayerRef = useRef(null);
   const { resolved: resolvedTheme } = useTheme();
@@ -255,7 +254,7 @@ const ReportsStats = () => {
       // sem reconsultar o backend.
 
     } catch (error) {
-      toast({
+      showAppError({
         title: "Erro ao buscar estatísticas",
         description: error.message,
         variant: "destructive",
@@ -263,7 +262,7 @@ const ReportsStats = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, activeCityId]);
+  }, [activeCityId]);
 
   // Broncas da categoria selecionada — base do gráfico de status e do PDF.
   const filteredReports = useMemo(() => {
@@ -354,7 +353,7 @@ const ReportsStats = () => {
             });
           } catch (error) {
             console.error('Erro ao abrir arquivo:', error);
-            toast({
+            showAppError({
               title: "Erro ao abrir arquivo",
               description: "Não foi possível abrir o relatório.",
               variant: "destructive",
@@ -371,7 +370,7 @@ const ReportsStats = () => {
         notificationListener.remove();
       }
     };
-  }, [toast]);
+  }, []);
 
   // Função auxiliar para gerar o PDF.
   // O relatório acompanha o filtro de categoria do card: "Todas as categorias"
@@ -497,19 +496,11 @@ const ReportsStats = () => {
         tituloShare: fileName,
       });
 
-      toast({
-        title: successTitle,
-        description: successDescription,
-      });
       return;
     }
 
     doc.save(fileName);
-    toast({
-      title: successTitle,
-      description: successDescription,
-    });
-  }, [toast]);
+  }, []);
 
   const handleDownloadPdf = async () => {
     setDownloading(true);
@@ -528,7 +519,7 @@ const ReportsStats = () => {
       });
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
-      toast({
+      showAppError({
         title: 'Erro ao gerar relatório',
         description: error.message || 'Não foi possível gerar o relatório. Tente novamente.',
         variant: 'destructive',
@@ -696,7 +687,7 @@ const ReportsStats = () => {
       });
     } catch (error) {
       console.error('Erro ao exportar gráfico:', error);
-      toast({
+      showAppError({
         title: 'Erro ao baixar documento',
         description: 'Não foi possível exportar o gráfico com os dados. Tente novamente.',
         variant: 'destructive',
@@ -1061,7 +1052,6 @@ const PublicWorksStats = () => {
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(true);
   const { cityId: activeCityId } = useCityView();
-  const { toast } = useToast();
   const { user } = useAuth();
 
   // Admin/master gerenciam qualquer cidade. Embaixador puro só pode cadastrar
@@ -1092,11 +1082,11 @@ const PublicWorksStats = () => {
       if (error) throw error;
       setWorks(data);
     } catch (error) {
-      toast({ title: "Erro ao buscar dados das obras", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar dados das obras", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [activeCityId, toast]);
+  }, [activeCityId]);
 
   useEffect(() => {
     fetchWorks();

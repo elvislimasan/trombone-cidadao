@@ -5,8 +5,8 @@ import {
   CheckCircle2, Send, Check, Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 import MediaViewer from '@/components/MediaViewer';
+import { showAppError } from '@/lib/appError';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 // Cores vindas dos tokens de status do design system (--status-*): eles ja
@@ -67,7 +67,6 @@ const ReportUpdateModal = ({
   onMessageChange,
 }) => {
   const [viewer, setViewer] = useState({ open: false, index: 0 });
-  const { toast } = useToast();
 
   // Converte photoItems para o formato que MediaViewer espera
   const viewerMedia = cam.photoItems.map((item) => ({
@@ -81,7 +80,7 @@ const ReportUpdateModal = ({
 
   const handleSubmit = () => {
     if (!selectedType) {
-      toast({ title: 'Selecione o tipo de atualização', variant: 'destructive' });
+      showAppError({ title: 'Selecione o tipo de atualização', variant: 'destructive' });
       return;
     }
     // selectedType, message e fotos vivem em ReportPage — onSubmit não precisa de parâmetros

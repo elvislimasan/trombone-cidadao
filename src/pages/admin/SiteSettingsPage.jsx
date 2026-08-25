@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -29,6 +28,7 @@ import { defaultMenuSettings, defaultFooterSettings, availableIcons, socialPlatf
 import { supabase } from '@/lib/customSupabaseClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Combobox } from "@/components/ui/combobox";
+import { showAppError } from '@/lib/appError';
 
 const IconPicker = ({ value, onChange, icons }) => {
   const [open, setOpen] = useState(false);
@@ -100,7 +100,6 @@ const defaultPromoModalSettings = {
 };
 
 const SiteSettingsPage = () => {
-  const { toast } = useToast();
   const [siteName, setSiteName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
@@ -128,12 +127,12 @@ const SiteSettingsPage = () => {
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
-      toast({ title: "Tipo de arquivo inválido", description: "Use JPG, PNG, WebP ou GIF.", variant: "destructive" });
+      showAppError({ title: "Tipo de arquivo inválido", description: "Use JPG, PNG, WebP ou GIF.", variant: "destructive" });
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Arquivo muito grande", description: "O tamanho máximo é 5MB.", variant: "destructive" });
+      showAppError({ title: "Arquivo muito grande", description: "O tamanho máximo é 5MB.", variant: "destructive" });
       return;
     }
 
@@ -162,7 +161,7 @@ const SiteSettingsPage = () => {
 
     } catch (error) {
       console.error('Erro no upload:', error);
-      toast({ title: "Erro no upload", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro no upload", description: error.message, variant: "destructive" });
     } finally {
       setUploadingImage(false);
       if (promoImageInputRef.current) {
@@ -199,7 +198,7 @@ const SiteSettingsPage = () => {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      toast({ title: "Erro ao carregar configurações", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao carregar configurações", description: error.message, variant: "destructive" });
     } else if (data) {
       setSiteName(data.site_name || 'Trombone Cidadão');
       setLogoUrl(data.logo_url || '');
@@ -261,7 +260,7 @@ const SiteSettingsPage = () => {
     }
 
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchSettings();
@@ -292,7 +291,7 @@ const SiteSettingsPage = () => {
       .single();
 
     if (error) {
-      toast({ title: "Erro ao salvar configurações", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao salvar configurações", description: error.message, variant: "destructive" });
       return;
     }
 
@@ -325,10 +324,6 @@ const SiteSettingsPage = () => {
       console.warn('Aviso: Não foi possível salvar promo_modal_settings:', promoError.message);
     }
 
-    toast({
-      title: "Configurações Salvas! ✨",
-      description: "As personalizações do site foram aplicadas globalmente.",
-    });
     
     // Disparar evento para atualizar componentes que usam essas configurações
     window.dispatchEvent(new CustomEvent('site-settings-updated'));

@@ -3,19 +3,18 @@ import { motion } from 'framer-motion';
 import { X, Send, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { showAppError } from '@/lib/appError';
 
 const ReportErrorModal = ({ onClose }) => {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
   const { user } = useAuth();
 
   const handleSubmit = async () => {
     if (!description.trim()) {
-      toast({
+      showAppError({
         title: "Descrição vazia",
         description: "Por favor, descreva o erro que você encontrou.",
         variant: "destructive",
@@ -34,16 +33,12 @@ const ReportErrorModal = ({ onClose }) => {
     setIsSubmitting(false);
 
     if (error) {
-      toast({
+      showAppError({
         title: "Erro ao reportar",
         description: "Não foi possível enviar seu relatório. Tente novamente.",
         variant: "destructive",
       });
     } else {
-      toast({
-        title: "Relatório enviado!",
-        description: "Obrigado por nos ajudar a melhorar. Nossa equipe irá analisar o problema.",
-      });
       onClose();
     }
   };

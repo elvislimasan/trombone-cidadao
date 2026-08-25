@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
+import { showAppError } from '@/lib/appError';
 
 const AmbassadorPage = () => {
   const { user } = useAuth();
@@ -25,7 +25,6 @@ const AmbassadorPage = () => {
     { module: 'rentals',  to: '/imoveis-alugados/gerenciar', Icon: Building,  label: 'Imóveis alugados' },
     { module: 'services', to: '/servicos/gerenciar',         Icon: Briefcase, label: 'Serviços' },
   ].filter((l) => canWrite(l.module));
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [showOnboardingBanner, setShowOnboardingBanner] = useState(
     user ? user.has_seen_ambassador_onboarding === false : false
@@ -63,12 +62,12 @@ const AmbassadorPage = () => {
       .eq('status', 'active');
 
     if (error) {
-      toast({ title: 'Erro ao buscar cidades', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar cidades', description: error.message, variant: 'destructive' });
     } else {
       setMyCities(data || []);
     }
     setLoadingCities(false);
-  }, [user.id, toast]);
+  }, [user.id]);
 
   const fetchPendingReports = useCallback(async (cityIds) => {
     if (!cityIds || cityIds.length === 0) {
@@ -94,12 +93,12 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
-      toast({ title: 'Erro ao buscar broncas', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar broncas', description: error.message, variant: 'destructive' });
     } else {
       setPendingReports(data || []);
     }
     setLoadingReports(false);
-  }, [toast]);
+  }, []);
 
   const fetchPendingUpdates = useCallback(async (cityIds) => {
     if (!cityIds || cityIds.length === 0) {
@@ -120,7 +119,7 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
-      toast({ title: 'Erro ao buscar atualizações', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar atualizações', description: error.message, variant: 'destructive' });
     } else {
       // Filter client-side by city
       const cityIdSet = new Set(cityIds);
@@ -128,7 +127,7 @@ const AmbassadorPage = () => {
       setPendingUpdates(filtered);
     }
     setLoadingUpdates(false);
-  }, [toast]);
+  }, []);
 
   const fetchPendingWorkMedia = useCallback(async (cityIds) => {
     if (!cityIds || cityIds.length === 0) {
@@ -149,7 +148,7 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
-      toast({ title: 'Erro ao buscar mídias de obra', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar mídias de obra', description: error.message, variant: 'destructive' });
     } else {
       // Filter client-side by city
       const cityIdSet = new Set(cityIds);
@@ -157,7 +156,7 @@ const AmbassadorPage = () => {
       setPendingWorkMedia(filtered);
     }
     setLoadingWorkMedia(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchMyCities();
@@ -180,7 +179,7 @@ const AmbassadorPage = () => {
       .eq('id', reportId);
 
     if (error) {
-      toast({ title: 'Erro ao processar bronca', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao processar bronca', description: error.message, variant: 'destructive' });
     } else {
       const cityIds = myCities.map(c => c.city_id);
       fetchPendingReports(cityIds);
@@ -196,7 +195,7 @@ const AmbassadorPage = () => {
       .eq('id', updateId);
 
     if (error) {
-      toast({ title: 'Erro ao processar atualização', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao processar atualização', description: error.message, variant: 'destructive' });
     } else {
       const cityIds = myCities.map(c => c.city_id);
       fetchPendingUpdates(cityIds);
@@ -240,7 +239,7 @@ const AmbassadorPage = () => {
       const cityIds = myCities.map((c) => c.city_id);
       fetchPendingWorkMedia(cityIds);
     } catch (err) {
-      toast({ title: 'Erro ao moderar mídia', description: err.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao moderar mídia', description: err.message, variant: 'destructive' });
     } finally {
       setActionLoadingId(null);
     }

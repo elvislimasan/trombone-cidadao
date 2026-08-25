@@ -3,24 +3,23 @@ import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { KeyRound } from 'lucide-react';
+import { showAppError } from '@/lib/appError';
 
 const ChangePasswordPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password.length < 6) {
-      toast({
+      showAppError({
         title: 'Senha muito curta',
         description: 'Sua senha deve ter no mínimo 6 caracteres.',
         variant: 'destructive',
@@ -28,7 +27,7 @@ const ChangePasswordPage = () => {
       return;
     }
     if (password !== confirmPassword) {
-      toast({
+      showAppError({
         title: 'As senhas não coincidem',
         description: 'Por favor, verifique se as senhas digitadas são iguais.',
         variant: 'destructive',
@@ -41,16 +40,12 @@ const ChangePasswordPage = () => {
     setLoading(false);
 
     if (error) {
-      toast({
+      showAppError({
         title: 'Erro ao alterar senha',
         description: error.message,
         variant: 'destructive',
       });
     } else {
-      toast({
-        title: 'Senha alterada com sucesso!',
-        description: 'Você será redirecionado para a página de perfil.',
-      });
       navigate('/perfil');
     }
   };

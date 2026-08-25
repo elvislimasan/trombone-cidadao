@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { HardHat } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -10,10 +9,10 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '@/lib/utils';
+import { showAppError } from '@/lib/appError';
 
 const FavoriteWorksPage = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [favoriteWorks, setFavoriteWorks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +32,7 @@ const FavoriteWorksPage = () => {
       .eq('user_id', user.id);
 
     if (error) {
-      toast({ title: "Erro ao buscar obras favoritas", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar obras favoritas", description: error.message, variant: "destructive" });
     } else {
       const formattedData = data.map(fav => ({
         ...fav.work,
@@ -44,7 +43,7 @@ const FavoriteWorksPage = () => {
       setFavoriteWorks(formattedData);
     }
     setLoading(false);
-  }, [user, toast]);
+  }, [user]);
 
   useEffect(() => {
     fetchFavorites();

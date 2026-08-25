@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
-import { useToast } from '@/components/ui/use-toast';
 import { useReportUpdate } from '@/hooks/useReportUpdate';
 import ReportUpdateModal from '@/components/report/ReportUpdateModal';
 
@@ -155,7 +154,6 @@ export default function MapPage() {
   const cancelRef = useRef(false);
 
   // ── Atualização de bronca direto no mapa (sem sair da tela) ──
-  const { toast } = useToast();
   const [updatingReport, setUpdatingReport] = useState(null);
   const [updatingReportUpdates, setUpdatingReportUpdates] = useState([]);
 
@@ -422,29 +420,9 @@ export default function MapPage() {
     setUpdatingReportUpdates(data || []);
   }, []);
 
-  const STATUS_LABELS = {
-    pending: 'Pendente',
-    'in-progress': 'Em Andamento',
-    pending_resolution: 'Aguardando confirmação de resolução',
-    resolved: 'Resolvida',
-  };
-
   const reportUpdate = useReportUpdate(updatingReport, updatingReportUpdates, {
     onSuccess: ({ isAuthorOrAdmin, newStatus }) => {
       setUpdatingReport(null);
-      toast(
-        isAuthorOrAdmin
-          ? {
-              title: 'Atualização confirmada! ✅',
-              description: newStatus
-                ? `Status da bronca atualizado para "${STATUS_LABELS[newStatus] || newStatus}".`
-                : undefined,
-            }
-          : {
-              title: 'Atualização enviada! 📢',
-              description: 'Sua atualização será revisada antes de aparecer para todos.',
-            }
-      );
       // Recarrega os pins para refletir a eventual mudança de status
       if (mapBounds) fetchClusters(mapBounds, mapZoom);
     },

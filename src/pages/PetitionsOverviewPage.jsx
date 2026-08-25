@@ -5,7 +5,6 @@ import { Search, Filter, TrendingUp, Users, Heart, ArrowRight, CheckCircle2, Meg
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import Header from '@/components/Header';
 import PetitionCard from '@/components/PetitionCard';
 import { getNextSignatureGoal } from '@/lib/utils';
@@ -16,11 +15,11 @@ import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { showAppError } from '@/lib/appError';
 
 const PetitionsOverviewPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const [petitions, setPetitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,7 +121,7 @@ const PetitionsOverviewPage = () => {
 
   const handleCreatePetition = async () => {
     if (!user) {
-      toast({ title: "Login necessário", description: "Você precisa estar logado para criar um abaixo-assinado.", variant: "destructive" });
+      showAppError({ title: "Login necessário", description: "Você precisa estar logado para criar um abaixo-assinado.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -146,7 +145,7 @@ const PetitionsOverviewPage = () => {
       navigate(`/abaixo-assinado/${data.id}?edit=true`);
     } catch (error) {
       console.error('Error creating draft:', error);
-      toast({ title: "Erro ao criar", description: "Não foi possível iniciar o abaixo-assinado.", variant: "destructive" });
+      showAppError({ title: "Erro ao criar", description: "Não foi possível iniciar o abaixo-assinado.", variant: "destructive" });
     }
   };
 

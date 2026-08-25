@@ -33,7 +33,7 @@ import { Capacitor } from '@capacitor/core';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { App } from '@capacitor/app';
 import { VideoProcessor } from '@/plugins/VideoProcessor';
-import { useToast } from '@/components/ui/use-toast';
+import { showAppError } from '@/lib/appError';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -219,7 +219,6 @@ const consumePendingPhoto = () => {
  * passava um valor, e a miniatura entrando na grade já é o retorno.
  */
 export const useNativeCamera = ({ maxPhotos = 5 } = {}) => {
-  const { toast } = useToast();
 
   // Estado unificado — cada item: { id, preview, nativePath?, file?, name }
   const [photoItems, setPhotoItems] = useState([]);
@@ -474,12 +473,12 @@ export const useNativeCamera = ({ maxPhotos = 5 } = {}) => {
     } catch (err) {
       clearCameraContext();
       if (!isUserCancelled(err))
-        toast({ title: 'Não foi possível abrir a câmera', variant: 'destructive' });
+        showAppError({ title: 'Não foi possível abrir a câmera', variant: 'destructive' });
     } finally {
       takingPhotoRef.current = false;
       setAddingPhoto(false);
     }
-  }, [canAdd, processAndAdd, handleFileChange, toast]);
+  }, [canAdd, processAndAdd, handleFileChange]);
 
   // ── Galeria ─────────────────────────────────────────────────────────────
   // Android + iOS: CapCamera.getPhoto com source Photos + Uri
@@ -519,12 +518,12 @@ export const useNativeCamera = ({ maxPhotos = 5 } = {}) => {
     } catch (err) {
       clearCameraContext();
       if (!isUserCancelled(err))
-        toast({ title: 'Não foi possível abrir a galeria', variant: 'destructive' });
+        showAppError({ title: 'Não foi possível abrir a galeria', variant: 'destructive' });
     } finally {
       takingPhotoRef.current = false;
       setAddingPhoto(false);
     }
-  }, [canAdd, processAndAdd, toast]);
+  }, [canAdd, processAndAdd]);
 
   // ── Remover foto ────────────────────────────────────────────────────────
   const removePhoto = useCallback((id) => {

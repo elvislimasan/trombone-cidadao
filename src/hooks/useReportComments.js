@@ -20,7 +20,7 @@ import { mascarar } from '@/lib/profanity';
 export function useReportComments(reportId, { enabled = true } = {}) {
   const { user } = useAuth();
   const canModerate = Boolean(user?.is_admin || user?.is_master);
-  const { celebrar } = useMissionProgress();
+  const { celebrate } = useMissionProgress();
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -110,9 +110,7 @@ export function useReportComments(reportId, { enabled = true } = {}) {
 
         // Insere direto na lista em vez de refazer o fetch: o comentario ja
         // volta do insert e a folha esta aberta na frente do usuario.
-        // Comentário conta para a missão da trilha Comunidade.
-        celebrar();
-
+        celebrate();
         setComments((prev) => [
           ...prev,
           {
@@ -133,7 +131,7 @@ export function useReportComments(reportId, { enabled = true } = {}) {
         setSubmitting(false);
       }
     },
-    [reportId, user, celebrar]
+    [reportId, user, celebrate]
   );
 
   /**

@@ -5,14 +5,13 @@ import { motion } from 'framer-motion';
 import { UploadCloud, Send, Image as ImageIcon, X, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { showAppError } from '@/lib/appError';
 
 const UploadWorkPhotoPage = () => {
   const { workId } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user } = useAuth();
   const [work, setWork] = useState(null);
   const [files, setFiles] = useState([]);
@@ -27,12 +26,12 @@ const UploadWorkPhotoPage = () => {
       .single();
     
     if (error || !data) {
-      toast({ title: "Obra não encontrada", variant: "destructive" });
+      showAppError({ title: "Obra não encontrada", variant: "destructive" });
       navigate('/obras-publicas');
     } else {
       setWork(data);
     }
-  }, [workId, navigate, toast]);
+  }, [workId, navigate]);
 
   useEffect(() => {
     fetchWork();
@@ -66,11 +65,11 @@ const UploadWorkPhotoPage = () => {
   const handleSubmit = async () => {
     if (isUploading) return;
     if (files.length === 0) {
-      toast({ title: "Nenhuma foto selecionada", variant: "destructive" });
+      showAppError({ title: "Nenhuma foto selecionada", variant: "destructive" });
       return;
     }
     if (!user) {
-      toast({ title: "Você precisa estar logado para enviar fotos", variant: "destructive" });
+      showAppError({ title: "Você precisa estar logado para enviar fotos", variant: "destructive" });
       return;
     }
 
@@ -131,13 +130,9 @@ const UploadWorkPhotoPage = () => {
 
     try {
       await Promise.all(uploadPromises);
-      toast({
-        title: "Fotos enviadas com sucesso! 🎉",
-        description: "Obrigado pela sua contribuição.",
-      });
       navigate(`/obras-publicas/${workId}`);
     } catch (error) {
-      toast({
+      showAppError({
         title: "Erro ao enviar fotos",
         description: error.message,
         variant: "destructive",

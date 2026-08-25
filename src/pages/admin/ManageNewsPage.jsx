@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Image as ImageIcon, Video, Check, XCircle, Loader2, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +18,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import RichTextEditor from '@/components/petition/RichTextEditor';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError, showAppInfo } from '@/lib/appError';
 
 export const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [formData, setFormData] = useState(null);
@@ -769,7 +769,6 @@ export const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 };
 
 const ManageNewsPage = () => {
-  const { toast } = useToast();
   const [news, setNews] = useState([]);
   const [editingNews, setEditingNews] = useState(null);
   const [deletingNews, setDeletingNews] = useState(null);
@@ -778,13 +777,13 @@ const ManageNewsPage = () => {
 
   const fetchNewsAndComments = useCallback(async () => {
     const { data: newsData, error: newsError } = await supabase.from('news').select('*').order('date', { ascending: false });
-    if (newsError) toast({ title: "Erro ao buscar notícias", description: newsError.message, variant: "destructive" });
+    if (newsError) showAppError({ title: "Erro ao buscar notícias", description: newsError.message, variant: "destructive" });
     else setNews(newsData);
 
     const { data: commentsData, error: commentsError } = await supabase.from('comments').select('*, news:news(title), author:profiles(name)').eq('moderation_status', 'pending_approval').not('news_id', 'is', null);
-    if (commentsError) toast({ title: "Erro ao buscar comentários", description: commentsError.message, variant: "destructive" });
+    if (commentsError) showAppError({ title: "Erro ao buscar comentários", description: commentsError.message, variant: "destructive" });
     else setPendingComments(commentsData);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchNewsAndComments();
@@ -800,18 +799,15 @@ const ManageNewsPage = () => {
   const handleRunImporter = async () => {
     if (isImporting) return;
     setIsImporting(true);
-    toast({ title: "Importando notícias...", description: "Buscando novas publicações do Blog do Elvis." });
     try {
-      const { data, error } = await supabase.functions.invoke('import-news', { body: { limit: 100, pages: 0 } });
+      const { error } = await supabase.functions.invoke('import-news', { body: { limit: 100, pages: 0 } });
       if (error) {
-        toast({ title: "Erro ao importar", description: error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao importar", description: error.message, variant: "destructive" });
       } else {
-        const imported = data?.imported_count || 0;
-        toast({ title: "Importação concluída", description: `${imported} notícia(s) nova(s) importada(s).` });
         fetchNewsAndComments();
       }
     } catch (e) {
-      toast({ title: "Falha na função de importação", description: e.message, variant: "destructive" });
+      showAppError({ title: "Falha na função de importação", description: e.message, variant: "destructive" });
     } finally {
       setIsImporting(false);
     }
@@ -843,7 +839,7 @@ const ManageNewsPage = () => {
     }
 
     if (error) {
-      toast({ title: "Erro ao salvar notícia", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao salvar notícia", description: error.message, variant: "destructive" });
       return;
     }
 
@@ -857,7 +853,7 @@ const ManageNewsPage = () => {
         if (workRows.length > 0) {
           const { error: linkErr } = await supabase.from('news_public_works').insert(workRows);
           if (linkErr) {
-            toast({ title: "Erro ao vincular obras", description: linkErr.message, variant: "destructive" });
+            showAppError({ title: "Erro ao vincular obras", description: linkErr.message, variant: "destructive" });
           }
         }
       }
@@ -873,7 +869,7 @@ const ManageNewsPage = () => {
         if (petitionRows.length > 0) {
           const { error: linkErr } = await supabase.from('news_petitions').insert(petitionRows);
           if (linkErr) {
-            toast({ title: "Erro ao vincular petições", description: linkErr.message, variant: "destructive" });
+            showAppError({ title: "Erro ao vincular petições", description: linkErr.message, variant: "destructive" });
           }
         }
       }
@@ -889,7 +885,7 @@ const ManageNewsPage = () => {
         if (reportRows.length > 0) {
           const { error: linkErr } = await supabase.from('news_reports').insert(reportRows);
           if (linkErr) {
-            toast({ title: "Erro ao vincular broncas", description: linkErr.message, variant: "destructive" });
+            showAppError({ title: "Erro ao vincular broncas", description: linkErr.message, variant: "destructive" });
           }
         }
       }
@@ -905,7 +901,7 @@ const ManageNewsPage = () => {
         if (rows.length > 0) {
           const { error: linkErr } = await supabase.from('news_related').insert(rows);
           if (linkErr) {
-            toast({ title: "Erro ao vincular notícias relacionadas", description: linkErr.message, variant: "destructive" });
+            showAppError({ title: "Erro ao vincular notícias relacionadas", description: linkErr.message, variant: "destructive" });
           }
         }
       }
@@ -998,7 +994,7 @@ const ManageNewsPage = () => {
 
         await Promise.all(uploadPromises);
       } catch (uploadError) {
-        toast({ 
+        showAppError({ 
           title: "Notícia salva, mas houve erro no upload da galeria", 
           description: uploadError.message, 
           variant: "destructive" 
@@ -1007,13 +1003,12 @@ const ManageNewsPage = () => {
     }
 
     if (savedNewsId && sendNotification) {
-      toast({ title: "Enviando notificações...", description: "Isso pode levar alguns instantes." });
       supabase.functions.invoke('send-news-email', {
           body: { newsId: savedNewsId }
       }).then(({ data, error }) => {
           if (error) {
               console.error('Erro ao enviar emails:', error);
-              toast({ title: "Erro no envio de emails", description: error.message, variant: "destructive" });
+              showAppError({ title: "Erro no envio de emails", description: error.message, variant: "destructive" });
           } else {
               // Check for internal errors in batches or no recipients
               const failures = data.batches?.filter(b => !b.success);
@@ -1022,24 +1017,22 @@ const ManageNewsPage = () => {
                   console.error('Falhas no envio:', failures);
                   // Show the first error message to help debugging
                   const errorMsg = failures[0].error?.message || failures[0].error?.name || "Erro desconhecido";
-                  toast({ 
+                  showAppError({ 
                       title: "Erro no envio (Sender)", 
                       description: `Falha: ${errorMsg}. Verifique a chave de API e remetente.`, 
                       variant: "destructive" 
                   });
               } else if (data.message === 'No recipients found') {
-                   toast({ 
-                      title: "Nenhum destinatário", 
-                      description: "Nenhum usuário habilitou notificações para receber este email.", 
-                      variant: "warning" 
+                  showAppInfo({
+                    title: 'Nenhum destinatário',
+                    description: 'Nenhum usuário habilitou o recebimento deste e-mail.',
                   });
               } else {
-                  toast({ title: "Emails enviados!", description: data?.message || "Processo concluído." });
               }
           }
       }).catch(err => {
            console.error('Erro ao invocar função:', err);
-           toast({ title: "Erro ao iniciar envio", description: "Verifique o console para mais detalhes.", variant: "destructive" });
+           showAppError({ title: "Erro ao iniciar envio", description: "Verifique o console para mais detalhes.", variant: "destructive" });
       });
     }
 
@@ -1077,9 +1070,8 @@ const ManageNewsPage = () => {
     // Deletar notícia (cascade deleta registros em news_image)
     const { error } = await supabase.from('news').delete().eq('id', newsId);
     if (error) {
-      toast({ title: "Erro ao remover notícia", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao remover notícia", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Notícia removida com sucesso!", variant: "destructive" });
       fetchNewsAndComments();
     }
     setDeletingNews(null);
@@ -1097,7 +1089,7 @@ const ManageNewsPage = () => {
       p_status: newStatus,
     });
     if (error) {
-      toast({ title: "Erro ao moderar comentário", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao moderar comentário", description: error.message, variant: "destructive" });
     } else {
       fetchNewsAndComments();
     }

@@ -26,7 +26,6 @@ const ReportHeader = ({
   showAdminActions,
   handleOpenLinkModal,
   handleEditClick,
-  handleReportError,
   handleWhatsAppShare,
   handleCopyShareLink,
   handleShare,
@@ -127,15 +126,6 @@ const ReportHeader = ({
                 Copiar link
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator />
-
-              <DropdownMenuItem
-                className="gap-2 cursor-pointer text-brand"
-                onClick={handleReportError}
-              >
-                <Icon name="flag" size={14} />
-                Reportar erro
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

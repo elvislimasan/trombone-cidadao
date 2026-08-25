@@ -57,11 +57,13 @@ const WebUploadIndicator = () => {
                         upload.status === 'error' ? 'Erro' : 
                         `${Math.round(upload.progress)}%`}
                       </span>
-                      {(upload.status === 'uploading' || upload.status === 'pending') && (
+                      {(upload.status === 'uploading' ||
+                        upload.status === 'pending' ||
+                        upload.status === 'error') && (
                         <button 
                           onClick={(e) => { e.stopPropagation(); cancelUpload(upload.id); }}
                           className="text-muted-foreground hover:text-red-500 transition-colors"
-                          title="Cancelar upload"
+                          title={upload.status === 'error' ? 'Dispensar erro' : 'Cancelar upload'}
                         >
                           <X className="w-3 h-3" />
                         </button>

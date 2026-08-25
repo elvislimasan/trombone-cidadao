@@ -4,7 +4,6 @@ import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import { useNavigationGps } from '@/hooks/useNavigationGps';
 import { useNavStreet } from '@/hooks/useNavStreet';
 import { usePatrolRecorder } from '@/hooks/usePatrolRecorder';
@@ -15,6 +14,7 @@ import { PONTOS } from '@/lib/patrolGame';
 import { haversine, frasear } from '@/lib/navGeo';
 import { nomeDaCategoria } from '@/lib/reportCategories';
 import { getPatrolShareUrl } from '@/lib/shareUtils';
+import { showAppError } from '@/lib/appError';
 
 import AuditCard from './AuditCard';
 import AuditSummary from './AuditSummary';
@@ -65,8 +65,7 @@ export default function AuditOverlay({
   onSair,
 }) {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const { celebrar } = useMissionProgress();
+  const { celebrate } = useMissionProgress();
 
   const [avisoAceito, setAvisoAceito] = useState(() => {
     try { return localStorage.getItem(CHAVE_AVISO) === '1'; } catch { return false; }
@@ -157,8 +156,8 @@ export default function AuditOverlay({
   const comemorar = useCallback((pontos) => {
     setPontosDoEvento(pontos);
     setComemoracao((n) => n + 1);
-    celebrar?.();
-  }, [celebrar]);
+    celebrate();
+  }, [celebrate]);
 
   /** O ponto ao alcance, descontados os adiados nesta sessão. */
   const aoAlcance = useMemo(() => {
@@ -202,10 +201,9 @@ export default function AuditOverlay({
   const aoVazio = useCallback(async (sinal) => {
     const r = await sinais.descartar(sinal.id);
     if (!r.ok) {
-      toast({
-        title: 'Não foi possível encerrar',
-        description: r.motivo,
-        variant: 'destructive',
+      showAppError({
+        title: 'Não foi possível encerrar a missão',
+        description: r.motivo || r.error?.message || 'Tente novamente em instantes.',
       });
       return;
     }
@@ -215,7 +213,7 @@ export default function AuditOverlay({
     // quarta — e a única que tapa a via na frente de quem está verificando.
     comemorar(PONTOS.vistoria);
     setResolvidos((n) => n + 1);
-  }, [sinais, toast, comemorar, registrarVistoria, setResolvidos]);
+  }, [sinais, comemorar, registrarVistoria, setResolvidos]);
 
   const aoFecharRegistro = useCallback(({ concluida, id }) => {
     setRegistro(null);
@@ -248,16 +246,14 @@ export default function AuditOverlay({
     if (!user) { onSair(); return; }
     const r = await finalizar({ publica: false });
     if (!r.ok) {
-      toast({
+      showAppError({
         title: 'Não foi possível salvar a saída',
-        description: 'As respostas que você deu foram enviadas normalmente.',
-        variant: 'destructive',
+        description: r.error?.message || 'Sua patrulha continua aberta. Tente novamente.',
       });
-      onSair();
       return;
     }
     setSaida('resumo');
-  }, [user, finalizar, toast, onSair]);
+  }, [user, finalizar, onSair]);
 
   /**
    * Compartilhar: marca a saída como pública e abre o card do story.
@@ -270,10 +266,9 @@ export default function AuditOverlay({
   const compartilhar = useCallback(async () => {
     const r = await finalizar({ publica: true });
     if (!r.ok) {
-      toast({
+      showAppError({
         title: 'Não foi possível compartilhar',
-        description: 'Tente de novo em instantes.',
-        variant: 'destructive',
+        description: r.error?.message || 'Tente novamente em instantes.',
       });
       return;
     }
@@ -281,7 +276,7 @@ export default function AuditOverlay({
       patrulhaId: r.patrulha.id,
       shareUrl: getPatrolShareUrl(r.patrulha.id),
     });
-  }, [finalizar, toast]);
+  }, [finalizar]);
 
   /**
    * Descartar não desfaz nada do que a saída produziu: cada bronca registrada e

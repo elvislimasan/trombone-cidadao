@@ -7,11 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 
 const ContactPage = () => {
-  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -78,10 +76,6 @@ ${formData.message}`;
       message: '',
     });
     
-    toast({
-      title: 'Mensagem enviada!',
-      description: 'Você será redirecionado para o WhatsApp para finalizar o envio.',
-    });
   };
 
   const handleWhatsAppClick = () => {

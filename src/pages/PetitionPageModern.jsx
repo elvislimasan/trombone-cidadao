@@ -10,7 +10,6 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { getPetitionShareUrl } from '@/lib/shareUtils';
 import { validateEmail } from '@/lib/utils';
-import { useToast } from '@/components/ui/use-toast';
 
 // Layout & UI
 import Header from '@/components/Header';
@@ -28,11 +27,11 @@ import PetitionSupportCard from '@/components/petition-modern/PetitionSupportCar
 import PetitionRelatedCauses from '@/components/petition-modern/PetitionRelatedCauses';
 import GuestSignModal from '@/components/petition-modern/GuestSignModal';
 import PetitionFlyerModal from '@/components/petition/PetitionFlyerModal';
+import { showAppError } from '@/lib/appError';
 
 const PetitionPageModern = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user } = useAuth();
   
   // Data Fetching Hook
@@ -103,7 +102,6 @@ const PetitionPageModern = () => {
   // Handlers
   const handleSign = async () => {
     if (hasSigned) {
-        toast({ title: "Já assinado", description: "Você já assinou esta petição." });
         return;
     }
 
@@ -135,7 +133,6 @@ const PetitionPageModern = () => {
           colors: ['#EF4444', '#F59E0B', '#10B981', '#3B82F6']
         });
 
-        toast({ title: "Assinado com sucesso! 🎉", description: "Obrigado pelo seu apoio." });
         setHasSigned(true);
         setSignatures(prev => [{
             created_at: new Date().toISOString(),
@@ -161,7 +158,7 @@ const PetitionPageModern = () => {
 
     } catch (error) {
         console.error("Sign error:", error);
-        toast({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
     } finally {
         setSigning(false);
     }
@@ -169,11 +166,11 @@ const PetitionPageModern = () => {
 
   const handleGuestSign = async () => {
     if (!guestForm.name || !guestForm.email || !guestForm.city) {
-        toast({ title: "Campos obrigatórios", description: "Por favor preencha nome, email e cidade.", variant: "destructive" });
+        showAppError({ title: "Campos obrigatórios", description: "Por favor preencha nome, email e cidade.", variant: "destructive" });
         return;
     }
     if (!validateEmail(guestForm.email)) {
-        toast({ title: "Email inválido", description: "Informe um email válido para assinar.", variant: "destructive" });
+        showAppError({ title: "Email inválido", description: "Informe um email válido para assinar.", variant: "destructive" });
         return;
     }
 
@@ -205,7 +202,6 @@ const PetitionPageModern = () => {
           colors: ['#EF4444', '#F59E0B', '#10B981', '#3B82F6']
         });
 
-        toast({ title: "Assinado com sucesso! 🎉", description: "Obrigado pelo seu apoio." });
         setHasSigned(true);
         setShowSignModal(false);
         setSignatures(prev => [{
@@ -229,7 +225,7 @@ const PetitionPageModern = () => {
          }).catch(err => console.error(err));
 
     } catch (error) {
-        toast({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
     } finally {
         setSigning(false);
     }
@@ -246,7 +242,7 @@ const PetitionPageModern = () => {
 
   const handlePostComment = async (comment) => {
       if (!user) {
-          toast({ title: "Faça login", description: "Você precisa estar logado para comentar.", variant: "destructive" });
+          showAppError({ title: "Faça login", description: "Você precisa estar logado para comentar.", variant: "destructive" });
           return;
       }
       try {
@@ -264,7 +260,10 @@ const PetitionPageModern = () => {
 
       } catch (error) {
           console.error("Error posting comment", error);
-          toast({ title: "Erro", description: "Não foi possível postar o comentário." });
+          showAppError({
+            title: 'Não foi possível publicar o comentário',
+            description: error.message || 'Tente novamente em instantes.',
+          });
       }
   };
 
@@ -349,7 +348,6 @@ const PetitionPageModern = () => {
                            });
                      } catch (err) {
                         navigator.clipboard.writeText(shareUrl);
-                        toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
                      }
                  }}
                  recentSignatures={signatures}
@@ -370,7 +368,6 @@ const PetitionPageModern = () => {
                    });
                   } catch (err) {
                     navigator.clipboard.writeText(shareUrl);
-                    toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
                   }
                 }}
               />

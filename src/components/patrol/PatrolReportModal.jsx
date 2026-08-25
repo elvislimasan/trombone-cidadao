@@ -3,7 +3,8 @@ import { X, Camera, Image as GalleryIcon, Loader2, MapPin, Check, Move } from 'l
 
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
+import { notifyNative } from '@/lib/nativeNotification';
+import { showAppError } from '@/lib/appError';
 import { useNativeCamera } from '@/hooks/useNativeCamera';
 import { RAIO_PRESENCA_M, RAIO_AJUSTE_M } from '@/hooks/usePatrolSignals';
 import { haversine } from '@/lib/navGeo';
@@ -56,7 +57,6 @@ export default function PatrolReportModal({
   onFechar,
 }) {
   const { user } = useAuth();
-  const { toast } = useToast();
   const cam = useNativeCamera({ maxPhotos: 3 });
 
   const ehMissao = modo === 'missao';
@@ -129,14 +129,14 @@ export default function PatrolReportModal({
   const moverPonto = useCallback((novo) => {
     if (!novo || !origem) return;
     if (haversine(origem, novo) > RAIO_AJUSTE_M) {
-      toast({
-        title: 'Muito longe da marcação',
-        description: `O ponto pode ser corrigido em até ${RAIO_AJUSTE_M} m.`,
+      showAppError({
+        title: 'Ponto fora da área permitida',
+        description: `A localização pode ser corrigida em até ${RAIO_AJUSTE_M} metros.`,
       });
       return;
     }
     setPonto({ lat: novo.lat, lng: novo.lng });
-  }, [origem, toast]);
+  }, [origem]);
 
   const deslocamento = useMemo(
     () => (origem && ponto ? Math.round(haversine(origem, ponto)) : 0),
@@ -219,10 +219,9 @@ export default function PatrolReportModal({
           });
 
       if (!r?.ok) {
-        toast({
-          title: 'Não foi possível registrar',
-          description: r?.motivo || 'Tente novamente em instantes.',
-          variant: 'destructive',
+        showAppError({
+          title: 'Não foi possível registrar a bronca',
+          description: r?.motivo || r?.error?.message || 'Tente novamente em instantes.',
         });
         return;
       }
@@ -230,9 +229,10 @@ export default function PatrolReportModal({
       // Foi para a fila: a foto já está guardada com ela, e não há id de bronca
       // para anexar mídia ainda.
       if (r.offline) {
-        toast({
-          title: 'Guardado para enviar',
-          description: 'Sem conexão agora. Sobe sozinho assim que o sinal voltar.',
+        void notifyNative({
+          title: 'Envio pendente',
+          body: 'Sem conexão agora. A bronca será enviada automaticamente quando o sinal voltar.',
+          dedupeKey: `patrulha-offline:${missao?.id || categoria}:${Date.now()}`,
         });
         onFechar({ concluida: true, modo, id: idDaBronca ?? null });
         return;
@@ -243,9 +243,14 @@ export default function PatrolReportModal({
       } catch (err) {
         // A bronca já existe — dizer que tudo falhou seria mentira, e o usuário
         // tentaria de novo numa missão que não está mais aberta.
-        toast({
-          title: 'Bronca registrada, foto pendente',
-          description: 'A foto não subiu. Você pode adicioná-la na página da bronca.',
+        void notifyNative({
+          title: 'Bronca registrada sem a foto',
+          body: 'A foto não foi enviada. Você pode adicioná-la depois na página da bronca.',
+          extra: {
+            reportId: idDaBronca ?? r.id,
+            url: `/bronca/${idDaBronca ?? r.id}`,
+          },
+          dedupeKey: `patrulha-foto-pendente:${idDaBronca ?? r.id}`,
         });
         onFechar({ concluida: true, modo, id: idDaBronca ?? r.id });
         return;
@@ -266,7 +271,7 @@ export default function PatrolReportModal({
     }
   }, [
     bloqueado, ehMissao, onCumprir, onCriar, missao, categoria, titulo,
-    descricao, ponto, deslocamento, extras, toast, enviarMidia, onFechar, modo, cam,
+    descricao, ponto, deslocamento, extras, enviarMidia, onFechar, modo, cam,
   ]);
 
   if (ehMissao && !missao) return null;

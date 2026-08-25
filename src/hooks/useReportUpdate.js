@@ -1,13 +1,34 @@
 import { useMemo, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { AlertCircle, Clock, CheckCircle } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enfileirar } from '@/lib/offlineQueue';
 import { ehErroDeRede } from '@/lib/offlineErros';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import { useNativeCamera } from '@/hooks/useNativeCamera';
+import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+const showWebUpdateFeedback = ({ offline, isAuthorOrAdmin, updateType }) => {
+  if (Capacitor.isNativePlatform()) return;
+
+  if (offline) {
+    showAppInfo({
+      title: 'Atualização salva',
+      description: 'Ela será enviada automaticamente quando a conexão voltar.',
+    });
+    return;
+  }
+
+  const awaitsModeration = !isAuthorOrAdmin && updateType !== 'still_here';
+  showAppNotice({
+    title: awaitsModeration ? 'Atualização enviada' : 'Atualização publicada',
+    description: awaitsModeration
+      ? 'Recebemos sua atualização. Ela aguarda moderação antes de aparecer na bronca.'
+      : 'Sua atualização já aparece na bronca.',
+  });
+};
 
 // Metadados de cada tipo de atualização, incluindo o status que a bronca
 // assume quando a atualização é confirmada.
@@ -151,6 +172,14 @@ export async function enviarAtualizacaoDeBronca({
     // Fotos ficam de fora: só a atualização feita pela tela de detalhe manda
     // foto, e aquela tela não roda em movimento.
     if (insertError && ehErroDeRede(insertError)) {
+      if (photos?.length) {
+        return {
+          ok: false,
+          error: new Error(
+            'Você está sem conexão. Reconecte-se para enviar a atualização com fotos.'
+          ),
+        };
+      }
       await enfileirar('confirmacao', linha);
       return { ok: true, offline: true, update: { id: `local-${Date.now()}` } };
     }
@@ -172,7 +201,10 @@ export async function enviarAtualizacaoDeBronca({
             return { report_update_id: newUpdate.id, url: publicUrl, type: 'photo' };
           })
         );
-        await supabase.from('report_update_media').insert(mediaRecords);
+        const { error: mediaInsertError } = await supabase
+          .from('report_update_media')
+          .insert(mediaRecords);
+        if (mediaInsertError) throw mediaInsertError;
       } catch {
         // Rollback: exclui o update para não deixar registro órfão
         await supabase.from('report_updates').delete().eq('id', newUpdate.id);
@@ -235,7 +267,6 @@ export async function enviarAtualizacaoDeBronca({
  */
 export function useReportUpdate(report, reportUpdates = [], { onSuccess, onOptimisticInsert } = {}) {
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const cam = useNativeCamera({ maxPhotos: 5 });
   const [updateType, setUpdateType] = useState(null);
@@ -260,37 +291,57 @@ export function useReportUpdate(report, reportUpdates = [], { onSuccess, onOptim
 
   const submit = async () => {
     if (!user || !report || !updateType) return;
-    const photos = await cam.resolveForUpload();
     setSubmitting(true);
+    try {
+      const photos = await cam.resolveForUpload();
+      const r = await enviarAtualizacaoDeBronca({
+        report,
+        updateType,
+        user,
+        message,
+        photos,
+        onOptimisticInsert,
+      });
 
-    const r = await enviarAtualizacaoDeBronca({
-      report,
-      updateType,
-      user,
-      message,
-      photos,
-      onOptimisticInsert,
-    });
-    setSubmitting(false);
+      if (!r.ok) {
+        showAppError({
+          title: r.isRateLimit ? 'Limite semanal atingido' : 'Erro ao enviar atualização',
+          description: r.isRateLimit
+            ? 'Você já enviou este tipo de atualização esta semana. Tente outro tipo ou aguarde.'
+            : r.error?.message,
+          variant: 'destructive',
+        });
+        return { ok: false };
+      }
 
-    if (!r.ok) {
-      toast({
-        title: r.isRateLimit ? 'Limite semanal atingido' : 'Erro ao enviar atualização',
-        description: r.isRateLimit
-          ? 'Você já enviou este tipo de atualização esta semana. Tente outro tipo ou aguarde.'
-          : r.error?.message,
+      reset();
+      showWebUpdateFeedback({
+        offline: r.offline,
+        isAuthorOrAdmin: r.isAuthorOrAdmin,
+        updateType,
+      });
+
+      try {
+        onSuccess?.({
+          isAuthorOrAdmin: r.isAuthorOrAdmin,
+          newStatus: r.newStatus,
+          updateId: r.update.id,
+        });
+      } catch (callbackError) {
+        console.error('[useReportUpdate] Falha ao atualizar a interface:', callbackError);
+      }
+
+      return { ok: true, isAuthorOrAdmin: r.isAuthorOrAdmin, newStatus: r.newStatus };
+    } catch (error) {
+      showAppError({
+        title: 'Erro ao preparar atualização',
+        description: error?.message || 'Não foi possível preparar as fotos para o envio.',
         variant: 'destructive',
       });
       return { ok: false };
+    } finally {
+      setSubmitting(false);
     }
-
-    reset();
-    onSuccess?.({
-      isAuthorOrAdmin: r.isAuthorOrAdmin,
-      newStatus: r.newStatus,
-      updateId: r.update.id,
-    });
-    return { ok: true, isAuthorOrAdmin: r.isAuthorOrAdmin, newStatus: r.newStatus };
   };
 
   return {

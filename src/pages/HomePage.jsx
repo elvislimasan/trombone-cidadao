@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { List, Map as MapIcon, Filter, Plus, Megaphone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import MapView from '@/components/MapView';
 import ReportModal from '@/components/ReportModal';
@@ -27,6 +26,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUpvote } from '../hooks/useUpvotes';
+import { showAppError } from '@/lib/appError';
+
+const throwIfAborted = (signal) => {
+  if (!signal?.aborted) return;
+  const error = new Error('Envio cancelado.');
+  error.name = 'AbortError';
+  throw error;
+};
 
 function HomePage() {
   const [reports, setReports] = useState([]);
@@ -39,7 +46,6 @@ function HomePage() {
   const [viewMode, setViewMode] = useState('map');
   const [filter, setFilter] = useState({ category: 'all', status: 'active' });
   const [stats, setStats] = useState({ total: 0, pending: 0, inProgress: 0, resolved: 0 });
-  const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -167,14 +173,14 @@ function HomePage() {
       return formattedData;
     } catch (error) {
       console.error('Erro ao buscar reports:', error);
-      toast({ 
+      showAppError({ 
         title: "Erro ao buscar broncas", 
         description: `Erro: ${error.message}`,
         variant: "destructive" 
       });
       return [];
     }
-  }, [toast, user]);
+  }, [user]);
 
   const fetchTopDonatedPetitions = useCallback(async () => {
     setDonationLoading(true);
@@ -258,13 +264,13 @@ function HomePage() {
       
       setCategories(categoriesData || []);
     } catch (error) {
-      toast({ 
+      showAppError({ 
         title: "Erro ao buscar categorias", 
         description: error.message, 
         variant: "destructive" 
       });
     }
-  }, [toast]);
+  }, []);
 
   // Função para buscar todos os dados iniciais
   const fetchInitialData = useCallback(async () => {
@@ -491,8 +497,9 @@ function HomePage() {
     setShowReportModal(true);
   };
 
-  const handleCreateReport = async (newReportData, uploadMediaCallback) => {
-    if (!user) return;
+  const handleCreateReport = async (newReportData, uploadMediaCallback, { signal } = {}) => {
+    throwIfAborted(signal);
+    if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
 
     const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility } = newReportData;
     const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
@@ -500,7 +507,7 @@ function HomePage() {
     const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
     const savedReportedPlate = reported_plate ? normalizePoleLabel(reported_plate) : (normalizedPole || null);
  
-    const { data, error } = await supabase
+    let insertQuery = supabase
       .from('reports')
       .insert({
         title,
@@ -518,26 +525,32 @@ function HomePage() {
         issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
         status: 'pending',
-        moderation_status: user?.is_admin ? 'approved' : 'pending_approval'
+        moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval'
       })
       .select('id', 'title')
       .single();
 
-    if (error) {
-   
-      toast({ title: "Erro ao criar bronca", description: error.message, variant: "destructive" });
-      return;
+    if (signal && typeof insertQuery.abortSignal === 'function') {
+      insertQuery = insertQuery.abortSignal(signal);
     }
 
-    if (uploadMediaCallback) {
-      await uploadMediaCallback(data.id);
+    const { data, error } = await insertQuery;
+
+    if (error) {
+      throw error;
+    }
+
+    try {
+      throwIfAborted(signal);
+      if (uploadMediaCallback) {
+        await uploadMediaCallback(data.id, { signal });
+        throwIfAborted(signal);
+      }
+    } catch (submitError) {
+      await supabase.from('reports').delete().eq('id', data.id);
+      throw submitError;
     }
     
-    const toastMessage = user?.is_admin
-      ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
-      : { title: "Bronca enviada para moderação! 📬", description: "Após aprovada, estará disponível no feed." };
-
-    toast(toastMessage);
     setShowReportModal(false);
     
     // Atualizar a lista de reports após criar um novo
@@ -682,7 +695,7 @@ function HomePage() {
       
     } catch (error) {
       console.error('Erro ao atualizar report:', error);
-      toast({ 
+      showAppError({ 
         title: "Erro ao atualizar bronca", 
         description: error.message, 
         variant: "destructive" 
@@ -692,7 +705,7 @@ function HomePage() {
 
   const handleOpenLinkModal = (sourceReport) => {
     if (!user) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Você precisa fazer login para vincular broncas.",
         variant: "destructive",
@@ -724,14 +737,14 @@ function HomePage() {
         fetchReports();
       }, 500);
     } catch (error) {
-      toast({ title: "Erro ao vincular bronca", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao vincular bronca", description: error.message, variant: "destructive" });
     }
   };
 
  // Função para favoritar com atualização IMEDIATA
     const handleFavoriteToggleWithRefresh = async (reportId, isFavorited) => {
       if (!user) {
-        toast({ 
+        showAppError({ 
           title: "Acesso restrito", 
           description: "Você precisa fazer login para favoritar.", 
           variant: "destructive" 
@@ -808,7 +821,7 @@ function HomePage() {
           }));
         }
         
-        toast({ 
+        showAppError({ 
           title: "Erro", 
           description: "Não foi possível atualizar os favoritos.", 
           variant: "destructive" 
@@ -835,7 +848,7 @@ function HomePage() {
 // Função para upvote com atualização IMEDIATA - VERSÃO CORRIGIDA
 const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted) => {
   if (!user) {
-    toast({ 
+    showAppError({ 
       title: "Acesso restrito", 
       description: "Você precisa fazer login para apoiar.", 
       variant: "destructive" 
@@ -902,7 +915,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
       }
       
       // Mostra mensagem de erro específica
-      toast({ 
+      showAppError({ 
         title: "Erro ao atualizar apoio", 
         description: "Não foi possível processar sua ação. Tente novamente.", 
         variant: "destructive" 
@@ -935,7 +948,7 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
       }));
     }
     
-    toast({ 
+    showAppError({ 
       title: "Erro", 
       description: "Não foi possível processar sua ação.", 
       variant: "destructive" 

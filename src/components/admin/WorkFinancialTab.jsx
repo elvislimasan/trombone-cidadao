@@ -5,12 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { 
   PlusCircle, Edit, Trash2, FileText,
   ArrowLeft, Save, Link2, Calculator, Search
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { showAppError } from '@/lib/appError';
 
 export function WorkFinancialTab({ workId, onEditingChange }) {
   const [measurements, setMeasurements] = useState([]);
@@ -21,7 +21,6 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
   const [currentPayment, setCurrentPayment] = useState(null);
   const [paymentsQuery, setPaymentsQuery] = useState('');
-  const { toast } = useToast();
   const commitmentTypeOptions = ['Estimativo', 'Extra Orçamentário', 'Global', 'Ordinário'];
 
   const normalizeText = useCallback((value) => {
@@ -87,7 +86,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       setMeasurements(data || []);
     } catch (error) {
       console.error('Error fetching financial data:', error);
-      toast({
+      showAppError({
         title: "Erro ao carregar dados financeiros",
         description: error.message,
         variant: "destructive"
@@ -95,7 +94,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
     } finally {
       setLoading(false);
     }
-  }, [workId, toast]);
+  }, [workId]);
 
   const allPayments = useMemo(() => {
     return (measurements || []).flatMap(m => m.payments || []);
@@ -181,13 +180,13 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const handleSavePayment = async () => {
     try {
       if (!paymentForm.payment_date || !paymentForm.value) {
-        toast({ title: "Erro", description: "Data e valor são obrigatórios.", variant: "destructive" });
+        showAppError({ title: "Erro", description: "Data e valor são obrigatórios.", variant: "destructive" });
         return;
       }
 
       const numericValue = parsePtBrNumber(paymentForm.value);
       if (numericValue == null || numericValue <= 0) {
-        toast({ title: "Erro", description: "Valor inválido.", variant: "destructive" });
+        showAppError({ title: "Erro", description: "Valor inválido.", variant: "destructive" });
         return;
       }
 
@@ -233,7 +232,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       if (onEditingChange) onEditingChange(false);
       fetchFinancialData();
     } catch (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     }
   };
 
@@ -244,7 +243,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       if (error) throw error;
       fetchFinancialData();
     } catch (error) {
-      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     }
   };
 

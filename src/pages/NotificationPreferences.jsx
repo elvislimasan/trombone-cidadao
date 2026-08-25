@@ -31,12 +31,12 @@ import {
   Camera,
   Wrench
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { Separator } from '../components/ui/separator';
 import { Badge } from '../components/ui/badge';
 import { Capacitor } from '@capacitor/core';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
+import { showAppError } from '@/lib/appError';
 
 // Valores padrão para evitar undefined
 const DEFAULT_PREFERENCES = {
@@ -102,9 +102,8 @@ const NotificationPreferences = () => {
     const success = await testNotification();
     
     if (success) {
-      toast.success('Notificação de teste enviada!');
     } else {
-      toast.error('Erro ao enviar notificação de teste');
+      showAppError('Erro ao enviar notificação de teste');
     }
     setTesting(false);
   };
@@ -114,13 +113,12 @@ const NotificationPreferences = () => {
     const success = await clearCache();
     
     if (success) {
-      toast.success('Cache limpo com sucesso!');
       setCacheInfo(await getCacheStatus());
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } else {
-      toast.error('Erro ao limpar cache');
+      showAppError('Erro ao limpar cache');
     }
     setClearingCache(false);
   };
@@ -428,16 +426,10 @@ const NotificationPreferences = () => {
                         await updatePreferences(update);
                         
                         
-                        toast.success(
-                          checked 
-                            ? `${type.name} habilitado` 
-                            : `${type.name} desabilitado`,
-                          { duration: 2000 }
-                        );
                       } catch (error) {
                         console.error(`❌ [PREF UI] Erro ao atualizar ${type.id}:`, error);
                         console.error('❌ [PREF UI] Stack trace:', error.stack);
-                        toast.error(`Erro ao atualizar ${type.name}. Verifique o console.`, { duration: 4000 });
+                        showAppError(`Erro ao atualizar ${type.name}. Verifique o console.`, { duration: 4000 });
                       }
                     }}
                     disabled={!notificationsEnabled || loading || (type.id === 'moderation_required' && isAdmin)}

@@ -5,7 +5,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -33,13 +32,11 @@ const PetitionComments = ({
   setNewComment,
   onPostComment
 }) => {
-  const { toast } = useToast();
 
   const handlePost = () => {
     if (!newComment.trim()) return;
     onPostComment(newComment);
     setNewComment('');
-    toast({ title: "Comentário enviado", description: "Obrigado por compartilhar sua opinião!" });
   };
 
   return (

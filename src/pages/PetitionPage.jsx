@@ -15,7 +15,6 @@ import {
 import jsPDF from 'jspdf';
 import confetti from 'canvas-confetti';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { getPetitionShareUrl } from '@/lib/shareUtils';
 import { validateEmail, getNextSignatureGoal } from '@/lib/utils';
@@ -39,6 +38,7 @@ import PetitionSupportCard from '@/components/petition-modern/PetitionSupportCar
 import PetitionRelatedCauses from '@/components/petition-modern/PetitionRelatedCauses';
 import ReCAPTCHA from "react-google-recaptcha";
 import { toPng } from 'html-to-image';
+import { showAppError, showAppInfo } from '@/lib/appError';
 
 const Counter = ({ value }) => {
   const [count, setCount] = useState(0);
@@ -68,7 +68,6 @@ const PetitionPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { toast } = useToast();
   const { user } = useAuth();
   const [petition, setPetition] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -99,14 +98,14 @@ const PetitionPage = () => {
         // If public and not admin, remove the edit param from URL and stay in view mode
         navigate(`/abaixo-assinado/${id}`, { replace: true });
         setIsEditing(false);
-        toast({
+        showAppError({
           title: "Acesso negado",
           description: "Petições aprovadas só podem ser editadas por administradores.",
           variant: "destructive"
         });
       }
     }
-  }, [searchParams, petition, user, navigate, id, toast]);
+  }, [searchParams, petition, user, navigate, id]);
   const [isGuestSign, setIsGuestSign] = useState(false);
   const [recentSignatures, setRecentSignatures] = useState([]);
   const [latestSigners, setLatestSigners] = useState([]);
@@ -327,7 +326,7 @@ const PetitionPage = () => {
       .single();
 
     if (error) {
-      toast({ title: "Erro ao carregar petição", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao carregar petição", description: error.message, variant: "destructive" });
       navigate('/');
     } else {
       // Access Control: Restrict visibility for non-approved petitions
@@ -350,10 +349,9 @@ const PetitionPage = () => {
               // If isPending, we allow viewing but will show a banner later
           } else {
               // Not author, not admin, not public
-              toast({ 
-                  title: "Acesso restrito", 
-                  description: "Esta petição não está disponível publicamente.", 
-                  variant: "secondary" 
+              showAppInfo({
+                title: 'Abaixo-assinado indisponível',
+                description: 'Esta campanha ainda não está disponível publicamente.',
               });
               navigate('/');
               return;
@@ -439,7 +437,7 @@ const PetitionPage = () => {
       }
     }
     if (showLoading) setLoading(false);
-  }, [id, user, navigate, toast]);
+  }, [id, user, navigate]);
 
   useEffect(() => {
     fetchPetition();
@@ -453,10 +451,6 @@ const PetitionPage = () => {
     const isPublic = updatedPetition.status === 'open';
 
     if (!isAdmin && !isPublic) {
-        toast({ 
-            title: "Petição salva", 
-            description: "Sua petição foi salva. Acompanhe o status em 'Minhas Petições'.",
-        });
         navigate('/minhas-peticoes');
     } else {
         setPetition(prev => ({ ...prev, ...updatedPetition }));
@@ -467,7 +461,6 @@ const PetitionPage = () => {
   const handleSignClick = async () => {
     setSignError('');
     if (hasSigned) {
-      toast({ title: "Já assinado", description: "Você já assinou esta petição." });
       return;
     }
 
@@ -500,7 +493,6 @@ const PetitionPage = () => {
               colors: ['#EF4444', '#F59E0B', '#10B981', '#3B82F6']
             });
 
-            toast({ title: "Assinado com sucesso! 🎉", description: "Obrigado pelo seu apoio." });
             setHasSigned(true);
             setPetition(prev => ({ ...prev, signatureCount: prev.signatureCount + 1 }));
             
@@ -638,7 +630,6 @@ const PetitionPage = () => {
             colors: ['#EF4444', '#F59E0B', '#10B981', '#3B82F6']
           });
 
-          toast({ title: "Assinado com sucesso! 🎉", description: "Obrigado pelo seu apoio." });
           setHasSigned(true);
           setPetition(prev => ({ ...prev, signatureCount: prev.signatureCount + 1 }));
           
@@ -673,7 +664,7 @@ const PetitionPage = () => {
           }).catch(err => console.error('Erro ao invocar função de email (Guest):', err));
 
       } catch (error) {
-          toast({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
+          showAppError({ title: "Erro ao assinar", description: error.message, variant: "destructive" });
       } finally {
           setSigning(false);
       }
@@ -693,12 +684,10 @@ const PetitionPage = () => {
         });
       } else {
         await navigator.clipboard.writeText(shareUrl);
-        toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
       }
     } catch (err) {
       console.error('Error sharing:', err);
       navigator.clipboard.writeText(shareUrl);
-      toast({ title: "Link copiado!", description: "Compartilhe com seus amigos." });
     }
   };
 
@@ -706,26 +695,22 @@ const PetitionPage = () => {
     const shareUrl = getPetitionShareUrl(id);
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast({
-        title: "Link copiado!",
-        description: "Cole nos stories ou envie para seus amigos.",
-      });
     } catch (err) {
       console.error('Error copying share link:', err);
-      toast({
+      showAppError({
         title: "Não foi possível copiar automaticamente",
         description: "Selecione e copie o endereço da barra do navegador.",
         variant: "destructive",
       });
     }
-  }, [id, toast]);
+  }, [id]);
 
   
 
   /* 
   const handleDownloadStoryCard = useCallback(async () => {
     ...
-  }, [petition, id, toast, signForm.city]);
+  }, [petition, id, signForm.city]);
   */
 
   const handleConfirmSign = async () => {
@@ -758,7 +743,6 @@ const PetitionPage = () => {
          colors: ['#EF4444', '#F59E0B', '#10B981', '#3B82F6']
        });
 
-       toast({ title: "Assinado com sucesso! 🎉", description: "Obrigado pelo seu apoio." });
        setHasSigned(true);
        setPetition(prev => ({ ...prev, signatureCount: prev.signatureCount + 1 }));
        setShowJourney(true);
@@ -801,7 +785,7 @@ const PetitionPage = () => {
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        toast({ title: "Assinatura necessária", description: "Você precisa assinar a petição antes de comentar.", variant: "destructive" });
+        showAppError({ title: "Assinatura necessária", description: "Você precisa assinar a petição antes de comentar.", variant: "destructive" });
         return;
       }
       
@@ -818,7 +802,7 @@ const PetitionPage = () => {
       ]);
       // Sem toast: o comentário acabou de entrar no topo da lista acima.
     } catch (error) {
-      toast({ title: "Erro ao publicar", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao publicar", description: error.message, variant: "destructive" });
     }
   };
 

@@ -5,7 +5,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { PlusCircle, Edit, Trash2, ArrowLeft, Save, X, MapPin, Image as ImageIcon, Link2, Info, Search, SlidersHorizontal, Briefcase, Calculator, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +22,7 @@ import { WorkGalleryManager } from '@/components/admin/WorkGalleryManager';
 import { Combobox } from '@/components/ui/combobox';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError } from '@/lib/appError';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -158,7 +158,6 @@ const FiltersSection = React.memo(({ filters, setFilters, workOptions, statusMap
 FiltersSection.displayName = 'FiltersSection';
 
 export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab = 'info', onWorkUpdated, fallbackCityCenter = null, defaultCityId = null, onBairroCreated, canSelectCity = false }) => {
-  const { toast } = useToast();
   const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const { cities, loadingCities } = useCity();
   const [formData, setFormData] = useState(null);
@@ -195,7 +194,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
     if (!name) return;
     const cityId = await resolveTargetCityId();
     if (!cityId) {
-      toast({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
+      showAppError({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
       return;
     }
     // Evita duplicado (case-insensitive) na mesma cidade
@@ -215,7 +214,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
       .single();
     setCreatingBairro(false);
     if (error) {
-      toast({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
       return;
     }
     onBairroCreated?.(data);
@@ -226,7 +225,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
   // Pega o bairro do reverse-geocode do marcador e cria/seleciona.
   const handleUseBairroFromMap = async () => {
     if (!formData?.location) {
-      toast({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
+      showAppError({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
       return;
     }
     setFetchingMapBairro(true);
@@ -236,7 +235,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
       });
       const suburb = !error ? (data?.suburb || null) : null;
       if (!suburb) {
-        toast({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
+        showAppError({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
         return;
       }
       await handleCreateBairro(suburb);
@@ -420,7 +419,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
           // Only restore if it matches the current work ID (or is new)
           if ((work.id && parsedDraft.id === work.id) || (!work.id && !parsedDraft.id)) {
             setFormData(prev => ({ ...prev, ...parsedDraft }));
-            // toast({ title: "Rascunho restaurado", description: "Seus dados não salvos foram recuperados." });
           }
         } catch (e) {
           console.error("Erro ao restaurar rascunho:", e);
@@ -502,7 +500,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
     if (!formData) return;
     if (!canProceed()) {
       const missing = getMissingRequiredFields();
-      toast({
+      showAppError({
         title: "Preencha os campos obrigatórios",
         description: missing.length ? `Faltando: ${missing.join(', ')}` : "Verifique os dados obrigatórios.",
         variant: "destructive"
@@ -961,7 +959,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                 const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
                 if ((activeTab === 'info' || (!formData?.id && idx === EDIT_TABS.length - 1)) && !canProceed()) {
                   const missing = getMissingRequiredFields();
-                  toast({
+                  showAppError({
                     title: "Preencha os campos obrigatórios",
                     description: missing.length ? `Faltando: ${missing.join(', ')}` : "Verifique os dados obrigatórios.",
                     variant: "destructive"
@@ -996,7 +994,6 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
 };
 
 const ManageWorksPage = () => {
-  const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1033,12 +1030,12 @@ const ManageWorksPage = () => {
     }
     const { data, error } = await worksQuery;
     if (error) {
-      toast({ title: "Erro ao buscar obras", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar obras", description: error.message, variant: "destructive" });
       console.error("Fetch Works Error:", error);
     } else {
       setWorks(data);
     }
-  }, [toast, isScopedAmbassador, myActiveCityIds]);
+  }, [isScopedAmbassador, myActiveCityIds]);
   
   const fetchOptions = useCallback(async () => {
     // Embaixador só vê bairros das cidades dele; admin/master veem todos.
@@ -1105,7 +1102,7 @@ const ManageWorksPage = () => {
     // (nunca nulo), mesma lógica das broncas.
     const resolvedCityId = manual_city_id || await resolveCityIdFromLocation(location);
     if (resolvedCityId == null) {
-      toast({
+      showAppError({
         title: 'Não foi possível identificar a cidade',
         description: 'Confira se o marcador no mapa está sobre a localização correta e tente novamente.',
         variant: 'destructive',
@@ -1114,7 +1111,7 @@ const ManageWorksPage = () => {
     }
     // Embaixador só cadastra/edita obra nas cidades dele (admin/master isentos).
     if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
-      toast({
+      showAppError({
         title: 'Fora da sua área',
         description: 'Você só pode gerenciar obras nas suas cidades.',
         variant: 'destructive',
@@ -1154,7 +1151,7 @@ const ManageWorksPage = () => {
     }
 
     if (result.error) {
-      toast({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
       console.error("Save error:", result.error);
     } else {
       const savedWorkId = result.data.id;
@@ -1174,9 +1171,8 @@ const ManageWorksPage = () => {
   const handleDeleteWork = async (workId) => {
     const { error } = await supabase.from('public_works').delete().eq('id', workId);
     if (error) {
-      toast({ title: "Erro ao remover obra", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao remover obra", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Obra removida com sucesso!", variant: "destructive" });
       fetchData();
     }
     setDeletingWork(null);

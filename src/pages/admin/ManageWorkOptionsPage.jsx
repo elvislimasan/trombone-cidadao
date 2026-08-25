@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, PlusCircle, Edit, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +15,7 @@ import { useCity } from '@/contexts/CityContext';
 import { formatCnpj } from '@/lib/utils';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError } from '@/lib/appError';
 
 // Lista simples de opções (categorias, áreas, construtoras).
 // Componente, e não função, porque a paginação é um hook — e as abas trocam.
@@ -233,7 +233,6 @@ const BairroEditModal = ({ option, onSave, onClose }) => {
 
 
 const ManageWorkOptionsPage = () => {
-  const { toast } = useToast();
   const [categories, setCategories] = useState([]);
   const [areas, setAreas] = useState([]);
   const [bairros, setBairros] = useState([]);
@@ -245,9 +244,9 @@ const ManageWorkOptionsPage = () => {
 
   const fetchData = useCallback(async (tableName, setter) => {
     const { data, error } = await supabase.from(tableName).select('*').order('name');
-    if (error) toast({ title: `Erro ao buscar ${tableName}`, description: error.message, variant: "destructive" });
+    if (error) showAppError({ title: `Erro ao buscar ${tableName}`, description: error.message, variant: "destructive" });
     else setter(data);
-  }, [toast]);
+  }, []);
 
   // Bairros precisa da cidade para poder agrupar — join extra, mantendo a
   // mesma ordenação alfabética por nome que fetchData usa para as outras.
@@ -256,9 +255,9 @@ const ManageWorkOptionsPage = () => {
       .from('bairros')
       .select('*, city:city_id(id, name, states(uf))')
       .order('name');
-    if (error) toast({ title: 'Erro ao buscar bairros', description: error.message, variant: 'destructive' });
+    if (error) showAppError({ title: 'Erro ao buscar bairros', description: error.message, variant: 'destructive' });
     else setBairros(data);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchData('work_categories', setCategories);
@@ -278,7 +277,7 @@ const ManageWorkOptionsPage = () => {
     }
 
     if (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } else {
       if (type === 'bairros') {
         fetchBairros();
@@ -299,9 +298,8 @@ const ManageWorkOptionsPage = () => {
     const { option, type } = deletingOption;
     const { error } = await supabase.from(type).delete().eq('id', option.id);
     if (error) {
-      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao remover", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Removido com sucesso!", variant: "destructive" });
       if (type === 'bairros') {
         fetchBairros();
       } else {

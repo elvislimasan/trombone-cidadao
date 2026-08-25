@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Upload } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { showAppError } from '@/lib/appError';
 
 const initialCategories = [
   { id: 'iluminacao', name: 'Iluminação', icon: '💡' },
@@ -22,7 +22,6 @@ const initialCategories = [
 
 const CategoryEditModal = ({ category, onSave, onClose }) => {
   const [formData, setFormData] = useState(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     if (category) {
@@ -37,17 +36,10 @@ const CategoryEditModal = ({ category, onSave, onClose }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleIconUpload = () => {
-    toast({
-      title: "🚧 Funcionalidade em desenvolvimento",
-      description: "O upload de ícones personalizados estará disponível em breve! 🚀",
-    });
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.icon) {
-      toast({ title: "Campos obrigatórios", description: "Nome e ícone são necessários.", variant: "destructive" });
+      showAppError({ title: "Campos obrigatórios", description: "Nome e ícone são necessários.", variant: "destructive" });
       return;
     }
     onSave(formData);
@@ -68,12 +60,7 @@ const CategoryEditModal = ({ category, onSave, onClose }) => {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="icon">Ícone (Emoji)</Label>
-            <div className="flex gap-2">
-              <Input id="icon" name="icon" value={formData.icon} onChange={handleChange} className="flex-grow" />
-              <Button type="button" variant="outline" size="icon" onClick={handleIconUpload}>
-                <Upload className="w-4 h-4" />
-              </Button>
-            </div>
+            <Input id="icon" name="icon" value={formData.icon} onChange={handleChange} />
           </div>
           <DialogFooter>
             <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
@@ -86,7 +73,6 @@ const CategoryEditModal = ({ category, onSave, onClose }) => {
 };
 
 const ManageCategoriesPage = () => {
-  const { toast } = useToast();
   const [categories, setCategories] = useState([]);
   const [editingCategory, setEditingCategory] = useState(null);
   const [deletingCategory, setDeletingCategory] = useState(null);
@@ -126,7 +112,6 @@ const ManageCategoriesPage = () => {
     const updatedCategories = categories.filter(c => c.id !== categoryId);
     updateCategoriesData(updatedCategories);
     setDeletingCategory(null);
-    toast({ title: "Categoria removida com sucesso! 🗑️", variant: "destructive" });
   };
 
   return (

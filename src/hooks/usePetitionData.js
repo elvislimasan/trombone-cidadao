@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '../lib/customSupabaseClient';
+import { showAppError } from '@/lib/appError';
 
 /**
  * Custom hook to manage petition data fetching and state.
@@ -30,7 +30,6 @@ export const usePetitionData = (id) => {
   const [otherPetitions, setOtherPetitions] = useState([]);
   const [recentDonations, setRecentDonations] = useState([]);
   const [totalDonations, setTotalDonations] = useState(0);
-  const { toast } = useToast();
 
   const fetchUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -70,7 +69,7 @@ export const usePetitionData = (id) => {
 
     } catch (error) {
       console.error('Erro ao carregar abaixo-assinado:', error);
-      toast({
+      showAppError({
         variant: "destructive",
         title: "Erro",
         description: "Não foi possível carregar os detalhes do abaixo-assinado."
@@ -78,7 +77,7 @@ export const usePetitionData = (id) => {
     } finally {
       setLoading(false);
     }
-  }, [id, toast]);
+  }, [id]);
 
   const fetchSignatures = useCallback(async (currentUser) => {
     try {

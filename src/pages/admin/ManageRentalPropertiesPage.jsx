@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import LocationPickerMap from '@/components/LocationPickerMap';
@@ -18,6 +17,7 @@ import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
+import { showAppError } from '@/lib/appError';
 
 const emptyContractForm = {
   owner_name: '',
@@ -36,7 +36,6 @@ const CONTRACT_YEAR_MIN = 2000;
 const contractYearMax = () => new Date().getFullYear() + 5;
 
 const RentalContractsManager = ({ propertyId }) => {
-  const { toast } = useToast();
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newContract, setNewContract] = useState(emptyContractForm);
@@ -64,7 +63,7 @@ const RentalContractsManager = ({ propertyId }) => {
     if (!value) return true;
     const year = Number(value);
     if (!Number.isInteger(year) || year < CONTRACT_YEAR_MIN || year > contractYearMax()) {
-      toast({ title: `Ano do contrato inválido`, description: `Informe um ano entre ${CONTRACT_YEAR_MIN} e ${contractYearMax()}.`, variant: 'destructive' });
+      showAppError({ title: `Ano do contrato inválido`, description: `Informe um ano entre ${CONTRACT_YEAR_MIN} e ${contractYearMax()}.`, variant: 'destructive' });
       return false;
     }
     return true;
@@ -77,7 +76,7 @@ const RentalContractsManager = ({ propertyId }) => {
     // Proprietário e datas costumam chegar depois do valor — exigi-los fazia o
     // embaixador desistir do cadastro ou digitar "Não informado" no nome.
     if (!newContract.monthly_value) {
-      toast({ title: 'Informe o valor mensal do contrato', variant: 'destructive' });
+      showAppError({ title: 'Informe o valor mensal do contrato', variant: 'destructive' });
       return;
     }
     if (!validateContractYear(newContract.contract_year)) return;
@@ -108,7 +107,6 @@ const RentalContractsManager = ({ propertyId }) => {
         is_current: true,
       });
       if (insertError) throw insertError;
-      toast({ title: 'Contrato criado. O contrato anterior foi encerrado automaticamente.' });
       setNewContract(emptyContractForm);
       await fetchContracts();
     } catch (error) {
@@ -122,7 +120,7 @@ const RentalContractsManager = ({ propertyId }) => {
           console.error('Falha ao reverter encerramento do contrato anterior:', rollbackError);
         }
       }
-      toast({ title: 'Erro ao criar contrato', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao criar contrato', description: error.message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -145,7 +143,7 @@ const RentalContractsManager = ({ propertyId }) => {
   const handleSaveEditContract = async (e) => {
     e.preventDefault();
     if (!editForm.monthly_value) {
-      toast({ title: 'Informe o valor mensal do contrato', variant: 'destructive' });
+      showAppError({ title: 'Informe o valor mensal do contrato', variant: 'destructive' });
       return;
     }
     if (!validateContractYear(editForm.contract_year)) return;
@@ -165,7 +163,7 @@ const RentalContractsManager = ({ propertyId }) => {
       .eq('id', editingContractId);
     setSaving(false);
     if (error) {
-      toast({ title: 'Erro ao salvar contrato', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao salvar contrato', description: error.message, variant: 'destructive' });
       return;
     }
     setEditingContractId(null);
@@ -176,7 +174,7 @@ const RentalContractsManager = ({ propertyId }) => {
     if (!deletingContract) return;
     const { error } = await supabase.from('rental_property_contracts').delete().eq('id', deletingContract.id);
     if (error) {
-      toast({ title: 'Erro ao remover contrato', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao remover contrato', description: error.message, variant: 'destructive' });
     } else {
       await fetchContracts();
     }
@@ -327,7 +325,6 @@ const RentalContractsManager = ({ propertyId }) => {
 };
 
 const RentalMediaManager = ({ propertyId }) => {
-  const { toast } = useToast();
   const [photos, setPhotos] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -362,7 +359,7 @@ const RentalMediaManager = ({ propertyId }) => {
       // Sem toast: o fetchMedia abaixo põe as fotos na galeria da tela.
       await fetchMedia();
     } catch (error) {
-      toast({ title: 'Erro ao enviar fotos', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao enviar fotos', description: error.message, variant: 'destructive' });
     } finally {
       setUploadingPhotos(false);
     }
@@ -385,7 +382,7 @@ const RentalMediaManager = ({ propertyId }) => {
       // Sem toast: o fetchMedia abaixo põe os documentos na lista da tela.
       await fetchMedia();
     } catch (error) {
-      toast({ title: 'Erro ao enviar documentos', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao enviar documentos', description: error.message, variant: 'destructive' });
     } finally {
       setUploadingDocs(false);
     }
@@ -456,7 +453,6 @@ const RentalMediaManager = ({ propertyId }) => {
 };
 
 export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, defaultCityId, fallbackCityCenter, onBairroCreated }) => {
-  const { toast } = useToast();
   const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const [formData, setFormData] = useState(null);
   const [bairroSearch, setBairroSearch] = useState('');
@@ -508,7 +504,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
     if (!name) return;
     const cityId = await resolveTargetCityId();
     if (!cityId) {
-      toast({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
+      showAppError({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
       return;
     }
     const existing = (bairros || []).find((b) => (b.name || '').trim().toLowerCase() === name.toLowerCase());
@@ -521,7 +517,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
     const { data, error } = await supabase.from('bairros').insert({ name, city_id: cityId }).select('id, name').single();
     setCreatingBairro(false);
     if (error) {
-      toast({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
       return;
     }
     onBairroCreated?.(data);
@@ -531,7 +527,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
 
   const handleUseBairroFromMap = async () => {
     if (!formData?.location) {
-      toast({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
+      showAppError({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
       return;
     }
     setFetchingMapBairro(true);
@@ -541,7 +537,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
       });
       const suburb = !error ? (data?.suburb || null) : null;
       if (!suburb) {
-        toast({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
+        showAppError({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
         return;
       }
       await handleCreateBairro(suburb);
@@ -726,7 +722,6 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
 
 const ManageRentalPropertiesPage = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [properties, setProperties] = useState([]);
   const [bairros, setBairros] = useState([]);
@@ -769,11 +764,11 @@ const ManageRentalPropertiesPage = () => {
       if (error) throw error;
       setProperties(data || []);
     } catch (error) {
-      toast({ title: 'Erro ao buscar imóveis', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar imóveis', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [isScopedAmbassador, myActiveCityIds, toast]);
+  }, [isScopedAmbassador, myActiveCityIds]);
 
   const fetchBairros = useCallback(async () => {
     let query = supabase.from('bairros').select('*');
@@ -814,11 +809,11 @@ const ManageRentalPropertiesPage = () => {
       resolvedCityId = await resolveCityIdFromLocation(location);
     }
     if (resolvedCityId == null) {
-      toast({ title: 'Não foi possível identificar a cidade', description: 'Confira se o marcador no mapa está sobre a localização correta.', variant: 'destructive' });
+      showAppError({ title: 'Não foi possível identificar a cidade', description: 'Confira se o marcador no mapa está sobre a localização correta.', variant: 'destructive' });
       return null;
     }
     if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
-      toast({ title: 'Fora da sua área', description: 'Você só pode gerenciar imóveis nas suas cidades.', variant: 'destructive' });
+      showAppError({ title: 'Fora da sua área', description: 'Você só pode gerenciar imóveis nas suas cidades.', variant: 'destructive' });
       return null;
     }
 
@@ -835,7 +830,7 @@ const ManageRentalPropertiesPage = () => {
     }
 
     if (result.error) {
-      toast({ title: 'Erro ao salvar imóvel', description: result.error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao salvar imóvel', description: result.error.message, variant: 'destructive' });
       return null;
     }
     await fetchData();
@@ -864,9 +859,8 @@ const ManageRentalPropertiesPage = () => {
 
     const { error } = await supabase.from('rental_properties').delete().eq('id', propertyId);
     if (error) {
-      toast({ title: 'Erro ao remover imóvel', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao remover imóvel', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Imóvel removido com sucesso!', variant: 'destructive' });
       fetchData();
     }
     setDeletingProperty(null);

@@ -1,11 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import React from 'react';
+import { useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import { useMissionProgress } from '@/contexts/MissionProgressContext';
 
 const STORAGE_KEYS = {
@@ -18,39 +16,16 @@ const readInt = (value, fallback = 0) => {
   return fallback;
 };
 
-const AnimatedNumber = ({ value, durationMs = 650, className = '' }) => {
-  const [display, setDisplay] = useState(value);
-  const prevRef = useRef(value);
-
-  useEffect(() => {
-    const from = prevRef.current;
-    const to = value;
-    prevRef.current = value;
-    if (from === to) {
-      setDisplay(to);
-      return;
-    }
-
-    const start = performance.now();
-    let raf = 0;
-    const tick = (now) => {
-      const t = Math.min(1, (now - start) / durationMs);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const next = Math.round(from + (to - from) * eased);
-      setDisplay(next);
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [durationMs, value]);
-
-  return <span className={className}>{display}</span>;
+const throwIfAborted = (signal) => {
+  if (!signal?.aborted) return;
+  const error = new Error('Envio cancelado.');
+  error.name = 'AbortError';
+  throw error;
 };
 
 export function useCreateReport({ onCreated } = {}) {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const { celebrar } = useMissionProgress();
+  const { celebrate } = useMissionProgress();
   const [submittedCount, setSubmittedCount] = useState(() => {
     try {
       return readInt(localStorage.getItem(STORAGE_KEYS.reportsSubmitted), 0);
@@ -60,8 +35,9 @@ export function useCreateReport({ onCreated } = {}) {
   });
 
   const createReport = useCallback(
-    async (newReportData, uploadMediaCallback) => {
-      if (!user) return;
+    async (newReportData, uploadMediaCallback, { signal } = {}) => {
+      throwIfAborted(signal);
+      if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
       const {
         title, description, category, address, location,
         pole_number, pole_id, reported_pole_distance_m,
@@ -80,7 +56,7 @@ export function useCreateReport({ onCreated } = {}) {
       // local marcado no mapa.
       const cityId = geocodedCityId ?? null;
 
-      const { data, error } = await supabase
+      let insertQuery = supabase
         .from('reports')
         .insert({
           title,
@@ -116,24 +92,28 @@ export function useCreateReport({ onCreated } = {}) {
         .select('id')
         .single();
 
+      if (signal && typeof insertQuery.abortSignal === 'function') {
+        insertQuery = insertQuery.abortSignal(signal);
+      }
+
+      const { data, error } = await insertQuery;
+
       if (error) {
-        toast({ title: 'Erro ao criar bronca', description: error.message, variant: 'destructive' });
-        return;
+        throw error;
       }
 
-      if (uploadMediaCallback) {
-        try {
-          await uploadMediaCallback(data.id);
-        } catch (uploadError) {
-          await supabase.from('reports').delete().eq('id', data.id);
-          throw uploadError;
+      try {
+        throwIfAborted(signal);
+        if (uploadMediaCallback) {
+          await uploadMediaCallback(data.id, { signal });
+          throwIfAborted(signal);
         }
+      } catch (submitError) {
+        await supabase.from('reports').delete().eq('id', data.id);
+        throw submitError;
       }
 
-      // A bronca pode ter fechado uma etapa de missão — de "Registre broncas"
-      // ou de "Investigue", conforme a categoria. Quem descobre o quê é a
-      // comparação de contadores no provider; aqui só se avisa que houve ação.
-      celebrar();
+      celebrate();
 
       const nextSubmitted = submittedCount + 1;
       setSubmittedCount(nextSubmitted);
@@ -155,24 +135,10 @@ export function useCreateReport({ onCreated } = {}) {
         });
       } catch {}
 
-      const isPublishedDirectly = user?.is_admin || user?.is_master;
-      toast({
-        title: 'Você acabou de ajudar sua cidade 🔥',
-        description: (
-          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>{isPublishedDirectly ? 'Bronca publicada.' : 'Bronca enviada para moderação — após aprovada, estará disponível no feed.'}</span>
-            <span className="text-muted-foreground">
-              Total: <AnimatedNumber value={nextSubmitted} className="font-semibold text-foreground" />
-            </span>
-          </span>
-        ),
-        duration: 5500,
-      });
-
       onCreated?.(data.id);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
     },
-    [submittedCount, user, toast, onCreated, celebrar]
+    [submittedCount, user, onCreated, celebrate]
   );
 
   return { createReport, submittedCount };

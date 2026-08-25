@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
 import ImageCropper from '@/components/ui/ImageCropper';
 import Avatar, { genConfig } from 'react-nice-avatar';
 import { RefreshCw, Link as LinkIcon } from 'lucide-react';
@@ -20,9 +19,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Combobox } from '@/components/ui/combobox';
 import { useCity } from '@/contexts/CityContext';
+import { showAppError } from '@/lib/appError';
 
 const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => {
-  const { toast } = useToast();
   const { cities, loadingCities } = useCity();
   const [name, setName] = useState('');
   const [userType, setUserType] = useState('citizen');
@@ -90,7 +89,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
     if (!file) return;
     const isImage = (file.type || '').startsWith('image/');
     if (!isImage) {
-      toast({
+      showAppError({
         title: 'Arquivo inválido',
         description: 'Escolha uma imagem.',
         variant: 'destructive',
@@ -98,7 +97,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast({
+      showAppError({
         title: 'Imagem muito grande',
         description: 'Escolha uma imagem de até 5MB.',
         variant: 'destructive',
@@ -115,7 +114,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
     const nextSrc = URL.createObjectURL(file);
     setAvatarCropSrc(nextSrc);
     setAvatarCropOpen(true);
-  }, [avatarCropSrc, toast]);
+  }, [avatarCropSrc]);
 
   const handleRandomizeAvatar = () => {
     setAvatarConfig(genConfig());
@@ -154,7 +153,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast({
+      showAppError({
         title: "Nome inválido",
         description: "O nome não pode ficar em branco.",
         variant: "destructive",
@@ -169,7 +168,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
 
       if (avatarType === 'upload') {
         if (!avatarFile) {
-          toast({
+          showAppError({
             title: 'Selecione uma imagem',
             description: 'Escolha um arquivo para usar como foto de perfil.',
             variant: 'destructive',
@@ -177,7 +176,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
           return;
         }
         if (avatarFile.size > 5 * 1024 * 1024) {
-          toast({
+          showAppError({
             title: 'Imagem muito grande',
             description: 'Escolha uma imagem de até 5MB.',
             variant: 'destructive',
@@ -207,7 +206,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
       await onSave(dataToSave);
       onClose();
     } catch (e) {
-      toast({
+      showAppError({
         title: 'Erro ao enviar foto',
         description: e?.message || 'Não foi possível enviar sua foto de perfil.',
         variant: 'destructive',

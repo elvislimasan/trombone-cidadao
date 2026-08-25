@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Star, MapPin, ThumbsUp, HardHat, Newspaper, X } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import ReportDetails from '@/components/ReportDetails';
@@ -13,12 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
+import { showAppError } from '@/lib/appError';
 
 const PAGE_SIZE = 9;
 
 const FavoritesPage = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [favoriteReports, setFavoriteReports] = useState([]);
   const [favoriteWorks, setFavoriteWorks] = useState([]);
@@ -58,7 +57,7 @@ const FavoritesPage = () => {
       .range(from, to);
 
     if (error) {
-      toast({ title: "Erro ao buscar favoritos", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar favoritos", description: error.message, variant: "destructive" });
     } else {
       const formattedData = (data || []).map(fav => ({
         ...fav.report,
@@ -78,7 +77,7 @@ const FavoritesPage = () => {
       setPage(pageToLoad);
     }
     setLoading(false);
-  }, [user, toast, totalFavorites]);
+  }, [user, totalFavorites]);
 
   useEffect(() => {
     fetchFavorites(1);
@@ -99,7 +98,7 @@ const FavoritesPage = () => {
       .eq('user_id', user.id);
 
     if (error) {
-      toast({ title: "Erro ao buscar obras favoritas", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar obras favoritas", description: error.message, variant: "destructive" });
       setFavoriteWorks([]);
     } else {
       const formattedData = (data || []).map((fav) => ({
@@ -111,7 +110,7 @@ const FavoritesPage = () => {
       setFavoriteWorks(formattedData);
     }
     setWorksLoading(false);
-  }, [user, toast]);
+  }, [user]);
 
   const loadFavoriteNewsIds = useCallback(() => {
     try {
@@ -137,14 +136,14 @@ const FavoritesPage = () => {
       .select('id, title, date, description, image_url')
       .in('id', ids);
     if (error) {
-      toast({ title: "Erro ao buscar notícias salvas", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar notícias salvas", description: error.message, variant: "destructive" });
       setFavoriteNews([]);
     } else {
       const byId = new Map((data || []).map((n) => [n.id, n]));
       setFavoriteNews(ids.map((id) => byId.get(id)).filter(Boolean));
     }
     setNewsLoading(false);
-  }, [loadFavoriteNewsIds, toast]);
+  }, [loadFavoriteNewsIds]);
 
   useEffect(() => {
     fetchFavoriteWorks();
@@ -162,14 +161,14 @@ const FavoritesPage = () => {
 
   const handleFavoriteToggle = async (reportId, isFavorited) => {
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Você precisa fazer login.", variant: "destructive" });
       return;
     }
 
     if (isFavorited) {
       const { error } = await supabase.from('favorite_reports').delete().match({ user_id: user.id, report_id: reportId });
       if (error) {
-        toast({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
       } else {
         // Sem toast: nesta página o card sai da lista ao ser desfavoritado —
         // não há confirmação mais direta do que a bronca sumir dos favoritos.
@@ -182,7 +181,7 @@ const FavoritesPage = () => {
       // This case is less likely on this page, but good to have
       const { error } = await supabase.from('favorite_reports').insert({ user_id: user.id, report_id: reportId });
       if (error) {
-        toast({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
       } else {
         fetchFavorites(page);
         if (selectedReport?.id === reportId) {
@@ -196,7 +195,7 @@ const FavoritesPage = () => {
     const { id } = editData;
     const { error } = await supabase.from('reports').update(editData).eq('id', id);
     if (error) {
-      toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
     } else {
       fetchFavorites(page);
       setSelectedReport(null);
@@ -211,7 +210,7 @@ const FavoritesPage = () => {
   const handleLinkReport = async (sourceReportId, targetReportId) => {
     const { error } = await supabase.from('reports').update({ status: 'duplicate', linked_to: targetReportId }).eq('id', sourceReportId);
     if (error) {
-      toast({ title: "Erro ao vincular", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao vincular", description: error.message, variant: "destructive" });
     } else {
       fetchFavorites(page);
       setSelectedReport(null);

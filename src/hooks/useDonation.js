@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import Pix from '@/utils/pix';
+import { showAppError } from '@/lib/appError';
 
 export const useDonation = () => {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   // id: reportId ou petitionId, conforme contexto.kind
   const createPaymentIntent = async (id, amount, contexto = {}, provider = 'pix_manual', guestInfo = null) => {
@@ -94,7 +93,7 @@ export const useDonation = () => {
       };
     } catch (error) {
       console.error('Erro ao criar intenção de pagamento:', error);
-      toast({
+      showAppError({
         title: "Erro no pagamento",
         description: "Não foi possível iniciar o processo de doação. Tente novamente.",
         variant: "destructive"

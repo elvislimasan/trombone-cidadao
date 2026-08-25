@@ -23,7 +23,6 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import ReCAPTCHA from "react-google-recaptcha";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { Capacitor } from "@capacitor/core";
 import {
   Camera as CapacitorCamera,
@@ -34,7 +33,6 @@ import {
 import { App } from "@capacitor/app";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { VideoProcessor } from "@/plugins/VideoProcessor";
-import { useBackgroundUpload } from "@/hooks/useBackgroundUpload";
 import { useCityIdFromLocation } from "@/hooks/useCityIdFromLocation";
 import { CATEGORIAS_BRONCA } from "@/lib/reportCategories";
 import { TIPOS_DE_PROBLEMA_ILUMINACAO } from "@/lib/reportCategoryFields";
@@ -58,8 +56,20 @@ import {
   setGlobalUserViewingMedia,
   validateVideoFile,
 } from "@/utils/videoProcessor";
+import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
+import { notifyNative } from '@/lib/nativeNotification';
 
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
+
+const createSubmissionAbortError = () => {
+  const error = new Error('Envio cancelado.');
+  error.name = 'AbortError';
+  return error;
+};
+
+const throwIfSubmissionAborted = (signal) => {
+  if (signal?.aborted) throw createSubmissionAbortError();
+};
 
 // Componentes VideoThumbnail e VideoPlayer removidos - não são mais necessários
 // Vídeos serão exibidos apenas como ícone simples sem preview
@@ -92,14 +102,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
     is_anonymous: false,
   });
   const [errors, setErrors] = useState({});
-  const { toast } = useToast();
-  const { registerUpload, updateUploadProgress, queueWebUpload } = useUpload();
+  const { registerUpload, queueWebUpload, failUploadBatch } = useUpload();
   const { user, session } = useAuth();
   // Mesma regra que decide moderation_status no envio: admin/master publicam
   // direto, todo o resto passa pela moderação. Uma constante só, para o aviso
   // na tela nunca contradizer o que o insert realmente faz.
   const isPublishedDirectly = Boolean(user?.is_admin || user?.is_master);
-  const { uploadVideo, uploads } = useBackgroundUpload();
   const [anonCaptchaValue, setAnonCaptchaValue] = useState(null);
   const anonRecaptchaRef = useRef(null);
   const draftHydratedRef = useRef(false);
@@ -114,6 +122,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const videoGalleryInputRef = useRef(null);
   const videoCameraInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionLocked, setSubmissionLocked] = useState(false);
   const [wizardStep, setWizardStep] = useState(0);
   // 'unknown' | 'requesting' | 'granted' | 'denied'
   const [locationPermission, setLocationPermission] = useState("unknown");
@@ -138,9 +147,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const [viewingPhotoIndex, setViewingPhotoIndex] = useState(null);
   const [viewingVideoIndex, setViewingVideoIndex] = useState(null);
   const uploadAbortControllerRef = useRef(null);
+  const submissionLockedRef = useRef(false);
   const photoWorkerRef = useRef(null);
   const wizardBodyRef = useRef(null);
   const issueTypeFieldRef = useRef(null);
+  const updateSubmissionLock = (locked) => {
+    submissionLockedRef.current = locked;
+    setSubmissionLocked(locked);
+  };
   // Ao selecionar "Iluminação", o campo Tipo do problema aparece condicionalmente
   // ABAIXO da área visível do wizard, sem rolagem automática — usuário via só o
   // grid de categorias, sem saber que precisava rolar para preencher o campo
@@ -213,7 +227,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
   const handleCreatePendingPole = async () => {
     if (!user) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Você precisa estar logado para cadastrar poste.",
         variant: "destructive",
@@ -223,7 +237,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     }
 
     if (!user?.is_admin) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Apenas administradores podem cadastrar postes no mapa.",
         variant: "destructive",
@@ -303,12 +317,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
         location: undefined,
       }));
 
-      toast({
-        title: "Poste cadastrado!",
-        description: "Poste cadastrado no mapa e vinculado à bronca.",
-      });
     } catch (createPoleError) {
-      toast({
+      showAppError({
         title: "Erro ao cadastrar poste",
         description:
           createPoleError?.message || "Não foi possível cadastrar o poste agora.",
@@ -710,15 +720,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
               ],
             }));
 
-            toast({
-              title: "✅ Foto recuperada com sucesso!",
-              description: "A imagem foi restaurada após o reinício do app.",
-              duration: 4000,
-            });
           }
         } catch (e) {
           console.error("Erro ao processar foto recuperada:", e);
-          toast({ title: "⚠️ Erro ao recuperar foto", variant: "destructive" });
+          showAppError({ title: "⚠️ Erro ao recuperar foto", variant: "destructive" });
         }
       }
     };
@@ -814,7 +819,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     ],
                   }));
 
-                  toast({ title: "✅ Foto recuperada!" });
                 }
               }
             }
@@ -1415,7 +1419,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
       // Não relançar erro para evitar crash, apenas logar
       if (isMountedRef.current) {
-        toast({
+        showAppError({
           title: "⚠️ Erro ao processar foto",
           description: "Tente novamente ou use uma foto menor",
           variant: "destructive",
@@ -1554,7 +1558,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     } catch (error) {
       console.error("Erro ao processar foto de URI:", error);
       // Não lançar erro para não quebrar a UI, apenas logar
-      toast({
+      showAppError({
         title: "Erro na foto",
         description: "Não foi possível processar a foto.",
         variant: "destructive",
@@ -1688,7 +1692,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       // Sem toast: a miniatura já entrou na lista acima.
     } catch (error) {
       console.error("Erro ao processar captura in-app:", error);
-      toast({
+      showAppError({
         title: "Erro na captura",
         description: "Não foi possível processar a foto.",
         variant: "destructive",
@@ -1705,7 +1709,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // FUNÇÃO PRINCIPAL MELHORADA: Fluxo unificado com a Galeria para máxima estabilidade
   const handleTakePhoto = async () => {
     if (isTakingPhoto || isRecordingVideo || isProcessingRef.current) {
-      toast({
+      showAppError({
         title: "Aguarde...",
         description: "Já existe uma operação em andamento",
         variant: "destructive",
@@ -1741,7 +1745,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         const cancelled = /cancel|cancelad/i.test(msg);
         if (!cancelled) {
           console.error("Erro na câmera nativa:", error);
-          toast({
+          showAppError({
             variant: "destructive",
             title: "Não foi possível abrir a câmera",
             description: msg || "Verifique as permissões de câmera.",
@@ -1816,7 +1820,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }
     } catch (error) {
       console.error("❌ Erro no processamento em background:", error);
-      toast({
+      showAppError({
         title: "❌ Falha no processamento",
         description: "Não foi possível processar a foto",
         variant: "destructive",
@@ -1946,7 +1950,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         !e.message?.includes("cancelled") &&
         !e.message?.includes("cancelado")
       ) {
-        toast({
+        showAppError({
           title: "Erro ao selecionar foto",
           description: e.message || "Tente novamente",
           variant: "destructive",
@@ -2067,7 +2071,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     for (const file of files) {
       // Validar tipo
       if (fileType === "photos" && !validImageTypes.includes(file.type)) {
-        toast({
+        showAppError({
           title: "Tipo de arquivo inválido!",
           description:
             "Por favor, selecione apenas imagens (JPEG, PNG, WEBP ou GIF).",
@@ -2076,7 +2080,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         continue;
       }
       if (fileType === "videos" && !validVideoTypes.includes(file.type)) {
-        toast({
+        showAppError({
           title: "Tipo de arquivo inválido!",
           description: "Por favor, selecione apenas vídeos (MP4, MOV ou WEBM).",
           variant: "destructive",
@@ -2088,7 +2092,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       const maxSize = fileType === "videos" ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
       if (file.size > maxSize) {
         const sizeLimit = fileType === "videos" ? "1GB" : "100MB";
-        toast({
+        showAppError({
           title: "Arquivo muito grande!",
           description: `O arquivo excede o limite de ${sizeLimit}. Por favor, use um arquivo menor ou aguarde a compressão automática.`,
           variant: "destructive",
@@ -2100,7 +2104,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         try {
           await validateVideoFile(file);
         } catch (e) {
-          toast({
+          showAppError({
             title: "Vídeo inválido!",
             description: e.message,
             variant: "destructive",
@@ -2275,13 +2279,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
             // O usuário deve usar o botão "Galeria de Vídeos" que usa o VideoProcessorPlugin (nativo).
 
             //             console.warn('Tentativa de selecionar vídeo via input nativo bloqueada para evitar crash.');
-            toast({
+
+            showAppInfo({
               title: "Use a Galeria de Vídeos",
               description:
-                "Por favor, utilize o botão 'Galeria de Vídeos' abaixo para selecionar arquivos grandes.",
-              variant: "default",
+                "No aplicativo, selecione vídeos pelo botão Galeria de Vídeos para evitar travamentos com arquivos grandes.",
             });
-
             e.target.value = null; // Limpar input
             return;
           } else {
@@ -2334,7 +2337,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         }
       } catch (error) {
         console.error("Error processing file:", error);
-        toast({
+        showAppError({
           title: "Erro ao processar arquivo",
           description:
             error.message || "Não foi possível carregar o arquivo selecionado.",
@@ -2391,7 +2394,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         !error.message?.includes("cancelada") &&
         !error.message?.includes("indisponível")
       ) {
-        toast({
+        showAppError({
           title: "Erro ao gravar",
           description:
             error.message || "Falha ao processar o vídeo. Tente novamente.",
@@ -2437,7 +2440,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     }
   };
 
-  const uploadMedia = async (reportId) => {
+  const uploadMedia = async (reportId, { signal } = {}) => {
     // Preparar listas de mídia
     const photosToUpload = formData.photos
       .map((p) => ({
@@ -2462,6 +2465,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
     const mediaToUpload = [...photosToUpload, ...videosToUpload];
     if (mediaToUpload.length === 0) return { success: true };
+    updateSubmissionLock(true);
+    throwIfSubmissionAborted(signal);
 
     // 1. Preparar metadados e tarefas de upload
     const isNative = Capacitor.isNativePlatform();
@@ -2476,11 +2481,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
     const nativeRows = [];
     const uploadTasks = [];
 
-    for (const media of mediaToUpload) {
+    for (const [mediaIndex, media] of mediaToUpload.entries()) {
       // Sanitizar nome
       const rawFileName = media.name || `arquivo_${Date.now()}`;
       const safeFileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filePath = `${user.id}/${reportId}/${Date.now()}-${safeFileName}`;
+      const uniquePart =
+        (typeof crypto !== 'undefined' && crypto.randomUUID?.())
+        || `${Date.now()}-${mediaIndex}-${Math.random().toString(36).slice(2, 8)}`;
+      const filePath = `${user.id}/${reportId}/${uniquePart}-${safeFileName}`;
 
       // Obter URL pública (assumindo bucket público 'reports-media')
       const {
@@ -2502,26 +2510,34 @@ const ReportModal = ({ onClose, onSubmit }) => {
       uploadTasks.push({ media, filePath, publicUrl, usesNative, mediaRow });
     }
 
-    // 2. Inserir no Banco as referências do fluxo nativo
-    if (nativeRows.length > 0) {
-      const { error: insertError } = await supabase
-        .from("report_media")
-        .insert(nativeRows);
-      if (insertError) {
-        console.error("Erro ao inserir mídia (nativo):", insertError);
-        return {
-          success: false,
-          errors: [`Erro ao salvar referências: ${insertError.message}`],
-        };
-      }
-    }
+    const batchMetadata = {
+      reportId,
+      batchId: reportId,
+      expectedUploads: uploadTasks.length,
+      isReportUpload: true,
+    };
 
-    // 3. Disparar Uploads em Background (Fire and Forget)
-    (async () => {
+    try {
+      // 2. Inserir no Banco as referências do fluxo nativo
+      if (nativeRows.length > 0) {
+        let insertQuery = supabase.from("report_media").insert(nativeRows);
+        if (signal && typeof insertQuery.abortSignal === 'function') {
+          insertQuery = insertQuery.abortSignal(signal);
+        }
+        const { error: insertError } = await insertQuery;
+        throwIfSubmissionAborted(signal);
+        if (insertError) {
+          console.error("Erro ao inserir mídia (nativo):", insertError);
+          throw new Error(`Erro ao salvar referências: ${insertError.message}`);
+        }
+      }
+
+      // 3. Aguardar a preparação de todos os membros. O arquivo continua em
+      // background, mas o recibo só aparece depois que cada envio foi registrado.
       for (const task of uploadTasks) {
         const { media, filePath } = task;
+        throwIfSubmissionAborted(signal);
 
-        try {
           if (task.usesNative) {
             // --- FLUXO NATIVO (ANDROID) ---
             // O plugin VideoProcessor só existe no Android. No iOS ele não está
@@ -2531,10 +2547,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
             const { data: signed, error: signedErr } = await supabase.storage
               .from("reports-media")
               .createSignedUploadUrl(filePath, 3600); // 1h validade
+            throwIfSubmissionAborted(signal);
 
             if (signedErr || !signed?.signedUrl) {
               console.error("Falha URL assinada:", signedErr);
-              continue;
+              throw new Error(
+                `Não foi possível preparar o envio de “${media.name || 'arquivo'}”.`
+              );
             }
             const uploadUrl = signed.signedUrl || signed.url;
 
@@ -2554,8 +2573,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
               registerUpload(uploadId, {
                 name: media.name || "Vídeo",
                 type: "video",
-                reportId: reportId,
+                ...batchMetadata,
               });
+              throwIfSubmissionAborted(signal);
             } else {
               let finalPath = cleanNativePath;
               try {
@@ -2568,6 +2588,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 });
                 if (comp && comp.outputPath) finalPath = comp.outputPath;
               } catch (e) {
+                throwIfSubmissionAborted(signal);
                 //                             console.warn("Compressão de imagem falhou, usando original:", e);
               }
 
@@ -2585,8 +2606,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
               registerUpload(uploadId, {
                 name: media.name || "Foto",
                 type: "photo",
-                reportId: reportId,
+                ...batchMetadata,
               });
+              throwIfSubmissionAborted(signal);
             }
           } else {
             // --- FLUXO WEB ---
@@ -2595,15 +2617,21 @@ const ReportModal = ({ onClose, onSubmit }) => {
             if (!fileToUpload && media.nativePath) {
               try {
                 const r = await fetch(
-                  Capacitor.convertFileSrc(media.nativePath)
+                  Capacitor.convertFileSrc(media.nativePath),
+                  { signal }
                 );
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 const b = await r.blob();
+                throwIfSubmissionAborted(signal);
                 fileToUpload = new File([b], media.name, {
                   type: media.type === "video" ? "video/mp4" : "image/jpeg",
                 });
               } catch (e) {
                 console.error("Falha ao recuperar arquivo para upload web:", e);
-                continue;
+                if (e?.name === 'AbortError') throw e;
+                throw new Error(
+                  `Não foi possível acessar “${media.name || 'arquivo'}” para envio.`
+                );
               }
             }
 
@@ -2612,13 +2640,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
               const shouldCompress =
                 media.type === "video" && media.isProcessing;
 
-              queueWebUpload(
+              await queueWebUpload(
                 fileToUpload,
                 filePath,
                 {
                   name: media.name,
                   type: media.type === "video" ? "video" : "photo",
-                  reportId: reportId,
+                  ...batchMetadata,
                   // Linha de report_media inserida só após o upload concluir
                   mediaRow: task.mediaRow,
                 },
@@ -2626,20 +2654,27 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   skipCompression: !shouldCompress,
                 }
               );
+              throwIfSubmissionAborted(signal);
+            } else {
+              throw new Error(
+                `O arquivo “${media.name || 'anexo'}” não está mais disponível.`
+              );
             }
           }
-        } catch (err) {
-          console.error(`Falha no upload de background (${media.name}):`, err);
-          toast({
-            title: "Erro no upload",
-            description: `Não foi possível enviar "${media.name}": ${err?.message || "erro desconhecido"}`,
-            variant: "destructive",
-          });
-        }
       }
-    })();
 
-    return { success: true };
+      return { success: true };
+    } catch (error) {
+      const wasCancelled = error?.name === 'AbortError' || signal?.aborted;
+      const reason = wasCancelled
+        ? 'Envio cancelado.'
+        : error?.message || 'Um dos anexos não pôde ser preparado para envio.';
+      failUploadBatch({ ...batchMetadata, silent: wasCancelled }, reason);
+      if (wasCancelled && error?.name !== 'AbortError') {
+        throw createSubmissionAbortError();
+      }
+      throw error;
+    }
   };
 
   const fieldToWizardStep = {
@@ -2733,7 +2768,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
           const description = isNative
             ? "Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
             : "Localização bloqueada no seu navegador. Toque no ícone de cadeado/info na barra de endereço e permita a localização, depois tente novamente.";
-          toast({ title: "Localização bloqueada", description, duration: 8000 });
+          showAppError({ title: "Localização bloqueada", description });
           return;
         }
       } catch {
@@ -2756,7 +2791,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         const description = isNative
           ? "Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
           : "Localização bloqueada no seu navegador. Toque no ícone de cadeado/info na barra de endereço e permita a localização, depois tente novamente.";
-        toast({ title: "Localização bloqueada", description, duration: 8000 });
+        showAppError({ title: "Localização bloqueada", description });
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -2808,11 +2843,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
     if (!hasErrors && formData.category === "iluminacao") {
       if (formData.pole_id) {
         if (duplicatePoleReportsLoading) {
-          toast({
-            title: "Aguarde…",
-            description:
-              "Estamos verificando se já existe bronca para este poste.",
-            variant: "default",
+          showAppInfo({
+            title: "Verificando o poste",
+            description: "Aguarde a verificação terminar e envie novamente.",
           });
           return;
         }
@@ -2872,19 +2905,17 @@ const ReportModal = ({ onClose, onSubmit }) => {
     setErrors({});
     setIsSubmitting(true);
     setUploadProgress(0);
-    uploadAbortControllerRef.current = new AbortController();
+    const submissionController = new AbortController();
+    uploadAbortControllerRef.current = submissionController;
 
     try {
-      const uploadMediaWrapper = async (reportId) => {
-        const result = await uploadMedia(reportId);
-        if (
-          !result.success &&
-          formData.photos.length + formData.videos.length > 0 &&
-          result.errors?.length ===
-            formData.photos.length + formData.videos.length
-        ) {
+      const uploadMediaWrapper = async (reportId, options = {}) => {
+        const signal = options.signal || submissionController.signal;
+        const result = await uploadMedia(reportId, { signal });
+        if (!result?.success) {
           throw new Error(
-            "Falha ao fazer upload de todos os arquivos. A criação da bronca foi cancelada."
+            result?.errors?.[0] ||
+            "Falha ao preparar os anexos. A criação da bronca foi cancelada."
           );
         }
         return result;
@@ -2898,30 +2929,21 @@ const ReportModal = ({ onClose, onSubmit }) => {
       );
 
       if (hasCriticalProcessing) {
-        toast({
-          title: "Aguarde...",
-          description:
-            "Ainda estamos preparando seus vídeos. Por favor aguarde um momento.",
-          variant: "default",
-        });
         setIsSubmitting(false);
+        showAppInfo({
+          title: "Vídeo ainda em preparação",
+          description: "Aguarde o processamento terminar antes de enviar a bronca.",
+        });
         return;
-      }
-
-      // Se tiver vídeos processando mas com path/file, avisar que será em background
-      const hasBackgroundProcessing = formData.videos.some(
-        (v) => v.isProcessing
-      );
-      if (hasBackgroundProcessing) {
-        // Toast removed as per user request
       }
 
       // Resolve o city_id SEMPRE a partir do marcador, aguardando se necessário.
       // Isso garante que a bronca vá para a cidade do marcador (não a do usuário/filtro).
       const resolvedCityId = await resolveCityIdFromLocation(formData.location);
+      throwIfSubmissionAborted(submissionController.signal);
       if (resolvedCityId == null) {
         // Nunca salvar city_id nulo — bloqueia o envio e orienta o usuário.
-        toast({
+        showAppError({
           title: "Não foi possível identificar a cidade",
           description:
             "Confira se o marcador no mapa está sobre a localização correta e tente novamente. Se persistir, ajuste levemente o marcador.",
@@ -2939,7 +2961,18 @@ const ReportModal = ({ onClose, onSubmit }) => {
         city_id: resolvedCityId,
         neighborhood: getResolvedNeighborhood(),
       };
-      await onSubmit(finalFormData, uploadMediaWrapper);
+      await onSubmit(finalFormData, uploadMediaWrapper, {
+        signal: submissionController.signal,
+      });
+      throwIfSubmissionAborted(submissionController.signal);
+      if (!Capacitor.isNativePlatform()) {
+        showAppNotice({
+          title: isPublishedDirectly ? 'Bronca publicada' : 'Bronca enviada',
+          description: isPublishedDirectly
+            ? 'Sua bronca já está disponível no feed.'
+            : 'Sua bronca foi recebida e aguarda moderação antes de aparecer no feed.',
+        });
+      }
       clearReportDraft();
 
       // Limpar previews de forma segura
@@ -3000,7 +3033,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }, 100);
     } catch (error) {
       console.error("Erro ao submeter formulário:", error);
-      toast({
+      if (error?.name === 'AbortError' || submissionController.signal.aborted) {
+        return;
+      }
+      showAppError({
         title: "Erro ao criar bronca",
         description:
           error.message ||
@@ -3008,6 +3044,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
         variant: "destructive",
       });
     } finally {
+      if (uploadAbortControllerRef.current === submissionController) {
+        uploadAbortControllerRef.current = null;
+      }
+      updateSubmissionLock(false);
       setIsSubmitting(false);
     }
   };
@@ -3022,6 +3062,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
   };
 
   const handleClose = () => {
+    if (submissionLockedRef.current) return;
+
     // REMOVIDO: Bloqueios de fechamento e delays (Solicitação do usuário)
     // Agora o modal fecha imediatamente e cancela processos em andamento via cleanup
 
@@ -3079,7 +3121,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // Wrapper seguro para handleClose que previne fechamento durante processamento
   const safeHandleClose = (e) => {
     // Verificar se é um clique no backdrop (não no conteúdo)
-    if (e.target === e.currentTarget) {
+    if (!isSubmitting && e.target === e.currentTarget) {
       handleClose();
     }
   };
@@ -3144,7 +3186,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     }
 
     if (!anonCaptchaValue) {
-      toast({
+      showAppError({
         title: "Confirme o reCAPTCHA",
         description: "Complete o reCAPTCHA para enviar anonimamente.",
         variant: "destructive",
@@ -3152,14 +3194,17 @@ const ReportModal = ({ onClose, onSubmit }) => {
       return;
     }
 
+    const submissionController = new AbortController();
+    uploadAbortControllerRef.current = submissionController;
     setIsSubmitting(true);
     setUploadProgress(0);
     try {
       // city_id SEMPRE a partir do marcador — igual ao fluxo autenticado.
       // Nunca enviar null: bloqueia se não conseguir resolver a cidade.
       const anonCityId = await resolveCityIdFromLocation(formData.location);
+      throwIfSubmissionAborted(submissionController.signal);
       if (anonCityId == null) {
-        toast({
+        showAppError({
           title: "Não foi possível identificar a cidade",
           description:
             "Confira se o marcador no mapa está sobre a localização correta e tente novamente. Se persistir, ajuste levemente o marcador.",
@@ -3231,14 +3276,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
         // Fallback: nativePath em plataforma web (PWA) — lê via fetch com checagem
         if (item?.nativePath) {
           try {
-            const r = await fetch(Capacitor.convertFileSrc(item.nativePath));
+            const r = await fetch(Capacitor.convertFileSrc(item.nativePath), {
+              signal: submissionController.signal,
+            });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const b = await r.blob();
+            throwIfSubmissionAborted(submissionController.signal);
             if (!b.size) throw new Error("Arquivo vazio");
             const file = new File([b], name, { type: b.type || contentType });
             fileByClientId.set(clientId, file);
             return { clientId, type, name, contentType: b.type || contentType };
           } catch (e) {
+            if (e?.name === 'AbortError' || submissionController.signal.aborted) {
+              throw createSubmissionAbortError();
+            }
             console.error("Falha ao recuperar anexo para envio anônimo:", e);
           }
         }
@@ -3255,15 +3306,18 @@ const ReportModal = ({ onClose, onSubmit }) => {
         if (entry) resolvedMedia.push(entry);
       }
 
-      if (resolvedMedia.length === 0) {
-        toast({
+      const requestedMediaCount =
+        (formData.photos || []).length + (formData.videos || []).length;
+      if (resolvedMedia.length !== requestedMediaCount) {
+        showAppError({
           title: "Anexo indisponível",
-          description: "Não foi possível acessar os arquivos anexados para envio anônimo. Tente anexar novamente.",
+          description: "Não foi possível acessar todos os arquivos anexados. Anexe-os novamente antes de enviar.",
           variant: "destructive",
         });
         return;
       }
 
+      throwIfSubmissionAborted(submissionController.signal);
       const { data, error } = await supabase.functions.invoke("create-anonymous-report", {
         body: {
           token: anonCaptchaValue,
@@ -3272,10 +3326,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
           media: resolvedMedia.map(({ file: _f, ...rest }) => rest),
         },
       });
+      throwIfSubmissionAborted(submissionController.signal);
 
-      if (error || !data?.id || !Array.isArray(data?.uploads)) {
+      if (
+        error
+        || !data?.id
+        || !Array.isArray(data?.uploads)
+        || data.uploads.length !== resolvedMedia.length
+      ) {
         const isCityError = data?.error === "city_unresolved";
-        toast({
+        showAppError({
           title: isCityError
             ? "Não foi possível identificar a cidade"
             : "Erro ao enviar bronca",
@@ -3288,83 +3348,114 @@ const ReportModal = ({ onClose, onSubmit }) => {
       }
 
       const uploads = data.uploads || [];
+      const anonymousBatchId = `anon:${data.id}`;
+      updateSubmissionLock(true);
+      const resolvedByClientId = new Map(
+        resolvedMedia.map((item) => [String(item.clientId), item])
+      );
+      const preparedUploads = uploads.map((upload) => {
+        const clientId = String(upload?.clientId || "");
+        const signedUrl = String(upload?.signedUrl || "");
+        const resolved = resolvedByClientId.get(clientId);
+        const nativeInfo = nativeByClientId.get(clientId);
+        const localFile = fileByClientId.get(clientId);
 
-      // Espelha o fluxo autenticado: dispara uploads em background via UploadService
-      // (OkHttp, compressão H.264, timeout 600s). Modal fecha imediatamente.
-      // registerUpload sem reportId → mostra indicador global mas NÃO faz auto-approve/delete.
-      ;(async () => {
-        for (const u of uploads) {
-          const clientId = String(u?.clientId || "");
-          const signedUrl = String(u?.signedUrl || "");
-          if (!clientId || !signedUrl) continue;
-
-          const nativeInfo = nativeByClientId.get(clientId);
-          const localFile = fileByClientId.get(clientId);
-
-          try {
-            if (nativeInfo) {
-              const cleanPath = nativeInfo.nativePath.startsWith("file://")
-                ? nativeInfo.nativePath.replace("file://", "")
-                : nativeInfo.nativePath;
-
-              if (nativeInfo.contentType.startsWith("video/")) {
-                // Vídeo nativo: UploadService comprime (Transcoder H.264) e envia (OkHttp)
-                const { uploadId } = await VideoProcessor.uploadVideoInBackground({
-                  filePath: cleanPath,
-                  uploadUrl: signedUrl,
-                  headers: { "Content-Type": "video/mp4", "x-upsert": "false" },
-                  skipCompression: false,
-                });
-                registerUpload(uploadId, {
-                  name: u.name || "Vídeo",
-                  type: "video",
-                  // Sem reportId: report anônimo fica em pending_approval para moderação manual
-                });
-              } else {
-                // Foto nativa: comprimir via plugin e enviar via UploadService
-                let finalPath = cleanPath;
-                try {
-                  const comp = await VideoProcessor.compressImage({
-                    filePath: cleanPath,
-                    maxWidth: 1600,
-                    maxHeight: 1600,
-                    quality: "high",
-                    format: "jpeg",
-                  });
-                  if (comp?.outputPath) finalPath = comp.outputPath;
-                } catch (e) {
-                  // usa caminho original se compressão falhar
-                }
-                const { uploadId } = await VideoProcessor.uploadVideoInBackground({
-                  filePath: finalPath,
-                  uploadUrl: signedUrl,
-                  headers: { "Content-Type": "image/jpeg", "x-upsert": "false" },
-                  skipCompression: true,
-                });
-                registerUpload(uploadId, {
-                  name: u.name || "Foto",
-                  type: "photo",
-                });
-              }
-            } else if (localFile) {
-              // Web (PWA): PUT direto
-              const res = await fetch(signedUrl, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": localFile.type || "application/octet-stream",
-                  "x-upsert": "false",
-                },
-                body: localFile,
-              });
-              if (!res.ok) {
-                console.error(`Falha ao enviar arquivo web: HTTP ${res.status}`);
-              }
-            }
-          } catch (err) {
-            console.error("Falha ao iniciar upload anônimo:", err);
-          }
+        if (!clientId || !signedUrl || !resolved || (!nativeInfo && !localFile)) {
+          throw new Error('Um dos anexos não pôde ser preparado para envio.');
         }
-      })();
+
+        return { upload, clientId, signedUrl, resolved, nativeInfo, localFile };
+      });
+      const directUploads = preparedUploads.filter((item) => item.localFile);
+      const nativeUploads = preparedUploads.filter((item) => item.nativeInfo);
+
+      try {
+        // Uploads que passam pela WebView terminam antes do recibo. Assim o card
+        // web nunca afirma que a bronca foi enviada com anexo ainda pendente.
+        for (const item of directUploads) {
+          throwIfSubmissionAborted(submissionController.signal);
+          const response = await fetch(item.signedUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type": item.localFile.type || "application/octet-stream",
+              "x-upsert": "false",
+            },
+            body: item.localFile,
+            signal: submissionController.signal,
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        }
+
+        // No Android, o serviço nativo continua em background. Todos os membros
+        // são registrados antes de fechar; a notificação final vem do lote.
+        for (const item of nativeUploads) {
+          throwIfSubmissionAborted(submissionController.signal);
+          const cleanPath = item.nativeInfo.nativePath.startsWith("file://")
+            ? item.nativeInfo.nativePath.replace("file://", "")
+            : item.nativeInfo.nativePath;
+          let finalPath = cleanPath;
+
+          if (!item.nativeInfo.contentType.startsWith("video/")) {
+            try {
+              const compressed = await VideoProcessor.compressImage({
+                filePath: cleanPath,
+                maxWidth: 1600,
+                maxHeight: 1600,
+                quality: "high",
+                format: "jpeg",
+              });
+              if (compressed?.outputPath) finalPath = compressed.outputPath;
+            } catch (compressionError) {
+              throwIfSubmissionAborted(submissionController.signal);
+              // Usa o original quando apenas a otimização falhar.
+            }
+          }
+
+          const isVideo = item.nativeInfo.contentType.startsWith("video/");
+          const { uploadId } = await VideoProcessor.uploadVideoInBackground({
+            filePath: finalPath,
+            uploadUrl: item.signedUrl,
+            headers: {
+              "Content-Type": isVideo ? "video/mp4" : "image/jpeg",
+              "x-upsert": "false",
+            },
+            skipCompression: !isVideo,
+          });
+          registerUpload(uploadId, {
+            name: item.resolved.name || (isVideo ? "Vídeo" : "Foto"),
+            type: isVideo ? "video" : "photo",
+            batchId: anonymousBatchId,
+            expectedUploads: nativeUploads.length,
+            isReportUpload: true,
+          });
+          throwIfSubmissionAborted(submissionController.signal);
+        }
+
+        if (Capacitor.isNativePlatform() && nativeUploads.length === 0) {
+          void notifyNative({
+            title: 'Upload concluído',
+            body: 'Sua bronca e os anexos foram enviados com sucesso.',
+            dedupeKey: `upload-concluido:${anonymousBatchId}`,
+          });
+        }
+      } catch (uploadError) {
+        const wasCancelled =
+          uploadError?.name === 'AbortError' || submissionController.signal.aborted;
+        failUploadBatch(
+          {
+            batchId: anonymousBatchId,
+            isReportUpload: true,
+            silent: wasCancelled,
+          },
+          wasCancelled
+            ? 'Envio cancelado.'
+            : uploadError?.message || 'Não foi possível enviar todos os anexos.'
+        );
+        if (wasCancelled && uploadError?.name !== 'AbortError') {
+          throw createSubmissionAbortError();
+        }
+        throw uploadError;
+      }
 
       clearReportDraft();
       setAnonCaptchaValue(null);
@@ -3374,19 +3465,29 @@ const ReportModal = ({ onClose, onSubmit }) => {
         } catch {}
       }
 
-      toast({
-        title: "Bronca enviada! 📬",
-        description: "Sua bronca foi recebida e será analisada pela moderação.",
-      });
       window.dispatchEvent(new CustomEvent("reports-updated", { detail: { id: data.id } }));
+      if (!Capacitor.isNativePlatform()) {
+        showAppNotice({
+          title: "Bronca enviada",
+          description: "Sua bronca foi recebida e aguarda moderação antes de aparecer no feed.",
+        });
+      }
+      updateSubmissionLock(false);
       handleClose();
     } catch (err) {
-      toast({
+      if (err?.name === 'AbortError' || submissionController.signal.aborted) {
+        return;
+      }
+      showAppError({
         title: "Erro ao enviar anexos",
         description: err?.message || "Não foi possível enviar os anexos anonimamente. Tente novamente.",
         variant: "destructive",
       });
     } finally {
+      if (uploadAbortControllerRef.current === submissionController) {
+        uploadAbortControllerRef.current = null;
+      }
+      updateSubmissionLock(false);
       setIsSubmitting(false);
       setUploadProgress(0);
     }
@@ -4259,7 +4360,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
               <div className="flex flex-col sm:flex-row gap-3 pb-2">
                 <Button
                   type="button"
-                  variant={isSubmitting ? "destructive" : "outline"}
+                  variant={isSubmitting && !submissionLocked ? "destructive" : "outline"}
                   onClick={() => {
                     if (isSubmitting) {
                       handleClose();
@@ -4272,10 +4373,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     setWizardStep((s) => Math.max(0, s - 1));
                   }}
                   className="flex-1"
-                  disabled={false}
+                  disabled={submissionLocked}
                 >
-                  {isSubmitting
-                    ? "Cancelar Envio"
+                  {submissionLocked
+                    ? "Finalizando envio…"
+                    : isSubmitting
+                    ? "Cancelar envio"
                     : wizardStep === 0
                     ? "Cancelar"
                     : "Voltar"}
@@ -5070,12 +5173,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 <div className="flex space-x-3">
                   <Button
                     type="button"
-                    variant={isSubmitting ? "destructive" : "outline"}
+                    variant={isSubmitting && !submissionLocked ? "destructive" : "outline"}
                     onClick={handleClose}
                     className="flex-1"
-                    disabled={false}
+                    disabled={submissionLocked}
                   >
-                    {isSubmitting ? "Cancelar Envio" : "Cancelar"}
+                    {submissionLocked
+                      ? "Finalizando envio…"
+                      : isSubmitting
+                      ? "Cancelar envio"
+                      : "Cancelar"}
                   </Button>
                   {!isSubmitting && (
                     <Button

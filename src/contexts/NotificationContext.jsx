@@ -29,6 +29,40 @@ const DEFAULT_PREFERENCES = {
   work_update: true
 };
 
+const FOREGROUND_PUSH_DEDUPE_MS = 60000;
+const INTERNAL_URL_BASE = 'https://app.trombone.local';
+
+const toInternalNotificationUrl = (candidate, fallback = '/notificacoes') => {
+  if (typeof candidate !== 'string') return fallback;
+
+  const trimmedCandidate = candidate.trim();
+  if (!trimmedCandidate.startsWith('/') || trimmedCandidate.startsWith('//')) {
+    return fallback;
+  }
+
+  try {
+    const parsed = new URL(trimmedCandidate, INTERNAL_URL_BASE);
+    if (parsed.origin !== INTERNAL_URL_BASE) return fallback;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return fallback;
+  }
+};
+
+const getForegroundPushKey = (notification, data) => String(
+  notification.id
+  || data.notification_id
+  || data.message_id
+  || [
+    data.type || 'system',
+    notification.title || data.title || '',
+    notification.body || data.message || data.body || '',
+    data.url || '',
+    data.report_id || '',
+    data.work_id || '',
+  ].join('|')
+);
+
 export const NotificationProvider = ({ children }) => {
   const { user } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -82,7 +116,7 @@ export const NotificationProvider = ({ children }) => {
 
   const getNotificationUrl = (notification) => {
     if (notification.link) {
-      return notification.link;
+      return toInternalNotificationUrl(notification.link, '/painel-usuario');
     }
     if (notification.type === 'moderation_required') {
       if (notification.report_id) return '/admin/moderacao/broncas';
@@ -1431,8 +1465,10 @@ export const NotificationProvider = ({ children }) => {
       }
     });
 
+    const recentForegroundPushes = new Map();
+
     // Handler para processar notificação recebida em foreground
-    const handlePushNotificationReceived = async (notification) => {
+    const handlePushNotificationReceived = (notification) => {
       try {
         // Validar se notification é válido
         if (!notification || typeof notification !== 'object') {
@@ -1441,119 +1477,39 @@ export const NotificationProvider = ({ children }) => {
         }
         
         // Extrair dados da notificação
-        const notificationData = notification.data || {};
-        const notificationId = notification.id || notificationData.notification_id || Date.now().toString();
-        const notificationMessage = notification.body || notificationData.message || notificationData.body || 'Nova notificação';
-        const notificationType = notificationData.type || 'system';
-        const notificationTitle = getNotificationTitle(notificationType);
-        
-        const targetUrl = notificationData.url || getNotificationUrl({ type: notificationType, report_id: notificationData.report_id, work_id: notificationData.work_id });
+        const notificationData = notification.data && typeof notification.data === 'object'
+          ? notification.data
+          : {};
+        const foregroundPushKey = getForegroundPushKey(notification, notificationData);
+        const receivedAt = Date.now();
 
-        if (isCapacitor && Capacitor.isNativePlatform()) {
-          try {
-            const { LocalNotifications } = await import('@capacitor/local-notifications');
-            await LocalNotifications.requestPermissions();
-
-            const numericId = Number(notificationId);
-            const idForLocal = Number.isFinite(numericId) ? numericId : Date.now();
-
-            await LocalNotifications.schedule({
-              notifications: [{
-                id: idForLocal,
-                title: notificationTitle,
-                body: notificationMessage,
-                extra: {
-                  url: targetUrl || '/notificacoes',
-                  notificationId: notificationId,
-                  type: notificationType,
-                  report_id: notificationData.report_id,
-                  work_id: notificationData.work_id
-                }
-              }]
-            });
-          } catch (error) {
-            console.error('[FCM] Erro ao exibir notificação local (Capacitor):', error);
-            try {
-              showLocalNotification({
-                id: notificationId,
-                message: notificationMessage,
-                type: notificationType
-              });
-            } catch (fallbackError) {
-              console.error('[FCM] Erro no fallback de notificação:', fallbackError);
-            }
-          }
-        } else if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            const localNotification = new Notification(notificationTitle, {
-              body: notificationMessage,
-              icon: '/logo.png',
-              badge: '/logo.png',
-              tag: notificationId,
-              data: {
-                url: targetUrl || '/',
-                notificationId: notificationId,
-                type: notificationType
-              },
-              vibrate: [100, 50, 100]
-            });
-            
-            // Adicionar click handler
-            localNotification.onclick = (event) => {
-              try {
-                event.preventDefault();
-                
-                // Verificar se navegação está bloqueada (durante processamento de foto/vídeo)
-                if (window.__BLOCK_NAVIGATION__) {
-//                   console.log('[FCM] Navegação bloqueada durante processamento de mídia');
-                  localNotification.close();
-                  return;
-                }
-                
-                const url = event.notification.data?.url || '/notificacoes';
-                // Usar evento customizado para navegação sem recarregar
-                // O App.jsx pode escutar este evento e usar React Router
-                if (window.location.pathname !== url) {
-                  window.dispatchEvent(new CustomEvent('navigate-to', { detail: { url } }));
-                  // Fallback: usar window.location apenas se o evento não for tratado
-                  setTimeout(() => {
-                    if (!window.__BLOCK_NAVIGATION__ && window.location.pathname !== url) {
-                      window.location.href = url;
-                    }
-                  }, 100);
-                }
-                localNotification.close();
-              } catch (error) {
-                console.error('[FCM] Erro ao processar click na notificação:', error);
-              }
-            };
-            
-          } catch (error) {
-            console.error('[FCM] Erro ao exibir notificação local:', error);
-            // Fallback: usar showLocalNotification
-            try {
-              showLocalNotification({
-                id: notificationId,
-                message: notificationMessage,
-                type: notificationType
-              });
-            } catch (fallbackError) {
-              console.error('[FCM] Erro no fallback de notificação:', fallbackError);
-            }
-          }
-        } else {
-          // Fallback: usar showLocalNotification
-          try {
-            showLocalNotification({
-              id: notificationId,
-              message: notificationMessage,
-              type: notificationType
-            });
-          } catch (error) {
-            console.error('[FCM] Erro ao usar showLocalNotification:', error);
+        for (const [key, handledAt] of recentForegroundPushes) {
+          if (receivedAt - handledAt >= FOREGROUND_PUSH_DEDUPE_MS) {
+            recentForegroundPushes.delete(key);
           }
         }
-      
+
+        const lastHandledAt = recentForegroundPushes.get(foregroundPushKey);
+        if (lastHandledAt && receivedAt - lastHandledAt < FOREGROUND_PUSH_DEDUPE_MS) {
+          return;
+        }
+        recentForegroundPushes.set(foregroundPushKey, receivedAt);
+
+        const notificationMessage = notification.body || notificationData.message || notificationData.body || 'Nova notificação';
+        const notificationType = notificationData.type || 'system';
+        const currentPreferences = notificationPreferencesRef.current || DEFAULT_PREFERENCES;
+        const isTypeEnabled = currentPreferences[notificationType] !== undefined
+          ? currentPreferences[notificationType]
+          : true;
+
+        if (!notificationsEnabledRef.current || !pushEnabledRef.current || !isTypeEnabled) {
+          return;
+        }
+
+        // O plugin de push já apresenta o alerta nativo em foreground conforme
+        // `presentationOptions`; reagendar uma LocalNotification criava um segundo alerta.
+        const notificationId = notification.id || notificationData.notification_id || foregroundPushKey;
+
         // Disparar evento customizado para atualizar componentes
         window.dispatchEvent(new CustomEvent('new-notification', {
           detail: {
@@ -1589,12 +1545,13 @@ export const NotificationProvider = ({ children }) => {
     // Listener: Notificação clicada (app em BACKGROUND ou fechado)
     const pushNotificationActionPerformedListener = PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
       // Extrair dados da notificação
-      const notificationData = action.notification.data || {};
-      const url = notificationData.url || getNotificationUrl({
+      const notificationData = action?.notification?.data || {};
+      const requestedUrl = notificationData.url || getNotificationUrl({
         type: notificationData.type || 'system',
         report_id: notificationData.report_id,
         work_id: notificationData.work_id
       }) || '/notificacoes';
+      const url = toInternalNotificationUrl(requestedUrl);
       
       // Verificar se não está em processo de captura (evitar recarregar durante foto/vídeo)
       // Verificar flag global de bloqueio de navegação
@@ -1616,12 +1573,18 @@ export const NotificationProvider = ({ children }) => {
     });
 
     let localNotificationActionListener = null;
+    let localNotificationListenerDisposed = false;
     if (isCapacitor && Capacitor.isNativePlatform()) {
       (async () => {
         try {
           const { LocalNotifications } = await import('@capacitor/local-notifications');
-          localNotificationActionListener = await LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
-            const url = event?.notification?.extra?.url || '/notificacoes';
+          const newListener = await LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+            // Avisos de processo (upload/fila offline) e de arquivo pronto não
+            // são notificações do feed. Sem uma URL explícita, tocar apenas
+            // reabre o app; o listener global de App.jsx cuida de filePath.
+            const requestedUrl = event?.notification?.extra?.url;
+            if (!requestedUrl) return;
+            const url = toInternalNotificationUrl(requestedUrl);
             if (window.__BLOCK_NAVIGATION__) {
               return;
             }
@@ -1634,8 +1597,13 @@ export const NotificationProvider = ({ children }) => {
               }, 100);
             }
           });
-        } catch (error) {
-        }
+
+          if (localNotificationListenerDisposed) {
+            await newListener.remove();
+            return;
+          }
+          localNotificationActionListener = newListener;
+        } catch {}
       })();
     }
 
@@ -1647,6 +1615,8 @@ export const NotificationProvider = ({ children }) => {
       pushNotificationReceivedListener.remove();
       pushNotificationActionPerformedListener.remove();
       window.removeEventListener('pushNotificationReceived', customPushNotificationListener);
+      recentForegroundPushes.clear();
+      localNotificationListenerDisposed = true;
       if (localNotificationActionListener) {
         localNotificationActionListener.remove();
       }

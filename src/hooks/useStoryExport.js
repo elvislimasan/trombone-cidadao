@@ -2,10 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
 import { Capacitor } from '@capacitor/core';
 
-import { useToast } from '@/components/ui/use-toast';
 import { shareImageToInstagramStory, canShareToStory } from '@/lib/instagramStory';
 import { salvarImagemNaGaleria, compartilharImagem } from '@/lib/nativeDownload';
 import { registrarCompartilhamento } from '@/lib/shareTracking';
+import { showAppError } from '@/lib/appError';
 
 // Exportação de um card 1080×1920: rasterizar, baixar e mandar ao story.
 //
@@ -39,7 +39,6 @@ export function useStoryExport({
   pronto = true,
   aoConcluirShare,
 } = {}) {
-  const { toast } = useToast();
   const exportRef = useRef(null);
 
   const [baixando, setBaixando] = useState(false);
@@ -123,8 +122,7 @@ export function useStoryExport({
     // única da tabela garante que baixar e depois compartilhar não conte duas.
     registrarCompartilhamento(tipoConteudo, contentId, 'download');
 
-    toast({ title: 'Card pronto!', description: 'A imagem foi gerada e baixada.' });
-  }, [nomeArquivo, tipoConteudo, contentId, toast]);
+  }, [nomeArquivo, tipoConteudo, contentId]);
 
   const baixar = useCallback(async () => {
     if (!exportRef.current || ocupado || !pronto) return;
@@ -135,7 +133,7 @@ export function useStoryExport({
       return true;
     } catch (error) {
       console.error('[useStoryExport] falha ao baixar:', error);
-      toast({
+      showAppError({
         title: 'Erro ao gerar o card',
         description: 'Tente novamente em instantes.',
         variant: 'destructive',
@@ -144,7 +142,7 @@ export function useStoryExport({
     } finally {
       setBaixando(false);
     }
-  }, [ocupado, pronto, renderizar, toast, entregarDownload]);
+  }, [ocupado, pronto, renderizar, entregarDownload]);
 
   const compartilhar = useCallback(async () => {
     if (!exportRef.current || ocupado || !pronto) return;
@@ -168,12 +166,6 @@ export function useStoryExport({
         if (linkAttached) {
           // Não dá para saber se o Instagram renderizou o sticker: a permissão
           // de link em story é da conta do usuário, invisível para o app.
-          toast({
-            title: 'Card enviado ao Instagram',
-            description:
-              'Se sua conta permitir link em story, o sticker do Trombone já vai estar lá.',
-            duration: 4000,
-          });
         }
         registrarCompartilhamento(tipoConteudo, contentId, 'story');
         aoConcluirShare?.();
@@ -211,7 +203,7 @@ export function useStoryExport({
       console.error('[useStoryExport] falha ao compartilhar:', error);
       const naoInstalado = String(error?.message || '') === 'INSTAGRAM_NOT_INSTALLED';
 
-      toast({
+      showAppError({
         title: naoInstalado ? 'Instagram não encontrado' : 'Não foi possível compartilhar',
         description: naoInstalado
           ? 'Instale o Instagram para postar direto no story.'
@@ -223,7 +215,7 @@ export function useStoryExport({
       setCompartilhando(false);
     }
   }, [
-    ocupado, pronto, renderizar, contentId, shareUrl, toast, aoConcluirShare,
+    ocupado, pronto, renderizar, contentId, shareUrl, aoConcluirShare,
     tipoConteudo, nomeArquivo, entregarDownload, viaInstagram,
   ]);
 

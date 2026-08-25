@@ -7,11 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, ArrowLeft, Save } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { WorkGalleryManager } from '@/components/admin/WorkGalleryManager';
+import { showAppError } from '@/lib/appError';
 
 export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange, onWorkCompletionChange }) {
   const [measurements, setMeasurements] = useState([]);
@@ -19,7 +19,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
   const [isEditing, setIsEditing] = useState(false);
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
   const [errors, setErrors] = useState({});
-  const { toast } = useToast();
   const { user } = useAuth();
   const [localContractors, setLocalContractors] = useState(contractors);
   const [showNewContractorDialog, setShowNewContractorDialog] = useState(false);
@@ -194,7 +193,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       setMeasurementMedia(data || []);
     } catch (error) {
       console.error('Error fetching measurement media:', error);
-      toast({
+      showAppError({
         title: "Erro ao carregar mídias",
         description: error.message,
         variant: "destructive"
@@ -252,7 +251,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       }
     } catch (error) {
       console.error('Error uploading media:', error);
-      toast({
+      showAppError({
         title: "Erro no upload",
         description: error.message,
         variant: "destructive"
@@ -312,7 +311,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       }
     } catch (error) {
       console.error('Error deleting media:', error);
-      toast({
+      showAppError({
         title: "Erro ao excluir",
         description: error.message,
         variant: "destructive"
@@ -336,7 +335,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       setMeasurements(data || []);
     } catch (error) {
       console.error('Error fetching measurements:', error);
-      toast({
+      showAppError({
         title: "Erro ao carregar medições",
         description: error.message,
         variant: "destructive"
@@ -519,7 +518,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
   const handleSave = async () => {
     try {
       if (!formData.title) {
-        toast({
+        showAppError({
           title: "Erro de validação",
           description: "O título é obrigatório.",
           variant: "destructive"
@@ -530,7 +529,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       const dateErrors = validateDates(formData);
       if (Object.keys(dateErrors).length > 0) {
         setErrors(dateErrors);
-        toast({
+        showAppError({
           title: "Erro de validação",
           description: "Verifique as datas inseridas.",
           variant: "destructive"
@@ -599,10 +598,6 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
         const groups = Array.isArray(pendingGalleries) ? pendingGalleries : [];
         const hasAny = groups.some((g) => Array.isArray(g.files) && g.files.length > 0);
         if (hasAny) {
-          toast({
-            title: "Enviando mídias...",
-            description: "Aguarde enquanto as fotos e documentos são enviados.",
-          });
           for (const g of groups) {
             const files = Array.isArray(g.files) ? g.files : [];
             if (files.length === 0) continue;
@@ -617,7 +612,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       await syncWorkFromLatestMeasurement();
       const { error: completionError } = await supabase.from('public_works').update({ is_complete: true }).eq('id', workId);
       if (completionError) {
-        toast({
+        showAppError({
           title: "Fase salva, mas cadastro não foi completado",
           description: completionError.message,
           variant: "destructive"
@@ -638,7 +633,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       
     } catch (error) {
       console.error('Error saving measurement:', error);
-      toast({
+      showAppError({
         title: "Erro ao salvar",
         description: error.message || "Ocorreu um erro desconhecido ao salvar.",
         variant: "destructive"
@@ -670,7 +665,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       if (onWorkCompletionChange) onWorkCompletionChange(nextIsComplete);
     } catch (error) {
       console.error('Error deleting measurement:', error);
-      toast({
+      showAppError({
         title: "Erro ao excluir",
         description: error.message,
         variant: "destructive"
@@ -697,12 +692,12 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     if (!user?.is_admin) return;
     const name = String(newContractorForm.name || '').trim();
     if (!name) {
-      toast({ title: "Nome obrigatório", description: "Informe o nome da construtora.", variant: "destructive" });
+      showAppError({ title: "Nome obrigatório", description: "Informe o nome da construtora.", variant: "destructive" });
       return;
     }
     const cnpjDigits = String(newContractorForm.cnpj || '').replace(/\D/g, '');
     if (cnpjDigits && !isValidCnpj(cnpjDigits)) {
-      toast({ title: "CNPJ inválido", description: "Informe um CNPJ válido (14 dígitos).", variant: "destructive" });
+      showAppError({ title: "CNPJ inválido", description: "Informe um CNPJ válido (14 dígitos).", variant: "destructive" });
       return;
     }
     if (isSavingContractor) return;
@@ -726,7 +721,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
       setShowNewContractorDialog(false);
       setNewContractorForm({ name: '', cnpj: '' });
     } catch (error) {
-      toast({ title: "Erro ao criar construtora", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao criar construtora", description: error.message, variant: "destructive" });
     } finally {
       setIsSavingContractor(false);
     }

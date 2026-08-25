@@ -2,15 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import ImageCropper from '@/components/ui/ImageCropper';
+import { showAppError } from '@/lib/appError';
 
 const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const fileInputRef = useRef(null);
-  const { toast } = useToast();
 
   // Cropping state
   const [filesToProcess, setFilesToProcess] = useState([]);
@@ -51,7 +50,7 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
     });
 
     if (validFiles.length !== files.length) {
-      toast({
+      showAppError({
         title: "Arquivos ignorados",
         description: "Alguns arquivos eram inválidos (apenas JPG/PNG/WebP até 5MB).",
         variant: "destructive"
@@ -61,7 +60,7 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
     if (validFiles.length === 0) return;
 
     if (validFiles.length > maxFiles) {
-        toast({
+        showAppError({
             title: "Muitos arquivos",
             description: `Você pode enviar no máximo ${maxFiles} imagens por vez.`,
             variant: "destructive"
@@ -110,7 +109,7 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
         
     } catch (error) {
         console.error('Upload error:', error);
-        toast({ 
+        showAppError({ 
           title: "Erro no upload", 
           description: "Falha ao enviar imagem.", 
           variant: "destructive" 

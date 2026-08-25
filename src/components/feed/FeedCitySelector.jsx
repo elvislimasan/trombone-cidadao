@@ -3,7 +3,7 @@ import { ChevronDown, LocateFixed, Globe, Check, X } from 'lucide-react';
 import Icon from '@/design-system/icons';
 import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
-import { useToast } from '@/components/ui/use-toast';
+import { showAppError } from '@/lib/appError';
 
 /**
  * @param {object} props
@@ -19,7 +19,6 @@ import { useToast } from '@/components/ui/use-toast';
  */
 const FeedCitySelector = ({ inHeader = false, iconOnly = false }) => {
   const { activeCityId, activeCityName, setActiveCity, cities, loadingCities } = useCity();
-  const { toast } = useToast();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const [citySearch, setCitySearch] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -84,16 +83,18 @@ const FeedCitySelector = ({ inHeader = false, iconOnly = false }) => {
             setCityPickerOpen(false);
           } else {
             const listSize = citiesRef.current.length;
-            toast({
+            showAppError({
               title: 'Cidade não encontrada',
               description: listSize === 0
-                ? 'Lista de cidades ainda carregando. Aguarde e tente novamente.'
-                : name ? `"${name}" não está no cadastro. Escolha manualmente.` : 'Escolha manualmente na lista.',
-              duration: 4000,
+                ? 'A lista de cidades ainda está carregando. Aguarde e tente novamente.'
+                : name ? `“${name}” não está no cadastro. Escolha manualmente.` : 'Escolha manualmente na lista.',
             });
           }
         } catch {
-          toast({ title: 'Erro ao obter localização', description: 'Verifique sua conexão e tente novamente.', duration: 4000 });
+          showAppError({
+            title: 'Não foi possível obter sua localização',
+            description: 'Verifique sua conexão e tente novamente.',
+          });
         } finally {
           setGpsLoading(false);
         }
@@ -101,12 +102,11 @@ const FeedCitySelector = ({ inHeader = false, iconOnly = false }) => {
       (err) => {
         setGpsLoading(false);
         const denied = err?.code === 1;
-        toast({
-          title: denied ? 'Localização bloqueada' : 'Não foi possível obter localização',
+        showAppError({
+          title: denied ? 'Localização bloqueada' : 'Não foi possível obter sua localização',
           description: denied
             ? 'Permita o acesso à localização nas configurações do navegador.'
             : 'Verifique se a localização está ativada e tente novamente.',
-          duration: 5000,
         });
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }

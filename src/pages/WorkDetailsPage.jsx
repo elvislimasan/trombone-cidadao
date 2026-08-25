@@ -5,7 +5,6 @@ import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { getWorkShareUrl } from '@/lib/shareUtils';
 import DynamicSEO from '@/components/DynamicSeo';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -43,6 +42,7 @@ import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import { showAppError } from '@/lib/appError';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -103,7 +103,6 @@ const getStatusInfo = (status) => {
 
 const WorkDetailsPage = () => {
   const { workId } = useParams();
-  const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { setTitle, setActions, setShowBack, setOnBack, reset } = useMobileHeader();
@@ -459,7 +458,7 @@ const WorkDetailsPage = () => {
       .single();
 
     if (workError) {
-      toast({ title: "Erro ao buscar detalhes da obra", description: workError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar detalhes da obra", description: workError.message, variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -472,7 +471,7 @@ const WorkDetailsPage = () => {
       .order('created_at', { ascending: false });
 
     if (mediaError) {
-      toast({ title: "Erro ao buscar mídias da obra", description: mediaError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar mídias da obra", description: mediaError.message, variant: "destructive" });
     }
 
     const { data: measurementsData, error: measurementsError } = await supabase
@@ -509,7 +508,7 @@ const WorkDetailsPage = () => {
     setMeasurements(measurementsData || []);
     setBiddings(measurementsData || []); // Use measurements as biddings for compatibility with the UI
     setLoading(false);
-  }, [workId, toast]);
+  }, [workId]);
 
   const openNewPaymentDialog = useCallback(() => {
     const defaultMeasurement = currentMeasurement || measurements?.[0] || null;
@@ -532,12 +531,12 @@ const WorkDetailsPage = () => {
   const handleSavePayment = useCallback(async () => {
     try {
       if (!user?.is_admin) {
-        toast({ title: 'Acesso restrito', description: 'Apenas administradores podem cadastrar pagamentos.', variant: 'destructive' });
+        showAppError({ title: 'Acesso restrito', description: 'Apenas administradores podem cadastrar pagamentos.', variant: 'destructive' });
         return;
       }
 
       if (!paymentForm.measurement_id || !paymentForm.payment_date || !paymentForm.value) {
-        toast({ title: 'Campos obrigatórios', description: 'Fase, data e valor são obrigatórios.', variant: 'destructive' });
+        showAppError({ title: 'Campos obrigatórios', description: 'Fase, data e valor são obrigatórios.', variant: 'destructive' });
         return;
       }
 
@@ -561,11 +560,11 @@ const WorkDetailsPage = () => {
       setShowPaymentDialog(false);
       fetchWorkDetails();
     } catch (error) {
-      toast({ title: 'Erro ao salvar pagamento', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao salvar pagamento', description: error.message, variant: 'destructive' });
     } finally {
       setIsSavingPayment(false);
     }
-  }, [user?.is_admin, paymentForm, toast, fetchWorkDetails]);
+  }, [user?.is_admin, paymentForm, fetchWorkDetails]);
 
   useEffect(() => {
     fetchWorkDetails();
@@ -614,7 +613,7 @@ const WorkDetailsPage = () => {
 
   const handleFavoriteToggle = async () => {
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login para favoritar uma obra.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Você precisa fazer login para favoritar uma obra.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -622,7 +621,7 @@ const WorkDetailsPage = () => {
     if (isFavorited) {
       const { error } = await supabase.from('favorite_works').delete().match({ user_id: user.id, work_id: workId });
       if (error) {
-        toast({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao desfavoritar", description: error.message, variant: "destructive" });
       } else {
         // Sem toast: o coração troca de estado na hora, embaixo do dedo.
         setIsFavorited(false);
@@ -630,7 +629,7 @@ const WorkDetailsPage = () => {
     } else {
       const { error } = await supabase.from('favorite_works').insert({ user_id: user.id, work_id: workId });
       if (error) {
-        toast({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
+        showAppError({ title: "Erro ao favoritar", description: error.message, variant: "destructive" });
       } else {
         setIsFavorited(true);
       }
@@ -773,7 +772,6 @@ const WorkDetailsPage = () => {
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(url);
-        toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
         return;
       }
     } catch (error) {
@@ -781,16 +779,15 @@ const WorkDetailsPage = () => {
       // Fallback para clipboard
       try {
         await navigator.clipboard.writeText(url);
-        toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
       } catch (e) {
-        toast({ title: "Erro ao compartilhar", variant: "destructive" });
+        showAppError({ title: "Erro ao compartilhar", variant: "destructive" });
       }
     }
   };
 
   const handleOpenContrib = () => {
     if (!user) {
-      toast({ title: "Faça login para contribuir", description: "Você precisa entrar para enviar fotos ou dados.", variant: "destructive" });
+      showAppError({ title: "Faça login para contribuir", description: "Você precisa entrar para enviar fotos ou dados.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -805,7 +802,7 @@ const WorkDetailsPage = () => {
   const handleSubmitContribution = async () => {
     if (!user || !work || isSubmittingContribution) return;
     if (!currentMeasurement?.id) {
-      toast({ title: "Fase não encontrada", description: "Cadastre uma fase para enviar contribuições.", variant: "destructive" });
+      showAppError({ title: "Fase não encontrada", description: "Cadastre uma fase para enviar contribuições.", variant: "destructive" });
       return;
     }
     setIsSubmittingContribution(true);
@@ -848,7 +845,6 @@ const WorkDetailsPage = () => {
         });
         if (linkErr) throw linkErr;
       }
-      toast({ title: "Contribuição enviada! ✅", description: "Obrigado por colaborar com transparência." });
       setShowContribDialog(false);
       setContribDescription('');
       setContribVideoUrl('');
@@ -856,7 +852,7 @@ const WorkDetailsPage = () => {
       const { data: mediaData } = await supabase.from('public_work_media').select('*').eq('work_id', work.id).order('media_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
       setMedia(mediaData || []);
     } catch (error) {
-      toast({ title: "Erro ao enviar contribuição", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao enviar contribuição", description: error.message, variant: "destructive" });
     } finally {
       setIsSubmittingContribution(false);
     }
@@ -2676,7 +2672,7 @@ const WorkDetailsPage = () => {
             }
             const result = await supabase.from('public_works').update(payload).eq('id', id).select().single();
             if (result.error) {
-              toast({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
+              showAppError({ title: "Erro ao salvar obra", description: result.error.message, variant: "destructive" });
             } else {
               setShowAdminEditModal(false);
               fetchWorkDetails();

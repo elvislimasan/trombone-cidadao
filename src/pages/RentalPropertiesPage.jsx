@@ -14,10 +14,10 @@ import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { showAppError } from '@/lib/appError';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <Card className="border-border">
@@ -37,7 +37,6 @@ const RentalPropertiesPage = () => {
   const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
-  const { toast } = useToast();
   const navigate = useNavigate();
   // Admin/master gerenciam qualquer cidade. Embaixador puro só pode gerenciar
   // a(s) própria(s) cidade(s) — precisamos saber quais são, não basta checar
@@ -110,11 +109,11 @@ const RentalPropertiesPage = () => {
       });
       setProperties(formatted);
     } catch (error) {
-      toast({ title: 'Erro ao buscar imóveis alugados', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar imóveis alugados', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [activeCityId, toast]);
+  }, [activeCityId]);
 
   const fetchBairros = useCallback(async () => {
     let query = supabase.from('bairros').select('id, name');
@@ -192,9 +191,8 @@ const RentalPropertiesPage = () => {
         styles: { fontSize: 9 },
       });
       doc.save(`relatorio_imoveis_alugados_${new Date().toISOString().split('T')[0]}.pdf`);
-      toast({ title: 'Download concluído!' });
     } catch (error) {
-      toast({ title: 'Erro ao gerar relatório', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao gerar relatório', description: error.message, variant: 'destructive' });
     } finally {
       setTimeout(() => setDownloading(false), 500);
     }

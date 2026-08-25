@@ -1,22 +1,19 @@
 // hooks/useUpvote.js - ATUALIZADO PARA ASSINATURAS
 import { useState, useCallback } from 'react';
-import { useToast } from '@/components/ui/use-toast';
 import { useMissionProgress } from '@/contexts/MissionProgressContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 
 export const useUpvote = () => {
-  const { toast } = useToast();
   const { user } = useAuth();
-  const { celebrar } = useMissionProgress();
+  const { celebrate } = useMissionProgress();
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
 
   const handleUpvote = useCallback(async (reportId, currentUpvotes = 0, currentUserHasUpvoted = false) => {
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
       navigate('/login', { state: { from: location } });
       return { 
         success: false, 
@@ -82,9 +79,7 @@ export const useUpvote = () => {
         action = 'added';
         newUpvotes = currentUpvotes + 1;
         newUserHasUpvoted = true;
-        // Só ao apoiar. Retirar o apoio faz o contador cair, e comemorar uma
-        // queda seria zombaria.
-        celebrar();
+        celebrate();
         
       }
 
@@ -105,7 +100,7 @@ export const useUpvote = () => {
         error: error.message 
       };
     }
-  }, [user, celebrar]);
+  }, [user, celebrate, navigate, location]);
 
   return {
     handleUpvote,

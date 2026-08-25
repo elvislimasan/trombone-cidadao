@@ -6,17 +6,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Phone, Clock, MapPin, Info, Instagram, Pencil, MessageCircle, Share2, Bus, Bike, Car, CarTaxiFront, Truck } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { nomeDoTipoTransporte, iconeDoTipoTransporte } from '@/lib/transportTypes';
 import { whatsappNumber } from '@/lib/utils';
+import { showAppError } from '@/lib/appError';
 
 const TRANSPORT_ICONS = { Bike, CarTaxiFront, Car, Truck, Bus };
 
 const TransportDetailsPage = () => {
   const { id } = useParams();
   const [transport, setTransport] = useState(null);
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
@@ -48,12 +47,12 @@ const TransportDetailsPage = () => {
       .single();
     
     if (error) {
-      toast({ title: "Erro ao buscar transporte", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar transporte", description: error.message, variant: "destructive" });
       navigate('/servicos');
     } else {
       setTransport(data);
     }
-  }, [id, toast, navigate]);
+  }, [id, navigate]);
 
   useEffect(() => {
     fetchTransport();
@@ -86,9 +85,8 @@ const TransportDetailsPage = () => {
     }
     try {
       await navigator.clipboard.writeText(`${texto}\n${url}`);
-      toast({ title: 'Link copiado!', description: 'Cole onde quiser compartilhar.' });
     } catch {
-      toast({ title: 'Não foi possível compartilhar', variant: 'destructive' });
+      showAppError({ title: 'Não foi possível compartilhar', variant: 'destructive' });
     }
   };
 

@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useUpload } from '@/contexts/UploadContext';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -23,6 +22,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { validateVideoFile } from '@/utils/videoProcessor';
 import { ShareModal } from './PetitionComponents';
 import { mascarar } from '@/lib/profanity';
+import { showAppError, showAppInfo } from '@/lib/appError';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -186,7 +186,6 @@ const ReportDetails = ({
       removedMedia: [],
     };
   });
-  const { toast } = useToast();
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const [mediaViewerState, setMediaViewerState] = useState({ isOpen: false, startIndex: 0 });
@@ -306,7 +305,7 @@ const ReportDetails = ({
 
   const handleMarkResolvedClick = () => {
     if (!user) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Você precisa fazer login para marcar uma bronca como resolvida.",
         variant: "destructive",
@@ -349,7 +348,7 @@ const ReportDetails = ({
       const { error: uploadError } = await supabase.storage.from('reports-media').upload(filePath, uploadFile);
 
       if (uploadError) {
-        toast({ title: "Erro no upload da foto", description: uploadError.message, variant: "destructive" });
+        showAppError({ title: "Erro no upload da foto", description: uploadError.message, variant: "destructive" });
         return;
       }
 
@@ -380,18 +379,17 @@ const ReportDetails = ({
 
   const handleSubmitEvaluation = () => {
     if (evaluation.rating === 0) {
-      toast({ title: "Avaliação incompleta", description: "Por favor, selecione uma nota de 1 a 5 estrelas.", variant: "destructive" });
+      showAppError({ title: "Avaliação incompleta", description: "Por favor, selecione uma nota de 1 a 5 estrelas.", variant: "destructive" });
       return;
     }
     const updatedReport = { evaluation: evaluation };
     onUpdate({ id: report.id, ...updatedReport });
     setShowEvaluation(false);
-    toast({ title: "Avaliação enviada! ⭐", description: "Obrigado pelo seu feedback!" });
   };
 
   const handleFlagContent = async () => {
     if (!flagReason) {
-      toast({ title: "Selecione um motivo", variant: "destructive" });
+      showAppError({ title: "Selecione um motivo", variant: "destructive" });
       return;
     }
     setIsFlagging(true);
@@ -401,11 +399,10 @@ const ReportDetails = ({
         reporter_id: user?.id ?? null,
         reason: flagReason,
       });
-      toast({ title: "Denúncia enviada", description: "Nossa equipe irá analisar o conteúdo. Obrigado!" });
       setShowFlagDialog(false);
       setFlagReason('');
     } catch {
-      toast({ title: "Erro ao enviar denúncia", description: "Tente novamente.", variant: "destructive" });
+      showAppError({ title: "Erro ao enviar denúncia", description: "Tente novamente.", variant: "destructive" });
     } finally {
       setIsFlagging(false);
     }
@@ -550,14 +547,10 @@ const ReportDetails = ({
       // Fallback: copiar link
       try {
         await navigator.clipboard.writeText(shareText);
-        toast({ 
-          title: "Texto copiado!", 
-          description: "Cole nas suas redes sociais." 
-        });
       } catch (clipboardError) {
-        toast({ 
-          title: "Erro ao copiar", 
-          description: "Não foi possível copiar o link." 
+        showAppError({
+          title: 'Não foi possível copiar o link',
+          description: 'Copie o endereço diretamente da barra do navegador.',
         });
     }
   } catch (error) {
@@ -571,12 +564,8 @@ const ReportDetails = ({
       // Fallback: apenas copiar link
       try {
         await navigator.clipboard.writeText(shareText);
-        toast({ 
-          title: "Texto copiado!", 
-          description: "Cole nas suas redes sociais." 
-        });
       } catch (fallbackError) {
-        toast({ 
+        showAppError({ 
           title: "Erro ao compartilhar", 
           description: "Não foi possível compartilhar a solicitação. Tente copiar o link manualmente.", 
           variant: "destructive" 
@@ -594,7 +583,7 @@ const ReportDetails = ({
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login para comentar.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Você precisa fazer login para comentar.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -614,7 +603,7 @@ const ReportDetails = ({
       });
 
     if (error) {
-      toast({ title: "Erro ao enviar comentário", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao enviar comentário", description: error.message, variant: "destructive" });
     } else {
       setNewComment('');
       // Sem toast: o refetch abaixo põe o comentário na lista, com os asteriscos
@@ -680,12 +669,12 @@ const ReportDetails = ({
 
   const handleCreatePendingPoleForEdit = async () => {
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa estar logado para cadastrar poste.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Você precisa estar logado para cadastrar poste.", variant: "destructive" });
       navigate('/login');
       return;
     }
     if (!user?.is_admin) {
-      toast({ title: "Acesso restrito", description: "Apenas administradores podem cadastrar postes no mapa.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Apenas administradores podem cadastrar postes no mapa.", variant: "destructive" });
       return;
     }
     if (!editData) return;
@@ -695,11 +684,11 @@ const ReportDetails = ({
     const normalizedIdentifier = formatPoleLabel(editData.pole_number);
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      toast({ title: "Localização obrigatória", description: "Ajuste a localização no mapa antes de cadastrar o poste.", variant: "destructive" });
+      showAppError({ title: "Localização obrigatória", description: "Ajuste a localização no mapa antes de cadastrar o poste.", variant: "destructive" });
       return;
     }
     if (!normalizedIdentifier) {
-      toast({ title: "Número do poste obrigatório", description: "Informe o número/plaqueta para cadastrar o poste.", variant: "destructive" });
+      showAppError({ title: "Número do poste obrigatório", description: "Informe o número/plaqueta para cadastrar o poste.", variant: "destructive" });
       return;
     }
 
@@ -728,12 +717,8 @@ const ReportDetails = ({
         reported_plate: createdPole.plate ?? normalizedIdentifier,
       }));
 
-      toast({
-        title: "Poste cadastrado!",
-        description: "Poste cadastrado no mapa e vinculado à bronca."
-      });
     } catch (createPoleError) {
-      toast({
+      showAppError({
         title: "Erro ao cadastrar poste",
         description: createPoleError?.message || "Não foi possível cadastrar o poste agora.",
         variant: "destructive"
@@ -802,7 +787,6 @@ const ReportDetails = ({
         // Apenas alertar se for muito grande, mas tentar processar
         if (fileType === 'photos' && file.size > 20 * 1024 * 1024) {
 //              console.warn('Imagem grande detectada, processamento pode levar alguns segundos.');
-             toast({ title: "Processando imagem grande...", description: "Aguarde enquanto otimizamos sua foto." });
         }
 
         if (fileType === 'photos') {
@@ -813,14 +797,17 @@ const ReportDetails = ({
            try {
              await validateVideoFile(file);
            } catch (e) {
-             toast({ title: "Vídeo inválido", description: e.message, variant: "destructive" });
+             showAppError({ title: "Vídeo inválido", description: e.message, variant: "destructive" });
              continue;
            }
         }
 
         // Se ainda for vídeo muito grande após (tentativa de) validação, avisar
         if (fileType === 'videos' && file.size > 200 * 1024 * 1024) {
-           toast({ title: "Vídeo muito grande", description: "O upload pode demorar.", variant: "default" });
+          showAppInfo({
+            title: 'Vídeo muito grande',
+            description: 'O arquivo será adicionado, mas o envio pode demorar.',
+          });
         }
         
         setEditData(prev => ({
@@ -830,7 +817,7 @@ const ReportDetails = ({
         
       } catch (error) {
         console.error("Erro ao processar arquivo:", error);
-        toast({ title: "Erro ao processar arquivo", description: "Tente um arquivo menor ou diferente.", variant: "destructive" });
+        showAppError({ title: "Erro ao processar arquivo", description: "Tente um arquivo menor ou diferente.", variant: "destructive" });
       }
     }
   };
@@ -868,7 +855,7 @@ const ReportDetails = ({
       await onUpdate({ id: report.id, status: newStatus });
     } catch (error) {
       setStatusOverride(previous);
-      toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
     }
   };
 
@@ -880,13 +867,13 @@ const ReportDetails = ({
       await onUpdate({ id: report.id, category_id: newCategory, category: newCategory });
     } catch (error) {
       setCategoryOverride(previous);
-      toast({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
     }
   };
 
   const handleRecurrentClick = () => {
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Você precisa fazer login.", variant: "destructive" });
       return;
     }
     const updatedReport = { is_recurrent: !report.is_recurrent };
@@ -895,7 +882,7 @@ const ReportDetails = ({
 
   const handleResolutionAction = async (action) => {
     if (!user || !user.is_admin) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Apenas administradores podem moderar resoluções.",
         variant: "destructive"
@@ -922,7 +909,7 @@ const ReportDetails = ({
       const actionText = action === 'approved' ? 'aprovada' : 'rejeitada';
       onClose();
     } catch (error) {
-      toast({ 
+      showAppError({ 
         title: "Erro ao processar resolução", 
         description: error.message, 
         variant: "destructive" 
@@ -969,7 +956,7 @@ const ReportDetails = ({
       setRejectionDescription('');
       onClose(); // Fecha o modal após aprovar
     } catch (error) {
-      toast({ 
+      showAppError({ 
         title: "Erro ao aprovar bronca", 
         description: error.message, 
         variant: "destructive" 
@@ -988,7 +975,7 @@ const ReportDetails = ({
   const confirmRejectReport = async () => {
     if (!rejectionTitle.trim() || !rejectionDescription.trim()) return;
     if (!user?.is_admin) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Apenas administradores podem rejeitar broncas.",
         variant: "destructive"
@@ -996,7 +983,7 @@ const ReportDetails = ({
       return;
     }
     if (!report?.author_id) {
-      toast({
+      showAppError({
         title: "Erro ao rejeitar",
         description: "Autor da bronca não encontrado.",
         variant: "destructive"
@@ -1040,16 +1027,12 @@ const ReportDetails = ({
         console.error('Erro ao enviar e-mail de notificação:', emailError);
       }
 
-      toast({
-        title: "Bronca rejeitada",
-        description: "O autor foi notificado com o motivo da recusa."
-      });
       setIsRejectingReport(false);
       setRejectionTitle('');
       setRejectionDescription('');
       onClose();
     } catch (error) {
-      toast({
+      showAppError({
         title: "Erro ao rejeitar bronca",
         description: error.message,
         variant: "destructive"

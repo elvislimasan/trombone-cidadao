@@ -4,12 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Send, Image as ImageIcon, X, Loader2 } from 'lucide-react';
+import { showAppError } from '@/lib/appError';
 
 const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
-  const { toast } = useToast();
   const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -31,7 +30,7 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast({ title: "Arquivo inválido", description: "Por favor, selecione uma imagem.", variant: "destructive" });
+      showAppError({ title: "Arquivo inválido", description: "Por favor, selecione uma imagem.", variant: "destructive" });
       return;
     }
 
@@ -58,7 +57,7 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
       setFormData(prev => ({ ...prev, image_url: publicUrl }));
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast({ title: "Erro no upload", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro no upload", description: error.message, variant: "destructive" });
     } finally {
       setUploadingImage(false);
     }
@@ -111,7 +110,7 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
 
   const handleSave = async () => {
     if (!formData.title || !formData.content) {
-      toast({ title: "Preencha título e conteúdo", variant: "destructive" });
+      showAppError({ title: "Preencha título e conteúdo", variant: "destructive" });
       return;
     }
 
@@ -134,18 +133,27 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
 
       // Trigger Notification
       if (notifySigners && data) {
-          toast({ title: "Enviando notificações..." });
           try {
-            await supabase.functions.invoke('send-news-email', {
+            const { error: notificationError } = await supabase.functions.invoke('send-news-email', {
                 body: { 
                     newsId: null,
                     petitionUpdateId: data.id
                 }
             });
-            toast({ title: "Notificações enviadas!" });
+
+            if (notificationError) {
+              console.error('Error sending notifications:', notificationError);
+              showAppError({
+                title: 'Novidade salva, mas os avisos falharam',
+                description: notificationError.message || 'Não foi possível avisar os signatários.',
+              });
+            }
           } catch (notifyError) {
             console.error('Error sending notifications:', notifyError);
-            toast({ title: "Erro ao enviar notificações", description: "A novidade foi salva, mas os emails falharam.", variant: "warning" });
+            showAppError({
+              title: 'Novidade salva, mas os avisos falharam',
+              description: notifyError?.message || 'Não foi possível avisar os signatários.',
+            });
           }
       }
 
@@ -153,7 +161,7 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
       handleClose();
     } catch (error) {
       console.error('Error saving update:', error);
-      toast({ title: "Erro ao publicar", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao publicar", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }

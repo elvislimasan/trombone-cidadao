@@ -7,13 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Phone, MapPin, Info, Maximize, Video, Image as ImageIcon, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { showAppError } from '@/lib/appError';
 
 const TouristSpotDetailsPage = () => {
   const { id } = useParams();
   const [spot, setSpot] = useState(null);
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
@@ -45,12 +44,12 @@ const TouristSpotDetailsPage = () => {
       .single();
     
     if (error) {
-      toast({ title: "Erro ao buscar ponto turístico", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar ponto turístico", description: error.message, variant: "destructive" });
       navigate('/servicos');
     } else {
       setSpot(data);
     }
-  }, [id, toast, navigate]);
+  }, [id, navigate]);
 
   useEffect(() => {
     fetchSpot();

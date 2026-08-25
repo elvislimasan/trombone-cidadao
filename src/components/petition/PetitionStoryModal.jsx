@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { salvarImagemNaGaleria } from '@/lib/nativeDownload';
-import { useToast } from '@/components/ui/use-toast';
 import { getCardInstagramPublicUrl } from '@/lib/cardInstagramAssets';
 
 const STORY_WIDTH = 1080;
@@ -903,7 +902,6 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
   const [imageMode, setImageMode] = useState('background'); // 'background', 'boxed', 'none'
   const [primaryColor, setPrimaryColor] = useState('#e52a2a');
   const [enableImageEffect, setEnableImageEffect] = useState(false); // Default false for petitions
-  const { toast } = useToast();
   
   // New Background states
   const [bgType, setBgType] = useState('default'); // 'default', 'second', 'third', 'color'
@@ -960,16 +958,12 @@ const PetitionStoryModal = ({ isOpen, onClose, petition, qrCodeUrl, coverPhotoUr
         document.body.removeChild(link);
       }
 
-      toast({
-        title: 'Card pronto!',
-        description: 'O story foi gerado e baixado.',
-      });
     } catch (error) {
       console.error('Erro ao gerar story:', error);
     } finally {
       setDownloading(false);
     }
-  }, [layout, safeTitle, downloading, imageMode, toast]);
+  }, [layout, safeTitle, downloading, imageMode]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

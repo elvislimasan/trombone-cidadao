@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/customSupabaseClient";
-import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { ObraGallery } from "@/components/project/obra/ObraGallery";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Check, FileText, Pencil, Trash2, Upload, X } from "lucide-react";
+import { showAppError } from '@/lib/appError';
 
 export function WorkGalleryManager({
   workId,
@@ -16,7 +16,6 @@ export function WorkGalleryManager({
   showMeasurementSelector = true,
   allowAll = true,
 }) {
-  const { toast } = useToast();
   const { user } = useAuth();
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -51,11 +50,11 @@ export function WorkGalleryManager({
       if (error) throw error;
       setMedia(data || []);
     } catch (e) {
-      toast({ title: "Erro ao carregar mídias", description: e?.message || "Tente novamente.", variant: "destructive" });
+      showAppError({ title: "Erro ao carregar mídias", description: e?.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [activeMeasurementId, allowAll, isFixedMeasurement, measurementId, scope, toast, workId]);
+  }, [activeMeasurementId, allowAll, isFixedMeasurement, measurementId, scope, workId]);
 
   useEffect(() => {
     loadMedia();
@@ -80,13 +79,13 @@ export function WorkGalleryManager({
           setActiveMeasurementId(data[0].id);
         }
       } catch (e) {
-        toast({ title: "Erro ao carregar fases", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao carregar fases", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeMeasurementId, isFixedMeasurement, showMeasurementSelector, toast, workId]);
+  }, [activeMeasurementId, isFixedMeasurement, showMeasurementSelector, workId]);
 
   useEffect(() => {
     if (isFixedMeasurement) return;
@@ -193,10 +192,10 @@ export function WorkGalleryManager({
         if (error) throw error;
         await loadMedia();
       } catch (e) {
-        toast({ title: "Erro ao renomear galeria", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao renomear galeria", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, toast, user?.is_admin, workId]
+    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, user?.is_admin, workId]
   );
 
   const handleDeleteGallery = useCallback(
@@ -217,10 +216,10 @@ export function WorkGalleryManager({
 
         await loadMedia();
       } catch (e) {
-        toast({ title: "Erro ao excluir galeria", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao excluir galeria", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [deleteFromStorageIfPossible, loadMedia, toast, user?.is_admin]
+    [deleteFromStorageIfPossible, loadMedia, user?.is_admin]
   );
 
   const handleUpdateMediaItem = useCallback(
@@ -233,10 +232,10 @@ export function WorkGalleryManager({
         if (error) throw error;
         await loadMedia();
       } catch (e) {
-        toast({ title: "Erro ao atualizar mídia", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao atualizar mídia", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [loadMedia, toast, user?.is_admin]
+    [loadMedia, user?.is_admin]
   );
 
   const handleDeleteMediaItem = useCallback(
@@ -250,10 +249,10 @@ export function WorkGalleryManager({
         if (url) await deleteFromStorageIfPossible(url);
         await loadMedia();
       } catch (e) {
-        toast({ title: "Erro ao remover mídia", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao remover mídia", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [deleteFromStorageIfPossible, loadMedia, toast, user?.is_admin]
+    [deleteFromStorageIfPossible, loadMedia, user?.is_admin]
   );
 
   const handleBulkUpdateMediaItems = useCallback(
@@ -266,10 +265,10 @@ export function WorkGalleryManager({
         if (error) throw error;
         await loadMedia();
       } catch (e) {
-        toast({ title: "Erro ao atualizar mídias", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao atualizar mídias", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [loadMedia, toast, user?.is_admin]
+    [loadMedia, user?.is_admin]
   );
 
   const handleBulkDeleteMediaItems = useCallback(
@@ -304,10 +303,10 @@ export function WorkGalleryManager({
 
         await loadMedia();
       } catch (e) {
-        toast({ title: "Erro ao remover mídias", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao remover mídias", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [loadMedia, toast, user?.is_admin]
+    [loadMedia, user?.is_admin]
   );
 
   const handleUploadFiles = useCallback(
@@ -317,7 +316,7 @@ export function WorkGalleryManager({
       const list = Array.isArray(files) ? files : [];
       const images = list.filter((f) => f?.type?.startsWith("image/"));
       if (images.length === 0) {
-        toast({ title: "Nenhuma imagem selecionada", variant: "destructive" });
+        showAppError({ title: "Nenhuma imagem selecionada", variant: "destructive" });
         return;
       }
 
@@ -356,10 +355,10 @@ export function WorkGalleryManager({
         // Sem toast: o loadMedia abaixo põe os arquivos na galeria da tela.
         await loadMedia();
       } catch (e) {
-        toast({ title: "Erro ao enviar arquivos", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao enviar arquivos", description: e?.message || "Tente novamente.", variant: "destructive" });
       }
     },
-    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, toast, user?.id, user?.is_admin, workId]
+    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, user?.id, user?.is_admin, workId]
   );
 
   const handleUploadDocuments = useCallback(
@@ -404,12 +403,12 @@ export function WorkGalleryManager({
         // Sem toast: o loadMedia abaixo põe os documentos na lista da tela.
         await loadMedia();
       } catch (e) {
-        toast({ title: "Erro ao enviar documentos", description: e?.message || "Tente novamente.", variant: "destructive" });
+        showAppError({ title: "Erro ao enviar documentos", description: e?.message || "Tente novamente.", variant: "destructive" });
       } finally {
         setIsUploadingDocuments(false);
       }
     },
-    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, toast, user?.id, user?.is_admin, workId]
+    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, user?.id, user?.is_admin, workId]
   );
 
   return (

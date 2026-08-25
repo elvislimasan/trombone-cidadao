@@ -5,16 +5,15 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Trash2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { showAppError } from '@/lib/appError';
 
 const DeleteAccountPage = () => {
   const { user, signOut } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -27,7 +26,7 @@ const DeleteAccountPage = () => {
 
   const handleDeleteAccount = async () => {
     if (confirmationText !== 'EXCLUIR') {
-      toast({
+      showAppError({
         title: "Confirmação inválida",
         description: "Por favor, digite 'EXCLUIR' para confirmar a exclusão da conta.",
         variant: "destructive",
@@ -47,15 +46,11 @@ const DeleteAccountPage = () => {
 
       await signOut();
 
-      toast({
-        title: "Conta excluída",
-        description: "Sua conta foi completamente removida. Sentiremos sua falta!",
-      });
 
       navigate('/');
     } catch (error) {
       console.error('Erro ao excluir conta:', error);
-      toast({
+      showAppError({
         title: "Erro ao excluir conta",
         description: error.message || "Ocorreu um erro ao excluir sua conta. Tente novamente ou entre em contato com o suporte.",
         variant: "destructive",

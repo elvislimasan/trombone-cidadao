@@ -4,14 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Send } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { showAppError } from '@/lib/appError';
 
 const PetitionUpdatesManager = ({ petitionId }) => {
-  const { toast } = useToast();
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -44,7 +43,7 @@ const PetitionUpdatesManager = ({ petitionId }) => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast({ title: "Erro ao carregar novidades", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao carregar novidades", description: error.message, variant: "destructive" });
     } else {
       setUpdates(data || []);
     }
@@ -53,7 +52,7 @@ const PetitionUpdatesManager = ({ petitionId }) => {
 
   const handleSave = async () => {
     if (!currentUpdate.title || !currentUpdate.content) {
-      toast({ title: "Preencha título e conteúdo", variant: "destructive" });
+      showAppError({ title: "Preencha título e conteúdo", variant: "destructive" });
       return;
     }
 
@@ -99,18 +98,27 @@ const PetitionUpdatesManager = ({ petitionId }) => {
       // Let's stick to "On Creation" if checkbox is checked.
       
       if (!currentUpdate.id && notifySigners && savedUpdateId) {
-          toast({ title: "Enviando notificações..." });
           try {
-            await supabase.functions.invoke('send-news-email', {
+            const { error: notificationError } = await supabase.functions.invoke('send-news-email', {
                 body: { 
                     newsId: null,
                     petitionUpdateId: savedUpdateId
                 }
             });
-            toast({ title: "Notificações enviadas!" });
+
+            if (notificationError) {
+              console.error('Error sending notifications:', notificationError);
+              showAppError({
+                title: 'Novidade salva, mas os avisos falharam',
+                description: notificationError.message || 'Não foi possível avisar os signatários.',
+              });
+            }
           } catch (notifyError) {
             console.error('Error sending notifications:', notifyError);
-            toast({ title: "Erro ao enviar notificações", description: "A novidade foi salva, mas os emails falharam.", variant: "warning" });
+            showAppError({
+              title: 'Novidade salva, mas os avisos falharam',
+              description: notifyError?.message || 'Não foi possível avisar os signatários.',
+            });
           }
       }
 
@@ -119,7 +127,7 @@ const PetitionUpdatesManager = ({ petitionId }) => {
       setNotifySigners(true);
       fetchUpdates();
     } catch (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     }
   };
 
@@ -132,7 +140,7 @@ const PetitionUpdatesManager = ({ petitionId }) => {
       .eq('id', id);
 
     if (error) {
-      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     } else {
       // Sem toast: `fetchUpdates` recarrega a lista sem a novidade.
       fetchUpdates();

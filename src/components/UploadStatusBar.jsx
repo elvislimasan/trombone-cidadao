@@ -64,11 +64,12 @@ const UploadStatusBar = () => {
                         upload.status === 'pending' || 
                         upload.status === 'compressing' || 
                         upload.status === 'optimizing' || 
-                        upload.status === 'preparing') && (
+                        upload.status === 'preparing' ||
+                        upload.status === 'error') && (
                         <button 
                           onClick={(e) => { e.stopPropagation(); cancelUpload(upload.id); }}
                           className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                          title="Cancelar upload"
+                          title={upload.status === 'error' ? 'Dispensar erro' : 'Cancelar upload'}
                         >
                           <X className="w-4 h-4" />
                         </button>

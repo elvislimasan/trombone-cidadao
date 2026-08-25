@@ -5,18 +5,17 @@ import { ShieldCheck, MapPin, CheckCircle2, Loader2, Search, ArrowRight } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { formatPhone, validateEmail } from '@/lib/utils';
+import { showAppError, showAppInfo } from '@/lib/appError';
 
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
 
 const BecomeAmbassadorPage = () => {
   const { user, signUp, signIn, refreshUserProfile } = useAuth();
   const { cities, loadingCities } = useCity();
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -57,7 +56,7 @@ const BecomeAmbassadorPage = () => {
       .eq('status', 'active')
       .maybeSingle();
     if (active) {
-      toast({ title: 'Você já é embaixador ativo desta cidade.', variant: 'destructive' });
+      showAppError({ title: 'Você já é embaixador ativo desta cidade.', variant: 'destructive' });
       return false;
     }
     // Guard: candidatura pendente duplicada?
@@ -69,7 +68,7 @@ const BecomeAmbassadorPage = () => {
       .eq('status', 'pending')
       .maybeSingle();
     if (pend) {
-      toast({ title: 'Você já tem uma candidatura em análise para esta cidade.', variant: 'destructive' });
+      showAppError({ title: 'Você já tem uma candidatura em análise para esta cidade.', variant: 'destructive' });
       return false;
     }
     const { error } = await supabase.from('ambassador_applications').insert({
@@ -81,7 +80,7 @@ const BecomeAmbassadorPage = () => {
       status: 'pending',
     });
     if (error) {
-      toast({ title: 'Erro ao enviar candidatura', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao enviar candidatura', description: error.message, variant: 'destructive' });
       return false;
     }
     return true;
@@ -89,7 +88,7 @@ const BecomeAmbassadorPage = () => {
 
   const handleSubmit = async () => {
     if (!selectedCityId) {
-      toast({ title: 'Selecione sua cidade', variant: 'destructive' });
+      showAppError({ title: 'Selecione sua cidade', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
@@ -101,12 +100,12 @@ const BecomeAmbassadorPage = () => {
         // valida campos de cadastro (mesmas exigências do cadastro completo)
         const phoneDigits = phone.replace(/\D/g, '');
         if (!name.trim() || !validateEmail(email) || phoneDigits.length < 10 || password.length < 6) {
-          toast({ title: 'Preencha nome, e-mail válido, telefone e senha (mín. 6).', variant: 'destructive' });
+          showAppError({ title: 'Preencha nome, e-mail válido, telefone e senha (mín. 6).', variant: 'destructive' });
           setSubmitting(false);
           return;
         }
         if (!agreedToTerms) {
-          toast({ title: 'Termos de Uso', description: 'Você precisa aceitar os termos de uso para continuar.', variant: 'destructive' });
+          showAppError({ title: 'Termos de Uso', description: 'Você precisa aceitar os termos de uso para continuar.', variant: 'destructive' });
           setSubmitting(false);
           return;
         }
@@ -130,7 +129,7 @@ const BecomeAmbassadorPage = () => {
           },
         });
         if (error) {
-          toast({ title: 'Erro ao criar conta', description: error.message, variant: 'destructive' });
+          showAppError({ title: 'Erro ao criar conta', description: error.message, variant: 'destructive' });
           setSubmitting(false);
           return;
         }
@@ -140,9 +139,9 @@ const BecomeAmbassadorPage = () => {
         const { data: sessionData } = await supabase.auth.getSession();
         const uid = sessionData?.session?.user?.id;
         if (!uid) {
-          toast({
+          showAppInfo({
             title: 'Confirme seu e-mail para concluir',
-            description: 'Criamos sua conta. Confirme o e-mail, faça login e candidate-se novamente nesta página.',
+            description: 'Criamos sua conta. Confirme o e-mail, entre novamente e retome a candidatura nesta página.',
           });
           setSubmitting(false);
           return;

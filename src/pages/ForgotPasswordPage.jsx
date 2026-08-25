@@ -6,14 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { resetPassword } = useAuth();
 
@@ -25,10 +23,6 @@ const ForgotPasswordPage = () => {
     
     setLoading(false);
 
-    toast({
-      title: "Instruções enviadas!",
-      description: `Se houver uma conta associada a ${email}, você receberá um e-mail com as instruções para redefinir sua senha.`,
-    });
     navigate('/login');
   };
 

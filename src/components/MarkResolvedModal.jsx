@@ -2,13 +2,11 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { X, Upload, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 
 const MarkResolvedModal = ({ onClose, onSubmit }) => {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const fileInputRef = useRef(null);
-  const { toast } = useToast();
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];

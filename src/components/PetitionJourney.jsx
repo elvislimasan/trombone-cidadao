@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Share2, Download, Heart, ArrowRight, CheckCircle, Copy, MessageSquare, UserPlus } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
@@ -18,7 +17,6 @@ import { Capacitor } from '@capacitor/core';
 const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate, isGuest, donationOptions, donationEnabled = true, userName, guestEmail }) => {
   const navigate = useNavigate();
   const [step, setStep] = useState(donationEnabled ? 'donation' : (isGuest ? 'account-creation' : 'share')); // donation, account-creation, share, complete
-  const { toast } = useToast();
   
   // Skip donation step if no options provided or disabled (though caller should handle enablement)
   // But here we just render what we have.
@@ -48,7 +46,6 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
           await navigator.share(shareData);
         } else {
           await navigator.clipboard.writeText(shareData.url);
-          toast({ title: "Link copiado!", description: "Cole nas suas redes sociais." });
         }
       }
       handleNext();
@@ -62,7 +59,6 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
       onDonate();
       handleNext(); // Move to next step while modal opens on top
     } else {
-      toast({ title: "Funcionalidade em breve", description: "O sistema de doações está sendo integrado." });
       handleNext();
     }
   };
@@ -148,7 +144,6 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
         <Input value={petitionUrl} readOnly className="bg-background" />
         <Button size="icon" variant="ghost" onClick={() => {
             navigator.clipboard.writeText(petitionUrl);
-            toast({ title: "Copiado!" });
         }}>
             <Copy className="w-4 h-4" />
         </Button>

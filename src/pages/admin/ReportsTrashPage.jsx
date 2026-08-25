@@ -5,13 +5,12 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Trash2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
+import { showAppError } from '@/lib/appError';
 
 const ReportsTrashPage = () => {
-  const { toast } = useToast();
   const [reports, setReports] = useState([]);
   const [filteredReports, setFilteredReports] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,13 +30,13 @@ const ReportsTrashPage = () => {
       .order('rejected_at', { ascending: false });
 
     if (error) {
-      toast({ title: "Erro ao buscar broncas na lixeira", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar broncas na lixeira", description: error.message, variant: "destructive" });
     } else {
       setReports(data);
       setFilteredReports(data);
     }
     setLoading(false);
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchReports();
@@ -59,7 +58,7 @@ const ReportsTrashPage = () => {
       .eq('id', reportToRestore.id);
 
     if (error) {
-      toast({ title: "Erro ao restaurar bronca", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao restaurar bronca", description: error.message, variant: "destructive" });
     } else {
       fetchReports();
     }
@@ -76,7 +75,7 @@ const ReportsTrashPage = () => {
       .eq('report_id', reportToDelete.id);
 
     if (mediaError) {
-      toast({ title: "Erro ao buscar mídias para exclusão", description: mediaError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar mídias para exclusão", description: mediaError.message, variant: "destructive" });
       return;
     }
 
@@ -85,7 +84,7 @@ const ReportsTrashPage = () => {
       if (pathsToRemove.length > 0) {
         const { error: storageError } = await supabase.storage.from('reports-media').remove(pathsToRemove);
         if (storageError) {
-          toast({ title: "Erro ao remover arquivos do armazenamento", description: storageError.message, variant: "destructive" });
+          showAppError({ title: "Erro ao remover arquivos do armazenamento", description: storageError.message, variant: "destructive" });
           // Continue deletion even if storage fails
         }
       }
@@ -98,9 +97,8 @@ const ReportsTrashPage = () => {
       .eq('id', reportToDelete.id);
 
     if (deleteError) {
-      toast({ title: "Erro ao excluir permanentemente", description: deleteError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao excluir permanentemente", description: deleteError.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca excluída permanentemente!", variant: "destructive" });
       fetchReports();
     }
     setReportToDelete(null);

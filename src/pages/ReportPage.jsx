@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
-import { useToast } from "@/components/ui/use-toast";
 import {
   computeDisabledUpdateTypes,
   statusInicialDaAtualizacao,
@@ -68,6 +67,7 @@ import {
 } from "lucide-react";
 import { useMobileHeader } from "@/contexts/MobileHeaderContext";
 import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
+import { showAppError } from '@/lib/appError';
 
 // ─────────────────────────────────────────────
 // Main ReportPage
@@ -76,7 +76,6 @@ const ReportPage = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
   const { user } = useAuth();
   const { setTitle, setActions, setShowBack, setOnBack, reset } =
     useMobileHeader();
@@ -163,7 +162,7 @@ const ReportPage = () => {
 
   const handleNavigateToReport = useCallback(() => {
     if (!report?.location?.lat || !report?.location?.lng) {
-      toast({
+      showAppError({
         title: "Localização não disponível",
         description: "Esta bronca não possui coordenadas cadastradas.",
         variant: "destructive",
@@ -190,7 +189,7 @@ const ReportPage = () => {
         "noopener,noreferrer"
       );
     }
-  }, [report, toast]);
+  }, [report]);
 
   const getBaseUrl = useCallback(() => {
     let baseUrl;
@@ -468,7 +467,7 @@ const ReportPage = () => {
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!user) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Você precisa fazer login para comentar.",
         variant: "destructive",
@@ -486,27 +485,16 @@ const ReportPage = () => {
         moderation_status: "pending_approval",
       });
     if (error)
-      toast({
+      showAppError({
         title: "Erro ao enviar comentário",
         description: error.message,
         variant: "destructive",
       });
     else {
       setNewComment("");
-      toast({
-        title: "Comentário enviado! 💬",
-        description:
-          "Seu comentário foi enviado para moderação e será publicado em breve.",
-      });
       fetchReport();
     }
   };
-
-  const handleReportError = () =>
-    toast({
-      title: "Reportar erro",
-      description: "Obrigado por avisar. Vamos analisar esta bronca.",
-    });
 
   const handleWhatsAppShare = () => {
     if (!report) return;
@@ -542,17 +530,12 @@ const ReportPage = () => {
         return;
       }
       await navigator.clipboard.writeText(shareText);
-      toast({
-        title: "Texto copiado!",
-        description: "Cole nas suas redes sociais.",
-      });
     } catch (error) {
       if (error?.name === "AbortError") return;
       try {
         await navigator.clipboard.writeText(shareText);
-        toast({ title: "Texto copiado!" });
       } catch {
-        toast({ title: "Erro ao compartilhar", variant: "destructive" });
+        showAppError({ title: "Erro ao compartilhar", variant: "destructive" });
       }
     }
   };
@@ -563,13 +546,10 @@ const ReportPage = () => {
     navigator.clipboard
       .writeText(shareUrl)
       .then(() =>
-        toast({
-          title: "Link copiado!",
-          description: "Cole nas suas redes sociais.",
-        })
+        undefined
       )
       .catch(() =>
-        toast({ title: "Erro ao copiar link", variant: "destructive" })
+        showAppError({ title: "Erro ao copiar link", variant: "destructive" })
       );
   };
 
@@ -586,7 +566,7 @@ const ReportPage = () => {
       .update({ status: newStatus })
       .eq("id", report.id);
     if (error) {
-      toast({
+      showAppError({
         title: "Erro ao atualizar status",
         description: error.message,
         variant: "destructive",
@@ -608,7 +588,7 @@ const ReportPage = () => {
       .update(updates)
       .eq("id", report.id);
     if (error) {
-      toast({
+      showAppError({
         title: "Erro ao atualizar categoria",
         description: error.message,
         variant: "destructive",
@@ -636,7 +616,7 @@ const ReportPage = () => {
       .update({ is_from_water_utility: isYes })
       .eq("id", report.id);
     if (error) {
-      toast({
+      showAppError({
         title: "Erro ao atualizar informação",
         description: error.message,
         variant: "destructive",
@@ -672,7 +652,7 @@ const ReportPage = () => {
   const handleEditClick = () => {
     if (!report) return;
     if (!user) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Você precisa fazer login para editar broncas.",
         variant: "destructive",
@@ -681,7 +661,7 @@ const ReportPage = () => {
       return;
     }
     if (!canMarkResolved) {
-      toast({
+      showAppError({
         title: "Acesso restrito",
         description: "Somente gestores podem editar esta bronca.",
         variant: "destructive",
@@ -694,12 +674,12 @@ const ReportPage = () => {
   const handleMarkResolvedClick = () => {
     if (!report) return;
     if (!user) {
-      toast({ title: "Acesso restrito", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", variant: "destructive" });
       navigate("/login");
       return;
     }
     if (!canMarkResolved) {
-      toast({ title: "Acesso restrito", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", variant: "destructive" });
       return;
     }
     setShowMarkResolvedModal(true);
@@ -743,7 +723,7 @@ const ReportPage = () => {
         .from("reports-media")
         .upload(filePath, uploadFile);
       if (uploadError) {
-        toast({
+        showAppError({
           title: "Erro no upload da foto",
           description: uploadError.message,
           variant: "destructive",
@@ -770,7 +750,7 @@ const ReportPage = () => {
       .update(updatedReport)
       .eq("id", report.id);
     if (error) {
-      toast({
+      showAppError({
         title: "Erro ao atualizar bronca",
         description: error.message,
         variant: "destructive",
@@ -784,10 +764,6 @@ const ReportPage = () => {
     // ela NÃO muda de status — vai para revisão — e sem esta linha a tela fica
     // idêntica a antes de enviar, como se o botão não tivesse funcionado.
     if (!isAdmin) {
-      toast({
-        title: "Resolução enviada para revisão",
-        description: "A bronca muda de status quando a revisão aprovar.",
-      });
     }
   };
 
@@ -950,10 +926,6 @@ const ReportPage = () => {
         updateCam.clearPhotos();
         setUpdateType(null);
         setUpdateMessage('');
-        toast({
-          title: "Atualização enviada! 📢",
-          description: "Sua atualização será revisada antes de aparecer para todos.",
-        });
       }
 
       fetchReport();
@@ -961,7 +933,7 @@ const ReportPage = () => {
       const isRlsError =
         err.message?.includes("row-level security") ||
         err.code === "42501";
-      toast({
+      showAppError({
         title: isRlsError
           ? "Limite semanal atingido"
           : "Erro ao enviar atualização",
@@ -993,7 +965,7 @@ const ReportPage = () => {
       .eq("id", update.id);
 
     if (updateError) {
-      toast({
+      showAppError({
         title: "Erro ao confirmar",
         description: updateError.message,
         variant: "destructive",
@@ -1014,7 +986,7 @@ const ReportPage = () => {
     // Usa RPC security definer — evita RLS silencioso que retorna error:null sem deletar
     const { error } = await supabase.rpc('delete_report_update', { p_update_id: upd.id });
     if (error) {
-      toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
       return;
     }
     // Sem toast de sucesso: a atualização desaparece da lista logo abaixo do
@@ -1035,14 +1007,13 @@ const ReportPage = () => {
       .eq('id', report.id);
     setModerating(false);
     if (error) {
-      toast({
+      showAppError({
         title: 'Erro ao moderar bronca',
         description: error.message,
         variant: 'destructive',
       });
       return;
     }
-    toast({ title: approve ? 'Bronca aprovada! ✅' : 'Bronca rejeitada.' });
     navigate(-1);
   };
 
@@ -1137,7 +1108,7 @@ const ReportPage = () => {
       .single();
     if (error || !data) {
       setLoading(false);
-      toast({
+      showAppError({
         title: "Bronca não encontrada",
         description:
           "A solicitação que você está procurando não existe ou foi removida.",
@@ -1199,7 +1170,7 @@ const ReportPage = () => {
     setReportUpdates(updatesData || []);
 
     setLoading(false);
-  }, [reportId, navigate, toast, user]);
+  }, [reportId, navigate, user]);
 
   useEffect(() => {
     fetchReport();
@@ -1341,7 +1312,7 @@ const ReportPage = () => {
       .update(reportUpdates)
       .eq("id", id);
     if (updateError) {
-      toast({
+      showAppError({
         title: "Erro ao atualizar dados",
         description: updateError.message,
         variant: "destructive",
@@ -1377,7 +1348,7 @@ const ReportPage = () => {
         );
         await supabase.from("report_media").insert(uploaded);
       } catch (err) {
-        toast({
+        showAppError({
           title: "Erro no upload de nova mídia",
           description: err.message,
           variant: "destructive",
@@ -1389,7 +1360,7 @@ const ReportPage = () => {
 
   const handleFavoriteToggle = async (rId, isFav) => {
     if (!user) {
-      toast({ title: "Acesso restrito", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", variant: "destructive" });
       navigate("/login");
       return;
     }
@@ -1399,7 +1370,7 @@ const ReportPage = () => {
         .delete()
         .match({ user_id: user.id, report_id: rId });
       if (error)
-        toast({
+        showAppError({
           title: "Erro ao desfavoritar",
           description: error.message,
           variant: "destructive",
@@ -1411,7 +1382,7 @@ const ReportPage = () => {
         .from("favorite_reports")
         .insert({ user_id: user.id, report_id: rId });
       if (error)
-        toast({
+        showAppError({
           title: "Erro ao favoritar",
           description: error.message,
           variant: "destructive",
@@ -1444,7 +1415,7 @@ const ReportPage = () => {
       .update({ status: "duplicate", linked_to: targetReportId })
       .eq("id", sourceReportId);
     if (error)
-      toast({
+      showAppError({
         title: "Erro ao vincular bronca",
         description: error.message,
         variant: "destructive",
@@ -1547,7 +1518,6 @@ const ReportPage = () => {
                 showAdminActions={isAdmin || isPublicOfficial}
                 handleOpenLinkModal={() => handleOpenLinkModal(report)}
                 handleEditClick={handleEditClick}
-                handleReportError={handleReportError}
                 handleWhatsAppShare={handleWhatsAppShare}
                 handleCopyShareLink={handleCopyShareLink}
                 handleShare={handleShare}
@@ -1955,7 +1925,7 @@ const ReportPage = () => {
             qrCodeUrl={qrCodeUrl}
             reportId={reportId}
             baseUrl={baseUrl}
-            toast={toast}
+
           />
 
           <ReportStoryModal

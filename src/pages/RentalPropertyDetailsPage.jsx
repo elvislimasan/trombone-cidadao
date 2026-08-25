@@ -4,10 +4,10 @@ import { Helmet } from 'react-helmet';
 import { ArrowLeft, MapPin, Ruler, User, Building2, FileText, Calendar, CheckCircle2, XCircle, Image as ImageIcon, DollarSign, History, Pencil, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { formatCurrency, formatDate, formatAddressWithNumber } from '@/lib/utils';
 import MediaViewer from '@/components/MediaViewer';
+import { showAppError } from '@/lib/appError';
 
 const SectionBlock = ({ icon: Icon, title, children }) => (
   <div className="bg-[#f2f4f7] rounded-2xl px-4 py-4">
@@ -35,7 +35,6 @@ const InfoRow = ({ icon: Icon, label, value }) => (
 const RentalPropertyDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user } = useAuth();
   const [property, setProperty] = useState(null);
   const [contracts, setContracts] = useState([]);
@@ -78,11 +77,11 @@ const RentalPropertyDetailsPage = () => {
       setMedia(mediaRes.data || []);
       setDocuments(docsRes.data || []);
     } catch (error) {
-      toast({ title: 'Erro ao buscar imóvel', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao buscar imóvel', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [id, toast]);
+  }, [id]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

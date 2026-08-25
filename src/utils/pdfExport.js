@@ -2,10 +2,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/customSupabaseClient';
 import { getNextSignatureGoal } from '../lib/utils';
+import { showAppError } from '@/lib/appError';
 
-export const exportPetitionPDF = async (petition, toast) => {
+export const exportPetitionPDF = async (petition) => {
     try {
-      toast({ title: "Gerando PDF...", description: "Aguarde enquanto preparamos o documento." });
       
       const doc = new jsPDF();
       
@@ -50,7 +50,6 @@ export const exportPetitionPDF = async (petition, toast) => {
       }
       
       // Signatures Table
-      toast({ title: "Buscando assinaturas...", description: "Isso pode levar alguns segundos." });
       
       const tableData = allSignatures.map(sig => [
         sig.name || 'Anônimo',
@@ -74,9 +73,8 @@ export const exportPetitionPDF = async (petition, toast) => {
       
       doc.save(`abaixo-assinado-${petition.id}.pdf`);
       
-      toast({ title: "Sucesso!", description: "Download iniciado." });
     } catch (error) {
       console.error("Erro ao exportar PDF:", error);
-      toast({ title: "Erro", description: "Falha ao gerar o PDF.", variant: "destructive" });
+      showAppError({ title: "Erro", description: "Falha ao gerar o PDF.", variant: "destructive" });
     }
 };

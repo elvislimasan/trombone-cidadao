@@ -6,7 +6,6 @@ import { ArrowLeft, Edit, Trash2, Search, Filter, FileSignature, ExternalLink, S
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
@@ -16,6 +15,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useUpvote } from '@/hooks/useUpvotes';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { showAppError } from '@/lib/appError';
 
 // Quantas broncas por página.
 //
@@ -32,7 +32,6 @@ const PAGE_SIZE = 20;
 const sanitizarBusca = (termo) => (termo || '').replace(/[,()%\\]/g, ' ').trim();
 
 const ManageReportsPage = () => {
-  const { toast } = useToast();
   const { user } = useAuth();
   const { handleUpvote: handleUpvoteHook } = useUpvote();
   const navigate = useNavigate();
@@ -130,7 +129,7 @@ const ManageReportsPage = () => {
     if (requisicao !== requisicaoRef.current) return;
 
     if (error) {
-      toast({ title: "Erro ao buscar broncas", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar broncas", description: error.message, variant: "destructive" });
     } else {
       const formattedData = (data || []).map(r => ({
         ...r,
@@ -162,7 +161,7 @@ const ManageReportsPage = () => {
     acumularRef.current = false;
     setLoading(false);
     setPrimeiraCarga(false);
-  }, [toast, user, paginaSegura, filters.status, filters.category, buscaAtiva, isMobile]);
+  }, [user, paginaSegura, filters.status, filters.category, buscaAtiva, isMobile]);
 
   useEffect(() => {
     fetchReports();
@@ -204,7 +203,7 @@ const ManageReportsPage = () => {
 
   const handleUpvote = async (id) => {
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Você precisa fazer login para apoiar.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -216,7 +215,7 @@ const ManageReportsPage = () => {
       // Sem toast: o refetch abaixo já mostra o contador de apoios novo.
       fetchReports();
     } else {
-      toast({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
+      showAppError({ title: "Erro ao apoiar", description: result.error, variant: "destructive" });
     }
   };
 
@@ -231,7 +230,7 @@ const ManageReportsPage = () => {
         setSelectedReport(prev => ({ ...prev, ...updates }));
       }
     } catch (e) {
-      toast({ title: 'Erro ao alterar destaque', description: e.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao alterar destaque', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -239,7 +238,7 @@ const ManageReportsPage = () => {
 
   const handleTransformToPetition = async (report) => {
     if (!user) {
-      toast({ title: "Acesso restrito", description: "Faça login como administrador para transformar em abaixo-assinado.", variant: "destructive" });
+      showAppError({ title: "Acesso restrito", description: "Faça login como administrador para transformar em abaixo-assinado.", variant: "destructive" });
       return;
     }
     
@@ -281,16 +280,12 @@ const ManageReportsPage = () => {
         // REMOVIDO: Não atualizar a flag is_petition na bronca imediatamente.
         // Isso só deve acontecer quando o usuário salvar a petição no editor.
   
-        toast({
-          title: "Editor Iniciado",
-          description: "Redirecionando para o editor para finalizar os detalhes.",
-        });
   
         navigate(`/abaixo-assinado/${newPetition.id}?edit=true`);
   
       } catch (error) {
         console.error(error);
-        toast({
+        showAppError({
           title: "Erro ao criar",
           description: error.message,
           variant: "destructive"
@@ -406,7 +401,7 @@ const ManageReportsPage = () => {
     }
 
     if (updateError) {
-      toast({ title: "Erro ao atualizar dados", description: updateError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao atualizar dados", description: updateError.message, variant: "destructive" });
       return;
     }
     
@@ -417,7 +412,7 @@ const ManageReportsPage = () => {
         .in('id', removedMedia);
 
       if (deleteMediaError) {
-        toast({ title: "Erro ao remover mídia antiga", description: deleteMediaError.message, variant: "destructive" });
+        showAppError({ title: "Erro ao remover mídia antiga", description: deleteMediaError.message, variant: "destructive" });
         return;
       }
 
@@ -439,7 +434,7 @@ const ManageReportsPage = () => {
   
   const handleFavoriteToggle = async (reportId, isFavorited) => {
     if (!user) {
-      toast({ title: "Ação necessária", description: "Você precisa estar logado para favoritar.", variant: "destructive" });
+      showAppError({ title: "Ação necessária", description: "Você precisa estar logado para favoritar.", variant: "destructive" });
       return;
     }
 
@@ -448,12 +443,12 @@ const ManageReportsPage = () => {
       // Sem toast no sucesso: o refetch e o setSelectedReport abaixo já viram o
       // coração. "Sucesso / Adicionado aos seus favoritos" só repete o ícone.
       if (error) {
-        toast({ title: "Erro", description: "Não foi possível remover dos favoritos.", variant: "destructive" });
+        showAppError({ title: "Erro", description: "Não foi possível remover dos favoritos.", variant: "destructive" });
       }
     } else {
       const { error } = await supabase.from('favorite_reports').insert({ user_id: user.id, report_id: reportId });
       if (error) {
-        toast({ title: "Erro", description: "Não foi possível adicionar aos favoritos.", variant: "destructive" });
+        showAppError({ title: "Erro", description: "Não foi possível adicionar aos favoritos.", variant: "destructive" });
       }
     }
     fetchReports();
@@ -481,7 +476,7 @@ const ManageReportsPage = () => {
         if (pathsToDelete.length > 0) {
             const { error: storageError } = await supabase.storage.from('reports-media').remove(pathsToDelete);
             if (storageError) {
-                toast({ title: "Erro ao remover mídias do armazenamento", description: storageError.message, variant: "destructive" });
+                showAppError({ title: "Erro ao remover mídias do armazenamento", description: storageError.message, variant: "destructive" });
                 // We can decide to stop here or continue
             }
         }
@@ -491,9 +486,8 @@ const ManageReportsPage = () => {
     const { error } = await supabase.from('reports').delete().eq('id', deletingReport.id);
 
     if (error) {
-      toast({ title: "Erro ao remover bronca", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao remover bronca", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Bronca removida com sucesso!", variant: "destructive" });
       fetchReports();
     }
     setDeletingReport(null);

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import ReportModal from '@/components/ReportModal';
 import { supabase } from '@/lib/customSupabaseClient';
 import BottomNav from '@/components/BottomNav';
@@ -36,6 +35,14 @@ import { Share } from '@capacitor/share';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { geocodeCity } from '@/lib/geocodeCity';
+import { showAppError } from '@/lib/appError';
+
+const throwIfAborted = (signal) => {
+  if (!signal?.aborted) return;
+  const error = new Error('Envio cancelado.');
+  error.name = 'AbortError';
+  throw error;
+};
 const ReportList = React.lazy(() => import('@/components/ReportList'));
 const RankingSidebar = React.lazy(() => import('@/components/RankingSidebar'));
 
@@ -49,7 +56,6 @@ function HomePageImproved() {
   const location = useLocation();
   const { user } = useAuth();
   const { cityId: activeCityId, cityName: activeCityName, city: activeCity } = useCityView();
-  const { toast } = useToast();
   const { handleUpvote, loading: upvoteLoading } = useUpvote();
   const [showPetitionsUpdate, setShowPetitionsUpdate] = useState(false);
   const [promoModalConfig, setPromoModalConfig] = useState(null);
@@ -632,7 +638,7 @@ function HomePageImproved() {
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      try { await navigator.clipboard.writeText(shareText); toast({ title: 'Texto copiado!' }); } catch {}
+      try { await navigator.clipboard.writeText(shareText);  } catch {}
     }
   };
 
@@ -655,7 +661,7 @@ function HomePageImproved() {
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      try { await navigator.clipboard.writeText(shareText); toast({ title: 'Texto copiado!' }); } catch {}
+      try { await navigator.clipboard.writeText(shareText);  } catch {}
     }
   };
 
@@ -692,16 +698,14 @@ function HomePageImproved() {
         return;
       }
       await navigator.clipboard.writeText(url);
-      toast({ title: 'Link copiado!', description: 'Cole e compartilhe para abrir o formulário direto.' });
     } catch {
       try {
         await navigator.clipboard.writeText(url);
-        toast({ title: 'Link copiado!', description: 'Cole e compartilhe para abrir o formulário direto.' });
       } catch {
-        toast({ title: 'Não foi possível compartilhar', variant: 'destructive' });
+        showAppError({ title: 'Não foi possível compartilhar', variant: 'destructive' });
       }
     }
-  }, [createReportShareUrl, toast]);
+  }, [createReportShareUrl]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search || '');
@@ -710,8 +714,9 @@ function HomePageImproved() {
     openCreateReportFlow(`${location.pathname || '/'}${location.search || ''}`);
   }, [location.pathname, location.search, openCreateReportFlow]);
 
-  const handleCreateReport = async (newReportData, uploadMediaCallback) => {
-    if (!user) return;
+  const handleCreateReport = async (newReportData, uploadMediaCallback, { signal } = {}) => {
+    throwIfAborted(signal);
+    if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
 
     const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility, city_id } = newReportData;
     const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
@@ -719,7 +724,7 @@ function HomePageImproved() {
     const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
     const savedReportedPlate = reported_plate ? normalizePoleLabel(reported_plate) : (normalizedPole || null);
 
-    const { data, error } = await supabase
+    let insertQuery = supabase
       .from('reports')
       .insert({
         title,
@@ -738,25 +743,32 @@ function HomePageImproved() {
         issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
         status: 'pending',
-        moderation_status: user?.is_admin ? 'approved' : 'pending_approval',
+        moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
       })
       .select('id', 'title')
       .single();
 
+    if (signal && typeof insertQuery.abortSignal === 'function') {
+      insertQuery = insertQuery.abortSignal(signal);
+    }
+
+    const { data, error } = await insertQuery;
+
     if (error) {
-      toast({ title: "Erro ao criar bronca", description: error.message, variant: "destructive" });
-      return;
+      throw error;
     }
 
-    if (uploadMediaCallback) {
-      await uploadMediaCallback(data.id);
+    try {
+      throwIfAborted(signal);
+      if (uploadMediaCallback) {
+        await uploadMediaCallback(data.id, { signal });
+        throwIfAborted(signal);
+      }
+    } catch (submitError) {
+      await supabase.from('reports').delete().eq('id', data.id);
+      throw submitError;
     }
 
-    const toastMessage = user?.is_admin
-      ? { title: "Bronca criada com sucesso!", description: "Sua bronca foi publicada diretamente." }
-      : { title: "Bronca enviada para moderação! 📬", description: "Após aprovada, estará disponível no feed." };
-
-    toast(toastMessage);
     setShowReportModal(false);
 
     setTimeout(() => {

@@ -1,9 +1,9 @@
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { LocalNotifications } from '@capacitor/local-notifications';
 import { FileOpener } from '@capacitor-community/file-opener';
 import { Share } from '@capacitor/share';
 import { Media } from '@capacitor-community/media';
+import { notifyNative } from '@/lib/nativeNotification';
 
 // Gravação de arquivo no aparelho — o caminho que FUNCIONA em Android moderno.
 //
@@ -77,27 +77,12 @@ const gravarNoCache = async (fileName, base64) => {
  * entregue de qualquer forma, então a falha aqui não vira erro para o usuário.
  */
 const notificarArquivoPronto = async ({ uri, contentType, titulo, corpo }) => {
-  try {
-    const perm = await LocalNotifications.checkPermissions();
-    if (perm.display !== 'granted') {
-      await LocalNotifications.requestPermissions();
-    }
-
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          title: titulo,
-          body: corpo,
-          id: Math.floor(Date.now() % 2147483647),
-          schedule: { at: new Date(Date.now() + 100) },
-          extra: { filePath: uri, contentType },
-        },
-      ],
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return notifyNative({
+    title: titulo,
+    body: corpo,
+    extra: { filePath: uri, contentType },
+    dedupeKey: `arquivo-pronto:${uri}`,
+  });
 };
 
 /**
@@ -123,7 +108,7 @@ export const salvarDocumento = async ({
 }) => {
   const uri = await gravarNoCache(fileName, base64);
 
-  await notificarArquivoPronto({
+  void notificarArquivoPronto({
     uri,
     contentType,
     titulo: 'Arquivo pronto',
@@ -175,7 +160,7 @@ export const salvarImagemNaGaleria = async ({
     // continua sendo um caminho válido até ele.
   }
 
-  await notificarArquivoPronto({
+  void notificarArquivoPronto({
     uri,
     contentType: 'image/png',
     titulo: naGaleria ? 'Card salvo na galeria!' : 'Card pronto!',

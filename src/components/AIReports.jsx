@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, BarChart3, TrendingUp, MapPin, Calendar, Brain, Download, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 
 const AIReports = ({ reports, onClose }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('30');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [aiInsights, setAiInsights] = useState(null);
-  const { toast } = useToast();
 
   const categories = [
     { id: 'all', name: 'Todas as Categorias' },
@@ -74,15 +72,13 @@ const AIReports = ({ reports, onClose }) => {
   const generateRecommendations = () => [{ priority: 'Alta', title: 'Intensificar manutenção preventiva', description: 'Focar em áreas com maior concentração de problemas de iluminação.', impact: 'Redução estimada de 30% nas solicitações' }, { priority: 'Média', title: 'Melhorar comunicação com cidadãos', description: 'Implementar notificações automáticas sobre o status das solicitações.', impact: 'Aumento da satisfação em 25%' }];
   const generateHotspots = () => [{ area: 'Centro da Cidade', reports: 12, category: 'Iluminação' }, { area: 'Bairro Jardim', reports: 8, category: 'Buracos' }];
 
-  const handleDownloadReport = () => toast({ title: "🚧 Download não implementado", description: "Você pode solicitar isso no seu próximo prompt! 🚀" });
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-card rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto border border-border" onClick={(e) => e.stopPropagation()}>
         <div className="p-6 border-b border-border sticky top-0 bg-card/80 backdrop-blur-sm z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3"><div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl flex items-center justify-center"><Brain className="w-6 h-6 text-white" /></div><div><h2 className="text-2xl font-bold gradient-text">Relatórios de IA</h2><p className="text-muted-foreground">Insights sobre serviços públicos</p></div></div>
-            <div className="flex items-center space-x-3"><Button onClick={handleDownloadReport} variant="outline" className="gap-2"><Download className="w-4 h-4" />Baixar PDF</Button><button onClick={onClose} className="p-2 text-muted-foreground hover:bg-muted rounded-full"><X className="w-5 h-5" /></button></div>
+            <div className="flex items-center space-x-3"><Button disabled variant="outline" className="gap-2"><Download className="w-4 h-4" />PDF em breve</Button><button onClick={onClose} className="p-2 text-muted-foreground hover:bg-muted rounded-full"><X className="w-5 h-5" /></button></div>
           </div>
         </div>
         <div className="p-6 border-b border-border bg-background">

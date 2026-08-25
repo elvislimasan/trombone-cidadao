@@ -249,8 +249,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <NotificationProvider>
               <MapModeProvider>
               <HelmetProvider>
-                {/* Dentro do Auth e do Router: precisa do usuário para buscar os
-                    contadores, e do Link do aviso para levar às missões. */}
                 <MissionProgressProvider>
                   {/* O carteiro da fila offline. Uma instância só — ver o
                       cabeçalho do contexto. */}

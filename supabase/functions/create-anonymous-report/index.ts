@@ -213,6 +213,33 @@ serve(async (req) => {
       }
     }
 
+    const mediaList: Array<Record<string, unknown>> = Array.isArray(media) ? media : [];
+    if (mediaList.length === 0) {
+      return new Response(JSON.stringify({ error: "missing_media" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    const normalizedMedia = mediaList.map((item) => ({
+      clientId: String(item?.clientId ?? "").trim(),
+      type: String(item?.type ?? "").trim(),
+      contentType: String(item?.contentType ?? "").trim(),
+      originalName: String(item?.name ?? "").trim(),
+    }));
+    const hasInvalidMedia = normalizedMedia.some((item) => (
+      !item.clientId || (item.type !== "photo" && item.type !== "video")
+    ));
+    const hasDuplicateClientId = new Set(
+      normalizedMedia.map((item) => item.clientId)
+    ).size !== normalizedMedia.length;
+    if (hasInvalidMedia || hasDuplicateClientId) {
+      return new Response(JSON.stringify({ error: "invalid_media" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
     const insertPayload: Record<string, unknown> = {
       title,
       description,
@@ -255,29 +282,12 @@ serve(async (req) => {
       });
     }
 
-    const mediaList: Array<Record<string, unknown>> = Array.isArray(media) ? media : [];
-    if (mediaList.length === 0) {
-      return new Response(JSON.stringify({ error: "missing_media" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
     const uploads: Array<Record<string, unknown>> = [];
     const mediaRows: Array<Record<string, unknown>> = [];
 
-    for (const m of mediaList) {
-      const clientId = String(m?.clientId ?? "").trim();
-      const type = String(m?.type ?? "").trim();
-      const contentType = String(m?.contentType ?? "").trim();
-      const originalName = String(m?.name ?? "").trim();
-
-      if (!clientId || (type !== "photo" && type !== "video")) {
-        continue;
-      }
-
+    for (const { clientId, type, contentType, originalName } of normalizedMedia) {
       const safeName = sanitizeFileName(originalName);
-      const filePath = `anonymous/${reportId}/${Date.now()}-${safeName}`;
+      const filePath = `anonymous/${reportId}/${crypto.randomUUID()}-${safeName}`;
       const { data: { publicUrl } } = supabaseAdmin.storage.from("reports-media").getPublicUrl(filePath);
 
       const { data: signed, error: signedErr } = await supabaseAdmin.storage
@@ -285,7 +295,11 @@ serve(async (req) => {
         .createSignedUploadUrl(filePath, 3600);
 
       if (signedErr || !signed?.signedUrl) {
-        continue;
+        await supabaseAdmin.from("reports").delete().eq("id", reportId);
+        return new Response(JSON.stringify({ error: "signed_upload_failed" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
       }
 
       uploads.push({
@@ -305,7 +319,7 @@ serve(async (req) => {
       });
     }
 
-    if (uploads.length === 0) {
+    if (uploads.length !== normalizedMedia.length) {
       await supabaseAdmin.from("reports").delete().eq("id", reportId);
       return new Response(JSON.stringify({ error: "signed_upload_failed" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

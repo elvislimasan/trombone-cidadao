@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
-import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,11 +15,11 @@ import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
+import { showAppError } from '@/lib/appError';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
 const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, defaultCityId, fallbackCityCenter, onBairroCreated }) => {
-  const { toast } = useToast();
   const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const [formData, setFormData] = useState(null);
   const [bairroSearch, setBairroSearch] = useState('');
@@ -58,7 +57,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
     if (!name) return;
     const cityId = await resolveTargetCityId();
     if (!cityId) {
-      toast({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
+      showAppError({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
       return;
     }
     const existing = (bairros || []).find(
@@ -77,7 +76,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
       .single();
     setCreatingBairro(false);
     if (error) {
-      toast({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
       return;
     }
     onBairroCreated?.(data);
@@ -87,7 +86,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
 
   const handleUseBairroFromMap = async () => {
     if (!formData?.location) {
-      toast({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
+      showAppError({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
       return;
     }
     setFetchingMapBairro(true);
@@ -97,7 +96,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
       });
       const suburb = !error ? (data?.suburb || null) : null;
       if (!suburb) {
-        toast({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
+        showAppError({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
         return;
       }
       await handleCreateBairro(suburb);
@@ -275,7 +274,6 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
 };
 
 const ManagePavementPage = () => {
-  const { toast } = useToast();
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
   const [myCities, setMyCities] = useState([]); // [{ id, name, uf }]
@@ -317,9 +315,9 @@ const ManagePavementPage = () => {
       query = query.in('city_id', myActiveCityIds);
     }
     const { data, error } = await query;
-    if (error) toast({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
+    if (error) showAppError({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     else setStreets(data.map(s => ({...s, bairro_name: s.bairro?.name})));
-  }, [toast, isScopedAmbassador, myActiveCityIds]);
+  }, [isScopedAmbassador, myActiveCityIds]);
 
   const fetchBairros = useCallback(async () => {
     let query = supabase.from('bairros').select('*').order('name');
@@ -327,9 +325,9 @@ const ManagePavementPage = () => {
       query = query.in('city_id', myActiveCityIds);
     }
     const { data, error } = await query;
-    if (error) toast({ title: "Erro ao buscar bairros", description: error.message, variant: "destructive" });
+    if (error) showAppError({ title: "Erro ao buscar bairros", description: error.message, variant: "destructive" });
     else setBairros(data);
-  }, [toast, isScopedAmbassador, myActiveCityIds]);
+  }, [isScopedAmbassador, myActiveCityIds]);
 
   useEffect(() => {
     fetchStreets();
@@ -340,24 +338,24 @@ const ManagePavementPage = () => {
     const { id, name, location, bairro, bairro_name, cep, work_id, ...data } = streetToSave;
 
     if (!name || name.trim() === '') {
-        toast({ title: "Erro ao salvar", description: "O nome da rua é obrigatório.", variant: "destructive" });
+        showAppError({ title: "Erro ao salvar", description: "O nome da rua é obrigatório.", variant: "destructive" });
         return;
     }
 
     if (!data.bairro_id) {
-      toast({ title: "Selecione um bairro", description: "A cidade da rua é definida pelo bairro selecionado.", variant: "destructive" });
+      showAppError({ title: "Selecione um bairro", description: "A cidade da rua é definida pelo bairro selecionado.", variant: "destructive" });
       return;
     }
 
     const selectedBairro = bairros.find((b) => b.id === data.bairro_id);
     const resolvedCityId = selectedBairro?.city_id || null;
     if (!resolvedCityId) {
-      toast({ title: "Bairro sem cidade definida", description: "Escolha outro bairro ou cadastre o bairro corretamente antes.", variant: "destructive" });
+      showAppError({ title: "Bairro sem cidade definida", description: "Escolha outro bairro ou cadastre o bairro corretamente antes.", variant: "destructive" });
       return;
     }
 
     if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
-      toast({ title: "Fora da sua área", description: "Você só pode gerenciar ruas nas suas cidades.", variant: "destructive" });
+      showAppError({ title: "Fora da sua área", description: "Você só pode gerenciar ruas nas suas cidades.", variant: "destructive" });
       return;
     }
 
@@ -381,12 +379,12 @@ const ManagePavementPage = () => {
     const { error: checkError, count } = await query;
 
     if (checkError) {
-        toast({ title: "Erro ao verificar duplicidade", description: checkError.message, variant: "destructive" });
+        showAppError({ title: "Erro ao verificar duplicidade", description: checkError.message, variant: "destructive" });
         return;
     }
 
     if (count > 0) {
-        toast({ title: "Rua já cadastrada", description: `A rua "${trimmedName}" já existe nesta cidade.`, variant: "destructive" });
+        showAppError({ title: "Rua já cadastrada", description: `A rua "${trimmedName}" já existe nesta cidade.`, variant: "destructive" });
         return;
     }
 
@@ -411,7 +409,7 @@ const ManagePavementPage = () => {
     }
 
     if (error) {
-      toast({ title: "Erro ao salvar rua", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao salvar rua", description: error.message, variant: "destructive" });
     } else {
       fetchStreets();
       setEditingStreet(null);
@@ -425,9 +423,8 @@ const ManagePavementPage = () => {
   const handleDeleteStreet = async (streetId) => {
     const { error } = await supabase.from('pavement_streets').delete().eq('id', streetId);
     if (error) {
-      toast({ title: "Erro ao remover rua", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao remover rua", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Rua removida com sucesso!", variant: "destructive" });
       fetchStreets();
     }
     setDeletingStreet(null);

@@ -5,7 +5,6 @@ import { Helmet } from 'react-helmet';
 import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin, ArrowUpRight, Megaphone, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import MediaViewer from '@/components/MediaViewer';
@@ -21,10 +20,10 @@ import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
 import { mascarar } from '@/lib/profanity';
+import { showAppError } from '@/lib/appError';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
-  const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { setTitle, setActions, setShowBack, setOnBack, reset } = useMobileHeader();
@@ -49,7 +48,7 @@ const NewsDetailsPage = () => {
       .single();
     
     if (error) {
-      toast({ title: "Erro ao buscar notícia", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar notícia", description: error.message, variant: "destructive" });
       navigate('/noticias');
     } else {
       setNewsItem(data);
@@ -63,7 +62,7 @@ const NewsDetailsPage = () => {
       .order('created_at', { ascending: false });
 
     if (mediaError) {
-      toast({ title: "Erro ao buscar galeria", description: mediaError.message, variant: "destructive" });
+      showAppError({ title: "Erro ao buscar galeria", description: mediaError.message, variant: "destructive" });
     } else {
       setGallery(mediaData || []);
     }
@@ -149,7 +148,7 @@ const NewsDetailsPage = () => {
     } else if (relNewsErr) {
       console.error('Erro ao buscar notícias relacionadas:', relNewsErr);
     }
-  }, [newsId, toast, navigate]);
+  }, [newsId, navigate]);
 
   useEffect(() => {
     fetchNewsDetails();
@@ -166,7 +165,7 @@ const NewsDetailsPage = () => {
       // Sem toast: o ícone de salvar troca de estado na hora.
       setIsSaved(nextIds.includes(newsId));
     } catch {}
-  }, [newsId, toast, user?.id]);
+  }, [newsId, user?.id]);
 
   const shareText = useMemo(() => {
     if (!newsItem) return '';
@@ -188,17 +187,15 @@ const NewsDetailsPage = () => {
         return;
       }
       await navigator.clipboard.writeText(shareText);
-      toast({ title: 'Texto copiado!', description: 'Cole no WhatsApp/Instagram/Gmail.' });
     } catch (error) {
       if (error?.name === 'AbortError') return;
       try {
         await navigator.clipboard.writeText(shareText);
-        toast({ title: 'Texto copiado!' });
       } catch {
-        toast({ title: 'Erro ao compartilhar', variant: 'destructive' });
+        showAppError({ title: 'Erro ao compartilhar', variant: 'destructive' });
       }
     }
-  }, [shareText, toast]);
+  }, [shareText]);
 
   useEffect(() => {
     if (!isInteractive) return;
@@ -267,7 +264,7 @@ const NewsDetailsPage = () => {
     }
 
     if (error) {
-      toast({ title: "Erro ao salvar notícia", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao salvar notícia", description: error.message, variant: "destructive" });
       return;
     }
 
@@ -330,13 +327,13 @@ const NewsDetailsPage = () => {
     e.preventDefault();
     if (!newComment.trim()) return;
     if (!user) {
-      toast({ title: "Faça login para comentar", description: "Você precisa estar logado para adicionar um comentário.", variant: "destructive" });
+      showAppError({ title: "Faça login para comentar", description: "Você precisa estar logado para adicionar um comentário.", variant: "destructive" });
       return;
     }
     
     // Mesma regra do comentário de bronca (migração 193): publica na hora, com
     // o baixo calão mascarado na escrita.
-    const { texto, mascarou } = mascarar(newComment);
+    const { texto } = mascarar(newComment);
 
     const { error } = await supabase
       .from('comments')
@@ -349,13 +346,9 @@ const NewsDetailsPage = () => {
       });
 
     if (error) {
-      toast({ title: "Erro ao enviar comentário", description: error.message, variant: "destructive" });
+      showAppError({ title: "Erro ao enviar comentário", description: error.message, variant: "destructive" });
     } else {
       setNewComment('');
-      toast({
-        title: "Comentário publicado! 💬",
-        description: mascarou ? "Algumas palavras foram mascaradas." : undefined,
-      });
       // Optionally refetch comments or optimistically update UI
     }
   };

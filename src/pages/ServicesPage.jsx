@@ -8,7 +8,6 @@ import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Bus, Bike, Car, CarTaxiFront, Truck, Landmark, Building, ShoppingCart, ArrowRight, PlusCircle, Download, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/components/ui/use-toast';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -16,6 +15,7 @@ import CitySelector from '@/components/CitySelector';
 import { TIPOS_TRANSPORTE, nomeDoTipoTransporte, iconeDoTipoTransporte } from '@/lib/transportTypes';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { showAppError } from '@/lib/appError';
 
 // Componentes lucide dos tipos de transporte. O modulo de tipos guarda so o
 // nome do icone (para nao importar React); a resolucao acontece aqui, onde ja
@@ -25,7 +25,6 @@ const TRANSPORT_ICONS = { Bike, CarTaxiFront, Car, Truck, Bus };
 const ServicesPage = () => {
   const [selectedDestination, setSelectedDestination] = useState('all');
   const [selectedVehicleType, setSelectedVehicleType] = useState('all');
-  const { toast } = useToast();
   const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
@@ -48,19 +47,19 @@ const ServicesPage = () => {
     let transportQuery = supabase.from('transport').select('*');
     if (activeCityId) transportQuery = transportQuery.eq('city_id', activeCityId);
     const { data: transportData, error: transportError } = await transportQuery;
-    if (transportError) toast({ title: "Erro ao buscar transportes", description: transportError.message, variant: "destructive" });
+    if (transportError) showAppError({ title: "Erro ao buscar transportes", description: transportError.message, variant: "destructive" });
     else setTransportOptions(transportData);
 
     let spotsQuery = supabase.from('tourist_spots').select('*');
     if (activeCityId) spotsQuery = spotsQuery.eq('city_id', activeCityId);
     const { data: spotsData, error: spotsError } = await spotsQuery;
-    if (spotsError) toast({ title: "Erro ao buscar pontos turísticos", description: spotsError.message, variant: "destructive" });
+    if (spotsError) showAppError({ title: "Erro ao buscar pontos turísticos", description: spotsError.message, variant: "destructive" });
     else setTouristSpots(spotsData);
 
     let directoryQuery = supabase.from('directory').select('*').eq('status', 'approved');
     if (activeCityId) directoryQuery = directoryQuery.eq('city_id', activeCityId);
     const { data: directoryData, error: directoryError } = await directoryQuery;
-    if (directoryError) toast({ title: "Erro ao buscar guia comercial", description: directoryError.message, variant: "destructive" });
+    if (directoryError) showAppError({ title: "Erro ao buscar guia comercial", description: directoryError.message, variant: "destructive" });
     else {
       setDirectory({
         public: directoryData.filter(d => d.type === 'public'),
@@ -68,7 +67,7 @@ const ServicesPage = () => {
       });
     }
 
-  }, [toast, activeCityId]);
+  }, [activeCityId]);
 
   useEffect(() => {
     fetchData();
@@ -150,9 +149,8 @@ const ServicesPage = () => {
       doc.text(note, 14, afterTableY);
 
       doc.save(`transportes_lotacoes_${new Date().toISOString().split('T')[0]}.pdf`);
-      toast({ title: 'Download concluído!' });
     } catch (error) {
-      toast({ title: 'Erro ao gerar PDF', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao gerar PDF', description: error.message, variant: 'destructive' });
     } finally {
       setTimeout(() => setDownloadingTransport(false), 500);
     }

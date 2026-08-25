@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import Avatar from 'react-nice-avatar';
@@ -18,6 +17,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn, formatPhone, validateEmail } from "@/lib/utils";
+import { showAppError } from '@/lib/appError';
 
 const Combobox = ({ options, value, onSelect, placeholder, emptyText, disabled = false }) => {
   const [open, setOpen] = useState(false);
@@ -73,7 +73,6 @@ const RegisterPage = () => {
   const { signUp, signIn, signInWithGoogle, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [avatarConfig, setAvatarConfig] = useState(genConfig());
@@ -94,7 +93,7 @@ const RegisterPage = () => {
     const fetchStatesAndSetDefaults = async () => {
       const { data, error } = await supabase.from('states').select('*').order('name');
       if (error) {
-        toast({ title: "Erro ao buscar estados", variant: "destructive" });
+        showAppError({ title: "Erro ao buscar estados", variant: "destructive" });
       } else {
         setStates(data);
         const pernambuco = data.find(s => s.uf === 'PE');
@@ -104,14 +103,14 @@ const RegisterPage = () => {
       }
     };
     fetchStatesAndSetDefaults();
-  }, [toast, setValue]);
+  }, [setValue]);
 
   useEffect(() => {
     if (selectedState) {
       const fetchCities = async () => {
         const { data, error } = await supabase.from('cities').select('*').eq('state_id', selectedState).order('name');
         if (error) {
-          toast({ title: "Erro ao buscar cidades", variant: "destructive" });
+          showAppError({ title: "Erro ao buscar cidades", variant: "destructive" });
           return;
         }
         setCities(data);
@@ -128,7 +127,7 @@ const RegisterPage = () => {
     } else {
       setCities([]);
     }
-  }, [selectedState, toast, setValue, watch]);
+  }, [selectedState, setValue, watch]);
 
   const randomizeAvatar = () => {
     setAvatarConfig(genConfig());
@@ -140,7 +139,7 @@ const RegisterPage = () => {
       const { error } = await signInWithGoogle();
       if (error) throw error;
     } catch (error) {
-       toast({
+       showAppError({
         title: "Erro no login com Google",
         description: error.message || "Tente novamente mais tarde.",
         variant: "destructive",
@@ -151,7 +150,7 @@ const RegisterPage = () => {
 
   const onSubmit = async (data) => {
     if (!agreedToTerms) {
-      toast({
+      showAppError({
         title: "Termos de Uso",
         description: "Você precisa aceitar os termos de uso para continuar.",
         variant: "destructive",
@@ -178,10 +177,6 @@ const RegisterPage = () => {
       }
     });
     if (!error) {
-      toast({
-        title: "Cadastro realizado com sucesso!",
-        description: "Estamos entrando na sua conta...",
-      });
 
       const { error: signInError } = await signIn(data.email, data.password);
 
@@ -216,13 +211,13 @@ const RegisterPage = () => {
       } else {
         const msg = (signInError.message || '').toLowerCase();
         if (msg.includes('email not confirmed') || msg.includes('confirm')) {
-          toast({
+          showAppError({
             title: "Confirme seu e-mail",
             description: "Enviamos um link de confirmação para o seu e-mail. Após confirmar, faça login para acessar o painel.",
             variant: "destructive",
           });
         } else {
-          toast({
+          showAppError({
             title: "Cadastro realizado, mas não foi possível entrar",
             description: signInError.message || "Tente fazer login com seu e-mail e senha.",
             variant: "destructive",
@@ -231,7 +226,7 @@ const RegisterPage = () => {
         navigate('/login');
       }
     } else {
-      toast({
+      showAppError({
         title: "Erro no cadastro",
         description: error.message,
         variant: "destructive",

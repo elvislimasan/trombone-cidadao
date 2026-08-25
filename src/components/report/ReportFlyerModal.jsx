@@ -5,9 +5,9 @@ import { Download, Check, FileText, Layout, Grid, Palette, Contrast, ThumbsUp, M
 import { toPng } from 'html-to-image';
 import { Capacitor } from '@capacitor/core';
 import { salvarImagemNaGaleria } from '@/lib/nativeDownload';
-import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { showAppError } from '@/lib/appError';
 
 const FLYER_TEMPLATES = [
   {
@@ -35,7 +35,6 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
   const [isColor, setIsColor] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const flyerRef = useRef(null);
-  const { toast } = useToast();
 
   const handleDownload = useCallback(async () => {
     if (!flyerRef.current) return;
@@ -73,14 +72,10 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
         document.body.removeChild(link);
       }
 
-      toast({
-        title: "Panfleto pronto!",
-        description: "O modelo foi baixado e já pode ser impresso.",
-      });
       onClose();
     } catch (error) {
       console.error('Erro ao gerar panfleto:', error);
-      toast({
+      showAppError({
         title: "Erro ao gerar panfleto",
         description: "Tente novamente em instantes.",
         variant: "destructive",
@@ -88,7 +83,7 @@ const ReportFlyerModal = ({ isOpen, onClose, report, qrCodeUrl }) => {
     } finally {
       setIsGenerating(false);
     }
-  }, [report, selectedTemplate, onClose, toast]);
+  }, [report, selectedTemplate, onClose]);
 
   // ATENCAO: tudo dentro de renderFlyerTemplate() e o CONTEUDO do panfleto
   // (a imagem baixada via toPng, ver flyerRef). As cores aqui (bg-white,
