@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { Route as Road, ThumbsDown, Filter, Search, X, Mail, Circle, Square, Map, List, LocateFixed, RefreshCw, HardHat, Construction, Download, Loader2, PlusCircle } from 'lucide-react';
+import { ThumbsDown, Filter, Search, List, LocateFixed, RefreshCw, HardHat, Construction, Download, Loader2, PlusCircle, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -155,6 +155,11 @@ const PavementMapPage = () => {
     setStreetListModal({ isOpen: true, title, streets });
   };
 
+  const handleUnnamedStreetListClick = () => {
+    const streets = streetData.filter((street) => street.is_unnamed);
+    setStreetListModal({ isOpen: true, title: 'Ruas sem nome oficial', streets });
+  };
+
   const handleGoToStreet = (location) => {
     if (mapViewRef.current && location) {
       mapViewRef.current.goToLocation(location);
@@ -174,6 +179,7 @@ const PavementMapPage = () => {
     paved: streetData.filter(s => s.status === 'paved').length,
     partially_paved: streetData.filter(s => s.status === 'partially_paved').length,
     unpaved: streetData.filter(s => s.status === 'unpaved').length,
+    unnamed: streetData.filter(s => s.is_unnamed).length,
   };
 
   const statusData = [
@@ -224,10 +230,11 @@ const PavementMapPage = () => {
       doc.setFontSize(10);
       doc.text(`Atualizado em: ${new Date(lastUpdate).toLocaleString('pt-BR')}`, 14, 26);
     }
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     doc.text(`Total: ${stats.total} | Pavimentadas: ${stats.paved} | Parcialmente: ${stats.partially_paved} | Sem pavimentação: ${stats.unpaved}`, 14, 34);
+    doc.text(`Sem nome oficial: ${stats.unnamed}`, 14, 40);
 
-    const chartStartY = 44;
+    const chartStartY = 50;
     doc.text('Distribuição por status', 14, chartStartY);
     const series = [
       { label: 'Pavimentadas', value: stats.paved, color: [55, 65, 81] },
@@ -255,23 +262,24 @@ const PavementMapPage = () => {
       streetData.forEach((s) => {
         const neighborhoodName = s.bairro?.name || 'Sem bairro';
         if (!neighborhoodMap[neighborhoodName]) {
-          neighborhoodMap[neighborhoodName] = { paved: 0, partially_paved: 0, unpaved: 0 };
+          neighborhoodMap[neighborhoodName] = { paved: 0, partially_paved: 0, unpaved: 0, unnamed: 0 };
         }
         if (s.status === 'paved') neighborhoodMap[neighborhoodName].paved += 1;
         if (s.status === 'partially_paved') neighborhoodMap[neighborhoodName].partially_paved += 1;
         if (s.status === 'unpaved') neighborhoodMap[neighborhoodName].unpaved += 1;
+        if (s.is_unnamed) neighborhoodMap[neighborhoodName].unnamed += 1;
       });
 
       const neighborhoodRows = Object.entries(neighborhoodMap).map(([name, counts]) => {
         const total = counts.paved + counts.partially_paved + counts.unpaved;
-        return [name, counts.paved, counts.partially_paved, counts.unpaved, total];
+        return [name, counts.paved, counts.partially_paved, counts.unpaved, counts.unnamed, total];
       });
 
       if (neighborhoodRows.length) {
         doc.setFontSize(12);
         doc.text('Resumo por bairro', 14, startY);
         doc.autoTable({
-          head: [['Bairro', 'Pavimentadas', 'Parcialmente', 'Sem pavimentação', 'Total']],
+          head: [['Bairro', 'Pavimentadas', 'Parcialmente', 'Sem pavimentação', 'Sem nome oficial', 'Total']],
           body: neighborhoodRows,
           startY: startY + 4,
           styles: { fontSize: 9 },
@@ -319,6 +327,17 @@ const PavementMapPage = () => {
       if (unpavedRows.length) {
         doc.text('Ruas Sem Pavimentação', 14, startY);
         doc.autoTable({ head: [['Rua', 'Bairro', 'Status']], body: unpavedRows, startY: startY + 4, styles: { fontSize: 9 } });
+        startY = doc.lastAutoTable.finalY + 6;
+      }
+
+      const unnamedRows = streetData
+        .filter(s => s.is_unnamed)
+        .map(s => [s.name, s.bairro?.name || '-'])
+        .sort(compareRows);
+
+      if (unnamedRows.length) {
+        doc.text('Ruas sem nome oficial', 14, startY);
+        doc.autoTable({ head: [['Identificação provisória', 'Bairro']], body: unnamedRows, startY: startY + 4, styles: { fontSize: 9 } });
       }
     }
     return doc;
@@ -443,7 +462,7 @@ const PavementMapPage = () => {
           initial="hidden"
           animate="visible"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <motion.button
               type="button"
               variants={itemVariants}
@@ -492,6 +511,23 @@ const PavementMapPage = () => {
               </div>
               <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand text-white">
                 <ThumbsDown className="w-4 h-4" />
+              </div>
+            </motion.button>
+
+            <motion.button
+              type="button"
+              variants={itemVariants}
+              onClick={handleUnnamedStreetListClick}
+              className="flex items-center justify-between rounded-xl px-3 py-3 text-left transition cursor-pointer border border-transparent hover:border-amber-400/50 hover:shadow-md"
+            >
+              <div>
+                <div className="text-[11px] md:text-xs text-amber-700">Sem nome oficial</div>
+                <div className="text-xl md:text-2xl font-extrabold text-amber-700 leading-tight">
+                  {stats.unnamed}
+                </div>
+              </div>
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-600 text-white">
+                <HelpCircle className="w-4 h-4" />
               </div>
             </motion.button>
           </div>
@@ -611,7 +647,7 @@ const PavementMapPage = () => {
       </div>
 
       <Dialog open={!!selectedWorkId} onOpenChange={(open) => !open && setSelectedWorkId(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 z-[1200]">
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           {selectedWork && (
             <>
               <DialogHeader className="p-4 border-b">
@@ -627,7 +663,7 @@ const PavementMapPage = () => {
       </Dialog>
 
       <Dialog open={streetListModal.isOpen} onOpenChange={(open) => !open && setStreetListModal({ isOpen: false, title: '', streets: [] })}>
-        <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto z-[1200]">
+        <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-tc-red">
               <List className="w-6 h-6" />
@@ -646,7 +682,14 @@ const PavementMapPage = () => {
                     className="w-full text-left p-3 rounded-md hover:bg-muted transition-colors flex justify-between items-center"
                   >
                     <div>
-                      <p>{street.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p>{street.name}</p>
+                        {street.is_unnamed && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                            <HelpCircle className="h-3 w-3" /> Sem nome oficial
+                          </span>
+                        )}
+                      </div>
                       {street.bairro && <p className="text-xs text-muted-foreground">{street.bairro.name}</p>}
                     </div>
                     <LocateFixed className="w-4 h-4 text-muted-foreground" />

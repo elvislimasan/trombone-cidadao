@@ -1,7 +1,7 @@
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
 import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction, Info, BookOpen } from 'lucide-react';
+import { Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction, Info, BookOpen, HelpCircle } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
@@ -205,6 +205,11 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                 <div className="p-1">
                   <div className="mb-2">
                     <h3 className="font-bold text-lg text-tc-red leading-tight">{street.name}</h3>
+                    {street.is_unnamed && (
+                      <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                        <HelpCircle className="h-3 w-3" /> Sem nome oficial
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-2">
@@ -256,6 +261,11 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                 {statusInfo.icon}
                 {statusInfo.text}
               </span>
+              {selectedStreet?.is_unnamed && (
+                <span className="flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800">
+                  <HelpCircle className="h-4 w-4" /> Sem nome oficial
+                </span>
+              )}
               {selectedStreet?.paving_date && (
                 <span className="text-sm bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full font-medium">
                   Realizado em: {new Date(selectedStreet.paving_date).toLocaleDateString()}

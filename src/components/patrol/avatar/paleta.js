@@ -1,124 +1,104 @@
-// A paleta, o quadro e os gradientes que todas as peças do avatar dividem.
+// A paleta e os gradientes que todas as peças do avatar dividem.
 //
-// POR QUE ISTO É UM ARQUIVO SEPARADO DAS PEÇAS
+// POR QUE ISTO É SEPARADO DAS PEÇAS
 //
-// Cabeça, tronco, mochila e carro precisam concordar em três coisas: o quadro
-// em que desenham, os tons derivados da cor escolhida e os ids dos gradientes.
-// Se cada peça calculasse o seu, ajustar um tom pediria a mesma edição em seis
-// arquivos — e no dia em que um ficasse para trás o boneco sairia com a manga
-// de um azul e a mochila de outro.
+// Cabeça, cabelo, torso, braços, pernas, calçado, mochila e acessórios
+// precisam concordar nos tons derivados das cores escolhidas e nos ids dos
+// gradientes. Se cada peça calculasse o seu, ajustar um tom pediria a mesma
+// edição em oito arquivos — e no dia em que um ficasse para trás o boneco
+// sairia com a manga de um azul e a mochila de outro.
 //
-// O QUADRO NÃO MUDA SOZINHO
+// DUAS CORES DE ROUPA, NÃO UMA
 //
-// A figura vive em 40x48 com os PÉS na linha 45.6. O CSS ancora o avatar por
-// esse ponto (`.patrol-avatar-planted`, no index.css), então mexer aqui pede
-// mexer lá.
+// `cor` é a primária (camiseta, capuz, lataria). `corSecundaria` é a de apoio
+// (calça, vivos, fivelas, detalhe do tênis). Enquanto havia uma só, todo
+// elemento de apoio era um cinza fixo cadastrado à mão, e o boneco inteiro
+// dependia de uma escolha. Com duas, a mesma arquitetura entrega centenas de
+// combinações sem uma linha nova de desenho.
 //
 // O VOLUME É PINTADO, NÃO MODELADO
 //
-// O relevo vem de três camadas, sempre nesta ordem e sempre pelo mesmo motivo
-// físico:
+// O relevo do 2.5D vem de quatro camadas, sempre nesta ordem e sempre pelo
+// mesmo motivo físico:
 //
-//   1. LUZ DE CIMA  — gradiente vertical em cada peça, clara no topo e escura
+//   1. LUZ DE CIMA   — gradiente vertical em cada peça, clara no topo e escura
 //      embaixo. É o sol; sem ele o boneco vira adesivo chapado.
-//   2. VOLUME       — gradiente horizontal de preto transparente nas bordas.
+//   2. VOLUME        — gradiente horizontal de preto transparente nas bordas.
 //      É o que arredonda uma forma reta: sem isso a perna é uma tira.
-//   3. OCLUSÃO      — manchas escuras onde uma peça encosta na outra. É a
-//      sombra de contato, e é ela que faz as peças parecerem encaixadas em vez
-//      de coladas lado a lado.
+//   3. OCLUSÃO       — manchas escuras onde uma peça encosta na outra. É a
+//      sombra de contato, e é ela que encaixa as peças em vez de colá-las.
+//   4. REALCE        — um brilho estreito na quina superior, deslocado para a
+//      esquerda. É a única coisa que diz de onde vem a luz, e é o que dá o
+//      acabamento "renderizado" sem custar um filtro.
 //
 // Nada disso é `filter`: são formas com `fill`, porque filtro em SVG dentro de
 // um marcador que anima a 60 quadros custa caro no celular.
 
 import {
   getPatrolAvatarColor,
+  getPatrolAvatarCorCabelo,
   getPatrolAvatarTomPele,
 } from '@/lib/patrolAvatarConfig';
 
-export const QUADRO = { largura: 40, altura: 48, chao: 45.6 };
+import { QUADRO } from './geometria';
+
+export { QUADRO };
 
 // DUAS CÂMERAS, UM PERSONAGEM
 //
 // No mapa o boneco é visto de costas. Nas telas de escolha ele é visto de
 // frente, porque é lá que se decide "esse sou eu" — e sem rosto não há o que
 // decidir. Não são dois bonecos: é a mesma configuração desenhada de dois
-// ângulos, e cada peça sabe o que muda no seu.
+// ângulos, e cada peça tem uma composição PRÓPRIA para o seu lado. Espelhar o
+// desenho frontal não funcionaria: costas não é frente sem rosto — é nuca,
+// costura, calcanhar e mochila.
 export const normalizarCamera = (valor) => (valor === 'costas' ? 'costas' : 'frente');
 
-// As medidas que mais de uma peça precisa enxergar.
-//
-// A CABEÇA É MAIS ESTREITA QUE OS OMBROS, E ESSE É O PONTO
-//
-// Enquanto o crânio era mais largo que o tronco, a silhueta lia como boneco
-// articulado por mais bem pintado que estivesse. Proporção resolve de longe o
-// que detalhe nenhum resolve de perto.
-export const CORPO = {
-  ombroY: 18.3,
-  ombroEsq: 11.9,
-  ombroDir: 28.1,
-  cinturaY: 33,
-  cinturaEsq: 13.6,
-  cinturaDir: 26.4,
-  craneoCx: 20,
-  craneoCy: 10.6,
-  craneoRx: 6.9,
-  craneoRy: 7.2,
-  golaY: 18.6,
-};
-
 const NEUTRO = {
-  cabelo: '#2b2118',
   equipamento: '#232a38',
   vidro: '#26314a',
   refletivo: '#e6fa9c',
   lanterna: '#ff4757',
   farol: '#fff4d6',
   metal: '#8f9bb0',
-  olho: '#20161d',
+  olho: '#221a20',
+  sola: '#f1f5fb',
 };
 
 // Cada estilo é uma combinação de peças e tons — não um desenho próprio.
 //
-// NENHUM ESTILO USA BONÉ
+// O CABELO SAIU DAQUI
 //
-// A antiga faixa inferior do boné usava um arco que descia até as bochechas.
-// Como o chapéu herdava tons da roupa, alguns rostos pareciam manchados pela
-// camiseta. Os trajes agora se distinguem por colete, capuz, faixas, estampa e
-// cabelo; a cabeça fica livre e a pele nunca recebe a cor da roupa.
+// Ele era um estilo de roupa ("Cabelo longo"), o que impedia alguém de usar
+// rabo de cavalo com colete tático. Agora corte e cor de cabelo são eixos
+// próprios da configuração, e todo traje aceita todo cabelo.
 export const ESTILOS = {
   classico: {
-    roupa: 'base', calca: '#39435c', saiaFeminina: true,
+    roupa: 'primaria', calca: 'secundaria', saiaFeminina: true,
   },
   tatico: {
     roupa: '#232b3b', calca: '#1b2130',
-    colete: true, luvas: true, acento: 'base', mochilaEscura: true,
+    colete: true, luvas: true, mangaLonga: true,
+    acento: 'primaria', mochilaEscura: true,
   },
   urbano: {
-    roupa: 'base', calca: '#2c3446',
+    roupa: 'primaria', calca: 'secundaria',
     capuz: true, saiaFeminina: true,
   },
   night: {
     roupa: '#1a2130', calca: '#171d2a',
-    refletivo: true, mochilaEscura: true,
+    refletivo: true, mangaLonga: true, mochilaEscura: true,
   },
   camuflado: {
-    roupa: 'base', calca: '#4a5540',
+    roupa: 'primaria', calca: 'secundaria',
     camuflagem: true,
-  },
-  rabo: {
-    roupa: 'base', calca: '#39435c',
-    rabo: true, saiaFeminina: true,
-    // Castanho claro, e não o quase-preto padrão: o rabo cai POR CIMA da
-    // mochila, e escuro sobre escuro ele desaparecia justamente no que define
-    // o estilo.
-    cabelo: '#6b4630',
   },
 };
 
 /* --- Tons derivados --- */
-// A cor escolhida traz três tons prontos, mas peças de tom fixo (a calça, o
-// preto do equipamento) também precisam de luz e sombra. Fazer a conta aqui
-// evita cadastrar cinco variantes de cada cinza na configuração.
+// As cores escolhidas trazem três tons prontos, mas peças de tom fixo (o preto
+// do equipamento, a borracha da sola) também precisam de luz e sombra. Fazer a
+// conta aqui evita cadastrar cinco variantes de cada cinza na configuração.
 
 const paraRgb = (hex) => {
   const n = parseInt(hex.slice(1), 16);
@@ -133,26 +113,40 @@ export const escurecer = (hex, fator) => paraHex(paraRgb(hex).map((v) => v * (1 
 
 export const montarPaleta = (avatar) => {
   const cor = getPatrolAvatarColor(avatar.cor);
+  const apoio = getPatrolAvatarColor(avatar.corSecundaria);
   const tomPele = getPatrolAvatarTomPele(avatar.tomPele);
+  const corCabelo = getPatrolAvatarCorCabelo(avatar.corCabelo);
   const estilo = ESTILOS[avatar.estilo] || ESTILOS.classico;
+
   const tom = (valor) => {
-    if (valor === 'base') return cor.base;
-    if (valor === 'escura') return cor.escura;
-    if (valor === 'clara') return cor.clara;
+    if (valor === 'primaria') return cor.base;
+    if (valor === 'primaria-escura') return cor.escura;
+    if (valor === 'primaria-clara') return cor.clara;
+    if (valor === 'secundaria') return apoio.base;
+    if (valor === 'secundaria-escura') return apoio.escura;
+    if (valor === 'secundaria-clara') return apoio.clara;
     return valor;
   };
 
   return {
     ...NEUTRO,
     cor,
+    apoio,
     sexo: avatar.sexo,
     tomPele,
     pele: tomPele.base,
     estilo,
-    cabelo: estilo.cabelo || NEUTRO.cabelo,
+    estiloId: avatar.estilo,
+
+    // O cabelo é cor própria: o quase-preto fixo sumia contra a mochila escura,
+    // e tingi-lo com a roupa fazia rostos parecerem manchados pela camiseta.
+    cabeloId: avatar.cabelo,
+    cabelo: corCabelo.base,
+
     roupa: tom(estilo.roupa),
     calca: tom(estilo.calca),
-    acento: tom(estilo.acento || 'base'),
+    acento: tom(estilo.acento || 'secundaria'),
+
     // A MOCHILA DEIXOU DE SER CINZA, E ESSE FOI O MAIOR GANHO DE COR
     //
     // Visto de costas a mochila cobre quase todo o tronco: enquanto ela era um
@@ -161,6 +155,10 @@ export const montarPaleta = (avatar) => {
     // boneco vermelho. Os estilos que vivem do escuro (tático, night) mantêm o
     // chumbo, porque ali ele é a identidade e não um acidente.
     mochila: estilo.mochilaEscura ? NEUTRO.equipamento : escurecer(cor.base, 0.36),
+
+    // A luva herda o equipamento; a mão nua herda a pele. Uma variável só evita
+    // que cada peça repita esse `if`.
+    luva: estilo.luvas ? escurecer(NEUTRO.equipamento, 0.18) : tomPele.base,
   };
 };
 
@@ -169,19 +167,23 @@ export const montarPaleta = (avatar) => {
 // CADA forma, então uma definição só serve para a manga, a perna e o tronco,
 // cada um com a própria caixa.
 
+// A inclinação de 0.16 no eixo x é de propósito: luz perfeitamente vertical lê
+// como degradê de interface. Torta de leve, lê como luz de cena.
 const verticalGradiente = (id, hex) => `
-  <linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="${clarear(hex, 0.3)}" />
-    <stop offset="0.42" stop-color="${hex}" />
-    <stop offset="1" stop-color="${escurecer(hex, 0.3)}" />
+  <linearGradient id="${id}" x1="0" y1="0" x2="0.16" y2="1">
+    <stop offset="0" stop-color="${clarear(hex, 0.34)}" />
+    <stop offset="0.4" stop-color="${hex}" />
+    <stop offset="1" stop-color="${escurecer(hex, 0.32)}" />
   </linearGradient>
 `;
 
+// A luz vem de cima e da esquerda. Manter o mesmo foco em toda esfera é o que
+// faz cabeça, mão e ombro parecerem iluminados pela MESMA lâmpada.
 const esferaGradiente = (id, hex) => `
-  <radialGradient id="${id}" cx="0.36" cy="0.24" r="0.82">
-    <stop offset="0" stop-color="${clarear(hex, 0.34)}" />
-    <stop offset="0.5" stop-color="${hex}" />
-    <stop offset="1" stop-color="${escurecer(hex, 0.36)}" />
+  <radialGradient id="${id}" cx="0.35" cy="0.26" r="0.86">
+    <stop offset="0" stop-color="${clarear(hex, 0.38)}" />
+    <stop offset="0.46" stop-color="${hex}" />
+    <stop offset="1" stop-color="${escurecer(hex, 0.38)}" />
   </radialGradient>
 `;
 
@@ -194,30 +196,40 @@ export const montarDefs = (p, sufixo) => `
     ${verticalGradiente(`g-acento-${sufixo}`, p.acento)}
     ${verticalGradiente(`g-metal-${sufixo}`, p.metal)}
     ${verticalGradiente(`g-vidro-${sufixo}`, p.vidro)}
+    ${verticalGradiente(`g-membro-${sufixo}`, p.pele)}
+    ${verticalGradiente(`g-sola-${sufixo}`, p.sola)}
     ${esferaGradiente(`g-cabelo-${sufixo}`, p.cabelo)}
     ${esferaGradiente(`g-pele-${sufixo}`, p.pele)}
-    ${esferaGradiente(`g-luva-${sufixo}`, p.estilo.luvas ? escurecer(p.equipamento, 0.25) : p.pele)}
+    ${esferaGradiente(`g-luva-${sufixo}`, p.luva)}
     ${verticalGradiente(`g-corpo-${sufixo}`, p.cor.base)}
     ${verticalGradiente(`g-teto-${sufixo}`, p.cor.escura)}
 
     <!-- O volume: escuro nas duas bordas, limpo no meio. É o que transforma uma
-         forma reta em cilindro sem custar um filtro. -->
+         forma reta em cilindro sem custar um filtro. A borda direita é mais
+         escura porque a luz vem da esquerda. -->
     <linearGradient id="g-vol-${sufixo}" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#000" stop-opacity="0.3" />
-      <stop offset="0.26" stop-color="#000" stop-opacity="0" />
-      <stop offset="0.62" stop-color="#000" stop-opacity="0" />
-      <stop offset="1" stop-color="#000" stop-opacity="0.34" />
+      <stop offset="0" stop-color="#000" stop-opacity="0.26" />
+      <stop offset="0.2" stop-color="#000" stop-opacity="0" />
+      <stop offset="0.58" stop-color="#000" stop-opacity="0" />
+      <stop offset="1" stop-color="#000" stop-opacity="0.36" />
     </linearGradient>
 
     <!-- A luz que escorre pela quina de cima de cada peça. -->
     <linearGradient id="g-luz-${sufixo}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity="0.4" />
+      <stop offset="0" stop-color="#fff" stop-opacity="0.46" />
       <stop offset="1" stop-color="#fff" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Sombra interna: a peça escurece contra a própria borda de baixo. É o
+         que dá espessura sem desenhar uma segunda forma. -->
+    <linearGradient id="g-interna-${sufixo}" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity="0.34" />
+      <stop offset="0.44" stop-color="#000" stop-opacity="0" />
     </linearGradient>
 
     <!-- Sombra de contato, onde uma peça encosta na outra. -->
     <radialGradient id="g-oc-${sufixo}" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#000" stop-opacity="0.34" />
+      <stop offset="0" stop-color="#000" stop-opacity="0.36" />
       <stop offset="1" stop-color="#000" stop-opacity="0" />
     </radialGradient>
 
@@ -240,8 +252,8 @@ export const montarDefs = (p, sufixo) => `
 // distinguir o boneco.
 export const marca = (cx, cy, escala, cor) => `
   <path class="patrol-avatar__mark" fill="${cor}" stroke="none"
-    d="M${cx} ${cy - 3.1 * escala}
-       L${cx + 2.7 * escala} ${cy + 3 * escala}
-       L${cx} ${cy + 1.1 * escala}
-       L${cx - 2.7 * escala} ${cy + 3 * escala} Z" />
+    d="M${cx} ${cy - 19.8 * escala}
+       L${cx + 17.3 * escala} ${cy + 19.2 * escala}
+       L${cx} ${cy + 7 * escala}
+       L${cx - 17.3 * escala} ${cy + 19.2 * escala} Z" />
 `;

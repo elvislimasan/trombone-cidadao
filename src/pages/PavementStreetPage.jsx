@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  HelpCircle,
   Image as ImageIcon,
   Loader2,
   MapPin,
@@ -403,6 +404,11 @@ export default function PavementStreetPage() {
             {pavementStatus && (
               <span className="inline-flex items-center rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
                 {pavementStatus}
+              </span>
+            )}
+            {street.is_unnamed && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50/90 px-3 py-1.5 font-semibold text-amber-800 ring-1 ring-amber-300">
+                <HelpCircle className="h-4 w-4" /> Sem nome oficial
               </span>
             )}
             {cep && (

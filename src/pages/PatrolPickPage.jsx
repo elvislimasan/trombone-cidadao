@@ -27,9 +27,16 @@ import {
   resolvePatrolTravelMode,
   storePatrolTravelMode,
 } from '@/lib/patrolTravelMode';
-import { readStoredPatrolAvatar, storePatrolAvatar } from '@/lib/patrolAvatarConfig';
-import { useMissions } from '@/hooks/useMissions';
+import {
+  readStoredPatrolAvatar,
+  storePatrolAvatar,
+  patrolAvatarComPerfil,
+  patrolAvatarSexoDoPerfil,
+  readRawPatrolAvatar,
+  toPatrolUrbanAvatar,
+} from '@/lib/patrolAvatarConfig';
 import { usePosicaoAproximada } from '@/hooks/usePosicaoAproximada';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Preparar a saída, antes de ligar o GPS.
 //
@@ -72,14 +79,36 @@ export default function PatrolPickPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const posicao = usePosicaoAproximada();
-  const { nivel: progressoDoNivel, carregando: nivelCarregando } = useMissions();
-  const nivel = progressoDoNivel?.level ?? 1;
+  const { user } = useAuth();
 
-  // A aparência do boneco vive só no aparelho: é preferência de uso, não dado
-  // de conta. Ela não entra na URL como as outras escolhas — não faria sentido
-  // um link mandar alguém patrulhar de mochila tática.
-  const [avatar, setAvatar] = useState(() => readStoredPatrolAvatar(obterStorage()));
-  const [personalizando, setPersonalizando] = useState(false);
+  // A escolha do boneco vive só no aparelho. O uniforme urbano é uma projeção
+  // da experiência atual: as preferências antigas continuam no storage para
+  // poderem voltar depois, mas somente o sexo fica exposto nesta tela.
+  // O PERFIL DÁ O PALPITE INICIAL
+  //
+  // Quem já montou um avatar no cadastro não deveria abrir a patrulha e
+  // encontrar um boneco de outro sexo — isso obriga a refazer uma escolha já
+  // feita. `patrolAvatarComPerfil` só olha o perfil quando o storage ainda não
+  // tem escolha própria; depois disso a decisão desta tela é que vale.
+  const [avatar, setAvatar] = useState(() =>
+    patrolAvatarComPerfil(readRawPatrolAvatar(obterStorage()), user)
+  );
+
+  // O PERFIL CHEGA DEPOIS DA PRIMEIRA PINTURA
+  //
+  // O contexto busca o perfil no Supabase, com timeout: na montagem ele quase
+  // nunca está pronto. Sem isto, quem tem avatar feminino no cadastro abriria a
+  // preparação com o boneco masculino e só veria o certo depois de tocar na
+  // folha de escolha.
+  //
+  // A escolha gravada continua vencendo — o perfil só preenche o silêncio.
+  const sexoDoPerfil = patrolAvatarSexoDoPerfil(user);
+  useEffect(() => {
+    if (!sexoDoPerfil) return;
+    if (readRawPatrolAvatar(obterStorage())?.sexo) return;
+    setAvatar((atual) => (atual.sexo === sexoDoPerfil ? atual : { ...atual, sexo: sexoDoPerfil }));
+  }, [sexoDoPerfil]);
+  const [escolhendoBoneco, setEscolhendoBoneco] = useState(false);
 
   const [modoDeslocamento, setModoDeslocamento] = useState(() =>
     resolvePatrolTravelMode(location.search, obterStorage())
@@ -153,7 +182,16 @@ export default function PatrolPickPage() {
   }, [categoriaSelecionada, modoDeslocamento, navigate, passoAtual]);
 
   const escolherAvatar = useCallback((proximo) => {
-    setAvatar(storePatrolAvatar(obterStorage(), proximo));
+    const storage = obterStorage();
+    const anterior = readStoredPatrolAvatar(storage);
+    // Sexo E veículo: a folha pergunta um ou outro conforme o modo, e guardar
+    // só o sexo faria a escolha de carro sumir ao fechar a folha.
+    const salvo = storePatrolAvatar(storage, {
+      ...anterior,
+      sexo: proximo?.sexo,
+      veiculo: proximo?.veiculo,
+    });
+    setAvatar(toPatrolUrbanAvatar(salvo));
   }, []);
 
   const escolherModo = useCallback((modo) => {
@@ -208,17 +246,15 @@ export default function PatrolPickPage() {
 
       <PatrolStepper passos={passos} atual={passoAtual} />
 
-      {/* A personalização é folha, não passo — ver o comentário em
-          `PatrolAvatarStudio`. Ela salva a cada toque: não há "cancelar" porque
-          não há nada a confirmar, e sair da folha é o próprio "pronto". */}
-      {personalizando && (
+      {/* Escolher quem aparece é uma folha curta, não um quarto passo
+          obrigatório. A pergunta muda com o modo: a pé é o boneco, de carro é
+          o veículo — que é o que o mapa vai mostrar. */}
+      {escolhendoBoneco && (
         <PatrolAvatarStudio
-          modo={modoDeslocamento}
           avatar={avatar}
-          nivel={nivel}
-          nivelCarregando={nivelCarregando}
+          modo={modoDeslocamento}
           onChange={escolherAvatar}
-          onFechar={() => setPersonalizando(false)}
+          onFechar={() => setEscolhendoBoneco(false)}
         />
       )}
 
@@ -236,7 +272,7 @@ export default function PatrolPickPage() {
           onChange={escolherModo}
           foco={categoriaAtiva}
           avatar={avatar}
-          onPersonalizar={() => setPersonalizando(true)}
+          onEscolherBoneco={() => setEscolhendoBoneco(true)}
         />
       )}
 
@@ -245,7 +281,7 @@ export default function PatrolPickPage() {
           categoria={categoriaAtiva}
           modo={modo}
           avatar={avatar}
-          onPersonalizar={() => setPersonalizando(true)}
+          onEscolherBoneco={() => setEscolhendoBoneco(true)}
           onEditarFoco={pularFoco ? null : () => irParaPasso('foco')}
           onEditarRitmo={() => irParaPasso('ritmo')}
         />

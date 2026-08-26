@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Moon, ChevronRight, ChevronDown, Loader2, Lock } from 'lucide-react';
 
-import PageHeader from '@/components/PageHeader';
 import { usePosicaoAproximada } from '@/hooks/usePosicaoAproximada';
 import MissionList from '@/components/missions/MissionList';
 import MissionLevelCard from '@/components/missions/MissionLevelCard';
+import ImpactCard from '@/components/missions/ImpactCard';
+import DailyCard from '@/components/missions/DailyCard';
 import MissionResume from '@/components/missions/MissionResume';
-import MissionCategoryGrid from '@/components/missions/MissionCategoryGrid';
 import MissionPatrolProgress from '@/components/missions/MissionPatrolProgress';
 import { useMissions } from '@/hooks/useMissions';
 import { CATEGORIAS_SINAL } from '@/lib/reportCategories';
@@ -32,8 +32,10 @@ import { calcularSequencia } from '@/lib/patrolGame';
 
 export default function MissionsPage() {
   const posicao = usePosicaoAproximada();
-  const { trilhas, pontuacao, concluidas, conquistas, contadores, carregando } =
-    useMissions();
+  const {
+    trilhas, pontuacao, impacto, concluidas, conquistas, contadores, carregando,
+    diarias, resumoDiarias, tempoRestante,
+  } = useMissions();
 
   // null = não sabemos ainda (ou o GPS recusou). Diferente de "é dia".
   const noite = useMemo(
@@ -76,11 +78,6 @@ export default function MissionsPage() {
       .filter((m) => !m.bloqueada && !m.completa && m.atual > 0);
     return [...abertas].sort((a, b) => a.faltam - b.faltam).slice(0, 4);
   }, [trilhas]);
-
-  const investigacoes = useMemo(
-    () => trilhas.find((t) => t.id === 'investigacao')?.missoes ?? [],
-    [trilhas]
-  );
 
   const dePatrulha = useMemo(
     () => trilhas.find((t) => t.id === 'patrulha')?.missoes ?? [],
@@ -129,7 +126,14 @@ export default function MissionsPage() {
   }, [trilhas, trilhaAtiva, verTodas]);
 
   return (
-    <div className="container max-w-2xl mx-auto w-full px-4 py-6 pb-24">
+    /* O ESPAÇAMENTO É DO PAI, NÃO DE CADA BLOCO
+       Metade dos cartões trazia a própria margem (`mt-6`) e a outra metade
+       nenhuma — então nível, diárias e impacto encostavam uns nos outros e
+       liam como um cartão só com emendas estranhas, enquanto os de baixo
+       respiravam. Com `gap`, a distância entre irmãos é uma decisão só, no
+       lugar onde ela pode ser vista inteira, e um bloco novo entra no ritmo
+       sem precisar saber quem está acima dele. */
+    <div className="container max-w-2xl mx-auto w-full px-4 py-6 pb-24 flex flex-col gap-5">
       <Helmet>
         <title>Missões | Trombone Cidadão</title>
         <meta
@@ -138,11 +142,12 @@ export default function MissionsPage() {
         />
       </Helmet>
 
-      <PageHeader
-        titulo="Missões"
-        subtitulo="Complete missões e fortaleça sua cidade"
-        paraOnde="/feed"
-      />
+      {/* SEM CABEÇALHO DE PÁGINA
+          O título repetia o que a aba de baixo já diz, e o subtítulo era slogan
+          — duas linhas de altura antes de qualquer conteúdo, numa tela cuja
+          queixa era estar cheia demais. O nome fica para os leitores de tela,
+          que precisam dele para anunciar a página. */}
+      <h1 className="sr-only">Missões</h1>
 
       {/* Estado pessoal antes das ações: quem abre a central quer saber onde
           está antes de escolher o que fazer. */}
@@ -155,21 +160,42 @@ export default function MissionsPage() {
         />
       )}
 
-      {/* Por onde começar hoje: as seis categorias, com o quanto anda cada uma. */}
+      {/* RETOMAR VEM ANTES DE ESCOLHER
+          A missão mais perto de fechar subiu para logo abaixo do nível, e como
+          cartão de marca. Enterrada depois das categorias ela competia com o
+          catálogo inteiro — e quem volta ao app pela terceira vez não quer
+          escolher entre doze, quer terminar o que começou. */}
+      {!carregando && <MissionResume missoes={quaseLa} />}
+
+      {/* O que dá para fazer HOJE, antes do catálogo de vida inteira.
+          Quem abre a central numa terça à noite não quer escolher entre doze
+          missões permanentes — quer um objetivo que cabe na noite. */}
       {!carregando && (
-        <MissionCategoryGrid missoes={investigacoes} categorias={CATEGORIAS_SINAL} />
+        <DailyCard
+          diarias={diarias}
+          resumo={resumoDiarias}
+          tempoRestante={tempoRestante}
+        />
       )}
 
-      {/* O que já foi começado, antes do catálogo inteiro. */}
-      {!carregando && (
-        <MissionResume missoes={quaseLa} />
-      )}
+      {/* A segunda moeda, logo abaixo do nível e nunca dentro dele.
+          É a distância entre os dois números que conta a história: muito XP com
+          impacto zero é alguém reclamando no vazio, e essa é a informação mais
+          útil que a central tem para dar. */}
+      {!carregando && <ImpactCard impacto={impacto} />}
 
       {/* ── As missões ──
+          UM CATÁLOGO, E SÓ UM.
+          Havia aqui em cima uma grade "Explore por categoria" com as mesmas
+          missões de investigação desta lista, os mesmos contadores e nenhuma
+          ação a mais — as pílulas abaixo já filtram por trilha. Duas
+          representações da mesma coisa a duzentos pixels de distância não são
+          duas entradas: são a mesma tela contada duas vezes.
+
           Vêm primeiro: a tela se chama Missões, e o que ela promete é dizer o
           que há para fazer. As patrulhas ficam logo abaixo, com âncora, porque
           são o DESTINO de metade das missões. */}
-      <section id="lista" className="mt-8 scroll-mt-4">
+      <section id="lista" className="scroll-mt-4">
         {/* O "Ver todas" daqui saiu junto com os outros dois: a pílula no fim
             da lista faz a mesma coisa, e no lugar certo — depois de a pessoa
             ver o que já cabe. */}
@@ -294,7 +320,7 @@ export default function MissionsPage() {
           Dito como espera, vira convite para voltar: o app deixa de negar e
           passa a marcar hora. */}
       {noite === false && adiadasParaANoite.length > 0 && (
-        <section className="mt-6">
+        <section>
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-content-tertiary mb-2.5">
             Próxima oportunidade
           </h2>

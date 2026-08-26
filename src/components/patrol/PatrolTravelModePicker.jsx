@@ -1,4 +1,4 @@
-import { Check, CarFront, Footprints, Palette } from 'lucide-react';
+import { Check, CarFront, Footprints, User } from 'lucide-react';
 
 import PatrolAvatar from './PatrolAvatar';
 import { getPatrolPickStep } from '@/lib/patrolPickFlow';
@@ -31,17 +31,25 @@ export default function PatrolTravelModePicker({
   onChange,
   foco = null,
   avatar,
-  onPersonalizar,
+  onEscolherBoneco,
 }) {
   const selecionado = getPatrolTravelMode(value);
   const passo = getPatrolPickStep('ritmo');
+  const ehCarro = selecionado.id === 'driving';
 
   return (
     <section aria-labelledby="patrol-travel-mode-title">
-      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-brand to-brand-hover px-5 pt-5 pb-6 text-content-onBrand shadow-elevation-2">
-        <div className="patrol-mode-grid absolute inset-0 opacity-30" aria-hidden="true" />
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-brand to-brand-hover text-content-onBrand shadow-elevation-2">
+        {/* A cidade simulada por baixo. Ela substitui o antigo padrão de pontos:
+            um mapa que anda diz o que a tela está prestes a fazer, e um padrão
+            decorativo não dizia nada. Ver `.patrol-mode-map` no index.css. */}
+        <div className={`patrol-mode-map patrol-mode-map--${selecionado.id}`} aria-hidden="true">
+          <div className="patrol-mode-map__grade" />
+          <div className="patrol-mode-map__rota" />
+          <div className="patrol-mode-map__luz" />
+        </div>
 
-        <div className="relative">
+        <div className="relative px-5 pt-5 pb-6">
           <div className="flex items-start justify-between gap-3">
             <div className="max-w-[74%]">
               <h2 id="patrol-travel-mode-title" className="font-display text-2xl font-extrabold leading-tight tracking-tight">
@@ -62,38 +70,43 @@ export default function PatrolTravelModePicker({
             )}
           </div>
 
-          {/* O avatar percorre a rota tracejada — o mesmo boneco, montado da
-              mesma configuração e com o mesmo ciclo de passos do marcador do
-              mapa. Tocar nele abre a personalização: o convite mora no próprio
-              desenho, que é onde a pessoa está olhando. */}
-          <div className="relative mt-6 h-16">
-            <div className="absolute inset-x-1 top-1/2 border-t-2 border-dashed border-white/30" aria-hidden="true" />
-            <span className="absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-white/65" aria-hidden="true" />
-            <span className="absolute right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-white/65" aria-hidden="true" />
+          {/* O boneco fica PLANTADO no centro e caminha no lugar; quem anda é a
+              cidade atrás dele. É a mesma câmera traseira do mapa, e o mesmo
+              desenho — a escolha aqui não pode prometer uma coisa e a patrulha
+              entregar outra.
+
+              A 96px o rosto e o passo aparecem de verdade. A 52px, que era o
+              tamanho anterior, ele era um detalhe do fundo. */}
+          <div className="relative mt-4 h-[150px]">
             <div
               key={selecionado.id}
-              className={`patrol-mode-journey patrol-mode-journey--${selecionado.id}`}
+              className="patrol-mode-journey patrol-mode-journey--palco"
               aria-hidden="true"
             >
               <PatrolAvatar
                 modo={selecionado.id}
                 avatar={avatar}
+                camera="costas"
                 emMovimento
                 sobreMarca
-                tamanho={52}
+                tamanho={96}
                 className="patrol-avatar-planted"
               />
             </div>
           </div>
 
-          {onPersonalizar && (
+          {/* O BOTÃO NOMEIA O QUE ESTÁ EM CENA
+              De carro quem aparece é o veículo — o boneco vai dentro dele e não
+              se vê. Oferecer "escolher boneco" ali mandaria a pessoa mexer numa
+              coisa que a tela não mostra. */}
+          {onEscolherBoneco && (
             <button
               type="button"
-              onClick={onPersonalizar}
+              onClick={onEscolherBoneco}
               className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-2 text-xs font-bold ring-1 ring-white/25 transition-[background-color,transform] active:scale-[0.98] active:bg-white/25"
             >
-              <Palette size={14} strokeWidth={2.6} />
-              Personalizar meu boneco
+              {ehCarro ? <CarFront size={14} strokeWidth={2.6} /> : <User size={14} strokeWidth={2.6} />}
+              {ehCarro ? 'Escolher carro' : 'Escolher boneco'}
             </button>
           )}
         </div>

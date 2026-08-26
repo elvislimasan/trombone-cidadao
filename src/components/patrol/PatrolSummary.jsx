@@ -4,6 +4,7 @@ import { categoryEmoji } from '@/design-system/icons';
 import Confetti from './Confetti';
 import { PatrolTravelModeIcon } from './PatrolTravelModePicker';
 import { PONTOS, avaliarPatrulha } from '@/lib/patrolGame';
+import { minimoDoNivel } from '@/lib/scoring';
 import { getPatrolTravelMode } from '@/lib/patrolTravelMode';
 
 // Fim da patrulha: o que você percorreu, o que confirmou e o que ficou pendente.
@@ -51,18 +52,21 @@ const Estatistica = ({ Icon, valor, rotulo, destaque }) => (
   </div>
 );
 
-// Faixas do get_user_level (migração 169). Repetidas aqui só para saber onde a
-// faixa atual termina — a RPC devolve pontos e nível, não os limites.
-const FAIXAS = [0, 20, 100, 300];
-
+// OS LIMITES DA FAIXA SAEM DE `scoring.js`, E NÃO DE UMA CÓPIA
+//
+// Havia aqui um `[0, 20, 100, 300]` escrito à mão, porque a RPC devolve pontos
+// e nível mas não os limites. Ele sobreviveu enquanto o nível 4 era o teto; no
+// instante em que a escada passou a continuar, essa cópia começaria a mentir —
+// um nível 5 veria barra cheia aqui e progresso de verdade na central.
+//
+// `minimoDoNivel` conhece a escada inteira, inclusive os degraus que saem de
+// fórmula acima do último nome.
 const progressoDoNivel = (nivel) => {
   if (!nivel) return null;
   const atual = Number(nivel.level) || 1;
   const pontos = Number(nivel.points) || 0;
-  const base = FAIXAS[atual - 1] ?? 0;
-  const topo = FAIXAS[atual];
-  // Nível máximo: sem topo para perseguir, a barra fica cheia em vez de vazia.
-  if (topo == null) return { pontos, base, topo: null, fracao: 1, faltam: 0 };
+  const base = minimoDoNivel(atual);
+  const topo = minimoDoNivel(atual + 1);
   return {
     pontos,
     base,

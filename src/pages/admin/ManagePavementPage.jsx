@@ -3,9 +3,12 @@ import React, { useState, useEffect, lazy, Suspense, useCallback, useMemo } from
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Save, MapPin, Search, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Save, MapPin, Search, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, UploadCloud, Loader2, HelpCircle } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
 import { Dialog, DialogContent, FormDialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -15,9 +18,30 @@ import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
-import { showAppError } from '@/lib/appError';
+import { showAppError, showAppNotice } from '@/lib/appError';
+import { formatarTamanhoArquivo } from '@/lib/pavementStreetHistory';
+import {
+  PAVEMENT_DOCUMENT_ACCEPT,
+  PAVEMENT_PHOTO_ACCEPT,
+  pavementMediaStoragePath,
+  removePavementMedia,
+  uploadPavementMedia,
+  validatePavementMediaFile,
+} from '@/lib/pavementStreetMedia';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
+
+const fileTypeLabel = (fileName) => {
+  const extension = String(fileName || '').match(/\.([^.]+)$/)?.[1];
+  return extension ? extension.toUpperCase() : '';
+};
+
+const fileTitle = (fileName) => String(fileName || '').replace(/\.[^.]+$/, '');
+
+const storagePathsFromStreet = (street) => [
+  ...(Array.isArray(street?.historical_documents) ? street.historical_documents : []),
+  ...(Array.isArray(street?.historical_photos) ? street.historical_photos : []),
+].map(pavementMediaStoragePath).filter(Boolean);
 
 const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, defaultCityId, fallbackCityCenter, onBairroCreated }) => {
   const { resolveCityIdFromLocation } = useCityIdFromLocation();
@@ -26,6 +50,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
   const [creatingBairro, setCreatingBairro] = useState(false);
   const [fetchingMapBairro, setFetchingMapBairro] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (street) {
@@ -38,9 +63,13 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
         paving_date: street.paving_date ? new Date(street.paving_date).getUTCFullYear().toString() : '',
         status: initialStatus,
         pavement_type: initialPavementType,
+        is_unnamed: Boolean(street.is_unnamed),
+        historical_documents: Array.isArray(street.historical_documents) ? street.historical_documents : [],
+        historical_photos: Array.isArray(street.historical_photos) ? street.historical_photos : [],
       });
       setBairroSearch('');
       setActiveStep(1);
+      setSaving(false);
     } else {
       setFormData(null);
     }
@@ -74,7 +103,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
     const { data, error } = await supabase
       .from('bairros')
       .insert({ name, city_id: cityId })
-      .select('id, name')
+      .select('id, name, city_id')
       .single();
     setCreatingBairro(false);
     if (error) {
@@ -140,10 +169,49 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleFileChange = (field, index, kind, file) => {
+    if (!file) return;
+    const validationError = validatePavementMediaFile(file, kind);
+    if (validationError) {
+      showAppError({ title: 'Arquivo não aceito', description: validationError, variant: 'destructive' });
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [field]: (prev[field] || []).map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+        const nextItem = {
+          ...item,
+          file,
+          original_name: file.name,
+          size: file.size,
+        };
+        if (kind === 'document') {
+          nextItem.type = fileTypeLabel(file.name);
+          if (!String(nextItem.title || '').trim()) nextItem.title = fileTitle(file.name);
+        }
+        return nextItem;
+      }),
+    }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (activeStep === 1) {
       setActiveStep(2);
+      return;
+    }
+    const attachmentWithoutFile = [
+      ...(formData.historical_documents || []),
+      ...(formData.historical_photos || []),
+    ].find((item) => !item?.file && !String(item?.url || '').trim());
+    if (attachmentWithoutFile) {
+      showAppError({
+        title: 'Selecione os arquivos',
+        description: 'Todo item adicionado precisa ter um arquivo escolhido antes de salvar.',
+        variant: 'destructive',
+      });
       return;
     }
     const pavementFieldsEnabled = formData.status === 'paved' || formData.status === 'partially_paved';
@@ -154,7 +222,9 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
       pavement_type: pavementFieldsEnabled ? formData.pavement_type : null,
     };
     
-    onSave(dataToSave);
+    setSaving(true);
+    const saved = await onSave(dataToSave);
+    if (!saved) setSaving(false);
   };
 
   if (!formData) return null;
@@ -172,7 +242,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
   const selectedBairroName = bairros.find((b) => b.id === formData.bairro_id)?.name || '';
 
   return (
-    <Dialog open={!!street} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!street} onOpenChange={(open) => !open && !saving && onClose()}>
       <FormDialogContent className="h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden border-border p-0 sm:h-[90vh] sm:max-w-[760px]">
         <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
           <div className="flex items-center justify-between gap-4">
@@ -192,8 +262,38 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
           {activeStep === 1 && <>
           <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
-            <Label htmlFor="name" className="sm:text-right">Nome</Label>
-            <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
+            <Label htmlFor="name" className="sm:text-right">Identificação da via</Label>
+            <div className="space-y-2">
+              <Input
+                id="name"
+                name="name"
+                value={formData.name || ''}
+                onChange={handleChange}
+                placeholder={formData.is_unnamed ? 'Ex.: Rua Projetada 01 (Bairro)' : 'Nome oficial da rua'}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                {formData.is_unnamed
+                  ? 'Use uma identificação provisória para distinguir esta via no mapa.'
+                  : 'Informe o nome oficial da via.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start sm:gap-4">
+            <span className="hidden sm:block" />
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
+              <Checkbox
+                id="is_unnamed"
+                checked={Boolean(formData.is_unnamed)}
+                onCheckedChange={(checked) => handleSelectChange('is_unnamed', checked === true)}
+                className="mt-0.5 border-amber-700 data-[state=checked]:bg-amber-700"
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="is_unnamed" className="cursor-pointer font-semibold">Rua sem nome oficial</Label>
+                <p className="text-xs text-amber-800">Marque quando a via ainda é conhecida apenas por um nome provisório, como “Rua Projetada”.</p>
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
@@ -323,21 +423,32 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <Label className="inline-flex items-center gap-1.5"><FileText className="h-4 w-4" /> Documentos</Label>
-                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_documents', { title: '', url: '', description: '', type: '', size: '' })}>Adicionar</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_documents', { title: '', description: '', type: '', size: '' })}>
+                  <UploadCloud className="mr-2 h-4 w-4" /> Adicionar documento
+                </Button>
               </div>
-              {/* A `description` existia no objeto desde sempre e nunca teve
-                  campo na tela: era gravada vazia em todo cadastro. Agora ela é
-                  o subtítulo da linha do documento na página pública. */}
+              <p className="text-xs text-muted-foreground">PDF, DOC, DOCX, ODT, XLS, XLSX ou TXT, com até 20 MB. O arquivo será enviado ao Supabase.</p>
               {(formData.historical_documents || []).map((document, index) => (
                 <div key={index} className="flex items-start gap-2 rounded-lg border border-border bg-background p-3">
                   <div className="grid min-w-0 flex-1 gap-2">
+                    {document.url && !document.file && (
+                      <a href={document.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs font-medium text-brand underline-offset-2 hover:underline">
+                        Arquivo atual: {document.original_name || document.title || 'abrir documento'}
+                      </a>
+                    )}
+                    <Input
+                      type="file"
+                      accept={PAVEMENT_DOCUMENT_ACCEPT}
+                      onChange={(e) => handleFileChange('historical_documents', index, 'document', e.target.files?.[0])}
+                      aria-label={document.url ? 'Substituir documento' : 'Selecionar documento'}
+                    />
+                    {document.file && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        Selecionado: {document.file.name} · {formatarTamanhoArquivo(document.file.size)}
+                      </p>
+                    )}
                     <Input value={document.title || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'title', e.target.value)} placeholder="Título — ex.: Lei de Criação da Rua" />
                     <Input value={document.description || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'description', e.target.value)} placeholder="Subtítulo — ex.: Lei Municipal nº 1.234/2010" />
-                    <Input type="url" value={document.url || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'url', e.target.value)} placeholder="Link público do documento" />
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Input value={document.type || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'type', e.target.value)} placeholder="Tipo — deixe vazio para deduzir do link" />
-                      <Input value={document.size || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'size', e.target.value)} placeholder="Tamanho — ex.: 245 KB" />
-                    </div>
                   </div>
                   <Button type="button" variant="ghost" size="icon" className="shrink-0 text-red-500" onClick={() => removeArrayItem('historical_documents', index)} aria-label="Remover documento"><Trash2 className="h-4 w-4" /></Button>
                 </div>
@@ -347,13 +458,32 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <Label className="inline-flex items-center gap-1.5"><ImageIcon className="h-4 w-4" /> Fotos históricas e atuais</Label>
-                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_photos', { url: '', caption: '', date: '', subject: 'street' })}>Adicionar</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_photos', { caption: '', date: '', subject: 'street' })}>
+                  <UploadCloud className="mr-2 h-4 w-4" /> Adicionar foto
+                </Button>
               </div>
+              <p className="text-xs text-muted-foreground">JPG, PNG, WebP, GIF ou AVIF, com até 10 MB. A imagem será enviada ao Supabase.</p>
               {/* A primeira foto marcada como "da rua" também vira a capa do
                   topo da página pública — não há campo separado para isso. */}
               {(formData.historical_photos || []).map((photo, index) => (
                 <div key={index} className="grid gap-2 rounded-lg border border-border bg-background p-3">
-                  <Input type="url" value={photo.url || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'url', e.target.value)} placeholder="Link público da foto" />
+                  {photo.url && !photo.file && (
+                    <div className="flex items-center gap-3">
+                      <img src={photo.url} alt="" className="h-14 w-20 rounded-md border border-border object-cover" />
+                      <p className="min-w-0 truncate text-xs font-medium text-muted-foreground">Imagem atual salva no Supabase</p>
+                    </div>
+                  )}
+                  <Input
+                    type="file"
+                    accept={PAVEMENT_PHOTO_ACCEPT}
+                    onChange={(e) => handleFileChange('historical_photos', index, 'photo', e.target.files?.[0])}
+                    aria-label={photo.url ? 'Substituir foto' : 'Selecionar foto'}
+                  />
+                  {photo.file && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      Selecionada: {photo.file.name} · {formatarTamanhoArquivo(photo.file.size)}
+                    </p>
+                  )}
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
                     <Input value={photo.caption || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'caption', e.target.value)} placeholder="Legenda — ex.: Vista da entrada da rua" />
                     <Input type="date" value={photo.date || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'date', e.target.value)} aria-label="Data da foto" />
@@ -391,13 +521,15 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
           <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-4 py-3 sm:px-6">
             {activeStep === 1 ? (
               <>
-                <DialogClose asChild><Button type="button" variant="outline" className="h-11 rounded-xl sm:min-w-28">Cancelar</Button></DialogClose>
-                <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-32">Próximo <ChevronRight className="h-4 w-4" /></Button>
+                <DialogClose asChild><Button type="button" variant="outline" className="h-11 rounded-xl sm:min-w-28" disabled={saving}>Cancelar</Button></DialogClose>
+                <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-32" disabled={saving}>Próximo <ChevronRight className="h-4 w-4" /></Button>
               </>
             ) : (
               <>
-                <Button type="button" variant="outline" className="h-11 gap-2 rounded-xl sm:min-w-28" onClick={() => setActiveStep(1)}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
-                <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-28"><Save className="w-4 h-4" /> Salvar</Button>
+                <Button type="button" variant="outline" className="h-11 gap-2 rounded-xl sm:min-w-28" onClick={() => setActiveStep(1)} disabled={saving}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
+                <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-32" disabled={saving}>
+                  {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</> : <><Save className="w-4 h-4" /> Salvar</>}
+                </Button>
               </>
             )}
           </DialogFooter>
@@ -415,6 +547,7 @@ const ManagePavementPage = () => {
   const [streets, setStreets] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [buscaRua, setBuscaRua] = useState('');
+  const [mostrarSoSemNome, setMostrarSoSemNome] = useState(false);
   const [editingStreet, setEditingStreet] = useState(null);
   const [deletingStreet, setDeletingStreet] = useState(null);
 
@@ -473,24 +606,24 @@ const ManagePavementPage = () => {
 
     if (!name || name.trim() === '') {
         showAppError({ title: "Erro ao salvar", description: "O nome da rua é obrigatório.", variant: "destructive" });
-        return;
+        return false;
     }
 
     if (!data.bairro_id) {
       showAppError({ title: "Selecione um bairro", description: "A cidade da rua é definida pelo bairro selecionado.", variant: "destructive" });
-      return;
+      return false;
     }
 
     const selectedBairro = bairros.find((b) => b.id === data.bairro_id);
     const resolvedCityId = selectedBairro?.city_id || null;
     if (!resolvedCityId) {
       showAppError({ title: "Bairro sem cidade definida", description: "Escolha outro bairro ou cadastre o bairro corretamente antes.", variant: "destructive" });
-      return;
+      return false;
     }
 
     if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
       showAppError({ title: "Fora da sua área", description: "Você só pode gerenciar ruas nas suas cidades.", variant: "destructive" });
-      return;
+      return false;
     }
 
     const trimmedName = name.trim();
@@ -514,18 +647,82 @@ const ManagePavementPage = () => {
 
     if (checkError) {
         showAppError({ title: "Erro ao verificar duplicidade", description: checkError.message, variant: "destructive" });
-        return;
+        return false;
     }
 
     if (count > 0) {
         showAppError({ title: "Rua já cadastrada", description: `A rua "${trimmedName}" já existe nesta cidade.`, variant: "destructive" });
-        return;
+        return false;
     }
 
     const locationString = location ? `POINT(${location.lng} ${location.lat})` : null;
-    
+    const recordId = id || uuidv4();
+    const uploadedPaths = [];
+
+    let historicalDocuments;
+    let historicalPhotos;
+    try {
+      historicalDocuments = [];
+      for (const item of data.historical_documents || []) {
+        if (!item?.file && !String(item?.url || '').trim()) continue;
+        let stored = null;
+        if (item.file) {
+          stored = await uploadPavementMedia({
+            supabase,
+            file: item.file,
+            cityId: resolvedCityId,
+            streetId: recordId,
+            kind: 'document',
+          });
+          uploadedPaths.push(stored.path);
+        }
+        historicalDocuments.push({
+          title: item.title?.trim() || fileTitle(item.file?.name || item.original_name) || 'Documento',
+          description: item.description?.trim() || '',
+          type: item.file ? fileTypeLabel(item.file.name) : (item.type || ''),
+          size: item.file ? item.file.size : (item.size || ''),
+          original_name: item.file?.name || item.original_name || '',
+          url: stored?.url || item.url,
+          ...(stored?.path || item.path ? { path: stored?.path || item.path } : {}),
+        });
+      }
+
+      historicalPhotos = [];
+      for (const item of data.historical_photos || []) {
+        if (!item?.file && !String(item?.url || '').trim()) continue;
+        let stored = null;
+        if (item.file) {
+          stored = await uploadPavementMedia({
+            supabase,
+            file: item.file,
+            cityId: resolvedCityId,
+            streetId: recordId,
+            kind: 'photo',
+          });
+          uploadedPaths.push(stored.path);
+        }
+        historicalPhotos.push({
+          caption: item.caption?.trim() || '',
+          date: item.date || '',
+          subject: item.subject === 'honoree' ? 'honoree' : 'street',
+          original_name: item.file?.name || item.original_name || '',
+          url: stored?.url || item.url,
+          ...(stored?.path || item.path ? { path: stored?.path || item.path } : {}),
+        });
+      }
+    } catch (uploadError) {
+      try { await removePavementMedia(supabase, uploadedPaths); } catch {}
+      showAppError({
+        title: 'Erro ao enviar anexos',
+        description: uploadError.message || 'Não foi possível enviar os arquivos ao Supabase.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
     const payload = {
       name: trimmedName,
+      is_unnamed: Boolean(data.is_unnamed),
       cep: cep || null,
       status: data.status,
       paving_date: data.paving_date,
@@ -536,27 +733,47 @@ const ManagePavementPage = () => {
       honoree_name: data.honoree_name?.trim() || null,
       biography: data.biography?.trim() || null,
       curiosities: data.curiosities?.trim() || null,
-      historical_documents: (data.historical_documents || []).filter((item) => item?.url?.trim()),
-      historical_photos: (data.historical_photos || []).filter((item) => item?.url?.trim()),
+      historical_documents: historicalDocuments,
+      historical_photos: historicalPhotos,
     };
 
     let error;
     if (id) {
       ({ error } = await supabase.from('pavement_streets').update(payload).eq('id', id));
     } else {
-      ({ error } = await supabase.from('pavement_streets').insert(payload));
+      ({ error } = await supabase.from('pavement_streets').insert({ id: recordId, ...payload }));
     }
 
     if (error) {
+      try { await removePavementMedia(supabase, uploadedPaths); } catch {}
       showAppError({ title: "Erro ao salvar rua", description: error.message, variant: "destructive" });
+      return false;
     } else {
-      fetchStreets();
+      const previousStreet = streets.find((item) => item.id === id);
+      const previousPaths = storagePathsFromStreet(previousStreet);
+      const currentPaths = [
+        ...historicalDocuments.map(pavementMediaStoragePath),
+        ...historicalPhotos.map(pavementMediaStoragePath),
+      ].filter(Boolean);
+      const removedPaths = previousPaths.filter((path) => !currentPaths.includes(path));
+      try {
+        await removePavementMedia(supabase, removedPaths);
+      } catch (storageError) {
+        console.error('A rua foi salva, mas anexos substituídos não foram removidos:', storageError);
+      }
+
+      await fetchStreets();
       setEditingStreet(null);
+      showAppNotice({
+        title: id ? 'Rua atualizada' : 'Rua adicionada',
+        description: uploadedPaths.length > 0 ? 'Os anexos foram enviados ao Supabase.' : '',
+      });
+      return true;
     }
   };
 
   const handleAddNewStreet = () => {
-    setEditingStreet({ id: null, name: '', cep: '', status: 'unpaved', pavement_type: 'asphalt', bairro_id: null, location: null, paving_date: '', honoree_name: '', biography: '', curiosities: '', historical_documents: [], historical_photos: [] });
+    setEditingStreet({ id: null, name: '', is_unnamed: false, cep: '', status: 'unpaved', pavement_type: 'asphalt', bairro_id: null, location: null, paving_date: '', honoree_name: '', biography: '', curiosities: '', historical_documents: [], historical_photos: [] });
   };
 
   const handleDeleteStreet = async (streetId) => {
@@ -564,7 +781,12 @@ const ManagePavementPage = () => {
     if (error) {
       showAppError({ title: "Erro ao remover rua", description: error.message, variant: "destructive" });
     } else {
-      fetchStreets();
+      try {
+        await removePavementMedia(supabase, storagePathsFromStreet(deletingStreet));
+      } catch (storageError) {
+        console.error('A rua foi removida, mas seus anexos não foram removidos:', storageError);
+      }
+      await fetchStreets();
     }
     setDeletingStreet(null);
   };
@@ -580,19 +802,22 @@ const ManagePavementPage = () => {
 
   // `streets` continua inteiro: o modal precisa da lista completa para avisar
   // de nomes repetidos. O recorte é só do que vai para a tela.
+  const totalSemNome = useMemo(() => streets.filter((street) => street.is_unnamed).length, [streets]);
+
   const ruasFiltradas = useMemo(() => {
     const termo = buscaRua.trim().toLowerCase();
-    if (!termo) return streets;
-    return streets.filter((s) =>
-      (s.name || '').toLowerCase().includes(termo) ||
-      (s.bairro_name || '').toLowerCase().includes(termo) ||
-      (s.cep || '').toLowerCase().includes(termo)
-    );
-  }, [streets, buscaRua]);
+    return streets.filter((s) => {
+      if (mostrarSoSemNome && !s.is_unnamed) return false;
+      if (!termo) return true;
+      return (s.name || '').toLowerCase().includes(termo)
+        || (s.bairro_name || '').toLowerCase().includes(termo)
+        || (s.cep || '').toLowerCase().includes(termo);
+    });
+  }, [streets, buscaRua, mostrarSoSemNome]);
 
   const { visiveis: ruasVisiveis, propsPaginacao: propsPaginacaoRuas } = useListaPaginada(
     ruasFiltradas,
-    { porPagina: 20, chaveFiltro: buscaRua }
+    { porPagina: 20, chaveFiltro: `${buscaRua}|${mostrarSoSemNome}` }
   );
 
   return (
@@ -625,8 +850,22 @@ const ManagePavementPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Ruas Cadastradas</CardTitle>
-            <CardDescription>{streets.length} rua{streets.length === 1 ? '' : 's'}.</CardDescription>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Ruas Cadastradas</CardTitle>
+                <CardDescription className="mt-1">{streets.length} rua{streets.length === 1 ? '' : 's'} no total.</CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant={mostrarSoSemNome ? 'default' : 'outline'}
+                size="sm"
+                className="gap-2"
+                onClick={() => setMostrarSoSemNome((current) => !current)}
+              >
+                <HelpCircle className="h-4 w-4" />
+                {totalSemNome} sem nome oficial
+              </Button>
+            </div>
             {/* Sem busca, achar uma rua era rolar até topá-la. */}
             <div className="relative mt-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -641,14 +880,21 @@ const ManagePavementPage = () => {
           <CardContent>
             {ruasVisiveis.length === 0 ? (
               <p className="text-center text-muted-foreground py-10">
-                {buscaRua ? 'Nenhuma rua corresponde à busca.' : 'Nenhuma rua cadastrada ainda.'}
+                {buscaRua || mostrarSoSemNome ? 'Nenhuma rua corresponde ao filtro.' : 'Nenhuma rua cadastrada ainda.'}
               </p>
             ) : (
             <div className="space-y-3">
               {ruasVisiveis.map(street => (
                 <div key={street.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
                   <div>
-                    <p className="font-semibold">{street.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{street.name}</p>
+                      {street.is_unnamed && (
+                        <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-50">
+                          <HelpCircle className="h-3 w-3" /> Sem nome oficial
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">Status: {getStatusText(street.status)}</p>
                     {street.bairro_name && <p className="text-sm text-muted-foreground">Bairro: {street.bairro_name}</p>}
                     {street.cep && <p className="text-sm text-muted-foreground">CEP: {street.cep}</p>}

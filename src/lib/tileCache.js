@@ -78,8 +78,13 @@ export const tileY = (lat, z) => {
   );
 };
 
+// A CHAVE É A FONTE, NÃO O TEMA
+//
+// Era o tema, quando cada um tinha servidor próprio. Agora os dois saem do
+// mesmo OSM — o escuro é invertido em CSS —, e guardar por tema faria o mesmo
+// tile ocupar duas entradas e o prefetch da patrulha baixar tudo duas vezes.
 export const chaveDoTile = (tema, { z, x, y }) =>
-  `https://tiles.local/${tema === 'dark' ? 'dark' : 'light'}/${z}/${x}/${y}.png`;
+  `https://tiles.local/${fonteDeTiles(tema).id}/${z}/${x}/${y}.png`;
 
 /** O tile guardado, ou `null`. Nunca levanta: sem cache o mapa só usa a rede. */
 export async function tileDoCache(tema, coords) {

@@ -1,9 +1,10 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 
 import { categoriaPorId, nomeDaCategoria } from '@/lib/reportCategories';
-import { readStoredPatrolAvatar } from '@/lib/patrolAvatarConfig';
+import { precarregarRenders } from '@/components/patrol/patrolAvatarMarkup';
+import { usePatrolAvatar } from '@/hooks/usePatrolAvatar';
 import {
   buildPatrolPickPath,
   getPatrolTravelMode,
@@ -57,9 +58,27 @@ export default function PatrolRunPage() {
   // A aparência escolhida na preparação. Lida uma vez: ela não muda com a
   // patrulha em andamento, e reler a cada leitura de GPS tocaria o storage a
   // cada segundo.
-  const [avatar] = useState(() => {
-    try { return readStoredPatrolAvatar(window.localStorage); } catch { return null; }
-  });
+  //
+  // O PERFIL PRECISA VALER AQUI TAMBÉM, E NÃO SÓ NA PREPARAÇÃO
+  //
+  // Quem não abriu a folha de escolha não gravou sexo nenhum. Se esta tela
+  // caísse no padrão enquanto a preparação já mostrava o boneco do perfil, a
+  // pessoa veria uma pessoa na conferência e outra na rua — que é exatamente
+  // a divergência que a configuração única existe para impedir.
+  //
+  // O hook memoriza pelo sexo do perfil: não relê o storage a cada leitura de
+  // GPS, e ainda assim acerta quando o perfil chega depois da primeira pintura.
+  const avatar = usePatrolAvatar();
+
+  // O MARCADOR PISCA SEM ISTO
+  //
+  // O ícone do mapa nasce de uma string de HTML e é RECRIADO toda vez que a
+  // chave do avatar muda — inclusive na troca entre andando e parado. Quando o
+  // boneco vem de camadas de imagem, um nó novo pinta vazio até o decode
+  // terminar, e a pessoa vê o próprio marcador sumir por um quadro no meio da
+  // rua. Decodificar antes custa uma vez e resolve; sem renders publicados a
+  // chamada não faz nada.
+  useEffect(() => { precarregarRenders(avatar); }, [avatar]);
   const [sinalFraco, setSinalFraco] = useState(false);
   const [posicao, setPosicao] = useState(null);
   const [broncas, setBroncas] = useState([]);

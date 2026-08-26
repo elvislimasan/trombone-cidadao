@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight, Zap } from 'lucide-react';
 
+import PatrolAvatar from '@/components/patrol/PatrolAvatar';
+import { usePatrolAvatar } from '@/hooks/usePatrolAvatar';
+
 // "Continue daqui": as missões mais perto de fechar.
 //
 // POR QUE ELAS SAEM DA LISTA E VÊM PARA CIMA
@@ -16,95 +19,122 @@ import { ChevronRight, Zap } from 'lucide-react';
 // número absoluto que falta: uma missão a um passo do fim vence uma a quinze,
 // mesmo que a segunda esteja mais "avançada" em porcentagem.
 
-const CartaoResumo = ({ missao }) => (
-  <div className="shrink-0 w-full snap-center rounded-2xl border border-edge-subtle bg-surface-raised shadow-elevation-1 p-4">
-    <div className="flex items-start gap-3">
-      <span className="shrink-0 w-11 h-11 rounded-xl bg-surface-subtle ring-1 ring-edge-subtle flex items-center justify-center text-xl">
-        {missao.icone}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <p className="text-[15px] font-extrabold text-content-primary leading-tight flex-1 min-w-0">
-            {missao.titulo}
-          </p>
-          <span className="shrink-0 text-sm font-extrabold text-brand tabular-nums">
-            {missao.rotulo}
+// O CARTÃO DE CIMA É OUTRO OBJETO, NÃO O MESMO MAIOR
+//
+// A missão mais perto de fechar é a única coisa que esta seção existe para
+// resolver. Enquanto ela era mais um cartão branco numa fileira, competia em
+// igualdade com as outras e com tudo abaixo — e a pessoa voltava a escolher,
+// que é exatamente o trabalho que a seção deveria ter poupado.
+//
+// Como herói ela para de competir: fundo de marca, o número do que falta e o
+// boneco da pessoa em pé ao lado. As outras quase-fechadas não aparecem aqui —
+// elas são linhas do catálogo logo abaixo, e repeti-las devolveria a escolha
+// que esta seção existe para poupar.
+//
+// O BONECO NÃO É ENFEITE
+//
+// É o MESMO desenho da patrulha, com a mesma configuração — inclusive o sexo
+// que veio do perfil. Ele liga a central de missões ao que acontece na rua: o
+// "Patrulhar" de cada linha abaixo abre com esta pessoa. Um avatar genérico
+// aqui quebraria essa promessa.
+const CartaoHeroi = ({ missao, avatar }) => (
+  <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-brand to-brand-hover text-content-onBrand shadow-elevation-2">
+    <div className="patrol-mode-grid absolute inset-0 opacity-30" aria-hidden="true" />
+
+    <div className="relative flex items-stretch gap-3 px-4 py-4">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-start gap-2.5">
+          <span
+            aria-hidden="true"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-xl ring-1 ring-white/25"
+          >
+            {missao.icone}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <span className="inline-flex rounded-md bg-white/15 px-2 py-1 text-[10px] font-extrabold uppercase leading-none tracking-wider ring-1 ring-white/20">
+              Continue de onde parou
+            </span>
+            <p className="mt-1.5 font-display text-xl font-extrabold leading-tight tracking-tight">
+              {missao.titulo}
+            </p>
+            <p className="mt-1 text-xs leading-snug text-content-onBrand/85">
+              {missao.descricao}
+            </p>
+          </div>
+        </div>
+
+        {/* A barra e a porcentagem juntas: a barra é a sensação, o número é a
+            medida. Quem olha de relance lê uma, quem quer saber lê a outra. */}
+        <div className="mt-3.5 flex items-center gap-2.5">
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-extrabold tabular-nums">
+            <Zap size={13} aria-hidden="true" />
+            +{missao.xpAteAEtapa} XP
+          </span>
+          <span className="h-2 flex-1 overflow-hidden rounded-full bg-black/25">
+            <span
+              className="block h-full rounded-full bg-white transition-[width] duration-500"
+              style={{ width: `${missao.progresso * 100}%` }}
+            />
+          </span>
+          <span className="shrink-0 text-xs font-bold tabular-nums text-content-onBrand/85">
+            {Math.round(missao.progresso * 100)}%
           </span>
         </div>
-        <p className="text-xs text-content-secondary mt-0.5 leading-snug">
-          {missao.descricao}
-        </p>
+
+        {missao.acao && (
+          <Link
+            to={missao.acao.para}
+            className="mt-3.5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-surface-raised text-sm font-extrabold text-brand transition-transform active:scale-[0.98]"
+          >
+            Continuar missão
+            <ChevronRight size={15} />
+          </Link>
+        )}
+      </div>
+
+      {/* A coluna do boneco estica com a altura do cartão, e `--palco` desce os
+          pés para 72% dela — é o que faz ele PISAR no cartão em vez de flutuar
+          no meio da coluna. */}
+      <div className="relative w-[104px] shrink-0 self-stretch" aria-hidden="true">
+        <span className="absolute right-0 top-0 rounded-lg bg-black/25 px-2.5 py-1 text-xs font-extrabold tabular-nums">
+          {missao.rotulo}
+        </span>
+        <div className="patrol-mode-journey patrol-mode-journey--palco">
+          <PatrolAvatar
+            modo="walking"
+            avatar={avatar}
+            camera="frente"
+            emMovimento={false}
+            sobreMarca
+            tamanho={104}
+            className="patrol-avatar-planted"
+          />
+        </div>
       </div>
     </div>
-
-    {/* A porcentagem sai escrita ao lado da barra.
-        A barra sozinha é uma sensação; o número é a medida. Juntos, quem olha
-        de relance lê a barra e quem quer saber quanto falta lê o número — sem
-        precisar estimar pelo comprimento. */}
-    <div className="flex items-center gap-2.5 mt-3">
-      <div className="flex-1 h-2 rounded-full bg-surface-sunken overflow-hidden">
-        <div
-          className="h-full rounded-full bg-status-progressFg transition-[width] duration-500"
-          style={{ width: `${missao.progresso * 100}%` }}
-        />
-      </div>
-      <span className="shrink-0 text-xs font-bold text-content-tertiary tabular-nums">
-        {Math.round(missao.progresso * 100)}%
-      </span>
-    </div>
-
-    <div className="flex items-center justify-between gap-2 mt-2.5">
-      <span className="inline-flex items-center gap-1 text-xs font-bold text-brand tabular-nums">
-        <Zap size={12} />
-        +{missao.xpAteAEtapa} XP
-      </span>
-      <span
-        className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-          missao.faltam === 1
-            ? 'bg-success-bg text-success-fg'
-            : 'bg-surface-subtle text-content-tertiary'
-        }`}
-      >
-        {missao.faltam === 1 ? 'Só falta 1' : `Faltam ${missao.faltam}`}
-      </span>
-    </div>
-
-    {missao.acao && (
-      <Link
-        to={missao.acao.para}
-        className="mt-3.5 w-full h-11 inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand text-content-onBrand text-sm font-bold active:scale-[0.98] transition-transform"
-      >
-        Continuar missão
-        <ChevronRight size={15} />
-      </Link>
-    )}
   </div>
 );
 
 export default function MissionResume({ missoes }) {
+  const avatar = usePatrolAvatar();
+
   if (!missoes || missoes.length === 0) return null;
 
-  return (
-    <section className="mt-6">
-      <div className="mb-2.5">
-        <h2 className="text-base font-extrabold text-content-primary tracking-tight leading-tight">
-          Continue de onde parou
-        </h2>
-        <p className="text-[11px] text-content-secondary mt-0.5">
-          Você está quase lá — finalize para ganhar mais XP
-        </p>
-      </div>
+  const [primeira] = missoes;
 
-      {/* UM CARTÃO POR VEZ, LARGURA INTEIRA.
-          A versão anterior mostrava dois estreitos lado a lado, e cada um
-          precisava encolher título, descrição e botão para caber. O objetivo
-          desta seção é uma coisa só — terminar a missão mais perto do fim —, e
-          ela merece a largura da tela. As outras continuam a um deslize. */}
-      <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 scrollbar-none">
-        {missoes.map((m) => (
-          <CartaoResumo key={m.id} missao={m} />
-        ))}
-      </div>
+  return (
+    <section>
+      {/* O TÍTULO DA SEÇÃO ENTROU NO CARTÃO
+          "Continue de onde parou" acima de um cartão que dizia a mesma coisa
+          gastava duas linhas para uma informação. Como etiqueta dentro do
+          herói, ela nomeia o cartão sem competir com o nome da missão. */}
+      {/* UMA, E NÃO QUATRO.
+          Havia aqui um segundo deslize com as outras três quase-fechadas — que
+          são as mesmas linhas do catálogo logo abaixo, numa terceira forma. A
+          seção existe para resolver UMA coisa: terminar o que está mais perto
+          do fim. Oferecer quatro devolve a escolha que ela deveria poupar. */}
+      <CartaoHeroi missao={primeira} avatar={avatar} />
     </section>
   );
 }

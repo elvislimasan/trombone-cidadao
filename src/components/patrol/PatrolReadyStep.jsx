@@ -1,9 +1,9 @@
-import { Palette, Pencil, Volume2, MapPin, ShieldAlert } from 'lucide-react';
+import { User, Pencil, Volume2, MapPin, ShieldAlert } from 'lucide-react';
 
 import PatrolAvatar from './PatrolAvatar';
 import { PatrolTravelModeIcon } from './PatrolTravelModePicker';
 import { getPatrolPickStep } from '@/lib/patrolPickFlow';
-import { getPatrolAvatarColor, getPatrolAvatarStyle } from '@/lib/patrolAvatarConfig';
+import { getPatrolAvatarSexo } from '@/lib/patrolAvatarConfig';
 
 // Terceiro passo: conferir e sair.
 //
@@ -66,7 +66,7 @@ export default function PatrolReadyStep({
   categoria,
   modo,
   avatar,
-  onPersonalizar,
+  onEscolherBoneco,
   onEditarFoco,
   onEditarRitmo,
 }) {
@@ -75,10 +75,18 @@ export default function PatrolReadyStep({
 
   return (
     <section aria-labelledby="patrol-ready-title">
-      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-brand to-brand-hover px-5 pt-5 pb-7 text-content-onBrand shadow-elevation-2">
-        <div className="patrol-mode-grid absolute inset-0 opacity-30" aria-hidden="true" />
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-brand to-brand-hover text-content-onBrand shadow-elevation-2">
+        {/* A MESMA CIDADE DO PASSO ANTERIOR, PARADA
+            Aqui a patrulha ainda não começou: o boneco espera e o mapa espera
+            junto. Rolar as ruas com o GPS desligado prometeria um deslocamento
+            que não está acontecendo. */}
+        <div className="patrol-mode-map patrol-mode-map--parado" aria-hidden="true">
+          <div className="patrol-mode-map__grade" />
+          <div className="patrol-mode-map__rota" />
+          <div className="patrol-mode-map__luz" />
+        </div>
 
-        <div className="relative">
+        <div className="relative px-5 pt-5 pb-7">
           <h2 id="patrol-ready-title" className="font-display text-2xl font-extrabold leading-tight tracking-tight">
             {passo.titulo}
           </h2>
@@ -88,17 +96,15 @@ export default function PatrolReadyStep({
 
           {/* Parado, esperando a partida — é o mesmo boneco do mapa, no estado
               de repouso que ele terá enquanto o GPS não vir deslocamento. */}
-          <div className="relative mt-6 h-16" aria-hidden="true">
-            <div className="absolute inset-x-1 top-1/2 border-t-2 border-dashed border-white/30" />
-            <span className="absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-white/65" />
-            <span className="absolute right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-white/65" />
-            <div className="patrol-mode-journey patrol-mode-journey--parada">
+          <div className="relative mt-4 h-[150px]" aria-hidden="true">
+            <div className="patrol-mode-journey patrol-mode-journey--palco">
               <PatrolAvatar
                 modo={modo.id}
                 avatar={avatar}
+                camera="frente"
                 emMovimento={false}
                 sobreMarca
-                tamanho={52}
+                tamanho={96}
                 className="patrol-avatar-planted"
               />
             </div>
@@ -121,15 +127,14 @@ export default function PatrolReadyStep({
           onEditar={onEditarRitmo}
           editarRotulo="Trocar a forma de deslocamento"
         />
-        {/* A aparência entra na mesma lista das outras escolhas, mas não é um
-            passo: ela abre uma folha e volta para cá. */}
-        {onPersonalizar && (
+        {/* O boneco entra na conferência, mas sua escolha continua opcional. */}
+        {onEscolherBoneco && (
           <LinhaEscolha
             etiqueta="Seu boneco"
-            valor={`${getPatrolAvatarStyle(avatar?.estilo).label} · ${getPatrolAvatarColor(avatar?.cor).label}`}
-            icone={<Palette size={20} strokeWidth={2.4} />}
-            onEditar={onPersonalizar}
-            editarRotulo="Personalizar o avatar da patrulha"
+            valor={`${getPatrolAvatarSexo(avatar?.sexo).label} · Urbano`}
+            icone={<User size={20} strokeWidth={2.4} />}
+            onEditar={onEscolherBoneco}
+            editarRotulo="Trocar o boneco da patrulha"
           />
         )}
       </div>

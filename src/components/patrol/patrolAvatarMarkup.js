@@ -1,13 +1,23 @@
-// O desenho do avatar mudou de endereço.
+// A PORTA DO AVATAR PARA O APP.
 //
-// Ele era um arquivo só. Com duas câmeras — de costas no mapa, de frente nas
-// telas de escolha — passaria de mil linhas, e uma peça errada no meio disso
-// não seria achada por ninguém. Agora cada parte mora no seu arquivo, em
-// `./avatar`: a paleta que todas dividem, o corpo, a cabeça, a carga e o
-// veículo.
+// O desenho não mora aqui. Ele vive em `./avatar`, dividido em peças: a
+// geometria e a paleta que todas dividem, depois cabeça, cabelo, torso,
+// braços, pernas, calçado, mochila, acessórios e veículo — e, ao lado deles, o
+// caminho de render 3D em camadas de imagem.
 //
-// Este arquivo continua existindo porque dois lugares importam daqui — o
-// `MapView` e o `PatrolAvatar` — e não há motivo para que uma reorganização
-// interna do desenho apareça na porta deles.
+// POR QUE O APP ENTRA POR AQUI E OS TESTES NÃO
+//
+// Este arquivo importa `carregarRenders`, que usa `import.meta.glob` para
+// varrer `src/assets/patrol/avatar/`. Esse glob é uma construção do Vite e não
+// existe no node puro. Os testes do desenho importam `@/components/patrol/avatar`
+// diretamente, e por isso continuam rodando fora do bundler.
+//
+// O efeito colateral do import é intencional: ele registra as imagens
+// disponíveis antes de qualquer chamada a `patrolAvatarHtml`. Sem imagem
+// nenhuma na pasta, o registro fica vazio e o desenho vetorial responde por
+// tudo — que é exatamente o estado em que a migração começa.
+
+import './avatar/carregarRenders';
 
 export { patrolAvatarHtml, PATROL_AVATAR_FRAME } from './avatar';
+export { precarregarRenders } from './avatar/renderizacoes';

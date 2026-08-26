@@ -3,7 +3,22 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { missoesPorTrilha, etapasConcluidas } from '@/lib/missions';
 import { placar } from '@/lib/scoring';
-import { calcularSequencia, avaliarConquistas } from '@/lib/patrolGame';
+import { placarDeImpacto } from '@/lib/impact';
+import { calcularSequencia, avaliarConquistas, chaveDoDia } from '@/lib/patrolGame';
+import { diariasDeHoje, resumoDoDia, restaDoDia } from '@/lib/dailies';
+
+/**
+ * Meia-noite de hoje, no relógio de quem está olhando.
+ *
+ * É o `p_desde` das diárias. Precisa ser o dia LOCAL e não UTC: às 21h de
+ * Floresta já é o dia seguinte em Londres, e o recorte devolveria os contadores
+ * de amanhã — zerando o progresso da pessoa três horas antes da hora.
+ */
+const meiaNoiteLocal = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
 
 // Progresso das missões, pontos e conquistas.
 //
@@ -31,14 +46,39 @@ const normalizar = (linha) => ({
   total_confirmed: linha?.total_confirmed ?? 0,
   total_distance_meters: linha?.total_distance_meters ?? 0,
   shares_count: linha?.shares_count ?? 0,
+  // A 192 passou a devolver os dois, e a tradução não tinha sido atualizada.
+  // `empties_count` faltando fazia a missão "Confira problemas marcados" contar
+  // só metade do que ela promete pagar: a vistoria vazia — a resposta honesta
+  // que a 190 existe para incentivar — desaparecia do progresso.
+  empties_count: linha?.empties_count ?? 0,
+  audits_count: linha?.audits_count ?? 0,
   confirmadasPorCategoria: linha?.confirmed_by_category ?? {},
   registradasPorCategoria: linha?.reported_by_category ?? {},
+
+  // ── Impacto (198) ────────────────────────────────────────────────────────
+  // Participação em broncas que FECHARAM. Os pesos vivem em src/lib/impact.js.
+  resolvidas_autor: linha?.resolvidas_autor ?? 0,
+  resolvidas_missao: linha?.resolvidas_missao ?? 0,
+  resolvidas_sinal: linha?.resolvidas_sinal ?? 0,
+  resolvidas_confirmadas: linha?.resolvidas_confirmadas ?? 0,
+  resolvidas_comentadas: linha?.resolvidas_comentadas ?? 0,
+  resolvidas_apoiadas: linha?.resolvidas_apoiadas ?? 0,
+  resolvidas_total: linha?.resolvidas_total ?? 0,
 });
 
-export function useMissions() {
+/**
+ * @param {object} [opcoes]
+ * @param {boolean} [opcoes.temAlvos=true]  há broncas/sinais ao alcance hoje?
+ *   Quem sabe disso é a tela que já carregou o mapa; o hook não vai descobrir
+ *   sozinho. Falso faz a diária de campo sair do sorteio em vez de mandar a
+ *   pessoa procurar o que não existe.
+ */
+export function useMissions({ temAlvos = true } = {}) {
   const { user } = useAuth();
 
   const [contadores, setContadores] = useState(null);
+  const [contadoresHoje, setContadoresHoje] = useState(null);
+  const [concluidasHoje, setConcluidasHoje] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
   const buscar = useCallback(async () => {
@@ -47,15 +87,48 @@ export function useMissions() {
       return;
     }
     try {
-      // Uma consulta só. O nível saiu do `get_user_level` e passou a ser
-      // calculado aqui (src/lib/scoring.js) porque as missões agora valem
-      // pontos — e o catálogo delas é JavaScript. Buscar o nível no banco daria
-      // um total menor que o mostrado, e duas verdades para o mesmo usuário.
-      const { data, error } = await supabase.rpc('get_mission_counters', {
-        target_user_id: user.id,
-      });
-      if (error) throw error;
-      setContadores(normalizar(data?.[0]));
+      // O nível saiu do `get_user_level` e passou a ser calculado aqui
+      // (src/lib/scoring.js) porque as missões valem pontos — e o catálogo delas
+      // é JavaScript. Buscar o nível no banco daria um total menor que o
+      // mostrado, e duas verdades para o mesmo usuário.
+      //
+      // TRÊS IDAS, EM PARALELO — não em série.
+      //
+      // As diárias precisam do que a pessoa fez HOJE, que é a mesma função com
+      // `p_desde` (migração 200), mais as conclusões já gravadas. O que a 180
+      // evitou — cinco consultas em sequência para pintar uma tela — continua
+      // evitado: são três, e elas partem juntas.
+      const desde = meiaNoiteLocal();
+
+      const [tudo, hoje, feitas] = await Promise.all([
+        supabase.rpc('get_mission_counters', { target_user_id: user.id }),
+        supabase.rpc('get_mission_counters', {
+          target_user_id: user.id,
+          p_desde: desde.toISOString(),
+        }),
+        supabase
+          .from('daily_completions')
+          .select('daily_id')
+          .eq('user_id', user.id)
+          .eq('dia', chaveDoDia(desde)),
+      ]);
+
+      if (tudo.error) throw tudo.error;
+      setContadores(normalizar(tudo.data?.[0]));
+
+      // As diárias não derrubam a central: se a 200 ainda não estiver aplicada,
+      // `p_desde` não existe e a chamada falha. O resto da tela — nível,
+      // missões, medalhas, impacto — não tem nada a ver com isso e continua.
+      if (hoje.error) {
+        console.warn('[useMissions] contadores de hoje indisponíveis:', hoje.error);
+        setContadoresHoje(null);
+      } else {
+        setContadoresHoje(normalizar(hoje.data?.[0]));
+      }
+
+      setConcluidasHoje(
+        feitas.error ? [] : (feitas.data || []).map((l) => l.daily_id)
+      );
     } catch (err) {
       console.error('[useMissions] falha ao carregar:', err);
     } finally {
@@ -69,6 +142,78 @@ export function useMissions() {
   const pontuacao = useMemo(() => placar(contadores), [contadores]);
   const nivel = pontuacao;
   const nivelAtual = pontuacao.level;
+
+  // A SEGUNDA MOEDA.
+  //
+  // Sai dos MESMOS contadores e da mesma consulta — não há ida extra ao
+  // servidor. Vem separada de `pontuacao` de propósito: XP responde "quanto
+  // você trabalhou", Impacto responde "quanto mudou", e juntá-las num total só
+  // apagaria justamente a distinção que a moeda nova existe para criar.
+  const impacto = useMemo(() => placarDeImpacto(contadores), [contadores]);
+
+  // ── As diárias ────────────────────────────────────────────────────────────
+  //
+  // Sorteadas, não consultadas: mesma pessoa, mesmo dia, mesmo resultado
+  // (src/lib/dailies.js). O servidor só devolve o que ela FEZ hoje.
+  //
+  // `contadoresHoje` nulo significa que a 200 ainda não foi aplicada. Nesse
+  // caso as diárias não aparecem — melhor não mostrá-las do que mostrá-las
+  // todas em 0/3 sem nunca andar.
+  const diarias = useMemo(() => {
+    if (!user || !contadoresHoje) return [];
+    return diariasDeHoje(user.id, contadoresHoje, concluidasHoje, new Date(), {
+      temAlvos,
+    });
+  }, [user, contadoresHoje, concluidasHoje, temAlvos]);
+
+  const resumoDiarias = useMemo(() => resumoDoDia(diarias), [diarias]);
+
+  // Sem memo de propósito: lê o relógio, então não há entrada de que dependa.
+  // Memoizá-lo em `diarias` congelaria "4h restantes" até o próximo recarregar.
+  const tempoRestante = restaDoDia();
+
+  /**
+   * Grava que uma diária foi fechada.
+   *
+   * Idempotente por construção: a chave primária de `daily_completions` recusa
+   * a segunda gravação do mesmo dia, e o erro de conflito é esperado — não é
+   * falha, é a garantia funcionando. Por isso ele é engolido em silêncio.
+   */
+  const marcarDiaria = useCallback(
+    async (dailyId) => {
+      if (!user || !dailyId) return;
+      if (concluidasHoje.includes(dailyId)) return;
+
+      // Otimista: a tela marca na hora. Uma diária que fecha meio segundo
+      // depois do toque não parece ter fechado por causa do toque.
+      setConcluidasHoje((atual) =>
+        atual.includes(dailyId) ? atual : [...atual, dailyId]
+      );
+
+      const { error } = await supabase.from('daily_completions').insert({
+        user_id: user.id,
+        dia: chaveDoDia(meiaNoiteLocal()),
+        daily_id: dailyId,
+      });
+
+      // 23505 = unique_violation. Já estava gravada; o estado da tela está certo.
+      if (error && error.code !== '23505') {
+        console.error('[useMissions] falha ao gravar diária:', error);
+      }
+    },
+    [user, concluidasHoje]
+  );
+
+  // Fecha sozinha o que os contadores do dia já mostram cumprido.
+  //
+  // Sem isto, a diária ficaria em 3/3 sem nunca virar "concluída" — e o bônus,
+  // que sai da linha gravada, nunca seria pago. Roda a cada recarga; o guarda
+  // acima impede insert repetido.
+  useEffect(() => {
+    diarias
+      .filter((d) => d.completa && !concluidasHoje.includes(d.id))
+      .forEach((d) => marcarDiaria(d.id));
+  }, [diarias, concluidasHoje, marcarDiaria]);
 
   // Conquistas usam os mesmos contadores, mais a sequência de dias — que é
   // função pura sobre as datas que a RPC devolve.
@@ -102,7 +247,8 @@ export function useMissions() {
   );
 
   return {
-    trilhas, nivel, pontuacao, conquistas, contadores,
+    trilhas, nivel, pontuacao, impacto, conquistas, contadores,
     concluidas, disponiveis, carregando, recarregar: buscar,
+    diarias, resumoDiarias, tempoRestante, marcarDiaria,
   };
 }

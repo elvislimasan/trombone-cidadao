@@ -96,6 +96,9 @@ export default function OfflineTileLayer({ maxZoom }) {
       attribution: fonte.attribution,
       subdomains: fonte.subdomains,
       maxZoom: maxZoom ?? fonte.maxZoom ?? 19,
+      // O escuro é o mesmo OSM invertido em CSS: a classe vai no contêiner da
+      // camada, e só nele. Ver o cabeçalho de tileSources.js.
+      className: fonte.classe,
       temaDoCache: resolved,
     });
 

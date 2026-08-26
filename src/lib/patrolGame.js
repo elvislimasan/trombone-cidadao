@@ -27,7 +27,11 @@
  */
 const SO_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
-const chaveDoDia = (d) => {
+// Exportada desde as diárias (`dailies.js`): o sorteio precisa da MESMA chave
+// de dia. Reusá-la não é economia de linhas — é a única forma de não repetir a
+// armadilha de fuso que o comentário acima documenta, e que já quebrou a
+// sequência de todo mundo uma vez.
+export const chaveDoDia = (d) => {
   if (typeof d === 'string') {
     const inicio = d.slice(0, 10);
     if (SO_DATA.test(inicio)) return inicio;

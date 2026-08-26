@@ -17,7 +17,9 @@ import assert from 'node:assert/strict';
 import { patrolAvatarHtml, PATROL_AVATAR_FRAME } from '@/components/patrol/avatar';
 import {
   PATROL_AVATAR_ACCESSORIES,
+  PATROL_AVATAR_CABELOS,
   PATROL_AVATAR_COLORS,
+  PATROL_AVATAR_CORES_CABELO,
   PATROL_AVATAR_SEXOS,
   PATROL_AVATAR_STYLES,
   PATROL_AVATAR_TONS_PELE,
@@ -48,6 +50,43 @@ const cadaCaminhada = function* () {
           }
         }
       }
+    }
+  }
+};
+
+// O cruzamento completo com cabelo seria dezenas de milhares de combinacoes e
+// tornaria a suite lenta o bastante para ninguem rodar. Cabelo e cor de apoio
+// ganham o proprio varredor: cada corte contra cada cor de cabelo, e cada cor
+// de apoio contra cada camera. E o que precisa passar por aqui — um corte que
+// referencia um gradiente inexistente sai PRETO no aparelho de alguem.
+const cadaCabelo = function* () {
+  for (const cabelo of PATROL_AVATAR_CABELOS) {
+    for (const corCabelo of PATROL_AVATAR_CORES_CABELO) {
+      for (const sexo of PATROL_AVATAR_SEXOS) {
+        for (const camera of CAMERAS) {
+          yield {
+            camera,
+            avatar: {
+              cor: 'azul', corSecundaria: 'grafite', estilo: 'urbano',
+              acessorio: 'mochila', veiculo: 'sedan', sexo: sexo.id,
+              tomPele: 'medio', cabelo: cabelo.id, corCabelo: corCabelo.id,
+            },
+          };
+        }
+      }
+    }
+  }
+
+  for (const apoio of PATROL_AVATAR_COLORS) {
+    for (const camera of CAMERAS) {
+      yield {
+        camera,
+        avatar: {
+          cor: 'vermelho', corSecundaria: apoio.id, estilo: 'classico',
+          acessorio: 'tatica', veiculo: 'sedan', sexo: 'feminino',
+          tomPele: 'moreno', cabelo: 'crespo', corCabelo: 'preto',
+        },
+      };
     }
   }
 };
@@ -84,6 +123,7 @@ test('todo gradiente e recorte usado existe, em qualquer combinacao', () => {
   };
 
   for (const caso of cadaCaminhada()) verificar('walking', caso);
+  for (const caso of cadaCabelo()) verificar('walking', caso);
   for (const caso of cadaDirigindo()) verificar('driving', caso);
 });
 
@@ -99,6 +139,7 @@ test('nenhuma combinacao vaza undefined, NaN ou null na marcacao', () => {
   };
 
   for (const caso of cadaCaminhada()) verificar('walking', caso);
+  for (const caso of cadaCabelo()) verificar('walking', caso);
   for (const caso of cadaDirigindo()) verificar('driving', caso);
 });
 
@@ -263,10 +304,13 @@ test('camera desconhecida cai na de frente, que e a das telas de escolha', () =>
 });
 
 test('o quadro nao muda sozinho: o CSS ancora o boneco por ele', () => {
-  // `.patrol-avatar-planted` usa -0.95 da altura para pousar os pés no chão do
-  // marcador. Se este teste falhar, o index.css precisa mudar junto.
-  assert.deepEqual(PATROL_AVATAR_FRAME, { largura: 40, altura: 48, chao: 45.6 });
-  assert.ok(patrolAvatarHtml('walking', { avatar: null }).includes('viewBox="0 0 40 48"'));
+  // `.patrol-avatar-planted` usa -0.95 da altura para pousar os pes no chao do
+  // marcador (304/320) e -0.4 para centrar (256/320). Se este teste falhar, o
+  // index.css precisa mudar junto.
+  assert.deepEqual(PATROL_AVATAR_FRAME, { largura: 256, altura: 320, chao: 304 });
+  assert.equal(PATROL_AVATAR_FRAME.chao / PATROL_AVATAR_FRAME.altura, 0.95);
+  assert.equal(PATROL_AVATAR_FRAME.largura / PATROL_AVATAR_FRAME.altura, 0.8);
+  assert.ok(patrolAvatarHtml('walking', { avatar: null }).includes('viewBox="0 0 256 320"'));
 });
 
 test('configuracao ausente ainda desenha um boneco', () => {
@@ -274,5 +318,112 @@ test('configuracao ausente ainda desenha um boneco', () => {
     const html = patrolAvatarHtml('walking', { avatar: null, camera });
     assert.ok(html.includes('patrol-avatar__figure'));
     assert.ok(html.includes('<svg'));
+  }
+});
+
+// A ARQUITETURA DO DESENHO E O QUE OS TESTES ABAIXO PROTEGEM
+//
+// O avatar e montado por pecas semanticas separadas — cabeca, cabelo, torso,
+// bracos, pernas, calcado, mochila, acessorios. Se um refactor futuro voltar a
+// fundir cabelo no torso ou calcado na perna, o boneco continua aparecendo na
+// tela, e so meses depois alguem descobre que nao da mais para trocar uma peca
+// sem mexer na outra.
+test('a figura e montada por pecas semanticas separadas', () => {
+  const avatar = {
+    cor: 'azul', corSecundaria: 'grafite', estilo: 'classico', acessorio: 'mochila',
+    veiculo: 'sedan', sexo: 'masculino', tomPele: 'medio', cabelo: 'medio', corCabelo: 'castanho',
+  };
+
+  for (const camera of CAMERAS) {
+    const html = patrolAvatarHtml('walking', { avatar, camera });
+    for (const peca of [
+      'patrol-avatar__head',
+      'patrol-avatar__hair',
+      'patrol-avatar__neck',
+      'patrol-avatar__torso',
+      'patrol-avatar__arm--back',
+      'patrol-avatar__arm--front',
+      'patrol-avatar__leg--back',
+      'patrol-avatar__leg--front',
+      'patrol-avatar__shoe',
+      'patrol-avatar__straps',
+      'patrol-avatar__ground',
+    ]) {
+      assert.ok(html.includes(peca), `${camera} nao desenha ${peca}`);
+    }
+  }
+});
+
+// O marcador do mapa e contra-rotacionado na raiz para ficar de pe enquanto o
+// mapa gira. Um transform no proprio <svg> sobrescreveria isso e o avatar
+// perderia o rumo — por isso toda animacao vive em grupos INTERNOS.
+test('o svg nunca carrega transform proprio: quem anima sao os grupos internos', () => {
+  for (const camera of CAMERAS) {
+    for (const modo of ['walking', 'driving']) {
+      const html = patrolAvatarHtml(modo, { avatar: null, camera });
+      const abre = html.indexOf('<svg');
+      const tag = html.slice(abre, html.indexOf('>', abre) + 1);
+
+      assert.ok(!tag.includes('transform'), `${modo}/${camera} poe transform no svg`);
+      assert.ok(!tag.includes('style='), `${modo}/${camera} poe style inline no svg`);
+      assert.ok(html.includes('patrol-avatar__figure'), 'sem o grupo que anima');
+    }
+  }
+});
+
+test('o corte de cabelo muda o desenho sem tocar no resto da roupa', () => {
+  const base = {
+    cor: 'verde', corSecundaria: 'grafite', estilo: 'tatico', acessorio: 'nenhuma',
+    veiculo: 'sedan', sexo: 'masculino', tomPele: 'claro', corCabelo: 'preto',
+  };
+  const desenhos = new Set();
+
+  for (const cabelo of PATROL_AVATAR_CABELOS) {
+    const html = patrolAvatarHtml('walking', {
+      avatar: { ...base, cabelo: cabelo.id },
+      camera: 'costas',
+    });
+    assert.ok(html.includes(`patrol-avatar__hair--${cabelo.id}`), `${cabelo.id} nao se identifica`);
+    // O colete tatico continua ali: cabelo deixou de ser um estilo de roupa.
+    assert.ok(html.includes('patrol-avatar__vest'), `${cabelo.id} perdeu o colete`);
+    desenhos.add(html);
+  }
+
+  assert.equal(desenhos.size, PATROL_AVATAR_CABELOS.length,
+    'dois cortes diferentes produziram o mesmo desenho');
+});
+
+test('a cor de apoio pinta a calca sem tingir a cor primaria', () => {
+  const base = {
+    cor: 'vermelho', estilo: 'classico', acessorio: 'nenhuma', veiculo: 'sedan',
+    sexo: 'masculino', tomPele: 'medio', cabelo: 'curto', corCabelo: 'castanho',
+  };
+  const grafite = patrolAvatarHtml('walking', { avatar: { ...base, corSecundaria: 'grafite' }, camera: 'frente' });
+  const laranja = patrolAvatarHtml('walking', { avatar: { ...base, corSecundaria: 'laranja' }, camera: 'frente' });
+
+  assert.notEqual(grafite, laranja, 'a cor de apoio precisa mudar o desenho');
+  // A primaria e a mesma nos dois: uma escolha nao pode arrastar a outra.
+  assert.ok(grafite.includes('--patrol-avatar-rgb: 220 38 38'));
+  assert.ok(laranja.includes('--patrol-avatar-rgb: 220 38 38'));
+});
+
+// Sem esta garantia, escolher "oculos" apagaria a mochila — a pessoa perderia
+// uma peca que nunca pediu para tirar.
+test('so "sem mochila" fica sem carga nas costas', () => {
+  const base = {
+    cor: 'azul', corSecundaria: 'grafite', estilo: 'classico', veiculo: 'sedan',
+    sexo: 'masculino', tomPele: 'medio', cabelo: 'curto', corCabelo: 'castanho',
+  };
+
+  for (const acessorio of PATROL_AVATAR_ACCESSORIES) {
+    const html = patrolAvatarHtml('walking', {
+      avatar: { ...base, acessorio: acessorio.id },
+      camera: 'costas',
+    });
+    assert.equal(
+      html.includes('patrol-avatar__backpack'),
+      acessorio.id !== 'nenhuma',
+      `${acessorio.id} decidiu errado sobre a mochila`,
+    );
   }
 });
