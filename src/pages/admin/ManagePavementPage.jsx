@@ -75,12 +75,27 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
     }
   }, [street]);
 
-  // Resolve o city_id alvo para criar bairro: cidade padrão (embaixador) ou,
-  // se não houver, a cidade do marcador atual (mesmo padrão de obras/imóveis).
+  // Resolve o city_id alvo para criar bairro.
+  //
+  // O PINO GANHA DA CIDADE PADRÃO, E A ORDEM ERA O CONTRÁRIO
+  //
+  // Ela preferia `defaultCityId` — a cidade do embaixador — e só olhava o
+  // marcador quando não havia padrão. O efeito: um embaixador de Serra Talhada
+  // cadastrando uma rua em Floresta criava o bairro em SERRA TALHADA. A rua
+  // herdava o city_id do bairro, e o mapa de Floresta, que filtra por cidade,
+  // simplesmente não a mostrava. Nada falhava: nem erro, nem aviso, e a rua
+  // existia no banco com as coordenadas certas e a cidade errada.
+  //
+  // A inversão é a regra certa porque as duas fontes não têm o mesmo peso: o
+  // pino é uma afirmação deliberada sobre ONDE aquilo fica, e a cidade padrão é
+  // uma conveniência de quem cadastra. Quando discordam, quem está no mapa
+  // manda — é o mapa que vai ter de mostrar o resultado.
   const resolveTargetCityId = async () => {
-    if (defaultCityId) return defaultCityId;
-    if (formData?.location) return await resolveCityIdFromLocation(formData.location);
-    return null;
+    if (formData?.location) {
+      const doMapa = await resolveCityIdFromLocation(formData.location);
+      if (doMapa) return doMapa;
+    }
+    return defaultCityId || null;
   };
 
   const handleCreateBairro = async (rawName) => {
@@ -890,7 +905,11 @@ const ManagePavementPage = () => {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold">{street.name}</p>
                       {street.is_unnamed && (
-                        <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-50">
+                        {/* Tokens do tema, e nao a paleta crua: `bg-amber-50`
+                            e uma cor CLARA e continuava clara no tema escuro,
+                            virando um borrao creme no meio do cartao. O par
+                            `status-pending*` ja tem versao para os dois temas. */}
+                        <Badge variant="outline" className="gap-1 border-status-pendingBorder bg-status-pendingBg text-status-pendingFg hover:bg-status-pendingBg">
                           <HelpCircle className="h-3 w-3" /> Sem nome oficial
                         </Badge>
                       )}

@@ -206,7 +206,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                   <div className="mb-2">
                     <h3 className="font-bold text-lg text-tc-red leading-tight">{street.name}</h3>
                     {street.is_unnamed && (
-                      <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                      <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-status-pendingBorder bg-status-pendingBg px-2 py-0.5 text-[10px] font-semibold text-status-pendingFg">
                         <HelpCircle className="h-3 w-3" /> Sem nome oficial
                       </span>
                     )}
@@ -262,7 +262,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                 {statusInfo.text}
               </span>
               {selectedStreet?.is_unnamed && (
-                <span className="flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800">
+                <span className="flex items-center gap-2 rounded-full border border-status-pendingBorder bg-status-pendingBg px-3 py-1.5 text-sm font-semibold text-status-pendingFg">
                   <HelpCircle className="h-4 w-4" /> Sem nome oficial
                 </span>
               )}
