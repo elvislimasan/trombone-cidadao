@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, FormDialogContent, FormDialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -102,7 +102,7 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-card border-border max-h-[95vh] overflow-y-auto">
+      <FormDialogContent className="sm:max-w-[500px] bg-card border-border max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{report ? 'Transformar em Abaixo-Assinado' : 'Criar Abaixo-Assinado'}</DialogTitle>
         </DialogHeader>
@@ -212,14 +212,14 @@ const CreatePetitionModal = ({ report, onClose, onSuccess }) => {
             </Label>
           </div>
 
-          <DialogFooter>
+          <FormDialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? 'Criando...' : 'Criar Abaixo-Assinado'}
             </Button>
-          </DialogFooter>
+          </FormDialogFooter>
         </form>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

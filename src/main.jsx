@@ -202,12 +202,21 @@ if ('serviceWorker' in navigator) {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   
   if (isLocalhost) {
-    // No localhost, vamos garantir que qualquer SW antigo seja desinstalado para evitar loops de HMR
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      for (let registration of registrations) {
-        registration.unregister();
-        console.log('[SW] Desinstalado para desenvolvimento local');
-      }
+    // No localhost, remove tambem os caches deixados por uma execucao antiga.
+    // Apenas desinstalar o SW nao atualiza a aba que ainda esta usando o bundle
+    // cacheado; isso fazia rotas recem-criadas cairem no 404 ate limpar os dados
+    // do site manualmente.
+    Promise.all([
+      navigator.serviceWorker.getRegistrations().then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister()))
+      ),
+      typeof caches !== 'undefined'
+        ? caches.keys().then((cacheNames) =>
+            Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)))
+          )
+        : Promise.resolve(),
+    ]).then(() => {
+      console.log('[SW] Service workers e caches removidos no desenvolvimento local');
     });
   } else {
     window.addEventListener('load', () => {

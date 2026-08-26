@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, FormDialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Share2, Download, Heart, ArrowRight, CheckCircle, Copy, MessageSquare, UserPlus } from 'lucide-react';
+import { Share2, Heart, CheckCircle, Copy, MessageSquare, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
@@ -209,7 +209,7 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md bg-card max-h-[95vh] overflow-y-auto">
+      <FormDialogContent className="sm:max-w-md bg-card max-h-[95vh] overflow-y-auto">
         {step === 'donation' && renderDonationStep()}
         {step === 'account-creation' && renderAccountCreationStep()}
         {step === 'share' && renderShareStep()}
@@ -232,7 +232,7 @@ const PetitionJourney = ({ isOpen, onClose, petitionTitle, petitionUrl, onDonate
             />
           ))}
         </div>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

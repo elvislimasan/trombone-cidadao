@@ -134,6 +134,11 @@ export const NotificationProvider = ({ children }) => {
 
   // Mostrar notificação local
   const showLocalNotification = (notification) => {
+    // No app nativo o Database Webhook ja entrega a mesma linha por FCM. A
+    // apresentacao local do realtime criava um segundo alerta com o mesmo
+    // conteudo (um vindo do FCM e outro da WebView).
+    if (isCapacitor) return;
+
     if (!('Notification' in window) || Notification.permission !== 'granted') {
       return;
     }

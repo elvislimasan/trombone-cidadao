@@ -10,12 +10,14 @@ import { defaultMenuSettings } from '@/config/menuConfig';
 import Avatar from 'react-nice-avatar';
 import Notifications from '@/components/Notifications';
 import FeedCitySelector from '@/components/feed/FeedCitySelector';
+import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
 
 const Header = () => {
   const { user, signOut } = useAuth();
+  const { resolved: resolvedTheme, setPreference: setThemePreference } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [siteName, setSiteName] = useState('Trombone Cidadão');
   const [logoUrl, setLogoUrl] = useState('/logo.png');
@@ -108,6 +110,13 @@ const Header = () => {
     `block py-3 text-2xl font-semibold transition-colors duration-300 ${isActive ? 'text-tc-red' : 'hover:text-tc-red'}`;
 
   const visibleMenuItems = menuSettings.items.filter(item => item.isVisible);
+  const darkThemeActive = resolvedTheme === 'dark';
+  const nextThemeLabel = darkThemeActive ? 'Ativar tema claro' : 'Ativar tema escuro';
+
+  const handleToggleTheme = () => {
+    setThemePreference(darkThemeActive ? 'light' : 'dark');
+  };
+
   // Header neutro: branco no claro, preto no escuro. A cor da marca fica no
   // logo e nos icones, nao no fundo. Os tokens --header-* ja acompanham o tema.
   const headerStyle = {
@@ -298,6 +307,20 @@ const Header = () => {
           </button>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={handleToggleTheme}
+        className="fixed bottom-6 right-6 z-[1002] hidden h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-[rgb(var(--header-bg))] text-[rgb(var(--header-fg))] shadow-lg transition-[background-color,transform,box-shadow] hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:inline-flex"
+        aria-label={nextThemeLabel}
+        title={nextThemeLabel}
+      >
+        {darkThemeActive ? (
+          <LucideIcons.Sun className="h-5 w-5" aria-hidden="true" />
+        ) : (
+          <LucideIcons.Moon className="h-5 w-5" aria-hidden="true" />
+        )}
+      </button>
 
       <AnimatePresence>
         {isOpen && (

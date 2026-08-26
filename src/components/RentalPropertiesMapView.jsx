@@ -1,12 +1,16 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { geocodeCity } from '@/lib/geocodeCity';
 import { useCityView } from '@/contexts/CityContext';
 import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
-import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import { createMapPin, ICON_SIZE } from '@/components/map/pinIcon';
+import MapDisplayControls, {
+  CurrentLocationMarker,
+  MAP_LAYER,
+  MapBaseLayer,
+} from '@/components/map/MapDisplayControls';
 
 // Casa: nao ha equivalente no design system (os icones de la sao por categoria
 // de bronca), entao fica inline. O traco herda a cor do corpo via currentColor,
@@ -77,15 +81,26 @@ const FitToProperties = ({ properties, activeCity }) => {
   return null;
 };
 
+const MapController = ({ mapRef }) => {
+  const map = useMap();
+  mapRef.current = map;
+  return null;
+};
+
 export default function RentalPropertiesMapView({ properties, onSelectProperty }) {
   const { city: activeCity } = useCityView();
   const list = properties || [];
+  const mapRef = useRef(null);
+  const [mapLayer, setMapLayer] = useState(MAP_LAYER.STANDARD);
+  const [currentLocation, setCurrentLocation] = useState(null);
 
   return (
     <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
       <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
+        <MapController mapRef={mapRef} />
         <FitToProperties properties={list} activeCity={activeCity} />
-        <ThemedTileLayer />
+        <MapBaseLayer layer={mapLayer} />
+        <CurrentLocationMarker position={currentLocation} />
         {list.map((property) => (
           property.location && (
             <Marker
@@ -115,6 +130,13 @@ export default function RentalPropertiesMapView({ properties, onSelectProperty }
           )
         ))}
       </MapContainer>
+      <MapDisplayControls
+        mapRef={mapRef}
+        layer={mapLayer}
+        onLayerChange={setMapLayer}
+        onLocated={setCurrentLocation}
+        className="absolute right-4 top-4 z-[800]"
+      />
     </div>
   );
 }

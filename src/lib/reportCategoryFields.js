@@ -127,11 +127,20 @@ export const camposParaColunas = (categoryId, dados = {}) => {
   return {
     issue_type: ehIluminacao ? dados.issue_type?.trim() || null : null,
     pole_number: ehIluminacao ? plaqueta || null : null,
+    pole_id: ehIluminacao ? dados.pole_id || null : null,
+    reported_pole_distance_m:
+      ehIluminacao && dados.reported_pole_distance_m != null
+        ? Number(dados.reported_pole_distance_m)
+        : null,
     // As três colunas guardam a mesma plaqueta por caminhos diferentes de
     // cadastro. O ReportModal preenche assim, e divergir aqui faria a mesma
     // bronca aparecer com identificação em uma tela e sem em outra.
-    reported_post_identifier: ehIluminacao ? plaqueta || null : null,
-    reported_plate: ehIluminacao ? plaqueta || null : null,
+    reported_post_identifier: ehIluminacao
+      ? dados.reported_post_identifier || plaqueta || null
+      : null,
+    reported_plate: ehIluminacao
+      ? dados.reported_plate || plaqueta || null
+      : null,
     is_from_water_utility:
       categoryId === 'buracos' ? !!dados.is_from_water_utility : null,
   };

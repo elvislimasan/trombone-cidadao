@@ -6,7 +6,7 @@ import { ArrowLeft, Edit, Trash2, User, Briefcase, Shield, Mail, Phone, Search, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, FormDialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import ReportDetails from '@/components/ReportDetails';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Combobox } from "@/components/ui/combobox";
@@ -41,11 +41,12 @@ const UserEditModal = ({ user, onSave, onClose }) => {
 
   return (
     <Dialog open={!!user} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Editar Usuário: {user.name}</DialogTitle>
+      <FormDialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
+          <DialogTitle className="text-xl font-bold text-content-primary">Editar usuário</DialogTitle>
+          <p className="truncate text-xs text-content-tertiary">{user.name}</p>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-content-secondary">Nome</label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -65,11 +66,11 @@ const UserEditModal = ({ user, onSave, onClose }) => {
             <label htmlFor="isAdmin" className="text-sm font-medium">É Administrador?</label>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave}>Salvar</Button>
+        <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-5 py-3 sm:px-6">
+          <Button variant="outline" className="h-11 rounded-xl sm:min-w-28" onClick={onClose}>Cancelar</Button>
+          <Button className="h-11 rounded-xl sm:min-w-28" onClick={handleSave}>Salvar</Button>
         </DialogFooter>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

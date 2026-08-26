@@ -90,6 +90,9 @@ export default function PatrolReportModal({
   // estado por campo — a lista vem de reportCategoryFields e pode crescer.
   const [extras, setExtras] = useState({});
   const [tocados, setTocados] = useState({});
+  const [postesProximos, setPostesProximos] = useState([]);
+  const [carregandoPostes, setCarregandoPostes] = useState(false);
+  const [erroPostes, setErroPostes] = useState(null);
 
   // A categoria da missão vem do sinal de quem passou; a da bronca nova, da
   // grade. É ela que decide quais campos extras a tela cobra.
@@ -107,6 +110,57 @@ export default function PatrolReportModal({
   const definirExtra = useCallback((id, valor) => {
     setExtras((atual) => ({ ...atual, [id]: valor }));
     setTocados((atual) => ({ ...atual, [id]: true }));
+  }, []);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    if (categoriaId !== 'iluminacao' || !ponto) {
+      setPostesProximos([]);
+      setCarregandoPostes(false);
+      setErroPostes(null);
+      return undefined;
+    }
+
+    const timer = setTimeout(async () => {
+      setCarregandoPostes(true);
+      setErroPostes(null);
+      const { data, error } = await supabase.rpc('nearest_poles', {
+        lat: ponto.lat,
+        lng: ponto.lng,
+        radius_m: 80,
+        max_results: 5,
+      });
+      if (cancelado) return;
+
+      setCarregandoPostes(false);
+      if (error) {
+        setPostesProximos([]);
+        setErroPostes('Não foi possível consultar os postes próximos. Você ainda pode digitar a plaqueta.');
+        return;
+      }
+      setPostesProximos(Array.isArray(data) ? data : []);
+    }, 300);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+    };
+  }, [categoriaId, ponto]);
+
+  const selecionarPoste = useCallback((marcador) => {
+    const poste = marcador?.data;
+    if (!poste) return;
+    const plaqueta = String(poste.plate || poste.identifier || marcador.title || '').trim();
+    setExtras((atual) => ({
+      ...atual,
+      pole_id: poste.pole_id,
+      pole_number: plaqueta,
+      reported_pole_distance_m: poste.distance_m ?? null,
+      reported_post_identifier: poste.identifier ?? null,
+      reported_plate: poste.plate ?? null,
+    }));
+    setTocados((atual) => ({ ...atual, pole_number: true }));
   }, []);
 
   // Título sugerido pela categoria. Editável: quem está no local sabe mais que
@@ -344,6 +398,18 @@ export default function PatrolReportModal({
                   <LocationPickerMap
                     initialPosition={ponto}
                     onLocationChange={moverPonto}
+                    overlayMarkers={postesProximos
+                      .filter((poste) => Number.isFinite(poste.latitude) && Number.isFinite(poste.longitude))
+                      .map((poste) => ({
+                        id: poste.pole_id,
+                        title: poste.plate || poste.identifier || `Poste ${poste.pole_id}`,
+                        distanceLabel: poste.distance_m != null ? `${poste.distance_m}m` : '',
+                        isBroken: !!poste.is_broken,
+                        location: { lat: poste.latitude, lng: poste.longitude },
+                        data: poste,
+                      }))}
+                    selectedOverlayMarkerId={extras.pole_id || null}
+                    onOverlayMarkerSelect={selecionarPoste}
                     // Esta é A tela que precisa funcionar sem rede: quem chegou
                     // até aqui está de pé no local do problema, que é onde o
                     // sinal falta. Lê os tiles que a patrulha baixou de véspera
@@ -427,7 +493,19 @@ export default function PatrolReportModal({
                 <select
                   id={idCampo}
                   value={extras[campo.id] || ''}
-                  onChange={(e) => definirExtra(campo.id, e.target.value)}
+                  onChange={(e) => {
+                    definirExtra(campo.id, e.target.value);
+                    if (campo.id === 'pole_number') {
+                      setExtras((atual) => ({
+                        ...atual,
+                        pole_number: e.target.value,
+                        pole_id: null,
+                        reported_pole_distance_m: null,
+                        reported_post_identifier: null,
+                        reported_plate: null,
+                      }));
+                    }
+                  }}
                   className={`w-full h-12 rounded-xl bg-surface-subtle border px-3.5 text-content-primary focus:outline-none focus:border-brand ${
                     erro ? 'border-danger' : 'border-edge-default'
                   }`}
@@ -469,6 +547,18 @@ export default function PatrolReportModal({
 
               {erro ? (
                 <p className="text-xs text-danger mt-1.5">{erro}</p>
+              ) : campo.id === 'pole_number' && carregandoPostes ? (
+                <p className="text-xs text-content-tertiary mt-1.5">Buscando postes próximos…</p>
+              ) : campo.id === 'pole_number' && erroPostes ? (
+                <p className="text-xs text-status-pendingFg mt-1.5">{erroPostes}</p>
+              ) : campo.id === 'pole_number' && extras.pole_id ? (
+                <p className="text-xs text-status-resolvedFg mt-1.5">
+                  Poste mapeado selecionado · {extras.reported_pole_distance_m ?? 0} m do ponto
+                </p>
+              ) : campo.id === 'pole_number' && postesProximos.length > 0 ? (
+                <p className="text-xs text-content-tertiary mt-1.5 leading-snug">
+                  Toque em um dos {postesProximos.length} postes exibidos no mapa para selecioná-lo.
+                </p>
               ) : campo.ajuda ? (
                 <p className="text-xs text-content-tertiary mt-1.5 leading-snug">
                   {campo.ajuda}

@@ -3,12 +3,12 @@ import React, { useState, useEffect, lazy, Suspense, useCallback, useMemo } from
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, MapPin, Search } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Save, MapPin, Search, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, FormDialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
@@ -25,6 +25,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
   const [bairroSearch, setBairroSearch] = useState('');
   const [creatingBairro, setCreatingBairro] = useState(false);
   const [fetchingMapBairro, setFetchingMapBairro] = useState(false);
+  const [activeStep, setActiveStep] = useState(1);
 
   useEffect(() => {
     if (street) {
@@ -39,6 +40,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
         pavement_type: initialPavementType,
       });
       setBairroSearch('');
+      setActiveStep(1);
     } else {
       setFormData(null);
     }
@@ -118,8 +120,32 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
     setFormData(prev => ({ ...prev, location: newLocation }));
   };
 
+  const updateArrayItem = (field, index, key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: (prev[field] || []).map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: value } : item
+      ),
+    }));
+  };
+
+  const addArrayItem = (field, item) => {
+    setFormData((prev) => ({ ...prev, [field]: [...(prev[field] || []), item] }));
+  };
+
+  const removeArrayItem = (field, index) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: (prev[field] || []).filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (activeStep === 1) {
+      setActiveStep(2);
+      return;
+    }
     const pavementFieldsEnabled = formData.status === 'paved' || formData.status === 'partially_paved';
     
     const dataToSave = {
@@ -147,29 +173,43 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
 
   return (
     <Dialog open={!!street} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px] bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">{formData.id ? 'Editar Rua' : 'Adicionar Nova Rua'}</DialogTitle>
+      <FormDialogContent className="h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden border-border p-0 sm:h-[90vh] sm:max-w-[760px]">
+        <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <DialogTitle className="text-xl font-bold text-content-primary sm:text-2xl">{formData.id ? 'Editar Rua' : 'Adicionar Nova Rua'}</DialogTitle>
+              <p className="mt-1 text-xs font-medium text-content-tertiary">
+                Etapa {activeStep} de 2 · {activeStep === 1 ? 'Dados e localização' : 'História da rua'}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2" aria-hidden="true">
+            <span className="h-1 rounded-full bg-brand" />
+            <span className={`h-1 rounded-full transition-colors ${activeStep === 2 ? 'bg-brand' : 'bg-edge-subtle'}`} />
+          </div>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto px-2">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">Nome</Label>
-            <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" required />
+        <form onSubmit={handleSubmit} className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
+          <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
+          {activeStep === 1 && <>
+          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
+            <Label htmlFor="name" className="sm:text-right">Nome</Label>
+            <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="cep" className="text-right">CEP</Label>
-            <Input id="cep" name="cep" value={formData.cep || ''} onChange={handleChange} className="col-span-3" placeholder="Ex: 56400-000" />
+          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
+            <Label htmlFor="cep" className="sm:text-right">CEP</Label>
+            <Input id="cep" name="cep" value={formData.cep || ''} onChange={handleChange} placeholder="Ex: 56400-000" />
           </div>
 
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label className="text-right pt-2">Bairro</Label>
-            <div className="col-span-3 space-y-2">
+          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start sm:gap-4">
+            <Label className="sm:pt-2 sm:text-right">Bairro</Label>
+            <div className="min-w-0 space-y-2">
               {selectedBairroName && (
                 <p className="text-sm text-muted-foreground">Selecionado: <span className="font-medium text-foreground">{selectedBairroName}</span></p>
               )}
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <Input
+                  className="col-span-2 sm:col-span-1"
                   placeholder="Buscar ou criar bairro..."
                   value={bairroSearch}
                   onChange={(e) => setBairroSearch(e.target.value)}
@@ -178,7 +218,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
                 <Button type="button" variant="outline" disabled={creatingBairro} onClick={() => handleCreateBairro(bairroSearch)}>
                   Criar
                 </Button>
-                <Button type="button" variant="outline" disabled={fetchingMapBairro} onClick={handleUseBairroFromMap}>
+                <Button type="button" variant="outline" className="whitespace-normal leading-tight" disabled={fetchingMapBairro} onClick={handleUseBairroFromMap}>
                   Usar bairro do mapa
                 </Button>
               </div>
@@ -199,9 +239,9 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
             </div>
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="status" className="text-right">Status</Label>
-            <div className="col-span-3">
+          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
+            <Label htmlFor="status" className="sm:text-right">Status</Label>
+            <div className="min-w-0">
               <Combobox
                 options={[
                   { value: 'paved', label: 'Pavimentada' },
@@ -217,10 +257,10 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
             </div>
           </div>
 
-          <div className={`space-y-6 transition-opacity duration-300 ${pavementFieldsEnabled ? 'opacity-100' : 'opacity-50'}`}>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="pavement_type" className="text-right">Tipo</Label>
-              <div className="col-span-3">
+          <div className={`space-y-5 transition-opacity duration-300 ${pavementFieldsEnabled ? 'opacity-100' : 'opacity-50'}`}>
+            <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
+              <Label htmlFor="pavement_type" className="sm:text-right">Tipo</Label>
+              <div className="min-w-0">
                 <Combobox
                   options={[
                     { value: 'asphalt', label: 'Asfáltica' },
@@ -235,8 +275,8 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
                 />
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="paving_date" className="text-right">Ano da Conclusão</Label>
+            <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
+              <Label htmlFor="paving_date" className="sm:text-right">Ano da Conclusão</Label>
               <Input 
                 id="paving_date" 
                 name="paving_date" 
@@ -244,12 +284,95 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
                 placeholder="Ex: 2024"
                 value={formData.paving_date || ''} 
                 onChange={handleChange} 
-                className="col-span-3" 
                 disabled={!pavementFieldsEnabled}
               />
             </div>
           </div>
 
+          </>}
+
+          {activeStep === 2 && (
+          <section className="overflow-hidden rounded-2xl border border-edge-subtle bg-surface-sunken">
+            <div className="flex items-center gap-3 p-4">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold">História da rua</p>
+                <p className="text-xs text-content-tertiary">Etapa opcional. O botão público só aparece quando existir conteúdo.</p>
+              </div>
+            </div>
+
+            <div className="space-y-5 border-t border-edge-subtle bg-surface-raised p-4 sm:p-5">
+
+            <div className="space-y-2">
+              <Label htmlFor="honoree_name">Nome do homenageado</Label>
+              <Input id="honoree_name" name="honoree_name" value={formData.honoree_name || ''} onChange={handleChange} placeholder="Nome completo" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="biography">Biografia</Label>
+              <textarea id="biography" name="biography" value={formData.biography || ''} onChange={handleChange} rows={5} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Conte a trajetória e a contribuição do homenageado." />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="curiosities">Curiosidades</Label>
+              <textarea id="curiosities" name="curiosities" value={formData.curiosities || ''} onChange={handleChange} rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Uma curiosidade por linha ou em pequenos parágrafos." />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="inline-flex items-center gap-1.5"><FileText className="h-4 w-4" /> Documentos</Label>
+                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_documents', { title: '', url: '', description: '', type: '', size: '' })}>Adicionar</Button>
+              </div>
+              {/* A `description` existia no objeto desde sempre e nunca teve
+                  campo na tela: era gravada vazia em todo cadastro. Agora ela é
+                  o subtítulo da linha do documento na página pública. */}
+              {(formData.historical_documents || []).map((document, index) => (
+                <div key={index} className="flex items-start gap-2 rounded-lg border border-border bg-background p-3">
+                  <div className="grid min-w-0 flex-1 gap-2">
+                    <Input value={document.title || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'title', e.target.value)} placeholder="Título — ex.: Lei de Criação da Rua" />
+                    <Input value={document.description || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'description', e.target.value)} placeholder="Subtítulo — ex.: Lei Municipal nº 1.234/2010" />
+                    <Input type="url" value={document.url || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'url', e.target.value)} placeholder="Link público do documento" />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input value={document.type || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'type', e.target.value)} placeholder="Tipo — deixe vazio para deduzir do link" />
+                      <Input value={document.size || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'size', e.target.value)} placeholder="Tamanho — ex.: 245 KB" />
+                    </div>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" className="shrink-0 text-red-500" onClick={() => removeArrayItem('historical_documents', index)} aria-label="Remover documento"><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="inline-flex items-center gap-1.5"><ImageIcon className="h-4 w-4" /> Fotos históricas e atuais</Label>
+                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_photos', { url: '', caption: '', date: '', subject: 'street' })}>Adicionar</Button>
+              </div>
+              {/* A primeira foto marcada como "da rua" também vira a capa do
+                  topo da página pública — não há campo separado para isso. */}
+              {(formData.historical_photos || []).map((photo, index) => (
+                <div key={index} className="grid gap-2 rounded-lg border border-border bg-background p-3">
+                  <Input type="url" value={photo.url || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'url', e.target.value)} placeholder="Link público da foto" />
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
+                    <Input value={photo.caption || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'caption', e.target.value)} placeholder="Legenda — ex.: Vista da entrada da rua" />
+                    <Input type="date" value={photo.date || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'date', e.target.value)} aria-label="Data da foto" />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <select value={photo.subject || 'street'} onChange={(e) => updateArrayItem('historical_photos', index, 'subject', e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="street">Foto da rua</option>
+                      <option value="honoree">Foto do homenageado</option>
+                    </select>
+                    <Button type="button" variant="ghost" className="justify-self-end text-red-500" onClick={() => removeArrayItem('historical_photos', index)}><Trash2 className="mr-2 h-4 w-4" /> Remover</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </div>
+          </section>
+          )}
+
+          {activeStep === 1 && (
           <div>
             <Label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2"><MapPin className="w-4 h-4" /> Localização</Label>
             <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
@@ -263,12 +386,23 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
               </Suspense>
             </div>
           </div>
-          <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
-            <Button type="submit" className="gap-2"><Save className="w-4 h-4" /> Salvar</Button>
+          )}
+          </div>
+          <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-4 py-3 sm:px-6">
+            {activeStep === 1 ? (
+              <>
+                <DialogClose asChild><Button type="button" variant="outline" className="h-11 rounded-xl sm:min-w-28">Cancelar</Button></DialogClose>
+                <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-32">Próximo <ChevronRight className="h-4 w-4" /></Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="outline" className="h-11 gap-2 rounded-xl sm:min-w-28" onClick={() => setActiveStep(1)}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
+                <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-28"><Save className="w-4 h-4" /> Salvar</Button>
+              </>
+            )}
           </DialogFooter>
         </form>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };
@@ -399,6 +533,11 @@ const ManagePavementPage = () => {
       bairro_id: data.bairro_id,
       location: locationString,
       city_id: resolvedCityId,
+      honoree_name: data.honoree_name?.trim() || null,
+      biography: data.biography?.trim() || null,
+      curiosities: data.curiosities?.trim() || null,
+      historical_documents: (data.historical_documents || []).filter((item) => item?.url?.trim()),
+      historical_photos: (data.historical_photos || []).filter((item) => item?.url?.trim()),
     };
 
     let error;
@@ -417,7 +556,7 @@ const ManagePavementPage = () => {
   };
 
   const handleAddNewStreet = () => {
-    setEditingStreet({ id: null, name: '', cep: '', status: 'unpaved', pavement_type: 'asphalt', bairro_id: null, location: null, paving_date: '' });
+    setEditingStreet({ id: null, name: '', cep: '', status: 'unpaved', pavement_type: 'asphalt', bairro_id: null, location: null, paving_date: '', honoree_name: '', biography: '', curiosities: '', historical_documents: [], historical_photos: [] });
   };
 
   const handleDeleteStreet = async (streetId) => {

@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Save, X, Upload, Instagram, Clock, MapPin, Info, Building, ShoppingCart, Check, Hourglass } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Save, X, Upload, Building, ShoppingCart, Check, Hourglass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, FormDialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -233,7 +233,7 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
 
   return (
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col bg-card border-border">
+      <FormDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-foreground">{formData.id ? 'Editar Item' : 'Adicionar Novo Item'}</DialogTitle>
         </DialogHeader>
@@ -244,7 +244,7 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
           <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
           <Button type="submit" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Salvar</Button>
         </DialogFooter>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };
