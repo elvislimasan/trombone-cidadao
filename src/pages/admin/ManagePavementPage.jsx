@@ -904,11 +904,11 @@ const ManagePavementPage = () => {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold">{street.name}</p>
+                      {/* Tokens do tema, e não a paleta crua: `bg-amber-50` é
+                          uma cor CLARA e continuava clara no tema escuro,
+                          virando um borrão creme no meio do cartão. O par
+                          `status-pending*` já tem versão para os dois temas. */}
                       {street.is_unnamed && (
-                        {/* Tokens do tema, e nao a paleta crua: `bg-amber-50`
-                            e uma cor CLARA e continuava clara no tema escuro,
-                            virando um borrao creme no meio do cartao. O par
-                            `status-pending*` ja tem versao para os dois temas. */}
                         <Badge variant="outline" className="gap-1 border-status-pendingBorder bg-status-pendingBg text-status-pendingFg hover:bg-status-pendingBg">
                           <HelpCircle className="h-3 w-3" /> Sem nome oficial
                         </Badge>
