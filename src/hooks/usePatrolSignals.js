@@ -349,6 +349,7 @@ export function usePatrolSignals(
         // então não pode confiar na validação da tela.
         p_issue_type: extras?.issue_type ?? null,
         p_pole_number: extras?.pole_number ?? null,
+        p_pole_id: extras?.pole_id ?? null,
         p_is_from_water_utility: extras?.is_from_water_utility ?? null,
       };
 

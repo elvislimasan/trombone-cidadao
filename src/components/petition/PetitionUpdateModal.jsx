@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, FormDialogContent, FormDialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Send, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { showAppError } from '@/lib/appError';
@@ -169,7 +169,7 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[95vh] overflow-y-auto">
+      <FormDialogContent className="sm:max-w-[600px] max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Novidade</DialogTitle>
           <DialogDescription>
@@ -276,7 +276,7 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
           </div>
         </div>
 
-        <DialogFooter>
+        <FormDialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={loading}>
             Cancelar
           </Button>
@@ -284,8 +284,8 @@ const PetitionUpdateModal = ({ isOpen, onClose, petitionId, onSave }) => {
             <Send className="w-4 h-4" />
             {loading ? 'Publicando...' : 'Publicar Novidade'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </FormDialogFooter>
+      </FormDialogContent>
     </Dialog>
   );
 };

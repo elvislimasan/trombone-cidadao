@@ -5,12 +5,11 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Image as ImageIcon, Video, Check, XCircle, Loader2, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, FormDialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -236,7 +235,7 @@ export const NewsEditModal = ({ newsItem, onSave, onClose }) => {
 
   return (
     <Dialog open={!!newsItem} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[800px] p-0 overflow-hidden bg-card border-border">
+      <FormDialogContent className="sm:max-w-[800px] p-0 overflow-hidden bg-card border-border">
         <DialogHeader className="p-4 sm:p-6 pb-0">
           <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground truncate">{formData.id ? 'Editar Notícia' : 'Adicionar Nova Notícia'}</DialogTitle>
         </DialogHeader>
@@ -763,7 +762,7 @@ export const NewsEditModal = ({ newsItem, onSave, onClose }) => {
             <Button type="submit" className="w-full sm:w-auto gap-2"><Save className="w-4 h-4" /> Salvar</Button>
           </DialogFooter>
         </form>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

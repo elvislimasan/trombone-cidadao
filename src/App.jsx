@@ -20,6 +20,7 @@ import PublicWorksPage from '@/pages/PublicWorksPage';
 import RentalPropertyDetailsPage from '@/pages/RentalPropertyDetailsPage';
 import RentalPropertiesPage from '@/pages/RentalPropertiesPage';
 import PavementMapPage from '@/pages/PavementMapPage';
+import PavementStreetPage from '@/pages/PavementStreetPage';
 import ServicesPage from '@/pages/ServicesPage';
 import NewsPage from '@/pages/NewsPage';
 import NewsDetailsPage from '@/pages/NewsDetailsPage';
@@ -169,6 +170,8 @@ const SEO = () => {
     case '/admin':
       pageTitle = `Painel Administrativo - ${siteName}`;
       pageDescription = "Painel administrativo para gerenciamento da plataforma.";
+      break;
+    default:
       break;
   }
 
@@ -719,6 +722,7 @@ function AppShell() {
               <Route path="/obras-publicas/:workId" element={<WorkDetailsPageProject />} />
               <Route path="/imoveis-alugados" element={<RentalPropertiesPage />} />
               <Route path="/imoveis-alugados/:id" element={<RentalPropertyDetailsPage />} />
+              <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/servicos" element={<ServicesPage />} />
               <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />

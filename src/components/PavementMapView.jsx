@@ -1,8 +1,7 @@
-import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
 import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction, Info } from 'lucide-react';
+import { Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction, Info, BookOpen } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
@@ -10,9 +9,16 @@ import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Link } from 'react-router-dom';
 import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
 import { createMapPin, buildPinBadge, ICON_SIZE } from '@/components/map/pinIcon';
+import MapDisplayControls, {
+  CurrentLocationMarker,
+  MAP_LAYER,
+  MapBaseLayer,
+} from '@/components/map/MapDisplayControls';
+import { hasPavementStreetHistory } from '@/lib/pavementStreetHistory';
 
 // Status de pavimentacao -> sufixo do token --pin-pav-*.
 const PAVEMENT_STATUS_TOKEN = {
@@ -116,6 +122,8 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const mapRef = useRef();
   const markerRefs = useRef({});
+  const [mapLayer, setMapLayer] = useState(MAP_LAYER.STANDARD);
+  const [currentLocation, setCurrentLocation] = useState(null);
   const { mode } = useMapModeToggle();
   const { city: activeCity } = useCityView();
 
@@ -182,9 +190,9 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
         <FitToStreets streets={streets} activeCity={activeCity} />
-        <ThemedTileLayer />
+        <MapBaseLayer layer={mapLayer} />
+        <CurrentLocationMarker position={currentLocation} />
         {streets.map(street => {
-          const streetStatusInfo = getStatusInfo(street.status, street.pavement_type);
           return (
             street.location &&
             <Marker
@@ -207,6 +215,13 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                     >
                       <Info className="w-4 h-4 mr-2" /> Ver mais detalhes
                     </Button>
+                    {hasPavementStreetHistory(street) && (
+                      <Button asChild size="sm" variant="outline" className="mt-2 w-full">
+                        <Link to={`/mapa-pavimentacao/rua/${street.id}`}>
+                          <BookOpen className="mr-2 h-4 w-4" /> História da rua
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Popup>
@@ -215,8 +230,14 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
         })}
       </MapContainer>
 
-      <div className="absolute top-4 right-4 z-[800]">
-        <MapModeToggle />
+      <div className="absolute top-4 right-4 z-[800] flex flex-col gap-2">
+        <MapDisplayControls
+          mapRef={mapRef}
+          layer={mapLayer}
+          onLayerChange={setMapLayer}
+          onLocated={setCurrentLocation}
+        />
+        <MapModeToggle className="h-11 w-11 rounded-full p-0" />
       </div>
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
@@ -239,6 +260,13 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                 <span className="text-sm bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full font-medium">
                   Realizado em: {new Date(selectedStreet.paving_date).toLocaleDateString()}
                 </span>
+              )}
+              {selectedStreet?.id && hasPavementStreetHistory(selectedStreet) && (
+                <Button asChild size="sm" variant="outline">
+                  <Link to={`/mapa-pavimentacao/rua/${selectedStreet.id}`}>
+                    <BookOpen className="mr-2 h-4 w-4" /> Abrir página da rua
+                  </Link>
+                </Button>
               )}
                {selectedStreet?.work_id && (
                   <button 

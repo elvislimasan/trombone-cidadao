@@ -96,11 +96,15 @@ test('iluminação grava a mesma plaqueta nas três colunas', () => {
   const colunas = camposParaColunas('iluminacao', {
     issue_type: 'pole_broken',
     pole_number: '12 - 34567',
+    pole_id: 42,
+    reported_pole_distance_m: 18,
   });
   assert.equal(colunas.issue_type, 'pole_broken');
   assert.equal(colunas.pole_number, '34567');
   assert.equal(colunas.reported_post_identifier, '34567');
   assert.equal(colunas.reported_plate, '34567');
+  assert.equal(colunas.pole_id, 42);
+  assert.equal(colunas.reported_pole_distance_m, 18);
   assert.equal(colunas.is_from_water_utility, null);
 });
 
@@ -111,8 +115,10 @@ test('colunas de outra categoria vêm nulas, nunca ausentes', () => {
   assert.deepEqual(Object.keys(colunas).sort(), [
     'is_from_water_utility',
     'issue_type',
+    'pole_id',
     'pole_number',
     'reported_plate',
+    'reported_pole_distance_m',
     'reported_post_identifier',
   ]);
   assert.equal(colunas.pole_number, null);

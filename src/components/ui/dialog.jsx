@@ -49,6 +49,21 @@ const DialogContent = React.forwardRef(({ className, children, hideClose = false
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
+// Concha padrao para formularios de cadastro/edicao: folha inferior no
+// celular e dialogo central no desktop. Formularios com experiencias proprias
+// (ReportModal e obras) continuam usando DialogContent diretamente.
+const FormDialogContent = React.forwardRef(({ className, ...props }, ref) => (
+  <DialogContent
+    ref={ref}
+    className={cn(
+      "!bottom-0 !left-0 !top-auto max-h-[94dvh] w-full max-w-none !translate-x-0 !translate-y-0 overflow-x-hidden overflow-y-auto rounded-t-3xl border-edge-subtle bg-surface-raised sm:!bottom-auto sm:!left-1/2 sm:!top-1/2 sm:max-h-[90vh] sm:max-w-lg sm:!-translate-x-1/2 sm:!-translate-y-1/2 sm:rounded-2xl",
+      className
+    )}
+    {...props}
+  />
+))
+FormDialogContent.displayName = "FormDialogContent"
+
 const DialogHeader = ({
   className,
   ...props
@@ -70,6 +85,17 @@ const DialogFooter = ({
   />
 )
 DialogFooter.displayName = "DialogFooter"
+
+const FormDialogFooter = ({ className, ...props }) => (
+  <DialogFooter
+    className={cn(
+      "sticky bottom-0 z-20 -mx-6 -mb-6 mt-4 gap-2 border-t border-edge-subtle bg-surface-raised px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_20px_rgba(0,0,0,0.04)] sm:pb-4",
+      className
+    )}
+    {...props}
+  />
+)
+FormDialogFooter.displayName = "FormDialogFooter"
 
 const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
@@ -96,8 +122,10 @@ export {
   DialogTrigger,
   DialogClose,
   DialogContent,
+  FormDialogContent,
   DialogHeader,
   DialogFooter,
+  FormDialogFooter,
   DialogTitle,
   DialogDescription,
 }

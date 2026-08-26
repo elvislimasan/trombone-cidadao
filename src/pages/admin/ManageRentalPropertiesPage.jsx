@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useSearchParams } from 'react-router-dom';
-import { PlusCircle, Edit, Trash2, MapPin, Search } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, MapPin, Search, ChevronLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, FormDialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -35,7 +35,7 @@ const emptyContractForm = {
 const CONTRACT_YEAR_MIN = 2000;
 const contractYearMax = () => new Date().getFullYear() + 5;
 
-const RentalContractsManager = ({ propertyId }) => {
+const RentalContractsManager = ({ propertyId, createFormId, onCreated }) => {
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newContract, setNewContract] = useState(emptyContractForm);
@@ -71,6 +71,7 @@ const RentalContractsManager = ({ propertyId }) => {
 
   const handleCreateContract = async (e) => {
     e.preventDefault();
+    if (saving) return;
     // Só o valor mensal é obrigatório: é o único campo sem o qual o registro não
     // serve para nada (a tela existe para somar quanto a prefeitura gasta).
     // Proprietário e datas costumam chegar depois do valor — exigi-los fazia o
@@ -109,6 +110,7 @@ const RentalContractsManager = ({ propertyId }) => {
       if (insertError) throw insertError;
       setNewContract(emptyContractForm);
       await fetchContracts();
+      onCreated?.();
     } catch (error) {
       if (closedCurrent && current) {
         try {
@@ -182,11 +184,11 @@ const RentalContractsManager = ({ propertyId }) => {
   };
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleCreateContract} className="p-4 border rounded-xl bg-muted/20 space-y-3">
+    <div className="min-w-0 space-y-4 overflow-x-hidden">
+      <form id={createFormId} onSubmit={handleCreateContract} className="min-w-0 space-y-3 overflow-hidden rounded-xl border bg-muted/20 p-3 sm:p-4">
         <p className="text-sm font-semibold text-foreground">Novo contrato</p>
         <p className="text-xs text-muted-foreground">Só o valor mensal é obrigatório. Preencha o resto conforme for descobrindo.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 [&>*]:min-w-0">
           <div className="grid gap-1.5">
             <Label className="text-xs text-muted-foreground">Nome do proprietário</Label>
             <Input value={newContract.owner_name} onChange={(e) => setNewContract((p) => ({ ...p, owner_name: e.target.value }))} placeholder="Opcional" />
@@ -216,11 +218,6 @@ const RentalContractsManager = ({ propertyId }) => {
             <Input type="url" value={newContract.contract_url} onChange={(e) => setNewContract((p) => ({ ...p, contract_url: e.target.value }))} placeholder="https://transparencia.prefeitura.../contrato-042-2025.pdf" />
           </div>
         </div>
-        <div className="flex justify-end">
-          <Button type="submit" disabled={saving} className="gap-2">
-            <PlusCircle className="w-4 h-4" /> Novo Contrato
-          </Button>
-        </div>
       </form>
 
       {loading ? (
@@ -231,7 +228,7 @@ const RentalContractsManager = ({ propertyId }) => {
             editingContractId === c.id ? (
               <form key={c.id} onSubmit={handleSaveEditContract} className="p-4 border rounded-xl bg-muted/20 space-y-3">
                 <p className="text-sm font-semibold text-foreground">Editar contrato</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 [&>*]:min-w-0">
                   <div className="grid gap-1.5">
                     <Label className="text-xs text-muted-foreground">Nome do proprietário</Label>
                     <Input value={editForm.owner_name} onChange={(e) => setEditForm((p) => ({ ...p, owner_name: e.target.value }))} placeholder="Opcional" />
@@ -415,7 +412,7 @@ const RentalMediaManager = ({ propertyId }) => {
       <div>
         <Label className="mb-2 block">Fotos do imóvel</Label>
         <Input type="file" accept="image/*" multiple onChange={handleUploadPhotos} disabled={uploadingPhotos} />
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {photos.map((p) => (
             <div key={p.id} className="relative group">
               <img src={p.url} alt="" className="w-full h-20 object-cover rounded-md" />
@@ -429,12 +426,12 @@ const RentalMediaManager = ({ propertyId }) => {
 
       <div>
         <Label className="mb-2 block">Documentos (contrato / aditivos)</Label>
-        <div className="flex gap-2 mb-2">
-          <select value={docType} onChange={(e) => setDocType(e.target.value)} className="border rounded-md px-2 text-sm">
+        <div className="mb-2 grid min-w-0 gap-2 sm:grid-cols-[140px_minmax(0,1fr)]">
+          <select value={docType} onChange={(e) => setDocType(e.target.value)} className="h-10 w-full rounded-md border bg-background px-2 text-sm">
             <option value="contrato">Contrato</option>
             <option value="aditivo">Aditivo</option>
           </select>
-          <Input type="file" accept="application/pdf,image/*" multiple onChange={handleUploadDocuments} disabled={uploadingDocs} />
+          <Input className="min-w-0" type="file" accept="application/pdf,image/*" multiple onChange={handleUploadDocuments} disabled={uploadingDocs} />
         </div>
         <div className="space-y-2">
           {documents.map((d) => (
@@ -458,6 +455,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
   const [bairroSearch, setBairroSearch] = useState('');
   const [creatingBairro, setCreatingBairro] = useState(false);
   const [fetchingMapBairro, setFetchingMapBairro] = useState(false);
+  const [activeTab, setActiveTab] = useState('info');
   const addressTouchedRef = useRef(false);
 
   useEffect(() => {
@@ -489,6 +487,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
         is_active: true,
       };
       setFormData(initialData);
+      setActiveTab('info');
       addressTouchedRef.current = !!(initialData.address && initialData.address.trim());
     }
   }, [property]);
@@ -582,6 +581,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
       if (isNewProperty) {
         // Continua no mesmo modal: libera as abas Contratos/Mídia sem fechar.
         setFormData((prev) => ({ ...prev, id: saved.id }));
+        setActiveTab('contracts');
       } else {
         onClose();
       }
@@ -596,18 +596,22 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
 
   return (
     <Dialog open={!!property} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{property?.id ? 'Editar Imóvel' : 'Novo Imóvel Alugado'}</DialogTitle>
+      <FormDialogContent className="h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:h-[90vh] sm:max-w-2xl">
+        <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
+          <DialogTitle className="text-xl font-bold text-content-primary">{property?.id ? 'Editar Imóvel' : 'Novo Imóvel Alugado'}</DialogTitle>
+          <p className="text-xs text-content-tertiary">{activeTab === 'info' ? 'Informações e localização' : activeTab === 'contracts' ? 'Contratos do imóvel' : 'Fotos e documentos'}</p>
         </DialogHeader>
-        <Tabs defaultValue="info" className="w-full">
-          <TabsList className={`grid w-full ${formData.id ? 'grid-cols-3' : 'grid-cols-1'} mb-4`}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="grid min-h-0 w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
+          <div className="border-b border-edge-subtle bg-surface-raised px-3 py-2 sm:px-6">
+          <TabsList className={`grid h-auto w-full ${formData.id ? 'grid-cols-3' : 'grid-cols-1'}`}>
             <TabsTrigger value="info">Informações</TabsTrigger>
             {formData.id && <TabsTrigger value="contracts">Contratos</TabsTrigger>}
             {formData.id && <TabsTrigger value="media">Mídia</TabsTrigger>}
           </TabsList>
+          </div>
+          <div className="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6">
           <TabsContent value="info">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form id="rental-property-info-form" onSubmit={handleSubmit} className="min-w-0 space-y-4 overflow-x-hidden">
               <div className="h-64 rounded-xl overflow-hidden border">
                 <LocationPickerMap onLocationChange={handleLocationChange} initialPosition={formData.location} fallbackCityCenter={fallbackCityCenter} />
               </div>
@@ -617,12 +621,12 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
                 <Input id="title" name="title" value={formData.title || ''} onChange={handleChange} placeholder="Ex: Sede da Secretaria de Saúde" required />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2 col-span-2">
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid min-w-0 gap-2 sm:col-span-2">
                   <Label htmlFor="address">Endereço</Label>
                   <Input id="address" name="address" value={formData.address} onChange={(e) => { addressTouchedRef.current = true; handleChange(e); }} required />
                 </div>
-                <div className="grid gap-2">
+                <div className="grid min-w-0 gap-2">
                   <Label htmlFor="street_number">Número</Label>
                   <Input id="street_number" name="street_number" value={formData.street_number || ''} onChange={handleChange} placeholder="Ex: 123" />
                 </div>
@@ -630,8 +634,9 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
 
               <div className="grid gap-2">
                 <Label>Bairro</Label>
-                <div className="flex gap-2">
+                <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                   <Input
+                    className="col-span-2 min-w-0 sm:col-span-1"
                     placeholder="Buscar ou criar bairro..."
                     value={bairroSearch}
                     onChange={(e) => setBairroSearch(e.target.value)}
@@ -640,7 +645,7 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
                   <Button type="button" variant="outline" disabled={creatingBairro} onClick={() => handleCreateBairro(bairroSearch)}>
                     Criar
                   </Button>
-                  <Button type="button" variant="outline" disabled={fetchingMapBairro} onClick={handleUseBairroFromMap}>
+                  <Button type="button" variant="outline" className="whitespace-normal leading-tight" disabled={fetchingMapBairro} onClick={handleUseBairroFromMap}>
                     Usar bairro do mapa
                   </Button>
                 </div>
@@ -660,12 +665,12 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
+              <div className="grid grid-cols-1 gap-4 xs:grid-cols-2">
+                <div className="grid min-w-0 gap-2">
                   <Label htmlFor="length_m">Comprimento (m)</Label>
                   <Input id="length_m" name="length_m" type="number" step="0.01" value={formData.length_m || ''} onChange={handleChange} />
                 </div>
-                <div className="grid gap-2">
+                <div className="grid min-w-0 gap-2">
                   <Label htmlFor="width_m">Largura (m)</Label>
                   <Input id="width_m" name="width_m" type="number" step="0.01" value={formData.width_m || ''} onChange={handleChange} />
                 </div>
@@ -686,36 +691,47 @@ export const RentalPropertyEditModal = ({ property, onSave, onClose, bairros, de
                 <Label htmlFor="is_active">Aluguel ativo</Label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-                <Button type="submit" disabled={saving}>
-                  {isNewProperty ? 'Salvar e continuar' : 'Salvar'}
-                </Button>
-              </div>
             </form>
           </TabsContent>
           {formData.id && (
             <TabsContent value="contracts" className="space-y-4">
-              <RentalContractsManager propertyId={formData.id} />
-              {isNewProperty && (
-                <div className="flex justify-end pt-2 border-t">
-                  <Button type="button" onClick={onClose}>Concluir</Button>
-                </div>
-              )}
+              <RentalContractsManager
+                propertyId={formData.id}
+                createFormId="rental-new-contract-form"
+                onCreated={isNewProperty ? () => setActiveTab('media') : undefined}
+              />
             </TabsContent>
           )}
           {formData.id && (
             <TabsContent value="media" className="space-y-4">
               <RentalMediaManager propertyId={formData.id} />
-              {isNewProperty && (
-                <div className="flex justify-end pt-2 border-t">
-                  <Button type="button" onClick={onClose}>Concluir</Button>
-                </div>
-              )}
             </TabsContent>
           )}
+          </div>
+          <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-4 py-3 sm:px-6">
+            {activeTab === 'info' && (
+              <>
+                <Button type="button" variant="outline" className="h-11 rounded-xl sm:min-w-28" onClick={onClose}>Cancelar</Button>
+                <Button type="submit" form="rental-property-info-form" className="h-11 rounded-xl sm:min-w-36" disabled={saving}>
+                  {isNewProperty ? 'Salvar e continuar' : 'Salvar'}
+                </Button>
+              </>
+            )}
+            {activeTab === 'contracts' && (
+              <>
+                <Button type="button" variant="outline" className="h-11 gap-2 rounded-xl sm:min-w-28" onClick={() => setActiveTab('info')}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
+                <Button type="submit" form="rental-new-contract-form" className="h-11 gap-2 rounded-xl sm:min-w-36"><PlusCircle className="h-4 w-4" /> Salvar contrato</Button>
+              </>
+            )}
+            {activeTab === 'media' && (
+              <>
+                <Button type="button" variant="outline" className="h-11 gap-2 rounded-xl sm:min-w-28" onClick={() => setActiveTab('contracts')}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
+                <Button type="button" className="h-11 gap-2 rounded-xl sm:min-w-28" onClick={onClose}><Check className="h-4 w-4" /> Concluir</Button>
+              </>
+            )}
+          </DialogFooter>
         </Tabs>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

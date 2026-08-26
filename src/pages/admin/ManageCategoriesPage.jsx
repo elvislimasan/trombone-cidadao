@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, PlusCircle, Edit, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, FormDialogContent, FormDialogFooter, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showAppError } from '@/lib/appError';
@@ -49,7 +49,7 @@ const CategoryEditModal = ({ category, onSave, onClose }) => {
 
   return (
     <Dialog open={!!category} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md bg-card border-border">
+      <FormDialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-foreground">{formData.id ? 'Editar Categoria' : 'Adicionar Nova Categoria'}</DialogTitle>
         </DialogHeader>
@@ -62,12 +62,12 @@ const CategoryEditModal = ({ category, onSave, onClose }) => {
             <Label htmlFor="icon">Ícone (Emoji)</Label>
             <Input id="icon" name="icon" value={formData.icon} onChange={handleChange} />
           </div>
-          <DialogFooter>
+          <FormDialogFooter>
             <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
             <Button type="submit" className="gap-2"><Save className="w-4 h-4" /> Salvar</Button>
-          </DialogFooter>
+          </FormDialogFooter>
         </form>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

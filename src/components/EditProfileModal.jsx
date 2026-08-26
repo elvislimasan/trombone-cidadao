@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, FormDialogContent, FormDialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -220,7 +220,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-card border-border max-h-[95vh] overflow-y-auto">
+      <FormDialogContent className="sm:max-w-md bg-card border-border max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-foreground">Editar Perfil</DialogTitle>
           <DialogDescription>
@@ -395,13 +395,13 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
           }}
         />
 
-        <DialogFooter>
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button disabled={uploadingAvatar} onClick={handleSave} className="bg-primary hover:bg-primary/90">
             {uploadingAvatar ? 'Enviando...' : 'Salvar Alterações'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </FormDialogFooter>
+      </FormDialogContent>
     </Dialog>
   );
 };

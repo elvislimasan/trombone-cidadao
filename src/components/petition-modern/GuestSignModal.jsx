@@ -1,13 +1,12 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, FormDialogContent, FormDialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { validateEmail } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
 
 /**
  * Modal component for guest users to sign the petition.
@@ -46,7 +45,7 @@ const GuestSignModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[95vh] overflow-y-auto">
+      <FormDialogContent className="sm:max-w-md max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Assinar como convidado</DialogTitle>
           <DialogDescription>
@@ -112,7 +111,7 @@ const GuestSignModal = ({
            {children}
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:gap-0">
+        <FormDialogFooter className="flex-col gap-2 sm:gap-0">
           <Button 
             type="button" 
             onClick={onGuestSign} 
@@ -128,8 +127,8 @@ const GuestSignModal = ({
           <Button variant="outline" onClick={() => navigate('/login')} className="w-full sm:w-auto">
              Fazer Login
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </FormDialogFooter>
+      </FormDialogContent>
     </Dialog>
   );
 };

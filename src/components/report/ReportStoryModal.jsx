@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,51 @@ import {
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
+
+function StoryPreviewFrame({ children }) {
+  const availableRef = useRef(null);
+  const [scale, setScale] = useState(0.15);
+
+  useEffect(() => {
+    const element = availableRef.current;
+    if (!element) return undefined;
+
+    const fit = () => {
+      const { width, height } = element.getBoundingClientRect();
+      if (!width || !height) return;
+      setScale(Math.min(width / STORY_WIDTH, height / STORY_HEIGHT));
+    };
+
+    fit();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
+    observer?.observe(element);
+    window.addEventListener('resize', fit);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', fit);
+    };
+  }, []);
+
+  return (
+    <div ref={availableRef} className="absolute inset-2 sm:inset-4 lg:inset-2 flex items-center justify-center">
+      <div
+        className="relative shrink-0 overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.4)]"
+        style={{ width: STORY_WIDTH * scale, height: STORY_HEIGHT * scale }}
+      >
+        <div
+          className="absolute left-0 top-0 origin-top-left"
+          style={{
+            width: STORY_WIDTH,
+            height: STORY_HEIGHT,
+            transform: `scale(${scale})`,
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.trombonecidadao.app&pcampaignid=web_share';
@@ -1173,25 +1218,20 @@ const ReportStoryModal = ({
                   Visualização 1080x1920
                 </div>
 
-                <div className="w-[172px] h-[307px] sm:w-[216px] sm:h-[384px] md:w-[237px] md:h-[422px] lg:w-[162px] lg:h-[288px] xl:w-[216px] xl:h-[384px] relative flex-shrink-0 shadow-[0_40px_100px_rgba(0,0,0,0.4)] transition-all">
-                  <div
-                    className="absolute top-0 left-0 w-[1080px] h-[1920px] origin-top-left !scale-[0.159] sm:!scale-[0.20] md:!scale-[0.22] lg:!scale-[0.15] xl:!scale-[0.20]"
-                    style={{ transform: 'scale(0.159)' }}
-                  >
-                    {/* Fundo do card do story em si (conteudo/artefato), fixo de proposito */}
-                    <div className="w-full h-full relative overflow-hidden bg-black">
-                      <StoryRenderer
-                        report={report}
-                        coverPhotoUrl={assets.coverPhoto || coverPhotoUrl}
-                        bgStyle={currentBgStyle}
-                        enableImageEffect={enableImageEffect}
-                        enableHoleEffect={enableHoleEffect}
-                        qrCodePlayStore={assets.qrCode}
-                        likeIconUrl={assets.likeIcon}
-                      />
-                    </div>
+                <StoryPreviewFrame>
+                  {/* Fundo do card do story em si (conteudo/artefato), fixo de proposito */}
+                  <div className="w-full h-full relative overflow-hidden bg-black">
+                    <StoryRenderer
+                      report={report}
+                      coverPhotoUrl={assets.coverPhoto || coverPhotoUrl}
+                      bgStyle={currentBgStyle}
+                      enableImageEffect={enableImageEffect}
+                      enableHoleEffect={enableHoleEffect}
+                      qrCodePlayStore={assets.qrCode}
+                      likeIconUrl={assets.likeIcon}
+                    />
                   </div>
-                </div>
+                </StoryPreviewFrame>
               </div>
 
               <div className="text-xs text-content-tertiary px-1">
