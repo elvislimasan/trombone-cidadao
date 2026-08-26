@@ -55,7 +55,39 @@ const semAcento = (texto) =>
 // abrevia, às vezes omite. O que identifica a via é o nome próprio.
 const TIPOS_DE_VIA = /^(rua|r\.|avenida|av\.?|travessa|tv\.?|alameda|al\.?|praca|praça|estrada|rodovia|beco|via|largo)\s+/i;
 
-export const nucleoDoLogradouro = (nome) => semAcento(nome).replace(TIPOS_DE_VIA, '').trim();
+// AS ABREVIAÇÕES PRECISAM SER ABERTAS, E POR DOIS MOTIVOS
+//
+// O primeiro é grosseiro: o ViaCEP responde HTTP 400 quando o logradouro traz
+// PONTO. "Rua Cel. Manoel Neto" nem chega a ser consultada.
+//
+// O segundo é silencioso, e pior: os Correios guardam a forma por extenso —
+// "Rua Coronel Manoel Neto". Mesmo tirando o ponto, "cel manoel neto" não bate
+// com "coronel manoel neto", e o resultado certo seria descartado pelo
+// casamento estrito como se fosse de outra rua.
+const ABREVIACOES = {
+  cel: 'coronel', cap: 'capitao', gen: 'general', mal: 'marechal',
+  dr: 'doutor', dra: 'doutora', prof: 'professor', profa: 'professora',
+  pe: 'padre', mons: 'monsenhor', sta: 'santa', sto: 'santo',
+  pres: 'presidente', eng: 'engenheiro', ver: 'vereador', dep: 'deputado',
+  vv: 'vereador', pca: 'praca', jd: 'jardim',
+};
+
+const abrirAbreviacoes = (texto) =>
+  texto
+    .split(/\s+/)
+    .map((palavra) => {
+      const limpa = palavra.replace(/\.+$/, '');
+      return ABREVIACOES[limpa] || limpa;
+    })
+    .join(' ')
+    // Ponto que sobrou no meio (inicial de nome, como "C. Leitão") vira espaço:
+    // ele quebraria a consulta e não acrescenta nada à comparação.
+    .replace(/\./g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+export const nucleoDoLogradouro = (nome) =>
+  abrirAbreviacoes(semAcento(nome).replace(TIPOS_DE_VIA, '').trim());
 
 /* --- Ordenação dos resultados --- */
 //

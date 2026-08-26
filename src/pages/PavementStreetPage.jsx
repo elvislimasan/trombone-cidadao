@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import BackButton from '@/components/BackButton';
 import { supabase } from '@/lib/customSupabaseClient';
 import { MapBaseLayer } from '@/components/map/MapDisplayControls';
+import { cepsDaRua } from '@/lib/pavementReport';
 import { showAppError } from '@/lib/appError';
 import {
   capaDaRua,
@@ -338,7 +339,9 @@ export default function PavementStreetPage() {
   const biography = textoLimpo(street?.biography);
   const curiosities = textoLimpo(street?.curiosities);
   const bairroName = textoLimpo(street?.bairro?.name);
-  const cep = textoLimpo(street?.cep);
+  // A rua pode ter um CEP por trecho — mostrar so o primeiro esconderia
+  // exatamente a informacao que quem procura o endereco veio buscar.
+  const ceps = cepsDaRua(street);
   const pavementStatus = statusLabel(street);
   const atualizadoEm = formatarDataBr(street?.updated_at);
 
@@ -411,11 +414,14 @@ export default function PavementStreetPage() {
                 <HelpCircle className="h-4 w-4" /> Sem nome oficial
               </span>
             )}
-            {cep && (
-              <span className="inline-flex items-center rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
-                CEP {cep}
+            {ceps.map((c) => (
+              <span
+                key={c.cep}
+                className="inline-flex items-center rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle"
+              >
+                CEP {c.cep}
               </span>
-            )}
+            ))}
           </div>
         </div>
       </header>

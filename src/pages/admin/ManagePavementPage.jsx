@@ -19,6 +19,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { showAppError, showAppNotice } from '@/lib/appError';
+import { cepsDaRua } from '@/lib/pavementReport';
 import {
   MOTIVOS,
   buscarCepsPorLogradouro,
@@ -75,6 +76,9 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
         is_unnamed: Boolean(street.is_unnamed),
         historical_documents: Array.isArray(street.historical_documents) ? street.historical_documents : [],
         historical_photos: Array.isArray(street.historical_photos) ? street.historical_photos : [],
+        // `cepsDaRua` le a lista nova e cai na coluna antiga quando ela ainda
+        // esta vazia — e por isso a tela nunca fica sem CEP no meio da migracao.
+        ceps: cepsDaRua(street).map((c) => ({ cep: c.cep, bairro_id: c.bairroId })),
       });
       setBairroSearch('');
       setActiveStep(1);
@@ -137,6 +141,61 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
     onBairroCreated?.(data);
     handleSelectChange('bairro_id', data.id);
     setBairroSearch('');
+  };
+
+  /* --- CEPs, um por trecho --- */
+  //
+  // UMA RUA COMPRIDA ATRAVESSA BAIRRO, E CADA TRECHO TEM O SEU
+  //
+  // O campo era um texto so, entao a segunda faixa nao tinha onde ser guardada:
+  // quem cadastrava escolhia um CEP e perdia o resto. Agora sao linhas, e cada
+  // uma diz a QUAL BAIRRO pertence — que e o que responde "qual CEP nesta parte
+  // da rua".
+  //
+  // Bairro vazio significa "vale para a rua inteira", que e o caso da maioria.
+
+  const cepsDoForm = Array.isArray(formData?.ceps) ? formData.ceps : [];
+
+  // O ViaCEP devolve o bairro por NOME; o cadastro guarda por id. Casar os dois
+  // e o que faz a sugestao chegar ja com o trecho preenchido — e quando o nome
+  // nao existe na base local, `null` significa "rua inteira", que e melhor do
+  // que inventar um bairro.
+  const semAcento = (t) => String(t ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+  const bairroIdPeloNome = (nome) => {
+    const alvo = semAcento(nome);
+    if (!alvo) return null;
+    return bairros.find((b) => semAcento(b.name) === alvo)?.id
+      || bairros.find((b) => semAcento(b.name).startsWith(alvo.split(' - ')[0]))?.id
+      || null;
+  };
+
+  const alterarCep = (indice, campo, valor) => {
+    setFormData((prev) => ({
+      ...prev,
+      ceps: (prev.ceps || []).map((item, i) => (i === indice ? { ...item, [campo]: valor } : item)),
+    }));
+  };
+
+  const removerCep = (indice) => {
+    setFormData((prev) => ({ ...prev, ceps: (prev.ceps || []).filter((_, i) => i !== indice) }));
+  };
+
+  // O bairro ja escolhido no formulario e o palpite certo para o primeiro CEP:
+  // e o trecho que quem cadastra tem na cabeca neste momento.
+  const adicionarCep = (cep = '', bairroId = undefined) => {
+    setFormData((prev) => {
+      const atuais = prev.ceps || [];
+      const normalizado = normalizarCep(cep);
+      // Repetido nao e trecho novo: e a mesma faixa cadastrada duas vezes.
+      if (normalizado && atuais.some((c) => normalizarCep(c.cep) === normalizado)) return prev;
+      return {
+        ...prev,
+        ceps: [...atuais, {
+          cep: normalizado || cep,
+          bairro_id: bairroId !== undefined ? bairroId : (prev.bairro_id || null),
+        }],
+      };
+    });
   };
 
   // SUGERIR O CEP A PARTIR DO PINO
@@ -382,15 +441,61 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
           <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
             <Label htmlFor="cep" className="sm:text-right">CEP</Label>
             <div className="min-w-0 space-y-2">
+              {cepsDoForm.length === 0 && (
+                <p className="text-[11px] leading-snug text-content-secondary">
+                  Nenhum CEP cadastrado. Use o mapa para buscar, ou adicione manualmente.
+                </p>
+              )}
+
+              {cepsDoForm.map((item, indice) => (
+                <div key={indice} className="flex flex-wrap items-center gap-2">
+                  <Input
+                    value={item.cep || ''}
+                    onChange={(e) => alterarCep(indice, 'cep', e.target.value)}
+                    onBlur={(e) => alterarCep(indice, 'cep', normalizarCep(e.target.value) || e.target.value)}
+                    placeholder="Ex: 56400-000"
+                    className="w-[10.5rem] tabular-nums"
+                    aria-label={`CEP ${indice + 1}`}
+                  />
+                  {/* O TRECHO É O BAIRRO
+                      Sem ele, dois CEPs na mesma rua são dois números sem
+                      diferença — e quem consultar depois não saberá qual vale
+                      para o ponto que procura. */}
+                  <select
+                    value={item.bairro_id || ''}
+                    onChange={(e) => alterarCep(indice, 'bairro_id', e.target.value || null)}
+                    aria-label={`Trecho do CEP ${indice + 1}`}
+                    className="h-10 min-w-0 flex-1 rounded-md border border-edge-default bg-surface-raised px-2 text-sm text-content-primary"
+                  >
+                    <option value="">Rua inteira</option>
+                    {bairros.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removerCep(indice)}
+                    aria-label={`Remover CEP ${item.cep || indice + 1}`}
+                    className="shrink-0 text-red-500 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+
               <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  id="cep"
-                  name="cep"
-                  value={formData.cep || ''}
-                  onChange={handleChange}
-                  placeholder="Ex: 56400-000"
-                  className="min-w-0 flex-1"
-                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => adicionarCep()}
+                  className="gap-1.5 text-xs"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  Adicionar CEP
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -418,16 +523,13 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
                     <p className="text-[11px] font-semibold text-content-secondary">
                       {cepSugestoes.lista.length === 1
                         ? 'Encontrado 1 CEP para esta rua:'
-                        : `Encontrados ${cepSugestoes.lista.length} CEPs — escolha o do trecho:`}
+                        : `Encontrados ${cepSugestoes.lista.length} CEPs — adicione os que valem para esta rua:`}
                     </p>
                     {cepSugestoes.lista.map((c) => (
                       <button
                         key={c.cep}
                         type="button"
-                        onClick={() => {
-                          handleSelectChange('cep', c.cep);
-                          setCepSugestoes(null);
-                        }}
+                        onClick={() => adicionarCep(c.cep, bairroIdPeloNome(c.bairro))}
                         className="flex w-full items-center justify-between gap-2 rounded-md bg-surface-raised px-2.5 py-1.5 text-left ring-1 ring-edge-subtle transition-colors hover:bg-surface-subtleHover"
                       >
                         <span className="min-w-0">
@@ -754,7 +856,7 @@ const ManagePavementPage = () => {
   }, [fetchStreets, fetchBairros]);
 
   const handleSaveStreet = async (streetToSave) => {
-    const { id, name, location, bairro, bairro_name, cep, work_id, ...data } = streetToSave;
+    const { id, name, location, bairro, bairro_name, cep, ceps, work_id, ...data } = streetToSave;
 
     if (!name || name.trim() === '') {
         showAppError({ title: "Erro ao salvar", description: "O nome da rua é obrigatório.", variant: "destructive" });
@@ -872,10 +974,28 @@ const ManagePavementPage = () => {
       return false;
     }
 
+    const vistos = new Set();
+    const cepsParaSalvar = (Array.isArray(ceps) ? ceps : []).reduce((lista, item) => {
+      const numero = normalizarCep(item?.cep);
+      if (!numero || vistos.has(numero)) return lista;
+      vistos.add(numero);
+      lista.push({ cep: numero, bairro_id: item?.bairro_id || null });
+      return lista;
+    }, []);
+
     const payload = {
       name: trimmedName,
       is_unnamed: Boolean(data.is_unnamed),
-      cep: cep || null,
+      // CEPS: A LISTA É A VERDADE, `cep` É COMPATIBILIDADE
+      //
+      // Linha sem número é linha em branco que ficou na tela — descartar aqui
+      // evita gravar `{cep: ""}` e fazer a rua parecer ter CEP cadastrado.
+      // Repetido também sai: mesma faixa duas vezes não é trecho novo.
+      ceps: cepsParaSalvar,
+      // A coluna antiga continua recebendo o PRIMEIRO CEP enquanto houver
+      // leitor que só a conhece. Ela sai numa migração posterior, quando
+      // ninguém mais depender dela — ver 202_pavement_street_ceps.sql.
+      cep: cepsParaSalvar[0]?.cep || null,
       status: data.status,
       paving_date: data.paving_date,
       pavement_type: data.pavement_type,
@@ -963,7 +1083,9 @@ const ManagePavementPage = () => {
       if (!termo) return true;
       return (s.name || '').toLowerCase().includes(termo)
         || (s.bairro_name || '').toLowerCase().includes(termo)
-        || (s.cep || '').toLowerCase().includes(termo);
+        // Procurar por CEP tem de achar QUALQUER um dos trechos: quem digita
+        // "56408-193" quer a rua daquela faixa, e ela pode ser a segunda.
+        || cepsDaRua(s).some((c) => c.cep.toLowerCase().includes(termo));
     });
   }, [streets, buscaRua, mostrarSoSemNome]);
 
@@ -1053,7 +1175,12 @@ const ManagePavementPage = () => {
                     </div>
                     <p className="text-sm text-muted-foreground">Status: {getStatusText(street.status)}</p>
                     {street.bairro_name && <p className="text-sm text-muted-foreground">Bairro: {street.bairro_name}</p>}
-                    {street.cep && <p className="text-sm text-muted-foreground">CEP: {street.cep}</p>}
+                    {cepsDaRua(street).length > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        {cepsDaRua(street).length === 1 ? 'CEP: ' : 'CEPs: '}
+                        {cepsDaRua(street).map((c) => c.cep).join(' · ')}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-1">Última atualização: {new Date(street.updated_at).toLocaleString('pt-BR')}</p>
                   </div>
                   <div className="flex-shrink-0 flex gap-2">

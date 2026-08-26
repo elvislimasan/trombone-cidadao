@@ -188,3 +188,34 @@ test('servico fora do ar nao trava o cadastro', async () => {
   );
   assert.equal(erro500.motivo, 'servico-indisponivel');
 });
+
+// AS ABREVIACOES SAO O CASO QUE MAIS CUSTOU
+//
+// O ViaCEP responde HTTP 400 com ponto no logradouro, e guarda a forma por
+// extenso. Sem abrir "Cel." em "Coronel", a rua nem era consultada — e quando
+// era, o resultado certo vinha e era DESCARTADO pelo casamento estrito, como se
+// fosse de outra rua. Falha dupla, as duas caladas.
+test('a forma abreviada e a por extenso viram o mesmo nucleo', () => {
+  const pares = [
+    ['Rua Cel. Manoel Neto', 'Rua Coronel Manoel Neto'],
+    ['Rua Dr. Gilberto Ferraz', 'Rua Doutor Gilberto Ferraz'],
+    ['Av. Prof. Ana Lima', 'Avenida Professor Ana Lima'],
+    ['Rua Pe. Cicero', 'Rua Padre Cicero'],
+    ['Rua Sta. Rosa', 'Rua Santa Rosa'],
+  ];
+
+  for (const [abreviado, extenso] of pares) {
+    assert.equal(
+      nucleoDoLogradouro(abreviado),
+      nucleoDoLogradouro(extenso),
+      `${abreviado} deveria casar com ${extenso}`
+    );
+  }
+});
+
+test('ponto solto no meio do nome nao sobrevive ao nucleo', () => {
+  // "C. Leitão" e inicial de nome: o ponto quebraria a consulta e nao ajuda a
+  // comparar.
+  assert.equal(nucleoDoLogradouro('Rua Ângelo Tadeu de C. Leitão'), 'angelo tadeu de c leitao');
+  assert.ok(!nucleoDoLogradouro('Rua Dr. Fulano').includes('.'));
+});
