@@ -39,6 +39,7 @@ import process from 'node:process';
 
 import {
   buscarCepsPorLogradouro,
+  nomeParaBusca,
   normalizarCep,
   nucleoDoLogradouro,
 } from '../src/lib/cepLookup.js';
@@ -77,18 +78,6 @@ const cabecalhos = {
   Authorization: `Bearer ${CHAVE}`,
   'Content-Type': 'application/json',
 };
-
-/* --- O nome que vai para a consulta --- */
-//
-// O cadastro guarda "Rua Projetada 04 (Caetano 1)": o parêntese é a referência
-// de bairro que quem cadastrou pôs para distinguir homônimas. Ele não existe no
-// nome oficial, e mandá-lo ao ViaCEP garante zero resultados.
-
-const nomeParaBusca = (nome) =>
-  String(nome || '')
-    .replace(/\([^)]*\)/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
 
 /* --- Execução --- */
 

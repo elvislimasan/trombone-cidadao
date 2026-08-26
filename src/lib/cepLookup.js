@@ -86,6 +86,26 @@ const abrirAbreviacoes = (texto) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+/**
+ * O nome que vai para a consulta, sem o que o cadastro acrescentou.
+ *
+ * O cadastro guarda "Rua Projetada 04 (Caetano 1)" e "Rua Iracy Bedor Jardim
+ * (Rua Belém do São Francisco)": o parêntese é referência de bairro ou nome
+ * antigo, posto por quem cadastrou para distinguir homônimas. Não existe no
+ * nome oficial, e mandá-lo ao ViaCEP garante zero resultados.
+ *
+ * O parêntese ABERTO E NÃO FECHADO também precisa sair. Ele existe na base
+ * ("Rua Maria Adalva de Jesus (Dona Tita") e, sobrevivendo, quebra a consulta
+ * com HTTP 400 — uma rua que some do preenchimento por causa de um caractere
+ * que ninguém vê.
+ */
+export const nomeParaBusca = (nome) =>
+  String(nome ?? '')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\(.*$/, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export const nucleoDoLogradouro = (nome) =>
   abrirAbreviacoes(semAcento(nome).replace(TIPOS_DE_VIA, '').trim());
 

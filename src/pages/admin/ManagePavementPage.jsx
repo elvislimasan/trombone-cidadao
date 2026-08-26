@@ -23,6 +23,7 @@ import { cepsDaRua } from '@/lib/pavementReport';
 import {
   MOTIVOS,
   buscarCepsPorLogradouro,
+  nomeParaBusca,
   cepGenerico,
   normalizarCep,
   ordenarCandidatos,
@@ -229,7 +230,10 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
       const endereco = data?.raw?.address || {};
       // O nome digitado tem prioridade sobre o do mapa: quem cadastra sabe o
       // nome oficial, e o OSM às vezes traz a grafia antiga ou com erro.
-      const via = String(formData.name || '').trim() || String(endereco.road || '').trim();
+      // `nomeParaBusca` tira o parentese que o cadastro usa para distinguir
+      // homonimas ("Rua Projetada 04 (Caetano 1)"): ele nao existe no nome
+      // oficial e faria o ViaCEP devolver nada — ou recusar a consulta.
+      const via = nomeParaBusca(formData.name) || nomeParaBusca(endereco.road);
 
       const resultado = await buscarCepsPorLogradouro({
         uf: data?.state_uf,
