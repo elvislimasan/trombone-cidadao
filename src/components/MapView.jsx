@@ -1,4 +1,3 @@
-import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import React, { useEffect, useCallback, useRef, useState } from "react";
 import {
   MapContainer,
@@ -28,6 +27,11 @@ import { panParaOffsetDeTela } from "@/lib/navGeo";
 import { isPatrolTravelMode } from "@/lib/patrolTravelMode";
 import { patrolAvatarKey } from "@/lib/patrolAvatarConfig";
 import { patrolAvatarHtml } from "@/components/patrol/patrolAvatarMarkup";
+import {
+  MAP_LAYER,
+  MapBaseLayer,
+  MapLayerToggle,
+} from "@/components/map/MapDisplayControls";
 
 // Nivel de zoom ao enquadrar o usuario - na abertura da tela e no botao de
 // recentrar. Os dois usavam valores diferentes (16 e 17): o mapa abria mais
@@ -341,6 +345,10 @@ const MapView = ({
   onUpvote,
   showLegend = true,
   showModeToggle = true,
+  // Botao de satelite sobre o mapa. Opt-in: este MapView e o mesmo da patrulha,
+  // da conferencia e do detalhe da bronca, e nenhum deles pediu a troca de
+  // camada. Quem quer, liga.
+  showLayerToggle = false,
   flyToTarget,
   interactive = true,
   onBoundsChange,
@@ -376,6 +384,10 @@ const MapView = ({
   // o efeito de centralizacao repita o movimento assim que o watchPosition
   // devolver a primeira leitura.
   const hasCenteredRef = useRef(Boolean(initialCenter));
+  // A camada escolhida vive AQUI, e nao em quem chama: trocar para satelite e
+  // um ajuste de visualizacao momentaneo, nao uma preferencia que a pagina
+  // precise guardar ou sincronizar.
+  const [camadaDoMapa, setCamadaDoMapa] = useState(MAP_LAYER.STANDARD);
   const [userLocation, setUserLocation] = useState(null);
   const [clusterToZoom, setClusterToZoom] = useState(null);
 
@@ -624,7 +636,9 @@ const MapView = ({
           className="absolute inset-0"
           style={{ height: "100%", width: "100%" }}
         >
-          <ThemedTileLayer />
+          {/* A url do satelite mora em MapDisplayControls, junto do botao que a
+              liga — duas copias dela divergiriam no primeiro ajuste de zoom. */}
+          <MapBaseLayer layer={camadaDoMapa} />
           <MapInstanceBinder
             onReady={(map) => { mapRef.current = map; }}
             onBoundsChange={onBoundsChange}
@@ -811,6 +825,16 @@ const MapView = ({
             de categoria e com o carrossel, que ocupam o rodape do mapa. Ficam
             FORA do container girado: em navegacao eles precisam continuar de pe
             enquanto o mapa gira. */}
+        {/* SATELITE
+            Fica FORA do container girado, como os demais: em navegacao eles
+            precisam continuar de pe enquanto o mapa gira. E abaixo do bloco de
+            modo/localizacao para nao brigar por espaco quando os dois estao
+            ligados. */}
+        {showLayerToggle && (
+          <div className="absolute top-3 right-3 z-[800]">
+            <MapLayerToggle layer={camadaDoMapa} onLayerChange={setCamadaDoMapa} />
+          </div>
+        )}
         {showModeToggle && (
           <div className="absolute top-24 right-3 z-[800]">
             <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">

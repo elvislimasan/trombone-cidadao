@@ -19,6 +19,13 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { showAppError, showAppNotice } from '@/lib/appError';
+import {
+  MOTIVOS,
+  buscarCepsPorLogradouro,
+  cepGenerico,
+  normalizarCep,
+  ordenarCandidatos,
+} from '@/lib/cepLookup';
 import { formatarTamanhoArquivo } from '@/lib/pavementStreetHistory';
 import {
   PAVEMENT_DOCUMENT_ACCEPT,
@@ -49,6 +56,8 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
   const [bairroSearch, setBairroSearch] = useState('');
   const [creatingBairro, setCreatingBairro] = useState(false);
   const [fetchingMapBairro, setFetchingMapBairro] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [cepSugestoes, setCepSugestoes] = useState(null);
   const [activeStep, setActiveStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
@@ -128,6 +137,65 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
     onBairroCreated?.(data);
     handleSelectChange('bairro_id', data.id);
     setBairroSearch('');
+  };
+
+  // SUGERIR O CEP A PARTIR DO PINO
+  //
+  // O `postcode` que a geocodificação reversa devolve quase sempre é o CEP
+  // GENÉRICO do município — o terminado em `-000`, que vale para a cidade
+  // inteira e não identifica rua nenhuma. Preencher com ele deixaria a base
+  // cheia de campos preenchidos e nenhum CEP útil.
+  //
+  // O que o pino entrega de valioso é o ENDEREÇO: UF, município e nome da via.
+  // Com os três, a base dos Correios devolve os CEPs de verdade, cada um com o
+  // seu bairro — e é assim que a rua que atravessa três bairros aparece com os
+  // três CEPs dela, em vez de um só escolhido no chute.
+  const handleSuggestCep = async () => {
+    if (!formData?.location) {
+      showAppError({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
+      return;
+    }
+
+    setBuscandoCep(true);
+    setCepSugestoes(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+        body: { lat: formData.location.lat, lng: formData.location.lng, zoom: 18 },
+      });
+      if (error) {
+        showAppError({ title: 'Não foi possível ler o mapa', description: 'Tente novamente ou digite o CEP.', variant: 'destructive' });
+        return;
+      }
+
+      const endereco = data?.raw?.address || {};
+      // O nome digitado tem prioridade sobre o do mapa: quem cadastra sabe o
+      // nome oficial, e o OSM às vezes traz a grafia antiga ou com erro.
+      const via = String(formData.name || '').trim() || String(endereco.road || '').trim();
+
+      const resultado = await buscarCepsPorLogradouro({
+        uf: data?.state_uf,
+        cidade: data?.city,
+        logradouro: via,
+      });
+
+      const candidatos = ordenarCandidatos(resultado.candidatos, {
+        logradouro: via,
+        bairro: selectedBairroName,
+      });
+
+      // Nada preciso, mas o pino trouxe um CEP: oferece como último recurso,
+      // marcado como genérico para ninguém achar que é o da rua.
+      const doPino = normalizarCep(endereco.postcode);
+      const lista = candidatos.length
+        ? candidatos
+        : doPino
+          ? [{ cep: doPino, logradouro: via, bairro: '', cidade: data?.city || '', uf: data?.state_uf || '', generico: cepGenerico(doPino) }]
+          : [];
+
+      setCepSugestoes({ lista, motivo: lista.length ? 'ok' : resultado.motivo });
+    } finally {
+      setBuscandoCep(false);
+    }
   };
 
   const handleUseBairroFromMap = async () => {
@@ -313,7 +381,76 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, 
 
           <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
             <Label htmlFor="cep" className="sm:text-right">CEP</Label>
-            <Input id="cep" name="cep" value={formData.cep || ''} onChange={handleChange} placeholder="Ex: 56400-000" />
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  id="cep"
+                  name="cep"
+                  value={formData.cep || ''}
+                  onChange={handleChange}
+                  placeholder="Ex: 56400-000"
+                  className="min-w-0 flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSuggestCep}
+                  disabled={buscandoCep || !formData.location}
+                  title={formData.location ? 'Buscar pelo ponto marcado no mapa' : 'Marque o ponto no mapa primeiro'}
+                  className="gap-1.5 whitespace-nowrap text-xs"
+                >
+                  {buscandoCep
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <MapPin className="h-3.5 w-3.5" />}
+                  Buscar pelo mapa
+                </Button>
+              </div>
+
+              {/* UMA LISTA, E NÃO UM PREENCHIMENTO AUTOMÁTICO
+                  A rua que atravessa bairros tem mais de um CEP legítimo, e o
+                  app não tem como saber qual trecho é este pino. Escolher por
+                  quem cadastra deixaria a base com um CEP plausível e errado —
+                  que é pior que campo vazio, porque vazio se vê. */}
+              {cepSugestoes && (
+                cepSugestoes.lista.length ? (
+                  <div className="space-y-1.5 rounded-lg border border-edge-subtle bg-surface-subtle p-2">
+                    <p className="text-[11px] font-semibold text-content-secondary">
+                      {cepSugestoes.lista.length === 1
+                        ? 'Encontrado 1 CEP para esta rua:'
+                        : `Encontrados ${cepSugestoes.lista.length} CEPs — escolha o do trecho:`}
+                    </p>
+                    {cepSugestoes.lista.map((c) => (
+                      <button
+                        key={c.cep}
+                        type="button"
+                        onClick={() => {
+                          handleSelectChange('cep', c.cep);
+                          setCepSugestoes(null);
+                        }}
+                        className="flex w-full items-center justify-between gap-2 rounded-md bg-surface-raised px-2.5 py-1.5 text-left ring-1 ring-edge-subtle transition-colors hover:bg-surface-subtleHover"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-xs font-bold tabular-nums text-content-primary">{c.cep}</span>
+                          <span className="block truncate text-[11px] text-content-secondary">
+                            {c.bairro || (c.generico ? 'CEP geral do município' : c.logradouro || '—')}
+                          </span>
+                        </span>
+                        {c.generico && (
+                          <Badge variant="outline" className="shrink-0 border-status-pendingBorder bg-status-pendingBg text-[9px] text-status-pendingFg">
+                            genérico
+                          </Badge>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] leading-snug text-content-secondary">
+                    {MOTIVOS[cepSugestoes.motivo] || MOTIVOS['sem-resultado']}
+                  </p>
+                )
+              )}
+            </div>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start sm:gap-4">

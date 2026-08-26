@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import WorksMapView from '@/components/WorksMapView';
 import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
+import { TIPOS_DE_RELATORIO, montarRelatorio, relatorioParaCsv } from '@/lib/pavementReport';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
@@ -44,7 +45,10 @@ const PavementMapPage = () => {
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const [downloading, setDownloading] = useState(false);
-  const [reportScope, setReportScope] = useState('streets');
+  // Qual PERGUNTA o relatório responde, e em que formato sai. Duas escolhas
+  // separadas de propósito: o tipo é sobre conteúdo, o formato é sobre o que se
+  // vai fazer com ele — anexar num ofício (PDF) ou trabalhar numa planilha (CSV).
+  const [tipoRelatorio, setTipoRelatorio] = useState('panorama');
 
   // Mesma regra de imóveis alugados: admin/master gerenciam qualquer cidade;
   // embaixador puro só faz sentido clicar "Adicionar" com uma cidade sua
@@ -221,133 +225,139 @@ const PavementMapPage = () => {
     }
   };
 
-  const generatePdf = (scope) => {
+  // O PDF virou RENDERIZADOR, e nao mais o dono do relatorio.
+  //
+  // Antes esta funcao decidia o que entra no documento E desenhava as caixas na
+  // folha, com um `if` no meio para os dois formatos que existiam. Agora quem
+  // decide e `lib/pavementReport.js` — e por isso os tipos ganharam teste, que
+  // e o que uma conta destinada a prefeitura precisa ter.
+  //
+  // Aqui so sobrou papel: cabecalho, o grafico de barras do panorama e as
+  // tabelas que vierem, sejam quais forem.
+  const gerarPdf = (relatorio) => {
     const doc = new jsPDF();
-    const title = `Relatório de Pavimentação${activeCityName ? ` — ${activeCityName}` : ''}`;
     doc.setFontSize(16);
-    doc.text(title, 14, 18);
-    if (lastUpdate) {
+    doc.text(relatorio.titulo, 14, 18);
+
+    doc.setFontSize(11);
+    doc.text(relatorio.subtitulo, 14, 26);
+
+    doc.setFontSize(10);
+    let y = 34;
+    if (relatorio.atualizadoEm) {
+      doc.text(`Atualizado em: ${relatorio.atualizadoEm}`, 14, y);
+      y += 6;
+    }
+    if (relatorio.recorte) {
+      doc.text(`Bairros: ${relatorio.recorte}`, 14, y);
+      y += 6;
+    }
+
+    // O resumo acompanha todo tipo: a lista so significa alguma coisa ao lado
+    // do total da cidade.
+    y += 2;
+    for (const item of relatorio.resumo) {
+      doc.text(`${item.rotulo}: ${item.valor}${item.parte ? ` (${item.parte})` : ''}`, 14, y);
+      y += 6;
+    }
+
+    // O grafico entra so no panorama: nos relatorios de lista ele empurraria a
+    // tabela para a segunda pagina sem acrescentar nada.
+    if (relatorio.tipo === 'panorama') {
+      y += 4;
+      doc.setFontSize(12);
+      doc.text('Distribuição por status', 14, y);
       doc.setFontSize(10);
-      doc.text(`Atualizado em: ${new Date(lastUpdate).toLocaleString('pt-BR')}`, 14, 26);
-    }
-    doc.setFontSize(10);
-    doc.text(`Total: ${stats.total} | Pavimentadas: ${stats.paved} | Parcialmente: ${stats.partially_paved} | Sem pavimentação: ${stats.unpaved}`, 14, 34);
-    doc.text(`Sem nome oficial: ${stats.unnamed}`, 14, 40);
+      y += 8;
 
-    const chartStartY = 50;
-    doc.text('Distribuição por status', 14, chartStartY);
-    const series = [
-      { label: 'Pavimentadas', value: stats.paved, color: [55, 65, 81] },
-      { label: 'Parcialmente', value: stats.partially_paved, color: [107, 114, 128] },
-      { label: 'Sem pavimentação', value: stats.unpaved, color: [217, 119, 6] },
-    ];
-    const maxValue = Math.max(...series.map(s => s.value), 1);
-    const barMaxWidth = 80;
-    let currentY = chartStartY + 6;
-    doc.setFontSize(10);
-    series.forEach((item) => {
-      const barWidth = (item.value / maxValue) * barMaxWidth;
-      const percent = stats.total ? ((item.value / stats.total) * 100).toFixed(1) : '0.0';
-      doc.setFillColor(item.color[0], item.color[1], item.color[2]);
-      doc.rect(14, currentY - 3, barWidth, 4, 'F');
-      doc.setTextColor(0, 0, 0);
-      doc.text(`${item.label}: ${item.value} (${percent}%)`, 14 + barMaxWidth + 6, currentY);
-      currentY += 8;
-    });
+      const series = [
+        { label: 'Pavimentadas', value: relatorio.contagem.paved, color: [55, 65, 81] },
+        { label: 'Parcialmente', value: relatorio.contagem.partially_paved, color: [107, 114, 128] },
+        { label: 'Sem pavimentação', value: relatorio.contagem.unpaved, color: [217, 119, 6] },
+      ];
+      const maior = Math.max(...series.map((s) => s.value), 1);
+      const larguraMax = 80;
 
-    let startY = currentY + 6;
-
-    if (scope === 'neighborhoods') {
-      const neighborhoodMap = {};
-      streetData.forEach((s) => {
-        const neighborhoodName = s.bairro?.name || 'Sem bairro';
-        if (!neighborhoodMap[neighborhoodName]) {
-          neighborhoodMap[neighborhoodName] = { paved: 0, partially_paved: 0, unpaved: 0, unnamed: 0 };
-        }
-        if (s.status === 'paved') neighborhoodMap[neighborhoodName].paved += 1;
-        if (s.status === 'partially_paved') neighborhoodMap[neighborhoodName].partially_paved += 1;
-        if (s.status === 'unpaved') neighborhoodMap[neighborhoodName].unpaved += 1;
-        if (s.is_unnamed) neighborhoodMap[neighborhoodName].unnamed += 1;
-      });
-
-      const neighborhoodRows = Object.entries(neighborhoodMap).map(([name, counts]) => {
-        const total = counts.paved + counts.partially_paved + counts.unpaved;
-        return [name, counts.paved, counts.partially_paved, counts.unpaved, counts.unnamed, total];
-      });
-
-      if (neighborhoodRows.length) {
-        doc.setFontSize(12);
-        doc.text('Resumo por bairro', 14, startY);
-        doc.autoTable({
-          head: [['Bairro', 'Pavimentadas', 'Parcialmente', 'Sem pavimentação', 'Sem nome oficial', 'Total']],
-          body: neighborhoodRows,
-          startY: startY + 4,
-          styles: { fontSize: 9 },
-        });
-      }
-    } else {
-      const compareRows = (a, b) => {
-        const bairroA = (a[1] || '').toLowerCase();
-        const bairroB = (b[1] || '').toLowerCase();
-        if (bairroA < bairroB) return -1;
-        if (bairroA > bairroB) return 1;
-        const nameA = (a[0] || '').toLowerCase();
-        const nameB = (b[0] || '').toLowerCase();
-        if (nameA < nameB) return -1;
-        if (nameA > nameB) return 1;
-        return 0;
-      };
-
-      const pavedRows = streetData
-        .filter(s => s.status === 'paved')
-        .map(s => [s.name, s.bairro?.name || '-', 'Pavimentada'])
-        .sort(compareRows);
-
-      const partialRows = streetData
-        .filter(s => s.status === 'partially_paved')
-        .map(s => [s.name, s.bairro?.name || '-', 'Parcialmente'])
-        .sort(compareRows);
-
-      const unpavedRows = streetData
-        .filter(s => s.status === 'unpaved')
-        .map(s => [s.name, s.bairro?.name || '-', 'Sem pavimentação'])
-        .sort(compareRows);
-
-      if (pavedRows.length) {
-        doc.setFontSize(12);
-        doc.text('Ruas Pavimentadas', 14, startY);
-        doc.autoTable({ head: [['Rua', 'Bairro', 'Status']], body: pavedRows, startY: startY + 4, styles: { fontSize: 9 } });
-        startY = doc.lastAutoTable.finalY + 6;
-      }
-      if (partialRows.length) {
-        doc.text('Ruas Parcialmente Pavimentadas', 14, startY);
-        doc.autoTable({ head: [['Rua', 'Bairro', 'Status']], body: partialRows, startY: startY + 4, styles: { fontSize: 9 } });
-        startY = doc.lastAutoTable.finalY + 6;
-      }
-      if (unpavedRows.length) {
-        doc.text('Ruas Sem Pavimentação', 14, startY);
-        doc.autoTable({ head: [['Rua', 'Bairro', 'Status']], body: unpavedRows, startY: startY + 4, styles: { fontSize: 9 } });
-        startY = doc.lastAutoTable.finalY + 6;
-      }
-
-      const unnamedRows = streetData
-        .filter(s => s.is_unnamed)
-        .map(s => [s.name, s.bairro?.name || '-'])
-        .sort(compareRows);
-
-      if (unnamedRows.length) {
-        doc.text('Ruas sem nome oficial', 14, startY);
-        doc.autoTable({ head: [['Identificação provisória', 'Bairro']], body: unnamedRows, startY: startY + 4, styles: { fontSize: 9 } });
+      for (const item of series) {
+        const percent = relatorio.contagem.total
+          ? ((item.value / relatorio.contagem.total) * 100).toFixed(1)
+          : '0.0';
+        doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+        doc.rect(14, y - 3, (item.value / maior) * larguraMax, 4, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.text(`${item.label}: ${item.value} (${percent}%)`, 14 + larguraMax + 6, y);
+        y += 8;
       }
     }
+
+    for (const secao of relatorio.secoes) {
+      y += 4;
+      doc.setFontSize(12);
+      doc.text(secao.titulo, 14, y);
+      doc.autoTable({
+        head: [secao.colunas],
+        body: secao.linhas,
+        startY: y + 4,
+        styles: { fontSize: 9 },
+      });
+      y = doc.lastAutoTable.finalY + 6;
+      doc.setFontSize(10);
+    }
+
     return doc;
+  };
+
+  const relatorioAtual = () => montarRelatorio(tipoRelatorio, streetData, {
+    cidade: activeCityName,
+    atualizadoEm: lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null,
+  });
+
+  // O CSV É PARA TRABALHAR, O PDF É PARA ANEXAR
+  //
+  // Quem recebe "ruas sem pavimentação" na prefeitura vai ordenar, somar e
+  // cruzar com a planilha de orçamento. No PDF isso vira digitação manual — e
+  // digitação manual de uma lista de trezentas ruas é onde o número oficial
+  // ganha erro.
+  const handleDownloadCsv = async () => {
+    setDownloading(true);
+    try {
+      const relatorio = relatorioAtual();
+      const csv = relatorioParaCsv(relatorio);
+      const fileName = `pavimentacao_${relatorio.tipo}_${new Date().toISOString().split('T')[0]}.csv`;
+
+      if (Capacitor.isNativePlatform()) {
+        // O BOM do CSV é um caractere multibyte: `btoa` sozinho o corromperia,
+        // e o Excel abriria o arquivo com os acentos quebrados.
+        const bytes = new TextEncoder().encode(csv);
+        let binario = '';
+        for (const b of bytes) binario += String.fromCharCode(b);
+        await salvarDocumento({
+          base64: btoa(binario),
+          fileName,
+          contentType: 'text/csv',
+          tituloShare: fileName,
+        });
+      } else {
+        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      showAppError({ title: 'Erro ao gerar planilha', description: error.message || 'Não foi possível gerar o arquivo.', variant: 'destructive' });
+    } finally {
+      setTimeout(() => setDownloading(false), 800);
+    }
   };
 
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      const doc = generatePdf(reportScope);
-      const fileName = `relatorio_pavimentacao_${new Date().toISOString().split('T')[0]}.pdf`;
+      const relatorio = relatorioAtual();
+      const doc = gerarPdf(relatorio);
+      const fileName = `pavimentacao_${relatorio.tipo}_${new Date().toISOString().split('T')[0]}.pdf`;
       const isNative = Capacitor.isNativePlatform();
       if (isNative) {
         try {
@@ -410,48 +420,6 @@ const PavementMapPage = () => {
                     </Button>
                   </Link>
                 )}
-              </div>
-            </div>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] text-content-secondary">Conteúdo do PDF:</span>
-                <button
-                  type="button"
-                  onClick={() => setReportScope('streets')}
-                  className={`px-2 py-0.5 rounded-full border text-[10px] ${
-                    reportScope === 'streets'
-                      ? 'bg-surface-sunken text-white border-[#111827]'
-                      : 'bg-surface-raised text-content-secondary border-edge-subtle'
-                  }`}
-                >
-                  Todas as ruas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReportScope('neighborhoods')}
-                  className={`px-2 py-0.5 rounded-full border text-[10px] ${
-                    reportScope === 'neighborhoods'
-                      ? 'bg-surface-sunken text-white border-[#111827]'
-                      : 'bg-surface-raised text-content-secondary border-edge-subtle'
-                  }`}
-                >
-                  Resumo por bairro
-                </button>
-              </div>
-              <div>
-                <Button onClick={handleDownloadPdf} disabled={downloading} className="w-full md:w-auto">
-                  {downloading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Baixando...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="mr-2 h-4 w-4" />
-                      Baixar Relatório
-                    </>
-                  )}
-                </Button>
               </div>
             </div>
           </div>
@@ -642,6 +610,63 @@ const PavementMapPage = () => {
               Total de ruas mapeadas: {stats.total}
             </p>
           </motion.div>
+        </div>
+
+        {/* OS RELATÓRIOS FICAM NO FIM, DEPOIS DOS NÚMEROS
+            Estavam no topo, entre o título e o mapa: a primeira decisão
+            oferecida a quem abre a página era escolher um formato de arquivo.
+            Mas baixar relatório é o que se faz DEPOIS de olhar o mapa e os
+            gráficos — e quem chegou até aqui já sabe o que quer perguntar. */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+          {/* O RELATÓRIO PASSOU A SER UMA PERGUNTA, NÃO UM FORMATO
+              Eram dois chips — "todas as ruas" e "resumo por bairro" —, que
+              descreviam o conteúdo do arquivo. Quem baixa não quer escolher
+              seções: quer saber quantas ruas faltam pavimentar, quais estão
+              sem nome, o que falta preencher. Cada opção aqui responde uma
+              dessas, e a descrição diz qual. */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="tipo-relatorio" className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">
+              Relatório
+            </label>
+            <select
+              id="tipo-relatorio"
+              value={tipoRelatorio}
+              onChange={(e) => setTipoRelatorio(e.target.value)}
+              className="h-9 min-w-[15rem] rounded-lg border border-edge-default bg-surface-raised px-2.5 text-xs font-semibold text-content-primary"
+            >
+              {TIPOS_DE_RELATORIO.map((tipo) => (
+                <option key={tipo.id} value={tipo.id}>{tipo.label}</option>
+              ))}
+            </select>
+            <p className="max-w-xs text-[10px] leading-snug text-content-secondary">
+              {TIPOS_DE_RELATORIO.find((t) => t.id === tipoRelatorio)?.descricao}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={handleDownloadCsv}
+              disabled={downloading}
+              variant="outline"
+              className="w-full md:w-auto"
+              title="Planilha para abrir no Excel"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Planilha (CSV)
+            </Button>
+            <Button onClick={handleDownloadPdf} disabled={downloading} className="w-full md:w-auto">
+              {downloading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Baixando...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Relatório (PDF)
+                </>
+              )}
+            </Button>
+          </div>
         </div>
         </motion.div>
       </div>
