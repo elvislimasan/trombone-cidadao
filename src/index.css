@@ -1322,3 +1322,21 @@ input[type="password"]::-ms-clear {
 .petition-theme .text-balance {
   text-wrap: balance;
 }
+
+/* O MAPA DE DESENHAR TRAÇADO USA CRUZ, NÃO A MÃO.
+
+   A mão (`grab`, que é o padrão do Leaflet) tem o ponto ativo no meio da palma,
+   deslocado do que o desenho da mão sugere — e como a rua é uma linha fina, o
+   clique cai alguns pixels fora de onde a pessoa mirou. A cruz tem o ponto ativo
+   exatamente no cruzamento dos traços, que é onde o olho está.
+
+   `grabbing` continua sendo a mão fechada durante o arrasto: aí o cursor está
+   dizendo "estou movendo o mapa", e não "estou mirando". */
+.leaflet-container.desenhar-tracado,
+.leaflet-container.desenhar-tracado .leaflet-grab,
+.leaflet-container.desenhar-tracado .leaflet-interactive {
+  cursor: crosshair;
+}
+.leaflet-container.desenhar-tracado .leaflet-dragging .leaflet-grab {
+  cursor: grabbing;
+}

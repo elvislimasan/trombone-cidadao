@@ -1,5 +1,5 @@
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useMemo } from 'react';
-import { CircleMarker, MapContainer, Polyline, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polyline, Popup, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Image as ImageIcon, HardHat, Construction, Info, BookOpen, HelpCircle, Edit } from 'lucide-react';
 import L from 'leaflet';
@@ -101,7 +101,23 @@ const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, o
   const { mode } = useMapModeToggle();
   const { city: activeCity } = useCityView();
   const [zoom, setZoom] = useState(INITIAL_ZOOM);
-  const raioDoPonto = zoom >= 17 ? 9 : zoom >= 15 ? 7 : 5;
+
+  // A ESPESSURA ACOMPANHA O ZOOM, E ESSA É A DIFERENÇA ENTRE MAPA E BORRÃO.
+  //
+  // A linha era 5 px em qualquer zoom. No zoom de cidade, com trezentas ruas
+  // desenhadas, 5 px é mais largo que o quarteirão que a rua separa: os traços
+  // encostam, e o mapa vira um bloco de cor onde não se lê rua nenhuma.
+  //
+  // Afinando para 1,5 px de longe, o desenho volta a ter espaço entre as vias —
+  // e a malha da cidade aparece. De perto ela engrossa, porque aí há espaço e o
+  // que se quer é acertar o toque.
+  const espessuraDaVia = zoom >= 17 ? 5 : zoom >= 16 ? 3.5 : zoom >= 15 ? 2.5 : zoom >= 14 ? 2 : 1.5;
+  // A área de toque cresce junto, mas nunca abaixo de 14 px: é o mínimo para o
+  // dedo, e ela é invisível de qualquer forma.
+  const toqueDaVia = Math.max(14, espessuraDaVia * 3);
+  // O ponto é sempre menor que a linha da mesma rua seria. Ele marca "não sei o
+  // traçado", e não deve competir com o que se sabe.
+  const raioDoPonto = zoom >= 17 ? 5 : zoom >= 15 ? 3.5 : 2.5;
 
   useImperativeHandle(ref, () => ({
     goToLocation: (location) => {
@@ -159,7 +175,14 @@ const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, o
 
   return (
     <div className="w-full h-full bg-secondary rounded-lg overflow-hidden relative">
-      <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
+      <MapContainer
+        center={FLORESTA_COORDS}
+        zoom={INITIAL_ZOOM}
+        scrollWheelZoom={true}
+        className="w-full h-full"
+        zoomControl={false}
+      >
+        <ZoomControl position="topright" />
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
         <FitToStreets streets={streets} activeCity={activeCity} />
@@ -215,14 +238,14 @@ const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, o
                   positions={linhas}
                   ref={(el) => { if (el) markerRefs.current[street.id] = el; }}
                   className="via-pav-toque"
-                  pathOptions={{ weight: 16, opacity: 0 }}
+                  pathOptions={{ weight: toqueDaVia, opacity: 0 }}
                 >
                   {popup}
                 </Polyline>
                 <Polyline
                   positions={linhas}
                   className={`via-pav via-pav--${token}`}
-                  pathOptions={{ weight: 5 }}
+                  pathOptions={{ weight: espessuraDaVia }}
                   interactive={false}
                 />
               </React.Fragment>
@@ -239,7 +262,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, o
               center={[street.location.lat, street.location.lng]}
               radius={raioDoPonto}
               className={`ponto-pav ponto-pav--${token}`}
-              pathOptions={{ weight: 2 }}
+              pathOptions={{ weight: 1.5 }}
             >
               {popup}
             </CircleMarker>
@@ -247,7 +270,7 @@ const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, o
         })}
       </MapContainer>
 
-      <div className="absolute top-4 right-4 z-[800] flex flex-col gap-2">
+      <div className="absolute right-3 top-[5.5rem] z-[800] flex flex-col gap-2">
         <MapDisplayControls
           mapRef={mapRef}
           layer={mapLayer}

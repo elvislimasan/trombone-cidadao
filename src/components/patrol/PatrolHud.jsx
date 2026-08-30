@@ -55,6 +55,9 @@ export default function PatrolHud({
   modoDeslocamento = 'driving',
   emMovimento = false,
   categoriaNome = null,
+  // A bussola do proximo sinal. Entra na faixa dos avisos porque INFORMA — o
+  // rodape e de quem age, e esta faixa nunca pede toque.
+  alvo = null,
 }) {
   // A reserva vence o "sem rede" na hora de avisar: as duas coisas são
   // verdade ao mesmo tempo, mas só uma diz o que está acontecendo com os
@@ -99,6 +102,7 @@ export default function PatrolHud({
         </div>
 
         <div className="mx-3 mt-2 flex flex-wrap items-center gap-2">
+          {alvo}
           {aviso && (
             <div className="flex items-center gap-2 rounded-xl bg-status-pendingBg border border-status-pendingBorder px-3 py-2 pointer-events-auto">
               <aviso.Icon size={15} className="text-status-pendingFg shrink-0" />

@@ -85,7 +85,7 @@ export default function BuscaDeRua({ streets, valor, onValorChange, onEscolher }
       <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
       <Input
         type="text"
-        placeholder="Buscar por rua ou bairro..."
+        placeholder="Fazer Busca"
         className="h-9 border-edge-subtle bg-surface-raised pl-9 text-xs md:text-sm"
         value={valor}
         onChange={(e) => { onValorChange(e.target.value); setAberto(true); }}

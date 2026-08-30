@@ -25,9 +25,11 @@ import { frasear } from '@/lib/navGeo';
 import { PONTOS } from '@/lib/patrolGame';
 import { getPatrolShareUrl } from '@/lib/shareUtils';
 import { nomeDaCategoria } from '@/lib/reportCategories';
+import { escolherAlvo, rumoRelativo } from '@/lib/patrolAlvo';
 import { getPatrolTravelMode, normalizePatrolTravelMode } from '@/lib/patrolTravelMode';
 
 import PatrolHud from './PatrolHud';
+import PatrolAlvoPointer from './PatrolAlvoPointer';
 import PatrolAlertCard from './PatrolAlertCard';
 import PatrolSummary from './PatrolSummary';
 import PatrolExitSheet from './PatrolExitSheet';
@@ -248,6 +250,22 @@ export default function PatrolOverlay({
   // mediu — distância, tempo, broncas confirmadas — e os sinais aparecem no
   // nível do usuário, que é onde valem pontos.
   const sinais = usePatrolSignals(posicao, { cityId, bairro, rua, categoria });
+
+  // PARA ONDE APONTAR AGORA.
+  //
+  // O alvo é recalculado a cada leitura de GPS e a cada mudança na lista de
+  // sinais — registrar ou descartar um faz o próximo assumir sozinho, sem
+  // pedir confirmação.
+  //
+  // A atualização é FUNCIONAL (`(atual) => ...`) de propósito: `escolherAlvo`
+  // precisa do alvo anterior para aplicar a inércia que impede a seta de
+  // oscilar entre dois sinais quase equidistantes. Ler o alvo de fora do
+  // `setState` traria o valor do render anterior, e a inércia se perderia
+  // justamente nas trocas rápidas que ela existe para conter.
+  const [alvo, setAlvo] = useState(null);
+  useEffect(() => {
+    setAlvo((atual) => escolherAlvo(posicao, sinais.missoes, atual));
+  }, [posicao, sinais.missoes]);
 
   // Baixa o mapa do caminho enquanto ainda há rede, para o modal de registro
   // ter o que desenhar quando o sinal cair — ver hooks/usePatrolTilePrefetch.
@@ -863,6 +881,18 @@ export default function PatrolOverlay({
         modoDeslocamento={modo.id}
         emMovimento={Boolean(posicao?.emMovimento)}
         categoriaNome={nomeDaCategoria(categoria)}
+        // Só na camada livre: durante um alerta a pessoa está respondendo sobre
+        // UM ponto, e apontar para outro ao mesmo tempo divide a atenção de
+        // quem provavelmente está dirigindo.
+        alvo={
+          camada === 'livre' ? (
+            <PatrolAlvoPointer
+              alvo={alvo}
+              rumo={rumoRelativo(posicao, alvo)}
+              categoriaNome={alvo ? nomeDaCategoria(alvo.category) : null}
+            />
+          ) : null
+        }
         // O botão entra COMO CONTEÚDO da faixa inferior, não sobre ela: é o
         // flex do HUD que garante que ele nunca alcance o velocímetro.
         acao={

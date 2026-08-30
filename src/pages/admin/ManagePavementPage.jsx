@@ -37,6 +37,7 @@ const ManagePavementPage = () => {
   const [buscaRua, setBuscaRua] = useState('');
   const [mostrarSoSemNome, setMostrarSoSemNome] = useState(false);
   const [mostrarSoSemCep, setMostrarSoSemCep] = useState(false);
+  const [mostrarSoSemTracado, setMostrarSoSemTracado] = useState(false);
   const [editingStreet, setEditingStreet] = useState(null);
   const [deletingStreet, setDeletingStreet] = useState(null);
   const [importandoTracado, setImportandoTracado] = useState(null); // null | { feitas, total, achadas }
@@ -152,6 +153,21 @@ const ManagePavementPage = () => {
   // só na lista nova não pode aparecer como pendente.
   const totalSemCep = useMemo(
     () => streets.filter((street) => cepsDaRua(street).length === 0).length,
+    [streets]
+  );
+
+  // DUAS CONTAS DIFERENTES SOBRE A MESMA COLUNA, E ELAS NÃO PODEM SE MISTURAR.
+  //
+  // `totalSemTracado` é o FILTRO: toda rua sem linha no mapa, inclusive as sem
+  // nome oficial. São exatamente essas que precisam ser desenhadas à mão, então
+  // escondê-las do filtro esconderia o trabalho que sobrou.
+  //
+  // `semTracado` é o universo da IMPORTAÇÃO automática, que é menor: rua sem
+  // nome não existe no OpenStreetMap com esse nome, e rua sem ponto não tem de
+  // onde partir a busca. Usar a conta do filtro ali faria o botão prometer 91
+  // e achar 55.
+  const totalSemTracado = useMemo(
+    () => streets.filter((street) => !street.path).length,
     [streets]
   );
 
@@ -281,6 +297,7 @@ const ManagePavementPage = () => {
     return streets.filter((s) => {
       if (mostrarSoSemNome && !s.is_unnamed) return false;
       if (mostrarSoSemCep && cepsDaRua(s).length > 0) return false;
+      if (mostrarSoSemTracado && s.path) return false;
       if (!termo) return true;
       return (s.name || '').toLowerCase().includes(termo)
         || (s.bairro_name || '').toLowerCase().includes(termo)
@@ -288,11 +305,11 @@ const ManagePavementPage = () => {
         // "56408-193" quer a rua daquela faixa, e ela pode ser a segunda.
         || cepsDaRua(s).some((c) => c.cep.toLowerCase().includes(termo));
     });
-  }, [streets, buscaRua, mostrarSoSemNome, mostrarSoSemCep]);
+  }, [streets, buscaRua, mostrarSoSemNome, mostrarSoSemCep, mostrarSoSemTracado]);
 
   const { visiveis: ruasVisiveis, propsPaginacao: propsPaginacaoRuas } = useListaPaginada(
     ruasFiltradas,
-    { porPagina: 20, chaveFiltro: `${buscaRua}|${mostrarSoSemNome}|${mostrarSoSemCep}` }
+    { porPagina: 20, chaveFiltro: `${buscaRua}|${mostrarSoSemNome}|${mostrarSoSemCep}|${mostrarSoSemTracado}` }
   );
 
   return (
@@ -357,6 +374,19 @@ const ManagePavementPage = () => {
                     {totalSemCep} sem CEP
                   </Button>
                 )}
+                {totalSemTracado > 0 && (
+                  <Button
+                    type="button"
+                    variant={mostrarSoSemTracado ? 'default' : 'outline'}
+                    size="sm"
+                    className="gap-2"
+                    aria-pressed={mostrarSoSemTracado}
+                    onClick={() => setMostrarSoSemTracado((current) => !current)}
+                  >
+                    <Road className="h-4 w-4" />
+                    {totalSemTracado} sem traçado
+                  </Button>
+                )}
                 {semTracado.length > 0 && (
                   <Button
                     type="button"
@@ -379,7 +409,7 @@ const ManagePavementPage = () => {
             <div className="relative mt-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por rua, bairro ou CEP..."
+                placeholder="Fazer busca"
                 className="pl-10"
                 value={buscaRua}
                 onChange={(e) => setBuscaRua(e.target.value)}
@@ -389,7 +419,9 @@ const ManagePavementPage = () => {
           <CardContent>
             {ruasVisiveis.length === 0 ? (
               <p className="text-center text-muted-foreground py-10">
-                {buscaRua || mostrarSoSemNome ? 'Nenhuma rua corresponde ao filtro.' : 'Nenhuma rua cadastrada ainda.'}
+                {buscaRua || mostrarSoSemNome || mostrarSoSemCep || mostrarSoSemTracado
+                  ? 'Nenhuma rua corresponde ao filtro.'
+                  : 'Nenhuma rua cadastrada ainda.'}
               </p>
             ) : (
             <div className="space-y-3">
@@ -405,6 +437,14 @@ const ManagePavementPage = () => {
                       {street.is_unnamed && (
                         <Badge variant="outline" className="gap-1 border-status-pendingBorder bg-status-pendingBg text-status-pendingFg hover:bg-status-pendingBg">
                           <HelpCircle className="h-3 w-3" /> Sem nome oficial
+                        </Badge>
+                      )}
+                      {/* Com o filtro ligado toda linha teria o selo, e ele não
+                          diria nada. Ele serve para o oposto: percorrer a lista
+                          inteira e enxergar quais ainda faltam desenhar. */}
+                      {!street.path && (
+                        <Badge variant="outline" className="gap-1 text-content-tertiary">
+                          <Road className="h-3 w-3" /> Sem traçado
                         </Badge>
                       )}
                     </div>

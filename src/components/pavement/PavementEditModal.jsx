@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { MapPin, PlusCircle, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, UploadCloud, Loader2, Save, Trash2, Star, Route as Road } from 'lucide-react';
+import { MapPin, PlusCircle, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, UploadCloud, Loader2, Save, Trash2, Star, Route as Road, PenLine } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,6 +10,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { showAppError, showAppNotice } from '@/lib/appError';
+import DesenharTracado from '@/components/pavement/DesenharTracado';
 import { cepsDaRua } from '@/lib/pavementReport';
 import {
   buildOverpassQueryAround,
@@ -53,6 +54,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
   const [activeStep, setActiveStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [buscandoTracado, setBuscandoTracado] = useState(false);
+  const [desenhando, setDesenhando] = useState(false);
 
   useEffect(() => {
     if (street) {
@@ -886,9 +888,29 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                   ? <><Loader2 className="h-4 w-4 animate-spin" /> Buscando...</>
                   : <><Road className="h-4 w-4" /> Buscar traçado no OpenStreetMap</>}
               </Button>
+
+              {/* DESENHAR À MÃO É O QUE FECHA O MAPA.
+                  A busca automática erra sempre as mesmas ruas: as que o OSM não
+                  tem, as sem nome oficial e as de grafia divergente — ou seja, as
+                  mais novas e as mais precárias, que são exatamente as que
+                  importam num mapa de pavimentação. Sem esta opção elas ficariam
+                  como ponto para sempre.
+                  Exige o pino, porque o desenho precisa de um lugar para abrir. */}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                disabled={!formData.location}
+                title={formData.location ? undefined : 'Marque o ponto da rua primeiro'}
+                onClick={() => setDesenhando(true)}
+              >
+                <PenLine className="h-4 w-4" /> Desenhar traçado
+              </Button>
+
               <p className="text-xs text-muted-foreground">
                 {formData.path_wkt
-                  ? 'Traçado novo encontrado — salve para gravar.'
+                  ? `Traçado ${formData.path_source === 'manual' ? 'desenhado' : 'encontrado'} — salve para gravar.`
                   : formData.path
                   ? 'Esta rua já tem traçado gravado.'
                   : 'Sem traçado: a rua aparece no mapa como um ponto.'}
@@ -914,6 +936,21 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
           </DialogFooter>
         </form>
       </FormDialogContent>
+      {/* O desenho vive FORA do <form>: um clique no mapa dentro do formulário
+          seria interpretado como envio em alguns navegadores, e a pessoa
+          perderia a etapa 2 no primeiro toque. */}
+      {/* Montagem CONDICIONAL, e nao so `aberto={...}`: o componente guarda os
+          pontos em estado proprio, e mantido montado ele reabriria com o
+          desenho da rua anterior ja na tela. */}
+      {desenhando && (
+      <DesenharTracado
+        aberto
+        nomeDaRua={formData?.name}
+        centro={formData?.location}
+        onConcluir={(wkt) => setFormData((atual) => ({ ...atual, path_wkt: wkt, path_source: 'manual' }))}
+        onFechar={() => setDesenhando(false)}
+      />
+      )}
     </Dialog>
   );
 };

@@ -39,10 +39,17 @@
   --tc-amber-100: 254 243 199;
   --tc-amber-200: 253 230 138;
   --tc-amber-300: 252 211 77;
+  --tc-amber-500: 245 158 11;
   --tc-amber-600: 217 119 6;
   --tc-amber-700: 180 83 9;
   --tc-amber-900: 120 53 15;
   --tc-amber-950: 69 26 3;
+
+  /* Laranja - "falta pavimento". Separado do ambar de proposito: no mapa de
+     pavimentacao as duas coisas aparecem lado a lado (parcialmente vs sem
+     pavimentacao) e um traco de 2px nao distingue dois tons do mesmo tom. */
+  --tc-orange-300: 253 186 116;
+  --tc-orange-600: 234 88 12;
 
   /* Azul - status em andamento */
   --tc-blue-100: 219 234 254;
