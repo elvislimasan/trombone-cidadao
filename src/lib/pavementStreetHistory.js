@@ -102,6 +102,9 @@ export const normalizarFotos = (street) =>
       caption: textoLimpo(item?.caption),
       date: textoLimpo(item?.date),
       subject: textoLimpo(item?.subject) || 'street',
+      // Chave nova em coluna `jsonb`: cadastro antigo não a tem, e a ausência
+      // significa "não é destaque" — que é o comportamento de antes dela existir.
+      featured: item?.featured === true,
     }];
   });
 
@@ -116,16 +119,76 @@ export const normalizarDocumentos = (street) =>
       description: textoLimpo(item?.description),
       type: tipoDoArquivo(item),
       size: formatarTamanhoArquivo(item?.size),
+      // `kind` diz O QUE o documento é; `type` diz o formato do arquivo. Os dois
+      // nomes convivem porque `type` já significava "PDF" muito antes disto.
+      //
+      // Ausência vira "outro", nunca "lei": o filtro da lei municipal existe
+      // para conferir o cadastro contra a prefeitura, e documento que ninguém
+      // classificou ainda não é prova de nada.
+      kind: item?.kind === 'lei' ? 'lei' : 'outro',
     }];
   });
 
 /**
+ * A rua tem a lei municipal anexada?
+ *
+ * Conta só o que alguém marcou como lei. Contar qualquer anexo faria uma rua
+ * com um ofício qualquer aparecer como conferida contra a prefeitura, que é
+ * exatamente a pergunta que o filtro existe para responder.
+ */
+export const temLeiMunicipal = (street) =>
+  normalizarDocumentos(street).some((documento) => documento.kind === 'lei');
+
+/**
+ * O nome do homenageado repete o da rua?
+ *
+ * "Rua Maria Elianete dos Santos Lima" seguida de "Maria Elianete dos Santos
+ * Lima" gasta duas linhas para dizer uma coisa só. Quando o título da página já
+ * carrega o nome, o cartão do homenageado mostra a FOTO e a biografia — que é
+ * o que ele tem de próprio.
+ *
+ * A comparação ignora acento e caixa porque o cadastro diverge: a placa da rua
+ * diz "Damiao" e a biografia diz "Damião", e as duas são a mesma pessoa.
+ */
+export const nomeRedundante = (nomeDaRua, nomeDoHomenageado) => {
+  const dobrar = (valor) => textoLimpo(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const rua = dobrar(nomeDaRua);
+  const homenageado = dobrar(nomeDoHomenageado);
+  if (!rua || !homenageado) return false;
+  return rua.includes(homenageado);
+};
+
+/**
+ * As fotos DA RUA, na ordem de exibição: a destacada primeiro.
+ *
+ * O retrato do homenageado fica de fora. Ele tem lugar próprio na página — no
+ * cartão "Quem dá nome à rua" — e entrar na galeria o faria aparecer duas
+ * vezes, uma delas fora de contexto.
+ */
+export const fotosDaRuaOrdenadas = (fotos) => {
+  const daRua = (fotos || []).filter((foto) => foto.subject === 'street');
+  const destaque = daRua.find((foto) => foto.featured);
+  return destaque ? [destaque, ...daRua.filter((foto) => foto !== destaque)] : daRua;
+};
+
+/**
  * A imagem de fundo do topo da página.
  *
- * Não há campo de capa, e criar um custaria uma migração para repetir uma foto
- * que a rua já tem. A primeira foto DA RUA serve: é a que retrata o lugar. A do
- * homenageado não entra — um retrato desfocado atrás do nome da via leria como
- * homenagem póstuma, que não é o que a página diz.
+ * A DESTACADA GANHA; SEM ELA, A PRIMEIRA DA RUA
+ *
+ * O segundo degrau é o comportamento que existia antes do destaque, e é o que
+ * faz todo cadastro já feito continuar com exatamente a mesma capa — a coluna é
+ * `jsonb` e ninguém precisa reabrir rua nenhuma.
+ *
+ * A do homenageado não entra em nenhum dos dois casos, nem marcada como
+ * destaque: um retrato desfocado atrás do nome da via leria como homenagem
+ * póstuma, que não é o que a página diz.
  */
-export const capaDaRua = (fotos) =>
-  (fotos || []).find((foto) => foto.subject === 'street') || null;
+export const capaDaRua = (fotos) => fotosDaRuaOrdenadas(fotos)[0] || null;

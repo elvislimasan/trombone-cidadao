@@ -1134,6 +1134,37 @@ body > * a:not(.leaflet-container a) {
   border: 0;
 }
 
+/* O TRAÇADO DA RUA NO MAPA DE PAVIMENTAÇÃO
+   A cor entra por CSS, e não por `pathOptions.color`, porque os tokens são
+   tripletes consumidos como rgb(var(--x)) e var() NÃO resolve dentro de um
+   atributo de apresentação SVG — que é onde o Leaflet escreve `stroke`. É a
+   mesma armadilha documentada em src/components/map/pinIcon.js:60-63. */
+.leaflet-container .via-pav {
+  stroke: rgb(var(--pin-pav-unknown-bg));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.leaflet-container .via-pav--paved   { stroke: rgb(var(--pin-pav-paved-bg)); }
+.leaflet-container .via-pav--partial { stroke: rgb(var(--pin-pav-partial-bg)); }
+.leaflet-container .via-pav--unpaved { stroke: rgb(var(--pin-pav-unpaved-bg)); }
+
+/* A área de toque: 5 px é confortável para o olho e impossível para o dedo. */
+.leaflet-container .via-pav-toque {
+  stroke: rgb(0 0 0);
+  stroke-opacity: 0;
+  cursor: pointer;
+}
+
+/* O ponto das ruas sem traçado. Anel claro para separar do fundo do mapa. */
+.leaflet-container .ponto-pav {
+  stroke: rgb(var(--pin-ring));
+  fill-opacity: 1;
+}
+.leaflet-container .ponto-pav--paved   { fill: rgb(var(--pin-pav-paved-bg)); }
+.leaflet-container .ponto-pav--partial { fill: rgb(var(--pin-pav-partial-bg)); }
+.leaflet-container .ponto-pav--unpaved { fill: rgb(var(--pin-pav-unpaved-bg)); }
+.leaflet-container .ponto-pav--unknown { fill: rgb(var(--pin-pav-unknown-bg)); }
+
 /* Popup: o leaflet.css pinta `.leaflet-popup-content-wrapper` e o `-tip` com
    `background: white` fixo, entao no tema escuro o balao saia branco no meio do
    mapa escuro. Precisa de `.leaflet-container` na frente porque este arquivo e

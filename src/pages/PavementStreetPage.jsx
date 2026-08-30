@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useParams } from 'react-router-dom';
 import { CircleMarker, MapContainer } from 'react-leaflet';
@@ -14,18 +14,25 @@ import {
   Loader2,
   MapPin,
   Navigation,
+  Pencil,
   Sparkles,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import BackButton from '@/components/BackButton';
+import MediaViewer from '@/components/MediaViewer';
+import PavementEditModal from '@/components/pavement/PavementEditModal';
 import { supabase } from '@/lib/customSupabaseClient';
+import { savePavementStreet } from '@/lib/savePavementStreet';
+import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { MapBaseLayer } from '@/components/map/MapDisplayControls';
 import { cepsDaRua } from '@/lib/pavementReport';
 import { showAppError } from '@/lib/appError';
 import {
   capaDaRua,
   formatarDataBr,
+  fotosDaRuaOrdenadas,
+  nomeRedundante,
   normalizarDocumentos,
   normalizarFotos,
   textoLimpo,
@@ -163,7 +170,7 @@ const LegendaFoto = ({ foto }) => {
   );
 };
 
-const CarrosselFotos = ({ fotos, nomeDaRua }) => {
+const CarrosselFotos = ({ fotos, nomeDaRua, onAbrir }) => {
   const trilhoRef = useRef(null);
   const [ativo, setAtivo] = useState(0);
 
@@ -202,14 +209,19 @@ const CarrosselFotos = ({ fotos, nomeDaRua }) => {
       >
         {fotos.map((foto, indice) => (
           <figure key={`${foto.url}-${indice}`} className="w-[46%] min-w-[9.5rem] shrink-0 snap-start sm:w-[30%]">
-            <div className="overflow-hidden rounded-2xl bg-surface-subtle">
+            <button
+              type="button"
+              onClick={() => onAbrir(indice)}
+              className="block w-full overflow-hidden rounded-2xl bg-surface-subtle"
+              aria-label={`Abrir ${foto.caption || nomeDaRua} em tela cheia`}
+            >
               <img
                 src={foto.url}
                 alt={foto.caption || nomeDaRua}
                 className="aspect-[4/3] w-full object-cover"
                 loading="lazy"
               />
-            </div>
+            </button>
             <figcaption><LegendaFoto foto={foto} /></figcaption>
           </figure>
         ))}
@@ -232,13 +244,18 @@ const CarrosselFotos = ({ fotos, nomeDaRua }) => {
   );
 };
 
-const GradeFotos = ({ fotos, nomeDaRua }) => (
+const GradeFotos = ({ fotos, nomeDaRua, onAbrir }) => (
   <div className="grid gap-4 px-4 pb-5 sm:grid-cols-2 sm:px-5 lg:grid-cols-3">
     {fotos.map((foto, indice) => (
       <figure key={`${foto.url}-${indice}`}>
-        <div className="overflow-hidden rounded-2xl bg-surface-subtle">
+        <button
+          type="button"
+          onClick={() => onAbrir(indice)}
+          className="block w-full overflow-hidden rounded-2xl bg-surface-subtle"
+          aria-label={`Abrir ${foto.caption || nomeDaRua} em tela cheia`}
+        >
           <img src={foto.url} alt={foto.caption || nomeDaRua} className="aspect-[4/3] w-full object-cover" loading="lazy" />
-        </div>
+        </button>
         <figcaption><LegendaFoto foto={foto} /></figcaption>
       </figure>
     ))}
@@ -278,6 +295,14 @@ const LinhaDocumento = ({ documento }) => {
 
 const DOCUMENTOS_VISIVEIS = 3;
 
+/** As fotos no formato que o MediaViewer lê. */
+const paraOVisor = (fotos) => fotos.map((foto) => ({
+  type: 'photo',
+  url: foto.url,
+  description: foto.caption,
+  name: formatarDataBr(foto.date),
+}));
+
 /* --- A página --- */
 
 export default function PavementStreetPage() {
@@ -288,52 +313,86 @@ export default function PavementStreetPage() {
   const [notFound, setNotFound] = useState(false);
   const [todasAsFotos, setTodasAsFotos] = useState(false);
   const [todosOsDocumentos, setTodosOsDocumentos] = useState(false);
+  // `null` = fechado. Guarda a lista E o índice porque o retrato do homenageado
+  // abre sozinho, fora da galeria da rua.
+  const [visor, setVisor] = useState(null);
+  const [editando, setEditando] = useState(false);
+  const [bairros, setBairros] = useState([]);
+  // Nome do bairro de cada CEP, por id. Consulta propria porque o `select` da
+  // rua so traz o bairro DELA, e um CEP pode apontar para outro.
+  const [bairroDoCep, setBairroDoCep] = useState({});
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('pavement_streets')
-        .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)')
-        .eq('id', streetId)
-        .maybeSingle();
+  const { canManage, isPureAmbassador, myActiveCityIds } = useCanManagePavement(street?.city_id);
 
-      if (cancelled) return;
-      setLoading(false);
-      if (error) {
-        showAppError({ title: 'Erro ao carregar a rua', description: error.message });
-        setNotFound(true);
-        return;
-      }
-      if (!data) {
-        setNotFound(true);
-        return;
-      }
-      setStreet({ ...data, location: parseLocation(data.location) });
+  const carregarRua = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('pavement_streets')
+      .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)')
+      .eq('id', streetId)
+      .maybeSingle();
 
-      // A cidade vem numa consulta À PARTE, e de propósito.
-      //
-      // Ela só alimenta o "PE" do chip do topo. Pendurá-la no `select` acima
-      // faria uma falha de relacionamento derrubar a página inteira por causa
-      // de duas letras — aqui, se não vier, o chip mostra só o bairro.
-      if (!data.city_id) return;
-      const { data: cidade } = await supabase
-        .from('cities')
-        .select('name, states(uf)')
-        .eq('id', data.city_id)
-        .maybeSingle();
-      if (!cancelled && cidade) setLocalidade({ nome: cidade.name, uf: cidade.states?.uf || '' });
-    })();
-    return () => { cancelled = true; };
+    setLoading(false);
+    if (error) {
+      showAppError({ title: 'Erro ao carregar a rua', description: error.message });
+      setNotFound(true);
+      return;
+    }
+    if (!data) {
+      setNotFound(true);
+      return;
+    }
+    setStreet({ ...data, location: parseLocation(data.location) });
+
+    // A cidade vem numa consulta À PARTE, e de propósito.
+    //
+    // Ela só alimenta o "PE" do chip do topo. Pendurá-la no `select` acima
+    // faria uma falha de relacionamento derrubar a página inteira por causa
+    // de duas letras — aqui, se não vier, o chip mostra só o bairro.
+    if (!data.city_id) return;
+    const { data: cidade } = await supabase
+      .from('cities')
+      .select('name, states(uf)')
+      .eq('id', data.city_id)
+      .maybeSingle();
+    if (cidade) setLocalidade({ nome: cidade.name, uf: cidade.states?.uf || '' });
   }, [streetId]);
+
+  useEffect(() => { carregarRua(); }, [carregarRua]);
+
+  // Os bairros que os CEPs apontam. Uma rua comprida tem um CEP por trecho, e
+  // cada trecho pode ser de um bairro diferente do bairro principal da rua —
+  // que é o único que o `select` da rua traz.
+  useEffect(() => {
+    const ids = [...new Set(cepsDaRua(street).map((c) => c.bairroId).filter(Boolean))];
+    if (ids.length === 0) { setBairroDoCep({}); return; }
+    let cancelado = false;
+    supabase.from('bairros').select('id, name').in('id', ids).then(({ data }) => {
+      if (cancelado) return;
+      setBairroDoCep(Object.fromEntries((data || []).map((b) => [b.id, b.name])));
+    });
+    return () => { cancelado = true; };
+  }, [street]);
+
+  // Só quem pode editar paga a busca de bairros — visitante não usa a lista.
+  useEffect(() => {
+    if (!canManage) { setBairros([]); return; }
+    let cancelled = false;
+    supabase.from('bairros').select('*').order('name').then(({ data }) => {
+      if (!cancelled) setBairros(data || []);
+    });
+    return () => { cancelled = true; };
+  }, [canManage]);
 
   const fotos = useMemo(() => normalizarFotos(street), [street]);
   const documentos = useMemo(() => normalizarDocumentos(street), [street]);
 
   const capa = capaDaRua(fotos);
   const fotoDoHomenageado = fotos.find((foto) => foto.subject === 'honoree');
-  const fotosDaRua = fotos.filter((foto) => foto.subject !== 'honoree');
+  // Mesma função que decide a capa e o popup do mapa: a destacada primeiro, e
+  // só fotos com subject 'street' — sem isso a galeria divergia das outras
+  // duas telas tanto na ordem quanto em qual foto conta como "da rua".
+  const fotosDaRua = fotosDaRuaOrdenadas(fotos);
 
   const honoreeName = textoLimpo(street?.honoree_name);
   const biography = textoLimpo(street?.biography);
@@ -342,6 +401,7 @@ export default function PavementStreetPage() {
   // A rua pode ter um CEP por trecho — mostrar so o primeiro esconderia
   // exatamente a informacao que quem procura o endereco veio buscar.
   const ceps = cepsDaRua(street);
+  const nomeDoHomenageadoRepete = nomeRedundante(street?.name, honoreeName);
   const pavementStatus = statusLabel(street);
   const atualizadoEm = formatarDataBr(street?.updated_at);
 
@@ -388,7 +448,19 @@ export default function PavementStreetPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-surface-base/50 via-surface-base/80 to-surface-base" />
 
         <div className="relative mx-auto max-w-3xl px-4 pb-8 pt-4">
-          <BackButton paraOnde="/mapa-pavimentacao" className="-ml-3" />
+          <div className="flex items-center justify-between gap-2">
+            <BackButton paraOnde="/mapa-pavimentacao" className="-ml-3" />
+            {canManage && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-1.5 rounded-full"
+                onClick={() => setEditando(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" /> Editar
+              </Button>
+            )}
+          </div>
 
           <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">História da rua</p>
           <h1 className="mt-2 text-3xl font-extrabold leading-tight text-content-primary sm:text-4xl">{street.name}</h1>
@@ -414,12 +486,20 @@ export default function PavementStreetPage() {
                 <HelpCircle className="h-4 w-4" /> Sem nome oficial
               </span>
             )}
+            {/* CADA CEP DIZ A QUE TRECHO PERTENCE.
+                Uma rua comprida atravessa bairro, e o cadastro já guarda o
+                bairro de cada faixa — a tela é que mostrava só o número. Numa
+                rua com dois CEPs em dois bairros, o chip sem o nome do bairro
+                fazia parecer que a rua tinha dois CEPs pelo mesmo trecho. */}
             {ceps.map((c) => (
               <span
                 key={c.cep}
-                className="inline-flex items-center rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle"
+                className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle"
               >
                 CEP {c.cep}
+                {bairroDoCep[c.bairroId] && (
+                  <span className="font-medium text-content-tertiary">· {bairroDoCep[c.bairroId]}</span>
+                )}
               </span>
             ))}
           </div>
@@ -431,16 +511,30 @@ export default function PavementStreetPage() {
           <Cartao icone={BookOpen} titulo="Quem dá nome à rua">
             <div className={`px-4 pb-5 sm:px-5 ${fotoDoHomenageado ? 'flex gap-4' : ''}`}>
               {fotoDoHomenageado && (
-                <div className="w-24 shrink-0 overflow-hidden rounded-2xl bg-surface-subtle sm:w-32">
+                <button
+                  type="button"
+                  onClick={() => setVisor({ fotos: [fotoDoHomenageado], indice: 0 })}
+                  className={`shrink-0 overflow-hidden rounded-2xl bg-surface-subtle ${
+                    nomeDoHomenageadoRepete ? 'w-32 sm:w-40' : 'w-24 sm:w-32'
+                  }`}
+                  aria-label="Abrir a foto do homenageado em tela cheia"
+                >
                   <img
                     src={fotoDoHomenageado.url}
                     alt={fotoDoHomenageado.caption || honoreeName || 'Foto do homenageado'}
                     className="aspect-[4/5] w-full object-cover"
                   />
-                </div>
+                </button>
               )}
               <div className="min-w-0 flex-1">
-                {honoreeName && <p className="mb-2 text-xl font-bold text-content-primary">{honoreeName}</p>}
+                {/* O NOME SÓ APARECE QUANDO ACRESCENTA ALGUMA COISA.
+                    "Rua Maria Elianete dos Santos Lima" logo acima e "Maria
+                    Elianete dos Santos Lima" aqui gastam duas linhas para dizer
+                    o mesmo. Quando o título já carrega o nome, o cartão fica
+                    com o que só ele tem: a foto — que cresce — e a biografia. */}
+                {honoreeName && !nomeDoHomenageadoRepete && (
+                  <p className="mb-2 text-xl font-bold text-content-primary">{honoreeName}</p>
+                )}
                 {biography && <TextoExpansivel texto={biography} />}
               </div>
             </div>
@@ -464,8 +558,8 @@ export default function PavementStreetPage() {
             )}
           >
             {todasAsFotos
-              ? <GradeFotos fotos={fotosDaRua} nomeDaRua={street.name} />
-              : <CarrosselFotos fotos={fotosDaRua} nomeDaRua={street.name} />}
+              ? <GradeFotos fotos={fotosDaRua} nomeDaRua={street.name} onAbrir={(i) => setVisor({ fotos: fotosDaRua, indice: i })} />
+              : <CarrosselFotos fotos={fotosDaRua} nomeDaRua={street.name} onAbrir={(i) => setVisor({ fotos: fotosDaRua, indice: i })} />}
           </Cartao>
         )}
 
@@ -524,6 +618,38 @@ export default function PavementStreetPage() {
           </Cartao>
         )}
       </main>
+
+      <PavementEditModal
+        street={editando ? street : null}
+        onSave={async (streetToSave) => {
+          const ok = await savePavementStreet({
+            supabase,
+            streetToSave,
+            bairros,
+            isScopedAmbassador: isPureAmbassador,
+            myActiveCityIds,
+          });
+          if (ok) {
+            setEditando(false);
+            await carregarRua();
+          }
+          return ok;
+        }}
+        onClose={() => setEditando(false)}
+        bairros={bairros}
+        existingStreets={[]}
+        defaultCityId={street?.city_id || null}
+        fallbackCityCenter={localidade ? { name: localidade.nome, uf: localidade.uf } : null}
+        onBairroCreated={(novo) => setBairros((prev) => [...prev, novo])}
+      />
+
+      {visor && (
+        <MediaViewer
+          media={paraOVisor(visor.fotos)}
+          startIndex={visor.indice}
+          onClose={() => setVisor(null)}
+        />
+      )}
     </div>
   );
 }

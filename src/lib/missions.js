@@ -263,38 +263,84 @@ const CONTADORES_VAZIOS = {
 };
 
 /**
+ * Alvo de um degrau — inclusive dos que não foram escritos.
+ *
+ * A ESCADA NÃO ACABA MAIS, E É A MESMA DECISÃO DOS NÍVEIS
+ *
+ * `scoring.js:51-64` já responde por que: uma tabela fixa faz quem mais usou o
+ * app ser o primeiro a ficar sem medida de progresso. Nas missões o efeito era
+ * pior que uma barra parada — o cartão perdia o BOTÃO, então a central passava
+ * a dizer "não há mais nada a fazer aqui" para justamente quem tinha feito
+ * tudo.
+ *
+ * Passado o último degrau escrito, o próximo é o DOBRO do anterior, arredondado
+ * na casa de cima: 25 → 50 → 100 → 200; 100 km → 200 km → 400 km. Dobrar mantém
+ * o degrau seguinte alcançável sem que ele caia no mesmo fim de semana, e o
+ * arredondamento existe porque "50" é um alvo e "51" é um número de máquina.
+ */
+const arredondarAlvo = (n) => {
+  const passo = 10 ** Math.max(1, Math.floor(Math.log10(n)) - 1);
+  return Math.round(n / passo) * passo;
+};
+
+export const alvoDaEtapa = (alvos, etapa) => {
+  const lista = Array.isArray(alvos) ? alvos : [];
+  if (lista.length === 0) return null;
+
+  const alvoEtapa = Math.max(1, Math.floor(Number(etapa) || 1));
+  if (alvoEtapa <= lista.length) return lista[alvoEtapa - 1];
+
+  let alvo = lista[lista.length - 1];
+  for (let n = lista.length; n < alvoEtapa; n += 1) {
+    const proximo = arredondarAlvo(alvo * 2);
+    // Escada que termina em zero não cresce. Nenhuma do catálogo é assim — a
+    // guarda existe para que uma escada mal escrita pare aqui em vez de girar
+    // para sempre no aparelho de quem abriu a tela.
+    if (!(proximo > alvo)) return alvo;
+    alvo = proximo;
+  }
+  return alvo;
+};
+
+/**
  * Etapa atual de uma escada.
  *
- * Devolve o primeiro alvo ainda não alcançado. Alcançados todos, `alvo` é null
- * — a missão está completa, e a tela mostra isso em vez de uma barra cheia que
- * nunca mais mexe.
+ * `completa` só é verdadeira para escada VAZIA, que é o caso degenerado. Missão
+ * do catálogo nunca fica completa — ver `alvoDaEtapa`.
  *
  * @param {number[]} alvos
  * @param {number} atual
  */
 export const etapaAtual = (alvos, atual) => {
   const lista = Array.isArray(alvos) ? alvos : [];
-  const indice = lista.findIndex((alvo) => atual < alvo);
 
-  if (indice === -1) {
-    return {
-      etapa: lista.length,
-      etapas: lista.length,
-      alvo: null,
-      anterior: lista[lista.length - 1] ?? 0,
-      completa: true,
-    };
+  if (lista.length === 0) {
+    return { etapa: 0, etapas: 0, alvo: null, anterior: 0, completa: true, alemDaEscada: false };
+  }
+
+  const valor = Math.max(0, Number(atual) || 0);
+  let etapa = 1;
+  let anterior = 0;
+  let alvo = alvoDaEtapa(lista, 1);
+
+  while (valor >= alvo) {
+    const proximo = alvoDaEtapa(lista, etapa + 1);
+    if (!(proximo > alvo)) break;
+    anterior = alvo;
+    etapa += 1;
+    alvo = proximo;
   }
 
   return {
-    etapa: indice + 1,
+    etapa,
+    // Quantos degraus foram ESCRITOS. Passado esse número, a tela para de
+    // mostrar "de N" e passa a mostrar só o número da etapa — ver MissionList.
     etapas: lista.length,
-    alvo: lista[indice],
+    alvo,
     // O piso da etapa: a barra mede o trecho ATUAL, não o caminho inteiro.
-    // Sem isso, quem está em 4 de uma escada 3→5 veria a barra quase cheia por
-    // causa do que já fez, e o passo seguinte pareceria a um empurrão de nada.
-    anterior: indice === 0 ? 0 : lista[indice - 1],
+    anterior,
     completa: false,
+    alemDaEscada: etapa > lista.length,
   };
 };
 
@@ -353,15 +399,18 @@ export const avaliarMissoes = (contadores, nivel = 1) => {
       etapa: escada.etapa,
       etapas: escada.etapas,
       completa: escada.completa,
+      alemDaEscada: escada.alemDaEscada,
       acao: m.acao ?? null,
-      // 0–1 dentro da ETAPA atual, não da escada inteira.
-      progresso: escada.completa
+      // 0–1 dentro da ETAPA atual, não da escada inteira. O denominador é
+      // testado contra zero por causa da escada degenerada de `alvoDaEtapa`:
+      // sem isso ela produziria NaN, e a barra sumiria sem erro no console.
+      progresso: escada.alvo == null || escada.alvo <= escada.anterior
         ? 1
         : Math.min(
             1,
             Math.max(0, (atual - escada.anterior) / (escada.alvo - escada.anterior))
           ),
-      rotulo: escada.completa
+      rotulo: escada.alvo == null
         ? `${formatar(atual)} — tudo concluído`
         : `${formatar(atual)} / ${formatar(escada.alvo)}`,
 
@@ -375,7 +424,7 @@ export const avaliarMissoes = (contadores, nivel = 1) => {
       // Mostrar só o 15 faria a missão parecer valer menos que o trabalho solto.
       xpEtapa: PONTOS_POR_ETAPA,
       xpPorAcao: m.ganhoPorAcao ?? 0,
-      xpAteAEtapa: escada.completa
+      xpAteAEtapa: escada.alvo == null
         ? 0
         : PONTOS_POR_ETAPA + faltam * (m.ganhoPorAcao ?? 0),
 

@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ThumbsDown, Filter, Search, List, LocateFixed, RefreshCw, HardHat, Construction, Download, Loader2, PlusCircle, HelpCircle } from 'lucide-react';
+import { ThumbsDown, Filter, List, Map as MapIcon, FileText, Link2 as LinkIcon, LocateFixed, RefreshCw, HardHat, Construction, Download, Loader2, PlusCircle, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -17,59 +17,117 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import WorksMapView from '@/components/WorksMapView';
 import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
-import { TIPOS_DE_RELATORIO, montarRelatorio, relatorioParaCsv } from '@/lib/pavementReport';
+import { TIPOS_DE_RELATORIO, cepsDaRua, montarRelatorio, relatorioParaCsv } from '@/lib/pavementReport';
+import { temLeiMunicipal } from '@/lib/pavementStreetHistory';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { usePermissions } from '@/hooks/usePermissions';
 import { showAppError } from '@/lib/appError';
+import PavementEditModal from '@/components/pavement/PavementEditModal';
+import BuscaDeRua from '@/components/pavement/BuscaDeRua';
+import { savePavementStreet } from '@/lib/savePavementStreet';
+import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 
 const PavementMapPage = () => {
   const [streetData, setStreetData] = useState([]);
   const [allWorks, setAllWorks] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [bairroFilter, setBairroFilter] = useState('all');
+  const [cepFilter, setCepFilter] = useState('all');
+  const [leiFilter, setLeiFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkId, setSelectedWorkId] = useState(null);
   const [resolvedWork, setResolvedWork] = useState(null);
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
-  const { cityId: activeCityId, cityName: activeCityName } = useCityView();
-  const { user } = useAuth();
-  const { canWrite } = usePermissions();
+  const { cityId: activeCityId, cityName: activeCityName, city: activeCity } = useCityView();
   const [downloading, setDownloading] = useState(false);
   // Qual PERGUNTA o relatório responde, e em que formato sai. Duas escolhas
   // separadas de propósito: o tipo é sobre conteúdo, o formato é sobre o que se
   // vai fazer com ele — anexar num ofício (PDF) ou trabalhar numa planilha (CSV).
   const [tipoRelatorio, setTipoRelatorio] = useState('panorama');
 
-  // Mesma regra de imóveis alugados: admin/master gerenciam qualquer cidade;
-  // embaixador puro só faz sentido clicar "Adicionar" com uma cidade sua
-  // selecionada (senão não saberíamos em qual das suas cidades cadastrar).
-  const isPureAmbassador = Boolean(user?.is_ambassador && !user?.is_admin && !user?.is_master);
-  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
-  const canManageStreets = Boolean(
-    (user?.is_admin || user?.is_master ||
-      (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId))))
-    && canWrite('pavement')
-  );
+  // OS LINKS DE REFERÊNCIA DA CIDADE
+  //
+  // Vivem em duas colunas de `cities` (migração 204). A consulta é própria e
+  // não entra no `select` das ruas: são dados da CIDADE, e recarregá-los junto
+  // com as ruas os buscaria de novo a cada salvamento de rua sem necessidade.
+  const [linksDaCidade, setLinksDaCidade] = useState({});
+  const [editandoLinks, setEditandoLinks] = useState(null);
+  const [salvandoLinks, setSalvandoLinks] = useState(false);
 
+  const carregarLinks = useCallback(async () => {
+    if (!activeCityId) { setLinksDaCidade({}); return; }
+    const { data } = await supabase
+      .from('cities')
+      .select('pavement_street_map_url, pavement_cep_list_url')
+      .eq('id', activeCityId)
+      .maybeSingle();
+    setLinksDaCidade(data || {});
+  }, [activeCityId]);
+
+  useEffect(() => { carregarLinks(); }, [carregarLinks]);
+
+  const abrirEdicaoDeLinks = () => setEditandoLinks({
+    pavement_street_map_url: linksDaCidade.pavement_street_map_url || '',
+    pavement_cep_list_url: linksDaCidade.pavement_cep_list_url || '',
+  });
+
+  const salvarLinks = async () => {
+    setSalvandoLinks(true);
+    // Campo vazio grava NULL, e não string vazia: "sem link cadastrado" e "link
+    // cadastrado como nada" precisam ser o mesmo estado para a tela.
+    const limpar = (valor) => {
+      const texto = String(valor || '').trim();
+      return texto || null;
+    };
+    const { error } = await supabase
+      .from('cities')
+      .update({
+        pavement_street_map_url: limpar(editandoLinks.pavement_street_map_url),
+        pavement_cep_list_url: limpar(editandoLinks.pavement_cep_list_url),
+      })
+      .eq('id', activeCityId);
+    setSalvandoLinks(false);
+
+    if (error) {
+      // A permissão de escrita em `cities` vive no painel do Supabase, fora do
+      // git. Se ela não cobrir quem está tentando, é aqui que se descobre — e a
+      // mensagem precisa dizer isso, não um "erro" genérico.
+      showAppError({
+        title: 'Não foi possível salvar os links',
+        description: `${error.message}. Se a mensagem fala em permissão, a policy de UPDATE de cities precisa liberar seu perfil.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setEditandoLinks(null);
+    await carregarLinks();
+  };
+
+
+  const { canManage: canManageStreets, isPureAmbassador, myActiveCityIds } =
+    useCanManagePavement(activeCityId);
+
+  const [editingStreet, setEditingStreet] = useState(null);
+  const [bairros, setBairros] = useState([]);
+
+  // Os bairros só interessam ao modal, então só quem pode editar paga a busca.
   useEffect(() => {
-    if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
-    supabase
-      .from('ambassador_cities')
-      .select('city_id')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .then(({ data }) => setMyActiveCityIds((data || []).map((r) => r.city_id)));
-  }, [isPureAmbassador, user?.id]);
+    if (!canManageStreets) { setBairros([]); return; }
+    let cancelled = false;
+    supabase.from('bairros').select('*').order('name').then(({ data }) => {
+      if (!cancelled) setBairros(data || []);
+    });
+    return () => { cancelled = true; };
+  }, [canManageStreets]);
 
   const fetchStreets = useCallback(async () => {
     let query = supabase
@@ -83,6 +141,11 @@ const PavementMapPage = () => {
       const formattedData = data.map(s => ({
         ...s,
         location: s.location ? { lat: s.location.coordinates[1], lng: s.location.coordinates[0] } : null,
+        // O PostGIS/PostgREST devolve [lng,lat]; o Leaflet quer [lat,lng]. A
+        // inversão acontece aqui, num lugar só, e nunca no componente.
+        linhas: Array.isArray(s.path?.coordinates)
+          ? s.path.coordinates.map((linha) => linha.map(([lng, lat]) => [lat, lng]))
+          : [],
       }));
       setStreetData(formattedData);
       if (data.length > 0) {
@@ -171,12 +234,45 @@ const PavementMapPage = () => {
     setStreetListModal({ isOpen: false, title: '', streets: [] });
   };
 
-  const filteredStreets = streetData.filter(street => {
-    const searchMatch = searchTerm === '' || street.name.toLowerCase().includes(searchTerm.toLowerCase()) || (street.bairro && street.bairro.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    if (statusFilter === 'all') return searchMatch;
-    return searchMatch && street.status === statusFilter;
+  // OS FILTROS QUE RESPONDEM "O QUE AINDA FALTA CONFERIR"
+  //
+  // Status já existia. Os três novos servem a quem está batendo o cadastro
+  // contra a prefeitura: por bairro (é assim que a lista da prefeitura vem),
+  // por CEP e pela lei municipal. Cada um responde uma pendência diferente, e
+  // ligados juntos mostram a interseção — as ruas mais atrasadas de todas.
+  const filteredStreets = streetData.filter((street) => {
+    const termo = searchTerm.trim().toLowerCase();
+    const searchMatch = termo === ''
+      || street.name.toLowerCase().includes(termo)
+      || (street.bairro?.name || '').toLowerCase().includes(termo);
+    if (!searchMatch) return false;
+
+    if (statusFilter !== 'all' && street.status !== statusFilter) return false;
+    if (bairroFilter !== 'all' && String(street.bairro_id || '') !== bairroFilter) return false;
+
+    if (cepFilter !== 'all') {
+      const temCep = cepsDaRua(street).length > 0;
+      if (cepFilter === 'com' && !temCep) return false;
+      if (cepFilter === 'sem' && temCep) return false;
+    }
+
+    if (leiFilter !== 'all') {
+      const temLei = temLeiMunicipal(street);
+      if (leiFilter === 'com' && !temLei) return false;
+      if (leiFilter === 'sem' && temLei) return false;
+    }
+
+    return true;
   });
+
+  // Os bairros saem das PRÓPRIAS RUAS, e não de uma consulta à tabela.
+  // Filtrar por um bairro que não tem rua nenhuma no mapa é uma opção que só
+  // pode dar lista vazia — e a consulta extra seria paga por todo visitante.
+  const bairrosComRua = [...new Map(
+    streetData
+      .filter((s) => s.bairro_id && s.bairro?.name)
+      .map((s) => [String(s.bairro_id), s.bairro.name])
+  ).entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
 
   const stats = {
     total: streetData.length,
@@ -534,38 +630,108 @@ const PavementMapPage = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-tertiary" />
-                <Input
-                  id="search"
-                  type="text"
-                  placeholder="Buscar por rua ou bairro..."
-                  className="pl-9 h-9 text-xs md:text-sm bg-surface-raised border-edge-subtle"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  list="street-list"
-                />
-                <datalist id="street-list">
-                  {streetData.map(street => <option key={street.id} value={street.name} />)}
-                </datalist>
+              <BuscaDeRua
+                streets={streetData}
+                valor={searchTerm}
+                onValorChange={setSearchTerm}
+                onEscolher={(rua) => rua.location && mapViewRef.current?.goToLocation(rua.location)}
+              />
+
+              {/* OS FILTROS TAMBÉM NO CELULAR, E POR ISSO O LAYOUT MUDA COM A TELA.
+                  Quatro seletores em linha não cabem em 360 px: empilhados, eles
+                  empurrariam o mapa para fora da primeira dobra, que é o oposto
+                  do que a tela existe para fazer.
+                  No celular viram grade — bairro ocupando a linha inteira porque
+                  o nome é o mais longo, CEP e lei dividindo a de baixo. A partir
+                  de `lg` voltam a ser a fileira única, onde há largura de sobra. */}
+              <div className="grid grid-cols-2 items-end gap-2 pt-1 lg:flex lg:flex-wrap">
+                <label className="col-span-2 flex flex-col gap-1 lg:col-auto">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">Bairro</span>
+                  <select
+                    value={bairroFilter}
+                    onChange={(e) => setBairroFilter(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-edge-default bg-surface-raised px-2 text-[11px] font-semibold text-content-primary lg:h-8 lg:w-auto lg:min-w-[10rem]"
+                  >
+                    <option value="all">Todos os bairros</option>
+                    {bairrosComRua.map(([id, nome]) => (
+                      <option key={id} value={id}>{nome}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">CEP</span>
+                  <select
+                    value={cepFilter}
+                    onChange={(e) => setCepFilter(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-edge-default bg-surface-raised px-2 text-[11px] font-semibold text-content-primary lg:h-8 lg:w-auto"
+                  >
+                    <option value="all">Todas</option>
+                    <option value="com">Com CEP</option>
+                    <option value="sem">Sem CEP</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">Lei municipal</span>
+                  <select
+                    value={leiFilter}
+                    onChange={(e) => setLeiFilter(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-edge-default bg-surface-raised px-2 text-[11px] font-semibold text-content-primary lg:h-8 lg:w-auto"
+                  >
+                    <option value="all">Todas</option>
+                    <option value="com">Com anexo da lei</option>
+                    <option value="sem">Sem anexo da lei</option>
+                  </select>
+                </label>
+
+                {/* A contagem e o "limpar" dividem uma linha no celular: são as
+                    duas coisas que se lê DEPOIS de filtrar, não durante. */}
+                <div className="col-span-2 flex items-center justify-between gap-2 lg:col-auto lg:ml-auto lg:pb-1.5">
+                  {(bairroFilter !== 'all' || cepFilter !== 'all' || leiFilter !== 'all') ? (
+                    <button
+                      type="button"
+                      onClick={() => { setBairroFilter('all'); setCepFilter('all'); setLeiFilter('all'); }}
+                      className="text-[11px] font-bold text-brand lg:mr-3"
+                    >
+                      Limpar filtros
+                    </button>
+                  ) : <span className="lg:hidden" />}
+                  <span className="text-[11px] text-content-secondary">
+                    {filteredStreets.length} de {stats.total}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="w-full h-[20rem] md:h-[24rem] lg:h-[26rem]">
-              <PavementMapView ref={mapViewRef} streets={filteredStreets} onWorkClick={handleWorkClick} />
+              <PavementMapView
+                ref={mapViewRef}
+                streets={filteredStreets}
+                onWorkClick={handleWorkClick}
+                canManage={canManageStreets}
+                onEditStreet={setEditingStreet}
+              />
             </div>
+            {/* A legenda sai dos MESMOS tokens que o mapa desenha. Ela usava
+                `status-resolvedFg` e um `#6B7280` cru — nenhum dos dois era a
+                cor de um pin, então ela descrevia um mapa que não existia. */}
             <div className="border-t border-edge-subtle px-3 py-2 bg-surface-base flex flex-wrap items-center gap-3 text-[11px] text-content-secondary">
               <span className="font-semibold">Legenda</span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-status-resolvedFg" />
+                <span className="w-4 h-1 rounded-full" style={{ background: 'rgb(var(--pin-pav-paved-bg))' }} />
                 Pavimentada
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-status-pendingFg" />
+                <span className="w-4 h-1 rounded-full" style={{ background: 'rgb(var(--pin-pav-partial-bg))' }} />
                 Parcialmente
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#6B7280]" />
+                <span className="w-4 h-1 rounded-full" style={{ background: 'rgb(var(--pin-pav-unpaved-bg))' }} />
                 Sem pavimentação
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-content-tertiary" />
+                Ponto: rua sem traçado
               </span>
             </div>
           </motion.div>
@@ -610,6 +776,53 @@ const PavementMapPage = () => {
               Total de ruas mapeadas: {stats.total}
             </p>
           </motion.div>
+        </div>
+
+        {/* OS DOCUMENTOS DA PREFEITURA, PARA CONFERIR O CADASTRO
+            Ficam no fim, junto dos relatórios, porque são a mesma tarefa vista
+            dos dois lados: o relatório é o que a plataforma diz, e estes links
+            são o que a prefeitura diz. Quem confere precisa dos dois abertos. */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">
+              Referências da prefeitura
+            </p>
+            {linksDaCidade.pavement_street_map_url || linksDaCidade.pavement_cep_list_url ? (
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5">
+                {linksDaCidade.pavement_street_map_url && (
+                  <a
+                    href={linksDaCidade.pavement_street_map_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-brand hover:underline"
+                  >
+                    <MapIcon className="h-3.5 w-3.5" /> Mapa de ruas oficial
+                  </a>
+                )}
+                {linksDaCidade.pavement_cep_list_url && (
+                  <a
+                    href={linksDaCidade.pavement_cep_list_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-brand hover:underline"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> Lista de ruas com CEP
+                  </a>
+                )}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-content-secondary">
+                {canManageStreets
+                  ? 'Guarde aqui o mapa de ruas e a lista de CEPs mais recentes da prefeitura.'
+                  : 'Nenhum documento de referência cadastrado para esta cidade.'}
+              </p>
+            )}
+          </div>
+          {canManageStreets && activeCityId && (
+            <Button variant="outline" size="sm" className="shrink-0 gap-2" onClick={abrirEdicaoDeLinks}>
+              <LinkIcon className="h-3.5 w-3.5" /> Editar links
+            </Button>
+          )}
         </div>
 
         {/* OS RELATÓRIOS FICAM NO FIM, DEPOIS DOS NÚMEROS
@@ -723,6 +936,77 @@ const PavementMapPage = () => {
               ))}
             </ul>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <PavementEditModal
+        street={editingStreet}
+        onSave={async (streetToSave) => {
+          const ok = await savePavementStreet({
+            supabase,
+            streetToSave,
+            bairros,
+            isScopedAmbassador: isPureAmbassador,
+            myActiveCityIds,
+          });
+          if (ok) {
+            await fetchStreets();
+            setEditingStreet(null);
+          }
+          return ok;
+        }}
+        onClose={() => setEditingStreet(null)}
+        bairros={bairros}
+        existingStreets={streetData}
+        defaultCityId={activeCityId || null}
+        // `activeCityName` já vem formatado "Cidade · UF" para exibição — mandar
+        // esse texto inteiro ao Nominatim como `city=` não casa nada. O objeto
+        // `city` do contexto tem nome e UF separados, que é o que o geocoder pede.
+        fallbackCityCenter={activeCity ? { name: activeCity.name, uf: activeCity.state?.uf || '' } : null}
+        onBairroCreated={(novo) => setBairros((prev) => [...prev, novo])}
+      />
+
+      <Dialog open={!!editandoLinks} onOpenChange={(open) => !open && !salvandoLinks && setEditandoLinks(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-tc-red">Referências da prefeitura</DialogTitle>
+            <DialogDescription>
+              Os documentos oficiais de {activeCityName || 'a cidade'}, para conferir o que está cadastrado aqui
+              contra o que a prefeitura publicou. Deixe em branco para remover.
+            </DialogDescription>
+          </DialogHeader>
+          {editandoLinks && (
+            <div className="grid gap-4 py-2">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold text-content-secondary">Mapa de ruas oficial</span>
+                <Input
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://..."
+                  value={editandoLinks.pavement_street_map_url}
+                  onChange={(e) => setEditandoLinks((atual) => ({ ...atual, pavement_street_map_url: e.target.value }))}
+                />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold text-content-secondary">Lista de ruas com CEP (PDF)</span>
+                <Input
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://..."
+                  value={editandoLinks.pavement_cep_list_url}
+                  onChange={(e) => setEditandoLinks((atual) => ({ ...atual, pavement_cep_list_url: e.target.value }))}
+                />
+              </label>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button type="button" variant="outline" disabled={salvandoLinks} onClick={() => setEditandoLinks(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" disabled={salvandoLinks} onClick={salvarLinks}>
+              {salvandoLinks ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : 'Salvar'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

@@ -1,7 +1,7 @@
-import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useMemo } from 'react';
+import { CircleMarker, MapContainer, Polyline, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Video, Image as ImageIcon, HardHat, Construction, Info, BookOpen, HelpCircle } from 'lucide-react';
+import { Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Image as ImageIcon, HardHat, Construction, Info, BookOpen, HelpCircle, Edit } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
@@ -12,57 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
-import { createMapPin, buildPinBadge, ICON_SIZE } from '@/components/map/pinIcon';
 import MapDisplayControls, {
   CurrentLocationMarker,
   MAP_LAYER,
   MapBaseLayer,
 } from '@/components/map/MapDisplayControls';
-import { hasPavementStreetHistory } from '@/lib/pavementStreetHistory';
+import { formatarDataBr, fotosDaRuaOrdenadas, hasPavementStreetHistory, normalizarFotos } from '@/lib/pavementStreetHistory';
 
-// Status de pavimentacao -> sufixo do token --pin-pav-*.
+// Status de pavimentacao -> sufixo das classes .via-pav--* e .ponto-pav--*.
 const PAVEMENT_STATUS_TOKEN = {
   paved: 'paved',
   partially_paved: 'partial',
   unpaved: 'unpaved',
 };
-
-// Via. currentColor recebe o token de fg via createMapPin.
-const RoadIcon = () => (
-  <svg
-    width={ICON_SIZE}
-    height={ICON_SIZE}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M4 19 8 5" />
-    <path d="M20 19 16 5" />
-    <path d="M12 6v3" />
-    <path d="M12 13v3" />
-  </svg>
-);
-
-// Capacete no badge: marca a rua que ja tem obra vinculada.
-const buildWorkBadge = () =>
-  buildPinBadge(
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v5Z" />
-      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
-    </svg>
-  );
 
 const MapController = ({ mapRef }) => {
   const map = useMap();
@@ -75,6 +37,14 @@ const MapScrollLock = ({ mode }) => {
   return null;
 };
 
+// O ponto encolhe no zoom de cidade e cresce ao aproximar. É o que o disco de
+// 40 px não fazia — ele tinha o mesmo tamanho a 3 km e a 30 m, e por isso
+// quatrocentos deles cobriam o mapa inteiro.
+const ZoomWatcher = ({ onZoom }) => {
+  const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
+  return null;
+};
+
 // Recentraliza o mapa nas ruas carregadas sempre que a lista muda
 // (ex.: ao trocar a cidade no seletor). Se não houver ruas na cidade,
 // centraliza na própria cidade selecionada (forward geocode). Sem isso,
@@ -84,9 +54,13 @@ const FitToStreets = ({ streets, activeCity }) => {
   const lastKeyRef = useRef('');
   useEffect(() => {
     let cancelled = false;
-    const pts = (streets || [])
-      .filter((s) => s.location && Number.isFinite(s.location.lat) && Number.isFinite(s.location.lng))
-      .map((s) => [s.location.lat, s.location.lng]);
+    const pts = (streets || []).flatMap((s) => {
+      const daLinha = (Array.isArray(s.linhas) ? s.linhas : []).flat();
+      if (daLinha.length > 0) return daLinha;
+      return s.location && Number.isFinite(s.location.lat) && Number.isFinite(s.location.lng)
+        ? [[s.location.lat, s.location.lng]]
+        : [];
+    });
 
     if (pts.length > 0) {
       const key = 'streets:' + pts.map((p) => p.join(',')).sort().join('|');
@@ -116,7 +90,7 @@ const FitToStreets = ({ streets, activeCity }) => {
   return null;
 };
 
-const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
+const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, onEditStreet }, ref) => {
   const [selectedStreet, setSelectedStreet] = useState(null);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -126,6 +100,8 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const { mode } = useMapModeToggle();
   const { city: activeCity } = useCityView();
+  const [zoom, setZoom] = useState(INITIAL_ZOOM);
+  const raioDoPonto = zoom >= 17 ? 9 : zoom >= 15 ? 7 : 5;
 
   useImperativeHandle(ref, () => ({
     goToLocation: (location) => {
@@ -152,18 +128,6 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
     }
   };
 
-  const createStreetMarkerIcon = (street) => {
-    const token = PAVEMENT_STATUS_TOKEN[street.status] || 'unknown';
-    return createMapPin({
-      // work_id entra na chave porque muda o desenho (badge), nao so os dados.
-      cacheKey: `pavement|${token}|${street.work_id ? 'work' : 'none'}`,
-      bgToken: `--pin-pav-${token}-bg`,
-      fgToken: `--pin-pav-${token}-fg`,
-      icon: <RoadIcon />,
-      badge: street.work_id ? buildWorkBadge() : '',
-    });
-  };
-
   const handleDetailsClick = (street) => {
     setSelectedStreet(street);
     setCurrentMediaIndex(0);
@@ -171,18 +135,27 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
   };
 
   const nextMedia = () => {
-    if (selectedStreet && selectedStreet.media) {
-      setCurrentMediaIndex((prevIndex) => (prevIndex + 1) % selectedStreet.media.length);
-    }
+    if (fotos.length > 0) setCurrentMediaIndex((i) => (i + 1) % fotos.length);
   };
 
   const prevMedia = () => {
-    if (selectedStreet && selectedStreet.media) {
-      setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + selectedStreet.media.length) % selectedStreet.media.length);
-    }
+    if (fotos.length > 0) setCurrentMediaIndex((i) => (i - 1 + fotos.length) % fotos.length);
   };
 
   const statusInfo = selectedStreet ? getStatusInfo(selectedStreet.status, selectedStreet.pavement_type) : {};
+
+  // AS FOTOS SAEM DE `historical_photos`, QUE É ONDE ELAS SÃO CADASTRADAS.
+  //
+  // Este visor lia `selectedStreet.media` — um campo que nenhuma migração cria
+  // e nenhum formulário preenche. A caixa dizia "Nenhuma mídia disponível" para
+  // toda rua do banco, e ia continuar dizendo para sempre.
+  //
+  // A destacada vem primeiro: é a mesma foto que abre a página da rua, então o
+  // popup e a página passam a mostrar a mesma capa.
+  const fotos = useMemo(
+    () => (selectedStreet ? fotosDaRuaOrdenadas(normalizarFotos(selectedStreet)) : []),
+    [selectedStreet]
+  );
 
   return (
     <div className="w-full h-full bg-secondary rounded-lg overflow-hidden relative">
@@ -192,45 +165,84 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
         <FitToStreets streets={streets} activeCity={activeCity} />
         <MapBaseLayer layer={mapLayer} />
         <CurrentLocationMarker position={currentLocation} />
-        {streets.map(street => {
+        <ZoomWatcher onZoom={setZoom} />
+        {streets.map((street) => {
+          const token = PAVEMENT_STATUS_TOKEN[street.status] || 'unknown';
+          const linhas = Array.isArray(street.linhas) ? street.linhas : [];
+
+          const popup = (
+            <Popup className="custom-popup" minWidth={200}>
+              <div className="p-1">
+                <div className="mb-2">
+                  <h3 className="font-bold text-lg text-tc-red leading-tight">{street.name}</h3>
+                  {street.is_unnamed && (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-status-pendingBorder bg-status-pendingBg px-2 py-0.5 text-[10px] font-semibold text-status-pendingFg">
+                      <HelpCircle className="h-3 w-3" /> Sem nome oficial
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-2">
+                  <Button size="sm" className="w-full justify-start" onClick={() => handleDetailsClick(street)}>
+                    <Info className="w-4 h-4 mr-2" /> Ver mais detalhes
+                  </Button>
+                  {hasPavementStreetHistory(street) && (
+                    <Button asChild size="sm" variant="outline" className="mt-2 w-full">
+                      <Link to={`/mapa-pavimentacao/rua/${street.id}`}>
+                        <BookOpen className="mr-2 h-4 w-4" /> História da rua
+                      </Link>
+                    </Button>
+                  )}
+                  {canManage && onEditStreet && (
+                    <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => onEditStreet(street)}>
+                      <Edit className="mr-2 h-4 w-4" /> Editar rua
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Popup>
+          );
+
+          // COM TRAÇADO: a rua é uma linha, que é o que ela é.
+          if (linhas.length > 0) {
+            return (
+              <React.Fragment key={street.id}>
+                {/* A área de toque vai por baixo e é invisível: sem ela, acertar
+                    5 px com o dedo é impossível. O ref também vai aqui — é a
+                    única camada interativa da rua com traçado, e é ela que
+                    `goToLocation` precisa abrir. */}
+                <Polyline
+                  positions={linhas}
+                  ref={(el) => { if (el) markerRefs.current[street.id] = el; }}
+                  className="via-pav-toque"
+                  pathOptions={{ weight: 16, opacity: 0 }}
+                >
+                  {popup}
+                </Polyline>
+                <Polyline
+                  positions={linhas}
+                  className={`via-pav via-pav--${token}`}
+                  pathOptions={{ weight: 5 }}
+                  interactive={false}
+                />
+              </React.Fragment>
+            );
+          }
+
+          // SEM TRAÇADO: um ponto pequeno. Rua sem nome oficial nunca vai ter
+          // traçado do OSM, e é aqui que ela vive.
+          if (!street.location) return null;
           return (
-            street.location &&
-            <Marker
+            <CircleMarker
               key={street.id}
               ref={(el) => { if (el) markerRefs.current[street.id] = el; }}
-              position={[street.location.lat, street.location.lng]}
-              icon={createStreetMarkerIcon(street)}
+              center={[street.location.lat, street.location.lng]}
+              radius={raioDoPonto}
+              className={`ponto-pav ponto-pav--${token}`}
+              pathOptions={{ weight: 2 }}
             >
-              <Popup className="custom-popup" minWidth={200}>
-                <div className="p-1">
-                  <div className="mb-2">
-                    <h3 className="font-bold text-lg text-tc-red leading-tight">{street.name}</h3>
-                    {street.is_unnamed && (
-                      <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-status-pendingBorder bg-status-pendingBg px-2 py-0.5 text-[10px] font-semibold text-status-pendingFg">
-                        <HelpCircle className="h-3 w-3" /> Sem nome oficial
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-2">
-                    <Button 
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => handleDetailsClick(street)}
-                    >
-                      <Info className="w-4 h-4 mr-2" /> Ver mais detalhes
-                    </Button>
-                    {hasPavementStreetHistory(street) && (
-                      <Button asChild size="sm" variant="outline" className="mt-2 w-full">
-                        <Link to={`/mapa-pavimentacao/rua/${street.id}`}>
-                          <BookOpen className="mr-2 h-4 w-4" /> História da rua
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
+              {popup}
+            </CircleMarker>
           );
         })}
       </MapContainer>
@@ -291,9 +303,9 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                 )}
             </div>
 
-            {/* Main Media Viewer */}
+            {/* O visor da rua */}
             <div className="relative bg-secondary rounded-lg overflow-hidden aspect-video w-full shadow-inner border border-border/50">
-              {selectedStreet?.media && selectedStreet.media.length > 0 ? (
+              {fotos.length > 0 ? (
                 <>
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -303,66 +315,59 @@ const PavementMapView = forwardRef(({ streets, onWorkClick }, ref) => {
                       exit={{ opacity: 0 }}
                       className="w-full h-full relative group"
                     >
-                      {selectedStreet.media[currentMediaIndex].type === 'photo' ? (
-                        <img src={selectedStreet.media[currentMediaIndex].url} alt={selectedStreet.media[currentMediaIndex].description} className="w-full h-full object-contain bg-black/5" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-black">
-                            <a href={selectedStreet.media[currentMediaIndex].url} target="_blank" rel="noopener noreferrer" className="text-white flex flex-col items-center hover:scale-105 transition-transform">
-                            <Video className="w-16 h-16 mb-4 opacity-80" />
-                            <span className="text-lg font-medium">Assistir vídeo</span>
-                          </a>
+                      <img
+                        src={fotos[currentMediaIndex]?.url}
+                        alt={fotos[currentMediaIndex]?.caption || selectedStreet?.name || ''}
+                        className="w-full h-full object-contain bg-black/5"
+                      />
+                      {(fotos[currentMediaIndex]?.caption || fotos[currentMediaIndex]?.date) && (
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 pt-16 text-white">
+                          <p className="text-lg font-medium truncate">{fotos[currentMediaIndex]?.caption}</p>
+                          <p className="text-sm opacity-80">{formatarDataBr(fotos[currentMediaIndex]?.date)}</p>
                         </div>
                       )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 pt-16 text-white">
-                        <p className="text-lg font-medium truncate">{selectedStreet.media[currentMediaIndex].description}</p>
-                        <p className="text-sm opacity-80">{selectedStreet.media[currentMediaIndex].date}</p>
-                      </div>
                     </motion.div>
                   </AnimatePresence>
-                  
-                  {selectedStreet.media.length > 1 && (
+
+                  {fotos.length > 1 && (
                     <>
-                      <button onClick={prevMedia} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-colors backdrop-blur-sm">
+                      <button onClick={prevMedia} aria-label="Foto anterior" className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-colors backdrop-blur-sm">
                         <ChevronLeft className="w-6 h-6" />
                       </button>
-                      <button onClick={nextMedia} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-colors backdrop-blur-sm">
+                      <button onClick={nextMedia} aria-label="Próxima foto" className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-colors backdrop-blur-sm">
                         <ChevronRight className="w-6 h-6" />
                       </button>
                       <div className="absolute top-4 right-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
-                        {currentMediaIndex + 1} / {selectedStreet.media.length}
+                        {currentMediaIndex + 1} / {fotos.length}
                       </div>
                     </>
                   )}
                 </>
               ) : (
+                /* O estado vazio FICA, mas agora diz a verdade: esta rua não tem
+                   foto cadastrada. Antes descrevia um campo inexistente. */
                 <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
                   <ImageIcon className="w-16 h-16 mb-4 opacity-20" />
-                  <p className="text-lg font-medium">Nenhuma mídia disponível</p>
-                  <p className="text-sm opacity-70 mt-2">Não há fotos ou vídeos registrados para esta rua.</p>
+                  <p className="text-lg font-medium">Nenhuma foto cadastrada</p>
+                  <p className="text-sm opacity-70 mt-2">As fotos desta rua aparecem aqui depois de cadastradas na edição.</p>
                 </div>
               )}
             </div>
 
-            {/* Thumbnail Gallery */}
-            {selectedStreet?.media && selectedStreet.media.length > 1 && (
+            {fotos.length > 1 && (
               <div>
                 <h4 className="font-semibold mb-4 flex items-center gap-2 text-muted-foreground">
-                  <ImageIcon className="w-5 h-5" /> Galeria Completa
+                  <ImageIcon className="w-5 h-5" /> Todas as fotos
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {selectedStreet.media.map((item, index) => (
+                  {fotos.map((foto, index) => (
                     <button
-                      key={index}
+                      key={`${foto.url}-${index}`}
                       onClick={() => setCurrentMediaIndex(index)}
+                      aria-label={`Ver foto ${index + 1}`}
                       className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${currentMediaIndex === index ? 'border-tc-red ring-2 ring-tc-red/20 opacity-100 scale-[1.02]' : 'border-transparent hover:border-muted-foreground/30 opacity-70 hover:opacity-100'}`}
                     >
-                      {item.type === 'photo' ? (
-                        <img src={item.url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-black flex items-center justify-center">
-                          <Video className="w-8 h-8 text-white/70" />
-                        </div>
-                      )}
+                      <img src={foto.url} alt="" className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>

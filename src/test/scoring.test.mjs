@@ -199,10 +199,14 @@ test('marca quando a etapa foi vencida', () => {
   assert.equal(m.completou, false);
 });
 
-test('marca quando a missão inteira acabou', () => {
+test('passar do último degrau escrito vence a etapa, mas não "acaba" mais a missão', () => {
+  // Com a escada infinita, `completa` só é verdadeira para o caso degenerado
+  // (ver missions.test.mjs) — nenhuma missão do catálogo tem escada vazia, então
+  // `completou` nunca dispara para elas: vencer o degrau 25 só abre o 50.
   const m = avancosEntre({ reports_count: 24 }, { reports_count: 25 })
     .find((x) => x.id === 'registrar_broncas');
-  assert.equal(m.completou, true);
+  assert.equal(m.venceuEtapa, true);
+  assert.equal(m.completou, false);
 });
 
 test('sem mudança, nada a comemorar', () => {
