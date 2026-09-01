@@ -8,6 +8,9 @@ import {
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { supabase } from '@/lib/customSupabaseClient';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { periodoPorExtenso } from '@/lib/canalDoOrgao';
 
 // O relatório como a secretaria o vê, sem login.
@@ -71,6 +74,9 @@ const OrgaoRelatorioPage = () => {
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState(null);
   const [baixando, setBaixando] = useState(false);
+  const [perguntarRecebimento, setPerguntarRecebimento] = useState(false);
+  const [protocolo, setProtocolo] = useState('');
+  const [confirmando, setConfirmando] = useState(false);
 
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState('todas');
@@ -208,17 +214,34 @@ const OrgaoRelatorioPage = () => {
     }
 
     doc.save(`relatorio-${(dados.orgao || 'orgao').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${dados.referencia}.pdf`);
-
-    // Idempotente no banco: baixar de novo não grava etapa nem data nova.
-    if (!dados.confirmado_em) {
-      const { data, error } = await supabase.rpc('confirmar_recebimento_do_orgao', {
-        p_token: token,
-        p_protocolo: null,
-      });
-      if (!error && data?.ok) await carregar();
-    }
-
     setBaixando(false);
+
+    // A PERGUNTA VEM DEPOIS DO ARQUIVO, E ELA É UMA PERGUNTA
+    //
+    // Baixar chegou a confirmar sozinho. Não serve: a etapa `recebida` é
+    // pública, notifica os participantes de cada bronca e a tabela não tem
+    // delete — gravá-la porque alguém pegou um arquivo é afirmar, em nome do
+    // servidor público, algo que ele não disse. Às vezes ele quer só ver a
+    // lista.
+    //
+    // O arquivo já foi salvo antes de perguntar: recusar a confirmação não pode
+    // custar o download.
+    if (!dados.confirmado_em) setPerguntarRecebimento(true);
+  };
+
+  const confirmarRecebimento = async () => {
+    setConfirmando(true);
+    const { data, error } = await supabase.rpc('confirmar_recebimento_do_orgao', {
+      p_token: token,
+      p_protocolo: protocolo.trim() || null,
+    });
+    setConfirmando(false);
+    if (error || !data?.ok) {
+      setErro('Não foi possível registrar a confirmação. Tente novamente.');
+      return;
+    }
+    setPerguntarRecebimento(false);
+    await carregar();
   };
 
   if (erro) {
@@ -320,11 +343,6 @@ const OrgaoRelatorioPage = () => {
             <p className="text-2xs text-content-tertiary mt-2 lg:max-w-[16rem]">
               {filtradas.length} {filtradas.length === 1 ? 'demanda' : 'demandas'}
               {filtroAtivo ? ' (com o filtro atual)' : ''} · pronto para anexar ao processo.
-              {/* O download grava estado público. Dizer isso antes do clique é o
-                  mínimo: sem o aviso, a pessoa registraria "o órgão recebeu" em
-                  219 broncas, com notificação para os participantes, achando que
-                  só pegou um arquivo. */}
-              {!confirmado && ' Baixar registra o recebimento deste relatório.'}
             </p>
           </div>
         </div>
@@ -569,6 +587,58 @@ const OrgaoRelatorioPage = () => {
           </p>
         </div>
       </div>
+
+      {/* "Agora não" É UMA RESPOSTA VÁLIDA, E POR ISSO ELE É UM BOTÃO
+          Um X no canto deixaria a recusa parecer desistência. Aqui as duas
+          saídas são explícitas: quem só queria a lista fecha sem registrar
+          nada, e nada muda na bronca de ninguém. */}
+      <Dialog open={perguntarRecebimento} onOpenChange={(aberto) => !aberto && setPerguntarRecebimento(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar o recebimento?</DialogTitle>
+            <DialogDescription className="leading-relaxed">
+              O relatório foi baixado. Se este órgão recebeu a lista, a confirmação fica
+              registrada na página pública de cada uma das {dados.total || broncas.length} demandas.
+              <span className="mt-2 block">
+                Ela <strong>não</strong> afirma que os problemas foram resolvidos nem cria prazo —
+                apenas encerra a dúvida sobre se a demanda chegou.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div>
+            <label htmlFor="protocolo-orgao" className="text-xs font-bold text-content-secondary">
+              Nº de protocolo interno <span className="font-normal text-content-tertiary">(opcional)</span>
+            </label>
+            <input
+              id="protocolo-orgao"
+              value={protocolo}
+              onChange={(e) => setProtocolo(e.target.value)}
+              maxLength={60}
+              placeholder="Ex.: 2026/00123"
+              className="mt-1 w-full text-sm rounded-xl border border-edge-subtle bg-surface-subtle px-3 py-2 text-content-primary placeholder:text-content-tertiary"
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setPerguntarRecebimento(false)}
+              className="text-sm font-bold text-content-secondary px-4 py-2.5 rounded-xl hover:bg-surface-subtle"
+            >
+              Agora não
+            </button>
+            <button
+              type="button"
+              disabled={confirmando}
+              onClick={confirmarRecebimento}
+              className="text-sm font-bold text-content-onBrand bg-brand px-5 py-2.5 rounded-xl disabled:opacity-60"
+            >
+              {confirmando ? 'Registrando…' : 'Confirmo que recebi'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

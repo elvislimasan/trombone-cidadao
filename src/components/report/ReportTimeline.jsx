@@ -37,16 +37,6 @@ const ICONE_DA_FONTE = {
   [FONTE_ORGAO]: Building2,
 };
 
-// Quem cobra de quem. Muda só a cor da barrinha de "o que falta" — mas é a
-// diferença entre a tela pedir uma coisa ao leitor e informar que a espera é de
-// outra pessoa. Cobrar do cidadão o que não é dele é o jeito mais rápido de
-// ensinar que o app não entende o problema.
-const TOM_DE_QUEM_FALTA = {
-  cidadao: "bg-brand/10 border-brand/30 text-content-primary",
-  moderacao: "bg-status-pendingBg border-status-pendingBorder text-status-pendingFg",
-  orgao: "bg-status-progressBg border-status-progressBorder text-status-progressFg",
-};
-
 const EventoDaLinha = ({ evento, ultimo, formatDateTime, onAbrirEvidencia }) => {
   const Glifo = evento.recusa ? XCircle : ICONE_DA_FONTE[evento.fonte] || CheckCircle2;
   const recusa = !!evento.recusa;
@@ -135,7 +125,7 @@ const ReportTimeline = ({
   formatDateTime,
   onAbrirEvidencia,
 }) => {
-  const { eventos, falta, aviso, semIntegracao } = linhaDoTempo({
+  const { eventos, semIntegracao } = linhaDoTempo({
     report,
     atualizacoes,
     etapasOficiais,
@@ -166,21 +156,20 @@ const ReportTimeline = ({
         ))}
       </ul>
 
-      {aviso && (
-        <p className="mt-3 text-xs leading-relaxed rounded-xl px-3 py-2 bg-status-progressBg text-status-progressFg">
-          {aviso}
-        </p>
-      )}
+      {/* OS DOIS AVISOS AZUIS SAÍRAM DAQUI
+          Eram "Encaminhar não é resolver…" e "O órgão ainda não informou a
+          próxima etapa." — ressalvas escritas quando etapa oficial era coisa
+          rara e digitada à mão, e o risco era a linha do tempo soar como
+          conserto feito.
 
-      {falta && (
-        <p
-          className={`mt-2 text-xs font-semibold leading-relaxed rounded-xl px-3 py-2 border ${
-            TOM_DE_QUEM_FALTA[falta.deQuem] || TOM_DE_QUEM_FALTA.cidadao
-          }`}
-        >
-          {falta.texto}
-        </p>
-      )}
+          Com o canal do órgão (222), a própria linha já mostra o encaminhamento
+          e o recebimento com data, hora e destinatário. Repetir por extenso que
+          aquilo não é conserto passou a ser um rodapé fixo em toda bronca — e
+          aviso que aparece sempre deixa de ser lido, inclusive quando importa.
+
+          `linhaDoTempo` continua devolvendo `aviso` e `falta`: a regra fica
+          disponível para quem quiser mostrá-la em outro lugar, e os testes que
+          a cobrem continuam valendo. O que saiu foi a exibição. */}
 
       {/* Sem canal com a prefeitura, a ausência de etapa oficial não é atraso do
           órgão — é ausência de integração. Dizer isso é a diferença entre "a
