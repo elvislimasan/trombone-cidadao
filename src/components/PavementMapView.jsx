@@ -8,6 +8,7 @@ import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
+import { streetPath } from '@/lib/shareUtils';
 import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
 import MapDisplayControls, {
@@ -46,6 +47,46 @@ const ZoomWatcher = ({ onZoom }) => {
 // (ex.: ao trocar a cidade no seletor). Se não houver ruas na cidade,
 // centraliza na própria cidade selecionada (forward geocode). Sem isso,
 // o mapa fica preso no center inicial (Floresta).
+// O ENQUADRAMENTO INICIAL SEGUE A MALHA URBANA, NÃO O MUNICÍPIO INTEIRO
+//
+// Floresta tem centenas de ruas na cidade e um punhado no distrito de Nazaré do
+// Pico, a dezenas de quilômetros. `fitBounds` sobre todos os pontos obedece ao
+// mais distante: o mapa abre no zoom do município, a mancha urbana vira um
+// borrão de meio centímetro e o levantamento — que é sobre a cidade — fica
+// ilegível para caber meia dúzia de ruas rurais.
+//
+// A mediana é o centro da malha (imune a outlier, ao contrário da média), e o
+// corte no percentil 92 das distâncias descarta o distrito sem depender de
+// nenhuma lista de nomes: qualquer cidade com um povoado afastado ganha o mesmo
+// comportamento sem configuração.
+//
+// AS RUAS DE FORA CONTINUAM DESENHADAS. Isto muda só o enquadramento inicial —
+// quem afastar o zoom encontra o distrito no lugar dele, e a busca leva até lá.
+const mediana = (valores) => {
+  const ordenados = [...valores].sort((a, b) => a - b);
+  const meio = Math.floor(ordenados.length / 2);
+  return ordenados.length % 2 ? ordenados[meio] : (ordenados[meio - 1] + ordenados[meio]) / 2;
+};
+
+const PERCENTIL_DA_MALHA = 0.92;
+
+export const enquadrarNaMalha = (pontos) => {
+  // Abaixo de uma dúzia de pontos não há malha para distinguir de outlier —
+  // descartar 8% de dez ruas é descartar uma rua por acaso.
+  if (pontos.length < 12) return pontos;
+
+  const centro = [mediana(pontos.map((p) => p[0])), mediana(pontos.map((p) => p[1]))];
+  // Distância ao quadrado em graus: só serve para ordenar, e a raiz seria
+  // trabalho jogado fora. A latitude do Brasil torna o erro do grau de longitude
+  // irrelevante para um corte por percentil.
+  const dist = (p) => (p[0] - centro[0]) ** 2 + (p[1] - centro[1]) ** 2;
+  const limite = [...pontos].sort((a, b) => dist(a) - dist(b))[Math.floor(pontos.length * PERCENTIL_DA_MALHA)];
+  const corte = dist(limite);
+
+  const dentro = pontos.filter((p) => dist(p) <= corte);
+  return dentro.length >= 2 ? dentro : pontos;
+};
+
 const FitToStreets = ({ streets, activeCity }) => {
   const map = useMap();
   const lastKeyRef = useRef('');
@@ -67,7 +108,7 @@ const FitToStreets = ({ streets, activeCity }) => {
         if (pts.length === 1) {
           map.setView(pts[0], Math.max(map.getZoom(), 15), { animate: true });
         } else {
-          map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], animate: true });
+          map.fitBounds(L.latLngBounds(enquadrarNaMalha(pts)), { padding: [40, 40], animate: true });
         }
       } catch (e) { /* noop */ }
       return;
@@ -190,7 +231,7 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
                     // design nem presume que os dois tokens sejam iguais.
                     className="w-full justify-center !text-primary-foreground hover:!text-primary-foreground"
                   >
-                    <Link to={`/mapa-pavimentacao/rua/${street.id}`}>
+                    <Link to={streetPath(street)}>
                       <Info className="w-4 h-4 mr-2" /> Detalhes e história
                     </Link>
                   </Button>

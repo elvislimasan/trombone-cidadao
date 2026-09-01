@@ -11,7 +11,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, Dr
 import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import { cepsDaRua, montarRelatorio, relatorioParaCsv } from '@/lib/pavementReport';
-import { temLeiMunicipal } from '@/lib/pavementStreetHistory';
+import { temLeiMunicipal, temProjetoDeLei } from '@/lib/pavementStreetHistory';
 import { resumoDeExtensao } from '@/lib/pavementLength';
 import PavementStats from '@/components/pavement/PavementStats';
 import PavementSidebar from '@/components/pavement/PavementSidebar';
@@ -37,7 +37,7 @@ const PavementMapPage = () => {
   // além de mais uma linha em "limpar tudo" e mais uma condição no `some` que
   // decide se o botão de limpar aparece. Ambos eram esquecíveis, e esquecer não
   // dá erro: dá um filtro que não limpa.
-  const FILTROS_VAZIOS = { bairro: 'all', situacao: 'all', tipo: 'all', cep: 'all', lei: 'all' };
+  const FILTROS_VAZIOS = { bairro: 'all', situacao: 'all', tipo: 'all', cep: 'all', lei: 'all', projeto: 'all' };
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
   const [painelAberto, setPainelAberto] = useState(true);
   const setFiltro = (id, valor) => setFiltros((atual) => ({ ...atual, [id]: valor }));
@@ -223,6 +223,12 @@ const PavementMapPage = () => {
       const temLei = temLeiMunicipal(street);
       if (filtros.lei === 'com' && !temLei) return false;
       if (filtros.lei === 'sem' && temLei) return false;
+    }
+
+    if (filtros.projeto !== 'all') {
+      const temProjeto = temProjetoDeLei(street);
+      if (filtros.projeto === 'com' && !temProjeto) return false;
+      if (filtros.projeto === 'sem' && temProjeto) return false;
     }
 
     return true;

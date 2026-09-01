@@ -1,8 +1,8 @@
-import ThemedTileLayer from '@/components/map/ThemedTileLayer';
+import { MapBaseLayer, MAP_LAYER } from '@/components/map/MapDisplayControls';
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback } from 'react';
 import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
-import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck, LocateFixed } from 'lucide-react';
+import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck, LocateFixed, Layers } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
@@ -101,6 +101,7 @@ const FitToWorks = ({ works, activeCity }) => {
 };
 
 const WorksMapView = forwardRef(({ works }, ref) => {
+  const [camada, setCamada] = useState(MAP_LAYER.STANDARD);
   const [selectedWork, setSelectedWork] = useState(null);
   const [workMedia, setWorkMedia] = useState([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -320,7 +321,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
         {!isSingleWorkView && <FitToWorks works={works} activeCity={activeCity} />}
-        <ThemedTileLayer />
+        <MapBaseLayer layer={camada} />
         {works.map((work) => (
           work.location &&
           <Marker
@@ -534,6 +535,26 @@ const WorksMapView = forwardRef(({ works }, ref) => {
             aria-label="Ir para minha posição"
           >
             <LocateFixed className="w-4 h-4" />
+          </button>
+          <div className="h-px w-full bg-border" />
+          {/* Entra na mesma pilha dos outros controles, e não como pílula solta:
+              o estilo daqui é quadrado e sem sombra, e um botão redondo no meio
+              da coluna leria como algo de outro sistema. Por isso não se usa o
+              `MapLayerToggle` aqui — só a camada, que é o que precisa ser único. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setCamada((atual) => (atual === MAP_LAYER.SATELLITE ? MAP_LAYER.STANDARD : MAP_LAYER.SATELLITE));
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="w-10 h-10 inline-flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
+            title={camada === MAP_LAYER.SATELLITE ? 'Mapa padrão' : 'Satélite'}
+            aria-label={camada === MAP_LAYER.SATELLITE ? 'Usar mapa padrão' : 'Usar mapa de satélite'}
+          >
+            <Layers className="w-4 h-4" />
           </button>
           <div className="h-px w-full bg-border" />
           <MapModeToggle className="w-10 h-10 p-0 bg-transparent shadow-none border-0 rounded-none hover:bg-muted/60" />

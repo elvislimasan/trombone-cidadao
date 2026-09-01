@@ -27,13 +27,38 @@ export const STATUS_DE_RUA = Object.freeze([
   Object.freeze({ id: 'unpaved', label: 'Sem pavimentação', plural: 'Sem pavimentação' }),
 ]);
 
+// O CADASTRO GRAVA `granite`, E ESTE MAPA NÃO O CONHECIA
+//
+// O formulário sempre salvou 'asphalt' | 'granite'. Este mapa listava
+// 'paving_stone', que nenhuma rua tem — então toda rua de paralelepípedo caía no
+// `|| 'Não informado'` e o relatório "Por tipo de pavimento" contava como
+// desconhecida uma informação que estava preenchida.
+//
+// `granite` é o valor real e fica como a chave. `paving_stone` continua aqui
+// como apelido, porque desaparecer com ele quebraria qualquer base que já o
+// tenha gravado — e custa uma linha manter.
 const TIPO_DE_PAVIMENTO = Object.freeze({
   asphalt: 'Asfalto',
+  granite: 'Paralelepípedo',
   paving_stone: 'Paralelepípedo',
   concrete: 'Concreto',
   interlocking: 'Intertravado',
   dirt: 'Terra',
 });
+
+// OS DOIS DOCUMENTOS QUE IMPORTAM
+//
+// A lei denomina a rua; o projeto de lei é o que a originou na Câmara. São as
+// duas peças que fecham a documentação de uma denominação, e é a segunda que
+// falta na maioria das ruas — daí existir um relatório só para ela.
+export const DOCUMENTOS_OBRIGATORIOS = Object.freeze([
+  Object.freeze({ kind: 'lei', label: 'Lei municipal', curto: 'Lei' }),
+  Object.freeze({ kind: 'projeto_lei', label: 'Projeto de lei', curto: 'Projeto de lei' }),
+]);
+
+export const temDocumento = (rua, kind) =>
+  Array.isArray(rua?.historical_documents) &&
+  rua.historical_documents.some((doc) => doc?.kind === kind && (doc?.url || doc?.file));
 
 export const rotuloDoStatus = (id) =>
   STATUS_DE_RUA.find((s) => s.id === id)?.label || 'Sem informação';
@@ -172,6 +197,36 @@ export const TIPOS_DE_RELATORIO = Object.freeze([
         linhas: [...alvo].sort(porBairroENome).map((r) => [
           r.name || '—', nomeDoBairro(r), rotuloDoStatus(r.status),
         ]),
+      }];
+    },
+  }),
+  Object.freeze({
+    id: 'sem-lei',
+    label: 'Ruas sem lei ou projeto de lei',
+    // A pergunta é "o que eu cobro da Câmara". Por isso a lista traz as duas
+    // colunas em vez de duas listas separadas: a rua que só tem a lei e a que
+    // não tem nada são pedidos diferentes, e ver as duas lado a lado é o que
+    // permite separá-los sem cruzar planilha.
+    descricao: 'O que falta anexar: a lei que denomina e o projeto de lei que a originou.',
+    montar: (ruas) => {
+      // Rua sem nome oficial não tem lei de denominação para faltar — cobrá-la
+      // seria pedir à Câmara um documento que não existe.
+      const alvo = ruas.filter((r) => !r.is_unnamed &&
+        DOCUMENTOS_OBRIGATORIOS.some((d) => !temDocumento(r, d.kind)));
+      if (!alvo.length) return [];
+      return [{
+        titulo: `Ruas com documentação incompleta (${alvo.length})`,
+        colunas: ['Rua', 'Bairro', 'Lei municipal', 'Projeto de lei', 'O que falta'],
+        linhas: [...alvo].sort(porBairroENome).map((r) => {
+          const faltando = DOCUMENTOS_OBRIGATORIOS.filter((d) => !temDocumento(r, d.kind));
+          return [
+            r.name || '—',
+            nomeDoBairro(r),
+            temDocumento(r, 'lei') ? 'Anexada' : 'Falta',
+            temDocumento(r, 'projeto_lei') ? 'Anexado' : 'Falta',
+            faltando.map((d) => d.curto).join(' e '),
+          ];
+        }),
       }];
     },
   }),

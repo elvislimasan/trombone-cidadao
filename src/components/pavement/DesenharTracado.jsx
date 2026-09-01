@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { MapContainer, CircleMarker, Polyline, useMapEvents } from 'react-leaflet';
 import { Undo2, Trash2, Check, MousePointerClick } from 'lucide-react';
 
-import ThemedTileLayer from '@/components/map/ThemedTileLayer';
+import { MapBaseLayer, MapLayerToggle, MAP_LAYER } from '@/components/map/MapDisplayControls';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toMultiLineStringWkt } from '@/lib/streetGeometry';
@@ -65,6 +65,7 @@ export default function DesenharTracado({
   onFechar,
 }) {
   const [pontos, setPontos] = useState(pontosIniciais);
+  const [camada, setCamada] = useState(MAP_LAYER.STANDARD);
 
   // O mapa precisa de um centro para montar. Sem o ponto da rua não há de onde
   // partir — quem chama só oferece o botão quando há coordenada.
@@ -91,9 +92,13 @@ export default function DesenharTracado({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="h-[24rem] w-full overflow-hidden rounded-xl border border-edge-subtle">
+        {/* O SATÉLITE AQUI NÃO É CONFORTO, É O QUE TORNA O DESENHO POSSÍVEL
+            Boa parte das ruas sem pavimentação não existe no mapa padrão: o OSM
+            não tem o traçado, e quem desenha fica clicando sobre um fundo em
+            branco. Na imagem de satélite a rua está lá, de terra, visível. */}
+        <div className="relative h-[24rem] w-full overflow-hidden rounded-xl border border-edge-subtle">
           <MapContainer center={[centro.lat, centro.lng]} zoom={ZOOM} className="desenhar-tracado h-full w-full">
-            <ThemedTileLayer />
+            <MapBaseLayer layer={camada} />
             <Cliques onClique={(ponto) => setPontos((atual) => [...atual, ponto])} />
 
             {/* O ponto já cadastrado da rua fica visível como referência: é a
@@ -116,6 +121,10 @@ export default function DesenharTracado({
               />
             ))}
           </MapContainer>
+
+          <div className="absolute right-3 top-3 z-[800]">
+            <MapLayerToggle layer={camada} onLayerChange={setCamada} />
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

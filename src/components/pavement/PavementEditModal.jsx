@@ -699,7 +699,8 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                 <Combobox
                   options={[
                     { value: 'asphalt', label: 'Asfáltica' },
-                    { value: 'granite', label: 'Granítica (Paralelepípedo)' }
+                    { value: 'granite', label: 'Granítica (Paralelepípedo)' },
+                    { value: 'interlocking', label: 'Intertravado' }
                   ]}
                   value={formData.pavement_type}
                   onChange={(value) => handleSelectChange('pavement_type', value)}
@@ -785,19 +786,27 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                     <Input value={document.title || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'title', e.target.value)} placeholder="Título — ex.: Lei de Criação da Rua" />
                     <Input value={document.description || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'description', e.target.value)} placeholder="Subtítulo — ex.: Lei Municipal nº 1.234/2010" />
                     {/* O QUE O DOCUMENTO É, e não o formato do arquivo.
-                        É este campo que alimenta o filtro "ruas com/sem a lei
-                        municipal" no mapa. Documento antigo fica em "Outro" até
-                        alguém abrir e marcar — o filtro serve para conferir o
-                        cadastro contra a prefeitura, e chutar que todo anexo é
-                        a lei responderia essa pergunta com um palpite. */}
+                        É este campo que alimenta os filtros "ruas com/sem a lei
+                        municipal" e "sem projeto de lei" no mapa, e o relatório
+                        de documentação incompleta. Documento antigo fica em
+                        "Outro" até alguém abrir e marcar — o filtro serve para
+                        conferir o cadastro contra a prefeitura, e chutar que
+                        todo anexo é a lei responderia essa pergunta com um
+                        palpite.
+
+                        São dois documentos distintos de propósito: a lei
+                        denomina a rua, o projeto de lei é o que a originou na
+                        Câmara. Guardá-los na mesma categoria tornaria impossível
+                        listar o que ainda falta cobrar. */}
                     <select
-                      value={document.kind === 'lei' ? 'lei' : 'outro'}
+                      value={['lei', 'projeto_lei'].includes(document.kind) ? document.kind : 'outro'}
                       onChange={(e) => updateArrayItem('historical_documents', index, 'kind', e.target.value)}
                       aria-label="Tipo do documento"
                       className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                     >
                       <option value="outro">Outro documento</option>
                       <option value="lei">Lei municipal</option>
+                      <option value="projeto_lei">Projeto de lei</option>
                     </select>
                   </div>
                   <Button type="button" variant="ghost" size="icon" className="shrink-0 text-red-500" onClick={() => removeArrayItem('historical_documents', index)} aria-label="Remover documento"><Trash2 className="h-4 w-4" /></Button>

@@ -1139,8 +1139,18 @@ body > * a:not(.leaflet-container a) {
    tripletes consumidos como rgb(var(--x)) e var() NÃO resolve dentro de um
    atributo de apresentação SVG — que é onde o Leaflet escreve `stroke`. É a
    mesma armadilha documentada em src/components/map/pinIcon.js:60-63. */
+/* O NOME DA RUA PRECISA ATRAVESSAR O TRAÇADO
+   O rótulo do OSM é desenhado ao longo do eixo da via — exatamente onde a nossa
+   linha passa. Opaca, ela apagava o nome justamente da rua que a pessoa foi
+   conferir, e o mapa ficava colorido e mudo.
+
+   A saída certa seria base sem rótulos + camada de rótulos por cima do traçado,
+   mas isso troca o provedor de tiles de todos os mapas do app. Transparência
+   resolve o essencial com uma linha: 0,78 mantém a cor legível contra o fundo
+   claro e escuro e deixa o texto passar. */
 .leaflet-container .via-pav {
   stroke: rgb(var(--pin-pav-unknown-bg));
+  stroke-opacity: 0.78;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

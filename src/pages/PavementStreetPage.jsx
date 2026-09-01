@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useParams } from 'react-router-dom';
+import { compartilharLink } from '@/lib/shareLink';
+import { getStreetShareUrl } from '@/lib/shareUtils';
 import { CircleMarker, MapContainer } from 'react-leaflet';
 import {
   BookOpen,
@@ -17,6 +19,7 @@ import {
   Navigation,
   Pencil,
   Sparkles,
+  Share2,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -27,7 +30,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { savePavementStreet } from '@/lib/savePavementStreet';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { MapBaseLayer } from '@/components/map/MapDisplayControls';
-import { cepsDaRua } from '@/lib/pavementReport';
+import { cepsDaRua, rotuloDoPavimento } from '@/lib/pavementReport';
 import { showAppError } from '@/lib/appError';
 import StreetEventBanner from '@/components/agora/StreetEventBanner';
 import FollowAreaButton from '@/components/agora/FollowAreaButton';
@@ -72,8 +75,10 @@ const parseLocation = (location) => {
 
 const statusLabel = (street) => {
   if (street?.status === 'paved') {
-    const pavementType = { asphalt: 'Asfalto', granite: 'Paralelepípedo' }[street.pavement_type];
-    return `Pavimentada${pavementType ? ` · ${pavementType}` : ''}`;
+    // O vocabulário mora em `pavementReport`, e não numa terceira cópia aqui:
+    // era essa duplicação que fazia 'interlocking' aparecer só nos relatórios.
+    const pavementType = street.pavement_type ? rotuloDoPavimento(street.pavement_type) : '';
+    return `Pavimentada${pavementType && pavementType !== 'Não informado' ? ` · ${pavementType}` : ''}`;
   }
   if (street?.status === 'partially_paved') return 'Parcialmente pavimentada';
   if (street?.status === 'unpaved') return 'Sem pavimentação';
@@ -331,14 +336,25 @@ export default function PavementStreetPage() {
   const { canManage, isPureAmbassador, myActiveCityIds } = useCanManagePavement(street?.city_id);
   // Minha Rua: o que esta acontecendo na regiao agora. A rua nunca guarda
   // copia do acontecimento — ela PERGUNTA (regra 3 do plano).
-  const { eventos: acontecimentos, carregando: carregandoAcontecimentos } = useStreetCityEvents(streetId);
+  const { eventos: acontecimentos, carregando: carregandoAcontecimentos } = useStreetCityEvents(street?.id);
 
   const carregarRua = useCallback(async () => {
     setLoading(true);
+    // A ROTA ACEITA SLUG E ID
+    //
+    // O endereço novo é `/rua/rua-pastor-domicio-afonso-dos-santos`, mas o id
+    // continua valendo: há link de uuid em conversa de WhatsApp, em ofício e em
+    // print de tela, e nenhum deles pode virar 404 porque a URL ficou bonita.
+    //
+    // O formato decide qual coluna consultar — um uuid nunca é um slug válido
+    // (slug não tem hífen em posição fixa nem 36 caracteres de hexadecimal), e
+    // um slug nunca passa por `eq('id', ...)` sem o Postgres reclamar de tipo.
+    const ehUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(streetId || '');
+
     const { data, error } = await supabase
       .from('pavement_streets')
       .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)')
-      .eq('id', streetId)
+      .eq(ehUuid ? 'id' : 'slug', streetId)
       .maybeSingle();
 
     setLoading(false);
@@ -414,7 +430,22 @@ export default function PavementStreetPage() {
   const pavementStatus = statusLabel(street);
   const atualizadoEm = formatarDataBr(street?.updated_at);
 
-  const local = [bairroName || localidade?.nome, localidade?.uf].filter(Boolean).join(', ');
+  // O BAIRRO APARECE UMA VEZ SÓ
+  //
+  // O chip do topo mostrava o bairro, e logo abaixo cada chip de CEP mostra o
+  // bairro do seu trecho — em rua de um CEP só, a mesma palavra saía duas vezes
+  // com dois ícones diferentes, parecendo dois dados distintos.
+  //
+  // Quando algum CEP já carrega o bairro, o chip do topo passa a mostrar a
+  // CIDADE, que é a informação que faltava ali (a página não dizia em que
+  // município a rua fica). Sem CEP cadastrado, ele continua mostrando o bairro:
+  // some a repetição, não a informação.
+  const bairroJaApareceNosCeps =
+    Boolean(bairroName) && ceps.some((c) => textoLimpo(bairroDoCep[c.bairroId]) === bairroName);
+  const local = [
+    bairroJaApareceNosCeps ? localidade?.nome : (bairroName || localidade?.nome),
+    localidade?.uf,
+  ].filter(Boolean).join(', ');
   const routeUrl = street?.location
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${street.location.lat},${street.location.lng}`)}&travelmode=driving`
     : null;
@@ -467,6 +498,26 @@ export default function PavementStreetPage() {
                 nome={street.name}
                 tamanho="sm"
               />
+              {/* A história da rua é o conteúdo mais compartilhável do app:
+                  quem descobre quem foi o homenageado manda para o grupo da
+                  família e para o bairro. Sem botão, o caminho era copiar da
+                  barra de endereço — que no app nativo nem aparece. */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 rounded-full"
+                aria-label="Compartilhar esta rua"
+                title="Compartilhar"
+                onClick={() => compartilharLink({
+                  title: street.name,
+                  text: honoreeName
+                    ? `${street.name} — a história de ${honoreeName}, no Trombone Cidadão.`
+                    : `${street.name}${local ? ` — ${local}` : ''}, no Trombone Cidadão.`,
+                  url: getStreetShareUrl(street),
+                })}
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
             {canManage && (
               <Button
                 size="sm"
@@ -480,8 +531,30 @@ export default function PavementStreetPage() {
             </div>
           </div>
 
-          <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">Minha rua</p>
-          <h1 className="mt-2 text-3xl font-extrabold leading-tight text-content-primary sm:text-4xl">{street.name}</h1>
+          {/* O RETRATO DO HOMENAGEADO FICA AO LADO DO NOME
+              A rua leva o nome de alguém, e até aqui esse alguém só aparecia
+              lá embaixo, dentro do cartão de biografia — depois do mapa, das
+              broncas e do status de pavimentação. Quem abre "Rua Pastor Domício
+              Afonso dos Santos" quer ver o Pastor Domício.
+              A foto da RUA continua sendo a capa ao fundo: são coisas
+              diferentes, e por isso `capaDaRua` só considera `subject: 'street'`. */}
+          <div className="mt-2 flex items-start gap-4">
+            {fotoDoHomenageado?.url && (
+              <img
+                src={fotoDoHomenageado.url}
+                alt={honoreeName ? `Retrato de ${honoreeName}` : 'Retrato do homenageado'}
+                loading="lazy"
+                className="h-20 w-20 shrink-0 rounded-full object-cover ring-2 ring-surface-raised shadow-lg sm:h-24 sm:w-24"
+              />
+            )}
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Minha rua</p>
+              <h1 className="mt-1 text-3xl font-extrabold leading-tight text-content-primary sm:text-4xl">{street.name}</h1>
+              {fotoDoHomenageado?.url && honoreeName && !nomeDoHomenageadoRepete && (
+                <p className="mt-1 text-sm text-content-secondary">{honoreeName}</p>
+              )}
+            </div>
+          </div>
 
           <div className="mt-4 flex flex-wrap gap-2 text-sm">
             {local && (

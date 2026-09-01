@@ -162,9 +162,12 @@ export const savePavementStreet = async ({
         type: item.file ? fileTypeLabel(item.file.name) : (item.type || ''),
         size: item.file ? item.file.size : (item.size || ''),
         original_name: item.file?.name || item.original_name || '',
-        // 'lei' e o unico valor que alimenta o filtro de lei municipal. Tudo
-        // que nao foi marcado vira 'outro' — inclusive cadastro antigo.
-        kind: item.kind === 'lei' ? 'lei' : 'outro',
+        // 'lei' e 'projeto_lei' sao os dois valores que alimentam os filtros e o
+        // relatorio de documentacao incompleta. Tudo que nao foi marcado vira
+        // 'outro' — inclusive cadastro antigo. A lista branca e explicita: um
+        // valor novo digitado por engano viraria 'outro' em vez de criar uma
+        // terceira categoria invisivel que nenhum filtro conhece.
+        kind: ['lei', 'projeto_lei'].includes(item.kind) ? item.kind : 'outro',
         url: stored?.url || item.url,
         ...(stored?.path || item.path ? { path: stored?.path || item.path } : {}),
       });

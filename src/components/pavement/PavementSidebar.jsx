@@ -25,9 +25,12 @@ import { SITUACOES } from '@/lib/pavementLength';
 const SELETORES = [
   { id: 'bairro', rotulo: 'Bairro', vazio: 'Todos os bairros' },
   { id: 'situacao', rotulo: 'Situação', vazio: 'Todas', opcoes: SITUACOES.map((s) => [s.id, s.rotulo]) },
-  { id: 'tipo', rotulo: 'Tipo de pavimento', vazio: 'Todos', opcoes: [['asphalt', 'Asfáltica'], ['granite', 'Paralelepípedo']] },
+  { id: 'tipo', rotulo: 'Tipo de pavimento', vazio: 'Todos', opcoes: [['asphalt', 'Asfáltica'], ['granite', 'Paralelepípedo'], ['interlocking', 'Intertravado']] },
   { id: 'cep', rotulo: 'CEP', vazio: 'Todas', opcoes: [['com', 'Com CEP'], ['sem', 'Sem CEP']] },
   { id: 'lei', rotulo: 'Lei municipal', vazio: 'Todas', opcoes: [['com', 'Com anexo da lei'], ['sem', 'Sem anexo da lei']] },
+  // Separado da lei de propósito: são dois documentos, e a rua que tem um e não
+  // o outro é justamente a que interessa cobrar da Câmara.
+  { id: 'projeto', rotulo: 'Projeto de lei', vazio: 'Todos', opcoes: [['com', 'Com projeto de lei'], ['sem', 'Sem projeto de lei']] },
 ];
 
 const Titulo = ({ children, acao = null }) => (

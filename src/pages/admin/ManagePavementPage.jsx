@@ -1,4 +1,5 @@
 
+import { streetPath } from '@/lib/shareUtils';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
@@ -462,7 +463,7 @@ const ManagePavementPage = () => {
                     {/* Ver a pagina publica da rua: e a unica forma de conferir
                         como o cadastro ficou sem sair procurando no mapa. */}
                     <Button asChild variant="ghost" size="icon" title="Ver pagina da rua">
-                      <Link to={`/mapa-pavimentacao/rua/${street.id}`} target="_blank" rel="noreferrer">
+                      <Link to={streetPath(street)} target="_blank" rel="noreferrer">
                         <Eye className="w-4 h-4" />
                       </Link>
                     </Button>

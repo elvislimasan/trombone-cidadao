@@ -122,10 +122,10 @@ export const normalizarDocumentos = (street) =>
       // `kind` diz O QUE o documento é; `type` diz o formato do arquivo. Os dois
       // nomes convivem porque `type` já significava "PDF" muito antes disto.
       //
-      // Ausência vira "outro", nunca "lei": o filtro da lei municipal existe
-      // para conferir o cadastro contra a prefeitura, e documento que ninguém
-      // classificou ainda não é prova de nada.
-      kind: item?.kind === 'lei' ? 'lei' : 'outro',
+      // Ausência vira "outro", nunca "lei" nem "projeto_lei": os filtros de
+      // documentação existem para conferir o cadastro contra a prefeitura, e
+      // documento que ninguém classificou ainda não é prova de nada.
+      kind: ['lei', 'projeto_lei'].includes(item?.kind) ? item.kind : 'outro',
     }];
   });
 
@@ -138,6 +138,17 @@ export const normalizarDocumentos = (street) =>
  */
 export const temLeiMunicipal = (street) =>
   normalizarDocumentos(street).some((documento) => documento.kind === 'lei');
+
+/**
+ * A rua tem o projeto de lei anexado?
+ *
+ * Documento diferente da lei, e não um detalhe: a lei é o ato que denomina, o
+ * projeto é a proposta que tramitou na Câmara. Na prática a maioria das ruas
+ * tem a primeira e não a segunda — e é essa diferença que o relatório de
+ * documentação incompleta existe para listar.
+ */
+export const temProjetoDeLei = (street) =>
+  normalizarDocumentos(street).some((documento) => documento.kind === 'projeto_lei');
 
 /**
  * O nome do homenageado repete o da rua?
