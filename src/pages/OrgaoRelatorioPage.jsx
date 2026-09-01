@@ -57,6 +57,15 @@ const SITUACOES = [
 const dataBR = (v) =>
   v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'America/Recife' }) : '—';
 
+// "0 dias aberta" é uma frase que ninguém diz, e numa demanda registrada hoje
+// ela lê como erro de cálculo. O selo amarelo existe para dizer há quanto tempo
+// o problema está de pé; quando a resposta é "desde hoje", o jeito de dizer isso
+// é outro.
+const rotuloTempo = (dias) => {
+  if (!dias || dias <= 0) return 'Registrada hoje';
+  return `${dias} ${dias === 1 ? 'dia' : 'dias'} aberta`;
+};
+
 const OrgaoRelatorioPage = () => {
   const { token } = useParams();
   const [dados, setDados] = useState(null);
@@ -179,7 +188,9 @@ const OrgaoRelatorioPage = () => {
           b.protocolo || '—',
           doc.splitTextToSize(b.titulo || '', 45),
           doc.splitTextToSize([b.endereco, b.bairro].filter(Boolean).join(' · '), 50),
-          `${b.dias_aberta} dias`,
+          // Na tabela a coluna já se chama "Aberta há", então aqui cabe a forma
+          // curta: "hoje" em vez de repetir "Registrada hoje" no cabeçalho.
+          b.dias_aberta > 0 ? `${b.dias_aberta} ${b.dias_aberta === 1 ? 'dia' : 'dias'}` : 'hoje',
           dataBR(b.criada_em),
         ]),
         startY: y,
@@ -486,7 +497,8 @@ const OrgaoRelatorioPage = () => {
                         </span>
                       </p>
                       <p className="text-2xs text-content-tertiary mt-0.5">
-                        Registrada em {dataBR(b.criada_em)} · aberta há {b.dias_aberta} {b.dias_aberta === 1 ? 'dia' : 'dias'}
+                        Registrada em {dataBR(b.criada_em)}
+                        {b.dias_aberta > 0 && ` · aberta há ${b.dias_aberta} ${b.dias_aberta === 1 ? 'dia' : 'dias'}`}
                       </p>
                     </div>
 
