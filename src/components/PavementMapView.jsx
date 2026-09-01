@@ -1,5 +1,5 @@
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { CircleMarker, MapContainer, Polyline, Popup, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polyline, Popup, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import { Info, HelpCircle, Edit } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
@@ -38,9 +38,54 @@ const MapScrollLock = ({ mode }) => {
 // O ponto encolhe no zoom de cidade e cresce ao aproximar. É o que o disco de
 // 40 px não fazia — ele tinha o mesmo tamanho a 3 km e a 30 m, e por isso
 // quatrocentos deles cobriam o mapa inteiro.
-const ZoomWatcher = ({ onZoom }) => {
-  const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
+const ZoomWatcher = ({ onZoom, onBounds }) => {
+  const map = useMapEvents({
+    zoomend: () => { onZoom(map.getZoom()); onBounds(map.getBounds()); },
+    moveend: () => onBounds(map.getBounds()),
+  });
   return null;
+};
+
+// O ZOOM A PARTIR DO QUAL VALE ESCREVER O NOME DA RUA
+//
+// Abaixo disso o rótulo do próprio mapa já é o que se lê, e centenas de nomes
+// nossos sobrepostos virariam ruído. Daqui para cima é onde a pessoa está
+// conferindo uma rua específica — e onde o traçado tapa exatamente o nome dela.
+const ZOOM_DOS_ROTULOS = 17;
+
+// O RÓTULO ACOMPANHA A INCLINAÇÃO DA RUA
+//
+// Escrito na horizontal sobre uma via diagonal, o nome atravessa quarteirão,
+// calçada e a rua vizinha — e fica ambíguo a qual traçado pertence. Inclinado,
+// ele lê como o rótulo do próprio mapa: pertence visivelmente àquela linha.
+//
+// O ângulo sai do segmento do MEIO da linha, que é onde o tooltip é ancorado
+// (`direction="center"`). Usar as pontas daria a inclinação da rua inteira, e
+// numa rua que faz curva o texto sairia torto justamente onde está escrito.
+//
+// A longitude é multiplicada por cos(lat) porque um grau de longitude é mais
+// curto que um de latitude fora do equador; sem isso toda rua leste-oeste
+// pareceria mais inclinada do que é. E o eixo Y da tela cresce para BAIXO,
+// daí o sinal invertido na latitude.
+export const anguloDoTracado = (linha) => {
+  if (!Array.isArray(linha) || linha.length < 2) return 0;
+
+  const meio = Math.floor(linha.length / 2);
+  const a = linha[Math.max(0, meio - 1)];
+  const b = linha[Math.min(linha.length - 1, meio)];
+  if (!a || !b) return 0;
+
+  const escalaLng = Math.cos((a[0] * Math.PI) / 180);
+  const dx = (b[1] - a[1]) * escalaLng;
+  const dy = -(b[0] - a[0]);
+  if (dx === 0 && dy === 0) return 0;
+
+  let graus = (Math.atan2(dy, dx) * 180) / Math.PI;
+  // Mantém o texto legível: sem isso, rua no sentido oeste sairia de cabeça
+  // para baixo, tecnicamente alinhada e impossível de ler.
+  if (graus > 90) graus -= 180;
+  if (graus < -90) graus += 180;
+  return graus;
 };
 
 // Recentraliza o mapa nas ruas carregadas sempre que a lista muda
@@ -136,6 +181,8 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
   const { mode } = useMapModeToggle();
   const { city: activeCity } = useCityView();
   const [zoom, setZoom] = useState(INITIAL_ZOOM);
+  const [bounds, setBounds] = useState(null);
+  const mostrarRotulos = zoom >= ZOOM_DOS_ROTULOS;
 
   // A ESPESSURA ACOMPANHA O ZOOM, E ESSA É A DIFERENÇA ENTRE MAPA E BORRÃO.
   //
@@ -184,10 +231,17 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
         <FitToStreets streets={streets} activeCity={activeCity} />
         <MapBaseLayer layer={mapLayer} />
         <CurrentLocationMarker position={currentLocation} />
-        <ZoomWatcher onZoom={setZoom} />
+        <ZoomWatcher onZoom={setZoom} onBounds={setBounds} />
         {streets.map((street) => {
           const token = PAVEMENT_STATUS_TOKEN[street.status] || 'unknown';
           const linhas = Array.isArray(street.linhas) ? street.linhas : [];
+
+          // Só as ruas à vista ganham rótulo. Sem o recorte por `bounds`, o
+          // Leaflet montaria um elemento de texto para cada uma das centenas de
+          // ruas da cidade a cada mudança de zoom — a maioria fora da tela.
+          const rotularStreet = mostrarRotulos
+            && linhas.length > 0
+            && bounds?.contains(linhas[0][Math.floor(linhas[0].length / 2)]);
 
           const popup = (
             <Popup className="custom-popup" minWidth={200}>
@@ -260,6 +314,32 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
                   pathOptions={{ weight: toqueDaVia, opacity: 0 }}
                 >
                   {popup}
+                  {/* O NOME DA RUA, ESCRITO POR NÓS, POR CIMA DO TRAÇADO
+                      O rótulo do OSM vem impresso no tile e fica DEBAIXO de tudo
+                      que desenhamos — não há ordem de camadas que o resgate. A
+                      saída de manual seria base sem rótulos mais uma camada de
+                      rótulos por cima, e ela não existe aqui: a CARTO passou a
+                      exigir chave (ver tileSources.js), e o tema escuro depende
+                      do OSM invertido no navegador.
+                      Então o nome passa a ser nosso. Tooltip do Leaflet vive no
+                      `tooltipPane` (z-index 650), acima do `overlayPane` (400)
+                      onde o traçado mora — fica por cima por construção.
+                      De quebra, resolve o satélite, que não tem nome de rua
+                      nenhum. */}
+                  {rotularStreet && (
+                    <Tooltip permanent direction="center" className="rotulo-de-rua" opacity={1}>
+                      {/* A rotação vai num <span> nosso, e não no elemento do
+                          tooltip: o Leaflet já usa o `transform` daquele div
+                          para posicioná-lo no mapa, e sobrescrever jogaria o
+                          rótulo para fora da rua. */}
+                      <span
+                        className="inline-block"
+                        style={{ transform: `rotate(${anguloDoTracado(linhas[0])}deg)` }}
+                      >
+                        {street.name}
+                      </span>
+                    </Tooltip>
+                  )}
                 </Polyline>
                 <Polyline
                   positions={linhas}

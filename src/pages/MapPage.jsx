@@ -8,6 +8,8 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
 import { useReportUpdate } from '@/hooks/useReportUpdate';
 import ReportUpdateModal from '@/components/report/ReportUpdateModal';
+import TelaDeMapa from '@/components/map/TelaDeMapa';
+import { useTelaLarga } from '@/hooks/useTelaLarga';
 
 const MapView = lazy(() => import('@/components/MapView'));
 // Carregado sob demanda: quem só consulta o mapa não paga pelo peso dos hooks
@@ -538,111 +540,17 @@ export default function MapPage() {
     );
   }, [gpsLoading, selectMapCity]);
 
+
+  const telaLarga = useTelaLarga();
+
+
   // ── Render ──────────────────────────────────────────────────────────────────
-  return (
-    <div className="flex flex-col bg-background flex-1 min-h-0 overflow-hidden">
-
-      {/* ── Mapa em tela cheia, com os controles flutuando por cima ──
-          Antes busca/cidade/chips empilhavam acima e empurravam o mapa para
-          baixo. Flutuando, o mapa ganha ~100px de altura util.
-          z-[700] fica abaixo dos controles do Leaflet (800) e do BottomNav
-          (900), entao nada aqui cobre a navegacao.
-          pointer-events-none no container + auto nos filhos: o espaco vazio
-          entre os controles continua arrastavel como mapa. */}
-      <div className="flex-1 min-h-0 relative overflow-hidden">
-        {(loading || !geoSettled) && <MapLoader />}
-        {/* Só monta o mapa depois que o GPS resolveu: o Leaflet fixa o centro
-            na montagem, entao montar antes deixaria o mapa preso em Floresta e
-            a posicao do usuario chegaria tarde, causando o salto na abertura. */}
-        {geoSettled && (
-        <Suspense fallback={<MapLoader />}>
-          <div className="absolute inset-0">
-            <MapView
-              clusters={visibleClusters}
-              initialCenter={initialUserPos}
-              onReportClick={handleReportClick}
-              onUpvote={() => {}}
-              flyToTarget={flyToTarget}
-              onBoundsChange={handleBoundsChange}
-              onRecenter={syncCityFromCoords}
-              onUpdateClick={handleOpenUpdate}
-            />
-          </div>
-        </Suspense>
-        )}
-
-        <div className="absolute inset-x-0 top-0 z-[700] pointer-events-none flex flex-col gap-2 pt-2">
-
-      {/* ── Top bar: search + filtros ── */}
-      <div className="flex-shrink-0 pointer-events-auto px-3 flex items-center gap-2">
-        <div className="flex-1 flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5">
-          <Search size={15} className="text-muted-foreground flex-shrink-0" />
-          <input
-            value={titleSearchInput}
-            onChange={e => setTitleSearchInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
-            placeholder="Buscar bronca..."
-            className="bg-transparent outline-none text-sm flex-1 min-w-0"
-          />
-          {titleSearchInput && (
-            <button type="button" onClick={() => { setTitleSearchInput(''); setTitleSearchTerm(''); setFlyToTarget(null); }}>
-              <X size={14} className="text-muted-foreground hover:text-foreground" />
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={openFilterSheet}
-          className="flex-shrink-0 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/40 transition-colors"
-        >
-          <SlidersHorizontal size={14} />
-          <span className="text-xs">Filtros</span>
-          {(statusFilter !== 'active' || categoryFilter !== 'all') && (
-            <span className="w-2 h-2 rounded-full bg-primary" />
-          )}
-        </button>
-      </div>
-
-      {/* ── City pill + active filter chips ── */}
-      <div className="flex-shrink-0 pointer-events-auto px-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => { setCitySheetOpen(true); setCitySearch(''); }}
-          className="flex items-center gap-1.5 rounded-full border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary/40 transition-colors shadow-lg"
-        >
-          <MapPin size={13} className="text-primary flex-shrink-0" />
-          <span className="truncate max-w-[160px]">{mapCityName ?? 'Selecionar cidade'}</span>
-          <ChevronDown size={13} className="opacity-60 flex-shrink-0" />
-        </button>
-
-        {activeFilterChips.map(chip => (
-          <FilterChip key={chip.key} label={chip.label} onRemove={chip.clear} />
-        ))}
-
-        {activeFilterChips.length > 0 && (
-          <button type="button" onClick={clearAllFilters} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-auto">
-            Limpar tudo
-          </button>
-        )}
-      </div>
-
-        </div>
-
-      </div>
-
-      {/* ── Bottom bar: contagem ──
-          A entrada da patrulha saiu daqui para o hub de missões: este mapa é
-          para consultar, e o botão de agir vivia escondido atrás dele. */}
-      <div className="flex-shrink-0 bg-background border-t border-border px-4 py-2.5 flex items-center gap-3">
-        <span className="text-sm font-semibold text-foreground">
-          {loading ? (
-            <span className="text-muted-foreground">Carregando…</span>
-          ) : (
-            `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
-          )}
-        </span>
-      </div>
-
+  // As gavetas e o modal sao os MESMOS nas duas montagens: mudar a moldura nao
+  // muda o que abre por cima dela. Ficam numa constante para que a versao de
+  // colunas e a de celular nao guardem duas copias que divergem na primeira
+  // correcao feita so num lado.
+  const sobreposicoes = (
+    <>
       {/* ══ Bottom Sheet: Filtros ══════════════════════════════════════════════ */}
       <BottomSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Filtros">
         <div className="px-5 py-4 flex flex-col gap-6">
@@ -814,6 +722,248 @@ export default function MapPage() {
           onMessageChange={reportUpdate.setMessage}
         />
       )}
+    </>
+  );
+
+  // ── Colunas, a partir de 1100px ───────────────────────────────────────────
+  //
+  // Mesma moldura do mapa de pavimentacao: filtros a esquerda, mapa ocupando a
+  // altura da janela, legenda a direita. O celular NAO passa por aqui — a tela
+  // cheia com controles flutuando por cima continua sendo o certo la, e o
+  // `return` abaixo e o mesmo de sempre.
+  if (telaLarga) {
+    return (
+      <TelaDeMapa
+        titulo="Mapa de Broncas"
+        tituloDaAba="Mapa de Broncas - Trombone Cidadao"
+        descricaoSeo="Veja no mapa as broncas registradas pelos moradores, por status e categoria."
+        filtrosLigados={activeFilterChips.length}
+        filtros={
+          <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
+            <button
+              type="button"
+              onClick={() => { setCitySheetOpen(true); setCitySearch(''); }}
+              className="flex w-full items-center gap-1.5 rounded-full border border-edge-subtle px-2.5 py-1.5 text-xs font-bold text-content-primary hover:border-brand/40"
+            >
+              <MapPin size={13} className="shrink-0 text-brand" />
+              <span className="min-w-0 flex-1 truncate text-left">{mapCityName ?? 'Selecionar cidade'}</span>
+              <ChevronDown size={13} className="shrink-0 opacity-60" />
+            </button>
+
+            <div className="flex items-center gap-2 rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2">
+              <Search size={14} className="shrink-0 text-content-tertiary" />
+              <input
+                value={titleSearchInput}
+                onChange={e => setTitleSearchInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
+                placeholder="Buscar bronca"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
+              {titleSearchInput && (
+                <button type="button" onClick={() => { setTitleSearchInput(''); setTitleSearchTerm(''); setFlyToTarget(null); }}>
+                  <X size={13} className="text-content-tertiary hover:text-content-primary" />
+                </button>
+              )}
+            </div>
+
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">Status</span>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2 text-sm text-content-primary"
+              >
+                {STATUSES.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">Categoria</span>
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2 text-sm text-content-primary"
+              >
+                {CATEGORIES.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </label>
+
+            {activeFilterChips.length > 0 && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="mt-auto rounded-lg border border-edge-subtle px-2.5 py-2 text-xs font-bold text-content-secondary hover:bg-surface-subtle"
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
+        }
+        mapa={
+          <>
+            {(loading || !geoSettled) && <MapLoader />}
+            {geoSettled && (
+              <Suspense fallback={<MapLoader />}>
+                <div className="absolute inset-0">
+                  <MapView
+                    clusters={visibleClusters}
+                    initialCenter={initialUserPos}
+                    onReportClick={handleReportClick}
+                    onUpvote={() => {}}
+                    flyToTarget={flyToTarget}
+                    onBoundsChange={handleBoundsChange}
+                    onRecenter={syncCityFromCoords}
+                    onUpdateClick={handleOpenUpdate}
+                  />
+                </div>
+              </Suspense>
+            )}
+          </>
+        }
+        painel={
+          <div className="grid gap-3">
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="flex items-center gap-2.5 text-sm font-bold text-content-primary">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </span>
+                Broncas visiveis
+              </p>
+              <p className="mt-3 text-3xl font-extrabold leading-none text-content-primary tabular-nums">
+                {loading ? '—' : totalVisibleCount}
+              </p>
+              <p className="mt-1 text-xs text-content-secondary">
+                No recorte atual do mapa e dos filtros.
+              </p>
+            </section>
+
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">Legenda</p>
+              <ul className="mt-2 grid gap-1.5">
+                {[
+                  ['bg-status-pendingFg', 'Pendente'],
+                  ['bg-status-progressFg', 'Em andamento'],
+                  ['bg-status-resolvedFg', 'Resolvido'],
+                ].map(([cor, rotulo]) => (
+                  <li key={rotulo} className="flex items-center gap-2 text-xs text-content-secondary">
+                    <span className={`h-2.5 w-2.5 rounded-full ${cor}`} /> {rotulo}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        }
+      >
+        {sobreposicoes}
+      </TelaDeMapa>
+    );
+  }
+
+  return (
+    <div className="flex flex-col bg-background flex-1 min-h-0 overflow-hidden">
+
+      {/* ── Mapa em tela cheia, com os controles flutuando por cima ──
+          Antes busca/cidade/chips empilhavam acima e empurravam o mapa para
+          baixo. Flutuando, o mapa ganha ~100px de altura util.
+          z-[700] fica abaixo dos controles do Leaflet (800) e do BottomNav
+          (900), entao nada aqui cobre a navegacao.
+          pointer-events-none no container + auto nos filhos: o espaco vazio
+          entre os controles continua arrastavel como mapa. */}
+      <div className="flex-1 min-h-0 relative overflow-hidden">
+        {(loading || !geoSettled) && <MapLoader />}
+        {/* Só monta o mapa depois que o GPS resolveu: o Leaflet fixa o centro
+            na montagem, entao montar antes deixaria o mapa preso em Floresta e
+            a posicao do usuario chegaria tarde, causando o salto na abertura. */}
+        {geoSettled && (
+        <Suspense fallback={<MapLoader />}>
+          <div className="absolute inset-0">
+            <MapView
+              clusters={visibleClusters}
+              initialCenter={initialUserPos}
+              onReportClick={handleReportClick}
+              onUpvote={() => {}}
+              flyToTarget={flyToTarget}
+              onBoundsChange={handleBoundsChange}
+              onRecenter={syncCityFromCoords}
+              onUpdateClick={handleOpenUpdate}
+            />
+          </div>
+        </Suspense>
+        )}
+
+        <div className="absolute inset-x-0 top-0 z-[700] pointer-events-none flex flex-col gap-2 pt-2">
+
+      {/* ── Top bar: search + filtros ── */}
+      <div className="flex-shrink-0 pointer-events-auto px-3 flex items-center gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5">
+          <Search size={15} className="text-muted-foreground flex-shrink-0" />
+          <input
+            value={titleSearchInput}
+            onChange={e => setTitleSearchInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
+            placeholder="Buscar bronca..."
+            className="bg-transparent outline-none text-sm flex-1 min-w-0"
+          />
+          {titleSearchInput && (
+            <button type="button" onClick={() => { setTitleSearchInput(''); setTitleSearchTerm(''); setFlyToTarget(null); }}>
+              <X size={14} className="text-muted-foreground hover:text-foreground" />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={openFilterSheet}
+          className="flex-shrink-0 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/40 transition-colors"
+        >
+          <SlidersHorizontal size={14} />
+          <span className="text-xs">Filtros</span>
+          {(statusFilter !== 'active' || categoryFilter !== 'all') && (
+            <span className="w-2 h-2 rounded-full bg-primary" />
+          )}
+        </button>
+      </div>
+
+      {/* ── City pill + active filter chips ── */}
+      <div className="flex-shrink-0 pointer-events-auto px-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => { setCitySheetOpen(true); setCitySearch(''); }}
+          className="flex items-center gap-1.5 rounded-full border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary/40 transition-colors shadow-lg"
+        >
+          <MapPin size={13} className="text-primary flex-shrink-0" />
+          <span className="truncate max-w-[160px]">{mapCityName ?? 'Selecionar cidade'}</span>
+          <ChevronDown size={13} className="opacity-60 flex-shrink-0" />
+        </button>
+
+        {activeFilterChips.map(chip => (
+          <FilterChip key={chip.key} label={chip.label} onRemove={chip.clear} />
+        ))}
+
+        {activeFilterChips.length > 0 && (
+          <button type="button" onClick={clearAllFilters} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-auto">
+            Limpar tudo
+          </button>
+        )}
+      </div>
+
+        </div>
+
+      </div>
+
+      {/* ── Bottom bar: contagem ──
+          A entrada da patrulha saiu daqui para o hub de missões: este mapa é
+          para consultar, e o botão de agir vivia escondido atrás dele. */}
+      <div className="flex-shrink-0 bg-background border-t border-border px-4 py-2.5 flex items-center gap-3">
+        <span className="text-sm font-semibold text-foreground">
+          {loading ? (
+            <span className="text-muted-foreground">Carregando…</span>
+          ) : (
+            `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
+          )}
+        </span>
+      </div>
+
+      {sobreposicoes}
     </div>
   );
 }

@@ -648,8 +648,17 @@ const PavementMapPage = () => {
           </section>
 
 
+          {/* Só a coluna do desktop recebe `detalhado`: é a única das três
+              montagens deste painel que tem altura sobrando para o anel e o
+              rodapé de atualização. */}
           <aside className="hidden min-[1440px]:block min-[1440px]:h-full min-[1440px]:min-h-0">
-            <PavementReportsPanel {...propsDoRelatorio} selectId="tipo-relatorio-desktop" />
+            <PavementReportsPanel
+              {...propsDoRelatorio}
+              selectId="tipo-relatorio-desktop"
+              detalhado
+              resumo={resumo}
+              atualizadoEm={lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null}
+            />
           </aside>
         </div>
         </motion.div>
@@ -681,7 +690,19 @@ const PavementMapPage = () => {
             </DrawerClose>
           </DrawerHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            <PavementReportsPanel {...propsDoRelatorio} selectId="tipo-relatorio-drawer" />
+            {/* A GAVETA É O QUE O NOTEBOOK VÊ
+                A coluna lateral só aparece a partir de 1440px; entre 1024 e
+                1439 — que é a tela da maioria dos notebooks — o painel só existe
+                aqui dentro. Ela tem a mesma largura confortável da coluna, então
+                recebe a mesma versão: seria estranho o gráfico existir no monitor
+                grande e sumir no notebook, sendo que o espaço é o mesmo. */}
+            <PavementReportsPanel
+              {...propsDoRelatorio}
+              selectId="tipo-relatorio-drawer"
+              detalhado
+              resumo={resumo}
+              atualizadoEm={lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null}
+            />
           </div>
         </DrawerContent>
       </Drawer>

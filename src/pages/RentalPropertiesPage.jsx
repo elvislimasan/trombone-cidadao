@@ -18,6 +18,8 @@ import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { showAppError } from '@/lib/appError';
+import TelaDeMapa from '@/components/map/TelaDeMapa';
+import { useTelaLarga } from '@/hooks/useTelaLarga';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <Card className="border-border">
@@ -38,6 +40,7 @@ const RentalPropertiesPage = () => {
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const navigate = useNavigate();
+  const telaLarga = useTelaLarga();
   // Admin/master gerenciam qualquer cidade. Embaixador puro só pode gerenciar
   // a(s) própria(s) cidade(s) — precisamos saber quais são, não basta checar
   // se ALGUMA cidade está selecionada (poderia ser a cidade de outro embaixador).
@@ -197,6 +200,117 @@ const RentalPropertiesPage = () => {
       setTimeout(() => setDownloading(false), 500);
     }
   };
+
+  // ── Colunas, a partir de 1100px ───────────────────────────────────────────
+  //
+  // Mesma moldura das outras telas de mapa. Só no modo MAPA — a lista tem
+  // paginação e cartões em grade, e não é uma tela de mapa.
+  if (telaLarga && view === 'map' && !loading) {
+    return (
+      <TelaDeMapa
+        titulo="Imóveis Alugados pela Prefeitura"
+        tituloDaAba="Imóveis Alugados - Trombone Cidadão"
+        descricaoSeo="Veja no mapa os imóveis alugados pela prefeitura, com valor mensal e proprietário."
+        filtrosLigados={(searchOwner.trim() ? 1 : 0) + (selectedBairro !== 'all' ? 1 : 0)}
+        filtros={
+          <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
+            <CitySelector />
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
+              <Input
+                placeholder="Buscar proprietário"
+                className="h-9 pl-8 text-sm"
+                value={searchOwner}
+                onChange={(e) => setSearchOwner(e.target.value)}
+              />
+            </div>
+
+            <Combobox
+              value={selectedBairro}
+              onChange={setSelectedBairro}
+              options={[{ value: 'all', label: 'Todos os bairros' }, ...bairros.map((b) => ({ value: b.id, label: b.name }))]}
+              placeholder="Bairro"
+              searchPlaceholder="Buscar bairro..."
+            />
+
+            <div className="mt-auto grid gap-2">
+              <ToggleGroup
+                type="single"
+                value={view}
+                onValueChange={(v) => v && setView(v)}
+                className="justify-center rounded-md border"
+              >
+                <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
+              </ToggleGroup>
+
+              {canManageProperties && (
+                <Link to="/imoveis-alugados/gerenciar" className="w-full">
+                  <Button size="sm" variant="outline" className="w-full gap-1.5 text-xs">
+                    <PlusCircle className="h-3.5 w-3.5" /> Adicionar imóvel
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        }
+        mapa={
+          <RentalPropertiesMapView
+            properties={filteredProperties}
+            onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)}
+          />
+        }
+        painel={
+          <div className="grid gap-3">
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="flex items-center gap-2.5 text-sm font-bold text-content-primary">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
+                  <Building2 className="h-4 w-4" />
+                </span>
+                Imóveis no recorte
+              </p>
+              <p className="mt-3 text-3xl font-extrabold leading-none text-content-primary tabular-nums">
+                {filteredProperties.length}
+              </p>
+              <p className="mt-1 text-xs text-content-secondary">
+                {stats.activeCount} com contrato ativo.
+              </p>
+            </section>
+
+            {/* O ANUAL É PROJEÇÃO, E O RÓTULO PRECISA DIZER ISSO
+                É a soma dos aluguéis mensais vigentes multiplicada por doze — não
+                o que a prefeitura de fato pagou no ano. Chamá-lo de "gasto anual"
+                seco afirmaria um número de execução orçamentária que esta tela
+                não tem como conferir. */}
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">
+                Nos imóveis filtrados
+              </p>
+              <p className="mt-2 text-lg font-extrabold leading-none text-content-primary tabular-nums">
+                {formatCurrency(stats.annualTotal)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-content-secondary">
+                Projeção anual dos contratos vigentes
+              </p>
+
+              <Button
+                onClick={handleDownloadReport}
+                disabled={downloading}
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full gap-1.5 text-xs"
+              >
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Baixar relatório
+              </Button>
+            </section>
+          </div>
+        }
+      />
+    );
+  }
+
 
   return (
     <>

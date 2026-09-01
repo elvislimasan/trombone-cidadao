@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import WorksMapView from '@/components/WorksMapView';
 import { formatCurrency, formatTimeAgo, cn } from '@/lib/utils';
+import TelaDeMapa from '@/components/map/TelaDeMapa';
+import { useTelaLarga } from '@/hooks/useTelaLarga';
 import { Link } from 'react-router-dom';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
@@ -91,6 +93,12 @@ const PublicWorksPage = () => {
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const mapViewRef = useRef();
+  const telaLarga = useTelaLarga();
+  // Quantos filtros estão ligados — é o número que a pílula "Filtros" mostra
+  // quando a coluna é recolhida. Sem ele, alguém esconde a coluna, esquece o
+  // recorte e lê o mapa filtrado achando que é a cidade inteira.
+  const filtrosLigados = Object.values(filters)
+    .reduce((total, valor) => total + (Array.isArray(valor) ? valor.length : 0), 0);
   const listTopRef = useRef();
 
   // Admin/master gerenciam qualquer cidade. Embaixador puro só pode cadastrar
@@ -331,6 +339,158 @@ const PublicWorksPage = () => {
     'completed': { icon: CheckSquare, text: 'Concluída', color: 'text-green-500' },
   })[status] || { icon: HardHat, text: 'N/A', color: 'text-content-tertiary' };
 
+  // ── Colunas, a partir de 1100px ───────────────────────────────────────────
+  //
+  // Mesma moldura do mapa de pavimentação e do mapa de broncas. Só no modo
+  // MAPA: a lista tem paginação e cartões em grade, e não é uma tela de mapa —
+  // espremê-la numa coluna central pioraria a leitura sem ganhar nada.
+  //
+  // O celular e o notebook estreito continuam pelo caminho de baixo, com o
+  // cartão de filtros acima do mapa.
+  if (telaLarga && view === 'map' && !loading && works.length > 0) {
+    const somar = (campo) => filteredWorks.reduce((total, obra) => total + (Number(obra[campo]) || 0), 0);
+    const porSituacao = filteredWorks.reduce((conta, obra) => {
+      conta[obra.status] = (conta[obra.status] || 0) + 1;
+      return conta;
+    }, {});
+
+    return (
+      <TelaDeMapa
+        titulo="Mapa de Obras Públicas"
+        tituloDaAba="Mapa de Obras Públicas - Trombone Cidadão"
+        descricaoSeo="Acompanhe o andamento das obras públicas da sua cidade em um mapa interativo."
+        filtrosLigados={filtrosLigados}
+        filtros={
+          <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
+            <CitySelector />
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
+              <Input
+                placeholder="Buscar obra"
+                className="h-9 pl-8 text-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <MultiSelectFilter
+              triggerIcon={Activity}
+              triggerLabel="Status"
+              items={workStatusesAsArray}
+              selectedItems={filters.status}
+              onSelectionChange={(id) => handleMultiSelectFilterChange('status', id)}
+              searchPlaceholder="Buscar status..."
+            />
+            {filters.status.length === 0 && (
+              <p className="text-[10px] leading-tight text-content-tertiary">
+                Obras concluídas ficam ocultas. Marque “Concluída” para vê-las.
+              </p>
+            )}
+
+            <MultiSelectFilter
+              triggerIcon={MapPin}
+              triggerLabel="Bairro"
+              items={filterOptions.bairros}
+              selectedItems={filters.bairro}
+              onSelectionChange={(id) => handleMultiSelectFilterChange('bairro', id)}
+              searchPlaceholder="Buscar bairro..."
+            />
+
+            <MultiSelectFilter
+              triggerIcon={SlidersHorizontal}
+              triggerLabel="Área"
+              items={filterOptions.areas}
+              selectedItems={filters.area}
+              onSelectionChange={(id) => handleMultiSelectFilterChange('area', id)}
+              searchPlaceholder="Buscar área..."
+            />
+
+            <MultiSelectFilter
+              triggerIcon={Building}
+              triggerLabel="Construtora"
+              items={filterOptions.contractors}
+              selectedItems={filters.contractor}
+              onSelectionChange={(id) => handleMultiSelectFilterChange('contractor', id)}
+              searchPlaceholder="Buscar construtora..."
+            />
+
+            <div className="mt-auto grid gap-2">
+              <ToggleGroup
+                type="single"
+                value={view}
+                onValueChange={value => value && setView(value)}
+                className="justify-center rounded-md border"
+              >
+                <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
+              </ToggleGroup>
+
+              {canManageWorks && (
+                <Link to="/obras/gerenciar" className="w-full">
+                  <Button size="sm" variant="outline" className="w-full gap-1.5 border-tc-red/30 text-xs text-tc-red hover:bg-tc-red/5">
+                    <PlusCircle className="h-3.5 w-3.5" /> Adicionar obra
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        }
+        mapa={<WorksMapView ref={mapViewRef} works={filteredWorks} />}
+        painel={
+          <div className="grid gap-3">
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="flex items-center gap-2.5 text-sm font-bold text-content-primary">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-status-pendingBg text-status-pendingFg">
+                  <HardHat className="h-4 w-4" />
+                </span>
+                Obras no recorte
+              </p>
+              <p className="mt-3 text-3xl font-extrabold leading-none text-content-primary tabular-nums">
+                {filteredWorks.length}
+              </p>
+
+              <ul className="mt-3 grid gap-1.5 border-t border-edge-subtle pt-3">
+                {workStatusesAsArray
+                  .filter((s) => porSituacao[s.id])
+                  .map((s) => (
+                    <li key={s.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="min-w-0 truncate text-content-secondary">{s.name}</span>
+                      <span className="shrink-0 font-bold text-content-primary tabular-nums">{porSituacao[s.id]}</span>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+
+            {/* OS DOIS VALORES SÃO SOMA DO QUE ESTÁ FILTRADO, E O TEXTO DIZ ISSO
+                Sem a ressalva, "R$ 4,2 mi contratados" leria como o total da
+                cidade — e bastaria um filtro de bairro ligado para o número
+                virar uma afirmação falsa sobre o orçamento inteiro. */}
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">
+                Nas obras filtradas
+              </p>
+              <div className="mt-2 grid gap-2">
+                <div>
+                  <p className="text-lg font-extrabold leading-none text-content-primary tabular-nums">
+                    {formatCurrency(somar('total_value'))}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-content-secondary">Valor contratado</p>
+                </div>
+                <div>
+                  <p className="text-lg font-extrabold leading-none text-content-primary tabular-nums">
+                    {formatCurrency(somar('amount_spent'))}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-content-secondary">Valor pago</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        }
+      />
+    );
+  }
+
   return <>
     <Helmet>
       <title>Mapa de Obras Públicas - Trombone Cidadão</title>
@@ -523,6 +683,8 @@ const PublicWorksPage = () => {
 // O filtro de cidade desta tela e local: explorar as obras de outra cidade nao
 // muda o feed nem a cidade do header, e nao persiste ao sair.
 export default function PublicWorksPageWithCityView() {
+
+
   return (
     <CityViewProvider>
       <PublicWorksPage />

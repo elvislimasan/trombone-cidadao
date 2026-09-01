@@ -1158,6 +1158,116 @@ body > * a:not(.leaflet-container a) {
 .leaflet-container .via-pav--partial { stroke: rgb(var(--pin-pav-partial-bg)); }
 .leaflet-container .via-pav--unpaved { stroke: rgb(var(--pin-pav-unpaved-bg)); }
 
+/* Rolagem suave nas âncoras, como no protótipo — e desligada para quem pediu
+   menos movimento, senão o "pular para a seção" vira um deslize longo que a
+   pessoa não pode acompanhar. */
+html { scroll-behavior: smooth; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* ─── As animações da home ────────────────────────────────────────────────
+   Vindas do protótipo `public/trombone-cidadao.html`. A curva
+   cubic-bezier(0.22, 1, 0.36, 1) é a mesma dele: sai rápido e freia longo, que
+   é o que faz o bloco "assentar" em vez de só aparecer.
+
+   O escalonamento por `--delay-N` existe para uma grade de seis cartões entrar
+   em cascata em vez de tudo de uma vez — 80ms entre um e outro é curto o
+   bastante para não virar espera e longo o bastante para o olho seguir. */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+
+.reveal-delay-1 { transition-delay: 0.08s; }
+.reveal-delay-2 { transition-delay: 0.16s; }
+.reveal-delay-3 { transition-delay: 0.24s; }
+.reveal-delay-4 { transition-delay: 0.32s; }
+.reveal-delay-5 { transition-delay: 0.40s; }
+
+/* O cartão que flutua sobre a foto, e o pontinho de "ao vivo". */
+@keyframes flutuar {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@keyframes pulsar-ponto {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(1.5); }
+}
+
+.anim-flutuar { animation: flutuar 6s ease-in-out infinite; }
+.anim-pulsar  { animation: pulsar-ponto 2s ease-in-out infinite; }
+
+/* MOVIMENTO É PREFERÊNCIA, CONTEÚDO NÃO É
+   Quem pediu menos movimento ao sistema continua vendo tudo — só sem a
+   entrada. Anular a transição junto com a opacidade é o que impede o bloco de
+   ficar invisível para sempre quando o observador não chega a rodar. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .anim-flutuar,
+  .anim-pulsar {
+    animation: none;
+  }
+}
+
+/* O NOME DA RUA QUE NÓS ESCREVEMOS, ACIMA DO TRAÇADO
+   Tooltip do Leaflet, despido da moldura de balão: sem fundo, sem borda, sem
+   sombra e sem a setinha do `::before`.
+
+   O halo de quatro sombras brancas é o que faz o texto sobreviver aos três
+   fundos possíveis — mapa claro, mapa escuro invertido e imagem de satélite —
+   sem uma caixa opaca que taparia o mapa de novo. É a mesma técnica das cartas
+   impressas, e custa menos que desenhar contorno em SVG. */
+.leaflet-container .rotulo-de-rua {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  color: #111827;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow:
+     1px  1px 0 #fff,
+    -1px  1px 0 #fff,
+     1px -1px 0 #fff,
+    -1px -1px 0 #fff;
+  /* O rótulo é enfeite de leitura: clicar nele tem de acertar a rua embaixo. */
+  pointer-events: none;
+}
+
+.leaflet-container .rotulo-de-rua::before {
+  display: none;
+}
+
+/* As fatias do anel do resumo, e os pontinhos da legenda ao lado dele.
+   Mesma armadilha da linha acima: o Recharts escreve `fill` como ATRIBUTO do
+   SVG, e var() não resolve ali. Por isso a cor entra por classe — como
+   propriedade CSS, onde o token funciona. */
+.fatia-pav--paved   { fill: rgb(var(--pin-pav-paved-bg)); }
+.fatia-pav--partial { fill: rgb(var(--pin-pav-partial-bg)); }
+.fatia-pav--unpaved { fill: rgb(var(--pin-pav-unpaved-bg)); }
+
+.ponto-legenda-pav--paved   { background-color: rgb(var(--pin-pav-paved-bg)); }
+.ponto-legenda-pav--partial { background-color: rgb(var(--pin-pav-partial-bg)); }
+.ponto-legenda-pav--unpaved { background-color: rgb(var(--pin-pav-unpaved-bg)); }
+.ponto-legenda-pav--unknown { background-color: rgb(var(--pin-pav-unknown-bg)); }
+
 /* A área de toque: 5 px é confortável para o olho e impossível para o dedo. */
 .leaflet-container .via-pav-toque {
   stroke: rgb(0 0 0);

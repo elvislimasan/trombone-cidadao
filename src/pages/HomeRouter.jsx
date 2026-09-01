@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import FeedPage from './FeedPage';
-import HomePageImproved from './HomePage-improved';
+import HomeDesktop from './HomeDesktop';
 
 // Breakpoint lg = 980px (mesma referência do tailwind.config e do lg:hidden do BottomNav)
 const LG_BREAKPOINT = 980;
@@ -20,7 +20,11 @@ function useIsDesktop() {
   return isDesktop;
 }
 
+// A home do desktop virou uma visão geral da cidade (HomeDesktop). A anterior,
+// que era o feed com busca, filtros e mapa expansível, continua inteira em
+// `/home-legado` — e o feed completo em `/broncas`, que é para onde os botões
+// "Ver todas" desta página apontam.
 export default function HomeRouter() {
   const isDesktop = useIsDesktop();
-  return isDesktop ? <HomePageImproved /> : <FeedPage />;
+  return isDesktop ? <HomeDesktop /> : <FeedPage />;
 }
