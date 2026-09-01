@@ -280,6 +280,18 @@ export const impactoGanho = (antes, depois) => {
  * um esforço coletivo — e é literalmente verdade, porque o crédito foi pago
  * para as doze.
  *
+ * O QUE A FRASE DEIXOU DE PROMETER
+ *
+ * A primeira versão dizia "Você fez isso acontecer". A seção 36.5 do plano de
+ * gamificação pede o contrário, e a razão é de honestidade, não de tom: uma
+ * resolução posterior prova que a pessoa registrou, verificou e acompanhou. Não
+ * prova, sozinha, que ela causou o conserto — quem consertou foi quem foi lá
+ * com a máquina.
+ *
+ * Prometer causalidade individual funciona uma vez e corrói a credibilidade do
+ * placar inteiro depois, porque a primeira pessoa que perceber a diferença vai
+ * desconfiar de todo o resto. Espelha `notificar_resolucao` na migração 207.
+ *
  * @param {{titulo?:string, endereco?:string, participantes?:number, pontos?:number}} dados
  */
 export const fraseDaResolucao = ({
@@ -293,13 +305,145 @@ export const fraseDaResolucao = ({
 
   const quem =
     outros === 0
-      ? 'Você fez isso acontecer.'
+      ? 'Você contribuiu para registrar, verificar e acompanhar esta solução.'
       : outros === 1
-      ? 'Você e mais 1 pessoa fizeram isso.'
-      : `Você e mais ${outros} pessoas fizeram isso.`;
+      ? 'Você e mais 1 pessoa acompanharam este problema até o fim.'
+      : `Você e mais ${outros} pessoas acompanharam este problema até o fim.`;
 
   return {
     titulo: `${onde} foi resolvido`,
     corpo: pontos > 0 ? `${quem} +${pontos} de impacto.` : quem,
+  };
+};
+
+// ── O Recibo de Impacto ───────────────────────────────────────────────────────
+
+/**
+ * O que ESTA pessoa fez NESTA bronca.
+ *
+ * Os contadores do banco respondem "quanto no total"; o recibo precisa
+ * responder "quanto aqui". A diferença importa: chegar pela notificação de uma
+ * bronca específica e ver um saldo geral é o mesmo que não receber recibo
+ * nenhum — a pergunta que a pessoa trouxe era sobre aquele buraco.
+ *
+ * Deriva do que a tela de detalhe já carregou. Nenhuma consulta nova, nenhuma
+ * coluna nova: autoria vem de `reports`, confirmação vem de `report_updates`,
+ * comentário vem de `comments`, apoio vem da assinatura já consultada.
+ *
+ * A CONFIRMAÇÃO SÓ CONTA SE NÃO FOI REJEITADA
+ *
+ * Mesmo critério da 199 e de `resolution.js`. Pagar por uma observação que a
+ * moderação recusou faria o recibo premiar exatamente o que o app acabou de
+ * dizer que não servia.
+ *
+ * @param {object} args
+ * @param {object} args.report
+ * @param {Array}  [args.atualizacoes]
+ * @param {Array}  [args.comentarios]
+ * @param {boolean}[args.apoiou]
+ * @param {object} args.user
+ * @returns {{creditos:Array, total:number}}
+ */
+export const creditoNaBronca = ({
+  report,
+  atualizacoes = [],
+  comentarios = [],
+  apoiou = false,
+  user,
+} = {}) => {
+  if (!report || !user?.id) return { creditos: [], total: 0 };
+
+  const lista = (v) => (Array.isArray(v) ? v : []);
+  const meu = (linha) => linha?.author_id === user.id || linha?.user_id === user.id;
+
+  const papeis = [];
+
+  // Autor e "completou o sinal de outro" são exclusivos entre si: quem
+  // transformou o sinal em bronca aparece em `completed_by`, e somar os dois
+  // pagaria duas vezes pelo mesmo registro.
+  if (report.author_id === user.id) papeis.push('autor');
+  else if (report.completed_by === user.id) papeis.push('missao');
+
+  const confirmou = lista(atualizacoes).some(
+    (u) => meu(u) && u.update_type === 'solved' && u.status !== 'rejected'
+  );
+  if (confirmou) papeis.push('confirmacao');
+
+  if (lista(comentarios).some(meu)) papeis.push('comentario');
+  if (apoiou) papeis.push('apoio');
+
+  const creditos = PAPEIS.filter((p) => papeis.includes(p.id)).map((p) => ({
+    id: p.id,
+    verbo: p.verbo,
+    rotulo: p.rotulo,
+    pontos: p.peso,
+  }));
+
+  return {
+    creditos,
+    total: creditos.reduce((s, c) => s + c.pontos, 0),
+  };
+};
+
+/**
+ * O que a pessoa recebe quando uma bronca dela fecha.
+ *
+ * POR QUE "RECIBO", E NÃO "PARABÉNS"
+ *
+ * Um recibo presta contas: diz o que você fez, o que aconteceu, quem mais
+ * participou e de onde veio cada número. É o oposto da tela de comemoração, que
+ * afirma um resultado e esconde a origem — e é o formato que a §36.6 pede
+ * justamente porque o retorno confiável vale mais que o retorno bonito.
+ *
+ * A ORIGEM DE CADA LINHA VEM JUNTO
+ *
+ * `creditos` já sai de `PAPEIS`, então cada linha do recibo diz qual
+ * participação a gerou ("Resolvidas que você confirmou em campo: +15"). Um
+ * total sem quebra é um número que a pessoa tem que acreditar; com a quebra,
+ * é um número que ela pode conferir.
+ *
+ * O QUE O RECIBO NÃO FAZ
+ *
+ * Não devolve percentual de conclusão do problema. A execução dependeu de
+ * terceiro, e barra de progresso com denominador de apoios ou fotos é ficção
+ * apresentada como medida (§36.6). O que ele mostra é marco factual: o que
+ * aconteceu, quando, por quem — o resto está na linha do tempo.
+ *
+ * @param {object} args
+ * @param {object} args.report          a bronca resolvida
+ * @param {object} args.contadoresAntes contadores antes da resolução
+ * @param {object} args.contadoresDepois contadores depois
+ * @param {number} [args.participantes] quantas pessoas participaram
+ * @returns {{
+ *   titulo:string, corpo:string, ganho:object|null,
+ *   participantes:number, selo:object, compartilhavel:boolean,
+ * }|null}
+ */
+export const reciboDeImpacto = ({
+  report,
+  contadoresAntes,
+  contadoresDepois,
+  participantes = 1,
+} = {}) => {
+  if (!report) return null;
+
+  const ganho = impactoGanho(contadoresAntes, contadoresDepois);
+  const frase = fraseDaResolucao({
+    titulo: report.title,
+    endereco: report.address,
+    participantes,
+    pontos: ganho?.total || 0,
+  });
+
+  return {
+    titulo: frase.titulo,
+    corpo: frase.corpo,
+    ganho,
+    participantes: Math.max(1, Number(participantes) || 1),
+    selo: seloDe(impactoDe(contadoresDepois)),
+    // O que pode ir para fora do app: o problema e o desfecho, nunca o percurso.
+    // O plano é explícito — o Recibo compartilha impacto concreto, não a rota
+    // precisa da pessoa (§36.6).
+    compartilhavel: true,
   };
 };

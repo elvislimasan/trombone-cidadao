@@ -9,9 +9,10 @@ import { PONTOS_DIARIA, PONTOS_DIA_PERFEITO } from './dailies.js';
 // JavaScript: manter a conta no banco exigiria duplicar as escadas em SQL, e
 // duas cópias de uma regra de pontuação divergem no primeiro ajuste.
 //
-// A função do banco continua existindo e devolvendo a base — o perfil ainda a
-// usa. Os pesos aqui são os mesmos da 174, e o teste afirma isso; mudar um lado
-// sem o outro faz o mesmo usuário ter dois totais.
+// A função antiga do banco continua existindo para versões anteriores do app,
+// mas as telas atuais usam `get_mission_counters` + este módulo. Os pesos aqui
+// são os mesmos da 174, e o teste afirma isso; mudar um lado sem o outro faz
+// clientes antigos e novos discordarem.
 //
 // A ARMADILHA DA CIRCULARIDADE
 //
@@ -32,10 +33,9 @@ export { PONTOS_POR_ETAPA };
 /**
  * Faixas de nível NOMEADAS, do topo para a base.
  *
- * As quatro primeiras são as da migração 169 e não podem mudar: o
- * `get_user_level` ainda as devolve, e um usuário com dois níveis diferentes
- * conforme a tela é pior do que um teto baixo. As de cima são novas e só
- * existem aqui — o banco nunca precisou delas porque quem exibe nível é o app.
+ * As quatro primeiras são as da migração 169 e não podem mudar enquanto houver
+ * cliente antigo consultando `get_user_level`. As de cima existem aqui, que é a
+ * fonte de verdade das telas atuais.
  */
 export const FAIXAS = [
   { minimo: 5200, nivel: 8, rotulo: 'Lenda da cidade' },

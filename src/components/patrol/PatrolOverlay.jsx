@@ -211,7 +211,7 @@ export default function PatrolOverlay({
     rastro, distanciaM, contagens, salvando, duracaoAgora,
     registrarPassagem, registrarConfirmacao, registrarBronca, registrarSinal,
     finalizar,
-  } = usePatrolRecorder(posicao, { cityId });
+  } = usePatrolRecorder(posicao, { cityId, travelMode: modo.id });
 
   const jogo = usePatrolGame({ cityId });
   // Contador, não booleano: duas confirmações seguidas precisam reiniciar a

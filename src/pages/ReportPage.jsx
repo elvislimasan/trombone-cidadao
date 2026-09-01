@@ -49,8 +49,14 @@ import {
   ReportProblemDetails,
 } from "@/components/report/ReportProblem";
 import ReportSummary from "@/components/report/ReportSummary";
-import ReportProgress from "@/components/report/ReportProgress";
+import ReportTimeline from "@/components/report/ReportTimeline";
+import ReportOfficialStep from "@/components/report/ReportOfficialStep";
+import ReportCobrancas from "@/components/report/ReportCobrancas";
+import ReportImpactReceipt from "@/components/report/ReportImpactReceipt";
+import ReportBeforeAfter from "@/components/report/ReportBeforeAfter";
+import ReportRevisitPrompt from "@/components/report/ReportRevisitPrompt";
 import ReportUpdates from "@/components/report/ReportUpdates";
+import { podeVerRejeicao } from "@/lib/reportRejection";
 import { ReportMediaHero, ReportMediaGallery } from "@/components/report/ReportMedia";
 import {
   ReportManagementPanel,
@@ -99,6 +105,7 @@ const ReportPage = () => {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [submittingUpdate, setSubmittingUpdate] = useState(false);
   const [reportUpdates, setReportUpdates] = useState([]);
+  const [officialSteps, setOfficialSteps] = useState([]);
   const [showAllUpdates, setShowAllUpdates] = useState(false);
   const [confirmingUpdateId, setConfirmingUpdateId] = useState(null);
   const [deletingUpdateId, setDeletingUpdateId] = useState(null);
@@ -142,8 +149,15 @@ const ReportPage = () => {
 
   const visibleUpdates = useMemo(() => {
     return reportUpdates.filter((upd) => {
-      // Rejeitadas e excluídas não aparecem para ninguém na ReportPage
-      if (upd.status === 'rejected') return false;
+      // Rejeitada aparece SÓ para quem a enviou (e para a moderação, que
+      // precisa poder responder por ela). Antes sumia para todo mundo,
+      // inclusive para o autor — que ia à rua, tirava a foto, mandava e ficava
+      // sem saber o que aconteceu nem o que corrigir. Uma negativa explicada
+      // custa uma frase; uma negativa muda custa a próxima contribuição.
+      //
+      // Espelha `podeVerRejeicao` em src/lib/reportRejection.js e a policy
+      // `report_updates_autor_ve_a_propria_rejeitada` da migração 207.
+      if (upd.status === 'rejected') return podeVerRejeicao(upd, user);
       // Pendentes de moderação: só admin, autor da bronca e autor da atualização
       if (upd.status === 'pending_moderation') {
         return user?.is_admin || user?.id === report?.author_id || user?.id === upd.author_id;
@@ -1163,11 +1177,25 @@ const ReportPage = () => {
     const { data: updatesData } = await supabase
       .from("report_updates")
       .select(
-        "id, report_id, author_id, update_type, message, status, confirmed_by, confirmed_at, created_at, author:profiles!report_updates_author_id_fkey(name, avatar_type, avatar_url, avatar_config), media:report_update_media(*)"
+        // rejection_reason/note/at entram aqui porque a linha rejeitada agora
+        // aparece para quem a enviou, e sem o motivo ela voltaria a ser o que
+        // era antes da 207: um sumiço com selo novo.
+        "id, report_id, author_id, update_type, message, status, confirmed_by, confirmed_at, created_at, rejection_reason, rejection_note, rejected_at, author:profiles!report_updates_author_id_fkey(name, avatar_type, avatar_url, avatar_config), media:report_update_media(*)"
       )
       .eq("report_id", reportId)
       .order("created_at", { ascending: false });
     setReportUpdates(updatesData || []);
+
+    // As etapas que só o órgão conhece (migração 207). Consulta própria, e não
+    // um join no select acima, porque `report_official_steps` é lida por
+    // qualquer visitante enquanto o resto do select depende do usuário — juntar
+    // as duas faria uma tabela nova entrar no caminho crítico da tela inteira.
+    const { data: etapasData } = await supabase
+      .from("report_official_steps")
+      .select("*")
+      .eq("report_id", reportId)
+      .order("ocorreu_em", { ascending: true });
+    setOfficialSteps(etapasData || []);
 
     setLoading(false);
   }, [reportId, navigate, user]);
@@ -1598,11 +1626,61 @@ const ReportPage = () => {
                     formatPoleLabel={formatPoleLabel}
                   />
 
-                  {/* timeline */}
-                  <ReportProgress
-                    status={report.status}
-                    timeline={report.timeline}
+                  {/* O recibo vem ANTES da linha do tempo quando existe: quem
+                      chega pela notificação de resolução veio buscar o
+                      desfecho, não o histórico. Some sozinho para quem não
+                      participou desta bronca. */}
+                  <ReportImpactReceipt
+                    report={report}
+                    atualizacoes={reportUpdates}
+                    apoiou={report.user_has_upvoted}
+                  />
+
+                  {/* Linha do tempo com proveniência (fase 1, §36.6).
+                      Substitui a barra de quatro etapas: ela derivava "Em
+                      análise" e "Em execução" de `report.status`, um campo que
+                      não distingue nenhuma das duas, e não dizia quem tinha
+                      informado o quê. */}
+                  <ReportTimeline
+                    report={report}
+                    atualizacoes={reportUpdates}
+                    etapasOficiais={officialSteps}
                     formatDateTime={formatDateTime}
+                    onAbrirEvidencia={(media, startIndex) =>
+                      setUpdateMediaViewer({
+                        isOpen: true,
+                        media: media.map((m) => ({ ...m, type: "image" })),
+                        startIndex,
+                      })
+                    }
+                  />
+
+                  {/* O retorno mais convincente que este app consegue dar, e o
+                      mais barato: as duas fotos já estavam guardadas. */}
+                  <ReportBeforeAfter
+                    report={report}
+                    atualizacoes={reportUpdates}
+                    formatDateTime={formatDateTime}
+                    onAbrir={(media, startIndex) =>
+                      setUpdateMediaViewer({ isOpen: true, media, startIndex })
+                    }
+                  />
+
+                  {/* A repetição do envio à secretaria, logo abaixo da linha do
+                      tempo: a primeira entrega já é etapa lá em cima; da
+                      segunda em diante é informação, não notícia. Some sozinho
+                      quando não há canal ou nenhum relatório foi entregue. */}
+                  <ReportCobrancas report={report} />
+
+                  {/* Só aparece para o autor, e só depois de 28 dias parados. */}
+                  <ReportRevisitPrompt report={report} atualizacoes={reportUpdates} />
+
+                  {/* Só aparece para quem responde pela cidade. */}
+                  <ReportOfficialStep
+                    report={report}
+                    onRegistrada={(etapa) =>
+                      setOfficialSteps((atuais) => [...atuais, etapa])
+                    }
                   />
 
                   {/* mobile upvote */}

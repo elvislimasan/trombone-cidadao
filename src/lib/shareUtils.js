@@ -76,3 +76,6 @@ export const getNewsShareUrl = (id) => {
 
   return `${prodUrl}/share/noticia/${id}`;
 };
+
+/** O endereco publico de um acontecimento do Trombone Agora. */
+export const getCityEventShareUrl = (id) => `${getBaseAppUrl()}/agora/${id}`;

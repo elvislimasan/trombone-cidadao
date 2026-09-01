@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  HardHat,
   HelpCircle,
   Image as ImageIcon,
   Loader2,
@@ -28,6 +29,11 @@ import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { MapBaseLayer } from '@/components/map/MapDisplayControls';
 import { cepsDaRua } from '@/lib/pavementReport';
 import { showAppError } from '@/lib/appError';
+import StreetEventBanner from '@/components/agora/StreetEventBanner';
+import FollowAreaButton from '@/components/agora/FollowAreaButton';
+import StreetSummary from '@/components/pavement/StreetSummary';
+import SugerirClassificacao from '@/components/pavement/SugerirClassificacao';
+import { useStreetCityEvents } from '@/hooks/useCityEvents';
 import {
   capaDaRua,
   formatarDataBr,
@@ -323,6 +329,9 @@ export default function PavementStreetPage() {
   const [bairroDoCep, setBairroDoCep] = useState({});
 
   const { canManage, isPureAmbassador, myActiveCityIds } = useCanManagePavement(street?.city_id);
+  // Minha Rua: o que esta acontecendo na regiao agora. A rua nunca guarda
+  // copia do acontecimento — ela PERGUNTA (regra 3 do plano).
+  const { eventos: acontecimentos, carregando: carregandoAcontecimentos } = useStreetCityEvents(streetId);
 
   const carregarRua = useCallback(async () => {
     setLoading(true);
@@ -450,6 +459,14 @@ export default function PavementStreetPage() {
         <div className="relative mx-auto max-w-3xl px-4 pb-8 pt-4">
           <div className="flex items-center justify-between gap-2">
             <BackButton paraOnde="/mapa-pavimentacao" className="-ml-3" />
+            <div className="flex items-center gap-2">
+              <FollowAreaButton
+                areaType="street"
+                areaId={street.id}
+                cityId={street.city_id}
+                nome={street.name}
+                tamanho="sm"
+              />
             {canManage && (
               <Button
                 size="sm"
@@ -460,9 +477,10 @@ export default function PavementStreetPage() {
                 <Pencil className="h-3.5 w-3.5" /> Editar
               </Button>
             )}
+            </div>
           </div>
 
-          <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">História da rua</p>
+          <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">Minha rua</p>
           <h1 className="mt-2 text-3xl font-extrabold leading-tight text-content-primary sm:text-4xl">{street.name}</h1>
 
           <div className="mt-4 flex flex-wrap gap-2 text-sm">
@@ -480,6 +498,19 @@ export default function PavementStreetPage() {
               <span className="inline-flex items-center rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
                 {pavementStatus}
               </span>
+            )}
+            {street.paving_date && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
+                <Calendar className="h-4 w-4 text-brand" /> Pavimentada em {formatarDataBr(street.paving_date)}
+              </span>
+            )}
+            {street.work_id && (
+              <Link
+                to={`/obras-publicas/${street.work_id}`}
+                className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-brand ring-1 ring-edge-subtle transition-colors hover:bg-surface-subtle"
+              >
+                <HardHat className="h-4 w-4" /> Ver obra vinculada
+              </Link>
             )}
             {street.is_unnamed && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50/90 px-3 py-1.5 font-semibold text-amber-800 ring-1 ring-amber-300">
@@ -506,7 +537,27 @@ export default function PavementStreetPage() {
         </div>
       </header>
 
+      {/* MINHA RUA COMECA PELA SITUACAO, NAO PELA HISTORIA
+          Quem abre esta pagina hoje quase sempre veio do push de um alerta ou
+          da busca por "esta faltando agua na minha rua?". A biografia do
+          homenageado continua abaixo, inteira — mas depois da resposta.
+          A faixa some sozinha quando o acontecimento e resolvido: ela e uma
+          consulta ao evento regional, nao uma copia dele. */}
+      <div className="mx-auto mb-4 max-w-3xl space-y-3 px-4">
+        <StreetEventBanner eventos={acontecimentos} carregando={carregandoAcontecimentos} />
+        <StreetSummary
+          streetId={street.id}
+          cityId={street.city_id}
+          aoVerFotos={() => setTodasAsFotos(true)}
+        />
+      </div>
+
       <main className="mx-auto max-w-3xl space-y-4 px-4">
+        {/* Pavimentação cidadã (fase 3, §36.7). Fica no topo do conteúdo
+            porque é a única coisa desta página que só quem está NA RUA pode
+            fazer — e ela some sozinha para quem não está. */}
+        <SugerirClassificacao rua={street} onEnviada={carregarRua} />
+
         {(honoreeName || biography || fotoDoHomenageado) && (
           <Cartao icone={BookOpen} titulo="Quem dá nome à rua">
             <div className={`px-4 pb-5 sm:px-5 ${fotoDoHomenageado ? 'flex gap-4' : ''}`}>

@@ -97,6 +97,16 @@ export const patrolTravelModeFromSearch = (search = '') => {
   }
 };
 
+/**
+ * Valor que pode ser persistido numa saída.
+ *
+ * Conferência ainda não possui seletor de deslocamento e fica `null`. Patrulha
+ * usa o parser estrito: dado ausente/adulterado também fica `null`, pois gravar
+ * carro por padrão transformaria "não sabemos" em um dado falso.
+ */
+export const patrolTravelModeForRecord = (value, kind = 'patrol') =>
+  kind === 'patrol' ? parsePatrolTravelMode(value) : null;
+
 export const buildPatrolRunPath = (categoria, value) => {
   const modo = normalizePatrolTravelMode(value);
   const params = new URLSearchParams({ [PATROL_TRAVEL_MODE_PARAM]: modo });

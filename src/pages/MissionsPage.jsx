@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 import { Moon, ChevronRight, ChevronDown, Loader2, Lock } from 'lucide-react';
 
 import { usePosicaoAproximada } from '@/hooks/usePosicaoAproximada';
@@ -7,9 +8,12 @@ import MissionList from '@/components/missions/MissionList';
 import MissionLevelCard from '@/components/missions/MissionLevelCard';
 import ImpactCard from '@/components/missions/ImpactCard';
 import DailyCard from '@/components/missions/DailyCard';
+import CampanhaBanner from '@/components/missions/CampanhaBanner';
+import MarcosCosmeticos from '@/components/missions/MarcosCosmeticos';
 import MissionResume from '@/components/missions/MissionResume';
 import MissionPatrolProgress from '@/components/missions/MissionPatrolProgress';
 import { useMissions } from '@/hooks/useMissions';
+import { useAlvosPorPerto } from '@/hooks/useAlvosPorPerto';
 import { CATEGORIAS_SINAL } from '@/lib/reportCategories';
 import { NAV_ALERTA, ehNoite } from '@/lib/navGeo';
 import { calcularSequencia } from '@/lib/patrolGame';
@@ -32,10 +36,16 @@ import { calcularSequencia } from '@/lib/patrolGame';
 
 export default function MissionsPage() {
   const posicao = usePosicaoAproximada();
+
+  // Disponibilidade real dos alvos (fase 2). A guarda de `sortearDiarias`
+  // existia desde a 200 e nunca recebeu um valor — nenhum chamador informava
+  // `temAlvos`, então a proteção contra diária impossível estava desligada.
+  const { temBroncas, temSinais } = useAlvosPorPerto(posicao);
+
   const {
     trilhas, pontuacao, impacto, concluidas, conquistas, contadores, carregando,
     diarias, resumoDiarias, tempoRestante,
-  } = useMissions();
+  } = useMissions({ temBroncas, temSinais });
 
   // null = não sabemos ainda (ou o GPS recusou). Diferente de "é dia".
   const noite = useMemo(
@@ -170,6 +180,11 @@ export default function MissionsPage() {
       {/* O que dá para fazer HOJE, antes do catálogo de vida inteira.
           Quem abre a central numa terça à noite não quer escolher entre doze
           missões permanentes — quer um objetivo que cabe na noite. */}
+      {/* A campanha vem antes das diárias quando existe: ela diz o que é útil
+          AGORA, e as diárias dizem quanto. Some sozinha quando o período acaba
+          (fase 4, §36.14). */}
+      <CampanhaBanner />
+
       {!carregando && (
         <DailyCard
           diarias={diarias}
@@ -340,6 +355,24 @@ export default function MissionsPage() {
           </div>
         </section>
       )}
+
+      {/* ── O QUE NÃO PRODUZ DADO FICA NO FIM ──
+
+          Marcos cosméticos e coleção são reconhecimento e passeio. Estavam
+          logo abaixo das diárias e competiam com o que a central existe para
+          oferecer: o que fazer hoje, e o que já mudou na cidade.
+
+          A ordem da tela é uma afirmação sobre prioridade. Roupa de avatar
+          acima de "3 broncas para confirmar" diz que o app é sobre a roupa. */}
+      {!carregando && <MarcosCosmeticos conquistas={conquistas} />}
+
+      {/* A coleção fica como link, não como cartão, pelo mesmo motivo. */}
+      <Link
+        to="/colecao"
+        className="text-2xs font-semibold text-content-tertiary hover:text-content-primary underline underline-offset-2 self-start"
+      >
+        Ver a coleção da cidade
+      </Link>
 
       {/* SAÍRAM DAQUI (ago/2026): o cartão "Conferir problemas marcados" e a
           lista de categorias de patrulha.

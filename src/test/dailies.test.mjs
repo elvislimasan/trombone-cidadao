@@ -14,6 +14,7 @@ import {
   TIPOS,
   PONTOS_DIARIA,
   PONTOS_DIA_PERFEITO,
+  tipoDaDiaria,
   sortearDiarias,
   diariasDeHoje,
   resumoDoDia,
@@ -123,6 +124,11 @@ test('ids são únicos', () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
+test('todo id do catálogo resolve para seu tipo', () => {
+  for (const d of DIARIAS) assert.equal(tipoDaDiaria(d.id), d.tipo);
+  assert.equal(tipoDaDiaria('id-inventado'), null);
+});
+
 test('toda diária leva a algum lugar do app', () => {
   for (const d of DIARIAS) {
     assert.ok(d.acao?.para?.startsWith('/'), `${d.id} não tem destino`);
@@ -156,6 +162,17 @@ test('a linha gravada vence a contagem do dia', () => {
   assert.equal(feitas.find((x) => x.id === d.id).completa, true);
 });
 
+test('uma conclusão anterior do mesmo tipo continua valendo', () => {
+  const sorteada = sortearDiarias(USER, DIA).find((d) => d.tipo === 'comunidade');
+  const alternativa = DIARIAS.find(
+    (d) => d.tipo === 'comunidade' && d.id !== sorteada.id
+  );
+  const feitas = diariasDeHoje(USER, {}, [alternativa.id], DIA);
+  const comunidade = feitas.find((d) => d.tipo === 'comunidade');
+  assert.equal(comunidade.completa, true);
+  assert.equal(comunidade.gravada, true);
+});
+
 test('resumo conta as fechadas e reconhece o dia perfeito', () => {
   const todas = sortearDiarias(USER, DIA).map((d) => d.id);
   const r = resumoDoDia(diariasDeHoje(USER, {}, todas, DIA));
@@ -187,4 +204,42 @@ test('na última hora o rótulo vira minutos', () => {
   const r = restaDoDia(new Date(2026, 7, 26, 23, 40, 0));
   assert.equal(r.horas, 0);
   assert.match(r.rotulo, /min/);
+});
+
+// ── Disponibilidade real, por tipo de alvo (fase 2) ───────────────────────────
+//
+// A guarda existia desde a 200 e nunca recebeu um valor. Ligá-la trouxe uma
+// distinção que o booleano único escondia: cidade cheia de bronca e sem nenhum
+// sinal é o caso comum, não a exceção.
+
+test('sem sinal pendente, a diária de conferir marcados não é sorteada', () => {
+  for (let i = 0; i < 40; i += 1) {
+    const d = sortearDiarias(`u-${i}`, DIA, { temSinais: false });
+    assert.ok(!d.some((x) => x.id === 'conferir_marcados'), `usuário ${i}`);
+  }
+});
+
+test('sem bronca aberta, a diária de confirmar campo não é sorteada', () => {
+  for (let i = 0; i < 40; i += 1) {
+    const d = sortearDiarias(`u-${i}`, DIA, { temBroncas: false });
+    assert.ok(!d.some((x) => x.id === 'confirmar_campo'), `usuário ${i}`);
+  }
+});
+
+test('só bronca disponível ainda dá uma diária de campo', () => {
+  const d = sortearDiarias(USER, DIA, { temSinais: false });
+  assert.ok(d.some((x) => x.tipo === 'campo'));
+});
+
+test('a diária de campo aponta para a rota, não para a patrulha livre', () => {
+  // Mandar para /patrulhar devolve a pessoa exatamente à decisão que ela não
+  // sabia tomar — que é o problema que a fase 2 existe para resolver.
+  const campo = DIARIAS.find((d) => d.id === 'confirmar_campo');
+  assert.equal(campo.acao.para, '/rota-do-dia');
+});
+
+test('as diárias de comunidade nunca dependem de alvo', () => {
+  for (const d of DIARIAS.filter((x) => x.tipo === 'comunidade')) {
+    assert.equal(d.exige, undefined, d.id);
+  }
 });

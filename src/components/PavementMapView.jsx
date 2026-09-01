@@ -1,13 +1,11 @@
-import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
 import { CircleMarker, MapContainer, Polyline, Popup, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Route as Road, ThumbsDown, ChevronLeft, ChevronRight, Image as ImageIcon, HardHat, Construction, Info, BookOpen, HelpCircle, Edit } from 'lucide-react';
+import { Info, HelpCircle, Edit } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
 import { useMapModeToggle } from '@/contexts/MapModeContext';
 import MapModeToggle from '@/components/MapModeToggle';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 import { useCityView } from '@/contexts/CityContext';
@@ -17,7 +15,6 @@ import MapDisplayControls, {
   MAP_LAYER,
   MapBaseLayer,
 } from '@/components/map/MapDisplayControls';
-import { formatarDataBr, fotosDaRuaOrdenadas, hasPavementStreetHistory, normalizarFotos } from '@/lib/pavementStreetHistory';
 
 // Status de pavimentacao -> sufixo das classes .via-pav--* e .ponto-pav--*.
 const PAVEMENT_STATUS_TOKEN = {
@@ -90,10 +87,7 @@ const FitToStreets = ({ streets, activeCity }) => {
   return null;
 };
 
-const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, onEditStreet }, ref) => {
-  const [selectedStreet, setSelectedStreet] = useState(null);
-  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }, ref) => {
   const mapRef = useRef();
   const markerRefs = useRef({});
   const [mapLayer, setMapLayer] = useState(MAP_LAYER.STANDARD);
@@ -131,47 +125,8 @@ const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, o
     }
   }));
 
-  const getStatusInfo = (status, pavementType) => {
-    switch (status) {
-      case 'paved':
-        return { text: `Pavimentada (${pavementType === 'granite' ? 'Granito' : 'Asfalto'})`, color: 'bg-gray-800', icon: <HardHat className="w-3 h-3" /> };
-      case 'partially_paved':
-        return { text: `Parcialmente Pavimentada (${pavementType === 'granite' ? 'Granito' : 'Asfalto'})`, color: 'bg-gray-500', icon: <Construction className="w-3 h-3" /> };
-      case 'unpaved':
-        return { text: 'Sem Pavimentação', color: 'bg-amber-600', icon: <ThumbsDown className="w-3 h-3" /> };
-      default:
-        return { text: 'N/A', color: 'bg-gray-400', icon: <Road className="w-3 h-3" /> };
-    }
-  };
-
-  const handleDetailsClick = (street) => {
-    setSelectedStreet(street);
-    setCurrentMediaIndex(0);
-    setIsDetailsOpen(true);
-  };
-
-  const nextMedia = () => {
-    if (fotos.length > 0) setCurrentMediaIndex((i) => (i + 1) % fotos.length);
-  };
-
-  const prevMedia = () => {
-    if (fotos.length > 0) setCurrentMediaIndex((i) => (i - 1 + fotos.length) % fotos.length);
-  };
-
-  const statusInfo = selectedStreet ? getStatusInfo(selectedStreet.status, selectedStreet.pavement_type) : {};
-
-  // AS FOTOS SAEM DE `historical_photos`, QUE É ONDE ELAS SÃO CADASTRADAS.
-  //
-  // Este visor lia `selectedStreet.media` — um campo que nenhuma migração cria
-  // e nenhum formulário preenche. A caixa dizia "Nenhuma mídia disponível" para
-  // toda rua do banco, e ia continuar dizendo para sempre.
-  //
-  // A destacada vem primeiro: é a mesma foto que abre a página da rua, então o
-  // popup e a página passam a mostrar a mesma capa.
-  const fotos = useMemo(
-    () => (selectedStreet ? fotosDaRuaOrdenadas(normalizarFotos(selectedStreet)) : []),
-    [selectedStreet]
-  );
+  // O visor de fotos, o carrossel e o cartão de status saíram daqui junto com o
+  // modal de detalhes: a página da rua mostra tudo aquilo, e mais.
 
   return (
     <div className="w-full h-full bg-secondary rounded-lg overflow-hidden relative">
@@ -205,17 +160,40 @@ const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, o
                   )}
                 </div>
 
+                {/* UM BOTÃO SÓ, E ELE LEVA À PÁGINA DA RUA
+                    Havia dois: "Ver mais detalhes" abria um modal, e "História
+                    da rua" — que só aparecia quando havia biografia cadastrada
+                    — levava à página. O portão fazia sentido quando a página
+                    era só história: sem conteúdo, não havia o que abrir.
+                    A página virou Minha Rua. Agora ela responde "está faltando
+                    água aqui?", "quantas broncas há nesta rua", "posso
+                    acompanhar" — tudo isso existe para QUALQUER rua, inclusive
+                    a que nunca recebeu uma linha de biografia. O portão passou
+                    a esconder justamente o que mais importa.
+                    O modal saiu junto: ele mostrava um subconjunto da página. */}
+                {/* O `!` NO TEXTO NÃO É PREGUIÇA
+                    `leaflet.css` traz `.leaflet-container a { color: #0078A8 }`,
+                    que tem especificidade 0,1,1 e ganha da classe de cor do
+                    botão (0,1,0). O rótulo saía repintado por cima do fundo da
+                    marca — texto escuro sobre vermelho, ilegível.
+                    Subir a regra no index.css resolveria para todo link dentro
+                    de popup, e é justamente o que não se quer: um link comum
+                    ali DEVE ser azul. O `!important` fica no único lugar em que
+                    o elemento é um link mas se comporta como botão. */}
                 <div className="mt-2">
-                  <Button size="sm" className="w-full justify-start" onClick={() => handleDetailsClick(street)}>
-                    <Info className="w-4 h-4 mr-2" /> Ver mais detalhes
+                  <Button
+                    asChild
+                    size="sm"
+                    // `primary-foreground` e não `content-onBrand`: é a cor que
+                    // a própria variante do Button já escolheu para este fundo.
+                    // O `!` só faz ela vencer o leaflet — não muda a decisão de
+                    // design nem presume que os dois tokens sejam iguais.
+                    className="w-full justify-center !text-primary-foreground hover:!text-primary-foreground"
+                  >
+                    <Link to={`/mapa-pavimentacao/rua/${street.id}`}>
+                      <Info className="w-4 h-4 mr-2" /> Detalhes e história
+                    </Link>
                   </Button>
-                  {hasPavementStreetHistory(street) && (
-                    <Button asChild size="sm" variant="outline" className="mt-2 w-full">
-                      <Link to={`/mapa-pavimentacao/rua/${street.id}`}>
-                        <BookOpen className="mr-2 h-4 w-4" /> História da rua
-                      </Link>
-                    </Button>
-                  )}
                   {canManage && onEditStreet && (
                     <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => onEditStreet(street)}>
                       <Edit className="mr-2 h-4 w-4" /> Editar rua
@@ -280,125 +258,6 @@ const PavementMapView = forwardRef(({ streets, onWorkClick, canManage = false, o
         <MapModeToggle className="h-11 w-11 rounded-full p-0" />
       </div>
 
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-tc-red">{selectedStreet?.name}</DialogTitle>
-            <DialogDescription className="text-base text-muted-foreground">
-              {selectedStreet?.bairro?.name}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6 mt-4">
-            {/* Status Info */}
-            <div className="flex flex-wrap items-center gap-3">
-              <span className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-full text-white ${statusInfo.color}`}>
-                {statusInfo.icon}
-                {statusInfo.text}
-              </span>
-              {selectedStreet?.is_unnamed && (
-                <span className="flex items-center gap-2 rounded-full border border-status-pendingBorder bg-status-pendingBg px-3 py-1.5 text-sm font-semibold text-status-pendingFg">
-                  <HelpCircle className="h-4 w-4" /> Sem nome oficial
-                </span>
-              )}
-              {selectedStreet?.paving_date && (
-                <span className="text-sm bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full font-medium">
-                  Realizado em: {new Date(selectedStreet.paving_date).toLocaleDateString()}
-                </span>
-              )}
-              {selectedStreet?.id && hasPavementStreetHistory(selectedStreet) && (
-                <Button asChild size="sm" variant="outline">
-                  <Link to={`/mapa-pavimentacao/rua/${selectedStreet.id}`}>
-                    <BookOpen className="mr-2 h-4 w-4" /> Abrir página da rua
-                  </Link>
-                </Button>
-              )}
-               {selectedStreet?.work_id && (
-                  <button 
-                    onClick={() => {
-                      setIsDetailsOpen(false);
-                      onWorkClick(selectedStreet.work_id);
-                    }} 
-                    className="text-sm bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-100 flex items-center gap-2 transition-colors font-medium border border-blue-100"
-                  >
-                    <HardHat className="w-4 h-4" /> Ver página da obra
-                  </button>
-                )}
-            </div>
-
-            {/* O visor da rua */}
-            <div className="relative bg-secondary rounded-lg overflow-hidden aspect-video w-full shadow-inner border border-border/50">
-              {fotos.length > 0 ? (
-                <>
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={currentMediaIndex}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="w-full h-full relative group"
-                    >
-                      <img
-                        src={fotos[currentMediaIndex]?.url}
-                        alt={fotos[currentMediaIndex]?.caption || selectedStreet?.name || ''}
-                        className="w-full h-full object-contain bg-black/5"
-                      />
-                      {(fotos[currentMediaIndex]?.caption || fotos[currentMediaIndex]?.date) && (
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 pt-16 text-white">
-                          <p className="text-lg font-medium truncate">{fotos[currentMediaIndex]?.caption}</p>
-                          <p className="text-sm opacity-80">{formatarDataBr(fotos[currentMediaIndex]?.date)}</p>
-                        </div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-
-                  {fotos.length > 1 && (
-                    <>
-                      <button onClick={prevMedia} aria-label="Foto anterior" className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-colors backdrop-blur-sm">
-                        <ChevronLeft className="w-6 h-6" />
-                      </button>
-                      <button onClick={nextMedia} aria-label="Próxima foto" className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-colors backdrop-blur-sm">
-                        <ChevronRight className="w-6 h-6" />
-                      </button>
-                      <div className="absolute top-4 right-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
-                        {currentMediaIndex + 1} / {fotos.length}
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                /* O estado vazio FICA, mas agora diz a verdade: esta rua não tem
-                   foto cadastrada. Antes descrevia um campo inexistente. */
-                <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
-                  <ImageIcon className="w-16 h-16 mb-4 opacity-20" />
-                  <p className="text-lg font-medium">Nenhuma foto cadastrada</p>
-                  <p className="text-sm opacity-70 mt-2">As fotos desta rua aparecem aqui depois de cadastradas na edição.</p>
-                </div>
-              )}
-            </div>
-
-            {fotos.length > 1 && (
-              <div>
-                <h4 className="font-semibold mb-4 flex items-center gap-2 text-muted-foreground">
-                  <ImageIcon className="w-5 h-5" /> Todas as fotos
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {fotos.map((foto, index) => (
-                    <button
-                      key={`${foto.url}-${index}`}
-                      onClick={() => setCurrentMediaIndex(index)}
-                      aria-label={`Ver foto ${index + 1}`}
-                      className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${currentMediaIndex === index ? 'border-tc-red ring-2 ring-tc-red/20 opacity-100 scale-[1.02]' : 'border-transparent hover:border-muted-foreground/30 opacity-70 hover:opacity-100'}`}
-                    >
-                      <img src={foto.url} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 });

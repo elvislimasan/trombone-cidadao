@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { placar } from '@/lib/scoring';
+import { normalizarContadoresDeMissao } from '@/lib/missionCounters';
 import { calcularSequencia, avaliarConquistas } from '@/lib/patrolGame';
 import AchievementGrid from '@/components/missions/AchievementGrid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,11 +84,7 @@ const ProfilePage = () => {
       return;
     }
 
-    const contadores = {
-      ...row,
-      confirmadasPorCategoria: row.confirmed_by_category ?? {},
-      registradasPorCategoria: row.reported_by_category ?? {},
-    };
+    const contadores = normalizarContadoresDeMissao(row);
 
     setUserLevel(placar(contadores));
 

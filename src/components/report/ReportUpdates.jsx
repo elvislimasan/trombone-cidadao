@@ -1,6 +1,72 @@
 import { Link } from "react-router-dom";
-import { CheckCircle, Trash2 } from "lucide-react";
+import { CheckCircle, Trash2, XCircle } from "lucide-react";
 import Icon from "@/design-system/icons";
+import { explicacaoDaRejeicao } from "@/lib/reportRejection";
+
+// Uma atualização recusada, explicada para quem a enviou.
+//
+// Antes da fase 1 esta linha simplesmente sumia: `ReportPage` a filtrava para
+// todo mundo, inclusive para o autor, e o `isRejected` daqui era calculado e
+// nunca usado. Do lado de quem foi à rua, tirou a foto e mandou, a experiência
+// inteira era o desaparecimento.
+//
+// O bloco tem três partes, nesta ordem: o que a moderação escreveu (específico
+// do caso), o que o motivo significa (catálogo) e o que fazer agora. A terceira
+// é a que transforma a recusa em aprendizado em vez de punição.
+const RejeicaoExplicada = ({ atualizacao, formatDateTime, onCorrigir }) => {
+  const r = explicacaoDaRejeicao(atualizacao);
+  if (!r) return null;
+
+  return (
+    <div className="mt-2 rounded-xl bg-danger-subtleBg px-3 py-2.5">
+      <p className="text-2xs font-bold text-danger-subtleFg flex items-center gap-1">
+        <XCircle className="w-3 h-3" strokeWidth={2.5} />
+        {r.rotulo}
+        {r.em && (
+          <span className="font-normal opacity-80">
+            · {formatDateTime(r.em).split(",")[0]}
+          </span>
+        )}
+      </p>
+
+      {r.nota && (
+        <p className="text-xs text-danger-subtleFg mt-1 leading-relaxed">{r.nota}</p>
+      )}
+      <p className="text-2xs text-danger-subtleFg/90 mt-1 leading-relaxed">
+        {r.explicacao}
+      </p>
+
+      {r.comoCorrigir && (
+        <p className="text-2xs text-content-secondary mt-1.5 leading-relaxed">
+          {r.comoCorrigir}
+        </p>
+      )}
+
+      <div className="flex items-center gap-3 mt-2">
+        {r.corrigivel && (
+          <button
+            type="button"
+            onClick={onCorrigir}
+            className="text-2xs font-bold text-brand underline underline-offset-2"
+          >
+            Corrigir e reenviar
+          </button>
+        )}
+        {/* Recurso é diferente de correção: quem acha que a moderação errou
+            precisa de canal mesmo quando não há o que corrigir. Sem ele, um
+            erro de moderação vira decisão final por falta de porta. */}
+        {r.podeRecorrer && (
+          <Link
+            to="/contato"
+            className="text-2xs font-semibold text-content-tertiary underline underline-offset-2"
+          >
+            Discordo desta decisão
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+};
 
 // Extraido de src/pages/ReportPage.jsx (refatoracao pura, task 2 da fase 2).
 // Timeline de atualizacoes da comunidade: enviar, confirmar e excluir.
@@ -141,12 +207,25 @@ const ReportUpdates = ({
                             Aguardando
                           </span>
                         )}
+                        {isRejected && (
+                          <span className="flex-shrink-0 text-2xs font-semibold text-danger-subtleFg bg-danger-subtleBg px-2 py-0.5 rounded-full">
+                            Não publicada
+                          </span>
+                        )}
                       </div>
 
                       {upd.message && (
                         <p className="text-xs text-content-secondary mt-1 leading-relaxed">
                           {upd.message}
                         </p>
+                      )}
+
+                      {isRejected && (
+                        <RejeicaoExplicada
+                          atualizacao={upd}
+                          formatDateTime={formatDateTime}
+                          onCorrigir={() => setShowUpdateModal(true)}
+                        />
                       )}
 
                       {/* Inline photo thumbnails — click to expand */}

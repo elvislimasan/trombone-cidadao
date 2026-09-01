@@ -13,6 +13,10 @@ import { usePermissions } from '@/hooks/usePermissions';
 const adminLinks = [
   { to: '/admin/moderacao/broncas', icon: 'ShieldCheck', title: 'Moderação de Broncas', description: 'Aprove ou rejeite novas broncas.', module: 'moderation' },
   { to: '/admin/moderacao/atualizacoes', icon: 'Megaphone', title: 'Moderar Atualizações', description: 'Revise atualizações de bronca antes de publicar.', module: 'moderation' },
+  { to: '/admin/auditorias', icon: 'AlertTriangle', title: 'Auditoria de Cadastro', description: 'Pontos errados, categorias trocadas e relatos de risco.', module: 'moderation' },
+  { to: '/admin/metas', icon: 'Target', title: 'Metas Comunitárias', description: 'Cobertura de ruas por área, mutirões e relatório público.', module: 'moderation' },
+  { to: '/admin/campanhas', icon: 'Megaphone', title: 'Campanhas', description: 'Sazonais e editoriais: alguém escreve, assina e define o período.', module: 'moderation' },
+  { to: '/admin/assistente', icon: 'Sparkles', title: 'Assistente de Categoria', description: 'Acerto por categoria — a sugestão só aparece onde foi medida.', module: 'moderation' },
   { to: '/admin/moderacao/resolucoes', icon: 'ShieldCheck', title: 'Moderar resoluções', description: 'Aprove ou rejeite provas de resolução', module: 'moderation' },
   // Comentário publica na hora (migração 193); esta fila só recebe o que 3
   // denúncias tiraram do ar. É a única moderação de comentário que existe — e,
@@ -30,6 +34,7 @@ const adminLinks = [
   { to: '/admin/imoveis-alugados', icon: 'Building', title: 'Gerenciar Imóveis Alugados', description: 'Cadastre imóveis e contratos de aluguel.', module: 'rentals' },
   { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Serviços', description: 'Adicione e edite serviços e diretórios.', module: 'services' },
   { to: '/admin/noticias', icon: 'Newspaper', title: 'Gerenciar Notícias', description: 'Publique e edite notícias.' },
+  { to: '/admin/canais-do-orgao', icon: 'Mail', title: 'Canais do Órgão', description: 'E-mail de cada secretaria, categorias e relatórios automáticos.' },
   { to: '/admin/embaixadores', icon: 'ShieldCheck', title: 'Gestão de Embaixadores', description: 'Convites, embaixadores ativos e promoções de masters.' },
   { to: '/admin/permissoes', icon: 'ShieldCheck', title: 'Permissões', description: 'Defina quem pode alterar cada módulo.', masterOnly: true },
   { to: '/admin/configuracoes', icon: 'Settings', title: 'Configurações do Site', description: 'Personalize a aparência do site.' },

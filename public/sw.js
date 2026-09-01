@@ -1,5 +1,7 @@
 /* eslint-disable no-restricted-globals */
-const CACHE_NAME = 'trombone-cidadao-cache-v4';
+// Troque a versão quando o shell visual mudar. Isso impede que instalações
+// mobile continuem servindo bundles antigos depois de uma publicação.
+const CACHE_NAME = 'trombone-cidadao-cache-v5';
 const urlsToCache = [
   '/',
   '/index.html',

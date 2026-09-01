@@ -51,20 +51,26 @@ export const PONTOS_DIA_PERFEITO = 25;
  * os de sempre. É a diferença entre "confirme 3 broncas hoje" e "confirme 3
  * broncas na vida", que a pessoa provavelmente já fez.
  */
-// ⚠️ A "Rota do dia" NÃO ESTÁ AQUI AINDA, E ISSO É DELIBERADO
+// A ROTA DO DIA NÃO É UMA QUARTA DIÁRIA — É COMO SE CUMPRE A DE CAMPO
 //
-// Ela é a diária de campo que o design de 22/08 descreve, e continua sendo o
-// plano. Mas ela depende de duas coisas que ainda não existem: a tela
-// `/rota-do-dia` (montagem das paradas, ordem por vizinho mais próximo, pular
-// parada com motivo) e um contador de rotas concluídas.
+// A nota anterior aqui dizia que a Rota entraria como terceira opção de
+// 'campo' quando a tela existisse. A tela existe agora (fase 2), e a decisão
+// mudou por dois motivos que só ficaram visíveis ao construí-la.
 //
-// Uma diária que aponta para uma rota inexistente e lê um contador que nunca
-// sobe seria uma diária que NUNCA fecha — e a pessoa perderia o dia tentando.
-// É precisamente o acidente que a guarda de `sortearDiarias` existe para
-// evitar; deixá-la no catálogo por antecipação seria causar o problema à mão.
+// O primeiro é de contagem. Uma diária "conclua a Rota do Dia" precisaria de um
+// contador de rotas no servidor, porque `complete_daily` recalcula a meta e
+// recusa o que não sabe conferir (é a proteção da 205 contra bônus fabricado).
+// Esse contador não existe — e criá-lo significaria gravar a rota, que não é
+// uma linha em lugar nenhum: ela é montada ao abrir, a partir do estado do
+// mundo naquele instante.
 //
-// Quando a tela existir, ela entra aqui como terceira opção de 'campo' e o
-// sorteio a inclui sozinho.
+// O segundo é de honestidade do placar. A rota é feita de confirmações em
+// campo, que já pagam pela diária `confirmar_campo`. Somar as duas pagaria duas
+// vezes a mesma ida à rua — e inflar XP por reembalar a mesma ação é
+// exatamente o tipo de dívida de incentivo que a §36.5 manda auditar.
+//
+// Então a diária continua dizendo QUANTO, e a Rota passa a dizer ONDE. É o que
+// a fase 2 pede: reduzir a decisão de "o que eu faço agora?".
 
 export const DIARIAS = [
   // ── Campo ──
@@ -76,9 +82,11 @@ export const DIARIAS = [
     icone: '✅',
     meta: 3,
     valor: (c) => c.updates_count ?? 0,
-    acao: { rotulo: 'Sair em patrulha', para: '/patrulhar' },
+    // Aponta para a rota, não para a patrulha livre: "sair em patrulha" devolve
+    // a pessoa exatamente à decisão que ela não sabia tomar.
+    acao: { rotulo: 'Ver a rota de hoje', para: '/rota-do-dia' },
     xp: PONTOS_DIARIA,
-    exigeAlvos: true,
+    exige: 'broncas',
   },
   {
     id: 'conferir_marcados',
@@ -90,7 +98,7 @@ export const DIARIAS = [
     valor: (c) => (c.missions_count ?? 0) + (c.empties_count ?? 0),
     acao: { rotulo: 'Conferir', para: '/conferir' },
     xp: PONTOS_DIARIA,
-    exigeAlvos: true,
+    exige: 'sinais',
   },
 
   // ── Registro ──
@@ -156,6 +164,10 @@ export const DIARIAS = [
   },
 ];
 
+/** Tipo persistente de uma diária; `null` para ids antigos ou adulterados. */
+export const tipoDaDiaria = (dailyId) =>
+  DIARIAS.find((diaria) => diaria.id === dailyId)?.tipo ?? null;
+
 // ── O sorteio ─────────────────────────────────────────────────────────────────
 //
 // xmur3 + mulberry32: duas funções curtas, sem dependência, que produzem uma
@@ -192,21 +204,38 @@ const mulberry32 = (a) => () => {
  * @param {string} userId
  * @param {Date|string} [hoje]
  * @param {object} [opts]
- * @param {boolean} [opts.temAlvos=true]  há broncas/sinais ao alcance?
+ * @param {boolean} [opts.temBroncas=true]  há bronca aberta ao alcance?
+ * @param {boolean} [opts.temSinais=true]   há sinal pendente ao alcance?
+ * @param {boolean} [opts.temAlvos]         atalho: falso zera as duas acima
  *
- * A GUARDA CONTRA DIÁRIA IMPOSSÍVEL
+ * A GUARDA CONTRA DIÁRIA IMPOSSÍVEL, AGORA LIGADA
  *
  * Sortear "confira 2 pontos marcados" numa cidade sem nenhum sinal pendente
  * queima o dia da pessoa por acidente — ela abre, tenta, não encontra nada, e
  * aprende que a diária mente. Quando não há alvos, o sorteio cai para a
  * alternativa do mesmo tipo que não exige nenhum.
  *
- * Se NENHUMA opção do tipo servir (é o caso de 'campo', em que todas exigem
- * alvos), o tipo simplesmente não entra — dois cartões honestos valem mais que
- * três, um dos quais impossível.
+ * A guarda existia desde a 200 e nunca recebeu um valor: `temAlvos` tinha
+ * default `true` e nenhum chamador o informava. Estava escrita e desligada. A
+ * fase 2 a liga com `alvos_por_perto` (migração 212).
+ *
+ * DUAS PERGUNTAS, NÃO UMA
+ *
+ * "Confirmar broncas na rua" precisa de bronca; "conferir pontos marcados"
+ * precisa de sinal. Um booleano único faria a segunda ser sorteada por causa da
+ * primeira — e é justamente numa cidade nova, cheia de bronca e sem nenhum
+ * sinal, que o erro apareceria.
+ *
+ * Se NENHUMA opção do tipo servir, o tipo simplesmente não entra — dois cartões
+ * honestos valem mais que três, um dos quais impossível.
  */
 export const sortearDiarias = (userId, hoje = new Date(), opts = {}) => {
-  const temAlvos = opts.temAlvos !== false;
+  const semAlvos = opts.temAlvos === false;
+  const disponivel = {
+    broncas: !semAlvos && opts.temBroncas !== false,
+    sinais: !semAlvos && opts.temSinais !== false,
+  };
+
   const dia = chaveDoDia(hoje);
   if (!userId || !dia) return [];
 
@@ -215,7 +244,7 @@ export const sortearDiarias = (userId, hoje = new Date(), opts = {}) => {
 
   return TIPOS.map((tipo) => {
     const candidatas = DIARIAS.filter(
-      (d) => d.tipo === tipo && (temAlvos || !d.exigeAlvos)
+      (d) => d.tipo === tipo && (!d.exige || disponivel[d.exige])
     );
     if (candidatas.length === 0) return null;
     return candidatas[Math.floor(rand() * candidatas.length)];
@@ -241,12 +270,17 @@ export const diariasDeHoje = (
   const c = contadoresHoje || {};
   const gravadas =
     concluidasHoje instanceof Set ? concluidasHoje : new Set(concluidasHoje || []);
+  // A RPC autoritativa aceita no máximo uma conclusão de cada tipo por dia.
+  // Se o catálogo mudar e o sorteio trocar a opção, a conclusão já conquistada
+  // continua valendo para o tipo em vez de reaparecer como tarefa pendente.
+  const tiposGravados = new Set([...gravadas].map(tipoDaDiaria).filter(Boolean));
 
   return sortearDiarias(userId, hoje, opts).map((d) => {
     const atual = Math.max(0, Number(d.valor(c)) || 0);
     // A linha gravada vence a contagem: uma diária concluída às 10h continua
     // concluída às 23h, mesmo que o contador do dia seja recalculado.
-    const completa = gravadas.has(d.id) || atual >= d.meta;
+    const gravada = gravadas.has(d.id) || tiposGravados.has(d.tipo);
+    const completa = gravada || atual >= d.meta;
 
     return {
       id: d.id,
@@ -260,6 +294,7 @@ export const diariasDeHoje = (
       atual: Math.min(atual, d.meta),
       faltam: Math.max(0, d.meta - atual),
       completa,
+      gravada,
       progresso: completa ? 1 : Math.min(1, atual / d.meta),
       rotulo: `${Math.min(atual, d.meta)} / ${d.meta}`,
     };

@@ -22,6 +22,7 @@ import {
   placarDeImpacto,
   impactoGanho,
   fraseDaResolucao,
+  creditoNaBronca,
 } from '../lib/impact.js';
 
 // ── A invariante ──────────────────────────────────────────────────────────────
@@ -186,12 +187,22 @@ test('a frase nomeia quantas pessoas fizeram junto', () => {
 
 test('uma pessoa só não vira "e mais 0 pessoas"', () => {
   const f = fraseDaResolucao({ endereco: 'Rua X', participantes: 1, pontos: 25 });
-  assert.match(f.corpo, /Você fez isso acontecer/);
+  assert.match(f.corpo, /Você contribuiu para registrar, verificar e acompanhar/);
 });
 
 test('duas pessoas usam o singular', () => {
   const f = fraseDaResolucao({ endereco: 'Rua X', participantes: 2 });
   assert.match(f.corpo, /mais 1 pessoa\b/);
+});
+
+// A frase não pode prometer causalidade individual (§36.5 do plano): uma
+// resolução posterior prova acompanhamento, não que a pessoa consertou. É a
+// invariante que separa reconhecer de exagerar — e a que a 199 violava.
+test('a frase reconhece participação, nunca autoria do conserto', () => {
+  for (const n of [1, 2, 12]) {
+    const f = fraseDaResolucao({ endereco: 'Rua X', participantes: n });
+    assert.doesNotMatch(f.corpo, /fez isso acontecer|fizeram isso|você resolveu/i);
+  }
 });
 
 test('sem pontos, a frase não promete crédito', () => {
@@ -203,4 +214,66 @@ test('sem endereço, ainda sai uma frase legível', () => {
   const f = fraseDaResolucao({ participantes: 2 });
   assert.ok(f.titulo.length > 0);
   assert.ok(!f.titulo.includes('undefined'));
+});
+
+// ── O crédito nesta bronca (Recibo de Impacto, fase 1) ────────────────────────
+//
+// Os contadores do banco respondem "quanto no total". O recibo precisa
+// responder "quanto AQUI" — quem chega pela notificação de uma bronca veio
+// buscar o desfecho dela, não um saldo geral.
+
+const EU = 'u-eu';
+const OUTRO = 'u-outro';
+
+test('quem não fez nada nesta bronca não recebe recibo', () => {
+  const r = creditoNaBronca({
+    report: { author_id: OUTRO },
+    user: { id: EU },
+  });
+  assert.equal(r.creditos.length, 0);
+  assert.equal(r.total, 0);
+});
+
+test('autoria e "completei o sinal de outro" não somam duas vezes', () => {
+  const r = creditoNaBronca({
+    report: { author_id: EU, completed_by: EU },
+    user: { id: EU },
+  });
+  assert.deepEqual(r.creditos.map((c) => c.id), ['autor']);
+  assert.equal(r.total, IMPACTO.autor);
+});
+
+test('confirmação rejeitada não paga — o app não premia o que acabou de recusar', () => {
+  const r = creditoNaBronca({
+    report: { author_id: OUTRO },
+    atualizacoes: [
+      { author_id: EU, update_type: 'solved', status: 'rejected' },
+    ],
+    user: { id: EU },
+  });
+  assert.equal(r.creditos.length, 0);
+});
+
+test('papéis diferentes na mesma bronca somam', () => {
+  const r = creditoNaBronca({
+    report: { author_id: EU },
+    atualizacoes: [{ author_id: EU, update_type: 'solved', status: 'pending' }],
+    comentarios: [{ author_id: EU }],
+    apoiou: true,
+    user: { id: EU },
+  });
+
+  assert.deepEqual(
+    r.creditos.map((c) => c.id),
+    ['autor', 'confirmacao', 'comentario', 'apoio']
+  );
+  assert.equal(
+    r.total,
+    IMPACTO.autor + IMPACTO.confirmacao + IMPACTO.comentario + IMPACTO.apoio
+  );
+});
+
+test('sem usuário não há recibo', () => {
+  assert.equal(creditoNaBronca({ report: { author_id: EU } }).total, 0);
+  assert.equal(creditoNaBronca({ user: { id: EU } }).total, 0);
 });

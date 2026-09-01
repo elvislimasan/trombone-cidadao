@@ -5,7 +5,10 @@ export const defaultMenuSettings = {
   },
   items: [
     { name: 'Início', path: '/', icon: 'LayoutDashboard', isVisible: true },
-    { name: 'Sobre', path: '/sobre', icon: 'Info', isVisible: true },
+    { name: 'Radar da cidade', path: '/agora', icon: 'Radio', isVisible: true },
+    // "Sobre" saiu do menu do header. A página continua existindo em /sobre e
+    // continua linkada no rodapé — o que mudou é a disputa por espaço no topo,
+    // onde cada item a mais empurra os que levam a alguma ação.
     { name: 'Estatísticas', path: '/estatisticas', icon: 'BarChart2', isVisible: true },
     { name: 'Obras', path: '/obras-publicas', icon: 'Construction', isVisible: true },
     { name: 'Imóveis Alugados', path: '/imoveis-alugados', icon: 'Building', isVisible: true },
@@ -46,7 +49,6 @@ export const defaultFooterSettings = {
       isVisible: true,
       links: [
         { name: 'Início', path: '/', isVisible: true },
-        { name: 'Sobre', path: '/sobre', isVisible: true },
         { name: 'Estatísticas', path: '/estatisticas', isVisible: true },
         { name: 'Notícias', path: '/noticias', isVisible: true },
       ],

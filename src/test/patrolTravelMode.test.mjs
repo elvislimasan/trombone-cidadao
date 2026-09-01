@@ -11,6 +11,7 @@ import {
   normalizePatrolTravelMode,
   parsePatrolTravelMode,
   patrolTravelModeFromSearch,
+  patrolTravelModeForRecord,
   readStoredPatrolTravelMode,
   resolvePatrolTravelMode,
   storePatrolTravelMode,
@@ -87,6 +88,14 @@ test('a tela ativa exige modo explicito na URL', () => {
   assert.equal(patrolTravelModeFromSearch('?modo=carro'), 'driving');
   assert.equal(patrolTravelModeFromSearch(''), null);
   assert.equal(patrolTravelModeFromSearch('?modo=bike'), null);
+});
+
+test('persiste modo apenas quando a saída informa um valor válido', () => {
+  assert.equal(patrolTravelModeForRecord('walking'), 'walking');
+  assert.equal(patrolTravelModeForRecord('driving'), 'driving');
+  assert.equal(patrolTravelModeForRecord('bike'), null);
+  assert.equal(patrolTravelModeForRecord(null), null);
+  assert.equal(patrolTravelModeForRecord('walking', 'audit'), null);
 });
 
 test('a rota da patrulha leva categoria e modo escolhido', () => {

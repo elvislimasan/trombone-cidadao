@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { missoesPorTrilha, etapasConcluidas } from '@/lib/missions';
@@ -6,6 +6,7 @@ import { placar } from '@/lib/scoring';
 import { placarDeImpacto } from '@/lib/impact';
 import { calcularSequencia, avaliarConquistas, chaveDoDia } from '@/lib/patrolGame';
 import { diariasDeHoje, resumoDoDia, restaDoDia } from '@/lib/dailies';
+import { normalizarContadoresDeMissao } from '@/lib/missionCounters';
 
 /**
  * Meia-noite de hoje, no relógio de quem está olhando.
@@ -22,64 +23,35 @@ const meiaNoiteLocal = () => {
 
 // Progresso das missões, pontos e conquistas.
 //
-// UMA consulta: os contadores brutos. Catálogo, escadas, progresso, pontuação,
-// nível e conquistas são função pura — nada disso vem do servidor, e é o que
-// permite mudar uma meta sem migração.
+// Uma mesma RPC fornece os contadores brutos de vida inteira e de hoje.
+// Catálogo, escadas, progresso, pontuação, nível e conquistas são função pura —
+// nada disso vem pronto do servidor, e é o que permite mudar uma meta sem
+// migração.
 //
 // Os nomes das colunas mudam de `snake_case` para o que o catálogo espera num
-// lugar só, aqui. Espalhar essa tradução pelas funções `valor` obrigaria cada
-// missão nova a lembrar do formato do banco.
-
-const normalizar = (linha) => ({
-  reports_count: linha?.reports_count ?? 0,
-  updates_count: linha?.updates_count ?? 0,
-  total_passed: linha?.total_passed ?? 0,
-  bairros_ativos: linha?.bairros_ativos ?? 0,
-  bairros_liderados: linha?.bairros_liderados ?? 0,
-  acoes_no_melhor: linha?.acoes_no_melhor ?? 0,
-  patrol_days: linha?.patrol_days ?? [],
-  comments_count: linha?.comments_count ?? 0,
-  upvotes_given: linha?.upvotes_given ?? 0,
-  signals_count: linha?.signals_count ?? 0,
-  missions_count: linha?.missions_count ?? 0,
-  patrols_count: linha?.patrols_count ?? 0,
-  total_confirmed: linha?.total_confirmed ?? 0,
-  total_distance_meters: linha?.total_distance_meters ?? 0,
-  shares_count: linha?.shares_count ?? 0,
-  // A 192 passou a devolver os dois, e a tradução não tinha sido atualizada.
-  // `empties_count` faltando fazia a missão "Confira problemas marcados" contar
-  // só metade do que ela promete pagar: a vistoria vazia — a resposta honesta
-  // que a 190 existe para incentivar — desaparecia do progresso.
-  empties_count: linha?.empties_count ?? 0,
-  audits_count: linha?.audits_count ?? 0,
-  confirmadasPorCategoria: linha?.confirmed_by_category ?? {},
-  registradasPorCategoria: linha?.reported_by_category ?? {},
-
-  // ── Impacto (198) ────────────────────────────────────────────────────────
-  // Participação em broncas que FECHARAM. Os pesos vivem em src/lib/impact.js.
-  resolvidas_autor: linha?.resolvidas_autor ?? 0,
-  resolvidas_missao: linha?.resolvidas_missao ?? 0,
-  resolvidas_sinal: linha?.resolvidas_sinal ?? 0,
-  resolvidas_confirmadas: linha?.resolvidas_confirmadas ?? 0,
-  resolvidas_comentadas: linha?.resolvidas_comentadas ?? 0,
-  resolvidas_apoiadas: linha?.resolvidas_apoiadas ?? 0,
-  resolvidas_total: linha?.resolvidas_total ?? 0,
-});
+// lugar só, em `missionCounters.js`. Espalhar essa tradução pelas funções
+// `valor` obrigaria cada missão nova a lembrar do formato do banco.
 
 /**
  * @param {object} [opcoes]
- * @param {boolean} [opcoes.temAlvos=true]  há broncas/sinais ao alcance hoje?
- *   Quem sabe disso é a tela que já carregou o mapa; o hook não vai descobrir
- *   sozinho. Falso faz a diária de campo sair do sorteio em vez de mandar a
- *   pessoa procurar o que não existe.
+ * @param {boolean} [opcoes.temBroncas=true]  há bronca aberta ao alcance hoje?
+ * @param {boolean} [opcoes.temSinais=true]   há sinal pendente ao alcance hoje?
+ * @param {boolean} [opcoes.temAlvos]         atalho antigo: falso zera as duas
+ *
+ * Quem sabe disso é a tela, que tem a posição; o hook não vai descobrir
+ * sozinho. Falso faz a diária correspondente sair do sorteio em vez de mandar a
+ * pessoa procurar o que não existe — ver `useAlvosPorPerto`.
  */
-export function useMissions({ temAlvos = true } = {}) {
+export function useMissions({ temAlvos, temBroncas = true, temSinais = true } = {}) {
   const { user } = useAuth();
 
   const [contadores, setContadores] = useState(null);
   const [contadoresHoje, setContadoresHoje] = useState(null);
   const [concluidasHoje, setConcluidasHoje] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  // Impede loop de tentativas se a migração/RPC estiver indisponível. Uma nova
+  // montagem pode tentar de novo; um render não.
+  const tentativasDiariasRef = useRef(new Set());
 
   const buscar = useCallback(async () => {
     if (!user) {
@@ -100,7 +72,7 @@ export function useMissions({ temAlvos = true } = {}) {
       // evitado: são três, e elas partem juntas.
       const desde = meiaNoiteLocal();
 
-      const [tudo, hoje, feitas] = await Promise.all([
+      const [tudo, hoje, feitas, qualidade] = await Promise.all([
         supabase.rpc('get_mission_counters', { target_user_id: user.id }),
         supabase.rpc('get_mission_counters', {
           target_user_id: user.id,
@@ -111,10 +83,22 @@ export function useMissions({ temAlvos = true } = {}) {
           .select('daily_id')
           .eq('user_id', user.id)
           .eq('dia', chaveDoDia(desde)),
+        // Qualidade e mentoria (fase 4). RPC separada, e não mais colunas na de
+        // sempre: `get_mission_counters` precisa de drop+create para mudar de
+        // assinatura, e reescrever 250 linhas de CTE para acrescentar quatro
+        // números é risco sem ganho. A quarta chamada parte junto das outras.
+        supabase.rpc('get_quality_counters', { target_user_id: user.id }),
       ]);
 
       if (tudo.error) throw tudo.error;
-      setContadores(normalizar(tudo.data?.[0]));
+      // As medalhas de qualidade leem daqui. Se a 214 ainda não estiver
+      // aplicada, os contadores ficam zerados e elas aparecem bloqueadas — que é
+      // o certo: melhor uma medalha inalcançável hoje do que a central inteira
+      // sumir por causa de uma RPC que não existe.
+      setContadores({
+        ...normalizarContadoresDeMissao(tudo.data?.[0]),
+        ...(qualidade.error ? {} : qualidade.data?.[0] || {}),
+      });
 
       // As diárias não derrubam a central: se a 200 ainda não estiver aplicada,
       // `p_desde` não existe e a chamada falha. O resto da tela — nível,
@@ -123,7 +107,7 @@ export function useMissions({ temAlvos = true } = {}) {
         console.warn('[useMissions] contadores de hoje indisponíveis:', hoje.error);
         setContadoresHoje(null);
       } else {
-        setContadoresHoje(normalizar(hoje.data?.[0]));
+        setContadoresHoje(normalizarContadoresDeMissao(hoje.data?.[0]));
       }
 
       setConcluidasHoje(
@@ -163,8 +147,10 @@ export function useMissions({ temAlvos = true } = {}) {
     if (!user || !contadoresHoje) return [];
     return diariasDeHoje(user.id, contadoresHoje, concluidasHoje, new Date(), {
       temAlvos,
+      temBroncas,
+      temSinais,
     });
-  }, [user, contadoresHoje, concluidasHoje, temAlvos]);
+  }, [user, contadoresHoje, concluidasHoje, temAlvos, temBroncas, temSinais]);
 
   const resumoDiarias = useMemo(() => resumoDoDia(diarias), [diarias]);
 
@@ -173,16 +159,18 @@ export function useMissions({ temAlvos = true } = {}) {
   const tempoRestante = restaDoDia();
 
   /**
-   * Grava que uma diária foi fechada.
+   * Pede ao servidor para confirmar que uma diária foi fechada.
    *
-   * Idempotente por construção: a chave primária de `daily_completions` recusa
-   * a segunda gravação do mesmo dia, e o erro de conflito é esperado — não é
-   * falha, é a garantia funcionando. Por isso ele é engolido em silêncio.
+   * O cliente mostra progresso, mas não concede XP: `complete_daily` recalcula
+   * os contadores, aceita somente ids do catálogo e limita uma conclusão de
+   * cada tipo por dia. Isso impede fabricar bônus alterando a requisição.
    */
   const marcarDiaria = useCallback(
     async (dailyId) => {
       if (!user || !dailyId) return;
       if (concluidasHoje.includes(dailyId)) return;
+      if (tentativasDiariasRef.current.has(dailyId)) return;
+      tentativasDiariasRef.current.add(dailyId);
 
       // Otimista: a tela marca na hora. Uma diária que fecha meio segundo
       // depois do toque não parece ter fechado por causa do toque.
@@ -190,15 +178,24 @@ export function useMissions({ temAlvos = true } = {}) {
         atual.includes(dailyId) ? atual : [...atual, dailyId]
       );
 
-      const { error } = await supabase.from('daily_completions').insert({
-        user_id: user.id,
-        dia: chaveDoDia(meiaNoiteLocal()),
-        daily_id: dailyId,
+      const { data, error } = await supabase.rpc('complete_daily', {
+        p_daily_id: dailyId,
       });
 
-      // 23505 = unique_violation. Já estava gravada; o estado da tela está certo.
-      if (error && error.code !== '23505') {
+      if (error) {
+        // Desfaz o otimismo: sem confirmação do servidor não existe bônus.
+        setConcluidasHoje((atual) => atual.filter((id) => id !== dailyId));
         console.error('[useMissions] falha ao gravar diária:', error);
+        return;
+      }
+
+      // Em mudança de catálogo, o servidor pode devolver a diária antiga já
+      // concluída para este tipo. Guardar os dois ids é inofensivo e permite que
+      // `diariasDeHoje` reconheça a conclusão pelo tipo.
+      if (data && data !== dailyId) {
+        setConcluidasHoje((atual) =>
+          atual.includes(data) ? atual : [...atual, data]
+        );
       }
     },
     [user, concluidasHoje]
@@ -211,7 +208,7 @@ export function useMissions({ temAlvos = true } = {}) {
   // acima impede insert repetido.
   useEffect(() => {
     diarias
-      .filter((d) => d.completa && !concluidasHoje.includes(d.id))
+      .filter((d) => d.completa && !d.gravada)
       .forEach((d) => marcarDiaria(d.id));
   }, [diarias, concluidasHoje, marcarDiaria]);
 

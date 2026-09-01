@@ -20,6 +20,7 @@ import {
   minimoDoNivel,
 } from '../lib/scoring.js';
 import { PONTOS } from '../lib/patrolGame.js';
+import { PONTOS_DIARIA, PONTOS_DIA_PERFEITO } from '../lib/dailies.js';
 import { avancosEntre } from '../lib/missions.js';
 
 // ── Pesos ─────────────────────────────────────────────────────────────────────
@@ -45,6 +46,14 @@ test('soma as ações com o peso de cada uma', () => {
     upvotes_given: 6,      //  6
   };
   assert.equal(pontosDeAcoes(c), 77);
+});
+
+test('inclui diárias concluídas e dias perfeitos', () => {
+  const c = { dailies_completed: 3, perfect_days: 1 };
+  assert.equal(
+    pontosDeAcoes(c),
+    3 * PONTOS_DIARIA + PONTOS_DIA_PERFEITO
+  );
 });
 
 test('contadores vazios não viram NaN', () => {

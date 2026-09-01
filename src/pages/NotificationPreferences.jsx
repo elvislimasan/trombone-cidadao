@@ -39,6 +39,15 @@ import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 import { showAppError } from '@/lib/appError';
 
 // Valores padrão para evitar undefined
+// Os tipos do Trombone Agora entram aqui para que contas NOVAS já nasçam com
+// eles gravados. As contas que já existem foram preenchidas pela migração 217 —
+// as duas metades são necessárias, porque este objeto só alimenta quem ainda
+// não tem preferências salvas.
+//
+// Sem as chaves, o envio depende de `gate.js` tratar "ausente" como habilitado.
+// É o que o comentário da Edge Function diz, mas o arquivo não está no
+// repositório — e uma suposição que ninguém consegue verificar não deveria
+// decidir se um alerta de falta d'água chega ao aparelho.
 const DEFAULT_PREFERENCES = {
   reports: true,
   works: true,
@@ -48,7 +57,12 @@ const DEFAULT_PREFERENCES = {
   status_update: true,
   moderation_required: true,
   resolution_submission: true,
-  work_update: true
+  work_update: true,
+  city_event: true,
+  city_event_update: true,
+  city_event_resolved: true,
+  city_event_check: true,
+  city_event_divergence: true
 };
 
 const NotificationPreferences = () => {

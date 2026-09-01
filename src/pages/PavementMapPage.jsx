@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import WorksMapView from '@/components/WorksMapView';
 import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import { cepsDaRua, montarRelatorio, relatorioParaCsv } from '@/lib/pavementReport';
@@ -31,7 +30,6 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 
 const PavementMapPage = () => {
   const [streetData, setStreetData] = useState([]);
-  const [allWorks, setAllWorks] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
   // TODOS OS FILTROS NUM OBJETO SÓ.
   //
@@ -44,8 +42,6 @@ const PavementMapPage = () => {
   const [painelAberto, setPainelAberto] = useState(true);
   const setFiltro = (id, valor) => setFiltros((atual) => ({ ...atual, [id]: valor }));
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedWorkId, setSelectedWorkId] = useState(null);
-  const [resolvedWork, setResolvedWork] = useState(null);
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
   const { cityId: activeCityId, cityName: activeCityName, city: activeCity } = useCityView();
@@ -179,64 +175,9 @@ const PavementMapPage = () => {
     }
   }, [activeCityId]);
 
-  const fetchWorks = useCallback(async () => {
-    let query = supabase.from('public_works').select('id, title, description, status, location, city_id');
-    if (activeCityId) query = query.eq('city_id', activeCityId);
-    const { data, error } = await query;
-    if (error) showAppError({ title: "Erro ao buscar obras", description: error.message, variant: "destructive" });
-    else {
-        const formattedWorks = data.map(w => ({
-            ...w,
-            location: w.location ? { lat: w.location.coordinates[1], lng: w.location.coordinates[0] } : null,
-        }));
-        setAllWorks(formattedWorks);
-    }
-  }, [activeCityId]);
-
   useEffect(() => {
     fetchStreets();
-    fetchWorks();
-  }, [fetchStreets, fetchWorks]);
-
-  const handleWorkClick = (workId) => {
-    setSelectedWorkId(workId);
-  };
-
-  // Resolve a obra selecionada mesmo quando ela não está na lista `allWorks`
-  // (que é filtrada pela cidade ativa). Isso evita que o modal "ver obra"
-  // fique vazio quando a rua aponta para uma obra de outra cidade (ou sem
-  // cidade), já que work_id não é necessariamente coberto pelo filtro atual.
-  useEffect(() => {
-    if (!selectedWorkId) {
-      setResolvedWork(null);
-      return;
-    }
-    const fromList = allWorks.find(w => w.id === selectedWorkId);
-    if (fromList) {
-      setResolvedWork(fromList);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from('public_works')
-        .select('id, title, description, status, location, city_id')
-        .eq('id', selectedWorkId)
-        .single();
-      if (cancelled) return;
-      if (error) {
-        showAppError({ title: "Erro ao buscar obra", description: error.message, variant: "destructive" });
-        setResolvedWork(null);
-        return;
-      }
-      const formatted = {
-        ...data,
-        location: data.location ? { lat: data.location.coordinates[1], lng: data.location.coordinates[0] } : null,
-      };
-      setResolvedWork(formatted);
-    })();
-    return () => { cancelled = true; };
-  }, [selectedWorkId, allWorks]);
+  }, [fetchStreets]);
 
   const handleStreetListClick = (statusType, title) => {
     const streets = streetData.filter(s => s.status === statusType);
@@ -333,7 +274,6 @@ const PavementMapPage = () => {
 
 
 
-  const selectedWork = resolvedWork;
 
 
 
@@ -658,7 +598,6 @@ const PavementMapPage = () => {
             <PavementMapView
               ref={mapViewRef}
               streets={filteredStreets}
-              onWorkClick={handleWorkClick}
               canManage={canManageStreets}
               onEditStreet={setEditingStreet}
             />
@@ -741,21 +680,6 @@ const PavementMapPage = () => {
         </DrawerContent>
       </Drawer>
 
-      <Dialog open={!!selectedWorkId} onOpenChange={(open) => !open && setSelectedWorkId(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-          {selectedWork && (
-            <>
-              <DialogHeader className="p-4 border-b">
-                <DialogTitle className="text-tc-red">{selectedWork.title}</DialogTitle>
-                <DialogDescription>Detalhes da obra vinculada.</DialogDescription>
-              </DialogHeader>
-              <div className="flex-grow overflow-hidden">
-                <WorksMapView works={[selectedWork]} />
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={streetListModal.isOpen} onOpenChange={(open) => !open && setStreetListModal({ isOpen: false, title: '', streets: [] })}>
         <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto">
