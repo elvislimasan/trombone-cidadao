@@ -1225,36 +1225,6 @@ html { scroll-behavior: smooth; }
   }
 }
 
-/* O NOME DA RUA QUE NÓS ESCREVEMOS, ACIMA DO TRAÇADO
-   Tooltip do Leaflet, despido da moldura de balão: sem fundo, sem borda, sem
-   sombra e sem a setinha do `::before`.
-
-   O halo de quatro sombras brancas é o que faz o texto sobreviver aos três
-   fundos possíveis — mapa claro, mapa escuro invertido e imagem de satélite —
-   sem uma caixa opaca que taparia o mapa de novo. É a mesma técnica das cartas
-   impressas, e custa menos que desenhar contorno em SVG. */
-.leaflet-container .rotulo-de-rua {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  padding: 0;
-  color: #111827;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  text-shadow:
-     1px  1px 0 #fff,
-    -1px  1px 0 #fff,
-     1px -1px 0 #fff,
-    -1px -1px 0 #fff;
-  /* O rótulo é enfeite de leitura: clicar nele tem de acertar a rua embaixo. */
-  pointer-events: none;
-}
-
-.leaflet-container .rotulo-de-rua::before {
-  display: none;
-}
-
 /* As fatias do anel do resumo, e os pontinhos da legenda ao lado dele.
    Mesma armadilha da linha acima: o Recharts escreve `fill` como ATRIBUTO do
    SVG, e var() não resolve ali. Por isso a cor entra por classe — como

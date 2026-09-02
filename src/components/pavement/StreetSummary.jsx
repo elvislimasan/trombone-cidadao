@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, HardHat, Image as ImageIcon, Megaphone, Route } from 'lucide-react';
+import { CheckCircle2, HardHat, Megaphone } from 'lucide-react';
 
 import { supabase } from '@/lib/customSupabaseClient';
 
@@ -10,9 +10,28 @@ import { supabase } from '@/lib/customSupabaseClient';
 //
 // "13 broncas" que não abre nada é um número decorativo — e um número
 // decorativo numa página de serviço público é pior que nenhum, porque promete
-// uma lista que não existe. As broncas levam ao mapa recortado pela cidade; as
-// fotos rolam para a galeria da própria página; pavimentação e obras são
-// estado, não lista, e ficam sem link de propósito.
+// uma lista que não existe.
+//
+// O DESTINO É A PRÓPRIA RUA, E NÃO A CIDADE
+//
+// Estes links já levaram a `/mapa?cidade=N` e a `/obras-publicas` sem recorte:
+// o número era da rua, o destino era a cidade inteira. Um mapa com quinhentos
+// pinos não é a resposta de "quais são as minhas sete" — e como o link não dá
+// erro, a leitura de quem clicou é que o app perdeu o filtro no caminho.
+//
+// `?rua=<id>` faz a tela de destino usar a MESMA geometria que contou aqui
+// (migração 228 sobre a regra da 208), então a lista que abre sempre bate com o
+// número que foi tocado.
+//
+// O QUE SAIU DAQUI, E POR QUÊ
+//
+// A situação de pavimentação já é um dos chips do cabeçalho da página, a uma
+// rolada de distância — dito duas vezes, o segundo não acrescentava nada e
+// ainda fazia a pessoa conferir se os dois concordavam.
+//
+// A contagem de fotos saiu porque a galeria está logo ali, com as fotos à
+// vista: contar o que já se vê é gastar uma linha para não dizer nada. Quem
+// quer todas continua tendo o "Ver todas" do próprio cartão de imagens.
 //
 // O ZERO APARECE
 //
@@ -42,13 +61,7 @@ const Numero = ({ Icone, valor, rotulo, para, destaque = false }) => {
   );
 };
 
-const ROTULO_PAVIMENTO = {
-  paved: 'Pavimentada',
-  partially_paved: 'Parcialmente pavimentada',
-  unpaved: 'Sem pavimentação',
-};
-
-const StreetSummary = ({ streetId, cityId, aoVerFotos }) => {
+const StreetSummary = ({ streetId }) => {
   const [resumo, setResumo] = useState(null);
 
   useEffect(() => {
@@ -63,37 +76,21 @@ const StreetSummary = ({ streetId, cityId, aoVerFotos }) => {
 
   if (!resumo) return null;
 
-  const pavimento = ROTULO_PAVIMENTO[resumo.status];
-
   return (
     <div className="flex flex-wrap gap-2">
       <Numero
         Icone={Megaphone}
         valor={resumo.broncas}
         rotulo={resumo.broncas === 1 ? 'bronca' : 'broncas'}
-        para={cityId ? `/mapa?cidade=${cityId}` : '/mapa'}
+        para={`/mapa?rua=${streetId}`}
       />
       <Numero Icone={CheckCircle2} valor={resumo.resolvidas} rotulo="resolvidas" destaque />
-      <Numero Icone={HardHat} valor={resumo.obras} rotulo={resumo.obras === 1 ? 'obra' : 'obras'} para="/obras-publicas" />
-
-      {pavimento && (
-        <span className="flex items-center gap-1.5 rounded-full border border-edge-subtle bg-surface-raised px-3 py-1.5">
-          <Route className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-          <span className="text-xs font-bold text-content-primary">{pavimento}</span>
-        </span>
-      )}
-
-      {resumo.fotos > 0 && (
-        <button
-          type="button"
-          onClick={aoVerFotos}
-          className="flex items-center gap-1.5 rounded-full border border-edge-subtle bg-surface-raised px-3 py-1.5 transition-colors hover:bg-surface-subtle"
-        >
-          <ImageIcon className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-          <span className="text-sm font-extrabold text-content-primary tabular-nums">{resumo.fotos}</span>
-          <span className="text-xs text-content-tertiary">{resumo.fotos === 1 ? 'foto' : 'fotos'}</span>
-        </button>
-      )}
+      <Numero
+        Icone={HardHat}
+        valor={resumo.obras}
+        rotulo={resumo.obras === 1 ? 'obra' : 'obras'}
+        para={`/obras-publicas?rua=${streetId}`}
+      />
 
       {/* Sem traçado, "perto da rua" vira um círculo de 150 m em volta do ponto
           central — pega a rua vizinha. Dizer isso é mais honesto que exibir um

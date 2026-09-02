@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Loader2, Search, X, MapPin, ChevronDown, LocateFixed, Check,
-  SlidersHorizontal, ChevronRight,
+  SlidersHorizontal, ChevronRight, Megaphone, CheckCircle2, Clock, PlusCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
@@ -10,6 +10,13 @@ import { useReportUpdate } from '@/hooks/useReportUpdate';
 import ReportUpdateModal from '@/components/report/ReportUpdateModal';
 import TelaDeMapa from '@/components/map/TelaDeMapa';
 import { useTelaLarga } from '@/hooks/useTelaLarga';
+import { useFocoDeRua } from '@/hooks/useFocoDeRua';
+import CartoesDeMapa from '@/components/map/CartoesDeMapa';
+import ReportModal from '@/components/ReportModal';
+import { useCreateReport } from '@/hooks/useCreateReport';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Button } from '@/components/ui/button';
+import { statusDaConsulta, statusInicialDoMapa } from '@/lib/mapReportFilters';
 
 const MapView = lazy(() => import('@/components/MapView'));
 // Carregado sob demanda: quem só consulta o mapa não paga pelo peso dos hooks
@@ -18,6 +25,7 @@ const MapView = lazy(() => import('@/components/MapView'));
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUSES = [
+  { id: 'all',         label: 'Todas' },
   { id: 'active',      label: 'Ativas' },
   { id: 'pending',     label: 'Pendentes' },
   { id: 'in-progress', label: 'Em Andamento' },
@@ -105,6 +113,7 @@ const MapLoader = () => (
 
 export default function MapPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { cities, loadingCities } = useCity();
 
   // Esta página consulta. A patrulha mora em /patrulhar, com mapa próprio.
@@ -136,12 +145,26 @@ export default function MapPage() {
   const [nearbyCities,   setNearbyCities]   = useState([]);
 
   // ── Filter state ──
+  const statusInicial = statusInicialDoMapa(location.search);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const [statusFilter,    setStatusFilter]    = useState('active');
+  const [statusFilter,    setStatusFilter]    = useState(statusInicial);
   const [categoryFilter,  setCategoryFilter]  = useState('all');
   // pending changes inside sheet
-  const [pendingStatus,   setPendingStatus]   = useState('active');
+  const [pendingStatus,   setPendingStatus]   = useState(statusInicial);
   const [pendingCategory, setPendingCategory] = useState('all');
+
+  // Também cobre uma navegação para `?rua=` enquanto o mapa já está montado.
+  // Depois disso a escolha é da pessoa: mudar o status não é desfeito enquanto
+  // o parâmetro permanece na URL.
+  const tinhaFocoNaUrl = useRef(Boolean(new URLSearchParams(location.search).get('rua')));
+  useEffect(() => {
+    const temFocoNaUrl = Boolean(new URLSearchParams(location.search).get('rua'));
+    if (temFocoNaUrl && !tinhaFocoNaUrl.current) {
+      setStatusFilter('all');
+      setPendingStatus('all');
+    }
+    tinhaFocoNaUrl.current = temFocoNaUrl;
+  }, [location.search]);
 
   // ── Search ──
   const [titleSearchInput, setTitleSearchInput] = useState('');
@@ -150,6 +173,31 @@ export default function MapPage() {
   // ── Reports / map ──
   const [mapClusters, setMapClusters] = useState([]); // [{ isCluster, lat, lng, count, ids, report }]
   const [flyToTarget, setFlyToTarget] = useState(null);
+
+  // REGISTRAR UMA BRONCA SEM SAIR DO MAPA
+  //
+  // No celular o "+" da barra de baixo resolve isso. No desktop não há barra de
+  // baixo: quem estava olhando o mapa e via o problema que faltava tinha de ir
+  // até o feed para registrá-lo. É o mesmo `ReportModal` e o mesmo
+  // `useCreateReport` do feed — nenhuma regra de criação mora aqui.
+  //
+  // Não recarrega os pinos depois de criar, e isso é correto: a bronca nasce em
+  // `pending_approval` e o mapa mostra o que já foi aprovado. Um refetch que
+  // não traz nada de novo ensinaria que o envio falhou.
+  const { user } = useAuth();
+  const [criandoBronca, setCriandoBronca] = useState(false);
+  const { createReport } = useCreateReport({ onCreated: () => setCriandoBronca(false) });
+
+  // O recorte "só as broncas desta rua", vindo de `?rua=<id>` — o link que a
+  // faixa de Minha Rua usa. Ver `useFocoDeRua`.
+  const { foco: focoDeRua, limpar: limparFocoDeRua } = useFocoDeRua('report_ids');
+
+  // Chegou o foco, o mapa vai até a rua. Sem isto, o recorte esconderia quase
+  // tudo e deixaria a pessoa procurando o punhado que sobrou no zoom anterior.
+  useEffect(() => {
+    if (!focoDeRua?.centro) return;
+    setFlyToTarget({ ...focoDeRua.centro, zoom: 17, nonce: Date.now() });
+  }, [focoDeRua]);
   const [loading,     setLoading]     = useState(true);
   const [mapBounds,   setMapBounds]   = useState(null); // { minLat, maxLat, minLng, maxLng }
   const [mapZoom,     setMapZoom]     = useState(13);
@@ -183,12 +231,19 @@ export default function MapPage() {
       const c = CATEGORIES.find(c => c.id === categoryFilter);
       if (c) chips.push({ key: 'cat', label: c.label, clear: () => setCategoryFilter('all') });
     }
+    // O recorte por rua é um chip como os outros — e precisa ser, porque é o
+    // mais fácil de esquecer que está ligado: ele chega pela URL, sem ninguém
+    // ter tocado num filtro desta tela.
+    if (focoDeRua) {
+      chips.push({ key: 'rua', label: focoDeRua.nome || 'Uma rua', clear: limparFocoDeRua });
+    }
     return chips;
-  }, [statusFilter, categoryFilter]);
+  }, [statusFilter, categoryFilter, focoDeRua, limparFocoDeRua]);
 
   const clearAllFilters = () => {
     setStatusFilter('active');
     setCategoryFilter('all');
+    limparFocoDeRua();
   };
 
   // ── selectMapCity ──
@@ -336,16 +391,20 @@ export default function MapPage() {
     cancelRef.current = false;
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('reports_map_clusters', {
-        min_lat: bounds.minLat,
-        max_lat: bounds.maxLat,
-        min_lng: bounds.minLng,
-        max_lng: bounds.maxLng,
-        zoom: Math.round(zoom),
-        status_filter: statusFilter,
-        category_filter: categoryFilter === 'all' ? null : categoryFilter,
-      });
-      if (error) throw error;
+      const respostas = await Promise.all(statusDaConsulta(statusFilter).map((status) =>
+        supabase.rpc('reports_map_clusters', {
+          min_lat: bounds.minLat,
+          max_lat: bounds.maxLat,
+          min_lng: bounds.minLng,
+          max_lng: bounds.maxLng,
+          zoom: Math.round(zoom),
+          status_filter: status,
+          category_filter: categoryFilter === 'all' ? null : categoryFilter,
+        })
+      ));
+      const erro = respostas.find((resposta) => resposta.error)?.error;
+      if (erro) throw erro;
+      const data = respostas.flatMap((resposta) => resposta.data || []);
       if (cancelRef.current) return;
 
       const mapped = (data || []).map(row => (
@@ -475,17 +534,99 @@ export default function MapPage() {
   useEffect(() => () => clearTimeout(boundsCityTimerRef.current), []);
 
   const visibleClusters = useMemo(() => {
+    let itens = mapClusters;
+
+    // O RECORTE POR RUA ATRAVESSA O CLUSTER, E ISSO NÃO É DETALHE
+    //
+    // A primeira versão descartava todo cluster, pelo mesmo motivo da busca por
+    // título: a agregação não carrega o título das broncas que resume. Só que
+    // ela carrega os IDS (`report_ids`, tanto no pino individual quanto no
+    // agrupado) — e o resultado de descartar foi um mapa completamente vazio,
+    // porque no zoom de bairro quase tudo chega agrupado.
+    //
+    // Com a interseção, o cluster sobrevive com a contagem RECORTADA: um grupo
+    // de doze que tem três da rua aparece como três. Clicar nele continua
+    // enquadrando a extensão dele, e no zoom seguinte os pinos se separam.
+    // Manter a contagem original seria o erro oposto — mostrar doze onde a
+    // faixa da rua prometeu três.
+    if (focoDeRua) {
+      itens = itens
+        .map((item) => {
+          const ids = (item.ids || []).map(String).filter((id) => focoDeRua.ids.has(id));
+          if (ids.length === 0) return null;
+          return item.isCluster ? { ...item, ids, count: ids.length } : item;
+        })
+        .filter(Boolean);
+    }
+
+    // A busca por título continua só entre pinos individuais: aqui não há o que
+    // interseccionar — o cluster não traz o título de ninguém.
     const term = titleSearchTerm.trim().toLowerCase();
-    if (!term) return mapClusters;
-    // Busca por título só filtra pins individuais — clusters agregados não têm título.
-    return mapClusters.filter(item =>
+    if (!term) return itens;
+    return itens.filter(item =>
       !item.isCluster && String(item.report?.title ?? '').toLowerCase().includes(term)
     );
-  }, [mapClusters, titleSearchTerm]);
+  }, [mapClusters, titleSearchTerm, focoDeRua]);
 
   const totalVisibleCount = useMemo(
     () => visibleClusters.reduce((sum, item) => sum + item.count, 0),
     [visibleClusters]
+  );
+
+  // OS CARTÕES CONTAM A CIDADE, NÃO O RECORTE — E O RODAPÉ DIZ ISSO
+  //
+  // O mapa devolve CLUSTERS: um pino pode valer doze broncas e não carrega o
+  // status de nenhuma delas. Somar por situação sobre o que está na tela daria
+  // um número que muda a cada zoom e que subconta sempre — o tipo de estatística
+  // que parece precisa e não é.
+  //
+  // A contagem da cidade é estável, é a mesma a qualquer zoom, e é a pergunta
+  // que estes cartões de fato respondem: "como está minha cidade". O número do
+  // recorte continua existindo, no painel da direita, com o rótulo dele.
+  const [contagemDaCidade, setContagemDaCidade] = useState(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    const contar = (aplicar) => {
+      let q = supabase
+        .from('reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('moderation_status', 'approved')
+        .neq('status', 'duplicate');
+      if (mapCityId) q = q.eq('city_id', mapCityId);
+      return aplicar ? aplicar(q) : q;
+    };
+
+    Promise.all([
+      contar(),
+      contar((q) => q.eq('status', 'pending')),
+      contar((q) => q.eq('status', 'in-progress')),
+      contar((q) => q.eq('status', 'resolved')),
+    ]).then(([total, pendentes, andamento, resolvidas]) => {
+      if (cancelado) return;
+      setContagemDaCidade({
+        total: total.count || 0,
+        pendentes: pendentes.count || 0,
+        andamento: andamento.count || 0,
+        resolvidas: resolvidas.count || 0,
+      });
+    });
+
+    return () => { cancelado = true; };
+  }, [mapCityId]);
+
+  // As cores dos quadrados são as dos pinos daquela situação — as mesmas da
+  // legenda, na coluna da direita. É o que faz "Pendentes" e o ponto laranja do
+  // mapa se reconhecerem sem ninguém explicar.
+  const cartoesDaCidade = (
+    <CartoesDeMapa
+      cartoes={[
+        { id: 'pending', Icone: Clock, cor: 'bg-status-pendingFg', rotulo: 'Pendentes', valor: contagemDaCidade?.pendentes ?? '—' },
+        { id: 'progress', Icone: Megaphone, cor: 'bg-status-progressFg', rotulo: 'Em andamento', valor: contagemDaCidade?.andamento ?? '—' },
+        { id: 'resolved', Icone: CheckCircle2, cor: 'bg-status-resolvedFg', rotulo: 'Resolvidas', valor: contagemDaCidade?.resolvidas ?? '—' },
+      ]}
+      rodape={`Em ${mapCityName || 'toda a base'} — o mapa abaixo mostra o recorte que está na tela.`}
+    />
   );
 
   // Contagem por categoria para os chips. Deriva do que ja esta carregado - sem
@@ -735,9 +876,24 @@ export default function MapPage() {
     return (
       <TelaDeMapa
         titulo="Mapa de Broncas"
+        subtitulo="O que os moradores registraram, e em que pé está cada coisa"
         tituloDaAba="Mapa de Broncas - Trombone Cidadao"
         descricaoSeo="Veja no mapa as broncas registradas pelos moradores, por status e categoria."
         filtrosLigados={activeFilterChips.length}
+        /* O selo carrega o total; os cartões, a repartição. Repetir o total num
+           cartão seria dizer o mesmo número duas vezes lado a lado. */
+        destaque={
+          <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
+            <Megaphone className="h-4 w-4" />
+            {contagemDaCidade?.total ?? '—'} {contagemDaCidade?.total === 1 ? 'bronca registrada' : 'broncas registradas'}
+          </span>
+        }
+        estatisticas={cartoesDaCidade}
+        acoes={user && (
+          <Button size="sm" variant="outline" className="gap-1.5 border-tc-red/30 text-xs text-tc-red hover:bg-tc-red/5" onClick={() => setCriandoBronca(true)}>
+            <PlusCircle className="h-3.5 w-3.5" /> Registrar bronca
+          </Button>
+        )}
         filtros={
           <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
             <button
@@ -749,6 +905,48 @@ export default function MapPage() {
               <span className="min-w-0 flex-1 truncate text-left">{mapCityName ?? 'Selecionar cidade'}</span>
               <ChevronDown size={13} className="shrink-0 opacity-60" />
             </button>
+
+            {/* O RECORTE POR RUA PRECISA SE ANUNCIAR
+                Ele chega pela URL, sem ninguém ter mexido em filtro nenhum
+                nesta tela. Um mapa que mostra sete pinos onde havia quinhentos,
+                sem dizer por quê, lê como mapa quebrado. */}
+            {focoDeRua && (
+              <div className="flex items-start gap-2 rounded-lg border border-brand/30 bg-brand-subtleBg px-2.5 py-2">
+                <MapPin size={13} className="mt-0.5 shrink-0 text-brand" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-brand-subtleFg">
+                    Só {focoDeRua.nome || 'esta rua'}
+                  </p>
+
+                  {/* O atalho da página da rua começa em "Todas", para a lista
+                      corresponder ao número que foi tocado. A pessoa ainda pode
+                      estreitar por status ou categoria aqui embaixo. */}
+                  {focoDeRua.ids.size === 0 ? (
+                    <p className="text-[10px] leading-tight text-content-tertiary">
+                      Nenhuma bronca aprovada nesta rua.
+                    </p>
+                  ) : (
+                    <>
+                      {totalVisibleCount < focoDeRua.ids.size && (
+                        <p className="text-[10px] leading-tight text-content-tertiary">
+                          {focoDeRua.ids.size} nesta rua ·{' '}
+                          {focoDeRua.ids.size - totalVisibleCount} fora dos filtros atuais
+                          {statusFilter !== 'active' ? '' : ' (o status está em "Ativas")'}.
+                        </p>
+                      )}
+                      {!focoDeRua.preciso && (
+                        <p className="text-[10px] leading-tight text-content-tertiary">
+                          Sem traçado cadastrado: o recorte é um raio em volta do ponto da rua.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <button type="button" onClick={limparFocoDeRua} aria-label="Ver a cidade inteira">
+                  <X size={13} className="text-content-tertiary hover:text-content-primary" />
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center gap-2 rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2">
               <Search size={14} className="shrink-0 text-content-tertiary" />
@@ -807,6 +1005,13 @@ export default function MapPage() {
                 <div className="absolute inset-0">
                   <MapView
                     clusters={visibleClusters}
+                    /* A LEGENDA É UMA SÓ, E ELA MORA NA COLUNA
+                       O MapView desenha uma legenda flutuante sobre o canto do
+                       mapa — certo na tela cheia do celular, onde não existe
+                       coluna. Aqui existe, e ela repetia palavra por palavra o
+                       cartão da direita: duas legendas idênticas na mesma tela
+                       fazem a pessoa procurar a diferença entre elas. */
+                    showLegend={false}
                     initialCenter={initialUserPos}
                     onReportClick={handleReportClick}
                     onUpvote={() => {}}
@@ -814,6 +1019,13 @@ export default function MapPage() {
                     onBoundsChange={handleBoundsChange}
                     onRecenter={syncCityFromCoords}
                     onUpdateClick={handleOpenUpdate}
+                    /* Só admin e master: embaixador modera pela tela de
+                       moderação, que tem o contexto que este balão não tem. A
+                       autoridade continua sendo a policy — isto só evita a
+                       viagem até a página para descobrir que não dá. */
+                    onEditClick={(user?.is_admin || user?.is_master)
+                      ? (r) => navigate(`/bronca/${r.id}`, { state: { openEditModal: true } })
+                      : undefined}
                   />
                 </div>
               </Suspense>
@@ -855,6 +1067,9 @@ export default function MapPage() {
         }
       >
         {sobreposicoes}
+        {criandoBronca && (
+          <ReportModal onClose={() => setCriandoBronca(false)} onSubmit={createReport} />
+        )}
       </TelaDeMapa>
     );
   }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link, useParams } from 'react-router-dom';
-import { Clock, ExternalLink, Info, Loader2, MapPin, Share2 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Clock, ExternalLink, Info, Loader2, MapPin, Share2, Youtube } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import BackButton from '@/components/BackButton';
@@ -23,6 +23,7 @@ import {
 } from '@/lib/cityEvents';
 import { compartilharLink } from '@/lib/shareLink';
 import { getCityEventShareUrl } from '@/lib/shareUtils';
+import { linkEhDoYoutube, normalizarLinkExterno, textoDoBotaoExterno } from '@/lib/externalLinks';
 
 // A tela de um acontecimento — /agora/438, o destino do push.
 //
@@ -56,6 +57,7 @@ const Cartao = ({ children, className = '' }) => (
 
 export default function CityEventPage() {
   const { eventId } = useParams();
+  const navigate = useNavigate();
   const [aba, setAba] = useState('resumo');
   const [editando, setEditando] = useState(false);
 
@@ -95,6 +97,8 @@ export default function CityEventPage() {
   const previsao = estadoDaPrevisao(evento, agora);
   const areas = nomesDasAreas(evento.areas);
   const podeEditar = podeGerir || evento.can_manage;
+  const linkExterno = normalizarLinkExterno(evento.source_url);
+  const linkDoYoutube = linkEhDoYoutube(linkExterno);
 
   if (editando) {
     return (
@@ -123,7 +127,21 @@ export default function CityEventPage() {
         <meta name="description" content={evento.description || `${tipo.rotulo} em ${rotuloDasAreas(evento.areas, { maximo: 3 })}.`} />
       </Helmet>
 
-      <div className="mx-auto max-w-2xl px-4 py-4">
+      {/* ESTA TELA ERA UMA COLUNA DE CELULAR CENTRALIZADA NUM MONITOR
+          `max-w-2xl` (42rem) é largura de leitura, e faz sentido para o texto —
+          mas ela estava valendo para a TELA inteira. Num monitor de 1920 sobrava
+          um terço de branco de cada lado enquanto a linha do tempo, a enquete da
+          comunidade e o botão de acompanhar disputavam a mesma faixa estreita,
+          empilhados a três rolagens de distância do dado que a pessoa veio ver.
+
+          A saída é a mesma da página da bronca: duas colunas a partir de `lg`.
+          O relato fica na coluna larga com a largura de leitura preservada, e o
+          que é AÇÃO — confirmar se normalizou, acompanhar a região — sobe para a
+          lateral, onde fica à vista sem competir com a leitura.
+
+          Abaixo de `lg` nada disso existe: a ordem empilhada é exatamente a de
+          antes, e é a certa no celular. */}
+      <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6">
         <div className="flex items-center justify-between gap-2">
           <BackButton paraOnde="/agora" className="-ml-3" />
           <Button
@@ -140,6 +158,9 @@ export default function CityEventPage() {
             <Share2 className="h-4 w-4" />
           </Button>
         </div>
+
+        <div className="mt-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-6">
+          <div className="min-w-0">
 
         {/* A FOTO VEM ANTES DO TÍTULO, E ABAIXO DO BOTÃO DE VOLTAR
             Ela é contexto, não conteúdo: quem chegou pelo push já sabe o que
@@ -234,7 +255,14 @@ export default function CityEventPage() {
 
         {podeEditar && (
           <div className="mt-4">
-            <CityEventManageBar evento={evento} acoes={acoes} aoEditar={() => setEditando(true)} />
+            <CityEventManageBar
+              evento={evento}
+              acoes={acoes}
+              aoEditar={() => setEditando(true)}
+              /* `replace`: o acontecimento não existe mais, e o botão de voltar
+                 do navegador não pode trazer a pessoa de volta para ele. */
+              aoRemover={() => navigate('/agora', { replace: true })}
+            />
           </div>
         )}
 
@@ -268,22 +296,23 @@ export default function CityEventPage() {
                   {evento.description || 'Nenhuma descrição foi informada.'}
                 </p>
 
-                {evento.source_name && (
-                  <p className="mt-3 border-t border-edge-subtle pt-3 text-sm text-content-tertiary">
-                    Fonte:{' '}
-                    {evento.source_url ? (
-                      <a
-                        href={evento.source_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 font-bold text-brand hover:underline"
-                      >
-                        {evento.source_name} <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : (
-                      <span className="font-bold text-content-secondary">{evento.source_name}</span>
+                {(evento.source_name || linkExterno) && (
+                  <div className="mt-4 border-t border-edge-subtle pt-4">
+                    {evento.source_name && (
+                      <p className="text-sm text-content-tertiary">
+                        Fonte: <span className="font-bold text-content-secondary">{evento.source_name}</span>
+                      </p>
                     )}
-                  </p>
+
+                    {linkExterno && (
+                      <Button asChild variant="outline" className="mt-3 w-full gap-2 sm:w-auto">
+                        <a href={linkExterno} target="_blank" rel="noopener noreferrer">
+                          {linkDoYoutube ? <Youtube className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
+                          {textoDoBotaoExterno(evento.source_button_label, linkExterno)}
+                        </a>
+                      </Button>
+                    )}
+                  </div>
                 )}
               </Cartao>
 
@@ -322,12 +351,19 @@ export default function CityEventPage() {
               </ul>
             </Cartao>
           )}
+            </div>
+          </div>
 
-          <CommunityConfirmation
-            evento={evento}
-            salvando={acoes.salvando}
-            aoResponder={(status) => acoes.confirmar(evento.id, status)}
-          />
+          {/* A LATERAL É O QUE SE FAZ, NÃO O QUE SE LÊ
+              `sticky`: a enquete "voltou na sua rua?" é a única coisa desta
+              tela que só a pessoa pode responder, e ela ficava no fim de uma
+              página que quase ninguém rola até o fim. */}
+          <aside className="grid gap-4 lg:sticky lg:top-4">
+            <CommunityConfirmation
+              evento={evento}
+              salvando={acoes.salvando}
+              aoResponder={(status) => acoes.confirmar(evento.id, status)}
+            />
 
           {/* Acompanhar a região vem no fim, e não no topo: quem chegou pelo
               push já é acompanhante. Quem chegou pelo link compartilhado leu a
@@ -352,6 +388,7 @@ export default function CityEventPage() {
               />
             </div>
           )}
+          </aside>
         </div>
       </div>
     </div>

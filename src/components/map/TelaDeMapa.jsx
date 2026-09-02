@@ -21,11 +21,13 @@ import { SlidersHorizontal } from 'lucide-react';
 //    na lateral é cidade que não aparece. Em 1920 ainda restam ~80px de cada
 //    lado, então a página continua parecendo do mesmo site.
 //
-// 2. O título é `sr-only`. Um bloco "INFRAESTRUTURA / Mapa de X / Visualize o
-//    status..." custa ~120px antes de qualquer coisa útil, para repetir o que a
-//    aba do navegador e o menu já dizem. Numa tela cujo assunto É o mapa, isso é
-//    rolagem paga por nada — mas o `h1` continua no documento, porque leitor de
-//    tela e busca precisam da estrutura.
+// 2. O cabeçalho é o mesmo das telas de listagem do app: título centralizado,
+//    chamada de uma linha, um selo com o número que resume a tela e, abaixo, a
+//    linha de ações (cidade, "Adicionar", exportar). Ele já foi `sr-only` para
+//    poupar altura, e o que se poupou custou caro: a página perdia o nome
+//    justamente para quem chega por link, e as quatro telas de mapa passavam a
+//    parecer quatro produtos diferentes. A altura que ele ocupa está descontada
+//    da grade abaixo — ver a nota do `calc`.
 //
 // 3. A coluna de filtros recolhe. Recolhida, vira uma pílula flutuante sobre o
 //    mapa com a CONTAGEM de filtros ligados: sem o número, alguém esconde a
@@ -38,8 +40,19 @@ import { SlidersHorizontal } from 'lucide-react';
 
 export default function TelaDeMapa({
   titulo,
+  // A chamada de uma linha sob o título. Opcional: onde não houver nada a dizer
+  // além do nome, é melhor não dizer nada.
+  subtitulo = null,
+  // O selo verde: UM número que resume a tela inteira. É o que a pessoa lê
+  // antes dos cartões, e por isso não pode ser mais de um — dois selos lado a
+  // lado deixam de ser resumo e viram outra faixa de números.
+  destaque = null,
   descricaoSeo,
   tituloDaAba,
+  // Ações da tela que não cabem no painel de filtros — seletor de cidade,
+  // "Adicionar", exportar. Ficam sob o título porque respondem "o que posso
+  // fazer aqui", e não "o que estou vendo".
+  acoes = null,
   estatisticas = null,
   filtros = null,
   mapa,
@@ -62,14 +75,26 @@ export default function TelaDeMapa({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mx-auto w-full max-w-[112rem] space-y-2 px-3 pb-6 pt-3 sm:space-y-3 md:px-6 lg:px-8"
+          /* Coluna flex a partir de 1100px: o cabeçalho e os cartões pegam a
+             altura deles, e a grade abaixo fica com o que sobrar da janela. É o
+             que impede o mapa de invadir o rodapé quando o topo cresce. */
+          className="mx-auto flex w-full max-w-[112rem] flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 min-[1100px]:h-[calc(100dvh-8rem)]"
         >
-          <h1 className="sr-only">{titulo}</h1>
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-tc-red sm:text-3xl md:text-4xl">{titulo}</h1>
+            {subtitulo && (
+              <p className="mt-2 text-sm text-content-secondary sm:text-base">{subtitulo}</p>
+            )}
+            {destaque && <div className="mt-3 flex justify-center">{destaque}</div>}
+            {acoes && (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">{acoes}</div>
+            )}
+          </div>
 
           {estatisticas}
 
           <div
-            className={`grid gap-2 sm:gap-3 min-[1100px]:h-[calc(100vh-11rem)] min-[1100px]:min-h-[34rem] ${
+            className={`grid gap-2 sm:gap-3 min-[1100px]:min-h-0 min-[1100px]:flex-1 ${
               temFiltros && painelAberto
                 ? 'min-[1100px]:grid-cols-[13.5rem_minmax(0,1fr)] min-[1440px]:grid-cols-[16rem_minmax(0,1fr)_18rem]'
                 : 'min-[1100px]:grid-cols-[minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,1fr)_18rem]'

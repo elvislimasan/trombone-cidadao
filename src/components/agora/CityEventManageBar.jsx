@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Clock, MessageSquarePlus, Pencil, RotateCcw, XOctagon } from 'lucide-react';
+import { CheckCircle2, Clock, MessageSquarePlus, Pencil, RotateCcw, Trash2, XOctagon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,8 +35,8 @@ const agoraMais = (horas) => {
   };
 };
 
-const CityEventManageBar = ({ evento, acoes, aoEditar }) => {
-  const [modal, setModal] = useState(null); // 'prorrogar' | 'resolver' | 'atualizar' | 'reabrir' | 'cancelar'
+const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
+  const [modal, setModal] = useState(null); // 'prorrogar' | 'resolver' | 'atualizar' | 'reabrir' | 'cancelar' | 'remover'
   const [mensagem, setMensagem] = useState('');
   const [avisar, setAvisar] = useState(false);
 
@@ -62,6 +62,12 @@ const CityEventManageBar = ({ evento, acoes, aoEditar }) => {
     if (modal === 'atualizar') ok = await acoes.adicionarAtualizacao(evento.id, mensagem, avisar);
     if (modal === 'reabrir') ok = await acoes.reabrir(evento.id, nova, mensagem);
     if (modal === 'cancelar') ok = await acoes.cancelar(evento.id, mensagem);
+    if (modal === 'remover') {
+      ok = await acoes.remover(evento.id);
+      // A linha deixou de existir: recarregar esta tela mostraria um "não
+      // encontrado". Quem chamou decide para onde ir.
+      if (ok) { fechar(); aoRemover?.(); return; }
+    }
 
     if (ok) fechar();
   };
@@ -98,6 +104,14 @@ const CityEventManageBar = ({ evento, acoes, aoEditar }) => {
       descricao: 'Quem foi avisado recebe o cancelamento. A história não é apagada.',
       acao: 'Cancelar acontecimento',
       exemplo: 'Alerta publicado por engano.',
+    },
+    remover: {
+      titulo: 'Remover em silêncio',
+      descricao:
+        'Apaga o acontecimento, a linha do tempo e as confirmações. Ninguém é notificado. '
+        + 'Use quando o aviso nunca deveria ter existido: teste, duplicata, cidade errada. '
+        + 'Se a cidade já viu este aviso, cancele em vez de remover — cancelar avisa.',
+      acao: 'Remover definitivamente',
     },
   };
 
@@ -164,6 +178,22 @@ const CityEventManageBar = ({ evento, acoes, aoEditar }) => {
               <XOctagon className="h-4 w-4" /> Cancelar
             </Button>
           )}
+
+          {/* REMOVER FICA SEPARADO DE CANCELAR, E NÃO ENCOSTADO NELE
+              Dois botões destrutivos lado a lado são dois botões que se erram
+              um pelo outro — e aqui errar custa a diferença entre "a cidade foi
+              avisada" e "a cidade nunca soube". O empurrão para a direita e o
+              tom mais apagado dizem que este é o de fora da rotina. */}
+          {aoRemover && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto gap-1.5 text-content-tertiary hover:bg-danger-subtleBg hover:text-danger"
+              onClick={() => setModal('remover')}
+            >
+              <Trash2 className="h-4 w-4" /> Remover
+            </Button>
+          )}
         </div>
       </section>
 
@@ -221,6 +251,7 @@ const CityEventManageBar = ({ evento, acoes, aoEditar }) => {
             </div>
           )}
 
+          {modal !== 'remover' && (
           <div className="space-y-1.5">
             <Label className="text-sm font-bold">
               Atualização {modal !== 'atualizar' && <span className="font-normal text-content-tertiary">(opcional)</span>}
@@ -232,6 +263,7 @@ const CityEventManageBar = ({ evento, acoes, aoEditar }) => {
               rows={3}
             />
           </div>
+          )}
 
           {modal === 'atualizar' && (
             <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-subtle px-4 py-3">
@@ -250,6 +282,7 @@ const CityEventManageBar = ({ evento, acoes, aoEditar }) => {
             <Button variant="outline" className="flex-1" onClick={fechar}>Voltar</Button>
             <Button
               className="flex-1"
+              variant={modal === 'remover' ? 'destructive' : 'default'}
               disabled={acoes.salvando || (modal === 'atualizar' && !mensagem.trim()) || (modal === 'prorrogar' && precisao !== 'nenhuma' && !dataPrevisao)}
               onClick={confirmar}
             >

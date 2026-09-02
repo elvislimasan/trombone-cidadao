@@ -22,7 +22,6 @@ import Icon from "@/design-system/icons";
 // dentro do menu.
 const ReportHeader = ({
   onBack,
-  protocol,
   showAdminActions,
   handleOpenLinkModal,
   handleEditClick,
@@ -43,15 +42,15 @@ const ReportHeader = ({
           >
             <Icon name="chevronright" size={18} className="rotate-180 text-content-primary" />
           </Button>
+          {/* O PROTOCOLO NÃO REPETE AQUI.
+              Ele já é lido no resumo da bronca (ReportSummary), a poucos
+              pixels daqui — e lá é conteúdo, com espaço para ser copiado.
+              Repetido no cabeçalho fixo, o mesmo código ficava duas vezes na
+              mesma tela sem que a segunda servisse para nada. */}
           <div className="min-w-0">
             <h1 className="text-sm font-bold text-content-primary leading-tight truncate">
               Detalhes da denúncia
             </h1>
-            {protocol && (
-              <p className="text-2xs text-content-tertiary leading-tight truncate">
-                ID #{protocol}
-              </p>
-            )}
           </div>
         </div>
 

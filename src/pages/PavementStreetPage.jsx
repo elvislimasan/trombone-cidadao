@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   Loader2,
   MapPin,
+  Megaphone,
   Navigation,
   Pencil,
   Sparkles,
@@ -134,17 +135,32 @@ const TextoExpansivel = ({ texto, linhas = 4 }) => {
   const [transbordou, setTransbordou] = useState(false);
   const ref = useRef(null);
 
+  // A MEDIÇÃO SÓ ACONTECE COM O TEXTO CORTADO, E SEMPRE NO QUADRO SEGUINTE
+  //
+  // Medir de dentro de um ResizeObserver e mudar estado no mesmo quadro é o
+  // caminho curto para o laço: a mudança altera a altura do cartão, o navegador
+  // reflui, o observador dispara de novo, e a página fica subindo e descendo
+  // sozinha. O `requestAnimationFrame` tira a escrita do meio do cálculo de
+  // layout, e desligar a medição enquanto o texto está ABERTO fecha o laço de
+  // vez — aberto não há transbordo a descobrir: o botão aparece porque a pessoa
+  // acabou de abrir.
   useEffect(() => {
     const elemento = ref.current;
-    if (!elemento) return undefined;
+    if (!elemento || aberto) return undefined;
 
-    const medir = () => setTransbordou(elemento.scrollHeight > elemento.clientHeight + 1);
+    let quadro = 0;
+    const medir = () => {
+      cancelAnimationFrame(quadro);
+      quadro = requestAnimationFrame(() => {
+        if (ref.current) setTransbordou(ref.current.scrollHeight > ref.current.clientHeight + 1);
+      });
+    };
     medir();
 
     const observador = typeof ResizeObserver === 'function' ? new ResizeObserver(medir) : null;
     observador?.observe(elemento);
-    return () => observador?.disconnect();
-  }, [texto, linhas]);
+    return () => { cancelAnimationFrame(quadro); observador?.disconnect(); };
+  }, [texto, linhas, aberto]);
 
   return (
     <div>
@@ -618,11 +634,6 @@ export default function PavementStreetPage() {
           consulta ao evento regional, nao uma copia dele. */}
       <div className="mx-auto mb-4 max-w-3xl space-y-3 px-4">
         <StreetEventBanner eventos={acontecimentos} carregando={carregandoAcontecimentos} />
-        <StreetSummary
-          streetId={street.id}
-          cityId={street.city_id}
-          aoVerFotos={() => setTodasAsFotos(true)}
-        />
       </div>
 
       <main className="mx-auto max-w-3xl space-y-4 px-4">
@@ -633,7 +644,11 @@ export default function PavementStreetPage() {
 
         {(honoreeName || biography || fotoDoHomenageado) && (
           <Cartao icone={BookOpen} titulo="Quem dá nome à rua">
-            <div className={`px-4 pb-5 sm:px-5 ${fotoDoHomenageado ? 'flex gap-4' : ''}`}>
+            {/* `items-start`: sem isso o retrato é um item de flex esticado, e
+                cada linha revelada por "Ver mais" muda a altura da caixa dele.
+                Ancorado no topo, o retrato fica parado enquanto o texto cresce —
+                que é o que se espera de uma foto ao lado de um parágrafo. */}
+            <div className={`px-4 pb-5 sm:px-5 ${fotoDoHomenageado ? 'flex items-start gap-4' : ''}`}>
               {fotoDoHomenageado && (
                 <button
                   type="button"
@@ -741,6 +756,18 @@ export default function PavementStreetPage() {
             </div>
           </Cartao>
         )}
+        {/* BRONCAS E OBRAS FICAM NO FIM, E ISSO É UMA DECISÃO SOBRE ORDEM
+            Esta faixa já abriu a página. Ali ela chegava antes da pergunta que
+            traz a maioria das visitas — "está faltando água na minha rua?" — e
+            empurrava a história, as fotos e os documentos para baixo de uma
+            fileira de números que ninguém veio conferir.
+            No fim ela continua inteira e vira o que sempre foi: o balanço de
+            quem já leu a rua toda. */}
+        <Cartao icone={Megaphone} titulo="Broncas e obras nesta rua">
+          <div className="px-4 pb-5 sm:px-5">
+            <StreetSummary streetId={street.id} />
+          </div>
+        </Cartao>
       </main>
 
       <PavementEditModal

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
 import { ABERTA, ENCERRADA, RASCUNHO } from '@/lib/metaComunitaria';
+import { cidadesParaEscolha } from '@/lib/cidadesParaEscolha';
 import { REQUISITOS, podeEncerrar, podePublicar } from '@/lib/mutirao';
 import { showAppError, showAppNotice } from '@/lib/appError';
 
@@ -302,9 +303,9 @@ const ManageCommunityGoalsPage = () => {
               className={entrada}
             >
               <option value="">Selecione…</option>
-              {(cities || []).map((c) => (
+              {cidadesParaEscolha(cities).map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.rotulo}
                 </option>
               ))}
             </select>

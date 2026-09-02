@@ -1,5 +1,5 @@
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
-import { CircleMarker, MapContainer, Polyline, Popup, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polyline, Popup, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import { Info, HelpCircle, Edit } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
@@ -38,20 +38,24 @@ const MapScrollLock = ({ mode }) => {
 // O ponto encolhe no zoom de cidade e cresce ao aproximar. É o que o disco de
 // 40 px não fazia — ele tinha o mesmo tamanho a 3 km e a 30 m, e por isso
 // quatrocentos deles cobriam o mapa inteiro.
-const ZoomWatcher = ({ onZoom, onBounds }) => {
-  const map = useMapEvents({
-    zoomend: () => { onZoom(map.getZoom()); onBounds(map.getBounds()); },
-    moveend: () => onBounds(map.getBounds()),
-  });
+const ZoomWatcher = ({ onZoom }) => {
+  const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
   return null;
 };
 
-// O ZOOM A PARTIR DO QUAL VALE ESCREVER O NOME DA RUA
+// O NOME DA RUA ESCRITO POR NÓS FOI REMOVIDO
 //
-// Abaixo disso o rótulo do próprio mapa já é o que se lê, e centenas de nomes
-// nossos sobrepostos virariam ruído. Daqui para cima é onde a pessoa está
-// conferindo uma rua específica — e onde o traçado tapa exatamente o nome dela.
-const ZOOM_DOS_ROTULOS = 17;
+// A ideia era boa e o resultado não: o rótulo do OSM vem impresso no tile e
+// fica DEBAIXO do traçado, então escrevíamos o nome de novo por cima. Só que
+// "por cima" era literal — o tooltip vive no `tooltipPane` (z-index 650),
+// acima de tudo que desenhamos, e numa malha urbana densa dezenas deles se
+// empilhavam sobre as ruas vizinhas e sobre os próprios traçados. O mapa ficava
+// menos legível com os nomes do que sem eles.
+//
+// O nome continua a um toque de distância, no popup da rua, e a busca continua
+// levando até ela. `anguloDoTracado` fica: é geometria testada, e o rótulo
+// inclinado pode voltar no dia em que houver uma camada de rótulos que respeite
+// colisão entre eles.
 
 // O RÓTULO ACOMPANHA A INCLINAÇÃO DA RUA
 //
@@ -181,8 +185,6 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
   const { mode } = useMapModeToggle();
   const { city: activeCity } = useCityView();
   const [zoom, setZoom] = useState(INITIAL_ZOOM);
-  const [bounds, setBounds] = useState(null);
-  const mostrarRotulos = zoom >= ZOOM_DOS_ROTULOS;
 
   // A ESPESSURA ACOMPANHA O ZOOM, E ESSA É A DIFERENÇA ENTRE MAPA E BORRÃO.
   //
@@ -231,17 +233,10 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
         <FitToStreets streets={streets} activeCity={activeCity} />
         <MapBaseLayer layer={mapLayer} />
         <CurrentLocationMarker position={currentLocation} />
-        <ZoomWatcher onZoom={setZoom} onBounds={setBounds} />
+        <ZoomWatcher onZoom={setZoom} />
         {streets.map((street) => {
           const token = PAVEMENT_STATUS_TOKEN[street.status] || 'unknown';
           const linhas = Array.isArray(street.linhas) ? street.linhas : [];
-
-          // Só as ruas à vista ganham rótulo. Sem o recorte por `bounds`, o
-          // Leaflet montaria um elemento de texto para cada uma das centenas de
-          // ruas da cidade a cada mudança de zoom — a maioria fora da tela.
-          const rotularStreet = mostrarRotulos
-            && linhas.length > 0
-            && bounds?.contains(linhas[0][Math.floor(linhas[0].length / 2)]);
 
           const popup = (
             <Popup className="custom-popup" minWidth={200}>
@@ -314,32 +309,6 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
                   pathOptions={{ weight: toqueDaVia, opacity: 0 }}
                 >
                   {popup}
-                  {/* O NOME DA RUA, ESCRITO POR NÓS, POR CIMA DO TRAÇADO
-                      O rótulo do OSM vem impresso no tile e fica DEBAIXO de tudo
-                      que desenhamos — não há ordem de camadas que o resgate. A
-                      saída de manual seria base sem rótulos mais uma camada de
-                      rótulos por cima, e ela não existe aqui: a CARTO passou a
-                      exigir chave (ver tileSources.js), e o tema escuro depende
-                      do OSM invertido no navegador.
-                      Então o nome passa a ser nosso. Tooltip do Leaflet vive no
-                      `tooltipPane` (z-index 650), acima do `overlayPane` (400)
-                      onde o traçado mora — fica por cima por construção.
-                      De quebra, resolve o satélite, que não tem nome de rua
-                      nenhum. */}
-                  {rotularStreet && (
-                    <Tooltip permanent direction="center" className="rotulo-de-rua" opacity={1}>
-                      {/* A rotação vai num <span> nosso, e não no elemento do
-                          tooltip: o Leaflet já usa o `transform` daquele div
-                          para posicioná-lo no mapa, e sobrescrever jogaria o
-                          rótulo para fora da rua. */}
-                      <span
-                        className="inline-block"
-                        style={{ transform: `rotate(${anguloDoTracado(linhas[0])}deg)` }}
-                      >
-                        {street.name}
-                      </span>
-                    </Tooltip>
-                  )}
                 </Polyline>
                 <Polyline
                   positions={linhas}

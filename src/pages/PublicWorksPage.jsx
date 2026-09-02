@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, Check, PlusCircle } from 'lucide-react';
+import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, AlertTriangle, Check, PauseCircle, PlusCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,6 +19,8 @@ import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { showAppError } from '@/lib/appError';
+import CartoesDeMapa from '@/components/map/CartoesDeMapa';
+import { useFocoDeRua, dentroDoFoco } from '@/hooks/useFocoDeRua';
 
 const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, onSelectionChange, searchPlaceholder }) => {
   const Icon = triggerIcon;
@@ -68,10 +70,27 @@ const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, on
 // frente.
 const HIDDEN_BY_DEFAULT_STATUS = 'completed';
 
+// As cores dos pinos, repetidas aqui para a contagem do painel poder servir de
+// legenda. A fonte continua sendo `getStatusInfo` em WorksMapView — se um dia
+// as duas divergirem, quem manda é o mapa, e é lá que a cor tem de ser trocada
+// primeiro.
+const COR_DA_SITUACAO = {
+  planned: 'bg-purple-500',
+  tendered: 'bg-orange-500',
+  'in-progress': 'bg-blue-500',
+  stalled: 'bg-amber-500',
+  unfinished: 'bg-red-500',
+  completed: 'bg-green-500',
+};
+
 const PublicWorksPage = () => {
   const [view, setView] = useState('map');
   const [works, setWorks] = useState([]); // dataset para modo mapa
   const [filteredWorks, setFilteredWorks] = useState([]); // filtrado para mapa
+
+  // "As obras desta rua", vindo de `?rua=<id>` — o link da faixa de Minha Rua.
+  // Mesma geometria que contou o número que foi clicado (migração 228).
+  const { foco: focoDeRua, limpar: limparFocoDeRua } = useFocoDeRua('work_ids');
   const [listWorks, setListWorks] = useState([]); // dataset paginado para lista
   const [listTotal, setListTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -231,6 +250,10 @@ const PublicWorksPage = () => {
         .eq('is_complete', true)
         .order('created_at', { ascending: false });
       if (activeCityId) query = query.eq('city_id', activeCityId);
+      // O recorte por rua vale para os DOIS modos. Sem esta linha, trocar para
+      // a lista com `?rua=` ligado devolveria a cidade inteira sem avisar — e o
+      // banner do painel continuaria dizendo que o recorte estava ativo.
+      if (focoDeRua) query = query.in('id', [...focoDeRua.ids]);
 
       if (searchTerm && searchTerm.trim()) {
         const term = searchTerm.trim();
@@ -269,7 +292,7 @@ const PublicWorksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize, activeCityId]);
+  }, [searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize, activeCityId, focoDeRua]);
 
   useEffect(() => {
     fetchWorks();
@@ -297,13 +320,19 @@ const PublicWorksPage = () => {
     if (filters.bairro.length > 0) {
       result = result.filter(w => w.bairro?.id && filters.bairro.includes(w.bairro.id));
     }
+    // Por último de propósito: o recorte por rua é o mais estreito de todos, e
+    // aplicá-lo sobre o resultado dos outros deixa claro que ele SOMA, e não
+    // substitui, o que já estava filtrado.
+    if (focoDeRua) {
+      result = result.filter(w => dentroDoFoco(focoDeRua, w.id));
+    }
 
     setFilteredWorks(result);
     if (view === 'list') {
       setCurrentPage(1);
       fetchListWorks(1);
     }
-  }, [searchTerm, filters, works, view, fetchListWorks]);
+  }, [searchTerm, filters, works, view, fetchListWorks, focoDeRua]);
   
   const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
@@ -357,12 +386,65 @@ const PublicWorksPage = () => {
     return (
       <TelaDeMapa
         titulo="Mapa de Obras Públicas"
+        subtitulo="O que está sendo construído na sua cidade, e em que pé está"
         tituloDaAba="Mapa de Obras Públicas - Trombone Cidadão"
         descricaoSeo="Acompanhe o andamento das obras públicas da sua cidade em um mapa interativo."
         filtrosLigados={filtrosLigados}
+        /* O TOTAL VAI NO SELO, A REPARTIÇÃO VAI NOS CARTÕES
+           Um cartão "Obras no recorte: 65" ao lado de um selo dizendo a mesma
+           coisa seria a legenda duplicada de novo, em outro formato. O selo
+           responde "quantas"; os cartões respondem "em que pé". */
+        destaque={
+          <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
+            <HardHat className="h-4 w-4" />
+            {filteredWorks.length} {filteredWorks.length === 1 ? 'obra no recorte' : 'obras no recorte'}
+          </span>
+        }
+        /* A COLUNA DA DIREITA SÓ EXISTE ACIMA DE 1440px
+           Até aqui, quem abrisse esta tela num notebook não via contagem
+           nenhuma — nem no topo, nem na lateral que não cabe. As cores dos
+           quadrados são as MESMAS dos pinos daquelas situações, então o cartão
+           e o mapa se reconhecem sem ninguém explicar. */
+        estatisticas={
+          <CartoesDeMapa
+            cartoes={[
+              { id: 'in-progress', Icone: HardHat, cor: 'bg-blue-500', rotulo: 'Em andamento', valor: porSituacao['in-progress'] || 0 },
+              { id: 'stalled', Icone: PauseCircle, cor: 'bg-amber-500', rotulo: 'Paralisadas', valor: porSituacao.stalled || 0 },
+              { id: 'unfinished', Icone: AlertTriangle, cor: 'bg-red-500', rotulo: 'Inacabadas', valor: porSituacao.unfinished || 0 },
+              { id: 'completed', Icone: CheckSquare, cor: 'bg-green-500', rotulo: 'Concluídas', valor: porSituacao.completed || 0 },
+            ]}
+            rodape="Contagem sobre as obras filtradas, não sobre a cidade inteira."
+          />
+        }
         filtros={
           <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
             <CitySelector />
+
+            {/* Chega pela URL, sem ninguém ter tocado num filtro desta tela —
+                então precisa dizer que existe, ou o mapa quase vazio lê como
+                mapa quebrado. */}
+            {focoDeRua && (
+              <div className="flex items-start gap-2 rounded-lg border border-brand/30 bg-brand-subtleBg px-2.5 py-2">
+                <MapPin size={13} className="mt-0.5 shrink-0 text-brand" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-brand-subtleFg">
+                    Só {focoDeRua.nome || 'esta rua'}
+                  </p>
+                  {focoDeRua.ids.size === 0 ? (
+                    <p className="text-[10px] leading-tight text-content-tertiary">
+                      Nenhuma obra cadastrada nesta rua.
+                    </p>
+                  ) : !focoDeRua.preciso && (
+                    <p className="text-[10px] leading-tight text-content-tertiary">
+                      Sem traçado cadastrado: o recorte é um raio em volta do ponto da rua.
+                    </p>
+                  )}
+                </div>
+                <button type="button" onClick={limparFocoDeRua} aria-label="Ver a cidade inteira">
+                  <X size={13} className="text-content-tertiary hover:text-content-primary" />
+                </button>
+              </div>
+            )}
 
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
@@ -436,7 +518,7 @@ const PublicWorksPage = () => {
             </div>
           </div>
         }
-        mapa={<WorksMapView ref={mapViewRef} works={filteredWorks} />}
+        mapa={<WorksMapView ref={mapViewRef} works={filteredWorks} mostrarLegenda={false} podeGerir={canManageWorks} />}
         painel={
           <div className="grid gap-3">
             <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
@@ -450,12 +532,19 @@ const PublicWorksPage = () => {
                 {filteredWorks.length}
               </p>
 
+              {/* A CONTAGEM É A LEGENDA
+                  Eram dois blocos dizendo a mesma coisa: este, com os números
+                  por situação, e uma legenda flutuante sobre o mapa com as
+                  cores. Juntos, cada um contava metade da história e ocupava o
+                  espaço inteiro. Com a bolinha aqui, uma linha responde "que cor
+                  é essa" e "quantas são" de uma vez. */}
               <ul className="mt-3 grid gap-1.5 border-t border-edge-subtle pt-3">
                 {workStatusesAsArray
                   .filter((s) => porSituacao[s.id])
                   .map((s) => (
-                    <li key={s.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="min-w-0 truncate text-content-secondary">{s.name}</span>
+                    <li key={s.id} className="flex items-center gap-2 text-xs">
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${COR_DA_SITUACAO[s.id] || 'bg-gray-500'}`} />
+                      <span className="min-w-0 flex-1 truncate text-content-secondary">{s.name}</span>
                       <span className="shrink-0 font-bold text-content-primary tabular-nums">{porSituacao[s.id]}</span>
                     </li>
                   ))}

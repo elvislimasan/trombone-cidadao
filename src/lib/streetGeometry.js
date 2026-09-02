@@ -156,6 +156,52 @@ export const toMultiLineStringWkt = (linhas) => {
 };
 
 /**
+ * O caminho de volta: WKT -> linhas em [lng, lat].
+ *
+ * POR QUE ISTO PRECISA EXISTIR
+ *
+ * Corrigir um traçado já cadastrado exige ABRIR o que está gravado. Sem esta
+ * leitura, "editar" seria sempre desenhar do zero — e redesenhar uma rua de
+ * doze pontos para mexer num só é o tipo de trabalho que faz ninguém corrigir
+ * nada.
+ *
+ * O regex casa cada grupo entre parênteses porque um MULTILINESTRING é uma
+ * lista deles. Não é um parser de WKT: aceita só o que `toMultiLineStringWkt`
+ * escreve, que é o único formato que chega aqui.
+ */
+export const fromMultiLineStringWkt = (wkt) => {
+  const corpo = String(wkt || '').trim().match(/^MULTILINESTRING\s*\((.*)\)$/is);
+  if (!corpo) return [];
+
+  return [...corpo[1].matchAll(/\(([^()]*)\)/g)]
+    .map(([, grupo]) =>
+      grupo
+        .split(',')
+        .map((par) => par.trim().split(/\s+/).map(Number))
+        .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat)))
+    .filter((linha) => linha.length >= 2);
+};
+
+/**
+ * As linhas do traçado de uma rua, em [lng, lat], venham elas de onde vierem.
+ *
+ * `path` é o que está gravado (GeoJSON do PostGIS). `path_wkt` é o que foi
+ * desenhado ou buscado nesta sessão e ainda não salvou. O rascunho ganha do
+ * gravado: reabrir o desenho depois de traçar e antes de salvar tem de mostrar
+ * o que está na tela, não a versão anterior.
+ */
+export const linhasDoTracado = (rua) => {
+  if (rua?.path_wkt) return fromMultiLineStringWkt(rua.path_wkt);
+
+  const coordenadas = rua?.path?.coordinates;
+  if (!Array.isArray(coordenadas)) return [];
+
+  return coordenadas
+    .filter((linha) => Array.isArray(linha) && linha.length >= 2)
+    .map((linha) => linha.map(([lng, lat]) => [Number(lng), Number(lat)]));
+};
+
+/**
  * A coordenada da rua, venha ela na forma que vier.
  *
  * O BANCO E A TELA NÃO CONCORDAM SOBRE O FORMATO

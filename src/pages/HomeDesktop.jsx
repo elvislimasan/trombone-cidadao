@@ -123,14 +123,19 @@ function HomeDesktop() {
   const emAndamento = alertas.eventos || [];
   const agora = useMemo(() => new Date(), []);
   const trilhoDeBroncas = useRef(null);
+  const trilhoDePeticoes = useRef(null);
   // O observador e refeito quando broncas/peticoes chegam: elas so existem
   // depois da consulta, e um observador montado uma vez so as ignoraria.
   const areaRevelada = useRevelarAoRolar([broncas, peticoes, emAndamento.length]);
 
   // O passo sai da largura REAL de um cartao, e nao de uma constante: qualquer
   // ajuste no tamanho faria a constante mentir e a seta pararia no meio de um.
-  const rolarBroncas = (direcao) => {
-    const trilho = trilhoDeBroncas.current;
+  //
+  // A funcao recebe o trilho porque agora sao dois — broncas e peticoes. Duas
+  // copias desta conta divergiriam no dia em que um dos dois cartoes mudasse de
+  // largura, e a seta do outro passaria a parar no lugar errado.
+  const rolar = (ref, direcao) => {
+    const trilho = ref.current;
     const cartao = trilho?.children?.[0];
     if (!trilho || !cartao) return;
     trilho.scrollBy({ left: direcao * (cartao.offsetWidth + 12), behavior: 'smooth' });
@@ -175,11 +180,15 @@ function HomeDesktop() {
       // 'open' é o valor real da coluna — a página de abaixo-assinados filtra
       // pelo mesmo. Os outros no banco são 'draft', 'pending_moderation',
       // 'rejected' e 'victory', e nenhum deles é petição em campanha.
+      // `image_url` entra porque a seção virou vitrine: três blocos de texto
+      // empilhados eram a metade menos lida desta página, ao lado de uma faixa
+      // de broncas com foto. E o limite sobe de 3 para 8 — num carrossel, o que
+      // não cabe na primeira tela continua existindo; numa pilha, não.
       supabase.from('petitions')
-        .select('id, title, goal, status, signatures(count)')
+        .select('id, title, goal, status, image_url, signatures(count)')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
-        .limit(3),
+        .limit(8),
     ]);
 
     const total = totalBroncas.count || 0;
@@ -511,7 +520,7 @@ function HomeDesktop() {
                     <button
                       type="button"
                       aria-label="Broncas anteriores"
-                      onClick={() => rolarBroncas(-1)}
+                      onClick={() => rolar(trilhoDeBroncas, -1)}
                       className="absolute -left-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-edge-subtle bg-surface-raised text-content-secondary shadow-lg hover:text-brand"
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -519,7 +528,7 @@ function HomeDesktop() {
                     <button
                       type="button"
                       aria-label="Próximas broncas"
-                      onClick={() => rolarBroncas(1)}
+                      onClick={() => rolar(trilhoDeBroncas, 1)}
                       className="absolute -right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-edge-subtle bg-surface-raised text-content-secondary shadow-lg hover:text-brand"
                     >
                       <ChevronRight className="h-4 w-4" />
@@ -544,33 +553,85 @@ function HomeDesktop() {
                 Nenhuma petição ativa no momento.
               </p>
             ) : (
-              <div className="grid gap-3">
+              /* MESMO CARROSSEL DAS BRONCAS, E ISSO É DE PROPÓSITO
+                 As duas seções ficam lado a lado. Uma pilha de três cartões de
+                 texto ao lado de uma faixa de fotos que rola não lê como duas
+                 listas do mesmo lugar: lê como uma lista e um rodapé. Com a
+                 mesma forma, o olho aprende a mecânica uma vez e reconhece as
+                 duas — e as petições recentes, que antes paravam na terceira,
+                 passam a caber. */
+              <div className="relative">
+                <div
+                  ref={trilhoDePeticoes}
+                  className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
                 {peticoes.map((p) => {
                   const assinaturas = p.signatures?.[0]?.count || 0;
                   const meta = p.goal || 0;
                   const parte = meta ? Math.min(100, Math.round((assinaturas / meta) * 100)) : 0;
                   return (
-                    /* O cartão do protótipo: selo, título, a barra com a contagem
-                       "29 / 100" ao lado, e o botão em largura total abaixo. */
-                    <div key={p.id} className="reveal reveal-delay-1 rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-subtleBg px-2 py-0.5 text-[11px] font-bold text-brand-subtleFg">
-                        <FileSignature className="h-3.5 w-3.5" /> Petição ativa
-                      </span>
-                      <p className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-content-primary">{p.title}</p>
-
-                      <div className="mt-3 flex items-center gap-3">
-                        <BarraQueEnche parte={parte} className="flex-1" />
-                        <span className="shrink-0 text-[11px] font-bold text-content-secondary tabular-nums">
-                          {assinaturas}{meta > 0 ? ` / ${meta}` : ''}
+                    <Link
+                      key={p.id}
+                      to={`/abaixo-assinado/${p.id}`}
+                      className="group flex w-[calc((100%-1.5rem)/3)] min-w-[9.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm transition-colors hover:border-brand/40"
+                    >
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-subtle">
+                        {/* SEM FOTO, UM BLOCO DA MARCA — E NÃO UM <img> QUEBRADO
+                            Petição não exige imagem no cadastro, e `src` vazio
+                            rende o ícone de arquivo corrompido do navegador: a
+                            vitrine passaria a anunciar defeito. */}
+                        {p.image_url ? (
+                          <img
+                            src={p.image_url}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-brand-subtleBg">
+                            <FileSignature className="h-8 w-8 text-brand-subtleFg" />
+                          </div>
+                        )}
+                        <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-content-onBrand">
+                          <FileSignature className="h-3 w-3" /> Petição ativa
                         </span>
                       </div>
 
-                      <Button asChild size="sm" className="mt-3 w-full rounded-lg">
-                        <Link to={`/abaixo-assinado/${p.id}`}>Apoiar agora</Link>
-                      </Button>
-                    </div>
+                      <div className="flex flex-1 flex-col p-3">
+                        <p className="line-clamp-2 text-xs font-bold leading-snug text-content-primary">{p.title}</p>
+
+                        <div className="mt-auto pt-3">
+                          <BarraQueEnche parte={parte} />
+                          <span className="mt-1 block text-[10px] font-bold text-content-secondary tabular-nums">
+                            {assinaturas}{meta > 0 ? ` / ${meta} assinaturas` : ' assinaturas'}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
                   );
                 })}
+                </div>
+
+                {peticoes.length > 3 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Petições anteriores"
+                      onClick={() => rolar(trilhoDePeticoes, -1)}
+                      className="absolute -left-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-edge-subtle bg-surface-raised text-content-secondary shadow-lg hover:text-brand"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Próximas petições"
+                      onClick={() => rolar(trilhoDePeticoes, 1)}
+                      className="absolute -right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-edge-subtle bg-surface-raised text-content-secondary shadow-lg hover:text-brand"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </section>

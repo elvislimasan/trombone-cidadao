@@ -1,82 +1,69 @@
 import { Route as Road, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react';
 
-import { SITUACOES, formatarKm, percentual } from '@/lib/pavementLength';
+import CartoesDeMapa from '@/components/map/CartoesDeMapa';
+import { SITUACOES, percentual } from '@/lib/pavementLength';
 
-// A faixa de números do topo do mapa de pavimentação.
+// A faixa de números do mapa de pavimentação.
 //
-// A faixa combina duas leituras: a extensão total informa quanto do mapa possui
-// traçado, enquanto os cartões de situação mostram a quantidade operacional de
-// ruas. A leitura por quilômetro continua na legenda do mapa, onde ajuda a
-// comparar a extensão ocupada por cada situação.
+// O DESENHO É O DE TODAS AS TELAS DE MAPA
+//
+// Ela tinha o próprio cartão, parecido com os das outras telas mas não igual —
+// e "parecido mas não igual" é o que faz quatro telas do mesmo app parecerem
+// quatro produtos. Agora a moldura é a de `CartoesDeMapa`, e o que sobra aqui é
+// só o que é de pavimentação: quais situações existem, em que cor, e o que
+// acontece ao clicar.
+//
+// A COR DO QUADRADO É A DO PINO
+//
+// `ponto-legenda-pav--*` já pintava as bolinhas da legenda com os tokens dos
+// pinos (`--pin-pav-*-bg`). Reusá-las aqui é o que faz o cartão "Sem
+// pavimentação" e a linha vermelha do mapa serem visivelmente a mesma coisa —
+// e garante que trocar a cor do pino troque a do cartão junto, porque é uma
+// definição só.
+//
+// O TOTAL NÃO ESTÁ AQUI
+//
+// Ele é o selo do cabeçalho da página. Repetido como cartão, seria o mesmo
+// número dito duas vezes a dois centímetros de distância.
 
 const CARTOES = [
-  { id: 'paved', Icone: CheckCircle2, cor: 'text-success-fg', fundo: 'bg-success-bg' },
-  { id: 'unpaved', Icone: AlertTriangle, cor: 'text-brand', fundo: 'bg-brand-subtleBg' },
-  { id: 'partially_paved', Icone: Road, cor: 'text-status-pendingFg', fundo: 'bg-status-pendingBg' },
+  { id: 'paved', Icone: CheckCircle2, cor: 'ponto-legenda-pav--paved' },
+  { id: 'partially_paved', Icone: Road, cor: 'ponto-legenda-pav--partial' },
+  { id: 'unpaved', Icone: AlertTriangle, cor: 'ponto-legenda-pav--unpaved' },
 ];
 
-const Cartao = ({ Icone, cor, fundo, rotulo, valor, parte, onClick }) => {
-  const Elemento = onClick ? "button" : "div";
-  return (
-  <Elemento
-    {...(onClick ? { type: "button", onClick } : {})}
-    className={`flex min-w-0 items-center gap-2 rounded-2xl border border-edge-subtle bg-surface-raised px-2.5 py-2.5 text-left xs:gap-3 xs:px-3.5 xs:py-3 ${onClick ? "transition-colors hover:border-brand/40 hover:bg-surface-subtle" : ""}`}
-  >
-    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl xs:h-9 xs:w-9 ${fundo} ${cor}`}>
-      <Icone className="h-4 w-4 xs:h-[1.125rem] xs:w-[1.125rem]" />
-    </span>
-    <div className="min-w-0">
-      <p className="truncate text-[9px] font-medium text-content-secondary xs:text-[11px]">{rotulo}</p>
-      <p className="flex items-baseline gap-1 xs:gap-1.5">
-        <span className="text-base font-extrabold leading-tight text-content-primary tabular-nums xs:text-lg">{valor}</span>
-        {parte != null && (
-          <span className={`text-[9px] font-bold xs:text-[11px] ${cor} tabular-nums`}>{parte}%</span>
-        )}
-      </p>
-    </div>
-  </Elemento>
-  );
-};
-
 export default function PavementStats({ resumo, onSelecionar }) {
-  const emKm = resumo.temTracado;
-  const valorDe = (situacao) => {
-    const quantidade = resumo.ruasPorSituacao[situacao];
-    return `${quantidade} ${quantidade === 1 ? 'rua' : 'ruas'}`;
-  };
-  const parteDe = (situacao) => percentual(resumo.ruasPorSituacao[situacao], resumo.ruas);
+  const rotuloDe = (id) => SITUACOES.find((s) => s.id === id)?.rotulo || id;
 
-  return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-2.5">
-      <Cartao
-        Icone={Road}
-        cor="text-content-secondary"
-        fundo="bg-surface-subtle"
-        rotulo={emKm ? 'Extensão mapeada' : 'Ruas mapeadas'}
-        valor={emKm ? formatarKm(resumo.metros) : `${resumo.ruas}`}
-      />
-      {CARTOES.map(({ id, ...visual }) => (
-        <Cartao
-          key={id}
-          {...visual}
-          rotulo={SITUACOES.find((s) => s.id === id).rotulo}
-          valor={valorDe(id)}
-          parte={parteDe(id)}
-          onClick={onSelecionar ? () => onSelecionar(id, SITUACOES.find((s) => s.id === id).rotulo) : null}
-        />
-      ))}
-      {/* O cartão de "sem informação" só existe quando há o que informar. Um
-          zero permanente ocuparia um quarto da faixa para não dizer nada. */}
-      {resumo.ruasPorSituacao.unknown > 0 && (
-        <Cartao
-          Icone={HelpCircle}
-          cor="text-content-tertiary"
-          fundo="bg-surface-subtle"
-          rotulo="Sem informação"
-          valor={valorDe('unknown')}
-          parte={parteDe('unknown')}
-        />
-      )}
-    </div>
-  );
+  // O valor carrega a fatia junto: "120 ruas · 38%". A porcentagem sozinha não
+  // diz o tamanho do problema, e a contagem sozinha não diz o tamanho da
+  // cidade — quem cobra a prefeitura precisa das duas na mesma linha.
+  const valorDe = (id) => {
+    const quantidade = resumo.ruasPorSituacao[id] || 0;
+    const parte = percentual(quantidade, resumo.ruas);
+    return `${quantidade} ${quantidade === 1 ? 'rua' : 'ruas'}${parte != null ? ` · ${parte}%` : ''}`;
+  };
+
+  const cartoes = CARTOES.map(({ id, Icone, cor }) => ({
+    id,
+    Icone,
+    cor,
+    rotulo: rotuloDe(id),
+    valor: valorDe(id),
+    aoClicar: onSelecionar ? () => onSelecionar(id, rotuloDe(id)) : null,
+  }));
+
+  // "Sem informação" só existe quando há o que informar. Um zero permanente
+  // ocuparia um quarto da faixa para não dizer nada.
+  if (resumo.ruasPorSituacao.unknown > 0) {
+    cartoes.push({
+      id: 'unknown',
+      Icone: HelpCircle,
+      cor: 'ponto-legenda-pav--unknown',
+      rotulo: 'Sem informação',
+      valor: valorDe('unknown'),
+    });
+  }
+
+  return <CartoesDeMapa cartoes={cartoes} />;
 }

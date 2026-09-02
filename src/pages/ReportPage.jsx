@@ -1116,7 +1116,10 @@ const ReportPage = () => {
     const { data, error } = await supabase
       .from("reports")
       .select(
-        "*, pole_number, pole:poles(id, identifier, plate, address), category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), timeline:report_timeline(*), report_media(*), upvotes:signatures(count), favorite_reports(user_id), petitions(id, status)"
+        // `city` entra para o card de compartilhamento dizer a cidade em vez
+        // de "BRASIL". É uma linha só e uma tabela pequena — o custo é o de um
+        // join contra a chave primária de `cities`.
+        "*, pole_number, city:cities(name, states(uf)), pole:poles(id, identifier, plate, address), category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), timeline:report_timeline(*), report_media(*), upvotes:signatures(count), favorite_reports(user_id), petitions(id, status)"
       )
       .eq("id", reportId)
       .single();
@@ -1213,6 +1216,19 @@ const ReportPage = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.openUpdateModal, user, loading]);
+
+  // Mesma porta, para o "Editar" do balão do mapa. Passa por
+  // `handleEditClick`, e não por `setShowEditDetails` direto, porque é ele que
+  // confere a permissão e diz o que houve quando ela não existe — um atalho que
+  // abrisse o formulário sem essa checagem só descobriria o problema no banco,
+  // depois de a pessoa ter digitado tudo.
+  useEffect(() => {
+    if (location.state?.openEditModal && report && !loading) {
+      handleEditClick();
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.openEditModal, report, loading]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform() || !reportId) return;
@@ -1542,7 +1558,6 @@ const ReportPage = () => {
             <>
               <ReportHeader
                 onBack={() => navigate(-1)}
-                protocol={report.protocol}
                 showAdminActions={isAdmin || isPublicOfficial}
                 handleOpenLinkModal={() => handleOpenLinkModal(report)}
                 handleEditClick={handleEditClick}

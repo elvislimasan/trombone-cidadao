@@ -13,6 +13,7 @@ import {
   Calendar,
   LocateFixed,
   Megaphone,
+  Pencil,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -357,6 +358,12 @@ const MapView = ({
   // do mapa). Sem essa prop, mantem o comportamento antigo de navegar para a
   // pagina da bronca com o modal aberto.
   onUpdateClick,
+  // "Editar" no balão do pino. Opt-in porque este MapView é o mesmo da
+  // patrulha, da conferência e do detalhe da bronca — nenhum deles quer um
+  // atalho de gestão dentro do popup. Quem mostra decide quem pode: a
+  // autoridade continua sendo a policy no banco, e este botão só evita a
+  // viagem até a página para descobrir que dá.
+  onEditClick,
   // Modo navegacao: o mapa gira com o rumo, segue a posicao recebida de fora e
   // nao aceita toque. A posicao vem por prop de proposito - o modo navegacao ja
   // mantem seu proprio watchPosition, e um segundo aqui dobraria o consumo de
@@ -796,6 +803,21 @@ const MapView = ({
                           >
                             <Megaphone className="w-3 h-3" />
                             Atualizar
+                          </Button>
+                        )}
+                        {onEditClick && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditClick(report);
+                            }}
+                            className="h-7 px-2 flex items-center gap-1 text-xs"
+                            style={{ pointerEvents: "auto", touchAction: "auto" }}
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Editar
                           </Button>
                         )}
                         <Button

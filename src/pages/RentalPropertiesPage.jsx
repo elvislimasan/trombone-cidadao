@@ -19,21 +19,8 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { showAppError } from '@/lib/appError';
 import TelaDeMapa from '@/components/map/TelaDeMapa';
+import CartoesDeMapa from '@/components/map/CartoesDeMapa';
 import { useTelaLarga } from '@/hooks/useTelaLarga';
-
-const StatCard = ({ icon: Icon, label, value, color }) => (
-  <Card className="border-border">
-    <CardContent className="p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon className="w-5 h-5 text-white" />
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-bold text-foreground">{value}</p>
-      </div>
-    </CardContent>
-  </Card>
-);
 
 const RentalPropertiesPage = () => {
   const { cityId: activeCityId, cityName: activeCityName } = useCityView();
@@ -166,6 +153,20 @@ const RentalPropertiesPage = () => {
     return { mostExpensive, cheapest, largest, smallest, annualTotal, activeCount };
   }, [filteredProperties]);
 
+  // A MESMA LISTA DE CARTÕES NOS DOIS MODOS
+  //
+  // Este desenho — quadrado colorido, rótulo pequeno, valor em negrito — nasceu
+  // aqui e agora é o de todas as telas de mapa (`CartoesDeMapa`). Escrever a
+  // lista uma vez é o que garante que trocar de mapa para lista não pareça ter
+  // trocado também o recorte.
+  const cartoesDeImoveis = useMemo(() => [
+    { id: 'caro', Icone: TrendingUp, cor: 'bg-red-500', rotulo: 'Mais caro', valor: stats.mostExpensive ? formatCurrency(stats.mostExpensive.monthly_value) : '—' },
+    { id: 'barato', Icone: TrendingDown, cor: 'bg-green-500', rotulo: 'Mais barato', valor: stats.cheapest ? formatCurrency(stats.cheapest.monthly_value) : '—' },
+    { id: 'maior', Icone: Maximize2, cor: 'bg-blue-500', rotulo: 'Maior imóvel', valor: stats.largest ? `${stats.largest.area_m2}m²` : '—' },
+    { id: 'menor', Icone: Minimize2, cor: 'bg-amber-500', rotulo: 'Menor imóvel', valor: stats.smallest ? `${stats.smallest.area_m2}m²` : '—' },
+    { id: 'anual', Icone: DollarSign, cor: 'bg-tc-red', rotulo: 'Gasto anual total', valor: formatCurrency(stats.annualTotal) },
+  ], [stats]);
+
   const handleDownloadReport = () => {
     setDownloading(true);
     try {
@@ -209,9 +210,26 @@ const RentalPropertiesPage = () => {
     return (
       <TelaDeMapa
         titulo="Imóveis Alugados pela Prefeitura"
+        subtitulo="Onde ficam, de quem são e quanto custam por mês"
         tituloDaAba="Imóveis Alugados - Trombone Cidadão"
         descricaoSeo="Veja no mapa os imóveis alugados pela prefeitura, com valor mensal e proprietário."
         filtrosLigados={(searchOwner.trim() ? 1 : 0) + (selectedBairro !== 'all' ? 1 : 0)}
+        /* OS MESMOS CINCO CARTÕES DA LISTA
+           O modo mapa e o modo lista são a mesma tela em duas formas. Mostrar
+           números diferentes em cada uma faria a pessoa achar que a troca de
+           modo também trocou o recorte. */
+        destaque={
+          <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
+            <Building2 className="h-4 w-4" />
+            {stats.activeCount} {stats.activeCount === 1 ? 'imóvel alugado' : 'imóveis alugados'} (ativos)
+          </span>
+        }
+        estatisticas={
+          <CartoesDeMapa
+            cartoes={cartoesDeImoveis}
+            rodape="Números sobre os imóveis filtrados. A projeção anual é a soma dos aluguéis vigentes vezes doze — não o que foi pago."
+          />
+        }
         filtros={
           <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
             <CitySelector />
@@ -342,12 +360,8 @@ const RentalPropertiesPage = () => {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <StatCard icon={TrendingUp} label="Mais caro" value={stats.mostExpensive ? formatCurrency(stats.mostExpensive.monthly_value) : '—'} color="bg-red-500" />
-          <StatCard icon={TrendingDown} label="Mais barato" value={stats.cheapest ? formatCurrency(stats.cheapest.monthly_value) : '—'} color="bg-green-500" />
-          <StatCard icon={Maximize2} label="Maior imóvel" value={stats.largest ? `${stats.largest.area_m2}m²` : '—'} color="bg-blue-500" />
-          <StatCard icon={Minimize2} label="Menor imóvel" value={stats.smallest ? `${stats.smallest.area_m2}m²` : '—'} color="bg-amber-500" />
-          <StatCard icon={DollarSign} label="Gasto anual total" value={formatCurrency(stats.annualTotal)} color="bg-tc-red" />
+        <div className="mb-6">
+          <CartoesDeMapa cartoes={cartoesDeImoveis} />
         </div>
 
         <Card className="mb-6 p-4">

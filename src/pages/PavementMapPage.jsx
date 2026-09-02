@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { BarChart3, HelpCircle, List, Loader2, LocateFixed, PlusCircle, SlidersHorizontal, X } from 'lucide-react';
+import { BarChart3, HelpCircle, List, Loader2, LocateFixed, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -17,6 +17,8 @@ import PavementStats from '@/components/pavement/PavementStats';
 import PavementSidebar from '@/components/pavement/PavementSidebar';
 import PavementMapLegend from '@/components/pavement/PavementMapLegend';
 import PavementReportsPanel from '@/components/pavement/PavementReportsPanel';
+import PavementStreetList from '@/components/pavement/PavementStreetList';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
@@ -37,9 +39,20 @@ const PavementMapPage = () => {
   // além de mais uma linha em "limpar tudo" e mais uma condição no `some` que
   // decide se o botão de limpar aparece. Ambos eram esquecíveis, e esquecer não
   // dá erro: dá um filtro que não limpa.
-  const FILTROS_VAZIOS = { bairro: 'all', situacao: 'all', tipo: 'all', cep: 'all', lei: 'all', projeto: 'all' };
+  const FILTROS_VAZIOS = { bairro: 'all', situacao: 'all', tipo: 'all', cep: 'all', lei: 'all', projeto: 'all', nome: 'all' };
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
   const [painelAberto, setPainelAberto] = useState(true);
+  // MAPA OU LISTA — A MESMA SELEÇÃO, DUAS PERGUNTAS
+  //
+  // O mapa responde "onde"; a lista responde "quais são". Quem confere o
+  // cadastro contra a planilha da prefeitura precisa da segunda, e até aqui
+  // tinha de abrir uma lista por status pelo cartão do topo — uma lista que não
+  // obedecia a nenhum dos filtros.
+  //
+  // O modo não entra em `filtros`: ele não recorta nada. Os dois modos leem
+  // exatamente `filteredStreets`, e é isso que impede o número do painel de
+  // significar uma coisa no mapa e outra na lista.
+  const [modo, setModo] = useState('mapa');
   const setFiltro = (id, valor) => setFiltros((atual) => ({ ...atual, [id]: valor }));
   const [searchTerm, setSearchTerm] = useState('');
   const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
@@ -184,9 +197,16 @@ const PavementMapPage = () => {
     setStreetListModal({ isOpen: true, title, streets });
   };
 
-  const handleUnnamedStreetListClick = () => {
-    const streets = streetData.filter((street) => street.is_unnamed);
-    setStreetListModal({ isOpen: true, title: 'Ruas sem nome oficial', streets });
+  // O MAPA CONTINUA MONTADO NO MODO LISTA
+  //
+  // Trocar de modo desmontando o Leaflet custaria uma remontagem inteira a cada
+  // ida e volta — e, pior, o `fitBounds` inicial dispararia de novo e desfaria
+  // o `flyTo` que este botão acabou de pedir. Escondido por `invisible`, o
+  // container mantém as dimensões, o mapa mantém o estado, e a rua pedida está
+  // enquadrada antes de a lista sair da frente.
+  const irParaOMapa = (location) => {
+    setModo('mapa');
+    if (location) mapViewRef.current?.goToLocation(location);
   };
 
   const handleGoToStreet = (location) => {
@@ -202,7 +222,7 @@ const PavementMapPage = () => {
   // contra a prefeitura: por bairro (é assim que a lista da prefeitura vem),
   // por CEP e pela lei municipal. Cada um responde uma pendência diferente, e
   // ligados juntos mostram a interseção — as ruas mais atrasadas de todas.
-  const filteredStreets = streetData.filter((street) => {
+  const passaNosFiltros = (street) => {
     const termo = searchTerm.trim().toLowerCase();
     const searchMatch = termo === ''
       || street.name.toLowerCase().includes(termo)
@@ -231,8 +251,29 @@ const PavementMapPage = () => {
       if (filtros.projeto === 'sem' && temProjeto) return false;
     }
 
+    // `is_unnamed` é a coluna da migração 201 — a rua tem um nome de trabalho
+    // ("Rua Projetada 20"), e a marca diz que ele não é oficial. Por isso o
+    // filtro é sobre a MARCA, e não sobre `name` estar vazio.
+    if (filtros.nome !== 'all') {
+      const semNome = Boolean(street.is_unnamed);
+      if (filtros.nome === 'sem' && !semNome) return false;
+      if (filtros.nome === 'com' && semNome) return false;
+    }
+
     return true;
-  });
+  };
+
+  // MEMOIZADO PORQUE A LISTA DEPENDE DA IDENTIDADE DO ARRAY.
+  //
+  // `PavementStreetList` volta para a primeira página sempre que o recorte
+  // muda, e "mudou" ele descobre pela identidade do array. Recalculado a cada
+  // render, o filtro devolveria um array novo toda vez e a paginação nunca
+  // sairia da página 1.
+  const filteredStreets = useMemo(
+    () => streetData.filter(passaNosFiltros),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [streetData, searchTerm, filtros],
+  );
 
   // Os bairros saem das PRÓPRIAS RUAS, e não de uma consulta à tabela.
   // Filtrar por um bairro que não tem rua nenhuma no mapa é uma opção que só
@@ -475,7 +516,10 @@ const PavementMapPage = () => {
              112rem ainda deixa margem numa tela de 1920 (uns 80px de cada lado),
              então a página continua parecendo do mesmo site — só não paga o
              preço de uma regra feita para outro tipo de conteúdo. */
-          className="mx-auto w-full max-w-[112rem] space-y-2 px-3 pb-6 pt-3 sm:space-y-3 md:px-6 lg:px-8"
+          /* Coluna flex a partir de 1100px — mesma mecânica de `TelaDeMapa`:
+             o topo ocupa o que precisar e o mapa fica com o resto da janela, em
+             vez de descontar uma altura chutada que invade o rodapé. */
+          className="mx-auto flex w-full max-w-[112rem] flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 min-[1100px]:h-[calc(100dvh-8rem)]"
         >
           {/* O TÍTULO SAIU DA TELA, MAS NÃO DO DOCUMENTO.
               "INFRAESTRUTURA / Mapa de Pavimentação / Visualize o status..."
@@ -486,7 +530,46 @@ const PavementMapPage = () => {
               O `h1` fica, invisível: leitor de tela e busca continuam
               precisando da estrutura do documento, e removê-lo de vez trocaria
               120 px por um problema de acessibilidade. */}
-          <h1 className="sr-only">Mapa de Pavimentação</h1>
+          {/* O MESMO CABEÇALHO DAS OUTRAS TRÊS TELAS DE MAPA
+              Ele já foi `sr-only` aqui, para poupar os ~120px que o bloco
+              custa. O que se poupou custou caro: a página perdia o nome
+              justamente para quem chega por link, e as quatro telas de mapa
+              passavam a parecer quatro produtos diferentes.
+              O selo carrega o total, e os cartões abaixo a repartição — o total
+              repetido nos dois seria o mesmo número dito duas vezes. O chip de
+              ruas sem nome fica junto porque é um NÚMERO sobre o mesmo conjunto,
+              e porque ligar o filtro por ele é o caminho de quem monta projeto
+              de lei de denominação. */}
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-tc-red sm:text-3xl md:text-4xl">Mapa de Pavimentação</h1>
+            <p className="mt-2 text-sm text-content-secondary sm:text-base">
+              Quais ruas têm pavimento, quais não têm, e o que já foi prometido
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
+                <Route className="h-4 w-4" />
+                {filteredStreets.length === stats.total
+                  ? `${stats.total} ${stats.total === 1 ? 'rua mapeada' : 'ruas mapeadas'}`
+                  : `${filteredStreets.length} de ${stats.total} ruas`}
+              </span>
+
+              {stats.unnamed > 0 && (
+                <button
+                  type="button"
+                  aria-pressed={filtros.nome === 'sem'}
+                  onClick={() => setFiltro('nome', filtros.nome === 'sem' ? 'all' : 'sem')}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-bold transition-colors ${
+                    filtros.nome === 'sem'
+                      ? 'border-brand bg-brand text-content-onBrand'
+                      : 'border-status-pendingBorder bg-status-pendingBg text-status-pendingFg'
+                  }`}
+                >
+                  <HelpCircle className="h-4 w-4" /> {stats.unnamed} sem nome
+                </button>
+              )}
+            </div>
+          </div>
         {/* A FAIXA DE NÚMEROS É A PRIMEIRA COISA DA TELA.
             Eram quatro botões grandes num cartão próprio, com uns cem pixels de
             altura antes de o mapa começar. Como cartões compactos eles dizem o
@@ -522,7 +605,7 @@ const PavementMapPage = () => {
             drawer. Abaixo de 1100 px, os filtros também deixam de ocupar uma
             coluna: o mapa passa a ser o único bloco largo. */}
         <div
-          className={`grid gap-2 sm:gap-3 min-[1100px]:h-[calc(100vh-11rem)] min-[1100px]:min-h-[34rem] ${
+          className={`grid gap-2 sm:gap-3 min-[1100px]:min-h-0 min-[1100px]:flex-1 ${
             painelAberto
               ? 'min-[1100px]:grid-cols-[13.5rem_minmax(0,1fr)] min-[1440px]:grid-cols-[16rem_minmax(0,1fr)_18rem]'
               : 'min-[1100px]:grid-cols-[minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,1fr)_18rem]'
@@ -536,6 +619,27 @@ const PavementMapPage = () => {
               onOcultar={() => setPainelAberto(false)}
               acoes={(
                 <div className="grid gap-2">
+                  {/* MAPA | LISTA MORA NO PAINEL, COMO NO MAPA DE OBRAS
+                      Ele já ficou numa faixa própria acima do mapa, e ali
+                      custava altura na largura inteira para dizer duas
+                      palavras. No rodapé do painel ele fica ao lado das outras
+                      ações da tela — e as duas telas de mapa passam a trocar de
+                      modo no mesmo lugar, que é o que faz aprender uma valer
+                      para a outra. */}
+                  <ToggleGroup
+                    type="single"
+                    value={modo}
+                    onValueChange={(valor) => valor && setModo(valor)}
+                    className="justify-center rounded-md border"
+                  >
+                    <ToggleGroupItem value="mapa" aria-label="Ver mapa" className="flex-1">
+                      <MapaIcone className="h-4 w-4" />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="lista" aria-label="Ver lista" className="flex-1">
+                      <List className="h-4 w-4" />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+
                   {canManageStreets ? (
                     <Button
                       type="button"
@@ -560,66 +664,57 @@ const PavementMapPage = () => {
                 </div>
               )}
               cabecalho={
-                /* CIDADE, DEPOIS O NÚMERO. NADA MAIS.
+                /* SÓ A CIDADE.
 
                    Estavam quatro coisas empilhadas aqui — seletor, botão de
-                   adicionar, contagem e o aviso de ruas sem nome —, cada uma
-                   numa linha, com larguras diferentes. Quatro linhas irregulares
-                   viram ruído, e nenhuma delas é o assunto da tela.
+                   adicionar, contagem e o aviso de ruas sem nome. A contagem e o
+                   aviso subiram para o cabeçalho da página, onde viraram o selo
+                   e o chip; "Adicionar rua" desceu para o rodapé do painel,
+                   junto de "Ocultar filtros", porque é ação e ação não é
+                   cabeçalho.
 
-                   Ficam as duas que respondem "o que estou vendo": onde, e
-                   quanto. O aviso continua junto porque é um NÚMERO sobre o
-                   mesmo conjunto, e cabe na mesma linha da contagem.
-
-                   "Adicionar rua" desceu para o rodapé do painel, junto de
-                   "Ocultar filtros": é ação, e ação não é cabeçalho. */
+                   Sobrou o que o painel de fato responde: ONDE estou vendo. */
                 <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-edge-subtle bg-surface-raised px-3 py-2 shadow-sm min-[900px]:flex-col min-[900px]:items-stretch min-[900px]:gap-1.5 min-[900px]:rounded-none min-[900px]:border-0 min-[900px]:bg-transparent min-[900px]:p-0 min-[900px]:shadow-none">
                   <CitySelector mobileBare />
 
-                  <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 min-[900px]:flex-wrap min-[900px]:justify-start min-[900px]:gap-x-2 min-[900px]:gap-y-1">
-                    <span className="whitespace-nowrap text-[9px] text-content-tertiary min-[900px]:text-[11px]">
-                      {filteredStreets.length === stats.total
-                        ? `${stats.total} ruas mapeadas`
-                        : `${filteredStreets.length} de ${stats.total} ruas`}
-                    </span>
-
-                    {/* Continua sendo botão, e não rótulo: abre a lista das ruas
-                        sem nome, que é a que vira projeto de lei. */}
-                    {stats.unnamed > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleUnnamedStreetListClick}
-                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-status-pendingBorder bg-status-pendingBg px-1.5 py-0.5 text-[9px] font-semibold text-status-pendingFg min-[900px]:px-2 min-[900px]:text-[10px]"
-                      >
-                        <HelpCircle className="h-3 w-3" /> {stats.unnamed} sem nome
-                      </button>
-                    )}
-                  </div>
                 </div>
               }
             />
           </div>
 
           <div className="relative h-[calc(100dvh-28rem-var(--safe-area-bottom,0px))] min-h-[22rem] w-full overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm sm:h-[calc(100dvh-24rem-var(--safe-area-bottom,0px))] sm:min-h-[24rem] min-[900px]:h-[calc(100dvh-19rem-var(--safe-area-bottom,0px))] lg:h-[calc(100dvh-16rem)] lg:min-h-[20rem] min-[1100px]:h-full min-[1100px]:min-h-0">
-            <PavementMapView
-              ref={mapViewRef}
-              streets={filteredStreets}
-              canManage={canManageStreets}
-              onEditStreet={setEditingStreet}
-            />
-
-            <div className="hidden lg:block">
-              <PavementMapLegend
-                resumo={resumo}
-                atualizadoEm={lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null}
-                onRecarregar={fetchStreets}
+            <div className={`absolute inset-0 ${modo === 'mapa' ? '' : 'invisible'}`}>
+              <PavementMapView
+                ref={mapViewRef}
+                streets={filteredStreets}
+                canManage={canManageStreets}
+                onEditStreet={setEditingStreet}
               />
+
+              <div className="hidden lg:block">
+                <PavementMapLegend
+                  resumo={resumo}
+                  atualizadoEm={lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null}
+                  onRecarregar={fetchStreets}
+                />
+              </div>
             </div>
+
+            {modo === 'lista' && (
+              <div className="absolute inset-0 bg-surface-raised">
+                <PavementStreetList
+                  streets={filteredStreets}
+                  canManage={canManageStreets}
+                  onEditStreet={setEditingStreet}
+                  onIrParaOMapa={irParaOMapa}
+                />
+              </div>
+            )}
 
             {/* Recolhido, o painel vira este botão. O contador diz quantos
                 filtros continuam ligados: sem ele, alguém esconde a coluna,
                 esquece o recorte, e lê o mapa filtrado achando que é a cidade. */}
-            {!painelAberto && (
+            {!painelAberto && modo === 'mapa' && (
               <button
                 type="button"
                 onClick={() => setPainelAberto(true)}

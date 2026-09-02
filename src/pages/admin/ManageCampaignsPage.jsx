@@ -5,6 +5,7 @@ import PageHeader from '@/components/PageHeader';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
+import { cidadesParaEscolha } from '@/lib/cidadesParaEscolha';
 import { CATEGORIAS_BRONCA } from '@/lib/reportCategories';
 import {
   DURACAO_MAXIMA_DIAS,
@@ -155,9 +156,9 @@ const ManageCampaignsPage = () => {
               className={entrada}
             >
               <option value="">Nacional</option>
-              {(cities || []).map((c) => (
+              {cidadesParaEscolha(cities).map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.rotulo}
                 </option>
               ))}
             </select>

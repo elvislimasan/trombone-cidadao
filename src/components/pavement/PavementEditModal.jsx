@@ -17,6 +17,7 @@ import {
   buscarVias,
   casarTracado,
   coordenadaDaRua,
+  linhasDoTracado,
   toMultiLineStringWkt,
 } from '@/lib/streetGeometry';
 import {
@@ -333,6 +334,10 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
       setBuscandoTracado(false);
     }
   };
+
+  // Só serve para o rótulo do botão: "Desenhar" numa rua que já tem linha
+  // sugere que o desenho anterior sumiu.
+  const temTracado = Boolean(formData?.path_wkt || formData?.path);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -898,7 +903,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                   : <><Road className="h-4 w-4" /> Buscar traçado no OpenStreetMap</>}
               </Button>
 
-              {/* DESENHAR À MÃO É O QUE FECHA O MAPA.
+              {/* DESENHAR — OU CORRIGIR — À MÃO É O QUE FECHA O MAPA.
                   A busca automática erra sempre as mesmas ruas: as que o OSM não
                   tem, as sem nome oficial e as de grafia divergente — ou seja, as
                   mais novas e as mais precárias, que são exatamente as que
@@ -914,14 +919,15 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                 title={formData.location ? undefined : 'Marque o ponto da rua primeiro'}
                 onClick={() => setDesenhando(true)}
               >
-                <PenLine className="h-4 w-4" /> Desenhar traçado
+                <PenLine className="h-4 w-4" />
+                {temTracado ? 'Corrigir traçado' : 'Desenhar traçado'}
               </Button>
 
               <p className="text-xs text-muted-foreground">
                 {formData.path_wkt
                   ? `Traçado ${formData.path_source === 'manual' ? 'desenhado' : 'encontrado'} — salve para gravar.`
                   : formData.path
-                  ? 'Esta rua já tem traçado gravado.'
+                  ? 'Esta rua já tem traçado gravado — abra "Corrigir traçado" para arrastar os pontos.'
                   : 'Sem traçado: a rua aparece no mapa como um ponto.'}
               </p>
             </div>
@@ -956,6 +962,11 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
         aberto
         nomeDaRua={formData?.name}
         centro={formData?.location}
+        /* O traçado gravado (ou o desta sessão, ainda não salvo) entra no
+           desenho em vez de ser sobrescrito às cegas. Sem isto, "corrigir" era
+           sempre refazer do zero — e o custo de refazer é o que fazia o traçado
+           quase certo ficar como estava. */
+        linhasIniciais={linhasDoTracado(formData)}
         onConcluir={(wkt) => setFormData((atual) => ({ ...atual, path_wkt: wkt, path_source: 'manual' }))}
         onFechar={() => setDesenhando(false)}
       />

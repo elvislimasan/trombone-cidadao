@@ -15,6 +15,8 @@ import {
   buildOverpassQueryAround,
   casarTracado,
   coordenadaDaRua,
+  fromMultiLineStringWkt,
+  linhasDoTracado,
   normalizarNomeDeRua,
   parseOverpassWays,
   toMultiLineStringWkt,
@@ -179,6 +181,64 @@ test('duas linhas viram dois grupos', () => {
 test('lista vazia vira null, não WKT inválido', () => {
   assert.equal(toMultiLineStringWkt([]), null);
   assert.equal(toMultiLineStringWkt(null), null);
+});
+
+// ── Ler de volta o que foi gravado ───────────────────────────────────────────
+//
+// Corrigir um traçado depende inteiramente desta leitura: se ela perder um
+// ponto, "editar" passa a apagar parte da rua em silêncio — o pior desfecho
+// possível, porque o mapa continua parecendo certo.
+
+test('o que foi escrito volta idêntico', () => {
+  const linhas = [[[-38.57, -8.6], [-38.571, -8.601], [-38.572, -8.6015]]];
+  assert.deepEqual(fromMultiLineStringWkt(toMultiLineStringWkt(linhas)), linhas);
+});
+
+test('os trechos continuam separados na volta', () => {
+  // Uma rua cortada por uma praça são dois trechos. Colá-los na leitura somaria
+  // a travessia da praça como se fosse rua.
+  const linhas = [
+    [[-38.57, -8.6], [-38.571, -8.601]],
+    [[-38.58, -8.61], [-38.581, -8.611]],
+  ];
+  assert.deepEqual(fromMultiLineStringWkt(toMultiLineStringWkt(linhas)), linhas);
+});
+
+test('texto que não é MULTILINESTRING vira lista vazia, e não exceção', () => {
+  // Quem chama abre um editor de mapa com o resultado. Uma exceção aqui
+  // derrubaria a tela; a lista vazia abre o desenho em branco.
+  assert.deepEqual(fromMultiLineStringWkt('POINT(-38.57 -8.6)'), []);
+  assert.deepEqual(fromMultiLineStringWkt(''), []);
+  assert.deepEqual(fromMultiLineStringWkt(null), []);
+});
+
+test('trecho de um ponto só é descartado na leitura', () => {
+  // Mesma regra da escrita: reta de um ponto não existe, e desenhá-la deixaria
+  // um vértice solto no editor sem linha nenhuma.
+  assert.deepEqual(fromMultiLineStringWkt('MULTILINESTRING((-38.57 -8.6))'), []);
+});
+
+test('o rascunho da sessão ganha do que está gravado', () => {
+  // `path` é o traçado do banco; `path_wkt` é o que acabou de ser desenhado e
+  // ainda não salvou. Reabrir o editor tem de mostrar o da tela.
+  const rua = {
+    path: { coordinates: [[[1, 2], [3, 4]]] },
+    path_wkt: 'MULTILINESTRING((-38.57 -8.6,-38.571 -8.601))',
+  };
+  assert.deepEqual(linhasDoTracado(rua), [[[-38.57, -8.6], [-38.571, -8.601]]]);
+});
+
+test('sem rascunho, lê o GeoJSON gravado', () => {
+  assert.deepEqual(
+    linhasDoTracado({ path: { coordinates: [[[1, 2], [3, 4]]] } }),
+    [[[1, 2], [3, 4]]]
+  );
+});
+
+test('rua sem traçado nenhum devolve lista vazia', () => {
+  assert.deepEqual(linhasDoTracado({}), []);
+  assert.deepEqual(linhasDoTracado(null), []);
+  assert.deepEqual(linhasDoTracado({ path: null }), []);
 });
 
 test('linha com um ponto só é descartada — não existe reta de um ponto', () => {

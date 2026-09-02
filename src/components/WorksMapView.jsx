@@ -2,8 +2,9 @@ import { MapBaseLayer, MAP_LAYER } from '@/components/map/MapDisplayControls';
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback } from 'react';
 import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
-import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck, LocateFixed, Layers } from 'lucide-react';
+import { HardHat, PauseCircle, CheckCircle, Calendar, X, CalendarClock, DollarSign, Building, Landmark, UserCheck, Info, FileText, Video, Camera, ListChecks, Newspaper, Clock, Loader2, Wrench, FileCheck, LocateFixed, Layers, Pencil } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from '@/components/ui/button';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -100,7 +101,10 @@ const FitToWorks = ({ works, activeCity }) => {
   return null;
 };
 
-const WorksMapView = forwardRef(({ works }, ref) => {
+// `mostrarLegenda`: a legenda flutuante é a da tela cheia do celular. Onde a
+// página já tem uma coluna com as situações e as cores — o mapa de obras em
+// desktop —, ela vira uma segunda cópia da mesma informação no mesmo lugar.
+const WorksMapView = forwardRef(({ works, mostrarLegenda = true, podeGerir = false }, ref) => {
   const [camada, setCamada] = useState(MAP_LAYER.STANDARD);
   const [selectedWork, setSelectedWork] = useState(null);
   const [workMedia, setWorkMedia] = useState([]);
@@ -336,7 +340,40 @@ const WorksMapView = forwardRef(({ works }, ref) => {
               },
             }}
           >
-            <Popup>{work.title}</Popup>
+            {/* O BALÃO ERA SÓ O TÍTULO
+                Clicar no pino já levava à página da obra, mas isso não estava
+                escrito em lugar nenhum — e quem administra tinha de sair para o
+                menu, achar "gerenciar" e procurar a obra na lista para corrigir
+                uma data. Os dois caminhos agora começam aqui. */}
+            <Popup>
+              <div className="min-w-[10rem] p-0.5">
+                <p className="text-sm font-bold leading-tight text-tc-red">{work.title}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-xs"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/obras-publicas/${work.id}`); }}
+                  >
+                    Detalhes
+                  </Button>
+                  {podeGerir && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 px-2 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // `editWorkId` é a porta que ManageWorksPage já lê para
+                        // abrir uma obra específica — não é uma convenção nova.
+                        navigate('/obras/gerenciar', { state: { editWorkId: work.id } });
+                      }}
+                    >
+                      <Pencil className="h-3 w-3" /> Editar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Popup>
           </Marker>
         ))}
       </MapContainer>
@@ -561,7 +598,7 @@ const WorksMapView = forwardRef(({ works }, ref) => {
         </div>
       </div>
 
-      {!isSingleWorkView && (
+      {!isSingleWorkView && mostrarLegenda && (
         <div className="absolute left-2 sm:left-4 bottom-2 sm:bottom-3 bg-card/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-border z-[700] max-w-[200px] pointer-events-auto">
           <h4 className="font-semibold text-sm mb-2.5">Legenda</h4>
           <div className="space-y-1.5 text-xs">

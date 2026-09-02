@@ -92,7 +92,10 @@ export function useCityEvent(eventId) {
   const carregar = useCallback(async () => {
     if (!eventId) return;
     setCarregando(true);
-    const { data, error } = await supabase.rpc('get_city_event', { p_event_id: eventId });
+    const [{ data, error }, { data: dadosDoLink }] = await Promise.all([
+      supabase.rpc('get_city_event', { p_event_id: eventId }),
+      supabase.from('city_events').select('source_button_label').eq('id', eventId).maybeSingle(),
+    ]);
     setCarregando(false);
 
     if (error) {
@@ -104,7 +107,7 @@ export function useCityEvent(eventId) {
       setNaoAchou(true);
       return;
     }
-    setEvento(data);
+    setEvento({ ...data, source_button_label: dadosDoLink?.source_button_label || null });
   }, [eventId]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -145,7 +148,7 @@ export function useCityEventActions({ aoConcluir } = {}) {
   const aoConcluirRef = useRef(aoConcluir);
   aoConcluirRef.current = aoConcluir;
 
-  const chamar = useCallback(async (rpc, args, mensagemOk) => {
+  const chamar = useCallback(async (rpc, args, mensagemOk, { finalizar = true } = {}) => {
     setSalvando(true);
     const { data, error } = await supabase.rpc(rpc, args);
     setSalvando(false);
@@ -154,10 +157,27 @@ export function useCityEventActions({ aoConcluir } = {}) {
       showAppError({ title: 'Não foi possível concluir', description: error.message });
       return null;
     }
-    if (mensagemOk) showAppNotice({ title: mensagemOk });
-    await aoConcluirRef.current?.();
+    if (finalizar) {
+      if (mensagemOk) showAppNotice({ title: mensagemOk });
+      await aoConcluirRef.current?.();
+    }
     return data ?? true;
   }, []);
+
+  const salvarTextoDoBotao = async (eventId, texto) => {
+    setSalvando(true);
+    const { error } = await supabase
+      .from('city_events')
+      .update({ source_button_label: String(texto || '').trim() || null })
+      .eq('id', eventId);
+    setSalvando(false);
+
+    if (error) {
+      showAppError({ title: 'O alerta foi salvo, mas o texto do botão não', description: error.message });
+      return false;
+    }
+    return true;
+  };
 
   /**
    * Envia a foto, se houver, e devolve `{ url, path }` — ou `null`.
@@ -212,10 +232,15 @@ export function useCityEventActions({ aoConcluir } = {}) {
         p_image_url: imagem?.url || null,
         p_image_path: imagem?.path || null,
         p_estimated_end_day_only: Boolean(dados.estimatedEndDayOnly),
-      }, dados.status === 'draft' ? 'Rascunho salvo.' : 'Acontecimento publicado.');
+      }, null, { finalizar: false });
 
       // A gravação falhou depois do upload: o objeto não pertence a nada.
       if (!id && imagem?.path) await removerImagemDeAcontecimento(supabase, imagem.path);
+      if (id) {
+        await salvarTextoDoBotao(id, dados.sourceButtonLabel);
+        showAppNotice({ title: dados.status === 'draft' ? 'Rascunho salvo.' : 'Acontecimento publicado.' });
+        await aoConcluirRef.current?.();
+      }
       return id;
     },
 
@@ -238,7 +263,7 @@ export function useCityEventActions({ aoConcluir } = {}) {
         p_image_path: imagem?.path || null,
         p_limpar_imagem: Boolean(dados.limparImagem),
         p_estimated_end_day_only: dados.estimatedEndDayOnly ?? null,
-      }, 'Acontecimento atualizado.');
+      }, null, { finalizar: false });
 
       if (!ok) {
         if (imagem?.path) await removerImagemDeAcontecimento(supabase, imagem.path);
@@ -247,6 +272,10 @@ export function useCityEventActions({ aoConcluir } = {}) {
 
       // A foto antiga só sai DEPOIS de a nova estar gravada. Apagar antes
       // deixaria o acontecimento sem imagem nenhuma se a gravação falhasse.
+      await salvarTextoDoBotao(eventId, dados.sourceButtonLabel);
+      showAppNotice({ title: 'Acontecimento atualizado.' });
+      await aoConcluirRef.current?.();
+
       const trocouOuLimpou = Boolean(imagem?.path) || dados.limparImagem;
       if (trocouOuLimpou && dados.imagemAnterior && dados.imagemAnterior !== imagem?.path) {
         await removerImagemDeAcontecimento(supabase, dados.imagemAnterior);
@@ -282,6 +311,43 @@ export function useCityEventActions({ aoConcluir } = {}) {
 
     confirmar: (eventId, status) =>
       chamar('confirm_city_event', { p_event_id: eventId, p_status: status }, 'Obrigado por responder.'),
+
+    /**
+     * REMOVER NÃO É CANCELAR — e a diferença é o silêncio.
+     *
+     * `cancelar` avisa quem foi avisado, e tem de avisar: um alerta de falta
+     * de água que some calado deixa a cidade achando que a falta continua.
+     *
+     * Remover é para o aviso que nunca deveria ter existido — o teste que
+     * escapou, a duplicata, a cidade errada. Notificar o cancelamento de uma
+     * coisa que a pessoa nunca soube que existia é criar o susto que a remoção
+     * está tentando desfazer.
+     *
+     * Não passa pelo `chamar` porque o desfecho é outro: não há o que
+     * recarregar depois — quem chamou está olhando para uma linha que deixou de
+     * existir, e é quem chamou que decide para onde ir.
+     */
+    remover: async (eventId) => {
+      setSalvando(true);
+      const { data, error } = await supabase.rpc('delete_city_event', { p_event_id: eventId });
+      setSalvando(false);
+
+      if (error) {
+        showAppError({ title: 'Não foi possível remover', description: error.message });
+        return false;
+      }
+
+      // A foto não sai junto: o Storage não tem gatilho de banco, e por isso a
+      // RPC devolve o caminho dela em vez de `void`. Falhar aqui não desfaz a
+      // remoção — o aviso já não existe, e um arquivo órfão é o menor dos dois.
+      if (data) await removerImagemDeAcontecimento(supabase, data);
+
+      showAppNotice({
+        title: 'Acontecimento removido',
+        description: 'Ninguém foi notificado.',
+      });
+      return true;
+    },
   };
 }
 

@@ -18,6 +18,7 @@ import { PRECISAO_PREVISAO, TIPOS, instanteDaPrevisao, precisaoDoEvento, tipoDe 
 import { IconeDoAcontecimento } from '@/components/agora/CityEventVisuals';
 import CityEventImageField from '@/components/agora/CityEventImageField';
 import { useNativeCamera } from '@/hooks/useNativeCamera';
+import { normalizarLinkExterno, textoDoBotaoExterno } from '@/lib/externalLinks';
 
 // "Nova ocorrência" — a tela de criar e editar um acontecimento.
 //
@@ -252,6 +253,8 @@ const CityEventForm = ({
   const [horaPrevisao, setHoraPrevisao] = useState(previsaoInicial.hora);
   const [description, setDescription] = useState(evento?.description || '');
   const [sourceName, setSourceName] = useState(evento?.source_name || '');
+  const [sourceUrl, setSourceUrl] = useState(evento?.source_url || '');
+  const [sourceButtonLabel, setSourceButtonLabel] = useState(evento?.source_button_label || '');
   const [notify, setNotify] = useState(true);
   // A foto que ja esta gravada. `null` depois que a pessoa toca no X — e o
   // que diz a diferenca entre 'nao mexi' e 'quero tirar' na hora de salvar.
@@ -305,6 +308,10 @@ const CityEventForm = ({
       estimatedEndDayOnly: previsao.soDia,
       description: description.trim() || null,
       sourceName: sourceName.trim() || null,
+      // String vazia na edição é intencional: a RPC usa `null` como "não
+      // altere", então `''` é o valor que permite remover um link antigo.
+      sourceUrl: sourceUrl.trim() ? normalizarLinkExterno(sourceUrl) : (editando ? '' : null),
+      sourceButtonLabel: sourceButtonLabel.trim() || null,
       notify,
       status,
       // Quem faz o upload é quem salva (o hook de ações), não o formulário:
@@ -317,7 +324,8 @@ const CityEventForm = ({
     });
   };
 
-  const podeEnviar = areas.length > 0 && title.trim().length > 0 && !salvando;
+  const linkInvalido = sourceUrl.trim().length > 0 && !normalizarLinkExterno(sourceUrl);
+  const podeEnviar = areas.length > 0 && title.trim().length > 0 && !linkInvalido && !salvando;
 
   return (
     <div className="space-y-5">
@@ -497,6 +505,38 @@ const CityEventForm = ({
       <Campo label="Fonte" dica="Quem informou: Compesa, Celpe, Defesa Civil, Prefeitura.">
         <Input value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="Compesa" maxLength={80} />
       </Campo>
+
+      <Campo
+        label="Link externo (opcional)"
+        dica="Cole o canal do YouTube, uma publicação, o site do órgão ou outra página com mais informações."
+      >
+        <Input
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+          placeholder="https://youtube.com/@canal"
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          aria-invalid={linkInvalido}
+        />
+        {linkInvalido && (
+          <p className="text-xs font-semibold text-danger">Informe um link válido de site, começando ou não com https://.</p>
+        )}
+      </Campo>
+
+      {sourceUrl.trim() && !linkInvalido && (
+        <Campo
+          label="Texto do botão (opcional)"
+          dica={`Se ficar vazio, aparecerá “${textoDoBotaoExterno('', sourceUrl)}”.`}
+        >
+          <Input
+            value={sourceButtonLabel}
+            onChange={(e) => setSourceButtonLabel(e.target.value)}
+            placeholder={textoDoBotaoExterno('', sourceUrl)}
+            maxLength={80}
+          />
+        </Campo>
+      )}
 
       <CityEventImageField
         cam={cam}

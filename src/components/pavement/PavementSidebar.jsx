@@ -31,6 +31,12 @@ const SELETORES = [
   // Separado da lei de propósito: são dois documentos, e a rua que tem um e não
   // o outro é justamente a que interessa cobrar da Câmara.
   { id: 'projeto', rotulo: 'Projeto de lei', vazio: 'Todos', opcoes: [['com', 'Com projeto de lei'], ['sem', 'Sem projeto de lei']] },
+  // A rua sem nome oficial é a pergunta de quem monta projeto de lei de
+  // denominação. O contador do cabeçalho já dizia QUANTAS são, mas só abria uma
+  // lista solta. Como filtro, ela cruza com bairro, situação e CEP — e "as ruas
+  // sem nome do Parque das Acácias que ainda não têm pavimentação" passa a ser
+  // uma consulta, em vez de uma conferência manual.
+  { id: 'nome', rotulo: 'Nome oficial', vazio: 'Todas', opcoes: [['com', 'Com nome oficial'], ['sem', 'Sem nome oficial']] },
 ];
 
 const Titulo = ({ children, acao = null }) => (

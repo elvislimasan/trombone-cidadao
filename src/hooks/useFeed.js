@@ -94,6 +94,7 @@ export function useFeed(tab = 'recent', cityId = null, userCoords = null) {
           id, title, description, status, created_at, address,
           category_id, is_recurrent, author_id, views, is_anonymous,
           category:categories(name, icon),
+          city:cities(name, states(uf)),
           upvotes:signatures(count),
           comments_count:comments(count),
           report_media(url, type),
