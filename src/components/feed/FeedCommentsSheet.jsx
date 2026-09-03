@@ -44,10 +44,19 @@ const Avatar = ({ name, url }) => {
  * Abre so quando `open` vira true — a consulta e disparada pelo `enabled` do
  * hook, entao um feed com 10 cards nao faz 10 requisicoes de comentarios.
  */
-const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountChange }) => {
+const FeedCommentsSheet = ({
+  open,
+  onOpenChange,
+  reportId,
+  reportTitle,
+  onCountChange,
+  inlineOnDesktop = false,
+  focusRequest = 0,
+}) => {
   const { user } = useAuth();
   const [text, setText] = useState('');
   const listEndRef = useRef(null);
+  const inlineInputRef = useRef(null);
 
   const { comments, loading, error, submit, submitting, publicCount, canModerate, moderate, moderatingId, denunciar, excluir } =
     useReportComments(reportId, { enabled: open });
@@ -57,13 +66,21 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
     if (open && !loading) onCountChange?.(publicCount);
   }, [open, loading, publicCount, onCountChange]);
 
-  const handleSubmit = async (e) => {
+  useEffect(() => {
+    if (!inlineOnDesktop || !focusRequest) return;
+    inlineInputRef.current?.focus();
+  }, [focusRequest, inlineOnDesktop]);
+
+  const handleSubmit = async (e, inline = false) => {
     e.preventDefault();
     if (!text.trim() || submitting) return;
 
     const result = await submit(text);
     if (result.ok) {
       setText('');
+      if (inline) {
+        onCountChange?.((count) => Number(count || 0) + 1);
+      }
       // Sem toast, nem para o mascaramento: o comentário aparece na lista com os
       // asteriscos à vista, e a rolagem abaixo leva o olho até ele. Um aviso
       // dizendo o que já está escrito na tela é ruído.
@@ -127,7 +144,43 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
   };
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <>
+      {inlineOnDesktop && (
+        user ? (
+          <form
+            onSubmit={(event) => handleSubmit(event, true)}
+            className="mt-3 hidden items-center gap-2 border-t border-edge-subtle pt-3 lg:flex"
+          >
+            <input
+              ref={inlineInputRef}
+              type="text"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder="Adicione seu comentário..."
+              maxLength={1000}
+              className="min-w-0 flex-1 rounded-full bg-surface-sunken px-4 py-2.5 text-sm text-content-primary placeholder:text-content-tertiary focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            <button
+              type="submit"
+              disabled={!text.trim() || submitting}
+              aria-label="Enviar comentário"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand text-content-onBrand transition-opacity disabled:opacity-40"
+            >
+              {submitting ? <TromboneSpinner size={16} /> : <Send size={16} />}
+            </button>
+          </form>
+        ) : (
+          <Link
+            to="/login"
+            state={{ from: { pathname: '/feed' } }}
+            className="mt-3 hidden rounded-full border border-edge-subtle bg-surface-sunken px-4 py-2.5 text-sm text-content-tertiary hover:border-brand/40 hover:text-brand lg:block"
+          >
+            Entre para comentar
+          </Link>
+        )
+      )}
+
+      <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[80vh]">
         <DrawerHeader className="border-b border-edge-subtle pb-3">
           <DrawerTitle className="text-base">
@@ -315,7 +368,8 @@ const FeedCommentsSheet = ({ open, onOpenChange, reportId, reportTitle, onCountC
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Drawer>
+      </Drawer>
+    </>
   );
 };
 

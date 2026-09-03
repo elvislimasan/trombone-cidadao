@@ -43,6 +43,12 @@ const Footer = () => {
     color: footerSettings.colors.link,
   };
 
+  // Configuracoes antigas podem continuar salvas no banco. O destino da rota
+  // e a fonte confiavel para manter a nomenclatura publica atualizada.
+  const nomeDoLink = (link) => (
+    link.path === '/mapa-pavimentacao' ? 'Mapa de Ruas' : link.name
+  );
+
   const renderSocialIcon = (platform, url) => {
     const Icon = LucideIcons[platform] || LucideIcons.Link;
     return (
@@ -93,7 +99,7 @@ const Footer = () => {
                   {column.links.map((link, linkIndex) => (
                     link.isVisible && (
                       <li key={linkIndex}>
-                        <Link to={link.path} style={linkStyle} className="hover:underline">{link.name}</Link>
+                        <Link to={link.path} style={linkStyle} className="hover:underline">{nomeDoLink(link)}</Link>
                       </li>
                     )
                   ))}

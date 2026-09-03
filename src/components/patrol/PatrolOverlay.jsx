@@ -79,6 +79,9 @@ export default function PatrolOverlay({
   onBroncas,
   onRastro,
   onMissoes,
+  onCidade,
+  destinoSelecionado = null,
+  onCancelarDestino,
   categoria = null,
   modoDeslocamento = 'driving',
   cityId: cidadeDoMapa,
@@ -207,6 +210,10 @@ export default function PatrolOverlay({
   // primeiro reverse-geocode responder.
   const cityId = cidadeId ?? cidadeDoMapa ?? null;
 
+  const onCidadeRef = useRef(onCidade);
+  useEffect(() => { onCidadeRef.current = onCidade; }, [onCidade]);
+  useEffect(() => { onCidadeRef.current?.(cityId); }, [cityId]);
+
   const {
     rastro, distanciaM, contagens, salvando, duracaoAgora,
     registrarPassagem, registrarConfirmacao, registrarBronca, registrarSinal,
@@ -307,10 +314,14 @@ export default function PatrolOverlay({
    */
   const [sinaisDaSessao, setSinaisDaSessao] = useState([]);
 
-  const missoesDaSessao = useMemo(
-    () => sinais.missoes.filter((m) => sinaisDaSessao.includes(m.id)),
-    [sinais.missoes, sinaisDaSessao]
-  );
+  const missoesDaSessao = useMemo(() => {
+    // Mantém os sinais feitos nesta sessão e acrescenta o sinal aberto mais
+    // próximo. Assim há sempre um alvo útil para tocar, sem cobrir o mapa com
+    // as dezenas de missões carregadas no raio de busca.
+    const visiveis = sinais.missoes.filter((m) => sinaisDaSessao.includes(m.id));
+    if (alvo && !visiveis.some((m) => m.id === alvo.id)) visiveis.unshift(alvo);
+    return visiveis;
+  }, [sinais.missoes, sinaisDaSessao, alvo]);
 
   // O `sinalizar` insere o ponto na lista local antes de qualquer resposta do
   // servidor, então o pin aparece no toque, não no round-trip.
@@ -881,11 +892,13 @@ export default function PatrolOverlay({
         modoDeslocamento={modo.id}
         emMovimento={Boolean(posicao?.emMovimento)}
         categoriaNome={nomeDaCategoria(categoria)}
+        destinoSelecionado={destinoSelecionado}
+        onCancelarDestino={onCancelarDestino}
         // Só na camada livre: durante um alerta a pessoa está respondendo sobre
         // UM ponto, e apontar para outro ao mesmo tempo divide a atenção de
         // quem provavelmente está dirigindo.
         alvo={
-          camada === 'livre' ? (
+          camada === 'livre' && !destinoSelecionado ? (
             <PatrolAlvoPointer
               alvo={alvo}
               rumo={rumoRelativo(posicao, alvo)}

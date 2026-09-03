@@ -1,4 +1,4 @@
-import { X, SatelliteDish, WifiOff, ListChecks, Square, Volume2, VolumeX, CloudOff, Loader2, DatabaseBackup } from 'lucide-react';
+import { X, Navigation, SatelliteDish, WifiOff, ListChecks, Square, Volume2, VolumeX, CloudOff, Loader2, DatabaseBackup } from 'lucide-react';
 import { PatrolTravelModeIcon } from './PatrolTravelModePicker';
 import { getPatrolTravelMode } from '@/lib/patrolTravelMode';
 
@@ -58,6 +58,8 @@ export default function PatrolHud({
   // A bussola do proximo sinal. Entra na faixa dos avisos porque INFORMA — o
   // rodape e de quem age, e esta faixa nunca pede toque.
   alvo = null,
+  destinoSelecionado = null,
+  onCancelarDestino,
 }) {
   // A reserva vence o "sem rede" na hora de avisar: as duas coisas são
   // verdade ao mesmo tempo, mas só uma diz o que está acontecendo com os
@@ -101,16 +103,55 @@ export default function PatrolHud({
           </button>
         </div>
 
-        <div className="mx-3 mt-2 flex flex-wrap items-center gap-2">
-          {alvo}
-          {aviso && (
-            <div className="flex items-center gap-2 rounded-xl bg-status-pendingBg border border-status-pendingBorder px-3 py-2 pointer-events-auto">
-              <aviso.Icon size={15} className="text-status-pendingFg shrink-0" />
-              <span className="text-xs font-semibold text-status-pendingFg">
-                {aviso.texto}
+        <div className="mx-3 mt-2 space-y-2">
+          {destinoSelecionado && (
+            <div className="flex w-full items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-overlay/95 px-3 py-2.5 shadow-lg backdrop-blur-sm pointer-events-auto">
+              <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-brand text-content-onBrand">
+                <Navigation size={18} aria-hidden="true" />
               </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-bold uppercase leading-none tracking-wider text-brand">
+                  {destinoSelecionado.tipo === 'sinal' ? 'Sinal selecionado' : 'Destino selecionado'}
+                </span>
+                <span className="mt-1 block truncate text-sm font-bold leading-tight text-content-primary">
+                  {destinoSelecionado.nome}
+                </span>
+                <span className="mt-0.5 block truncate text-[10px] leading-tight text-content-tertiary">
+                  {destinoSelecionado.calculando
+                    ? 'Calculando rota…'
+                    : destinoSelecionado.pelasRuas
+                      ? 'Seguindo as ruas mapeadas'
+                      : 'Sem rua conectada neste trecho'}
+                </span>
+              </span>
+              {Number.isFinite(destinoSelecionado.distancia) && (
+                <span className="flex-none text-right text-sm font-extrabold tabular-nums text-content-primary">
+                  {destinoSelecionado.distancia >= 1000
+                    ? `${(destinoSelecionado.distancia / 1000).toFixed(1)} km`
+                    : `${Math.round(destinoSelecionado.distancia)} m`}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={onCancelarDestino}
+                className="grid h-9 w-9 flex-none place-items-center rounded-full text-content-secondary active:bg-surface-subtleHover"
+                aria-label="Cancelar rota"
+              >
+                <X size={17} />
+              </button>
             </div>
           )}
+
+          {alvo}
+          <div className="flex flex-wrap items-center gap-2">
+            {aviso && (
+              <div className="flex items-center gap-2 rounded-xl bg-status-pendingBg border border-status-pendingBorder px-3 py-2 pointer-events-auto">
+                <aviso.Icon size={15} className="text-status-pendingFg shrink-0" />
+                <span className="text-xs font-semibold text-status-pendingFg">
+                  {aviso.texto}
+                </span>
+              </div>
+            )}
 
           {/* O QUE AINDA NÃO SUBIU.
               Sem este contador, uma patrulha inteira sem sinal parece ter dado
@@ -139,6 +180,7 @@ export default function PatrolHud({
               </span>
             </div>
           )}
+          </div>
         </div>
       </div>
 

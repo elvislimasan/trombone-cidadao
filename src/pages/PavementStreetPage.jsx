@@ -3,10 +3,11 @@ import { Helmet } from 'react-helmet';
 import { Link, useParams } from 'react-router-dom';
 import { compartilharLink } from '@/lib/shareLink';
 import { getStreetShareUrl } from '@/lib/shareUtils';
+import { baixarPlacaDaRua } from '@/lib/streetSignPdf';
+import { linhasDoTracado } from '@/lib/streetGeometry';
 import { CircleMarker, MapContainer } from 'react-leaflet';
 import {
   BookOpen,
-  Calendar,
   ChevronDown,
   ChevronRight,
   Download,
@@ -14,6 +15,7 @@ import {
   HardHat,
   HelpCircle,
   Image as ImageIcon,
+  Info,
   Loader2,
   MapPin,
   Megaphone,
@@ -64,6 +66,24 @@ import {
 // documento": mostra as seções que ela tem. A página é montada a partir do que
 // existe, porque um cartão vazio é pior do que um cartão a menos — ele promete
 // conteúdo que nunca vai chegar ali.
+//
+// E É POR ISSO QUE A PÁGINA TEM UMA COLUNA DE LEITURA, E NÃO UMA GRADE
+//
+// A versão anterior espalhava os cartões em três arranjos diferentes: uma grade
+// de duas colunas para biografia e mapa, uma faixa `auto-fit` para os quatro
+// cartões auxiliares, e a atividade em largura inteira. Com o cadastro completo
+// aquilo se fechava; com o cadastro real, não. O mapa tinha 34rem de altura ao
+// lado de uma biografia de 12rem e deixava meia tela em branco; a faixa
+// `auto-fit` punha lado a lado um cartão de duas coordenadas e uma galeria de
+// fotos, cada um terminando numa altura diferente.
+//
+// A regra agora é uma só: TUDO O QUE SE LÊ DESCE NUMA COLUNA, na ordem de
+// importância, e a lateral guarda a FICHA — os dados de consulta (CEP, situação,
+// obra, coordenadas, atualização) que antes disputavam o topo como pastilhas
+// soltas. A coluna de leitura tem sempre um piso ("Broncas e obras" existe para
+// qualquer rua), então ela nunca é mais curta que a lateral. E cada bloco
+// opcional é filho DIRETO da grade, sem `div` de embrulho: assim o `gap` some
+// junto com o bloco, em vez de virar buraco.
 
 const parseLocation = (location) => {
   if (!location) return null;
@@ -113,76 +133,27 @@ const BotaoVerTodas = ({ aberto, onClick, rotulo = 'Ver todas' }) => (
 );
 
 /**
- * Texto longo com "Ver mais".
+ * O texto longo da rua — biografia e curiosidades.
  *
- * O corte é por LINHAS (line-clamp), não por número de caracteres: cortar em
- * "350 caracteres" produz uma altura diferente em cada aparelho e deixa meia
- * linha órfã. E o botão só aparece quando o texto realmente transbordou —
- * medido no elemento, não estimado — senão ruas com biografia de duas linhas
- * ganhavam um "Ver mais" que não revelava nada.
+ * SEM CORTE E SEM "VER MAIS"
+ *
+ * Ele já foi cortado em quatro linhas, com um botão que media o transbordo do
+ * elemento a cada redimensionamento para decidir se aparecia. Duas coisas
+ * estavam erradas nisso. A primeira é de conteúdo: a biografia do homenageado é
+ * o motivo pelo qual esta página existe — escondê-la atrás de um clique é
+ * esconder justamente o que a pessoa veio ler, para poupar uma rolagem que ela
+ * faria de qualquer jeito. A segunda é de layout: um bloco que muda de altura
+ * ao ser aberto empurra tudo o que vem abaixo, e numa página montada por
+ * blocos opcionais isso significa a tela inteira dançando a cada toque.
+ *
+ * `whitespace-pre-line` preserva os parágrafos que quem cadastrou escreveu; a
+ * largura de leitura é limitada por quem chama, e não aqui.
  */
-// As classes ficam escritas por extenso porque `line-clamp-${n}` não sobrevive
-// à varredura do Tailwind nem deixa claro quais valores existem de fato — o
-// index.css só define de 1 a 4.
-const CORTE = {
-  2: 'line-clamp-2',
-  3: 'line-clamp-3',
-  4: 'line-clamp-4',
-};
-
-const TextoExpansivel = ({ texto, linhas = 4 }) => {
-  const [aberto, setAberto] = useState(false);
-  const [transbordou, setTransbordou] = useState(false);
-  const ref = useRef(null);
-
-  // A MEDIÇÃO SÓ ACONTECE COM O TEXTO CORTADO, E SEMPRE NO QUADRO SEGUINTE
-  //
-  // Medir de dentro de um ResizeObserver e mudar estado no mesmo quadro é o
-  // caminho curto para o laço: a mudança altera a altura do cartão, o navegador
-  // reflui, o observador dispara de novo, e a página fica subindo e descendo
-  // sozinha. O `requestAnimationFrame` tira a escrita do meio do cálculo de
-  // layout, e desligar a medição enquanto o texto está ABERTO fecha o laço de
-  // vez — aberto não há transbordo a descobrir: o botão aparece porque a pessoa
-  // acabou de abrir.
-  useEffect(() => {
-    const elemento = ref.current;
-    if (!elemento || aberto) return undefined;
-
-    let quadro = 0;
-    const medir = () => {
-      cancelAnimationFrame(quadro);
-      quadro = requestAnimationFrame(() => {
-        if (ref.current) setTransbordou(ref.current.scrollHeight > ref.current.clientHeight + 1);
-      });
-    };
-    medir();
-
-    const observador = typeof ResizeObserver === 'function' ? new ResizeObserver(medir) : null;
-    observador?.observe(elemento);
-    return () => { cancelAnimationFrame(quadro); observador?.disconnect(); };
-  }, [texto, linhas, aberto]);
-
-  return (
-    <div>
-      <p
-        ref={ref}
-        className={`whitespace-pre-line text-[0.95rem] leading-relaxed text-content-secondary ${aberto ? '' : (CORTE[linhas] || CORTE[4])}`}
-      >
-        {texto}
-      </p>
-      {(transbordou || aberto) && (
-        <button
-          type="button"
-          onClick={() => setAberto((valor) => !valor)}
-          className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-brand"
-        >
-          {aberto ? 'Ver menos' : 'Ver mais'}
-          <ChevronDown className={`h-4 w-4 transition-transform ${aberto ? 'rotate-180' : ''}`} />
-        </button>
-      )}
-    </div>
-  );
-};
+const TextoDaRua = ({ texto }) => (
+  <p className="whitespace-pre-line text-[0.95rem] leading-relaxed text-content-secondary">
+    {texto}
+  </p>
+);
 
 /* --- Imagens --- */
 
@@ -291,28 +262,41 @@ const GradeFotos = ({ fotos, nomeDaRua, onAbrir }) => (
 
 /* --- Documentos --- */
 
+// O TÍTULO DO DOCUMENTO COSTUMA SER UM NOME DE ARQUIVO
+//
+// O formulário preenche o título com o nome do arquivo escolhido, e nome de
+// arquivo não tem espaço: "prancha_projeto_11125_rev_28_unifilar" é UMA palavra
+// de 37 caracteres para o navegador. Numa linha de `flex`, essa palavra empurra
+// o resto — o selo do formato e o botão de baixar saíam para fora do cartão e
+// eram cortados pela borda.
+//
+// `break-words` quebra a palavra só quando ela não cabe (título normal continua
+// quebrando por espaço), e `line-clamp-2` põe teto de duas linhas para um nome
+// gigante não empurrar a lista toda. O selo do formato desceu para a segunda
+// linha, junto do subtítulo: como item fixo na linha principal, ele disputava
+// largura com o nome e ainda sumia abaixo de 640px (`hidden sm:block`).
 const LinhaDocumento = ({ documento }) => {
   const selo = [documento.type, documento.size].filter(Boolean).join(' • ');
+  const segundaLinha = [documento.description, selo].filter(Boolean).join(' · ');
 
   return (
     <a
       href={documento.url}
       target="_blank"
       rel="noreferrer"
-      className="flex items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-sunken p-3 transition-colors hover:border-brand"
+      className="flex w-full min-w-0 items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-sunken p-3 transition-colors hover:border-brand"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
         <FileText className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-content-primary">
+        <span className="line-clamp-2 break-words text-sm font-bold text-content-primary">
           {documento.title || 'Documento'}
         </span>
-        {documento.description && (
-          <span className="mt-0.5 block truncate text-xs text-content-tertiary">{documento.description}</span>
+        {segundaLinha && (
+          <span className="mt-0.5 block truncate text-xs text-content-tertiary">{segundaLinha}</span>
         )}
       </span>
-      {selo && <span className="hidden shrink-0 text-xs font-semibold text-content-tertiary sm:block">{selo}</span>}
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-edge-subtle text-content-secondary">
         <Download className="h-4 w-4" />
       </span>
@@ -329,6 +313,23 @@ const paraOVisor = (fotos) => fotos.map((foto) => ({
   description: foto.caption,
   name: formatarDataBr(foto.date),
 }));
+
+/* --- A ficha --- */
+
+// UMA LINHA DA FICHA: RÓTULO À ESQUERDA, VALOR À DIREITA
+//
+// Estes dados estavam todos como pastilhas no topo — cidade, pavimento, data,
+// obra, CEP, coordenadas —, e ali eles competiam com o nome da rua e entre si:
+// oito pastilhas do mesmo tamanho não têm hierarquia nenhuma, e as duas que
+// carregavam AÇÃO ("Baixar placa") pareciam iguais às seis que só informavam.
+// Como ficha, cada dado ganha rótulo, o valor fica alinhado numa coluna só, e a
+// ação vira botão de verdade.
+const LinhaDaFicha = ({ rotulo, children }) => (
+  <div className="flex items-baseline justify-between gap-4 py-2.5">
+    <dt className="shrink-0 text-xs font-semibold text-content-tertiary">{rotulo}</dt>
+    <dd className="min-w-0 text-right text-sm font-semibold text-content-primary">{children}</dd>
+  </div>
+);
 
 /* --- A página --- */
 
@@ -348,6 +349,7 @@ export default function PavementStreetPage() {
   // Nome do bairro de cada CEP, por id. Consulta propria porque o `select` da
   // rua so traz o bairro DELA, e um CEP pode apontar para outro.
   const [bairroDoCep, setBairroDoCep] = useState({});
+  const [baixandoPlaca, setBaixandoPlaca] = useState(null);
 
   const { canManage, isPureAmbassador, myActiveCityIds } = useCanManagePavement(street?.city_id);
   // Minha Rua: o que esta acontecendo na regiao agora. A rua nunca guarda
@@ -445,6 +447,16 @@ export default function PavementStreetPage() {
   const nomeDoHomenageadoRepete = nomeRedundante(street?.name, honoreeName);
   const pavementStatus = statusLabel(street);
   const atualizadoEm = formatarDataBr(street?.updated_at);
+  const extremos = useMemo(() => {
+    const linhas = linhasDoTracado(street);
+    const pontos = linhas.flat();
+    if (pontos.length >= 2) {
+      const [inicioLng, inicioLat] = pontos[0];
+      const [fimLng, fimLat] = pontos[pontos.length - 1];
+      return { inicio: { lat: inicioLat, lng: inicioLng }, fim: { lat: fimLat, lng: fimLng } };
+    }
+    return street?.location ? { inicio: street.location, fim: street.location } : null;
+  }, [street]);
 
   // O BAIRRO APARECE UMA VEZ SÓ
   //
@@ -468,6 +480,23 @@ export default function PavementStreetPage() {
 
   const documentosVisiveis = todosOsDocumentos ? documentos : documentos.slice(0, DOCUMENTOS_VISIVEIS);
 
+  const baixarPlaca = async (cep) => {
+    setBaixandoPlaca(cep);
+    try {
+      await baixarPlacaDaRua({
+        nome: street.name,
+        cep,
+        bairro: bairroDoCep[ceps.find((item) => item.cep === cep)?.bairroId] || bairroName,
+        cidade: [localidade?.nome, localidade?.uf].filter(Boolean).join(' - '),
+        url: getStreetShareUrl(street),
+      });
+    } catch (error) {
+      showAppError({ title: 'Não foi possível gerar a placa', description: error.message });
+    } finally {
+      setBaixandoPlaca(null);
+    }
+  };
+
   if (loading) {
     return <div className="min-h-[55vh] flex items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-brand" /></div>;
   }
@@ -481,6 +510,274 @@ export default function PavementStreetPage() {
     );
   }
 
+  // O QUE CADA COLUNA TEM PARA MOSTRAR
+  //
+  // A coluna estreita é de CONSULTA: onde a rua fica e a ficha dela. A larga é
+  // de LEITURA: o que alguém escreveu ou fotografou sobre a rua, mais a
+  // atividade. Nenhuma das duas tem estado vazio — quando não há o que pôr numa
+  // delas, ela simplesmente não existe.
+  const temReferenciaGeografica = Boolean(street.is_unnamed && extremos);
+  const temFicha = Boolean(
+    local || pavementStatus || street.paving_date || street.work_id ||
+    ceps.length > 0 || temReferenciaGeografica || atualizadoEm
+  );
+  const temHistoria = Boolean(honoreeName || biography || fotoDoHomenageado);
+  const temConsulta = Boolean(street.location) || temFicha;
+
+  // DUAS COLUNAS SÓ QUANDO A LARGA TEM CORPO PARA SUSTENTÁ-LAS
+  //
+  // "Broncas e obras" sozinho tem uns 350px; o mapa mais a ficha passam de 700.
+  // Numa rua sem biografia, sem foto e sem documento — que é a maioria — abrir
+  // duas colunas produziria o mesmo buraco de antes, só que espelhado: meia tela
+  // em branco à ESQUERDA. Sem esse corpo, tudo desce numa coluna só, e aí não
+  // existe coluna curta ao lado de coluna comprida.
+  const emDuasColunas = temConsulta && (temHistoria || fotosDaRua.length > 0 || documentos.length > 0);
+
+  // ── A COLUNA DE CONSULTA ──
+  const consulta = (
+    <>
+      {/* ONDE FICA
+          O mapa é pequeno e fica na lateral, junto da ficha: ele responde "é
+          esta rua mesmo?" e "por onde eu chego?" — duas perguntas de relance.
+          Ele já ocupou 34rem de altura numa coluna própria, e o preço era a
+          página inteira ser tão alta quanto ele.
+          "Traçar rota" parte da coordenada cadastrada, e é por isso que funciona
+          para rua que mapa comercial ainda não conhece. */}
+      {street.location && (
+        <Cartao
+          icone={Navigation}
+          titulo="Onde fica"
+          acao={routeUrl && (
+            <Button asChild size="sm" className="h-8 shrink-0 gap-1.5 rounded-full px-3 text-xs font-bold">
+              <a href={routeUrl} target="_blank" rel="noreferrer">
+                <Navigation className="h-3.5 w-3.5" /> Traçar rota
+              </a>
+            </Button>
+          )}
+        >
+          <div className="h-56 w-full sm:h-64">
+            <MapContainer
+              center={[street.location.lat, street.location.lng]}
+              zoom={16}
+              scrollWheelZoom={false}
+              className="h-full w-full"
+            >
+              <MapBaseLayer />
+              <CircleMarker
+                center={[street.location.lat, street.location.lng]}
+                radius={9}
+                pathOptions={{ color: '#fff', weight: 3, fillColor: '#dc2626', fillOpacity: 1 }}
+              />
+            </MapContainer>
+          </div>
+
+          {/* A ressalva vem DEPOIS do mapa: antes dele, ela era a primeira coisa
+              lida num cartão cujo assunto é a imagem. */}
+          <p className="px-4 py-3 text-xs leading-relaxed text-content-tertiary sm:px-5">
+            A rota usa a coordenada cadastrada, mesmo que a rua ainda não conste
+            nos mapas comerciais.
+          </p>
+        </Cartao>
+      )}
+
+      {temFicha && (
+        <Cartao icone={Info} titulo="Ficha da rua">
+          <dl className="divide-y divide-edge-subtle px-4 pb-4 sm:px-5">
+            {local && <LinhaDaFicha rotulo="Onde fica">{local}</LinhaDaFicha>}
+
+            {pavementStatus && (
+              <LinhaDaFicha rotulo="Pavimentação">{pavementStatus}</LinhaDaFicha>
+            )}
+
+            {street.paving_date && (
+              <LinhaDaFicha rotulo="Pavimentada em">{formatarDataBr(street.paving_date)}</LinhaDaFicha>
+            )}
+
+            {street.work_id && (
+              <LinhaDaFicha rotulo="Obra">
+                <Link
+                  to={`/obras-publicas/${street.work_id}`}
+                  className="inline-flex items-center gap-1.5 font-bold text-brand hover:underline"
+                >
+                  <HardHat className="h-3.5 w-3.5" /> Ver obra vinculada
+                </Link>
+              </LinhaDaFicha>
+            )}
+
+            {/* CADA CEP DIZ A QUE TRECHO PERTENCE.
+                Uma rua comprida atravessa bairro, e o cadastro já guarda o
+                bairro de cada faixa — a tela é que mostrava só o número. Numa
+                rua com dois CEPs em dois bairros, o chip sem o nome do bairro
+                fazia parecer que a rua tinha dois CEPs pelo mesmo trecho. */}
+            {ceps.map((c) => (
+              <div key={c.cep} className="py-2.5">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="shrink-0 text-xs font-semibold text-content-tertiary">CEP</dt>
+                  <dd className="min-w-0 text-right">
+                    <span className="block text-sm font-semibold tabular-nums text-content-primary">
+                      {c.cep}
+                    </span>
+                    {bairroDoCep[c.bairroId] && (
+                      <span className="block text-xs text-content-tertiary">
+                        {bairroDoCep[c.bairroId]}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => baixarPlaca(c.cep)}
+                  disabled={baixandoPlaca === c.cep}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-edge-subtle px-3 py-2 text-xs font-bold text-brand transition-colors hover:bg-surface-subtle disabled:opacity-60"
+                  title="Baixar placa da rua em PDF"
+                >
+                  {baixandoPlaca === c.cep
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Download className="h-3.5 w-3.5" />}
+                  Baixar placa da rua
+                </button>
+              </div>
+            ))}
+
+            {/* A REFERÊNCIA GEOGRÁFICA SÓ EXISTE PARA RUA SEM NOME
+                Ela era um cartão inteiro, do tamanho dos outros, para duas
+                coordenadas — e ficava ao lado de "Curiosidades" com o dobro da
+                altura dele. Como duas linhas da ficha, o dado continua inteiro e
+                some a moldura que ele não precisava. */}
+            {temReferenciaGeografica && (
+              <div className="py-2.5">
+                <dt className="text-xs font-semibold text-content-tertiary">
+                  Referência para denominação
+                </dt>
+                <dd className="mt-1.5 grid gap-1.5">
+                  {[
+                    { rotulo: 'Início', ponto: extremos.inicio },
+                    { rotulo: 'Fim', ponto: extremos.fim },
+                  ].map(({ rotulo, ponto }) => (
+                    <span
+                      key={rotulo}
+                      className="flex items-baseline justify-between gap-2 rounded-xl bg-surface-sunken px-2.5 py-1.5"
+                    >
+                      <span className="text-xs text-content-tertiary">{rotulo}</span>
+                      <span className="font-mono text-xs font-semibold text-content-primary">
+                        {ponto.lat.toFixed(6)}, {ponto.lng.toFixed(6)}
+                      </span>
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            )}
+
+            {atualizadoEm && (
+              <LinhaDaFicha rotulo="Atualizada em">{atualizadoEm}</LinhaDaFicha>
+            )}
+          </dl>
+        </Cartao>
+      )}
+    </>
+  );
+
+  // ── A COLUNA DE LEITURA ──
+  const leitura = (
+    <>
+      <SugerirClassificacao rua={street} onEnviada={carregarRua} />
+
+      {temHistoria && (
+        <Cartao icone={BookOpen} titulo="Quem dá nome à rua">
+          {/* NO CELULAR O RETRATO FICA EM CIMA, E O TEXTO ABAIXO
+              Lado a lado num telefone, a foto come 112px de uma coluna de 320 e
+              a biografia desce em tiras de vinte caracteres — nome próprio
+              quebrando no meio a cada duas linhas. Empilhado, o retrato fica
+              maior (o rosto do homenageado é o assunto) e o texto usa a largura
+              inteira. A partir de `sm` a coluna comporta os dois lado a lado, e
+              aí a foto volta para o lado — e cresce junto com a coluna, até
+              18rem, porque numa coluna de 1000px um retrato de 11rem parecia
+              miniatura de cadastro, e não o retrato de quem dá nome à rua.
+
+              `items-start`: sem isso o retrato é um item de flex esticado, e a
+              caixa dele acompanharia a altura do texto ao lado. */}
+          <div className={`px-4 pb-5 sm:px-5 ${fotoDoHomenageado ? 'sm:flex sm:items-start sm:gap-5' : ''}`}>
+            {fotoDoHomenageado && (
+              <button
+                type="button"
+                onClick={() => setVisor({ fotos: [fotoDoHomenageado], indice: 0 })}
+                className="mb-4 block w-40 shrink-0 overflow-hidden rounded-2xl bg-surface-subtle sm:mb-0 sm:w-44 lg:w-64 xl:w-72"
+                aria-label="Abrir a foto do homenageado em tela cheia"
+              >
+                <img
+                  src={fotoDoHomenageado.url}
+                  alt={fotoDoHomenageado.caption || honoreeName || 'Foto do homenageado'}
+                  className="aspect-[4/5] w-full object-cover"
+                />
+              </button>
+            )}
+
+            {/* A LINHA DE LEITURA TEM TETO
+                A coluna passa de 1000px num monitor grande, e uma biografia com
+                1000px de linha cansa antes do segundo parágrafo. */}
+            <div className="min-w-0 flex-1 lg:max-w-[70ch]">
+              {/* O NOME SÓ APARECE QUANDO ACRESCENTA ALGUMA COISA.
+                  "Rua Maria Elianete dos Santos Lima" logo acima e "Maria
+                  Elianete dos Santos Lima" aqui gastam duas linhas para dizer o
+                  mesmo. */}
+              {honoreeName && !nomeDoHomenageadoRepete && (
+                <p className="mb-2 text-xl font-bold text-content-primary">{honoreeName}</p>
+              )}
+              {biography && <TextoDaRua texto={biography} />}
+            </div>
+          </div>
+        </Cartao>
+      )}
+
+      {curiosities && (
+        <Cartao icone={Sparkles} titulo="Curiosidades">
+          <div className="px-4 pb-5 sm:px-5 lg:max-w-[70ch]">
+            <TextoDaRua texto={curiosities} />
+          </div>
+        </Cartao>
+      )}
+
+      {fotosDaRua.length > 0 && (
+        <Cartao
+          icone={ImageIcon}
+          titulo="Imagens da rua"
+          acao={fotosDaRua.length > 1 && (
+            <BotaoVerTodas aberto={todasAsFotos} onClick={() => setTodasAsFotos((valor) => !valor)} />
+          )}
+        >
+          {todasAsFotos
+            ? <GradeFotos fotos={fotosDaRua} nomeDaRua={street.name} onAbrir={(i) => setVisor({ fotos: fotosDaRua, indice: i })} />
+            : <CarrosselFotos fotos={fotosDaRua} nomeDaRua={street.name} onAbrir={(i) => setVisor({ fotos: fotosDaRua, indice: i })} />}
+        </Cartao>
+      )}
+
+      {documentos.length > 0 && (
+        <Cartao
+          icone={FileText}
+          titulo="Documentos"
+          acao={documentos.length > DOCUMENTOS_VISIVEIS && (
+            <BotaoVerTodas aberto={todosOsDocumentos} onClick={() => setTodosOsDocumentos((valor) => !valor)} />
+          )}
+        >
+          <div className="grid gap-2 px-4 pb-5 sm:px-5">
+            {documentosVisiveis.map((documento, indice) => (
+              <LinhaDocumento key={`${documento.url}-${indice}`} documento={documento} />
+            ))}
+          </div>
+        </Cartao>
+      )}
+
+      {/* A atividade fecha a página: é o único cartão que existe para qualquer
+          rua, então ele também é o piso da coluna. */}
+      <Cartao icone={Megaphone} titulo="Broncas e obras nesta rua">
+        <div className="px-4 pb-5 sm:px-5">
+          <StreetSummary streetId={street.id} />
+        </div>
+      </Cartao>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-surface-base pb-12">
       <Helmet>
@@ -488,22 +785,25 @@ export default function PavementStreetPage() {
         <meta name="description" content={biography || `Conheça a história e a localização de ${street.name}.`} />
       </Helmet>
 
-      {/* A CAPA
+      {/* ── A CAPA ──
           A foto da rua entra desbotada atrás do título, com um gradiente que
-          termina na cor de fundo da página: sem esse degradê a imagem corta
-          numa linha reta e o topo vira um banner colado, não uma capa. */}
+          termina na cor de fundo da página: sem esse degradê a imagem corta numa
+          linha reta e o topo vira um banner colado, não uma capa.
+
+          SEM FOTO, O TOPO NÃO QUEBRA: sobra o degradê sobre a cor da página, que
+          é exatamente o fundo que ele já teria. */}
       <header className="relative overflow-hidden">
         {capa && (
           <img
             src={capa.url}
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover opacity-20"
+            className="absolute inset-0 h-full w-full object-cover opacity-60"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-surface-base/50 via-surface-base/80 to-surface-base" />
+        <div className="absolute inset-0 bg-gradient-to-b from-surface-base/40 via-surface-base/70 to-surface-base" />
 
-        <div className="relative mx-auto max-w-3xl px-4 pb-8 pt-4">
+        <div className="relative mx-auto w-full max-w-[100rem] px-4 pb-7 pt-4 sm:px-5 lg:px-8 2xl:px-10">
           <div className="flex items-center justify-between gap-2">
             <BackButton paraOnde="/mapa-pavimentacao" className="-ml-3" />
             <div className="flex items-center gap-2">
@@ -534,240 +834,89 @@ export default function PavementStreetPage() {
               >
                 <Share2 className="h-4 w-4" />
               </Button>
-            {canManage && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0 gap-1.5 rounded-full"
-                onClick={() => setEditando(true)}
-              >
-                <Pencil className="h-3.5 w-3.5" /> Editar
-              </Button>
-            )}
-            </div>
-          </div>
-
-          {/* O RETRATO DO HOMENAGEADO FICA AO LADO DO NOME
-              A rua leva o nome de alguém, e até aqui esse alguém só aparecia
-              lá embaixo, dentro do cartão de biografia — depois do mapa, das
-              broncas e do status de pavimentação. Quem abre "Rua Pastor Domício
-              Afonso dos Santos" quer ver o Pastor Domício.
-              A foto da RUA continua sendo a capa ao fundo: são coisas
-              diferentes, e por isso `capaDaRua` só considera `subject: 'street'`. */}
-          <div className="mt-2 flex items-start gap-4">
-            {fotoDoHomenageado?.url && (
-              <img
-                src={fotoDoHomenageado.url}
-                alt={honoreeName ? `Retrato de ${honoreeName}` : 'Retrato do homenageado'}
-                loading="lazy"
-                className="h-20 w-20 shrink-0 rounded-full object-cover ring-2 ring-surface-raised shadow-lg sm:h-24 sm:w-24"
-              />
-            )}
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Minha rua</p>
-              <h1 className="mt-1 text-3xl font-extrabold leading-tight text-content-primary sm:text-4xl">{street.name}</h1>
-              {fotoDoHomenageado?.url && honoreeName && !nomeDoHomenageadoRepete && (
-                <p className="mt-1 text-sm text-content-secondary">{honoreeName}</p>
+              {canManage && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 gap-1.5 rounded-full"
+                  onClick={() => setEditando(true)}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Editar
+                </Button>
               )}
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2 text-sm">
-            {local && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
-                <MapPin className="h-4 w-4 text-brand" /> {local}
-              </span>
-            )}
-            {atualizadoEm && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
-                <Calendar className="h-4 w-4 text-brand" /> Atualizado em {atualizadoEm}
-              </span>
-            )}
-            {pavementStatus && (
-              <span className="inline-flex items-center rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
-                {pavementStatus}
-              </span>
-            )}
-            {street.paving_date && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
-                <Calendar className="h-4 w-4 text-brand" /> Pavimentada em {formatarDataBr(street.paving_date)}
-              </span>
-            )}
-            {street.work_id && (
-              <Link
-                to={`/obras-publicas/${street.work_id}`}
-                className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-brand ring-1 ring-edge-subtle transition-colors hover:bg-surface-subtle"
-              >
-                <HardHat className="h-4 w-4" /> Ver obra vinculada
-              </Link>
-            )}
-            {street.is_unnamed && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50/90 px-3 py-1.5 font-semibold text-amber-800 ring-1 ring-amber-300">
-                <HelpCircle className="h-4 w-4" /> Sem nome oficial
-              </span>
-            )}
-            {/* CADA CEP DIZ A QUE TRECHO PERTENCE.
-                Uma rua comprida atravessa bairro, e o cadastro já guarda o
-                bairro de cada faixa — a tela é que mostrava só o número. Numa
-                rua com dois CEPs em dois bairros, o chip sem o nome do bairro
-                fazia parecer que a rua tinha dois CEPs pelo mesmo trecho. */}
-            {ceps.map((c) => (
-              <span
-                key={c.cep}
-                className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle"
-              >
-                CEP {c.cep}
-                {bairroDoCep[c.bairroId] && (
-                  <span className="font-medium text-content-tertiary">· {bairroDoCep[c.bairroId]}</span>
-                )}
-              </span>
-            ))}
+          {/* A capa identifica o lugar; o retrato fica junto da biografia para
+              não repetir a mesma imagem em dois pontos próximos. */}
+          <div className="mt-2 min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Minha rua</p>
+            <h1 className="mt-1 text-3xl font-extrabold leading-tight text-content-primary sm:text-4xl">{street.name}</h1>
           </div>
+
+          {/* NO TOPO FICA SÓ A IDENTIDADE
+              Onde a rua fica, em que estado está o pavimento, e o aviso de que
+              ela não tem nome oficial. CEP, data de pavimentação, obra vinculada
+              e coordenadas desceram para a ficha: são consulta, não
+              identificação — e como pastilhas do mesmo tamanho disputavam
+              atenção com o nome da rua logo acima. */}
+          {(local || pavementStatus || street.is_unnamed) && (
+            <div className="mt-4 flex flex-wrap gap-2 text-sm">
+              {local && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
+                  <MapPin className="h-4 w-4 text-brand" /> {local}
+                </span>
+              )}
+              {pavementStatus && (
+                <span className="inline-flex items-center rounded-full bg-surface-raised/80 px-3 py-1.5 font-semibold text-content-secondary ring-1 ring-edge-subtle">
+                  {pavementStatus}
+                </span>
+              )}
+              {street.is_unnamed && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-status-pendingBg px-3 py-1.5 font-semibold text-status-pendingFg ring-1 ring-status-pendingBorder">
+                  <HelpCircle className="h-4 w-4" /> Sem nome oficial
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
-      {/* MINHA RUA COMECA PELA SITUACAO, NAO PELA HISTORIA
-          Quem abre esta pagina hoje quase sempre veio do push de um alerta ou
-          da busca por "esta faltando agua na minha rua?". A biografia do
-          homenageado continua abaixo, inteira — mas depois da resposta.
-          A faixa some sozinha quando o acontecimento e resolvido: ela e uma
-          consulta ao evento regional, nao uma copia dele. */}
-      <div className="mx-auto mb-4 max-w-3xl space-y-3 px-4">
+      {/* ── O CORPO ──
+          TUDO O QUE É OPCIONAL É FILHO DIRETO DE UMA GRADE
+          Blocos que podem não existir entram sem `div` de embrulho, e é isso que
+          faz o `gap` sumir junto com o bloco: um invólucro vazio continuaria
+          ocupando célula e abriria o buraco que a página tinha. */}
+      <main className="mx-auto grid w-full max-w-[100rem] gap-4 px-4 pt-2 sm:px-5 lg:px-8 2xl:px-10">
+        {/* MINHA RUA COMEÇA PELA SITUAÇÃO, NÃO PELA HISTÓRIA
+            Quem abre esta página hoje quase sempre veio do push de um alerta ou
+            da busca por "está faltando água na minha rua?". A biografia continua
+            abaixo, inteira — mas depois da resposta. */}
         <StreetEventBanner eventos={acontecimentos} carregando={carregandoAcontecimentos} />
-      </div>
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4">
-        {/* Pavimentação cidadã (fase 3, §36.7). Fica no topo do conteúdo
-            porque é a única coisa desta página que só quem está NA RUA pode
-            fazer — e ela some sozinha para quem não está. */}
-        <SugerirClassificacao rua={street} onEnviada={carregarRua} />
+        {emDuasColunas ? (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
+            {/* NO CELULAR A HISTÓRIA VEM ANTES DE ONDE FICA
+                Esta é a página da HISTÓRIA da rua: quem abre quer saber quem foi
+                o homenageado. Mapa, CEP e coordenadas são consulta — importam
+                quando alguém já decidiu ir até lá, e por isso fecham a página no
+                telefone. No desktop a questão não existe: as duas colunas
+                aparecem juntas, e a de consulta é a da direita simplesmente por
+                vir depois no HTML.
 
-        {(honoreeName || biography || fotoDoHomenageado) && (
-          <Cartao icone={BookOpen} titulo="Quem dá nome à rua">
-            {/* `items-start`: sem isso o retrato é um item de flex esticado, e
-                cada linha revelada por "Ver mais" muda a altura da caixa dele.
-                Ancorado no topo, o retrato fica parado enquanto o texto cresce —
-                que é o que se espera de uma foto ao lado de um parágrafo. */}
-            <div className={`px-4 pb-5 sm:px-5 ${fotoDoHomenageado ? 'flex items-start gap-4' : ''}`}>
-              {fotoDoHomenageado && (
-                <button
-                  type="button"
-                  onClick={() => setVisor({ fotos: [fotoDoHomenageado], indice: 0 })}
-                  className={`shrink-0 overflow-hidden rounded-2xl bg-surface-subtle ${
-                    nomeDoHomenageadoRepete ? 'w-32 sm:w-40' : 'w-24 sm:w-32'
-                  }`}
-                  aria-label="Abrir a foto do homenageado em tela cheia"
-                >
-                  <img
-                    src={fotoDoHomenageado.url}
-                    alt={fotoDoHomenageado.caption || honoreeName || 'Foto do homenageado'}
-                    className="aspect-[4/5] w-full object-cover"
-                  />
-                </button>
-              )}
-              <div className="min-w-0 flex-1">
-                {/* O NOME SÓ APARECE QUANDO ACRESCENTA ALGUMA COISA.
-                    "Rua Maria Elianete dos Santos Lima" logo acima e "Maria
-                    Elianete dos Santos Lima" aqui gastam duas linhas para dizer
-                    o mesmo. Quando o título já carrega o nome, o cartão fica
-                    com o que só ele tem: a foto — que cresce — e a biografia. */}
-                {honoreeName && !nomeDoHomenageadoRepete && (
-                  <p className="mb-2 text-xl font-bold text-content-primary">{honoreeName}</p>
-                )}
-                {biography && <TextoExpansivel texto={biography} />}
-              </div>
-            </div>
-          </Cartao>
-        )}
-
-        {curiosities && (
-          <Cartao icone={Sparkles} titulo="Curiosidades">
-            <div className="px-4 pb-5 sm:px-5">
-              <TextoExpansivel texto={curiosities} />
-            </div>
-          </Cartao>
-        )}
-
-        {fotosDaRua.length > 0 && (
-          <Cartao
-            icone={ImageIcon}
-            titulo="Imagens da rua"
-            acao={fotosDaRua.length > 1 && (
-              <BotaoVerTodas aberto={todasAsFotos} onClick={() => setTodasAsFotos((valor) => !valor)} />
-            )}
-          >
-            {todasAsFotos
-              ? <GradeFotos fotos={fotosDaRua} nomeDaRua={street.name} onAbrir={(i) => setVisor({ fotos: fotosDaRua, indice: i })} />
-              : <CarrosselFotos fotos={fotosDaRua} nomeDaRua={street.name} onAbrir={(i) => setVisor({ fotos: fotosDaRua, indice: i })} />}
-          </Cartao>
-        )}
-
-        {documentos.length > 0 && (
-          <Cartao
-            icone={FileText}
-            titulo="Documentos"
-            acao={documentos.length > DOCUMENTOS_VISIVEIS && (
-              <BotaoVerTodas aberto={todosOsDocumentos} onClick={() => setTodosOsDocumentos((valor) => !valor)} />
-            )}
-          >
-            <div className="grid gap-2 px-4 pb-5 sm:px-5">
-              {documentosVisiveis.map((documento, indice) => (
-                <LinhaDocumento key={`${documento.url}-${indice}`} documento={documento} />
-              ))}
-            </div>
-          </Cartao>
-        )}
-
-        {/* ONDE FICA
-            "Traçar rota" continua sendo o mesmo link de direções do Google
-            Maps de antes — só mudou de lugar: virou a ação do cartão, na mesma
-            posição que "Ver todas" ocupa nos outros. Ele parte da coordenada
-            cadastrada, e é por isso que funciona para rua que mapa comercial
-            ainda não conhece. */}
-        {street.location && (
-          <Cartao
-            icone={Navigation}
-            titulo="Onde fica"
-            acao={routeUrl && (
-              <Button asChild size="sm" className="h-8 shrink-0 gap-1.5 rounded-full px-3 text-xs font-bold">
-                <a href={routeUrl} target="_blank" rel="noreferrer">
-                  <Navigation className="h-3.5 w-3.5" /> Traçar rota
-                </a>
-              </Button>
-            )}
-          >
-            <p className="px-4 pb-4 text-sm text-content-tertiary sm:px-5">
-              A rota usa a coordenada cadastrada, mesmo que a rua ainda não conste nos mapas comerciais.
-            </p>
-            <div className="h-64 w-full">
-              <MapContainer
-                center={[street.location.lat, street.location.lng]}
-                zoom={17}
-                scrollWheelZoom={false}
-                className="h-full w-full"
-              >
-                <MapBaseLayer />
-                <CircleMarker
-                  center={[street.location.lat, street.location.lng]}
-                  radius={9}
-                  pathOptions={{ color: '#fff', weight: 3, fillColor: '#dc2626', fillOpacity: 1 }}
-                />
-              </MapContainer>
-            </div>
-          </Cartao>
-        )}
-        {/* BRONCAS E OBRAS FICAM NO FIM, E ISSO É UMA DECISÃO SOBRE ORDEM
-            Esta faixa já abriu a página. Ali ela chegava antes da pergunta que
-            traz a maioria das visitas — "está faltando água na minha rua?" — e
-            empurrava a história, as fotos e os documentos para baixo de uma
-            fileira de números que ninguém veio conferir.
-            No fim ela continua inteira e vira o que sempre foi: o balanço de
-            quem já leu a rua toda. */}
-        <Cartao icone={Megaphone} titulo="Broncas e obras nesta rua">
-          <div className="px-4 pb-5 sm:px-5">
-            <StreetSummary streetId={street.id} />
+                Sem `sticky`: a lateral com mapa e ficha passa de 700px, e uma
+                coluna grudada mais alta que a janela deixa o próprio fim fora de
+                alcance. Rolando junto com a página, tudo continua acessível e
+                não aparece barra de rolagem nenhuma. */}
+            <div className="grid min-w-0 gap-4">{leitura}</div>
+            <aside className="grid min-w-0 gap-4">{consulta}</aside>
           </div>
-        </Cartao>
+        ) : (
+          <>
+            {consulta}
+            {leitura}
+          </>
+        )}
       </main>
 
       <PavementEditModal

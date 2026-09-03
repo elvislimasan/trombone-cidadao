@@ -49,7 +49,8 @@ const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
 
   const previsao = estadoDaPrevisao(evento);
   const aberto = estaAberto(evento);
-  const precisaVerificar = aberto && (previsao.vencida || evento.status === 'awaiting_confirmation');
+  const ehEvento = evento.type === 'event';
+  const precisaVerificar = !ehEvento && aberto && (previsao.vencida || evento.status === 'awaiting_confirmation');
 
   const fechar = () => { setModal(null); setMensagem(''); setAvisar(false); };
 
@@ -139,7 +140,7 @@ const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
         )}
 
         <div className="flex flex-wrap gap-2 p-4 sm:p-5">
-          {aberto && !precisaVerificar && (
+          {aberto && !ehEvento && !precisaVerificar && (
             <>
               <Button size="sm" className="gap-1.5" onClick={() => setModal('resolver')}>
                 <CheckCircle2 className="h-4 w-4" /> Marcar normalizado
@@ -150,13 +151,13 @@ const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
             </>
           )}
 
-          {aberto && (
+          {aberto && !ehEvento && (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setModal('atualizar')}>
               <MessageSquarePlus className="h-4 w-4" /> Atualização
             </Button>
           )}
 
-          {evento.status === 'resolved' && (
+          {!ehEvento && evento.status === 'resolved' && (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setModal('reabrir')}>
               <RotateCcw className="h-4 w-4" /> Reabrir
             </Button>
@@ -168,7 +169,7 @@ const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
             </Button>
           )}
 
-          {evento.status !== 'cancelled' && (
+          {!ehEvento && evento.status !== 'cancelled' && (
             <Button
               size="sm"
               variant="ghost"

@@ -53,6 +53,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [cepSugestoes, setCepSugestoes] = useState(null);
   const [activeStep, setActiveStep] = useState(1);
+  const [historyPanel, setHistoryPanel] = useState('history');
   const [saving, setSaving] = useState(false);
   const [buscandoTracado, setBuscandoTracado] = useState(false);
   const [desenhando, setDesenhando] = useState(false);
@@ -77,6 +78,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
       });
       setBairroSearch('');
       setActiveStep(1);
+      setHistoryPanel('history');
       setSaving(false);
     } else {
       setFormData(null);
@@ -410,6 +412,36 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
         return nextItem;
       }),
     }));
+  };
+
+  const handleNewFile = (field, kind, file) => {
+    if (!file) return;
+    const validationError = validatePavementMediaFile(file, kind);
+    if (validationError) {
+      showAppError({ title: 'Arquivo não aceito', description: validationError, variant: 'destructive' });
+      return;
+    }
+
+    const item = kind === 'document'
+      ? {
+          title: fileTitle(file.name),
+          description: '',
+          type: fileTypeLabel(file.name),
+          size: file.size,
+          kind: 'outro',
+          original_name: file.name,
+          file,
+        }
+      : {
+          caption: '',
+          date: '',
+          subject: 'street',
+          size: file.size,
+          original_name: file.name,
+          file,
+        };
+
+    addArrayItem(field, item);
   };
 
   const handleSubmit = async (e) => {
@@ -746,6 +778,33 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
 
             <div className="space-y-5 border-t border-edge-subtle bg-surface-raised p-4 sm:p-5">
 
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-sunken p-1" role="tablist" aria-label="Conteúdo histórico da rua">
+              {[
+                { id: 'history', label: 'História', icon: BookOpen },
+                { id: 'documents', label: 'Documentos', icon: FileText },
+                { id: 'photos', label: 'Fotos', icon: ImageIcon },
+              ].map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={historyPanel === id}
+                  onClick={() => setHistoryPanel(id)}
+                  className={`inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-bold transition-colors sm:text-sm ${
+                    historyPanel === id
+                      ? 'bg-surface-raised text-content-primary shadow-sm'
+                      : 'text-content-tertiary hover:text-content-secondary'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {historyPanel === 'history' && (
+            <div className="space-y-5" role="tabpanel">
+
             <div className="space-y-2">
               <Label htmlFor="honoree_name">Nome do homenageado</Label>
               <Input id="honoree_name" name="honoree_name" value={formData.honoree_name || ''} onChange={handleChange} placeholder="Nome completo" />
@@ -761,30 +820,63 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
               <textarea id="curiosities" name="curiosities" value={formData.curiosities || ''} onChange={handleChange} rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Uma curiosidade por linha ou em pequenos parágrafos." />
             </div>
 
+            </div>
+            )}
+
+            {historyPanel === 'documents' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <Label className="inline-flex items-center gap-1.5"><FileText className="h-4 w-4" /> Documentos</Label>
-                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_documents', { title: '', description: '', type: '', size: '', kind: 'outro' })}>
-                  <UploadCloud className="mr-2 h-4 w-4" /> Adicionar documento
+                <Button asChild size="sm" variant="outline">
+                  <label className="cursor-pointer">
+                    <UploadCloud className="mr-2 h-4 w-4" /> Adicionar documento
+                    <input
+                      type="file"
+                      accept={PAVEMENT_DOCUMENT_ACCEPT}
+                      className="hidden"
+                      onChange={(e) => {
+                        handleNewFile('historical_documents', 'document', e.target.files?.[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">PDF, DOC, DOCX, ODT, XLS, XLSX ou TXT, com até 20 MB. O arquivo será enviado ao Supabase.</p>
+              {(formData.historical_documents || []).length === 0 && (
+                <p className="rounded-xl border border-dashed border-edge-subtle px-4 py-6 text-center text-sm text-content-tertiary">
+                  Nenhum documento adicionado.
+                </p>
+              )}
               {(formData.historical_documents || []).map((document, index) => (
                 <div key={index} className="flex items-start gap-2 rounded-lg border border-border bg-background p-3">
                   <div className="grid min-w-0 flex-1 gap-2">
+                    {/* Nome de arquivo é uma palavra só para o navegador, e num
+                        diálogo estreito ela estica a coluna inteira. `break-all`
+                        quebra onde precisar e `line-clamp-2` põe teto — aqui
+                        interessa CONFERIR o nome, então ele quebra em vez de
+                        virar reticências. */}
                     {document.url && !document.file && (
-                      <a href={document.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs font-medium text-brand underline-offset-2 hover:underline">
+                      <a href={document.url} target="_blank" rel="noopener noreferrer" className="line-clamp-2 break-all text-xs font-medium text-brand underline-offset-2 hover:underline">
                         Arquivo atual: {document.original_name || document.title || 'abrir documento'}
                       </a>
                     )}
-                    <Input
-                      type="file"
-                      accept={PAVEMENT_DOCUMENT_ACCEPT}
-                      onChange={(e) => handleFileChange('historical_documents', index, 'document', e.target.files?.[0])}
-                      aria-label={document.url ? 'Substituir documento' : 'Selecionar documento'}
-                    />
+                    <Button asChild size="sm" variant="outline" className="w-fit">
+                      <label className="cursor-pointer">
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        {document.url || document.file ? 'Substituir arquivo' : 'Escolher arquivo'}
+                        <input
+                          type="file"
+                          accept={PAVEMENT_DOCUMENT_ACCEPT}
+                          className="hidden"
+                          onChange={(e) => {
+                            handleFileChange('historical_documents', index, 'document', e.target.files?.[0]);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </Button>
                     {document.file && (
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="line-clamp-2 break-all text-xs text-muted-foreground">
                         Selecionado: {document.file.name} · {formatarTamanhoArquivo(document.file.size)}
                       </p>
                     )}
@@ -818,15 +910,32 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                 </div>
               ))}
             </div>
+            )}
 
+            {historyPanel === 'photos' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <Label className="inline-flex items-center gap-1.5"><ImageIcon className="h-4 w-4" /> Fotos históricas e atuais</Label>
-                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_photos', { caption: '', date: '', subject: 'street' })}>
-                  <UploadCloud className="mr-2 h-4 w-4" /> Adicionar foto
+                <Button asChild size="sm" variant="outline">
+                  <label className="cursor-pointer">
+                    <UploadCloud className="mr-2 h-4 w-4" /> Adicionar foto
+                    <input
+                      type="file"
+                      accept={PAVEMENT_PHOTO_ACCEPT}
+                      className="hidden"
+                      onChange={(e) => {
+                        handleNewFile('historical_photos', 'photo', e.target.files?.[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">JPG, PNG, WebP, GIF ou AVIF, com até 10 MB. A imagem será enviada ao Supabase. A foto em destaque vira a capa da página da rua e a primeira do mapa.</p>
+              {(formData.historical_photos || []).length === 0 && (
+                <p className="rounded-xl border border-dashed border-edge-subtle px-4 py-6 text-center text-sm text-content-tertiary">
+                  Nenhuma foto adicionada.
+                </p>
+              )}
               {/* O DESTAQUE É EXCLUSIVO, E POR ISSO MARCAR UM DESMARCA OS OUTROS
                   Duas fotos destacadas não é um estado que a tela pública saiba
                   desenhar — ela pega a primeira e ignora a segunda em silêncio.
@@ -840,14 +949,23 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                       <p className="min-w-0 truncate text-xs font-medium text-muted-foreground">Imagem atual salva no Supabase</p>
                     </div>
                   )}
-                  <Input
-                    type="file"
-                    accept={PAVEMENT_PHOTO_ACCEPT}
-                    onChange={(e) => handleFileChange('historical_photos', index, 'photo', e.target.files?.[0])}
-                    aria-label={photo.url ? 'Substituir foto' : 'Selecionar foto'}
-                  />
+                  <Button asChild size="sm" variant="outline" className="w-fit">
+                    <label className="cursor-pointer">
+                      <UploadCloud className="mr-2 h-4 w-4" />
+                      {photo.url || photo.file ? 'Substituir foto' : 'Escolher foto'}
+                      <input
+                        type="file"
+                        accept={PAVEMENT_PHOTO_ACCEPT}
+                        className="hidden"
+                        onChange={(e) => {
+                          handleFileChange('historical_photos', index, 'photo', e.target.files?.[0]);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </Button>
                   {photo.file && (
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="line-clamp-2 break-all text-xs text-muted-foreground">
                       Selecionada: {photo.file.name} · {formatarTamanhoArquivo(photo.file.size)}
                     </p>
                   )}
@@ -879,6 +997,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                 </div>
               ))}
             </div>
+            )}
             </div>
           </section>
           )}

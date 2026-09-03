@@ -610,7 +610,7 @@ const ManageAgencyChannelsPage = () => {
                   </p>
                 )}
 
-                <HistoricoDeEnvios canalId={canal.id} />
+                {podeAtivar && <HistoricoDeEnvios canalId={canal.id} />}
               </CardContent>
             </Card>
           ))}

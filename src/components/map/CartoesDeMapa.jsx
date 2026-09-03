@@ -17,12 +17,18 @@ import { Card, CardContent } from '@/components/ui/card';
 // ninguém explicar. Por isso `cor` é uma classe de fundo escolhida pela página,
 // e não um tom fixo daqui: quem conhece as cores dos pinos é a tela.
 //
-// O QUE ELA NÃO É
+// O CARTÃO É O FILTRO
 //
-// Não é um filtro. Um cartão com `aoClicar` vira botão — e no mapa de
-// pavimentação eles abrem a lista daquela situação —, mas sem ele continua
-// sendo só um número. Cartão que parece botão e não faz nada ensina que os
-// outros também não fazem.
+// Ele conta e recorta: tocar em "Paralisadas" deixa no mapa só as paralisadas,
+// e tocar de novo desfaz. É o gesto que a pessoa já tenta — um número grande e
+// destacado parece clicável, e não ser clicável ensina que nada ali é.
+//
+// `ativo` existe porque um filtro que não se anuncia é pior que filtro nenhum:
+// alguém recorta, esquece, e lê metade da cidade achando que é a cidade. O anel
+// no cartão é o mesmo aviso que o contador de filtros da coluna dá.
+//
+// Sem `aoClicar` o cartão continua sendo só um número — é o caso dos cartões de
+// imóveis, onde "mais caro" não é um recorte que se possa ligar.
 
 // Tailwind precisa da classe escrita por extenso para incluí-la no CSS final:
 // `md:grid-cols-${n}` não sobrevive à varredura.
@@ -33,7 +39,7 @@ const COLUNAS = {
   5: 'md:grid-cols-5',
 };
 
-export const CartaoDeNumero = ({ Icone, cor = 'bg-tc-red', rotulo, valor, aoClicar }) => {
+export const CartaoDeNumero = ({ Icone, cor = 'bg-tc-red', rotulo, valor, aoClicar, ativo = false }) => {
   const conteudo = (
     <CardContent className="flex items-center gap-3 p-4">
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${cor}`}>
@@ -49,9 +55,10 @@ export const CartaoDeNumero = ({ Icone, cor = 'bg-tc-red', rotulo, valor, aoClic
   if (!aoClicar) return <Card className="border-border">{conteudo}</Card>;
 
   return (
-    <Card className="border-border">
+    <Card className={`border-border transition-shadow ${ativo ? 'ring-2 ring-brand' : ''}`}>
       <button
         type="button"
+        aria-pressed={ativo}
         onClick={aoClicar}
         className="w-full text-left transition-colors hover:bg-surface-subtle"
       >

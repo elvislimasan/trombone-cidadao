@@ -20,7 +20,7 @@ import { useCityView } from '@/contexts/CityContext';
  * um dropdown absoluto seria recortado pela coluna e perderia o início dos
  * nomes, especialmente no mapa de pavimentação em notebook.
  */
-export default function CitySelector({ align = 'right', mobileBare = false }) {
+export default function CitySelector({ align = 'right', mobileBare = false, inverted = false }) {
   const {
     cityId: activeCityId,
     cityName: activeCityName,
@@ -63,12 +63,14 @@ export default function CitySelector({ align = 'right', mobileBare = false }) {
             aria-label="Selecionar cidade"
             aria-expanded={open}
             className={`flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold shadow-elevation-1 transition-colors ${
-              isExploring
+              inverted
+                ? 'border-white/15 bg-white/10 text-white hover:bg-white/15'
+                : isExploring
                 ? 'border-brand/40 bg-brand/10 text-brand'
                 : 'border-edge-default bg-surface-raised text-content-primary hover:bg-surface-subtleHover'
             } ${mobileBare ? 'max-[899px]:gap-1.5 max-[899px]:border-transparent max-[899px]:bg-transparent max-[899px]:px-0 max-[899px]:py-0 max-[899px]:text-xs max-[899px]:shadow-none max-[899px]:hover:bg-transparent' : ''}`}
           >
-            <MapPin className={`h-4 w-4 shrink-0 ${isExploring ? '' : 'text-brand'} ${mobileBare ? 'max-[899px]:h-3.5 max-[899px]:w-3.5' : ''}`} />
+            <MapPin className={`h-4 w-4 shrink-0 ${inverted ? 'text-white/75' : isExploring ? '' : 'text-brand'} ${mobileBare ? 'max-[899px]:h-3.5 max-[899px]:w-3.5' : ''}`} />
             <span className={`max-w-[10rem] truncate ${mobileBare ? 'max-[899px]:max-w-[7.5rem]' : ''}`}>
               {activeCityId ? (activeCityName || 'Cidade') : 'Todas as cidades'}
             </span>
@@ -138,7 +140,11 @@ export default function CitySelector({ align = 'right', mobileBare = false }) {
           onClick={resetToMyCity}
           title="Voltar para a minha cidade"
           aria-label="Voltar para a minha cidade"
-          className="flex shrink-0 items-center gap-1 rounded-full border border-edge-default bg-surface-raised px-2 py-1.5 text-xs font-semibold text-content-secondary transition-colors hover:bg-surface-subtleHover hover:text-content-primary"
+          className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-1.5 text-xs font-semibold transition-colors ${
+            inverted
+              ? 'border-white/15 bg-white/10 text-white/80 hover:bg-white/15 hover:text-white'
+              : 'border-edge-default bg-surface-raised text-content-secondary hover:bg-surface-subtleHover hover:text-content-primary'
+          }`}
         >
           <RotateCcw className="h-3.5 w-3.5" />
         </button>

@@ -53,6 +53,7 @@ export function useUserLocation() {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           speed: pos.coords.speed,
+          accuracy: pos.coords.accuracy,
         });
         setStatus('granted');
       },

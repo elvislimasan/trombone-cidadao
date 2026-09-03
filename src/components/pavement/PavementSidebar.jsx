@@ -48,8 +48,12 @@ const Titulo = ({ children, acao = null }) => (
 
 /* --- Os dois painéis, escritos uma vez e usados nos dois tamanhos --- */
 
-const Filtros = ({ filtros, onFiltroChange, bairros }) => (
-  <div className="grid gap-2 sm:grid-cols-2 min-[1100px]:grid-cols-1">
+// Exportado porque o modo LISTA os mostra numa faixa horizontal, e não na
+// coluna. São os mesmos sete seletores: duplicá-los para mudar só o arranjo
+// seria garantir que o oitavo filtro nasça em um dos dois lugares e falte no
+// outro. As colunas vêm de fora justamente por isso — o arranjo é de quem usa.
+export const FiltrosDePavimentacao = ({ filtros, onFiltroChange, bairros, colunas = 'sm:grid-cols-2 min-[1100px]:grid-cols-1' }) => (
+  <div className={`grid gap-2 ${colunas}`}>
     {SELETORES.map(({ id, rotulo, vazio, opcoes }) => (
       <label key={id} className="grid gap-0.5">
         <span className="text-[10px] font-medium text-content-tertiary">{rotulo}</span>
@@ -67,6 +71,8 @@ const Filtros = ({ filtros, onFiltroChange, bairros }) => (
     ))}
   </div>
 );
+
+const Filtros = FiltrosDePavimentacao;
 
 const BotaoDePainel = ({ Icone, rotulo, contagem = 0, aberto, onClick }) => (
   <button

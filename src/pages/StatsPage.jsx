@@ -1202,8 +1202,8 @@ const StatsPage = () => {
         <title>Estatísticas - Trombone Cidadão</title>
         <meta name="description" content="Veja as estatísticas detalhadas das solicitações e obras na plataforma Trombone Cidadão." />
       </Helmet>
-      <div className="flex flex-col bg-surface-base md:px-6">
-        <div className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-8 space-y-8 max-w-[88rem] mx-auto w-full">
+      <div className="flex flex-col bg-surface-base">
+        <div className="mx-auto w-full max-w-[112rem] space-y-8 px-3 pb-8 pt-4 sm:px-5 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}

@@ -21,6 +21,7 @@ import {
   FONTE_MODERACAO,
   FONTE_ORGAO,
   linhaDoTempo,
+  linhaDoTempoPublica,
   antesEDepois,
 } from '../lib/reportTimeline.js';
 
@@ -227,6 +228,43 @@ test('etapa oficial desconhecida é ignorada em vez de virar linha solta', () =>
   });
 
   assert.deepEqual(etapasDe(r), ['registrada', 'moderada']);
+});
+
+test('timeline pública não mostra etapas automáticas de entrega do canal', () => {
+  const r = linhaDoTempoPublica({
+    report: bronca(),
+    etapasOficiais: [
+      etapaOficial({
+        id: 'auto-1',
+        registrado_por_papel: 'sistema',
+        observacao: 'Entregue para obras@prefeitura.gov.br pelo provedor.',
+      }),
+      etapaOficial({
+        id: 'manual-1',
+        etapa: 'programada',
+        registrado_por_papel: 'admin',
+      }),
+    ],
+  });
+
+  assert.ok(!r.eventos.some((e) => e.id === 'oficial-auto-1'));
+  assert.ok(r.eventos.some((e) => e.id === 'oficial-manual-1'));
+});
+
+test('timeline pública mascara e-mail digitado em etapa manual do órgão', () => {
+  const r = linhaDoTempoPublica({
+    report: bronca(),
+    etapasOficiais: [
+      etapaOficial({
+        registrado_por_papel: 'admin',
+        observacao: 'Retorno solicitado em obras@prefeitura.gov.br.',
+      }),
+    ],
+  });
+  const oficial = r.eventos.find((e) => e.fonte === FONTE_ORGAO);
+
+  assert.match(oficial.motivo, /e-mail oculto/i);
+  assert.doesNotMatch(oficial.motivo, /@/);
 });
 
 // ── Ordem ────────────────────────────────────────────────────────────────────

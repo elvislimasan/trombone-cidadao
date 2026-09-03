@@ -60,6 +60,9 @@ export const PILOTO = Object.freeze({
   PARADAS_MAX: 5,
   METROS_MAX: 1500,
   PULOS_MAX: 2,
+  // Perto o bastante para observar o ponto sem exigir a precisão impossível
+  // de encostar no pino. O formulário fica fechado fora deste raio.
+  RAIO_RESPOSTA_M: 30,
   /** Só de dia. A rota manda alguém a pé a pontos escolhidos por algoritmo. */
   HORA_INICIO: 6,
   /**
@@ -71,6 +74,13 @@ export const PILOTO = Object.freeze({
   /** Acima disto a pessoa não está parada, e o app não pede interação. */
   VELOCIDADE_PARADO_MS: 1.5,
 });
+
+/** A pergunta só existe quando a pessoa está fisicamente junto da parada. */
+export const estaPertoDaParada = (posicao, parada, raioM = PILOTO.RAIO_RESPOSTA_M) => {
+  if (!posicao || !parada) return false;
+  if (![posicao.lat, posicao.lng, parada.lat, parada.lng].every(Number.isFinite)) return false;
+  return haversine(posicao, parada) <= raioM;
+};
 
 /**
  * Dá para sair agora?

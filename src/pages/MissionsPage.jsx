@@ -9,6 +9,7 @@ import MissionLevelCard from '@/components/missions/MissionLevelCard';
 import ImpactCard from '@/components/missions/ImpactCard';
 import DailyCard from '@/components/missions/DailyCard';
 import CampanhaBanner from '@/components/missions/CampanhaBanner';
+import CommunityGoalsBanner from '@/components/missions/CommunityGoalsBanner';
 import MarcosCosmeticos from '@/components/missions/MarcosCosmeticos';
 import MissionResume from '@/components/missions/MissionResume';
 import MissionPatrolProgress from '@/components/missions/MissionPatrolProgress';
@@ -143,7 +144,7 @@ export default function MissionsPage() {
        respiravam. Com `gap`, a distância entre irmãos é uma decisão só, no
        lugar onde ela pode ser vista inteira, e um bloco novo entra no ritmo
        sem precisar saber quem está acima dele. */
-    <div className="container max-w-2xl mx-auto w-full px-4 py-6 pb-24 flex flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 pb-24 lg:max-w-[100rem] lg:gap-6 lg:px-8 lg:py-8 lg:pb-12">
       <Helmet>
         <title>Missões | Trombone Cidadão</title>
         <meta
@@ -170,34 +171,42 @@ export default function MissionsPage() {
         />
       )}
 
-      {/* RETOMAR VEM ANTES DE ESCOLHER
-          A missão mais perto de fechar subiu para logo abaixo do nível, e como
-          cartão de marca. Enterrada depois das categorias ela competia com o
-          catálogo inteiro — e quem volta ao app pela terceira vez não quer
-          escolher entre doze, quer terminar o que começou. */}
-      {!carregando && <MissionResume missoes={quaseLa} />}
+      {/* Em telas muito largas os blocos de ação formam pares. Abaixo de
+          1536px, `contents` preserva o fluxo empilhado e a ordem do mobile. */}
+      <div className="contents min-[1536px]:grid min-[1536px]:grid-cols-2 min-[1536px]:items-stretch min-[1536px]:gap-6">
+        {/* RETOMAR VEM ANTES DE ESCOLHER
+            A missão mais perto de fechar subiu para logo abaixo do nível, e como
+            cartão de marca. Enterrada depois das categorias ela competia com o
+            catálogo inteiro — e quem volta ao app pela terceira vez não quer
+            escolher entre doze, quer terminar o que começou. */}
+        {!carregando && <MissionResume missoes={quaseLa} />}
 
-      {/* O que dá para fazer HOJE, antes do catálogo de vida inteira.
-          Quem abre a central numa terça à noite não quer escolher entre doze
-          missões permanentes — quer um objetivo que cabe na noite. */}
-      {/* A campanha vem antes das diárias quando existe: ela diz o que é útil
-          AGORA, e as diárias dizem quanto. Some sozinha quando o período acaba
-          (fase 4, §36.14). */}
-      <CampanhaBanner />
+        {/* O que dá para fazer HOJE, antes do catálogo de vida inteira.
+            Quem abre a central numa terça à noite não quer escolher entre doze
+            missões permanentes — quer um objetivo que cabe na noite. */}
+        {/* A campanha vem antes das diárias quando existe: ela diz o que é útil
+            AGORA, e as diárias dizem quanto. Some sozinha quando o período acaba
+            (fase 4, §36.14). */}
+        <CampanhaBanner />
+      </div>
 
-      {!carregando && (
-        <DailyCard
-          diarias={diarias}
-          resumo={resumoDiarias}
-          tempoRestante={tempoRestante}
-        />
-      )}
+      <CommunityGoalsBanner />
 
-      {/* A segunda moeda, logo abaixo do nível e nunca dentro dele.
-          É a distância entre os dois números que conta a história: muito XP com
-          impacto zero é alguém reclamando no vazio, e essa é a informação mais
-          útil que a central tem para dar. */}
-      {!carregando && <ImpactCard impacto={impacto} />}
+      <div className="contents min-[1536px]:grid min-[1536px]:grid-cols-2 min-[1536px]:items-stretch min-[1536px]:gap-6">
+        {!carregando && (
+          <DailyCard
+            diarias={diarias}
+            resumo={resumoDiarias}
+            tempoRestante={tempoRestante}
+          />
+        )}
+
+        {/* A segunda moeda, logo abaixo do nível e nunca dentro dele.
+            É a distância entre os dois números que conta a história: muito XP com
+            impacto zero é alguém reclamando no vazio, e essa é a informação mais
+            útil que a central tem para dar. */}
+        {!carregando && <ImpactCard impacto={impacto} />}
+      </div>
 
       {/* ── As missões ──
           UM CATÁLOGO, E SÓ UM.

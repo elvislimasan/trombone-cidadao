@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Loader2, Megaphone } from 'lucide-react';
-import PageHeader from '@/components/PageHeader';
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  Globe2,
+  Loader2,
+  MapPin,
+  Megaphone,
+  Search,
+} from 'lucide-react';
+import AdminModuleHero from '@/components/admin/AdminModuleHero';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
@@ -33,17 +43,22 @@ import { showAppError, showAppNotice } from '@/lib/appError';
 // campanha assinada por alguém que não a escreveu é pior que uma sem assinatura.
 
 const entrada =
-  'w-full mt-1 text-xs rounded-xl border border-edge-subtle bg-surface-subtle px-3 py-2 text-content-primary placeholder:text-content-tertiary';
+  'w-full mt-1.5 min-h-10 text-sm rounded-xl border border-edge-subtle bg-surface-subtle px-3 py-2 text-content-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10 placeholder:text-content-tertiary';
 
 const Campo = ({ label, ajuda, children }) => (
   <label className="block">
-    <span className="text-2xs font-bold text-content-secondary">{label}</span>
+    <span className="text-xs font-bold text-content-secondary">{label}</span>
     {children}
-    {ajuda && <span className="block text-2xs text-content-tertiary mt-0.5">{ajuda}</span>}
+    {ajuda && <span className="block text-2xs text-content-tertiary mt-1 leading-relaxed">{ajuda}</span>}
   </label>
 );
 
 const hoje = () => new Date().toISOString().slice(0, 10);
+
+const normalizar = (valor) => String(valor || '')
+  .normalize('NFD')
+  .replace(/\p{Mn}/gu, '')
+  .toLowerCase();
 
 const vazia = {
   titulo: '',
@@ -52,6 +67,34 @@ const vazia = {
   categoria_id: '',
   inicio: hoje(),
   fim: '',
+};
+
+const formatarData = (data) => {
+  if (!data) return '';
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' })
+    .format(new Date(`${data}T00:00:00`))
+    .replace('.', '');
+};
+
+const situacaoDaCampanha = (campanha) => {
+  if (campanha.status === 'rascunho') {
+    return { rotulo: 'Rascunho', classe: 'bg-surface-subtle text-content-tertiary' };
+  }
+  if (campanha.status === 'encerrada') {
+    return { rotulo: 'Encerrada', classe: 'bg-surface-subtle text-content-tertiary' };
+  }
+
+  const agora = new Date();
+  const inicio = new Date(`${campanha.inicio}T00:00:00`);
+  const fim = new Date(`${campanha.fim}T23:59:59`);
+
+  if (agora < inicio) {
+    return { rotulo: 'Agendada', classe: 'bg-status-progressBg text-status-progressFg' };
+  }
+  if (agora > fim) {
+    return { rotulo: 'Finalizada', classe: 'bg-surface-subtle text-content-tertiary' };
+  }
+  return { rotulo: 'No ar', classe: 'bg-success-bg text-success-fg' };
 };
 
 const ManageCampaignsPage = () => {
@@ -63,6 +106,9 @@ const ManageCampaignsPage = () => {
   const [cidadeId, setCidadeId] = useState('');
   const [nova, setNova] = useState(vazia);
   const [salvando, setSalvando] = useState(false);
+  const [formularioAberto, setFormularioAberto] = useState(false);
+  const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState('todas');
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -112,6 +158,7 @@ const ManageCampaignsPage = () => {
       return;
     }
     setNova(vazia);
+    setFormularioAberto(false);
     showAppNotice({
       title: 'Campanha no ar',
       description: 'Ela some sozinha quando o período acabar.',
@@ -131,169 +178,277 @@ const ManageCampaignsPage = () => {
     carregar();
   };
 
+  const cidadesDisponiveis = cidadesParaEscolha(cities);
+  const cidadesPorId = new Map(cidadesDisponiveis.map((cidade) => [String(cidade.id), cidade.rotulo]));
+  const campanhasNoAr = campanhas.filter((campanha) => vigente(campanha)).length;
+  const campanhasAgendadas = campanhas.filter((campanha) => situacaoDaCampanha(campanha).rotulo === 'Agendada').length;
+  const campanhasEncerradas = campanhas.filter((campanha) => ['Encerrada', 'Finalizada'].includes(situacaoDaCampanha(campanha).rotulo)).length;
+  const campanhasFiltradas = campanhas.filter((campanha) => {
+    const situacao = situacaoDaCampanha(campanha).rotulo;
+    const combinaFiltro = filtro === 'todas'
+      || (filtro === 'ativas' && situacao === 'No ar')
+      || (filtro === 'agendadas' && situacao === 'Agendada')
+      || (filtro === 'encerradas' && ['Encerrada', 'Finalizada'].includes(situacao));
+    const termo = normalizar(busca.trim());
+    const combinaBusca = !termo || normalizar(`${campanha.titulo} ${campanha.chamada} ${campanha.corpo}`).includes(termo);
+    return combinaFiltro && combinaBusca;
+  });
+
   return (
     <>
       <Helmet>
         <title>Campanhas — Trombone Cidadão</title>
       </Helmet>
 
-      <div className="max-w-3xl mx-auto px-4 pt-4 pb-24">
-        <PageHeader
-          titulo="Campanhas"
-          subtitulo="Sazonais e editoriais: alguém escreve, assina e define o período"
-          paraOnde="/admin"
+      <div className="mx-auto w-full max-w-[112rem] px-3 pb-24 pt-4 sm:px-5 lg:px-8">
+        <AdminModuleHero
+          eyebrow="Comunicação editorial"
+          title="Campanhas"
+          description="Destaque por tempo limitado o que merece atenção agora, com autoria, período e alcance nacional ou municipal."
+          icon={Megaphone}
+          stats={[
+            { label: 'no ar', value: carregando ? '—' : campanhasNoAr, tone: 'text-amber-300' },
+            { label: 'agendadas', value: carregando ? '—' : campanhasAgendadas },
+            { label: 'encerradas', value: carregando ? '—' : campanhasEncerradas },
+          ]}
         />
 
-        <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4 space-y-3">
-          <p className="text-xs font-bold text-content-primary flex items-center gap-1.5">
-            <Megaphone className="w-3.5 h-3.5 text-brand" /> Nova campanha
-          </p>
+        <button
+          type="button"
+          onClick={() => setFormularioAberto((aberto) => !aberto)}
+          className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-brand/20 bg-brand/5 px-4 py-3 text-left xl:hidden"
+          aria-expanded={formularioAberto}
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-content-primary">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-content-onBrand">
+              <Megaphone className="h-4 w-4" />
+            </span>
+            Criar nova campanha
+          </span>
+          {formularioAberto ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
 
-          <Campo label="Cidade" ajuda="Vazio = vale para todo o país; a da cidade sempre aparece na frente.">
-            <select
-              value={cidadeId}
-              onChange={(e) => setCidadeId(e.target.value)}
-              className={entrada}
-            >
-              <option value="">Nacional</option>
-              {cidadesParaEscolha(cities).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.rotulo}
-                </option>
-              ))}
-            </select>
-          </Campo>
-
-          <Campo label="Título">
-            <input
-              value={nova.titulo}
-              onChange={(e) => setNova((n) => ({ ...n, titulo: e.target.value }))}
-              className={entrada}
-              maxLength={80}
-              placeholder="Antes da chuva"
-            />
-          </Campo>
-
-          <Campo
-            label="Chamada"
-            ajuda="A frase que explica por que isto importa agora. É o trabalho da campanha."
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.68fr)]">
+          <section
+            className={`${formularioAberto ? 'block' : 'hidden'} overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm xl:sticky xl:top-4 xl:block`}
           >
-            <textarea
-              rows={2}
-              value={nova.chamada}
-              onChange={(e) => setNova((n) => ({ ...n, chamada: e.target.value }))}
-              className={`${entrada} resize-none`}
-              maxLength={200}
-              placeholder="Bueiro entupido agora é rua alagada em janeiro."
-            />
-          </Campo>
+            <div className="border-b border-edge-subtle bg-brand/5 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-content-onBrand">
+                  <Megaphone className="h-4 w-4" />
+                </span>
+                <div>
+                  <h2 className="text-sm font-bold text-content-primary">Nova campanha</h2>
+                  <p className="text-2xs text-content-tertiary">Defina a mensagem, o público e o período.</p>
+                </div>
+              </div>
+            </div>
 
-          <Campo label="Texto (opcional)">
-            <textarea
-              rows={3}
-              value={nova.corpo}
-              onChange={(e) => setNova((n) => ({ ...n, corpo: e.target.value }))}
-              className={`${entrada} resize-none`}
-              maxLength={600}
-            />
-          </Campo>
+            <div className="space-y-4 px-5 py-5">
+              <Campo label="Onde será exibida?" ajuda="A campanha local tem prioridade sobre uma campanha nacional.">
+                <select value={cidadeId} onChange={(e) => setCidadeId(e.target.value)} className={entrada}>
+                  <option value="">Nacional</option>
+                  {cidadesDisponiveis.map((c) => (
+                    <option key={c.id} value={c.id}>{c.rotulo}</option>
+                  ))}
+                </select>
+              </Campo>
 
-          <Campo label="Categoria (opcional)">
-            <select
-              value={nova.categoria_id}
-              onChange={(e) => setNova((n) => ({ ...n, categoria_id: e.target.value }))}
-              className={entrada}
-            >
-              <option value="">Sem categoria</option>
-              {CATEGORIAS_BRONCA.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Campo>
+              <Campo label="Título">
+                <input
+                  value={nova.titulo}
+                  onChange={(e) => setNova((n) => ({ ...n, titulo: e.target.value }))}
+                  className={entrada}
+                  maxLength={80}
+                  placeholder="Antes da chuva"
+                />
+              </Campo>
 
-          <div className="flex gap-3">
-            <Campo label="Início">
-              <input
-                type="date"
-                value={nova.inicio}
-                onChange={(e) => setNova((n) => ({ ...n, inicio: e.target.value }))}
-                className={entrada}
-              />
-            </Campo>
-            <Campo label="Fim" ajuda={`No máximo ${DURACAO_MAXIMA_DIAS} dias.`}>
-              <input
-                type="date"
-                value={nova.fim}
-                onChange={(e) => setNova((n) => ({ ...n, fim: e.target.value }))}
-                className={entrada}
-              />
-            </Campo>
-          </div>
+              <Campo label="Chamada" ajuda="Explique em uma frase por que isso importa agora.">
+                <textarea
+                  rows={2}
+                  value={nova.chamada}
+                  onChange={(e) => setNova((n) => ({ ...n, chamada: e.target.value }))}
+                  className={`${entrada} resize-none`}
+                  maxLength={200}
+                  placeholder="Bueiro entupido agora é rua alagada em janeiro."
+                />
+              </Campo>
 
-          <p className="text-2xs text-content-tertiary leading-relaxed">
-            A campanha não paga nada a mais. Ela diz o que é útil agora; o útil
-            continua valendo o que sempre valeu.
-          </p>
+              <Campo label="Texto (opcional)">
+                <textarea
+                  rows={3}
+                  value={nova.corpo}
+                  onChange={(e) => setNova((n) => ({ ...n, corpo: e.target.value }))}
+                  className={`${entrada} resize-none`}
+                  maxLength={600}
+                />
+              </Campo>
 
-          <button
-            type="button"
-            disabled={salvando}
-            onClick={publicar}
-            className="text-2xs font-bold text-content-onBrand bg-brand px-3 py-1.5 rounded-full disabled:opacity-50"
-          >
-            {salvando ? 'Publicando…' : 'Publicar campanha'}
-          </button>
-        </div>
-
-        {carregando ? (
-          <div className="flex items-center gap-2 text-xs text-content-tertiary py-10 justify-center">
-            <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
-          </div>
-        ) : (
-          <ul className="mt-4 space-y-2">
-            {campanhas.map((c) => {
-              const noAr = vigente(c);
-              const dias = diasRestantes(c);
-
-              return (
-                <li
-                  key={c.id}
-                  className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-3"
+              <Campo label="Categoria (opcional)" ajuda="Quando escolhida, a Rota do Dia mostra somente broncas desta categoria.">
+                <select
+                  value={nova.categoria_id}
+                  onChange={(e) => setNova((n) => ({ ...n, categoria_id: e.target.value }))}
+                  className={entrada}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-bold text-content-primary leading-tight">
-                        {c.titulo}
-                      </p>
-                      <p className="text-2xs text-content-tertiary mt-0.5">
-                        {c.inicio} a {c.fim} ·{' '}
-                        {noAr ? `no ar · ${dias} dias restantes` : c.status}
-                        {c.editor?.name ? ` · por ${c.editor.name}` : ''}
-                      </p>
-                      {c.chamada && (
-                        <p className="text-xs text-content-secondary mt-1 leading-relaxed">
-                          {c.chamada}
-                        </p>
-                      )}
-                    </div>
+                  <option value="">Sem categoria</option>
+                  {CATEGORIAS_BRONCA.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </Campo>
 
-                    {c.status === 'publicada' && (
-                      <button
-                        type="button"
-                        onClick={() => encerrar(c)}
-                        className="flex-shrink-0 text-2xs font-semibold text-content-tertiary underline underline-offset-2"
-                      >
-                        Encerrar
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+              <div className="grid grid-cols-2 gap-3">
+                <Campo label="Início">
+                  <input
+                    type="date"
+                    value={nova.inicio}
+                    onChange={(e) => setNova((n) => ({ ...n, inicio: e.target.value }))}
+                    className={entrada}
+                  />
+                </Campo>
+                <Campo label="Fim" ajuda={`Até ${DURACAO_MAXIMA_DIAS} dias.`}>
+                  <input
+                    type="date"
+                    value={nova.fim}
+                    onChange={(e) => setNova((n) => ({ ...n, fim: e.target.value }))}
+                    className={entrada}
+                  />
+                </Campo>
+              </div>
+
+              <div className="rounded-xl bg-surface-subtle px-3 py-2.5 text-2xs leading-relaxed text-content-tertiary">
+                Campanhas dão destaque ao que é útil agora, sem criar recompensa adicional.
+              </div>
+
+              <button
+                type="button"
+                disabled={salvando}
+                onClick={publicar}
+                className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-xs font-bold text-content-onBrand transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {salvando && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {salvando ? 'Publicando…' : 'Publicar campanha'}
+              </button>
+            </div>
+          </section>
+
+          <section className="min-w-0">
+            <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-base font-bold text-content-primary">Campanhas publicadas</h2>
+                <p className="mt-0.5 text-xs text-content-tertiary">
+                  {carregando ? 'Atualizando listagem…' : `${campanhas.length} no histórico · ${campanhasNoAr} no ar agora`}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label className="relative min-w-0 sm:w-64">
+                  <span className="sr-only">Buscar campanha</span>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
+                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar campanha" className={`${entrada} mt-0 h-10 pl-9`} />
+                </label>
+                <label>
+                  <span className="sr-only">Filtrar campanhas</span>
+                  <select value={filtro} onChange={(e) => setFiltro(e.target.value)} className={`${entrada} mt-0 h-10 sm:w-36`}>
+                    <option value="todas">Todas</option>
+                    <option value="ativas">No ar</option>
+                    <option value="agendadas">Agendadas</option>
+                    <option value="encerradas">Encerradas</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {carregando ? (
+              <div className="flex min-h-48 items-center justify-center gap-2 rounded-2xl border border-edge-subtle bg-surface-raised text-xs text-content-tertiary">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando campanhas…
+              </div>
+            ) : campanhas.length === 0 ? (
+              <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-edge-subtle bg-surface-raised px-6 text-center">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-surface-subtle text-content-tertiary">
+                  <Megaphone className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-sm font-bold text-content-primary">Nenhuma campanha publicada</p>
+                <p className="mt-1 max-w-xs text-xs leading-relaxed text-content-tertiary">
+                  Use o formulário para publicar a primeira campanha editorial.
+                </p>
+              </div>
+            ) : campanhasFiltradas.length === 0 ? (
+              <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-edge-subtle bg-surface-raised px-6 text-center">
+                <Search className="h-6 w-6 text-content-tertiary" />
+                <p className="mt-2 text-sm font-bold text-content-primary">Nenhuma campanha encontrada</p>
+                <button type="button" onClick={() => { setBusca(''); setFiltro('todas'); }} className="mt-1 text-xs font-bold text-brand hover:underline">Limpar busca e filtro</button>
+              </div>
+            ) : (
+              <ul className="grid gap-3 2xl:grid-cols-2">
+                {campanhasFiltradas.map((c) => {
+                  const noAr = vigente(c);
+                  const dias = diasRestantes(c);
+                  const situacao = situacaoDaCampanha(c);
+                  const cidade = c.city_id == null
+                    ? 'Nacional'
+                    : cidadesPorId.get(String(c.city_id)) || 'Campanha local';
+                  const categoria = CATEGORIAS_BRONCA.find((item) => item.id === c.categoria_id);
+
+                  return (
+                    <li
+                      key={c.id}
+                      className={`rounded-2xl border bg-surface-raised px-4 py-4 transition ${noAr ? 'border-brand/30 shadow-sm' : 'border-edge-subtle'}`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                            <span className={`rounded-full px-2 py-0.5 text-2xs font-bold ${situacao.classe}`}>
+                              {situacao.rotulo}
+                            </span>
+                            <span className="flex items-center gap-1 text-2xs text-content-tertiary">
+                              {c.city_id == null ? <Globe2 className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+                              {cidade}
+                            </span>
+                            {categoria && (
+                              <span className="rounded-full bg-brand-subtleBg px-2 py-0.5 text-2xs font-bold text-brand-subtleFg">
+                                {categoria.icon} {categoria.name}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-sm font-bold leading-snug text-content-primary">{c.titulo}</p>
+                          {c.chamada && (
+                            <p className="mt-1.5 text-xs leading-relaxed text-content-secondary">{c.chamada}</p>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-content-tertiary">
+                            <span className="flex items-center gap-1">
+                              <CalendarDays className="h-3 w-3" />
+                              {formatarData(c.inicio)} — {formatarData(c.fim)}
+                            </span>
+                            {noAr && (
+                              <span className="flex items-center gap-1">
+                                <Clock3 className="h-3 w-3" />
+                                {dias === 0 ? 'Último dia' : `${dias} dia${dias === 1 ? '' : 's'} restante${dias === 1 ? '' : 's'}`}
+                              </span>
+                            )}
+                            {c.editor?.name && <span>por {c.editor.name}</span>}
+                          </div>
+                        </div>
+
+                        {c.status === 'publicada' && (
+                          <button
+                            type="button"
+                            onClick={() => encerrar(c)}
+                            className="shrink-0 rounded-lg border border-edge-subtle px-2.5 py-1.5 text-2xs font-semibold text-content-secondary transition hover:bg-surface-subtle"
+                          >
+                            Encerrar
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </div>
       </div>
     </>
   );

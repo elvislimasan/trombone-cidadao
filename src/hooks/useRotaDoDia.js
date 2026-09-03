@@ -26,7 +26,7 @@ import { showAppError, showAppNotice } from '@/lib/appError';
 // `montarRota` não a escolhe de novo. O estado se reconstrói do dado real em
 // vez de ser restaurado de uma cópia que pode divergir dele.
 
-export function useRotaDoDia(posicao) {
+export function useRotaDoDia(posicao, { categoriaId = null } = {}) {
   const { user } = useAuth();
 
   const [candidatos, setCandidatos] = useState([]);
@@ -54,6 +54,7 @@ export function useRotaDoDia(posicao) {
         p_lat: posicao.lat,
         p_lng: posicao.lng,
         p_raio_m: PILOTO.RAIO_M,
+        p_categoria_id: categoriaId || null,
       });
 
       if (!vivo) return;
@@ -78,7 +79,7 @@ export function useRotaDoDia(posicao) {
     return () => {
       vivo = false;
     };
-  }, [user?.id, posicao?.lat, posicao?.lng, permissao.ok]);
+  }, [user?.id, posicao?.lat, posicao?.lng, permissao.ok, categoriaId]);
 
   const rota = useMemo(
     () => montarRota({ posicao, candidatos, agora: new Date() }),

@@ -256,6 +256,7 @@ const CityEventForm = ({
   const [sourceUrl, setSourceUrl] = useState(evento?.source_url || '');
   const [sourceButtonLabel, setSourceButtonLabel] = useState(evento?.source_button_label || '');
   const [notify, setNotify] = useState(true);
+  const [recorrenciaSemanal, setRecorrenciaSemanal] = useState(evento?.recurrence === 'weekly');
   // A foto que ja esta gravada. `null` depois que a pessoa toca no X — e o
   // que diz a diferenca entre 'nao mexi' e 'quero tirar' na hora de salvar.
   const [precisaoPrevisao, setPrecisaoPrevisao] = useState(precisaoDoEvento(evento));
@@ -295,7 +296,9 @@ const CityEventForm = ({
     // memória para uma imagem que a pessoa ainda pode trocar — e no Android o
     // caminho nativo pode nem estar pronto logo após a câmera fechar.
     const [arquivo] = await cam.resolveForUpload();
-    const previsao = instanteDaPrevisao({ precisao: precisaoPrevisao, data: dataPrevisao, hora: horaPrevisao });
+    const previsao = type === 'event'
+      ? { instante: paraInstante(dataPrevisao, horaPrevisao), soDia: false }
+      : instanteDaPrevisao({ precisao: precisaoPrevisao, data: dataPrevisao, hora: horaPrevisao });
 
     aoSalvar({
       cityId,
@@ -313,6 +316,7 @@ const CityEventForm = ({
       sourceUrl: sourceUrl.trim() ? normalizarLinkExterno(sourceUrl) : (editando ? '' : null),
       sourceButtonLabel: sourceButtonLabel.trim() || null,
       notify,
+      recurrence: type === 'event' && recorrenciaSemanal ? 'weekly' : null,
       status,
       // Quem faz o upload é quem salva (o hook de ações), não o formulário:
       // enviar aqui deixaria um objeto órfão no bucket toda vez que a gravação
@@ -331,7 +335,7 @@ const CityEventForm = ({
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-extrabold text-content-primary">
-          {editando ? 'Editar ocorrência' : 'Nova ocorrência'}
+          {editando ? (type === 'event' ? 'Editar evento' : 'Editar ocorrência') : (type === 'event' ? 'Novo evento' : 'Nova ocorrência')}
         </h1>
         <p className="mt-1 text-sm text-content-secondary">
           {editando
@@ -393,7 +397,7 @@ const CityEventForm = ({
         />
       </Campo>
 
-      <Campo label="Gravidade" dica="Crítico destaca o alerta e ignora quem desligou avisos do tipo — use só quando houver risco.">
+      {type !== 'event' && <Campo label="Gravidade" dica="Crítico destaca o alerta e ignora quem desligou avisos do tipo — use só quando houver risco.">
         <div className="flex gap-1 rounded-2xl bg-surface-sunken p-1">
           {GRAVIDADES.map((g) => (
             <button
@@ -408,7 +412,7 @@ const CityEventForm = ({
             </button>
           ))}
         </div>
-      </Campo>
+      </Campo>}
 
       <Campo label="Áreas afetadas" dica={restritoABairros ? 'Você só pode publicar nos bairros designados a você.' : undefined}>
         <div className="flex flex-wrap gap-2">
@@ -450,7 +454,14 @@ const CityEventForm = ({
           </div>
         </Campo>
 
-        <Campo
+        {type === 'event' ? (
+          <Campo label="Término do evento (opcional)" dica="Ao terminar, o evento sai da agenda sem emitir notificação.">
+            <div className="flex gap-2">
+              <Input type="date" value={dataPrevisao} onChange={(e) => setDataPrevisao(e.target.value)} className="flex-1" />
+              <Input type="time" value={horaPrevisao} onChange={(e) => setHoraPrevisao(e.target.value)} className="w-28" />
+            </div>
+          </Campo>
+        ) : <Campo
           label="Previsão de normalização"
           dica={
             precisaoPrevisao === 'nenhuma'
@@ -490,8 +501,20 @@ const CityEventForm = ({
               )}
             </div>
           )}
-        </Campo>
+        </Campo>}
       </div>
+
+      {type === 'event' && (
+        <Campo label="Recorrência">
+          <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-subtle px-4 py-3">
+            <Checkbox checked={recorrenciaSemanal} onCheckedChange={(v) => setRecorrenciaSemanal(v === true)} />
+            <span>
+              <span className="block text-sm font-semibold text-content-primary">Repetir toda semana</span>
+              <span className="block text-xs text-content-tertiary">O evento será repetido no mesmo dia da semana e horário.</span>
+            </span>
+          </label>
+        </Campo>
+      )}
 
       <Campo label="Descrição">
         <Textarea
@@ -544,7 +567,7 @@ const CityEventForm = ({
         aoRemoverAtual={() => setImagemAtual(null)}
       />
 
-      {!editando && (
+      {!editando && type !== 'event' && (
         <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-subtle px-4 py-3">
           <Checkbox checked={notify} onCheckedChange={(v) => setNotify(v === true)} />
           <span className="text-sm font-semibold text-content-primary">Enviar notificação para os moradores</span>

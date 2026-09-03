@@ -71,8 +71,8 @@ function AgoraPage() {
   const { emAndamento, programados } = useMemo(() => {
     const lista = abertos.eventos || [];
     return {
-      emAndamento: lista.filter((e) => e.status !== 'scheduled'),
-      programados: lista.filter((e) => e.status === 'scheduled'),
+      emAndamento: lista.filter((e) => e.status !== 'scheduled' && e.type !== 'event'),
+      programados: lista.filter((e) => e.status === 'scheduled' || e.type === 'event'),
     };
   }, [abertos.eventos]);
 
@@ -80,7 +80,7 @@ function AgoraPage() {
   const resumo = [
     { valor: abertos.carregando ? '—' : emAndamento.length, rotulo: 'Alertas ativos', curto: 'Ativos', tom: 'text-danger' },
     { valor: abertos.carregando ? '—' : programados.length, rotulo: 'Programados', curto: 'Programados', tom: 'text-status-progressFg' },
-    { valor: resolvidos.carregando ? '—' : resolvidos.eventos.length, rotulo: 'Resolvidos recentes', curto: 'Resolvidos', tom: 'text-status-resolvedFg' },
+    { valor: resolvidos.carregando ? '—' : resolvidos.eventos.filter((e) => e.type !== 'event').length, rotulo: 'Resolvidos recentes', curto: 'Resolvidos', tom: 'text-status-resolvedFg' },
   ];
   const areaRevelada = useRevelarAoRolar([
     abertos.carregando,
@@ -119,29 +119,34 @@ function AgoraPage() {
       {/* A mesma régua da HomeDesktop: a página usa o monitor inteiro, enquanto
           os textos mantêm uma medida confortável dentro de cada coluna. */}
       <div ref={areaRevelada} className="mx-auto w-full max-w-[100rem] px-4 py-5 sm:px-5 lg:px-12 lg:py-7 2xl:py-10">
-        <header className="reveal overflow-hidden rounded-3xl border border-edge-subtle bg-surface-raised shadow-sm">
+        <header className="reveal overflow-hidden rounded-3xl bg-gradient-to-r from-[#171717] via-[#26070b] to-[#7f1220] text-white shadow-elevation-2">
           <div className="grid gap-5 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,auto)] lg:items-center lg:px-6 lg:py-5 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:gap-6 2xl:px-8 2xl:py-7">
-            <div className="min-w-0">
-              <span className="inline-flex items-center gap-2 rounded-full border border-brand/25 bg-brand-subtleBg px-3 py-1.5 text-xs font-bold text-brand-subtleFg">
-                <span className="anim-pulsar h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
-                Atualizações da cidade
+            <div className="flex min-w-0 items-start gap-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-content-onBrand sm:h-14 sm:w-14">
+                <Radio className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden="true" />
               </span>
-              <h1 className="mt-3 text-2xl font-extrabold leading-tight text-content-primary sm:text-3xl 2xl:mt-4 2xl:text-4xl">
-                Radar da cidade
-              </h1>
-              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-content-secondary 2xl:mt-2 2xl:text-base">
-                Alertas, interrupções e eventos para você saber o que está acontecendo agora
-                {cityName ? ` em ${cityName}` : ' na cidade'}.
-              </p>
+              <div className="min-w-0">
+                <span className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.18em] text-amber-300">
+                  <span className="anim-pulsar h-2 w-2 rounded-full bg-amber-300" aria-hidden="true" />
+                  Atualizações da cidade
+                </span>
+                <h1 className="mt-1 text-2xl font-extrabold leading-tight text-white sm:text-3xl 2xl:text-4xl">
+                  Radar da cidade
+                </h1>
+                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-white/70 2xl:mt-2 2xl:text-base">
+                  Alertas, interrupções e eventos para você saber o que está acontecendo agora
+                  {cityName ? ` em ${cityName}` : ' na cidade'}.
+                </p>
+              </div>
             </div>
 
             <div className="min-w-0 lg:justify-self-end">
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                <CitySelector />
+                <CitySelector inverted />
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 gap-2 rounded-full px-3"
+                  className="h-9 gap-2 rounded-full border-white/15 bg-white/10 px-3 text-white hover:bg-white/15 hover:text-white"
                   aria-label="Compartilhar Radar da cidade"
                   onClick={() => compartilharLink({
                     title: `Radar da cidade em ${cityName || 'nossa cidade'}`,
@@ -153,7 +158,7 @@ function AgoraPage() {
                   <span className="hidden sm:inline">Compartilhar</span>
                 </Button>
                 {podeGerir && cityId && (
-                  <Button size="sm" className="h-9 gap-1.5 rounded-full px-4" onClick={() => setCriando(true)}>
+                  <Button size="sm" className="h-9 gap-1.5 rounded-full bg-white px-4 text-[#68101b] hover:bg-white/90" onClick={() => setCriando(true)}>
                     <Plus className="h-4 w-4" /> Nova ocorrência
                   </Button>
                 )}
@@ -163,10 +168,10 @@ function AgoraPage() {
                   e evitam uma segunda faixa de quase 75px sob a apresentação. */}
               {cityId && (
                 <div className="mt-3 hidden grid-cols-3 gap-2 lg:grid 2xl:hidden">
-                  {resumo.map(({ valor, curto, tom }) => (
-                    <div key={curto} className="rounded-xl bg-surface-subtle px-3 py-2 text-center">
-                      <p className={`text-lg font-extrabold leading-none tabular-nums ${tom}`}>{valor}</p>
-                      <p className="mt-1 text-[10px] font-semibold text-content-tertiary">{curto}</p>
+                  {resumo.map(({ valor, curto }) => (
+                    <div key={curto} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
+                      <p className="text-lg font-extrabold leading-none tabular-nums text-white">{valor}</p>
+                      <p className="mt-1 text-[10px] font-semibold text-white/60">{curto}</p>
                     </div>
                   ))}
                 </div>
@@ -175,11 +180,11 @@ function AgoraPage() {
           </div>
 
           {cityId && (
-            <div className="grid grid-cols-3 border-t border-edge-subtle bg-surface-subtle/50 lg:hidden 2xl:grid">
-              {resumo.map(({ valor, rotulo, tom }, index) => (
-                <div key={rotulo} className={`px-3 py-4 text-center sm:px-6 ${index ? 'border-l border-edge-subtle' : ''}`}>
-                  <p className={`text-xl font-extrabold leading-none tabular-nums lg:text-2xl ${tom}`}>{valor}</p>
-                  <p className="mt-1.5 text-[10px] font-semibold text-content-tertiary sm:text-xs">{rotulo}</p>
+            <div className="grid grid-cols-3 border-t border-white/10 bg-white/5 lg:hidden 2xl:grid">
+              {resumo.map(({ valor, rotulo }, index) => (
+                <div key={rotulo} className={`px-3 py-4 text-center sm:px-6 ${index ? 'border-l border-white/10' : ''}`}>
+                  <p className="text-xl font-extrabold leading-none tabular-nums text-white lg:text-2xl">{valor}</p>
+                  <p className="mt-1.5 text-[10px] font-semibold text-white/60 sm:text-xs">{rotulo}</p>
                 </div>
               ))}
             </div>
@@ -299,7 +304,7 @@ function AgoraPage() {
                 </Secao>
               )}
 
-              {resolvidos.eventos.length > 0 && (
+              {resolvidos.eventos.some((e) => e.type !== 'event') && (
                 <Secao
                   titulo="Resolvidos recentemente"
                   descricao="Ocorrências que já foram normalizadas."
@@ -310,7 +315,7 @@ function AgoraPage() {
                     </span>
                   }
                 >
-                  {resolvidos.eventos.map((e) => (
+                  {resolvidos.eventos.filter((e) => e.type !== 'event').map((e) => (
                     <CityEventCard key={e.id} evento={e} agora={agora} resolvido />
                   ))}
                 </Secao>

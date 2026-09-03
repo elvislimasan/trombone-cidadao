@@ -107,6 +107,20 @@ export const ETAPAS_OFICIAIS = ['encaminhada', 'recebida', 'programada', 'execut
 /** Uma solicitação recusada pelo órgão. Não é etapa: é o fim de um caminho. */
 export const ETAPA_RECUSADA = 'recusada';
 
+// Etapas criadas pelo webhook do canal carregam diagnostico de entrega,
+// periodo do relatorio e, em registros antigos, o endereco de e-mail do
+// destinatario. Isso e operacao interna do canal — nao historia publica da
+// bronca. O papel `sistema` e gravado pelas duas rotinas automaticas da 222.
+export const etapasOficiaisPublicas = (etapas = []) =>
+  (Array.isArray(etapas) ? etapas : []).filter(
+    (etapa) => etapa?.registrado_por_papel !== 'sistema'
+  );
+
+const EMAIL_EM_TEXTO = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+
+export const ocultarEmails = (valor) =>
+  typeof valor === 'string' ? valor.replace(EMAIL_EM_TEXTO, '[e-mail oculto]') : valor;
+
 const data = (v) => {
   if (!v) return null;
   const d = v instanceof Date ? v : new Date(v);
@@ -457,6 +471,34 @@ export const linhaDoTempo = ({
     // entre "a prefeitura não respondeu" e "ninguém perguntou a ela".
     semIntegracao: !integracaoComOrgao,
     resolucao,
+  };
+};
+
+/**
+ * Versao para a pagina publica da bronca.
+ *
+ * A linha completa continua util para administracao e auditoria. No publico,
+ * removemos fatos automaticos do transporte do e-mail e mascaramos qualquer
+ * endereco que tenha sido digitado em uma etapa manual do orgao.
+ */
+export const linhaDoTempoPublica = (args = {}) => {
+  const resultado = linhaDoTempo({
+    ...args,
+    etapasOficiais: etapasOficiaisPublicas(args.etapasOficiais),
+  });
+
+  return {
+    ...resultado,
+    eventos: resultado.eventos.map((evento) => (
+      evento.fonte === FONTE_ORGAO
+        ? {
+            ...evento,
+            autorNome: ocultarEmails(evento.autorNome),
+            detalhe: ocultarEmails(evento.detalhe),
+            motivo: ocultarEmails(evento.motivo),
+          }
+        : evento
+    )),
   };
 };
 

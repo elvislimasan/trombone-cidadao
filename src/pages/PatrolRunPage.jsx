@@ -5,6 +5,9 @@ import { Helmet } from 'react-helmet';
 import { categoriaPorId, nomeDaCategoria } from '@/lib/reportCategories';
 import { precarregarRenders } from '@/components/patrol/patrolAvatarMarkup';
 import { usePatrolAvatar } from '@/hooks/usePatrolAvatar';
+import { useRuasDaCidade } from '@/hooks/useRuasDaCidade';
+import { tracarRota } from '@/lib/rotaTracada';
+import { haversine } from '@/lib/navGeo';
 import {
   buildPatrolPickPath,
   getPatrolTravelMode,
@@ -87,6 +90,41 @@ export default function PatrolRunPage() {
   // pin deles é a confirmação da sinalização desde que o toast saiu — ver o
   // comentário em PatrolOverlay, no `aoSoAlertar`.
   const [missoes, setMissoes] = useState([]);
+  const [cidadeId, setCidadeId] = useState(null);
+  const [alvoSelecionado, setAlvoSelecionado] = useState(null);
+  const { linhas: ruasDaCidade, carregando: carregandoRuas } = useRuasDaCidade(cidadeId);
+
+  const rotaAoAlvo = useMemo(
+    () =>
+      alvoSelecionado && posicao
+        ? tracarRota({
+            posicao,
+            paradas: [alvoSelecionado],
+            linhas: ruasDaCidade,
+            detalharAcessos: true,
+          })
+        : { trechos: [], metros: 0, tracado: 'reta' },
+    [alvoSelecionado, posicao, ruasDaCidade]
+  );
+
+  const selecionarBronca = useCallback((bronca) => {
+    if (!bronca) return;
+    const ponto = bronca.location || bronca;
+    setAlvoSelecionado({
+      ...bronca,
+      lat: Number(ponto.lat),
+      lng: Number(ponto.lng),
+      tipoAlvo: 'bronca',
+    });
+  }, []);
+
+  const selecionarMissao = useCallback((missao) => {
+    if (!missao) return;
+    setAlvoSelecionado({ ...missao, tipoAlvo: 'sinal' });
+  }, []);
+
+  const distanciaDireta =
+    posicao && alvoSelecionado ? Math.round(haversine(posicao, alvoSelecionado)) : null;
 
   // O mapa desenha o corredor, não o enquadramento: são poucas dezenas de pinos
   // em vez de centenas, e a referência só muda quando o corredor é rebuscado.
@@ -136,14 +174,16 @@ export default function PatrolRunPage() {
               navAvatar={avatar}
               navGpsAtivo={!sinalFraco}
               navTrail={rastro}
+              navRouteTrechos={rotaAoAlvo.trechos}
               navMissoes={missoes}
+              onNavMissaoClick={selecionarMissao}
               showLegend={false}
               showModeToggle={false}
               interactive={false}
               // Em patrulha nada disso é alcançável: os popins estão desligados
               // e o mapa não aceita toque. Ficam como no-op para o MapView não
               // precisar de guarda em cada chamada.
-              onReportClick={() => {}}
+              onReportClick={selecionarBronca}
               onUpvote={() => {}}
               onUpdateClick={() => {}}
               onBoundsChange={() => {}}
@@ -162,6 +202,23 @@ export default function PatrolRunPage() {
           onBroncas={setBroncas}
           onRastro={setRastro}
           onMissoes={setMissoes}
+          onCidade={setCidadeId}
+          destinoSelecionado={
+            alvoSelecionado
+              ? {
+                  tipo: alvoSelecionado.tipoAlvo,
+                  nome:
+                    alvoSelecionado.title ||
+                    alvoSelecionado.categoryName ||
+                    alvoSelecionado.address ||
+                    'Ponto selecionado',
+                  distancia: rotaAoAlvo.metros || distanciaDireta,
+                  calculando: carregandoRuas,
+                  pelasRuas: rotaAoAlvo.tracado !== 'reta',
+                }
+              : null
+          }
+          onCancelarDestino={() => setAlvoSelecionado(null)}
           onSair={sair}
         />
       </Suspense>

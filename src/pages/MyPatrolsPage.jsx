@@ -465,7 +465,7 @@ export default function MyPatrolsPage() {
   );
 
   return (
-    <div className="container max-w-2xl mx-auto w-full px-4 py-6 pb-24">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-24 lg:max-w-[100rem] lg:px-8 lg:py-8 lg:pb-12">
       <Helmet>
         <title>Suas patrulhas | Trombone Cidadão</title>
         <meta name="robots" content="noindex" />
@@ -519,7 +519,7 @@ export default function MyPatrolsPage() {
             </div>
           ) : (
             <>
-              <ul className="flex flex-col gap-2.5">
+              <ul className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
                 {patrulhas.map((p) => (
                   <CartaoPatrulha
                     key={p.id}

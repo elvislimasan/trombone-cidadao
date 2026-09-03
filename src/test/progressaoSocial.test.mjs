@@ -227,7 +227,11 @@ test('a chamada informa o prazo sem inventar pressa', () => {
 test('a campanha aponta para fluxo que já existe', () => {
   // Campanha que precisasse de tela própria seria funcionalidade com data de
   // validade.
-  assert.ok(['/rota-do-dia', '/missoes'].includes(chamadaDaCampanha(campanha(), HOJE).acao.para));
+  const chamada = chamadaDaCampanha(campanha({ categoria_id: 'iluminacao' }), HOJE);
+  assert.ok(chamada.acao.para.startsWith('/rota-do-dia?'));
+  assert.match(chamada.acao.para, /categoria=iluminacao/);
+  assert.match(chamada.acao.para, /campanha=/);
+  assert.equal(chamadaDaCampanha(campanha(), HOJE).acao.para, '/missoes');
 });
 
 test('campanha sem quem assina não publica', () => {

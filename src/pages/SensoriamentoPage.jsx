@@ -172,7 +172,7 @@ const SensoriamentoPage = () => {
         <title>Sensoriamento passivo — Trombone Cidadão</title>
       </Helmet>
 
-      <div className="max-w-2xl mx-auto px-4 pt-4 pb-24">
+      <div className="mx-auto w-full max-w-2xl px-4 pt-4 pb-24 lg:max-w-6xl lg:px-8 lg:pt-8 lg:pb-12">
         <PageHeader
           titulo="Detectar solavancos"
           subtitulo="Opcional, durante a patrulha, e nada é publicado sem você confirmar"
@@ -200,7 +200,7 @@ const SensoriamentoPage = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4 space-y-2">
+            <div className="grid grid-cols-1 gap-2 rounded-2xl border border-edge-subtle bg-surface-raised px-4 py-4 lg:grid-cols-2 lg:gap-5">
               <Bloco titulo="O que é coletado" itens={TERMOS_DO_CONSENTIMENTO.oQueColeta} />
               <Bloco
                 titulo="O que nunca é coletado"
@@ -210,7 +210,7 @@ const SensoriamentoPage = () => {
               <Bloco titulo="O que acontece depois" itens={TERMOS_DO_CONSENTIMENTO.oQueAcontece} />
               <Bloco titulo="Como desligar" itens={TERMOS_DO_CONSENTIMENTO.comoSair} />
 
-              <div className="pt-1">
+              <div className="pt-1 lg:col-span-2">
                 {ativo ? (
                   <button
                     type="button"
@@ -244,7 +244,7 @@ const SensoriamentoPage = () => {
                   se você não responder. Nada disso está publicado.
                 </p>
 
-                <ul className="mt-3 space-y-3">
+                <ul className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                   {candidatos.map((c) => (
                     <li key={c.id} className="rounded-xl bg-surface-subtle px-3 py-2.5">
                       <p className="text-2xs text-content-tertiary">

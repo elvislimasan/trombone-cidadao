@@ -75,7 +75,14 @@ export function useCityEvents(cityId, { filtro = 'todos', escopo = 'abertos', li
     }
 
     setIndisponivel(false);
-    setEventos(data || []);
+    const lista = data || [];
+    if (lista.length === 0) { setEventos([]); return; }
+    const { data: recorrencias } = await supabase
+      .from('city_events')
+      .select('id, recurrence')
+      .in('id', lista.map((evento) => evento.id));
+    const porId = new Map((recorrencias || []).map((item) => [String(item.id), item.recurrence]));
+    setEventos(lista.map((evento) => ({ ...evento, recurrence: porId.get(String(evento.id)) || null })));
   }, [cityId, statuses, tipos, limite]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -92,10 +99,7 @@ export function useCityEvent(eventId) {
   const carregar = useCallback(async () => {
     if (!eventId) return;
     setCarregando(true);
-    const [{ data, error }, { data: dadosDoLink }] = await Promise.all([
-      supabase.rpc('get_city_event', { p_event_id: eventId }),
-      supabase.from('city_events').select('source_button_label').eq('id', eventId).maybeSingle(),
-    ]);
+    const { data, error } = await supabase.rpc('get_city_event', { p_event_id: eventId });
     setCarregando(false);
 
     if (error) {
@@ -107,7 +111,12 @@ export function useCityEvent(eventId) {
       setNaoAchou(true);
       return;
     }
-    setEvento({ ...data, source_button_label: dadosDoLink?.source_button_label || null });
+    const { data: recorrencia } = await supabase
+      .from('city_events')
+      .select('recurrence')
+      .eq('id', eventId)
+      .maybeSingle();
+    setEvento({ ...data, recurrence: recorrencia?.recurrence || null });
   }, [eventId]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -164,21 +173,6 @@ export function useCityEventActions({ aoConcluir } = {}) {
     return data ?? true;
   }, []);
 
-  const salvarTextoDoBotao = async (eventId, texto) => {
-    setSalvando(true);
-    const { error } = await supabase
-      .from('city_events')
-      .update({ source_button_label: String(texto || '').trim() || null })
-      .eq('id', eventId);
-    setSalvando(false);
-
-    if (error) {
-      showAppError({ title: 'O alerta foi salvo, mas o texto do botão não', description: error.message });
-      return false;
-    }
-    return true;
-  };
-
   /**
    * Envia a foto, se houver, e devolve `{ url, path }` — ou `null`.
    *
@@ -227,17 +221,20 @@ export function useCityEventActions({ aoConcluir } = {}) {
         p_estimated_end_at: dados.estimatedEndAt || null,
         p_source_name: dados.sourceName || null,
         p_source_url: dados.sourceUrl || null,
-        p_notify: dados.notify !== false,
+        p_notify: dados.type === 'event' ? false : dados.notify !== false,
         p_status: dados.status || 'active',
         p_image_url: imagem?.url || null,
         p_image_path: imagem?.path || null,
         p_estimated_end_day_only: Boolean(dados.estimatedEndDayOnly),
+        p_source_button_label: dados.sourceButtonLabel || null,
       }, null, { finalizar: false });
 
       // A gravação falhou depois do upload: o objeto não pertence a nada.
       if (!id && imagem?.path) await removerImagemDeAcontecimento(supabase, imagem.path);
       if (id) {
-        await salvarTextoDoBotao(id, dados.sourceButtonLabel);
+        if (dados.type === 'event') {
+          await supabase.from('city_events').update({ recurrence: dados.recurrence || null }).eq('id', id);
+        }
         showAppNotice({ title: dados.status === 'draft' ? 'Rascunho salvo.' : 'Acontecimento publicado.' });
         await aoConcluirRef.current?.();
       }
@@ -263,6 +260,11 @@ export function useCityEventActions({ aoConcluir } = {}) {
         p_image_path: imagem?.path || null,
         p_limpar_imagem: Boolean(dados.limparImagem),
         p_estimated_end_day_only: dados.estimatedEndDayOnly ?? null,
+        // Duas informações diferentes: o texto novo, e "apague o que havia".
+        // `coalesce` no banco não distingue "não mexi" de "quero limpar" — é o
+        // mesmo par de `p_image_url`/`p_limpar_imagem`.
+        p_source_button_label: dados.sourceButtonLabel || null,
+        p_limpar_botao: !dados.sourceButtonLabel,
       }, null, { finalizar: false });
 
       if (!ok) {
@@ -270,12 +272,13 @@ export function useCityEventActions({ aoConcluir } = {}) {
         return null;
       }
 
-      // A foto antiga só sai DEPOIS de a nova estar gravada. Apagar antes
-      // deixaria o acontecimento sem imagem nenhuma se a gravação falhasse.
-      await salvarTextoDoBotao(eventId, dados.sourceButtonLabel);
+      await supabase.from('city_events').update({ recurrence: dados.recurrence || null }).eq('id', eventId);
+
       showAppNotice({ title: 'Acontecimento atualizado.' });
       await aoConcluirRef.current?.();
 
+      // A foto antiga só sai DEPOIS de a nova estar gravada. Apagar antes
+      // deixaria o acontecimento sem imagem nenhuma se a gravação falhasse.
       const trocouOuLimpou = Boolean(imagem?.path) || dados.limparImagem;
       if (trocouOuLimpou && dados.imagemAnterior && dados.imagemAnterior !== imagem?.path) {
         await removerImagemDeAcontecimento(supabase, dados.imagemAnterior);

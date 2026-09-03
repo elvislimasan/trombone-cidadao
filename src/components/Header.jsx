@@ -14,15 +14,31 @@ import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
-// Entre `lg` e `2xl` não há largura para marca, dez destinos e ações da conta.
+// Entre `lg` e `4xl` não há largura para marca, dez destinos e ações da conta.
 // Estes são os caminhos de uso mais frequente; os demais continuam acessíveis
 // em "Mais". A ordem visual continua vindo da configuração administrativa.
 const COMPACT_PRIMARY_PATHS = new Set([
   '/',
+  '/admin',
+  '/embaixador',
+  '/painel-usuario',
+  '/feed',
+  '/mapa',
   '/agora',
   '/obras-publicas',
   '/mapa-pavimentacao',
-  '/servicos',
+]);
+
+const PRIORIDADE_DESKTOP = new Map([
+  ['/feed', 0],
+  ['/', 1],
+  ['/admin', 1],
+  ['/embaixador', 1],
+  ['/painel-usuario', 1],
+  ['/mapa', 2],
+  ['/agora', 3],
+  ['/obras-publicas', 4],
+  ['/mapa-pavimentacao', 5],
 ]);
 
 
@@ -116,7 +132,34 @@ const Header = () => {
       isActive ? 'after:w-full' : 'after:w-0 hover:after:w-2/3'
     }`;
 
-  const visibleMenuItems = menuSettings.items.filter(item => item.isVisible);
+  // Visitantes veem a Home como "Início". Para quem já entrou, o feed vira a
+  // primeira navegação e o antigo item de início vira o painel do seu papel.
+  const visibleMenuItems = menuSettings.items
+    .filter(item => item.isVisible && (!item.authOnly || user))
+    .map((item) => {
+      // Os nomes públicos são produto, não conteúdo administrativo antigo.
+      // Isso também atualiza instalações que ainda têm "Pavimentação" salvo.
+      const normalizado = item.path === '/mapa-pavimentacao'
+        ? { ...item, name: 'Ruas' }
+        : item.path === '/mapa'
+          ? { ...item, name: 'Broncas', icon: 'Megaphone' }
+          : item;
+
+      if (normalizado.path !== '/') return normalizado;
+      if (!user) return normalizado;
+      if (user.is_admin || user.is_master) {
+        return { ...normalizado, name: 'Painel Admin', path: '/admin', icon: 'Shield' };
+      }
+      if (user.is_ambassador) {
+        return { ...normalizado, name: 'Painel Embaixador', path: '/embaixador', icon: 'ShieldCheck' };
+      }
+      return { ...normalizado, name: 'Meu Painel', path: '/painel-usuario', icon: 'LayoutDashboard' };
+    })
+    .sort((a, b) => {
+      const prioridadeA = PRIORIDADE_DESKTOP.get(a.path) ?? 100;
+      const prioridadeB = PRIORIDADE_DESKTOP.get(b.path) ?? 100;
+      return prioridadeA - prioridadeB;
+    });
   const compactPrimaryItems = visibleMenuItems.filter(item => COMPACT_PRIMARY_PATHS.has(item.path));
   const compactMoreItems = visibleMenuItems.filter(item => !COMPACT_PRIMARY_PATHS.has(item.path));
   const compactMoreIsActive = compactMoreItems.some(({ path }) => (
@@ -207,7 +250,7 @@ const Header = () => {
         </div>
 
         {/* Navegação completa apenas quando os dez links realmente cabem. */}
-        <nav className="hidden min-w-0 items-center gap-5 2xl:flex">
+        <nav className="hidden min-w-0 items-center gap-5 4xl:flex">
           {visibleMenuItems.map(item => (
             <NavLink
               key={item.path}
@@ -222,7 +265,7 @@ const Header = () => {
 
         {/* Modo notebook: cinco destinos principais e um único menu secundário.
             Nenhum rótulo quebra linha, portanto o header mantém altura fixa. */}
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex 2xl:hidden xl:gap-4">
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex 4xl:hidden xl:gap-4">
           {compactPrimaryItems.map(item => (
             <NavLink
               key={item.path}

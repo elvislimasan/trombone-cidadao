@@ -48,15 +48,15 @@ const AssistEvaluationPage = () => {
         <title>Assistente de categoria — Trombone Cidadão</title>
       </Helmet>
 
-      <div className="max-w-2xl mx-auto px-4 pt-4 pb-24">
+      <div className="mx-auto w-full max-w-2xl px-4 pt-4 pb-24 lg:max-w-[100rem] lg:px-8 lg:pt-8 lg:pb-12">
         <PageHeader
           titulo="Assistente de categoria"
           subtitulo="Acerto por categoria nos últimos 180 dias"
           paraOnde="/admin"
         />
 
-        <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-3 mb-3">
-          <p className="text-2xs text-content-tertiary leading-relaxed">
+        <div className="mb-3 rounded-2xl border border-edge-subtle bg-surface-raised px-4 py-3 lg:px-5 lg:py-4">
+          <p className="max-w-4xl text-2xs leading-relaxed text-content-tertiary lg:text-sm">
             A sugestão só aparece para o cidadão numa categoria com pelo menos{' '}
             {AMOSTRA_MINIMA} medições e {Math.round(ACERTO_MINIMO * 100)}% de
             acerto. Não há como ligar manualmente: a habilitação é consequência
@@ -69,7 +69,7 @@ const AssistEvaluationPage = () => {
             <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
             {painel.map((c) => (
               <li
                 key={c.categoriaId}

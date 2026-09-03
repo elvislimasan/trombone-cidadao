@@ -6,7 +6,7 @@ import {
   FONTE_MODERACAO,
   FONTE_ORGAO,
   ROTULO_DA_FONTE,
-  linhaDoTempo,
+  linhaDoTempoPublica,
 } from "@/lib/reportTimeline";
 
 // A linha do tempo com proveniência (fase 1 do roadmap revisado, §36.6).
@@ -125,7 +125,7 @@ const ReportTimeline = ({
   formatDateTime,
   onAbrirEvidencia,
 }) => {
-  const { eventos, semIntegracao } = linhaDoTempo({
+  const { eventos } = linhaDoTempoPublica({
     report,
     atualizacoes,
     etapasOficiais,
@@ -156,30 +156,9 @@ const ReportTimeline = ({
         ))}
       </ul>
 
-      {/* OS DOIS AVISOS AZUIS SAÍRAM DAQUI
-          Eram "Encaminhar não é resolver…" e "O órgão ainda não informou a
-          próxima etapa." — ressalvas escritas quando etapa oficial era coisa
-          rara e digitada à mão, e o risco era a linha do tempo soar como
-          conserto feito.
-
-          Com o canal do órgão (222), a própria linha já mostra o encaminhamento
-          e o recebimento com data, hora e destinatário. Repetir por extenso que
-          aquilo não é conserto passou a ser um rodapé fixo em toda bronca — e
-          aviso que aparece sempre deixa de ser lido, inclusive quando importa.
-
-          `linhaDoTempo` continua devolvendo `aviso` e `falta`: a regra fica
-          disponível para quem quiser mostrá-la em outro lugar, e os testes que
-          a cobrem continuam valendo. O que saiu foi a exibição. */}
-
-      {/* Sem canal com a prefeitura, a ausência de etapa oficial não é atraso do
-          órgão — é ausência de integração. Dizer isso é a diferença entre "a
-          prefeitura não respondeu" e "ninguém perguntou a ela". */}
-      {semIntegracao && (
-        <p className="mt-2 text-2xs text-content-tertiary leading-relaxed">
-          Esta cidade ainda não tem canal automático com o poder público. As
-          etapas do órgão aparecem aqui quando alguém da moderação as registra.
-        </p>
-      )}
+      {/* Diagnostico de envio, destinatario, entrega e configuracao do canal
+          nao aparecem aqui. Esses dados operacionais ficam no painel
+          administrativo "Canais do orgao". */}
     </div>
   );
 };

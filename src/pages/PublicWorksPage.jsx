@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -20,7 +20,10 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { showAppError } from '@/lib/appError';
 import CartoesDeMapa from '@/components/map/CartoesDeMapa';
+import LimparFiltros from '@/components/map/LimparFiltros';
 import { useFocoDeRua, dentroDoFoco } from '@/hooks/useFocoDeRua';
+import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
+import { WorkEditModal } from '@/pages/admin/ManageWorksPage';
 
 const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, onSelectionChange, searchPlaceholder }) => {
   const Icon = triggerIcon;
@@ -70,6 +73,11 @@ const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, on
 // frente.
 const HIDDEN_BY_DEFAULT_STATUS = 'completed';
 
+// O recorte zerado. Existe como constante para o estado inicial e o botão
+// "Limpar filtros" não divergirem — um filtro que o botão esquece de apagar é
+// pior que botão nenhum, porque a tela passa a afirmar que está limpa.
+const FILTROS_VAZIOS = { area: [], contractor: [], status: [], bairro: [] };
+
 // As cores dos pinos, repetidas aqui para a contagem do painel poder servir de
 // legenda. A fonte continua sendo `getStatusInfo` em WorksMapView — se um dia
 // as duas divergirem, quem manda é o mapa, e é lá que a cor tem de ser trocada
@@ -86,7 +94,6 @@ const COR_DA_SITUACAO = {
 const PublicWorksPage = () => {
   const [view, setView] = useState('map');
   const [works, setWorks] = useState([]); // dataset para modo mapa
-  const [filteredWorks, setFilteredWorks] = useState([]); // filtrado para mapa
 
   // "As obras desta rua", vindo de `?rua=<id>` — o link da faixa de Minha Rua.
   // Mesma geometria que contou o número que foi clicado (migração 228).
@@ -96,28 +103,37 @@ const PublicWorksPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 9;
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    area: [],
-    contractor: [],
-    status: [],
-    bairro: [],
-  });
+  const [filters, setFilters] = useState(FILTROS_VAZIOS);
   const [filterOptions, setFilterOptions] = useState({
     areas: [],
     contractors: [],
     bairros: [],
   });
   const [loading, setLoading] = useState(true);
+  const [editingWork, setEditingWork] = useState(null);
+  const [editOptions, setEditOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
   const { cityId: activeCityId } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
+  const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const mapViewRef = useRef();
   const telaLarga = useTelaLarga();
   // Quantos filtros estão ligados — é o número que a pílula "Filtros" mostra
   // quando a coluna é recolhida. Sem ele, alguém esconde a coluna, esquece o
   // recorte e lê o mapa filtrado achando que é a cidade inteira.
+  // A busca conta como recorte: quem digitou "creche" e recolheu a coluna está
+  // vendo tanto menos da cidade quanto quem marcou um bairro.
   const filtrosLigados = Object.values(filters)
-    .reduce((total, valor) => total + (Array.isArray(valor) ? valor.length : 0), 0);
+    .reduce((total, valor) => total + (Array.isArray(valor) ? valor.length : 0), 0)
+    + (searchTerm.trim() ? 1 : 0);
+
+  // O foco de rua NÃO entra aqui: ele chega pela URL, tem banner próprio
+  // explicando que existe e um "X" para sair. Apagá-lo junto faria o botão
+  // desfazer, sem avisar, o recorte que a pessoa nem ligou nesta tela.
+  const limparFiltros = useCallback(() => {
+    setFilters(FILTROS_VAZIOS);
+    setSearchTerm('');
+  }, []);
   const listTopRef = useRef();
 
   // Admin/master gerenciam qualquer cidade. Embaixador puro só pode cadastrar
@@ -172,20 +188,29 @@ const PublicWorksPage = () => {
       };
 
       const [
+        { data: categories, error: categoryError },
         { data: areas, error: areaError },
         { data: contractors, error: conError },
         { data: bairros, error: bairroError }
       ] = await Promise.all([
+        supabase.from('work_categories').select('id, name'),
         supabase.from('work_areas').select('id, name'),
         supabase.from('contractors').select('id, name'),
         fetchBairros(),
       ]);
 
+      if (categoryError) throw categoryError;
       if (areaError) throw areaError;
       if (conError) throw conError;
       if (bairroError) throw bairroError;
 
       setFilterOptions({
+        areas: areas || [],
+        contractors: contractors || [],
+        bairros: bairros || [],
+      });
+      setEditOptions({
+        categories: categories || [],
         areas: areas || [],
         contractors: contractors || [],
         bairros: bairros || [],
@@ -223,7 +248,6 @@ const PublicWorksPage = () => {
         location: w.location ? { lat: w.location.coordinates[1], lng: w.location.coordinates[0] } : null
       }));
       setWorks(formattedData);
-      setFilteredWorks(formattedData);
     } catch (error) {
       showAppError({
         title: "Erro ao buscar obras públicas",
@@ -299,7 +323,18 @@ const PublicWorksPage = () => {
     fetchFilterOptions();
   }, [fetchWorks, fetchFilterOptions]);
 
-  useEffect(() => {
+  // O RECORTE SEM A SITUAÇÃO — É DELE QUE SAEM AS CONTAGENS
+  //
+  // Os cartões do topo contam E filtram, e contar sobre o resultado do próprio
+  // filtro de situação fazia o contador se destruir ao ser usado: clicar em
+  // "Concluídas" zerava "Em andamento", "Paralisadas" e "Inacabadas", e a tela
+  // passava a afirmar que a cidade não tem obra parada nenhuma. Quem quisesse
+  // trocar de situação lia três zeros e concluía que não havia o que ver.
+  //
+  // Aqui entram todos os outros recortes — busca, área, construtora, bairro e a
+  // rua vinda da URL. A situação entra depois, em `filteredWorks`, que é o que
+  // o mapa desenha.
+  const worksDoRecorte = useMemo(() => {
     let result = works;
 
     if (searchTerm) {
@@ -312,11 +347,6 @@ const PublicWorksPage = () => {
     if (filters.contractor.length > 0) {
       result = result.filter(w => w.contractor?.id && filters.contractor.includes(w.contractor.id));
     }
-    if (filters.status.length > 0) {
-      result = result.filter(w => filters.status.includes(w.status));
-    } else {
-      result = result.filter(w => w.status !== HIDDEN_BY_DEFAULT_STATUS);
-    }
     if (filters.bairro.length > 0) {
       result = result.filter(w => w.bairro?.id && filters.bairro.includes(w.bairro.id));
     }
@@ -327,15 +357,80 @@ const PublicWorksPage = () => {
       result = result.filter(w => dentroDoFoco(focoDeRua, w.id));
     }
 
-    setFilteredWorks(result);
+    return result;
+  }, [works, searchTerm, filters.area, filters.contractor, filters.bairro, focoDeRua]);
+
+  // O que o mapa e a lista mostram: o recorte acima, agora com a situação.
+  // Sem filtro de situação marcado, vale o padrão da tela — concluída não
+  // aparece.
+  const filteredWorks = useMemo(() => (
+    filters.status.length > 0
+      ? worksDoRecorte.filter(w => filters.status.includes(w.status))
+      : worksDoRecorte.filter(w => w.status !== HIDDEN_BY_DEFAULT_STATUS)
+  ), [worksDoRecorte, filters.status]);
+
+  // Mexer no recorte devolve a lista para a primeira página: a página 3 do
+  // recorte anterior quase nunca existe no novo.
+  useEffect(() => {
     if (view === 'list') {
       setCurrentPage(1);
       fetchListWorks(1);
     }
-  }, [searchTerm, filters, works, view, fetchListWorks, focoDeRua]);
+  }, [searchTerm, filters, view, fetchListWorks]);
   
   const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
+
+  const handleEditWork = useCallback(async (work) => {
+    const { data, error } = await supabase
+      .from('public_works')
+      .select('*, bairro:bairro_id(id, name), work_category:work_category_id(id, name), work_area:work_area_id(id, name), contractor:contractor_id(id, name)')
+      .eq('id', work.id)
+      .single();
+    if (error) {
+      showAppError({ title: 'Erro ao carregar obra', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setEditingWork(data);
+  }, []);
+
+  const handleSaveWork = useCallback(async (workToSave) => {
+    const { id, location, manual_city_id, bairro, work_category, work_area, contractor, ...data } = workToSave;
+    const resolvedCityId = manual_city_id || await resolveCityIdFromLocation(location);
+    if (resolvedCityId == null) {
+      showAppError({ title: 'Não foi possível identificar a cidade', description: 'Confira a localização do marcador.', variant: 'destructive' });
+      return;
+    }
+    const payload = {
+      ...data,
+      city_id: resolvedCityId,
+      location: location ? `POINT(${location.lng} ${location.lat})` : null,
+      funding_source: Array.isArray(data.funding_source) ? data.funding_source : [],
+    };
+    ['bairro_id', 'work_category_id', 'work_area_id', 'contractor_id'].forEach((key) => {
+      if (payload[key] === '') payload[key] = null;
+    });
+    const { error } = await supabase.from('public_works').update(payload).eq('id', id);
+    if (error) {
+      showAppError({ title: 'Erro ao salvar obra', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setEditingWork(null);
+    await fetchWorks();
+  }, [fetchWorks, resolveCityIdFromLocation]);
+
+  const workEditor = editingWork ? (
+    <WorkEditModal
+      work={editingWork}
+      onSave={handleSaveWork}
+      onClose={() => setEditingWork(null)}
+      workOptions={editOptions}
+      onWorkUpdated={fetchWorks}
+      defaultCityId={activeCityId}
+      canSelectCity={Boolean(user?.is_admin || user?.is_master)}
+      onBairroCreated={(bairro) => setEditOptions((prev) => ({ ...prev, bairros: [...prev.bairros, bairro] }))}
+    />
+  ) : null;
   
   useEffect(() => {
     if (view === 'list' && listTopRef.current) {
@@ -377,13 +472,22 @@ const PublicWorksPage = () => {
   // O celular e o notebook estreito continuam pelo caminho de baixo, com o
   // cartão de filtros acima do mapa.
   if (telaLarga && view === 'map' && !loading && works.length > 0) {
-    const somar = (campo) => filteredWorks.reduce((total, obra) => total + (Number(obra[campo]) || 0), 0);
-    const porSituacao = filteredWorks.reduce((conta, obra) => {
+    const contarPorSituacao = (lista) => lista.reduce((conta, obra) => {
       conta[obra.status] = (conta[obra.status] || 0) + 1;
       return conta;
     }, {});
 
+    // DUAS CONTAGENS, DUAS PERGUNTAS DIFERENTES
+    //
+    // A legenda da coluna descreve os PINOS que estão no mapa — por isso conta
+    // o que sobrou depois de todos os filtros. Os cartões do topo contam o
+    // recorte SEM a situação: eles são o botão que troca de situação, e um
+    // botão precisa dizer quantas obras vai mostrar ANTES de ser apertado.
+    const porSituacao = contarPorSituacao(filteredWorks);
+    const porSituacaoNoRecorte = contarPorSituacao(worksDoRecorte);
+
     return (
+      <>
       <TelaDeMapa
         titulo="Mapa de Obras Públicas"
         subtitulo="O que está sendo construído na sua cidade, e em que pé está"
@@ -408,11 +512,23 @@ const PublicWorksPage = () => {
         estatisticas={
           <CartoesDeMapa
             cartoes={[
-              { id: 'in-progress', Icone: HardHat, cor: 'bg-blue-500', rotulo: 'Em andamento', valor: porSituacao['in-progress'] || 0 },
-              { id: 'stalled', Icone: PauseCircle, cor: 'bg-amber-500', rotulo: 'Paralisadas', valor: porSituacao.stalled || 0 },
-              { id: 'unfinished', Icone: AlertTriangle, cor: 'bg-red-500', rotulo: 'Inacabadas', valor: porSituacao.unfinished || 0 },
-              { id: 'completed', Icone: CheckSquare, cor: 'bg-green-500', rotulo: 'Concluídas', valor: porSituacao.completed || 0 },
-            ]}
+              { id: 'in-progress', Icone: HardHat, cor: 'bg-blue-500', rotulo: 'Em andamento', valor: porSituacaoNoRecorte['in-progress'] || 0 },
+              { id: 'stalled', Icone: PauseCircle, cor: 'bg-amber-500', rotulo: 'Paralisadas', valor: porSituacaoNoRecorte.stalled || 0 },
+              { id: 'unfinished', Icone: AlertTriangle, cor: 'bg-red-500', rotulo: 'Inacabadas', valor: porSituacaoNoRecorte.unfinished || 0 },
+              { id: 'completed', Icone: CheckSquare, cor: 'bg-green-500', rotulo: 'Concluídas', valor: porSituacaoNoRecorte.completed || 0 },
+            ].map((cartao) => ({
+              ...cartao,
+              // Tocar no cartão é o mesmo que marcar aquela situação no filtro
+              // de status — e tocar de novo desmarca. Sozinho é sozinho: o
+              // cartão RESTRINGE a uma situação, em vez de acrescentar à seleção
+              // atual, porque "quero ver só as paralisadas" é o que se quer
+              // dizer ao apertar um número.
+              ativo: filters.status.length === 1 && filters.status[0] === cartao.id,
+              aoClicar: () => setFilters((atual) => ({
+                ...atual,
+                status: atual.status.length === 1 && atual.status[0] === cartao.id ? [] : [cartao.id],
+              })),
+            }))}
             rodape="Contagem sobre as obras filtradas, não sobre a cidade inteira."
           />
         }
@@ -497,6 +613,10 @@ const PublicWorksPage = () => {
               searchPlaceholder="Buscar construtora..."
             />
 
+            {/* Fecha a lista de filtros: o último item da coluna é o que desfaz
+                a coluna inteira. */}
+            <LimparFiltros ligados={filtrosLigados} aoLimpar={limparFiltros} className="w-full" />
+
             <div className="mt-auto grid gap-2">
               <ToggleGroup
                 type="single"
@@ -518,65 +638,45 @@ const PublicWorksPage = () => {
             </div>
           </div>
         }
-        mapa={<WorksMapView ref={mapViewRef} works={filteredWorks} mostrarLegenda={false} podeGerir={canManageWorks} />}
+        mapa={<WorksMapView ref={mapViewRef} works={filteredWorks} mostrarLegenda={false} podeGerir={canManageWorks} onEditWork={handleEditWork} />}
+        /* SÓ A CONTAGEM MORA AQUI
+           O cartão "Obras concluídas" que ficava abaixo era o cartão
+           "Concluídas" da faixa do topo repetido em outro formato: mesmo
+           número, mesmo verde, mesmo clique ligando o mesmo filtro. */
         painel={
-          <div className="grid gap-3">
-            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-              <p className="flex items-center gap-2.5 text-sm font-bold text-content-primary">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-status-pendingBg text-status-pendingFg">
-                  <HardHat className="h-4 w-4" />
-                </span>
-                Obras no recorte
-              </p>
-              <p className="mt-3 text-3xl font-extrabold leading-none text-content-primary tabular-nums">
-                {filteredWorks.length}
-              </p>
+          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+            <p className="flex items-center gap-2.5 text-sm font-bold text-content-primary">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-status-pendingBg text-status-pendingFg">
+                <HardHat className="h-4 w-4" />
+              </span>
+              Obras no recorte
+            </p>
+            <p className="mt-3 text-3xl font-extrabold leading-none text-content-primary tabular-nums">
+              {filteredWorks.length}
+            </p>
 
-              {/* A CONTAGEM É A LEGENDA
-                  Eram dois blocos dizendo a mesma coisa: este, com os números
-                  por situação, e uma legenda flutuante sobre o mapa com as
-                  cores. Juntos, cada um contava metade da história e ocupava o
-                  espaço inteiro. Com a bolinha aqui, uma linha responde "que cor
-                  é essa" e "quantas são" de uma vez. */}
-              <ul className="mt-3 grid gap-1.5 border-t border-edge-subtle pt-3">
-                {workStatusesAsArray
-                  .filter((s) => porSituacao[s.id])
-                  .map((s) => (
-                    <li key={s.id} className="flex items-center gap-2 text-xs">
-                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${COR_DA_SITUACAO[s.id] || 'bg-gray-500'}`} />
-                      <span className="min-w-0 flex-1 truncate text-content-secondary">{s.name}</span>
-                      <span className="shrink-0 font-bold text-content-primary tabular-nums">{porSituacao[s.id]}</span>
-                    </li>
-                  ))}
-              </ul>
-            </section>
-
-            {/* OS DOIS VALORES SÃO SOMA DO QUE ESTÁ FILTRADO, E O TEXTO DIZ ISSO
-                Sem a ressalva, "R$ 4,2 mi contratados" leria como o total da
-                cidade — e bastaria um filtro de bairro ligado para o número
-                virar uma afirmação falsa sobre o orçamento inteiro. */}
-            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">
-                Nas obras filtradas
-              </p>
-              <div className="mt-2 grid gap-2">
-                <div>
-                  <p className="text-lg font-extrabold leading-none text-content-primary tabular-nums">
-                    {formatCurrency(somar('total_value'))}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-content-secondary">Valor contratado</p>
-                </div>
-                <div>
-                  <p className="text-lg font-extrabold leading-none text-content-primary tabular-nums">
-                    {formatCurrency(somar('amount_spent'))}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-content-secondary">Valor pago</p>
-                </div>
-              </div>
-            </section>
-          </div>
+            {/* A CONTAGEM É A LEGENDA
+                Eram dois blocos dizendo a mesma coisa: este, com os números
+                por situação, e uma legenda flutuante sobre o mapa com as
+                cores. Juntos, cada um contava metade da história e ocupava o
+                espaço inteiro. Com a bolinha aqui, uma linha responde "que cor
+                é essa" e "quantas são" de uma vez. */}
+            <ul className="mt-3 grid gap-1.5 border-t border-edge-subtle pt-3">
+              {workStatusesAsArray
+                .filter((s) => porSituacao[s.id])
+                .map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 text-xs">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${COR_DA_SITUACAO[s.id] || 'bg-gray-500'}`} />
+                    <span className="min-w-0 flex-1 truncate text-content-secondary">{s.name}</span>
+                    <span className="shrink-0 font-bold text-content-primary tabular-nums">{porSituacao[s.id]}</span>
+                  </li>
+                ))}
+            </ul>
+          </section>
         }
       />
+      {workEditor}
+      </>
     );
   }
 
@@ -585,7 +685,7 @@ const PublicWorksPage = () => {
       <title>Mapa de Obras Públicas - Trombone Cidadão</title>
       <meta name="description" content="Acompanhe o andamento das obras públicas da sua cidade em um mapa interativo." />
     </Helmet>
-    <div className="container max-w-[88rem] mx-auto w-full px-4 py-8">
+    <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-[900] text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Mapa de Obras Públicas</h1>
         <p className="mt-2 text-lg text-muted-foreground">Acompanhe com transparência o que está sendo construído na sua cidade</p>
@@ -673,13 +773,23 @@ const PublicWorksPage = () => {
                 <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
               </ToggleGroup>
             </div>
+
+            {/* O MESMO BOTÃO DA COLUNA LARGA
+                No celular não há coluna nem pílula de contagem: o cartão de
+                filtros é tudo o que existe, e sem esta linha a única saída de um
+                recorte errado é reabrir os quatro seletores. */}
+            {filtrosLigados > 0 && (
+              <div className="mt-3 flex justify-end">
+                <LimparFiltros ligados={filtrosLigados} aoLimpar={limparFiltros} />
+              </div>
+            )}
           </Card>
 
           {loading ? <div className="text-center p-8">Carregando obras...</div> : <AnimatePresence mode="wait">
         <motion.div key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
           {view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
-              <WorksMapView ref={mapViewRef} works={filteredWorks} />
+              <WorksMapView ref={mapViewRef} works={filteredWorks} podeGerir={canManageWorks} onEditWork={handleEditWork} />
             </div>
           ) : (
             <>
@@ -765,6 +875,7 @@ const PublicWorksPage = () => {
         </>
       )}
     </div>
+    {workEditor}
   </>;
 };
 

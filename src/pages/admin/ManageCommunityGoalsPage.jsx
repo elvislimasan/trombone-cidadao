@@ -1,32 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Loader2, Plus, Target } from 'lucide-react';
-import PageHeader from '@/components/PageHeader';
+import { CalendarDays, ChevronDown, ChevronUp, ExternalLink, Loader2, MapPin, Plus, Repeat2, Search, Target } from 'lucide-react';
+import AdminModuleHero from '@/components/admin/AdminModuleHero';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
 import { ABERTA, ENCERRADA, RASCUNHO } from '@/lib/metaComunitaria';
 import { cidadesParaEscolha } from '@/lib/cidadesParaEscolha';
-import { REQUISITOS, podeEncerrar, podePublicar } from '@/lib/mutirao';
 import { showAppError, showAppNotice } from '@/lib/appError';
 
-// Gestão das metas comunitárias e dos mutirões.
-//
-// POR QUE OS DOIS NA MESMA TELA
-//
-// Um mutirão existe para avançar uma meta — é o que `mutiroes.community_goal_id`
-// diz no banco. Separar as telas faria o organizador criar mutirão sem meta,
-// que é o encontro sem objetivo de dados que a §36.7 proíbe no sexto requisito.
-//
-// A LISTA DE REQUISITOS É A TELA, NÃO UM AVISO
-//
-// `podePublicar` devolve O QUE falta, e o formulário mostra item por item. Um
-// botão desabilitado sem explicação faz o organizador desistir; uma lista de
-// sete itens com três marcados faz ele completar os quatro. A validação de
-// verdade está no CHECK da migração 213 — isto aqui é o que evita a viagem até
-// o erro.
-//
 // "REGISTRAR O USO" É UM CAMPO DE PRIMEIRA CLASSE
 //
 // É a metade do relatório público que costuma sumir. Deixá-lo escondido numa
@@ -54,29 +37,37 @@ const Campo = ({ label, children, ajuda }) => (
 const entrada =
   'w-full mt-1 text-xs rounded-xl border border-edge-subtle bg-surface-subtle px-3 py-2 text-content-primary placeholder:text-content-tertiary';
 
+const normalizar = (valor) => String(valor || '')
+  .normalize('NFD')
+  .replace(/\p{Mn}/gu, '')
+  .toLowerCase();
+
+const formatarData = (data) => data
+  ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${data}T00:00:00`)).replace('.', '')
+  : 'Sem prazo';
+
 const ManageCommunityGoalsPage = () => {
   const { user } = useAuth();
   const { cities } = useCity();
 
   const [metas, setMetas] = useState([]);
   const [bairros, setBairros] = useState([]);
-  const [mutiroes, setMutiroes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [cidadeId, setCidadeId] = useState('');
   const [nova, setNova] = useState(vazio);
   const [salvando, setSalvando] = useState(false);
   const [usoPorMeta, setUsoPorMeta] = useState({});
-  const [mutiraoDe, setMutiraoDe] = useState(null);
-  const [novoMutirao, setNovoMutirao] = useState({});
+  const [formularioAberto, setFormularioAberto] = useState(false);
+  const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState('todas');
 
   const carregar = useCallback(async () => {
     setCarregando(true);
-    const [m, mu] = await Promise.all([
-      supabase.from('community_goals').select('*').order('inicio', { ascending: false }),
-      supabase.from('mutiroes').select('*').order('inicio_em', { ascending: false }),
-    ]);
-    setMetas(m.data || []);
-    setMutiroes(mu.data || []);
+    const { data } = await supabase
+      .from('community_goals')
+      .select('*')
+      .order('inicio', { ascending: false });
+    setMetas(data || []);
     setCarregando(false);
   }, []);
 
@@ -214,65 +205,17 @@ const ManageCommunityGoalsPage = () => {
     carregar();
   };
 
-  const criarMutirao = async (meta) => {
-    const dados = {
-      ...novoMutirao,
-      inicio_em: novoMutirao.inicio_em ? new Date(novoMutirao.inicio_em) : null,
-      organizador_id: user?.id || null,
-    };
-
-    const check = podePublicar(dados);
-    if (!check.ok) {
-      showAppError({
-        title: 'Ainda não dá para publicar',
-        description:
-          check.horario.texto ||
-          `Falta: ${check.faltando.map((f) => f.rotulo).join(', ')}.`,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const { error } = await supabase.from('mutiroes').insert({
-      city_id: meta.city_id,
-      community_goal_id: meta.id,
-      titulo: novoMutirao.titulo?.trim() || meta.titulo,
-      organizador_id: user?.id || null,
-      area_descricao: novoMutirao.area_descricao,
-      ponto_de_encontro: novoMutirao.ponto_de_encontro,
-      orientacao: novoMutirao.orientacao,
-      canal_suporte: novoMutirao.canal_suporte,
-      objetivo_dados: novoMutirao.objetivo_dados,
-      alternativa_remota: novoMutirao.alternativa_remota,
-      inicio_em: dados.inicio_em.toISOString(),
-      status: 'publicado',
-    });
-
-    if (error) {
-      showAppError({ title: 'Erro ao publicar', description: error.message, variant: 'destructive' });
-      return;
-    }
-    setMutiraoDe(null);
-    setNovoMutirao({});
-    carregar();
-  };
-
-  const encerrarMutirao = async (m, relatorio) => {
-    const check = podeEncerrar({ ...m, relatorio_publico: relatorio });
-    if (!check.ok) {
-      showAppError({ title: 'Falta o relatório', description: check.texto, variant: 'destructive' });
-      return;
-    }
-    const { error } = await supabase
-      .from('mutiroes')
-      .update({ status: 'encerrado', relatorio_publico: relatorio })
-      .eq('id', m.id);
-    if (error) {
-      showAppError({ title: 'Erro ao encerrar', description: error.message, variant: 'destructive' });
-      return;
-    }
-    carregar();
-  };
+  const cidadesDisponiveis = cidadesParaEscolha(cities);
+  const cidadesPorId = new Map(cidadesDisponiveis.map((cidade) => [String(cidade.id), cidade.rotulo]));
+  const metasAbertas = metas.filter((meta) => meta.status === ABERTA).length;
+  const metasEncerradas = metas.filter((meta) => meta.status === ENCERRADA).length;
+  const metasRecorrentes = metas.filter((meta) => Boolean(meta.recorrencia)).length;
+  const metasFiltradas = metas.filter((meta) => {
+    const termo = normalizar(busca.trim());
+    const combinaBusca = !termo || normalizar(`${meta.titulo} ${meta.descricao} ${cidadesPorId.get(String(meta.city_id)) || ''}`).includes(termo);
+    const combinaFiltro = filtro === 'todas' || meta.status === filtro;
+    return combinaBusca && combinaFiltro;
+  });
 
   return (
     <>
@@ -280,18 +223,41 @@ const ManageCommunityGoalsPage = () => {
         <title>Metas comunitárias — Trombone Cidadão</title>
       </Helmet>
 
-      <div className="max-w-3xl mx-auto px-4 pt-4 pb-24">
-        <PageHeader
-          titulo="Metas comunitárias"
-          subtitulo="Cobertura de ruas numa área definida, e os mutirões que a avançam"
-          paraOnde="/admin"
+      <div className="mx-auto w-full max-w-[112rem] px-3 pb-24 pt-4 sm:px-5 lg:px-8">
+        <AdminModuleHero
+          eyebrow="Progresso coletivo"
+          title="Metas comunitárias"
+          description="Defina uma área, um alvo verificável e acompanhe quanto da malha de ruas já possui informação confirmada pela comunidade."
+          icon={Target}
+          stats={[
+            { label: 'abertas', value: carregando ? '—' : metasAbertas, tone: 'text-amber-300' },
+            { label: 'recorrentes', value: carregando ? '—' : metasRecorrentes },
+            { label: 'encerradas', value: carregando ? '—' : metasEncerradas },
+          ]}
         />
 
+        <button
+          type="button"
+          onClick={() => setFormularioAberto((aberto) => !aberto)}
+          className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-brand/20 bg-brand/5 px-4 py-3 text-left xl:hidden"
+          aria-expanded={formularioAberto}
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-content-primary">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-content-onBrand"><Plus className="h-4 w-4" /></span>
+            Criar nova meta
+          </span>
+          {formularioAberto ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.68fr)]">
+
         {/* ── Nova meta ── */}
-        <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4 space-y-3">
-          <p className="text-xs font-bold text-content-primary flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5 text-brand" /> Nova meta
-          </p>
+        <section className={`${formularioAberto ? 'block' : 'hidden'} space-y-4 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm xl:sticky xl:top-4 xl:block`}>
+          <div className="border-b border-edge-subtle bg-brand/5 px-5 py-4">
+            <p className="flex items-center gap-2 text-sm font-bold text-content-primary"><span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-content-onBrand"><Plus className="h-4 w-4" /></span> Nova meta</p>
+            <p className="ml-11 text-2xs text-content-tertiary">Escolha onde medir e qual cobertura alcançar.</p>
+          </div>
+          <div className="space-y-4 px-5 pb-5">
 
           <Campo label="Cidade">
             <select
@@ -303,7 +269,7 @@ const ManageCommunityGoalsPage = () => {
               className={entrada}
             >
               <option value="">Selecione…</option>
-              {cidadesParaEscolha(cities).map((c) => (
+              {cidadesDisponiveis.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.rotulo}
                 </option>
@@ -367,7 +333,7 @@ const ManageCommunityGoalsPage = () => {
             </div>
           </Campo>
 
-          <div className="flex gap-3">
+          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
             <Campo label="Alvo (%)">
               <input
                 type="number"
@@ -375,7 +341,7 @@ const ManageCommunityGoalsPage = () => {
                 max={100}
                 value={nova.alvo_percentual}
                 onChange={(e) => setNova((n) => ({ ...n, alvo_percentual: e.target.value }))}
-                className={`${entrada} w-24`}
+                className={entrada}
               />
             </Campo>
             <Campo label="Prazo (opcional)">
@@ -403,196 +369,74 @@ const ManageCommunityGoalsPage = () => {
             type="button"
             disabled={salvando}
             onClick={criarMeta}
-            className="text-2xs font-bold text-content-onBrand bg-brand px-3 py-1.5 rounded-full disabled:opacity-50"
+            className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-xs font-bold text-content-onBrand disabled:opacity-50"
           >
-            {salvando ? 'Criando…' : 'Criar meta'}
+            {salvando && <Loader2 className="h-4 w-4 animate-spin" />}{salvando ? 'Criando…' : 'Criar meta'}
           </button>
-        </div>
+          </div>
+        </section>
 
         {/* ── As metas ── */}
-        {carregando ? (
-          <div className="flex items-center gap-2 text-xs text-content-tertiary py-10 justify-center">
-            <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
+        <section className="min-w-0">
+          <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm md:flex-row md:items-center md:justify-between">
+            <div><h2 className="text-base font-bold text-content-primary">Metas cadastradas</h2><p className="mt-0.5 text-xs text-content-tertiary">{carregando ? 'Atualizando listagem…' : `${metas.length} no histórico · ${metasAbertas} abertas agora`}</p></div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="relative min-w-0 sm:w-64"><span className="sr-only">Buscar meta</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" /><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar meta ou cidade" className={`${entrada} mt-0 h-10 pl-9`} /></label>
+              <label><span className="sr-only">Filtrar metas</span><select value={filtro} onChange={(e) => setFiltro(e.target.value)} className={`${entrada} mt-0 h-10 sm:w-36`}><option value="todas">Todas</option><option value={ABERTA}>Abertas</option><option value={ENCERRADA}>Encerradas</option><option value={RASCUNHO}>Rascunhos</option></select></label>
+            </div>
           </div>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {metas.map((meta) => {
-              const meus = mutiroes.filter((m) => m.community_goal_id === meta.id);
+          {carregando ? (
+            <div className="flex min-h-48 items-center justify-center gap-2 rounded-2xl border border-edge-subtle bg-surface-raised text-xs text-content-tertiary"><Loader2 className="h-4 w-4 animate-spin" /> Carregando metas…</div>
+          ) : metas.length === 0 ? (
+            <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-edge-subtle bg-surface-raised px-6 text-center"><Target className="h-7 w-7 text-content-tertiary" /><p className="mt-3 text-sm font-bold text-content-primary">Nenhuma meta cadastrada</p><p className="mt-1 text-xs text-content-tertiary">Crie uma meta para começar a medir a cobertura das ruas.</p></div>
+          ) : metasFiltradas.length === 0 ? (
+            <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-edge-subtle bg-surface-raised px-6 text-center"><Search className="h-6 w-6 text-content-tertiary" /><p className="mt-2 text-sm font-bold text-content-primary">Nenhuma meta encontrada</p><button type="button" onClick={() => { setBusca(''); setFiltro('todas'); }} className="mt-1 text-xs font-bold text-brand hover:underline">Limpar busca e filtro</button></div>
+          ) : (
+            <ul className="space-y-3">
+              {metasFiltradas.map((meta) => {
+                const aberta = meta.status === ABERTA;
+                const cidade = cidadesPorId.get(String(meta.city_id)) || 'Cidade não identificada';
+                return (
+                  <li key={meta.id} className={`overflow-hidden rounded-2xl border bg-surface-raised shadow-sm ${aberta ? 'border-brand/25' : 'border-edge-subtle'}`}>
+                    <div className="p-4 md:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-2xs font-bold ${aberta ? 'bg-success-bg text-success-fg' : meta.status === ENCERRADA ? 'bg-surface-subtle text-content-tertiary' : 'bg-status-pendingBg text-status-pendingFg'}`}>{aberta ? 'Aberta' : meta.status === ENCERRADA ? 'Encerrada' : 'Rascunho'}</span>
+                            {meta.recorrencia && <span className="inline-flex items-center gap-1 text-2xs font-semibold text-content-tertiary"><Repeat2 className="h-3 w-3" /> {meta.recorrencia}</span>}
+                          </div>
+                          <h3 className="mt-2 text-base font-extrabold text-content-primary">{meta.titulo}</h3>
+                          {meta.descricao && <p className="mt-1 max-w-3xl text-xs leading-relaxed text-content-secondary">{meta.descricao}</p>}
+                        </div>
+                        <Link to={`/meta/${meta.id}`} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-edge-subtle px-3 text-xs font-bold text-brand transition hover:bg-brand-subtleBg">Ver página pública <ExternalLink className="h-3.5 w-3.5" /></Link>
+                      </div>
 
-              return (
-                <li
-                  key={meta.id}
-                  className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-bold text-content-primary flex items-center gap-1.5">
-                        <Target className="w-3.5 h-3.5 text-brand" />
-                        {meta.titulo}
-                      </p>
-                      <p className="text-2xs text-content-tertiary mt-0.5">
-                        alvo {meta.alvo_percentual}% · {meta.bairro_ids?.length || 0} bairro(s) ·{' '}
-                        {meta.status}
-                      </p>
-                    </div>
-                    <Link
-                      to={`/meta/${meta.id}`}
-                      className="flex-shrink-0 text-2xs font-bold text-brand underline underline-offset-2"
-                    >
-                      Ver página pública
-                    </Link>
-                  </div>
+                      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div className="rounded-xl bg-surface-subtle px-3 py-2"><p className="text-2xs text-content-tertiary">Alvo</p><p className="text-sm font-extrabold text-content-primary">{meta.alvo_percentual}%</p></div>
+                        <div className="rounded-xl bg-surface-subtle px-3 py-2"><p className="text-2xs text-content-tertiary">Bairros</p><p className="text-sm font-extrabold text-content-primary">{meta.bairro_ids?.length || 0}</p></div>
+                        <div className="rounded-xl bg-surface-subtle px-3 py-2"><p className="flex items-center gap-1 text-2xs text-content-tertiary"><MapPin className="h-3 w-3" /> Cidade</p><p className="truncate text-xs font-bold text-content-primary">{cidade}</p></div>
+                        <div className="rounded-xl bg-surface-subtle px-3 py-2"><p className="flex items-center gap-1 text-2xs text-content-tertiary"><CalendarDays className="h-3 w-3" /> Prazo</p><p className="text-xs font-bold text-content-primary">{formatarData(meta.fim)}</p></div>
+                      </div>
 
-                  {/* Registrar o uso — a metade do relatório que costuma sumir. */}
-                  <div className="mt-3">
-                    <Campo
-                      label="O que foi feito com este dado"
-                      ajuda="Aparece no relatório público. Enquanto vazio, a página diz que não há registro de uso."
-                    >
-                      <textarea
-                        rows={2}
-                        value={usoPorMeta[meta.id] ?? meta.uso_texto ?? ''}
-                        onChange={(e) =>
-                          setUsoPorMeta((u) => ({ ...u, [meta.id]: e.target.value }))
-                        }
-                        className={`${entrada} resize-none`}
-                        maxLength={600}
-                        placeholder="Ex: A lista das 25 ruas foi entregue à Secretaria de Obras em 12/10."
-                      />
-                    </Campo>
-                    <div className="flex items-center gap-3 mt-2">
-                      <button
-                        type="button"
-                        onClick={() => salvarUso(meta)}
-                        className="text-2xs font-bold text-content-onBrand bg-brand px-3 py-1.5 rounded-full"
-                      >
-                        Registrar uso
-                      </button>
-                      {meta.status !== ENCERRADA && meta.status !== RASCUNHO && (
-                        <button
-                          type="button"
-                          onClick={() => encerrarMeta(meta)}
-                          className="text-2xs font-semibold text-content-tertiary underline underline-offset-2"
-                        >
-                          Encerrar meta
-                        </button>
-                      )}
-                      {meta.recorrencia && (
-                        <button
-                          type="button"
-                          onClick={() => repetirMeta(meta)}
-                          className="text-2xs font-semibold text-content-tertiary underline underline-offset-2"
-                        >
-                          Abrir próximo ciclo
-                        </button>
-                      )}
-                      {/* Comparação entre bairros nasce desligada. Ligar é
-                          decisão editorial — e mesmo ligada, a página pública
-                          recusa comparar grupos de tamanhos muito diferentes. */}
-                      <button
-                        type="button"
-                        onClick={() => alternarComparacao(meta)}
-                        className="text-2xs font-semibold text-content-tertiary underline underline-offset-2"
-                      >
-                        {meta.comparacao_entre_bairros
-                          ? 'Desligar comparação entre bairros'
-                          : 'Ligar comparação entre bairros'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMutiraoDe(mutiraoDe === meta.id ? null : meta.id);
-                          setNovoMutirao({});
-                        }}
-                        className="text-2xs font-semibold text-brand underline underline-offset-2"
-                      >
-                        {mutiraoDe === meta.id ? 'Fechar' : 'Organizar mutirão'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* ── Mutirão: os sete requisitos como formulário ── */}
-                  {mutiraoDe === meta.id && (
-                    <div className="mt-3 rounded-2xl border border-edge-subtle bg-surface-subtle px-3.5 py-3 space-y-2.5">
-                      <p className="text-2xs text-content-tertiary leading-relaxed">
-                        Um mutirão só é publicado com os sete requisitos abaixo. Não
-                        é burocracia: o app está convocando gente para a rua.
-                      </p>
-
-                      <Campo label="Horário de início (entre 6h e 15h)">
-                        <input
-                          type="datetime-local"
-                          value={novoMutirao.inicio_em || ''}
-                          onChange={(e) =>
-                            setNovoMutirao((m) => ({ ...m, inicio_em: e.target.value }))
-                          }
-                          className={entrada}
-                        />
-                      </Campo>
-
-                      {REQUISITOS.filter((r) => r.campo !== 'organizador_id').map((r) => (
-                        <Campo key={r.id} label={r.rotulo} ajuda={r.porque}>
-                          <textarea
-                            rows={2}
-                            value={novoMutirao[r.campo] || ''}
-                            onChange={(e) =>
-                              setNovoMutirao((m) => ({ ...m, [r.campo]: e.target.value }))
-                            }
-                            className={`${entrada} resize-none`}
-                            maxLength={400}
-                          />
+                      <div className="mt-4 rounded-xl border border-edge-subtle bg-surface-subtle p-3">
+                        <Campo label="O que foi feito com este dado" ajuda="Este texto aparece no relatório público da meta.">
+                          <textarea rows={2} value={usoPorMeta[meta.id] ?? meta.uso_texto ?? ''} onChange={(e) => setUsoPorMeta((u) => ({ ...u, [meta.id]: e.target.value }))} className={`${entrada} resize-none bg-surface-raised`} maxLength={600} placeholder="Ex: A lista das ruas foi entregue à Secretaria de Obras." />
                         </Campo>
-                      ))}
-
-                      <button
-                        type="button"
-                        onClick={() => criarMutirao(meta)}
-                        className="text-2xs font-bold text-content-onBrand bg-brand px-3 py-1.5 rounded-full"
-                      >
-                        Publicar mutirão
-                      </button>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button type="button" onClick={() => salvarUso(meta)} className="rounded-lg bg-brand px-3 py-2 text-2xs font-bold text-content-onBrand">Registrar uso</button>
+                          {meta.status !== ENCERRADA && meta.status !== RASCUNHO && <button type="button" onClick={() => encerrarMeta(meta)} className="rounded-lg border border-edge-subtle px-3 py-2 text-2xs font-bold text-content-secondary hover:bg-surface-raised">Encerrar meta</button>}
+                          {meta.recorrencia && <button type="button" onClick={() => repetirMeta(meta)} className="rounded-lg border border-edge-subtle px-3 py-2 text-2xs font-bold text-content-secondary hover:bg-surface-raised">Abrir próximo ciclo</button>}
+                          <button type="button" onClick={() => alternarComparacao(meta)} className="rounded-lg border border-edge-subtle px-3 py-2 text-2xs font-bold text-content-secondary hover:bg-surface-raised">{meta.comparacao_entre_bairros ? 'Desligar comparação' : 'Comparar bairros'}</button>
+                        </div>
+                      </div>
                     </div>
-                  )}
-
-                  {meus.length > 0 && (
-                    <ul className="mt-3 space-y-1.5">
-                      {meus.map((m) => (
-                        <li
-                          key={m.id}
-                          className="text-2xs text-content-secondary flex items-start justify-between gap-3"
-                        >
-                          <span className="min-w-0 truncate">
-                            {m.status === 'encerrado' && (
-                              <CheckCircle2 className="w-3 h-3 inline mr-1 text-status-resolvedFg" />
-                            )}
-                            {m.titulo} ·{' '}
-                            {m.inicio_em
-                              ? new Date(m.inicio_em).toLocaleString('pt-BR')
-                              : 'sem data'}
-                          </span>
-                          {m.status === 'publicado' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const relatorio = window.prompt(
-                                  'Relatório público: o que foi produzido e o que será feito com isso.'
-                                );
-                                if (relatorio) encerrarMutirao(m, relatorio);
-                              }}
-                              className="flex-shrink-0 font-semibold text-brand underline underline-offset-2"
-                            >
-                              Encerrar
-                            </button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+        </div>
       </div>
     </>
   );

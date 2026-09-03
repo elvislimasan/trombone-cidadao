@@ -32,7 +32,7 @@ const CARTOES = [
   { id: 'unpaved', Icone: AlertTriangle, cor: 'ponto-legenda-pav--unpaved' },
 ];
 
-export default function PavementStats({ resumo, onSelecionar }) {
+export default function PavementStats({ resumo, situacaoAtiva = 'all', onSituacao }) {
   const rotuloDe = (id) => SITUACOES.find((s) => s.id === id)?.rotulo || id;
 
   // O valor carrega a fatia junto: "120 ruas · 38%". A porcentagem sozinha não
@@ -44,17 +44,27 @@ export default function PavementStats({ resumo, onSelecionar }) {
     return `${quantidade} ${quantidade === 1 ? 'rua' : 'ruas'}${parte != null ? ` · ${parte}%` : ''}`;
   };
 
+  // O CARTÃO FILTRA, E NÃO ABRE UMA LISTA À PARTE
+  //
+  // Ele abria um diálogo com as ruas daquela situação — uma lista que ignorava
+  // bairro, CEP e todos os outros filtros ligados. Quem tinha filtrado o Centro
+  // via as ruas sem pavimentação da cidade inteira, e nada na tela dizia isso.
+  // Como filtro, o recorte se soma ao que já estava ligado e o mapa (ou a
+  // lista) responde na hora.
   const cartoes = CARTOES.map(({ id, Icone, cor }) => ({
     id,
     Icone,
     cor,
     rotulo: rotuloDe(id),
     valor: valorDe(id),
-    aoClicar: onSelecionar ? () => onSelecionar(id, rotuloDe(id)) : null,
+    ativo: situacaoAtiva === id,
+    aoClicar: onSituacao ? () => onSituacao(id) : null,
   }));
 
   // "Sem informação" só existe quando há o que informar. Um zero permanente
   // ocuparia um quarto da faixa para não dizer nada.
+  // "Sem informação" não vira filtro: `situacao` só tem as três situações
+  // reais, e um botão que liga um recorte inexistente não faria nada.
   if (resumo.ruasPorSituacao.unknown > 0) {
     cartoes.push({
       id: 'unknown',

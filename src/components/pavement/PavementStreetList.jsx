@@ -38,7 +38,17 @@ const CLASSE_SITUACAO = {
   unpaved: 'border-brand/30 bg-brand-subtleBg text-brand-subtleFg',
 };
 
-export default function PavementStreetList({ streets, canManage = false, onEditStreet, onIrParaOMapa }) {
+// `emPagina`: no modo mapa a lista vive dentro da caixa do mapa e rola por
+// dentro; no modo lista ela é a PÁGINA, e precisa rolar com a página — uma
+// caixa de rolagem dentro de uma página que também rola é onde o dedo escolhe
+// errado, e foi o que fez este modo destoar dos de obras e imóveis.
+export default function PavementStreetList({
+  streets,
+  canManage = false,
+  onEditStreet,
+  onIrParaOMapa,
+  emPagina = false,
+}) {
   const [pagina, setPagina] = useState(1);
 
   // A ordem é alfabética, e não a do banco: numa lista de conferência, "onde
@@ -67,21 +77,31 @@ export default function PavementStreetList({ streets, canManage = false, onEditS
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <ul className="min-h-0 flex-1 divide-y divide-edge-subtle overflow-y-auto">
+    <div className={emPagina
+      ? 'overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm'
+      : 'flex h-full min-h-0 flex-col'}>
+      <ul className={`divide-y divide-edge-subtle ${emPagina ? '' : 'min-h-0 flex-1 overflow-y-auto'}`}>
         {visiveis.map((rua) => {
           const ceps = cepsDaRua(rua);
           const metros = extensaoDaRua(rua);
           return (
-            <li key={rua.id} className="flex items-start gap-3 px-3 py-2.5 sm:px-4">
-              <div className="min-w-0 flex-1">
+            <li
+              key={rua.id}
+              className="group relative flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-surface-subtle focus-within:bg-surface-subtle sm:px-4"
+            >
+              {/* Área clicável única por trás do conteúdo. Os botões ficam
+                  acima dela, então localizar e editar continuam independentes. */}
+              <Link
+                to={streetPath(rua)}
+                className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+                aria-label={`Abrir detalhes de ${rua.name}`}
+              />
+
+              <div className="pointer-events-none relative z-[1] min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <Link
-                    to={streetPath(rua)}
-                    className="truncate text-sm font-bold text-content-primary hover:text-brand hover:underline"
-                  >
+                  <span className="truncate text-sm font-bold text-content-primary transition-colors group-hover:text-brand">
                     {rua.name}
-                  </Link>
+                  </span>
                   {rua.is_unnamed && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-status-pendingBorder bg-status-pendingBg px-1.5 py-0.5 text-[10px] font-semibold text-status-pendingFg">
                       <HelpCircle className="h-3 w-3" /> Sem nome oficial
@@ -108,7 +128,7 @@ export default function PavementStreetList({ streets, canManage = false, onEditS
                 </p>
               </div>
 
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="relative z-[2] flex shrink-0 items-center gap-1">
                 {/* "Ver no mapa" só existe quando há para onde ir: sem ponto
                     cadastrado, o botão levaria a lugar nenhum. */}
                 {rua.location && onIrParaOMapa && (

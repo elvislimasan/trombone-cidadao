@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { BarChart3, HelpCircle, List, Loader2, LocateFixed, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, X } from 'lucide-react';
+import { BarChart3, HelpCircle, List, Loader2, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -14,11 +14,12 @@ import { cepsDaRua, montarRelatorio, relatorioParaCsv } from '@/lib/pavementRepo
 import { temLeiMunicipal, temProjetoDeLei } from '@/lib/pavementStreetHistory';
 import { resumoDeExtensao } from '@/lib/pavementLength';
 import PavementStats from '@/components/pavement/PavementStats';
-import PavementSidebar from '@/components/pavement/PavementSidebar';
+import PavementSidebar, { FiltrosDePavimentacao } from '@/components/pavement/PavementSidebar';
 import PavementMapLegend from '@/components/pavement/PavementMapLegend';
 import PavementReportsPanel from '@/components/pavement/PavementReportsPanel';
 import PavementStreetList from '@/components/pavement/PavementStreetList';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import BuscaDeRua from '@/components/pavement/BuscaDeRua';
 import 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
@@ -29,6 +30,11 @@ import PavementEditModal from '@/components/pavement/PavementEditModal';
 import { savePavementStreet } from '@/lib/savePavementStreet';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import {
+  MAP_CANVAS_CLASS,
+  MAP_GRID_CLASS,
+  MAP_PAGE_VIEWPORT_CLASS,
+} from '@/components/map/mapLayout';
 
 const PavementMapPage = () => {
   const [streetData, setStreetData] = useState([]);
@@ -55,7 +61,6 @@ const PavementMapPage = () => {
   const [modo, setModo] = useState('mapa');
   const setFiltro = (id, valor) => setFiltros((atual) => ({ ...atual, [id]: valor }));
   const [searchTerm, setSearchTerm] = useState('');
-  const [streetListModal, setStreetListModal] = useState({ isOpen: false, title: '', streets: [] });
   const mapViewRef = useRef();
   const { cityId: activeCityId, cityName: activeCityName, city: activeCity } = useCityView();
   const [downloading, setDownloading] = useState(false);
@@ -192,29 +197,32 @@ const PavementMapPage = () => {
     fetchStreets();
   }, [fetchStreets]);
 
-  const handleStreetListClick = (statusType, title) => {
-    const streets = streetData.filter(s => s.status === statusType);
-    setStreetListModal({ isOpen: true, title, streets });
-  };
-
-  // O MAPA CONTINUA MONTADO NO MODO LISTA
+  // "VER NO MAPA", VINDO DA LISTA
   //
-  // Trocar de modo desmontando o Leaflet custaria uma remontagem inteira a cada
-  // ida e volta — e, pior, o `fitBounds` inicial dispararia de novo e desfaria
-  // o `flyTo` que este botão acabou de pedir. Escondido por `invisible`, o
-  // container mantém as dimensões, o mapa mantém o estado, e a rua pedida está
-  // enquadrada antes de a lista sair da frente.
+  // No modo lista o Leaflet não está montado — a lista é a página inteira, e
+  // manter um mapa invisível atrás dela seria pagar tiles por nada. Então o
+  // destino fica guardado e é aplicado depois que o mapa monta.
+  //
+  // A espera existe por causa do `fitBounds` de abertura (`FitToStreets`): ele
+  // roda no mesmo instante da montagem e enquadraria a cidade inteira por cima
+  // do `flyTo` que este botão acabou de pedir. Meio segundo é depois dele e
+  // antes de a pessoa reparar.
+  const alvoNoMapa = useRef(null);
+
   const irParaOMapa = (location) => {
+    if (!location) return;
+    if (modo === 'mapa') { mapViewRef.current?.goToLocation(location); return; }
+    alvoNoMapa.current = location;
     setModo('mapa');
-    if (location) mapViewRef.current?.goToLocation(location);
   };
 
-  const handleGoToStreet = (location) => {
-    if (mapViewRef.current && location) {
-      mapViewRef.current.goToLocation(location);
-    }
-    setStreetListModal({ isOpen: false, title: '', streets: [] });
-  };
+  useEffect(() => {
+    if (modo !== 'mapa' || !alvoNoMapa.current) return undefined;
+    const alvo = alvoNoMapa.current;
+    alvoNoMapa.current = null;
+    const tempo = setTimeout(() => mapViewRef.current?.goToLocation(alvo), 500);
+    return () => clearTimeout(tempo);
+  }, [modo]);
 
   // OS FILTROS QUE RESPONDEM "O QUE AINDA FALTA CONFERIR"
   //
@@ -222,14 +230,16 @@ const PavementMapPage = () => {
   // contra a prefeitura: por bairro (é assim que a lista da prefeitura vem),
   // por CEP e pela lei municipal. Cada um responde uma pendência diferente, e
   // ligados juntos mostram a interseção — as ruas mais atrasadas de todas.
-  const passaNosFiltros = (street) => {
+  // `ignorarSituacao` existe para a faixa de números: ver o comentário de
+  // `resumoDosCartoes`, mais abaixo.
+  const passaNosFiltros = (street, { ignorarSituacao = false } = {}) => {
     const termo = searchTerm.trim().toLowerCase();
     const searchMatch = termo === ''
       || street.name.toLowerCase().includes(termo)
       || (street.bairro?.name || '').toLowerCase().includes(termo);
     if (!searchMatch) return false;
 
-    if (filtros.situacao !== 'all' && street.status !== filtros.situacao) return false;
+    if (!ignorarSituacao && filtros.situacao !== 'all' && street.status !== filtros.situacao) return false;
     if (filtros.bairro !== 'all' && String(street.bairro_id || '') !== filtros.bairro) return false;
     if (filtros.tipo !== 'all' && street.pavement_type !== filtros.tipo) return false;
 
@@ -270,9 +280,19 @@ const PavementMapPage = () => {
   // render, o filtro devolveria um array novo toda vez e a paginação nunca
   // sairia da página 1.
   const filteredStreets = useMemo(
-    () => streetData.filter(passaNosFiltros),
+    () => streetData.filter((rua) => passaNosFiltros(rua)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [streetData, searchTerm, filtros],
+  );
+
+  // O MESMO RECORTE, MENOS A SITUAÇÃO. É a base da faixa de números — ver
+  // `resumoDosCartoes`, logo abaixo.
+  const ruasSemFiltroDeSituacao = useMemo(
+    () => (filtros.situacao === 'all'
+      ? filteredStreets
+      : streetData.filter((rua) => passaNosFiltros(rua, { ignorarSituacao: true }))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [streetData, filteredStreets, searchTerm, filtros],
   );
 
   // Os bairros saem das PRÓPRIAS RUAS, e não de uma consulta à tabela.
@@ -291,6 +311,21 @@ const PavementMapPage = () => {
   // relação nenhuma com o mapa à frente. Com o recorte, os cartões respondem
   // "quanto tem AQUI", que é a pergunta de quem acabou de filtrar.
   const resumo = useMemo(() => resumoDeExtensao(filteredStreets), [filteredStreets]);
+
+  // A FAIXA DE NÚMEROS NÃO PODE CONTAR O PRÓPRIO FILTRO DELA
+  //
+  // Os cartões contam E filtram. Contando sobre `resumo`, que já obedece a
+  // `filtros.situacao`, o contador se destruía ao ser usado: clicar em "Sem
+  // pavimentação" zerava "Pavimentada" e "Parcialmente pavimentada", e a tela
+  // passava a afirmar que a cidade não tem rua asfaltada nenhuma — com as
+  // porcentagens virando 100% para a situação escolhida.
+  //
+  // Bairro, CEP, lei, projeto e busca continuam valendo: o número segue sendo
+  // "quanto tem AQUI". Só a situação sai, porque é o que o cartão liga.
+  const resumoDosCartoes = useMemo(
+    () => (filtros.situacao === 'all' ? resumo : resumoDeExtensao(ruasSemFiltroDeSituacao)),
+    [filtros.situacao, resumo, ruasSemFiltroDeSituacao],
+  );
 
   // O painel de controle e renderizado DUAS vezes: no fluxo da pagina no
   // celular, e flutuando sobre o mapa no desktop. As props saem de um objeto so
@@ -516,10 +551,15 @@ const PavementMapPage = () => {
              112rem ainda deixa margem numa tela de 1920 (uns 80px de cada lado),
              então a página continua parecendo do mesmo site — só não paga o
              preço de uma regra feita para outro tipo de conteúdo. */
-          /* Coluna flex a partir de 1100px — mesma mecânica de `TelaDeMapa`:
-             o topo ocupa o que precisar e o mapa fica com o resto da janela, em
-             vez de descontar uma altura chutada que invade o rodapé. */
-          className="mx-auto flex w-full max-w-[112rem] flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 min-[1100px]:h-[calc(100dvh-8rem)]"
+          /* Coluna flex a partir de 1100px — o título e os indicadores ocupam o
+             espaço natural deles, e o painel fica com o restante da janela.
+             O cálculo acompanha as mesmas variáveis usadas pelo layout global:
+             header, banner opcional e reserva inferior. */
+          className={`mx-auto flex w-full max-w-[112rem] flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 ${
+            modo === 'mapa'
+              ? MAP_PAGE_VIEWPORT_CLASS
+              : ''
+          }`}
         >
           {/* O TÍTULO SAIU DA TELA, MAS NÃO DO DOCUMENTO.
               "INFRAESTRUTURA / Mapa de Pavimentação / Visualize o status..."
@@ -541,7 +581,7 @@ const PavementMapPage = () => {
               e porque ligar o filtro por ele é o caminho de quem monta projeto
               de lei de denominação. */}
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-tc-red sm:text-3xl md:text-4xl">Mapa de Pavimentação</h1>
+            <h1 className="text-2xl font-bold text-tc-red sm:text-3xl md:text-4xl">Mapa de Ruas e Pavimentação</h1>
             <p className="mt-2 text-sm text-content-secondary sm:text-base">
               Quais ruas têm pavimento, quais não têm, e o que já foi prometido
             </p>
@@ -575,8 +615,100 @@ const PavementMapPage = () => {
             altura antes de o mapa começar. Como cartões compactos eles dizem o
             mesmo e continuam clicáveis: cada um ainda abre a lista das ruas
             daquela situação. */}
-        <PavementStats resumo={resumo} onSelecionar={handleStreetListClick} />
+        <PavementStats
+          resumo={resumoDosCartoes}
+          situacaoAtiva={filtros.situacao}
+          onSituacao={(id) => setFiltro('situacao', filtros.situacao === id ? 'all' : id)}
+        />
 
+        {/* O MODO LISTA É UMA PÁGINA, E NÃO UMA CAIXA DENTRO DO MAPA
+            Ele nasceu ocupando o lugar do mapa: mesma moldura, mesma altura de
+            janela, rolagem própria por dentro. O resultado era o único modo
+            lista do app que se comporta diferente dos outros dois — em obras e
+            em imóveis a lista larga a moldura do mapa e vira a página inteira,
+            com a paginação no fim e o rodapé do site logo abaixo.
+            Aqui os filtros continuam existindo porque são sete, e sete
+            seletores não cabem numa faixa como os quatro de obras: eles viram
+            uma grade de quatro colunas acima da lista. */}
+        {modo === 'lista' ? (
+        <div className="grid gap-3">
+          <div className="rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm sm:p-4">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
+              <div className="grid gap-2">
+                <CitySelector />
+                <BuscaDeRua
+                  streets={streetData}
+                  valor={searchTerm}
+                  onValorChange={setSearchTerm}
+                  onEscolher={(rua) => rua.location && irParaOMapa(rua.location)}
+                />
+              </div>
+
+              <FiltrosDePavimentacao
+                filtros={filtros}
+                onFiltroChange={setFiltro}
+                bairros={bairrosComRua}
+                colunas="grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+              />
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-edge-subtle pt-3">
+              <ToggleGroup
+                type="single"
+                value={modo}
+                onValueChange={(valor) => valor && setModo(valor)}
+                className="rounded-md border"
+              >
+                <ToggleGroupItem value="mapa" aria-label="Ver mapa" className="px-4">
+                  <MapaIcone className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="lista" aria-label="Ver lista" className="px-4">
+                  <List className="h-4 w-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+
+              {filtrosLigados > 0 && (
+                <Button type="button" size="sm" variant="ghost" className="text-xs" onClick={() => setFiltros(FILTROS_VAZIOS)}>
+                  Limpar filtros ({filtrosLigados})
+                </Button>
+              )}
+
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs"
+                  onClick={() => setRelatoriosAbertos(true)}
+                >
+                  <BarChart3 className="h-3.5 w-3.5 text-brand" /> Relatórios
+                </Button>
+
+                {canManageStreets && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-tc-red/30 text-xs text-tc-red hover:bg-tc-red/5"
+                    onClick={abrirCadastroDeRua}
+                  >
+                    <PlusCircle className="h-3.5 w-3.5" /> Adicionar rua
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <PavementStreetList
+            emPagina
+            streets={filteredStreets}
+            canManage={canManageStreets}
+            onEditStreet={setEditingStreet}
+            onIrParaOMapa={irParaOMapa}
+          />
+        </div>
+        ) : (
+        <>
         {/* TUDO NUMA TELA SÓ, NO DESKTOP.
 
             Referências e relatório viviam abaixo do mapa —
@@ -605,15 +737,17 @@ const PavementMapPage = () => {
             drawer. Abaixo de 1100 px, os filtros também deixam de ocupar uma
             coluna: o mapa passa a ser o único bloco largo. */}
         <div
-          className={`grid gap-2 sm:gap-3 min-[1100px]:min-h-0 min-[1100px]:flex-1 ${
+          className={`${MAP_GRID_CLASS} ${
             painelAberto
-              ? 'min-[1100px]:grid-cols-[13.5rem_minmax(0,1fr)] min-[1440px]:grid-cols-[16rem_minmax(0,1fr)_18rem]'
-              : 'min-[1100px]:grid-cols-[minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,1fr)_18rem]'
+              ? 'min-[1100px]:grid-cols-[13.5rem_minmax(0,1fr)] min-[1440px]:grid-cols-[16rem_minmax(0,1fr)_21rem]'
+              : 'min-[1100px]:grid-cols-[minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,1fr)_21rem]'
           }`}
         >
           {/* No celular ele renderiza como pilha de botões; no desktop, como a
               coluna. Os dois casos vivem dentro do próprio componente. */}
-          <div className={painelAberto ? '' : 'min-[1100px]:hidden'}>
+          <div className={painelAberto
+            ? 'min-[1100px]:h-full min-[1100px]:min-h-0 min-[1100px]:overflow-hidden'
+            : 'min-[1100px]:hidden'}>
             <PavementSidebar
               {...propsDoPainel}
               onOcultar={() => setPainelAberto(false)}
@@ -682,8 +816,8 @@ const PavementMapPage = () => {
             />
           </div>
 
-          <div className="relative h-[calc(100dvh-28rem-var(--safe-area-bottom,0px))] min-h-[22rem] w-full overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm sm:h-[calc(100dvh-24rem-var(--safe-area-bottom,0px))] sm:min-h-[24rem] min-[900px]:h-[calc(100dvh-19rem-var(--safe-area-bottom,0px))] lg:h-[calc(100dvh-16rem)] lg:min-h-[20rem] min-[1100px]:h-full min-[1100px]:min-h-0">
-            <div className={`absolute inset-0 ${modo === 'mapa' ? '' : 'invisible'}`}>
+          <div className={MAP_CANVAS_CLASS}>
+            <div className="absolute inset-0">
               <PavementMapView
                 ref={mapViewRef}
                 streets={filteredStreets}
@@ -700,21 +834,10 @@ const PavementMapPage = () => {
               </div>
             </div>
 
-            {modo === 'lista' && (
-              <div className="absolute inset-0 bg-surface-raised">
-                <PavementStreetList
-                  streets={filteredStreets}
-                  canManage={canManageStreets}
-                  onEditStreet={setEditingStreet}
-                  onIrParaOMapa={irParaOMapa}
-                />
-              </div>
-            )}
-
             {/* Recolhido, o painel vira este botão. O contador diz quantos
                 filtros continuam ligados: sem ele, alguém esconde a coluna,
                 esquece o recorte, e lê o mapa filtrado achando que é a cidade. */}
-            {!painelAberto && modo === 'mapa' && (
+            {!painelAberto && (
               <button
                 type="button"
                 onClick={() => setPainelAberto(true)}
@@ -746,7 +869,7 @@ const PavementMapPage = () => {
           {/* Só a coluna do desktop recebe `detalhado`: é a única das três
               montagens deste painel que tem altura sobrando para o anel e o
               rodapé de atualização. */}
-          <aside className="hidden min-[1440px]:block min-[1440px]:h-full min-[1440px]:min-h-0">
+          <aside className="hidden min-[1440px]:block min-[1440px]:h-full min-[1440px]:min-h-0 min-[1440px]:overflow-y-auto min-[1440px]:overflow-x-hidden">
             <PavementReportsPanel
               {...propsDoRelatorio}
               selectId="tipo-relatorio-desktop"
@@ -756,6 +879,8 @@ const PavementMapPage = () => {
             />
           </aside>
         </div>
+        </>
+        )}
         </motion.div>
       </div>
 
@@ -802,45 +927,6 @@ const PavementMapPage = () => {
         </DrawerContent>
       </Drawer>
 
-
-      <Dialog open={streetListModal.isOpen} onOpenChange={(open) => !open && setStreetListModal({ isOpen: false, title: '', streets: [] })}>
-        <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-tc-red">
-              <List className="w-6 h-6" />
-              {streetListModal.title}
-            </DialogTitle>
-            <DialogDescription>
-              Lista de ruas para a categoria selecionada. Clique em uma rua para localizá-la no mapa.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto pr-2">
-            <ul className="space-y-2">
-              {streetListModal.streets.map(street => (
-                <li key={street.id}>
-                  <button 
-                    onClick={() => handleGoToStreet(street.location)}
-                    className="w-full text-left p-3 rounded-md hover:bg-muted transition-colors flex justify-between items-center"
-                  >
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p>{street.name}</p>
-                        {street.is_unnamed && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                            <HelpCircle className="h-3 w-3" /> Sem nome oficial
-                          </span>
-                        )}
-                      </div>
-                      {street.bairro && <p className="text-xs text-muted-foreground">{street.bairro.name}</p>}
-                    </div>
-                    <LocateFixed className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <PavementEditModal
         street={editingStreet}

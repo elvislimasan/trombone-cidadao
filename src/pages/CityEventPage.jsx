@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Clock, ExternalLink, Info, Loader2, MapPin, Share2, Youtube } from 'lucide-react';
+import { CalendarDays, Clock, ExternalLink, Info, Loader2, MapPin, Repeat2, Share2, Youtube } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import BackButton from '@/components/BackButton';
@@ -139,9 +139,13 @@ export default function CityEventPage() {
           que é AÇÃO — confirmar se normalizou, acompanhar a região — sobe para a
           lateral, onde fica à vista sem competir com a leitura.
 
+          O limite de 100rem acompanha as páginas principais do desktop. Em um
+          monitor largo, `max-w-6xl` ainda deixava quase 400px vazios em cada
+          lado e fazia a tela parecer uma versão de tablet centralizada.
+
           Abaixo de `lg` nada disso existe: a ordem empilhada é exatamente a de
           antes, e é a certa no celular. */}
-      <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6">
+      <div className="mx-auto w-full max-w-[100rem] px-3 py-4 sm:px-5 lg:px-8">
         <div className="flex items-center justify-between gap-2">
           <BackButton paraOnde="/agora" className="-ml-3" />
           <Button
@@ -159,7 +163,7 @@ export default function CityEventPage() {
           </Button>
         </div>
 
-        <div className="mt-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-6">
+        <div className="mt-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
           <div className="min-w-0">
 
         {/* A FOTO VEM ANTES DO TÍTULO, E ABAIXO DO BOTÃO DE VOLTAR
@@ -205,7 +209,24 @@ export default function CityEventPage() {
             o que faz valer a pena reabrir a tela durante o dia.
             Ela some quando não há janela (sem previsão, ou já resolvido):
             desenhar uma proporção sem denominador seria inventar um número. */}
-        {(() => {
+        {evento.type === 'event' ? (
+          <div className="mt-4 rounded-3xl border border-status-progressBorder bg-status-progressBg p-4 sm:p-5">
+            <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-status-progressFg">
+              <CalendarDays className="h-3.5 w-3.5" /> Data e horário
+            </p>
+            <p className="mt-1.5 text-2xl font-extrabold leading-tight text-content-primary">
+              {previsaoLegivel(evento.started_at, agora)}
+            </p>
+            {evento.estimated_end_at && (
+              <p className="mt-1 text-sm text-content-secondary">Término previsto: {previsaoLegivel(evento.estimated_end_at, agora)}</p>
+            )}
+            {evento.recurrence === 'weekly' && (
+              <p className="mt-3 flex items-center gap-1.5 text-sm font-bold text-status-progressFg">
+                <Repeat2 className="h-4 w-4" /> Repete semanalmente
+              </p>
+            )}
+          </div>
+        ) : (() => {
           const resolvido = evento.status === 'resolved';
           const progresso = resolvido ? null : progressoDaPrevisao(evento, agora);
           const andamento = legendaDoAndamento(evento);
@@ -359,11 +380,13 @@ export default function CityEventPage() {
               tela que só a pessoa pode responder, e ela ficava no fim de uma
               página que quase ninguém rola até o fim. */}
           <aside className="grid gap-4 lg:sticky lg:top-4">
-            <CommunityConfirmation
-              evento={evento}
-              salvando={acoes.salvando}
-              aoResponder={(status) => acoes.confirmar(evento.id, status)}
-            />
+            {evento.type !== 'event' && (
+              <CommunityConfirmation
+                evento={evento}
+                salvando={acoes.salvando}
+                aoResponder={(status) => acoes.confirmar(evento.id, status)}
+              />
+            )}
 
           {/* Acompanhar a região vem no fim, e não no topo: quem chegou pelo
               push já é acompanhante. Quem chegou pelo link compartilhado leu a

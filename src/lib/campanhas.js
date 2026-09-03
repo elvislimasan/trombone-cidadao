@@ -119,8 +119,14 @@ export const chamadaDaCampanha = (campanha, agora = new Date()) => {
         ? `Termina em ${dias} dias`
         : null,
     acao: campanha.categoria_id
-      ? { rotulo: 'Ver a rota de hoje', para: '/rota-do-dia' }
+      ? {
+          rotulo: 'Ver a rota de hoje',
+          // A categoria viaja no link: sem ela a campanha dizia "iluminação",
+          // mas a rota consultava qualquer bronca ao redor do usuário.
+          para: `/rota-do-dia?categoria=${encodeURIComponent(campanha.categoria_id)}&campanha=${encodeURIComponent(campanha.id)}`,
+        }
       : { rotulo: 'Ver o que fazer', para: '/missoes' },
+    categoriaId: campanha.categoria_id || null,
     // A assinatura é parte do conteúdo, não rodapé: é o que diz ao leitor que
     // uma pessoa decidiu isto.
     assinatura: campanha.editor?.name || null,

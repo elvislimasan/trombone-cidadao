@@ -107,7 +107,7 @@ const ColecaoPage = () => {
         />
       </Helmet>
 
-      <div className="max-w-2xl mx-auto px-4 pt-4 pb-24">
+      <div className="mx-auto w-full max-w-2xl px-4 pt-4 pb-24 lg:max-w-[100rem] lg:px-8 lg:pt-8 lg:pb-12">
         <PageHeader
           titulo="Coleção da cidade"
           subtitulo="Lugares que valem uma parada — conhecer não tira de ninguém"
@@ -200,7 +200,7 @@ const ColecaoPage = () => {
               </div>
             )}
 
-            <ul className="space-y-1.5">
+            <ul className="grid grid-cols-1 gap-1.5 lg:grid-cols-2 xl:grid-cols-3">
               {colecao.itens.map((p) => (
                 <li
                   key={p.id}

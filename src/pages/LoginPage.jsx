@@ -9,8 +9,10 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { LogIn, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
+import { resolvePostAuthFallback } from '@/lib/homeEntry';
 
 const isIOS = Capacitor.getPlatform() === 'ios' || !Capacitor.isNativePlatform();
+const postAuthFallback = resolvePostAuthFallback({ isNative: Capacitor.isNativePlatform() });
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -43,7 +45,7 @@ const LoginPage = () => {
       if (!target && from?.pathname) {
         target = `${from.pathname}${from.search || ''}`;
       }
-      navigate(target || '/painel-usuario', { replace: true });
+      navigate(target || postAuthFallback, { replace: true });
     }
   }, [user, navigate, location.state]);
 
@@ -62,7 +64,7 @@ const LoginPage = () => {
       } catch {}
       const from = location.state?.from;
       if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-      navigate(target || '/painel-usuario', { replace: true });
+      navigate(target || postAuthFallback, { replace: true });
     } catch (error) {
       // Código 1001 = usuário cancelou o painel da Apple — ignorar silenciosamente
       const cancelled =
@@ -144,7 +146,7 @@ const LoginPage = () => {
           } catch {}
           const from = location.state?.from;
           if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-          navigate(target || '/', { replace: true });
+          navigate(target || postAuthFallback, { replace: true });
       } else {
           setErrors({
             email: '',
@@ -190,7 +192,7 @@ const LoginPage = () => {
         } catch {}
         const from = location.state?.from;
         if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-        navigate(target || '/', { replace: true });
+        navigate(target || postAuthFallback, { replace: true });
       }
     } catch (error) {
       setErrors({

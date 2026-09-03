@@ -16,6 +16,7 @@ import {
   PILOTO,
   podeIniciarRota,
   estaParado,
+  estaPertoDaParada,
   montarRota,
   minutosEstimados,
   estadoDaRota,
@@ -94,6 +95,12 @@ test('sem leitura de velocidade a pessoa é considerada parada', () => {
 
 test('caminhando devagar ainda conta como parado o bastante', () => {
   assert.equal(estaParado({ speed: 1.2 }), true);
+});
+
+test('resposta só é liberada perto da parada', () => {
+  assert.equal(estaPertoDaParada(CENTRO, aLeste(20)), true);
+  assert.equal(estaPertoDaParada(CENTRO, aLeste(45)), false);
+  assert.equal(estaPertoDaParada(null, aLeste(5)), false);
 });
 
 // ── A montagem ───────────────────────────────────────────────────────────────

@@ -92,7 +92,7 @@ const FavoriteWorksPage = () => {
       <Helmet>
         <title>Obras Favoritas - Trombone Cidadão</title>
       </Helmet>
-      <div className="container max-w-[88rem] mx-auto w-full px-4 py-8">
+      <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
             <HardHat className="w-8 h-8 text-tc-red" />

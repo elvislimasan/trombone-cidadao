@@ -87,7 +87,7 @@ export default function PatrolFocusStep({ noite, selecionada, onSelecionar }) {
         {passo.descricao}
       </p>
 
-      <div role="radiogroup" aria-label="Categoria da patrulha" className="flex flex-col gap-2.5">
+      <div role="radiogroup" aria-label="Categoria da patrulha" className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
         {/* CATEGORIAS_SINAL é a lista sem "outros" — a mesma que a folha de
             sinalização usa, e pela mesma razão: uma patrulha de "outros" não
             conseguiria dizer o que procurar. */}

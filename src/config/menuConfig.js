@@ -5,6 +5,10 @@ export const defaultMenuSettings = {
   },
   items: [
     { name: 'Início', path: '/', icon: 'LayoutDashboard', isVisible: true },
+    // Área recorrente de quem já entrou. Visitantes continuam com a Home como
+    // porta de entrada e não recebem mais um item no header.
+    { name: 'Feed', path: '/feed', icon: 'List', isVisible: true, authOnly: true },
+    { name: 'Broncas', path: '/mapa', icon: 'Megaphone', isVisible: true },
     { name: 'Radar da cidade', path: '/agora', icon: 'Radio', isVisible: true },
     // "Sobre" saiu do menu do header. A página continua existindo em /sobre e
     // continua linkada no rodapé — o que mudou é a disputa por espaço no topo,
@@ -12,11 +16,10 @@ export const defaultMenuSettings = {
     { name: 'Estatísticas', path: '/estatisticas', icon: 'BarChart2', isVisible: true },
     { name: 'Obras', path: '/obras-publicas', icon: 'Construction', isVisible: true },
     { name: 'Imóveis Alugados', path: '/imoveis-alugados', icon: 'Building', isVisible: true },
-    { name: 'Pavimentação', path: '/mapa-pavimentacao', icon: 'Route', isVisible: true },
+    { name: 'Ruas', path: '/mapa-pavimentacao', icon: 'Route', isVisible: true },
     { name: 'Serviços', path: '/servicos', icon: 'Briefcase', isVisible: true },
     { name: 'Abaixo-Assinados', path: '/abaixo-assinados', icon: 'FileSignature', isVisible: true },
     { name: 'Notícias', path: '/noticias', icon: 'Newspaper', isVisible: true },
-    { name: 'Contato', path: '/contato', icon: 'Mail', isVisible: true },
   ],
 };
 
@@ -58,7 +61,7 @@ export const defaultFooterSettings = {
       isVisible: true,
       links: [
         { name: 'Obras Públicas', path: '/obras-publicas', isVisible: true },
-        { name: 'Mapa de Pavimentação', path: '/mapa-pavimentacao', isVisible: true },
+        { name: 'Mapa de Ruas', path: '/mapa-pavimentacao', isVisible: true },
         { name: 'Serviços', path: '/servicos', isVisible: true },
         { name: 'Termos de Uso', path: '/termos-de-uso', isVisible: true },
       ],
@@ -67,7 +70,7 @@ export const defaultFooterSettings = {
 };
 
 export const availableIcons = [
-  'LayoutDashboard', 'Info', 'BarChart2', 'User', 'Construction', 'Route', 
+  'LayoutDashboard', 'Info', 'BarChart2', 'User', 'Construction', 'Route', 'Megaphone',
   'Briefcase', 'Newspaper', 'Shield', 'Home', 'Settings', 'Mail', 'Phone',
   'MapPin', 'Globe', 'Server', 'Cloud', 'Code', 'Activity', 'Airplay', 'AlertCircle',
   'AlignCenter', 'Anchor', 'Aperture', 'Archive', 'Award', 'Bell', 'BookOpen',

@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { SlidersHorizontal } from 'lucide-react';
+import {
+  MAP_CANVAS_CLASS,
+  MAP_GRID_CLASS,
+  MAP_PAGE_VIEWPORT_CLASS,
+} from '@/components/map/mapLayout';
 
 // A moldura comum de toda tela de mapa do app.
 //
@@ -54,6 +59,19 @@ export default function TelaDeMapa({
   // fazer aqui", e não "o que estou vendo".
   acoes = null,
   estatisticas = null,
+  // MAPA OU LISTA — A MESMA TELA, DUAS LEITURAS
+  //
+  // O mapa responde "onde"; a lista responde "quais são". Quando as duas viviam
+  // em telas separadas — o mapa de broncas e o feed em `/broncas` —, eram dois
+  // layouts, dois conjuntos de filtros para manter em dia e a dúvida de qual
+  // das duas era a de verdade.
+  //
+  // Os filtros vêm em duas formas de propósito: no mapa eles são uma COLUNA ao
+  // lado dele; na lista, uma FAIXA acima dela, porque a lista quer a largura
+  // inteira. É a mesma decisão que o mapa de pavimentação tomou.
+  modo = 'mapa',
+  lista = null,
+  filtrosDaLista = null,
   filtros = null,
   mapa,
   painel = null,
@@ -78,7 +96,14 @@ export default function TelaDeMapa({
           /* Coluna flex a partir de 1100px: o cabeçalho e os cartões pegam a
              altura deles, e a grade abaixo fica com o que sobrar da janela. É o
              que impede o mapa de invadir o rodapé quando o topo cresce. */
-          className="mx-auto flex w-full max-w-[112rem] flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 min-[1100px]:h-[calc(100dvh-8rem)]"
+          /* A altura de janela é do MODO MAPA. A lista é uma página: ela cresce
+             e a página rola — travá-la na janela é o que faria a paginação
+             encostar no rodapé. */
+          className={`mx-auto flex w-full max-w-[112rem] flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 ${
+            modo === 'mapa'
+              ? MAP_PAGE_VIEWPORT_CLASS
+              : ''
+          }`}
         >
           <div className="text-center">
             <h1 className="text-2xl font-bold text-tc-red sm:text-3xl md:text-4xl">{titulo}</h1>
@@ -93,11 +118,17 @@ export default function TelaDeMapa({
 
           {estatisticas}
 
+          {modo === 'lista' && lista ? (
+            <div className="grid gap-3">
+              {filtrosDaLista}
+              {lista}
+            </div>
+          ) : (
           <div
-            className={`grid gap-2 sm:gap-3 min-[1100px]:min-h-0 min-[1100px]:flex-1 ${
+            className={`${MAP_GRID_CLASS} ${
               temFiltros && painelAberto
-                ? 'min-[1100px]:grid-cols-[13.5rem_minmax(0,1fr)] min-[1440px]:grid-cols-[16rem_minmax(0,1fr)_18rem]'
-                : 'min-[1100px]:grid-cols-[minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,1fr)_18rem]'
+                ? 'min-[1100px]:grid-cols-[13.5rem_minmax(0,1fr)] min-[1440px]:grid-cols-[16rem_minmax(0,1fr)_21rem]'
+                : 'min-[1100px]:grid-cols-[minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,1fr)_21rem]'
             }`}
           >
             {temFiltros && (
@@ -108,7 +139,7 @@ export default function TelaDeMapa({
               </div>
             )}
 
-            <div className="relative h-[calc(100dvh-28rem-var(--safe-area-bottom,0px))] min-h-[22rem] w-full overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm sm:h-[calc(100dvh-24rem-var(--safe-area-bottom,0px))] sm:min-h-[24rem] min-[900px]:h-[calc(100dvh-19rem-var(--safe-area-bottom,0px))] lg:h-[calc(100dvh-16rem)] lg:min-h-[20rem] min-[1100px]:h-full min-[1100px]:min-h-0">
+            <div className={MAP_CANVAS_CLASS}>
               {mapa}
 
               {temFiltros && !painelAberto && (
@@ -137,11 +168,12 @@ export default function TelaDeMapa({
             )}
 
             {painel && (
-              <aside className="hidden min-[1440px]:block min-[1440px]:h-full min-[1440px]:min-h-0">
+              <aside className="hidden min-[1440px]:block min-[1440px]:h-full min-[1440px]:min-h-0 min-[1440px]:overflow-y-auto min-[1440px]:overflow-x-hidden">
                 {painel}
               </aside>
             )}
           </div>
+          )}
         </motion.div>
       </div>
 

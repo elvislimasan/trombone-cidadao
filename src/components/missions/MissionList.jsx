@@ -223,7 +223,7 @@ export default function MissionList({ trilhas }) {
           <h3 className="text-[11px] font-bold uppercase tracking-widest text-content-tertiary mb-2.5">
             {trilha.nome}
           </h3>
-          <ul className="flex flex-col gap-2.5">
+          <ul className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
             {trilha.missoes.map((missao) => (
               <CartaoMissao key={missao.id} missao={missao} />
             ))}

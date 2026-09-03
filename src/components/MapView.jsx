@@ -378,6 +378,9 @@ const MapView = ({
   // Rastro percorrido na inspecao. Vive so em memoria de quem passa a prop -
   // nao e gravado em lugar nenhum.
   navTrail = null,
+  // Caminho até um alvo escolhido. Trechos de rua são contínuos; acessos entre
+  // o ponto real e o eixo cadastrado ficam tracejados.
+  navRouteTrechos = null,
   // Missoes abertas no corredor. Chegam prontas do PatrolOverlay - o mapa nao
   // busca nada, so desenha.
   navMissoes = null,
@@ -670,6 +673,32 @@ const MapView = ({
               }}
             />
           )}
+          {navMode && (navRouteTrechos || []).map((trecho, index) => {
+            const positions = (trecho.pontos || []).map((p) => [p.lat, p.lng]);
+            if (positions.length < 2) return null;
+            const segueRua = trecho.tipo === 'ruas';
+            return (
+              <React.Fragment key={`rota-alvo-${index}`}>
+                {segueRua && (
+                  <Polyline
+                    positions={positions}
+                    pathOptions={{ color: '#ffffff', weight: 9, opacity: 0.9, lineCap: 'round' }}
+                  />
+                )}
+                <Polyline
+                  positions={positions}
+                  pathOptions={{
+                    color: '#dc2626',
+                    weight: segueRua ? 5 : 4,
+                    opacity: 0.95,
+                    dashArray: segueRua ? undefined : '7 9',
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+              </React.Fragment>
+            );
+          })}
           {navMode && navPosition && (
             <>
               <NavFollow
@@ -749,6 +778,9 @@ const MapView = ({
                     if (isCluster && item.count > 1) {
                       e.originalEvent.stopPropagation();
                       handleClusterClick(item);
+                    } else if (!isCluster && navMode) {
+                      e.originalEvent.stopPropagation();
+                      onReportClick?.(report);
                     }
                   },
                   dblclick: (e) => {
@@ -761,15 +793,26 @@ const MapView = ({
                   <Popup>
                     {/* Sem a descricao: o popup e um cartao de identificacao,
                         nao de leitura - o texto completo esta em "Detalhes". */}
-                    <div className="w-52">
-                      <h3 className="font-bold text-sm leading-snug mb-1 line-clamp-2">
+                    <div className="w-64 max-w-[calc(100vw-4rem)]">
+                      <h3 className="mb-1 line-clamp-2 pr-5 text-sm font-bold leading-snug">
                         {report.title}
                       </h3>
                       <div className="flex items-center text-[11px] text-muted-foreground mb-2">
                         <Calendar className="w-3 h-3 mr-1" />
                         {formatDate(report.created_at)}
                       </div>
-                      <div className="flex items-center justify-between gap-1.5">
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReportClick(report);
+                        }}
+                        className="mb-1.5 h-8 w-full bg-primary text-xs hover:bg-primary/90"
+                        style={{ pointerEvents: "auto", touchAction: "auto" }}
+                      >
+                        Ver detalhes
+                      </Button>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"
@@ -777,7 +820,7 @@ const MapView = ({
                             e.stopPropagation();
                             onUpvote(report.id);
                           }}
-                          className="h-7 px-2 flex items-center gap-1 text-xs"
+                          className="h-7 min-w-[3.25rem] flex-1 px-2 flex items-center justify-center gap-1 text-xs"
                         >
                           <ThumbsUp className="w-3 h-3" />
                           <span>{report.upvotes}</span>
@@ -798,7 +841,7 @@ const MapView = ({
                               }
                               navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
                             }}
-                            className="h-7 px-2 flex items-center gap-1 border-primary/30 text-primary hover:bg-primary/10 text-xs"
+                            className="h-7 min-w-[5.25rem] flex-1 px-2 flex items-center justify-center gap-1 border-primary/30 text-primary hover:bg-primary/10 text-xs"
                             style={{ pointerEvents: "auto", touchAction: "auto" }}
                           >
                             <Megaphone className="w-3 h-3" />
@@ -813,27 +856,13 @@ const MapView = ({
                               e.stopPropagation();
                               onEditClick(report);
                             }}
-                            className="h-7 px-2 flex items-center gap-1 text-xs"
+                            className="h-7 min-w-[4.5rem] flex-1 px-2 flex items-center justify-center gap-1 text-xs"
                             style={{ pointerEvents: "auto", touchAction: "auto" }}
                           >
                             <Pencil className="w-3 h-3" />
                             Editar
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onReportClick(report);
-                          }}
-                          className="h-7 px-3 text-xs bg-primary hover:bg-primary/90"
-                          style={{
-                            pointerEvents: "auto",
-                            touchAction: "auto",
-                          }}
-                        >
-                          Detalhes
-                        </Button>
                       </div>
                     </div>
                   </Popup>

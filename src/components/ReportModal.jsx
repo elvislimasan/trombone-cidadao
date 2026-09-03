@@ -3172,14 +3172,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
     saveReportDraft({ formData, wizardStep });
     await saveReportDraftMedia({ photos: formData.photos });
-    const target = "/broncas?criar_bronca=1";
+    const target = "/mapa?criar_bronca=1";
 
     try {
       sessionStorage.setItem("tc_post_login_redirect", target);
     } catch {}
 
     navigate("/login", {
-      state: { from: { pathname: "/broncas", search: "?criar_bronca=1" } },
+      state: { from: { pathname: "/mapa", search: "?criar_bronca=1" } },
     });
     suppressDraftCleanupRef.current = true;
     handleClose();

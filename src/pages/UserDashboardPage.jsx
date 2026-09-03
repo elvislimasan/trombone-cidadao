@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Edit, Trash2, Eye, MessageSquare, FileText, Clock, CheckCircle, XCircle, PlusCircle, Send, Upload, Building, ShoppingCart, MapPin, Share2, Heart } from 'lucide-react';
+import {
+  Activity, Building, CheckCircle, ChevronLeft,
+  ChevronRight, Clock, Edit, Eye, FileText, Heart, MapPin, MessageSquare,
+  PlusCircle, Search, Send, SlidersHorizontal, Trash2, Upload, XCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import ReportModal from '@/components/ReportModal';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUpvote } from '../hooks/useUpvotes';
 import { showAppError } from '@/lib/appError';
 
@@ -25,7 +29,14 @@ const throwIfAborted = (signal) => {
   throw error;
 };
 
-const UserDashboardPage = () => {
+const BRONCAS_POR_PAGINA = 6;
+
+const normalizarBusca = (value) => String(value || '')
+  .normalize('NFD')
+  .replace(/\p{Mn}/gu, '')
+  .toLowerCase();
+
+const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAfterImpact = null }) => {
   const { user } = useAuth();
   const { activeCityId } = useCity();
   const location = useLocation();
@@ -39,6 +50,11 @@ const UserDashboardPage = () => {
   const suppressReportAutoOpenRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('reports');
+  const [buscaBronca, setBuscaBronca] = useState('');
+  const [filtroSituacao, setFiltroSituacao] = useState('all');
+  const [filtroModeracao, setFiltroModeracao] = useState('all');
+  const [ordemBroncas, setOrdemBroncas] = useState('recentes');
+  const [paginaBroncas, setPaginaBroncas] = useState(1);
   const navigate = useNavigate();
 
   const reportParam = useMemo(() => {
@@ -337,6 +353,14 @@ const UserDashboardPage = () => {
     }
   };
 
+  const getReportStatusInfo = (status) => {
+    switch (status) {
+      case 'resolved': return { text: 'Resolvida', className: 'border-success-border bg-success-bg text-success-fg' };
+      case 'in-progress': return { text: 'Em andamento', className: 'border-status-progressBorder bg-status-progressBg text-status-progressFg' };
+      default: return { text: 'Pendente', className: 'border-status-pendingBorder bg-status-pendingBg text-status-pendingFg' };
+    }
+  };
+
   const handleCreateReport = async (newReportData, uploadMediaCallback, { signal } = {}) => {
     throwIfAborted(signal);
     if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
@@ -403,37 +427,149 @@ const UserDashboardPage = () => {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.05 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 
+  const broncasFiltradas = useMemo(() => {
+    const termo = normalizarBusca(buscaBronca.trim());
+    const resultado = reports.filter((report) => {
+      const combinaBusca = !termo || normalizarBusca([
+        report.title,
+        report.description,
+        report.address,
+        report.categoryName,
+      ].join(' ')).includes(termo);
+      const combinaSituacao = filtroSituacao === 'all' || report.status === filtroSituacao;
+      const combinaModeracao = filtroModeracao === 'all' || report.moderation_status === filtroModeracao;
+      return combinaBusca && combinaSituacao && combinaModeracao;
+    });
+
+    return resultado.sort((a, b) => {
+      if (ordemBroncas === 'antigas') return new Date(a.created_at) - new Date(b.created_at);
+      if (ordemBroncas === 'apoios') return Number(b.upvotes || 0) - Number(a.upvotes || 0);
+      if (ordemBroncas === 'visualizacoes') return Number(b.views || 0) - Number(a.views || 0);
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+  }, [reports, buscaBronca, filtroSituacao, filtroModeracao, ordemBroncas]);
+
+  useEffect(() => {
+    setPaginaBroncas(1);
+  }, [buscaBronca, filtroSituacao, filtroModeracao, ordemBroncas]);
+
+  const totalPaginasBroncas = Math.max(1, Math.ceil(broncasFiltradas.length / BRONCAS_POR_PAGINA));
+  const paginaAtualBroncas = Math.min(paginaBroncas, totalPaginasBroncas);
+  const inicioDaPagina = (paginaAtualBroncas - 1) * BRONCAS_POR_PAGINA;
+  const broncasDaPagina = broncasFiltradas.slice(inicioDaPagina, inicioDaPagina + BRONCAS_POR_PAGINA);
+
+  const primeiroNome = String(user?.name || 'Cidadão').trim().split(/\s+/)[0];
+  const totalDeApoios = reports.reduce((total, report) => total + Number(report.upvotes || 0), 0);
+  const totalDeVisualizacoes = reports.reduce((total, report) => total + Number(report.views || 0), 0);
+  const resolvidas = reports.filter((report) => report.status === 'resolved').length;
+  const emAndamento = reports.filter((report) => report.status === 'in-progress').length;
+  const pendentes = reports.filter((report) => !['resolved', 'in-progress'].includes(report.status)).length;
+  const taxaResolvida = reports.length ? Math.round((resolvidas / reports.length) * 100) : 0;
+
+  const metricas = [
+    { rotulo: 'Broncas', valor: reports.length, detalhe: `${pendentes} pendentes`, Icone: FileText, tom: 'bg-brand-subtleBg text-brand' },
+    { rotulo: 'Comentários', valor: comments.length, detalhe: 'participações', Icone: MessageSquare, tom: 'bg-status-progressBg text-status-progressFg' },
+    { rotulo: 'Apoios recebidos', valor: totalDeApoios, detalhe: 'nas suas broncas', Icone: Heart, tom: 'bg-status-pendingBg text-status-pendingFg' },
+    { rotulo: 'Visualizações', valor: totalDeVisualizacoes, detalhe: 'alcance total', Icone: Eye, tom: 'bg-success-bg text-success-fg' },
+  ];
+
+  const impactBanner = (
+    <section className="mb-8 overflow-hidden rounded-3xl bg-gradient-to-r from-[#230609] via-[#4f0d15] to-[#7f1220] p-6 text-white shadow-elevation-2 md:p-8 lg:flex lg:h-56 lg:items-center">
+      <div className="grid w-full items-center gap-7 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-amber-300">Meu impacto cidadão</p>
+          <h2 className="mt-2 text-2xl font-extrabold">Sua participação já movimenta a cidade</h2>
+          <p className="mt-2 max-w-2xl text-sm text-white/70">Cada bronca acompanhada, apoio e comentário ajuda problemas públicos a ganharem visibilidade.</p>
+          <div className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-4">
+            {[
+              ['Broncas registradas', reports.length],
+              ['Resolvidas', resolvidas],
+              ['Em andamento', emAndamento],
+              ['Interações', totalDeApoios + comments.length],
+            ].map(([rotulo, valor]) => (
+              <div key={rotulo}>
+                <p className="text-2xl font-extrabold tabular-nums">{loading ? '—' : valor}</p>
+                <p className="mt-1 text-[11px] text-white/60">{rotulo}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="min-w-[13rem] rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400 text-[#4f0d15]"><Activity className="h-6 w-6" /></span>
+            <div><p className="font-extrabold">Participação ativa</p><p className="text-xs text-white/60">Impacto acompanhado</p></div>
+          </div>
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-amber-400 transition-[width]" style={{ width: `${taxaResolvida}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-white/70">{taxaResolvida}% das suas broncas foram resolvidas</p>
+        </div>
+      </div>
+    </section>
+  );
+
   return (
     <>
-      <Helmet>
-        <title>Meu Painel - Trombone Cidadão</title>
-        <meta name="description" content="Gerencie suas broncas e comentários." />
-      </Helmet>
-      <div className="container mx-auto px-4 py-12">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10 space-y-4">
+      {!embedded && (
+        <Helmet>
+          <title>Meu Painel - Trombone Cidadão</title>
+          <meta name="description" content="Gerencie suas broncas e comentários." />
+        </Helmet>
+      )}
+      <div className={embedded
+        ? 'w-full py-2'
+        : 'mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8'}>
+        {impactFirst && impactBanner}
+        {impactFirst && navigationAfterImpact && <div className="mb-6">{navigationAfterImpact}</div>}
+
+        <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Meu Painel</h1>
-            <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">Acompanhe e gerencie suas contribuições na plataforma.</p>
+            <h1 className="text-2xl font-extrabold text-content-primary md:text-3xl">Olá, {primeiroNome}! <span aria-hidden="true">👋</span></h1>
+            <p className="mt-1 text-sm text-content-secondary">Acompanhe suas contribuições e o impacto da sua participação.</p>
           </div>
-          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+          <div className="flex flex-wrap gap-3">
             <Button
-              className="h-10 px-4 sm:px-6 rounded-full font-semibold bg-tc-red hover:bg-tc-red/90"
+              className="h-10 gap-2 rounded-xl px-4 font-semibold"
               onClick={() => setIsReportModalOpen(true)}
             >
-              Cadastrar minha primeira bronca
+              <PlusCircle className="h-4 w-4" /> {reports.length ? 'Nova bronca' : 'Cadastrar primeira bronca'}
             </Button>
             <Button
               asChild
               variant="outline"
-              className="h-10 px-4 sm:px-6 rounded-full font-semibold border-status-pendingBorder text-status-pendingFg hover:bg-surface-subtle"
+              className="h-10 gap-2 rounded-xl px-4 font-semibold"
             >
-              <a href="/minhas-peticoes">Criar um abaixo-assinado</a>
+              <Link to="/minhas-peticoes"><FileText className="h-4 w-4" /> Criar abaixo-assinado</Link>
             </Button>
           </div>
-        </motion.div>
+        </motion.header>
+
+        <section aria-labelledby="resumo-painel" className="mb-6">
+          <h2 id="resumo-painel" className="sr-only">Resumo da sua participação</h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {metricas.map(({ rotulo, valor, detalhe, Icone, tom }) => (
+              <div key={rotulo} className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tom}`}><Icone className="h-5 w-5" /></span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-content-secondary">{rotulo}</p>
+                    <p className="mt-0.5 text-xl font-extrabold text-content-primary tabular-nums">{loading ? '—' : valor}</p>
+                    <p className="text-[11px] text-content-tertiary">{detalhe}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {!impactFirst && impactBanner}
+
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div><h2 className="text-xl font-extrabold text-content-primary">Minhas contribuições</h2><p className="text-sm text-content-secondary">Gerencie o que você publicou na plataforma.</p></div>
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-lg p-1 gap-1 h-auto">
+          <TabsList className="grid w-full max-w-xl grid-cols-3 bg-muted/50 rounded-lg p-1 gap-1 h-auto">
             <TabsTrigger 
               value="reports" 
               className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
@@ -457,7 +593,64 @@ const UserDashboardPage = () => {
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="reports" className="mt-8 relative min-h-[300px]">
+          <TabsContent value="reports" className="mt-6 relative min-h-[300px]">
+            <div className="mb-5 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
+              <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_repeat(3,minmax(9rem,auto))]">
+                <label className="relative min-w-0">
+                  <span className="sr-only">Buscar nas minhas broncas</span>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
+                  <Input
+                    value={buscaBronca}
+                    onChange={(event) => setBuscaBronca(event.target.value)}
+                    placeholder="Buscar por título, local ou categoria"
+                    className="h-10 pl-9"
+                  />
+                </label>
+
+                <label className="relative">
+                  <span className="sr-only">Filtrar por situação</span>
+                  <select value={filtroSituacao} onChange={(event) => setFiltroSituacao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                    <option value="all">Todas as situações</option>
+                    <option value="pending">Pendentes</option>
+                    <option value="in-progress">Em andamento</option>
+                    <option value="resolved">Resolvidas</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span className="sr-only">Filtrar por moderação</span>
+                  <select value={filtroModeracao} onChange={(event) => setFiltroModeracao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                    <option value="all">Toda moderação</option>
+                    <option value="pending_approval">Aguardando análise</option>
+                    <option value="approved">Aprovadas</option>
+                    <option value="rejected">Rejeitadas</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span className="sr-only">Ordenar broncas</span>
+                  <select value={ordemBroncas} onChange={(event) => setOrdemBroncas(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                    <option value="recentes">Mais recentes</option>
+                    <option value="antigas">Mais antigas</option>
+                    <option value="apoios">Mais apoiadas</option>
+                    <option value="visualizacoes">Mais visualizadas</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-edge-subtle pt-3 text-xs text-content-tertiary">
+                <span className="inline-flex items-center gap-1.5"><SlidersHorizontal className="h-3.5 w-3.5" /> {broncasFiltradas.length} {broncasFiltradas.length === 1 ? 'bronca encontrada' : 'broncas encontradas'}</span>
+                {(buscaBronca || filtroSituacao !== 'all' || filtroModeracao !== 'all' || ordemBroncas !== 'recentes') && (
+                  <button type="button" className="font-bold text-brand hover:underline" onClick={() => {
+                    setBuscaBronca('');
+                    setFiltroSituacao('all');
+                    setFiltroModeracao('all');
+                    setOrdemBroncas('recentes');
+                  }}>Limpar filtros</button>
+                )}
+              </div>
+            </div>
+
             <AnimatePresence mode="wait">
               {loading ? (
                 <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex items-center justify-center">
@@ -465,15 +658,18 @@ const UserDashboardPage = () => {
                     <p className="text-lg font-semibold">Carregando suas broncas...</p>
                   </div>
                 </motion.div>
-              ) : reports.length > 0 ? (
-                <motion.div key="reports-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" variants={containerVariants} initial="hidden" animate="visible" exit={{ opacity: 0 }}>
-                  {reports.map((report) => (
+              ) : broncasDaPagina.length > 0 ? (
+                <motion.div key={`reports-list-${paginaAtualBroncas}`} className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" variants={containerVariants} initial="hidden" animate="visible" exit={{ opacity: 0 }}>
+                  {broncasDaPagina.map((report) => {
+                    const statusDaBronca = getReportStatusInfo(report.status);
+                    const moderacao = getStatusInfo(report.moderation_status);
+                    return (
                     <motion.div key={report.id} variants={itemVariants}>
                       <div
-                        className="h-full flex flex-col bg-surface-raised border border-edge-subtle rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition cursor-pointer group"
+                        className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-elevation-2"
                         onClick={() => setSelectedReport(report)}
                       >
-                        <div className="relative h-40 w-full overflow-hidden">
+                        <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-sunken">
                           {report.photos && report.photos.length > 0 ? (
                             <img
                               src={report.photos[0].url}
@@ -487,14 +683,16 @@ const UserDashboardPage = () => {
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
                           
-                          <div className="absolute top-2 left-2">
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
+                          <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1.5">
+                            <span className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold shadow-sm ${
                               report.moderation_status === 'approved' ? 'bg-green-100 text-green-700' :
                               report.moderation_status === 'rejected' ? 'bg-red-100 text-red-700' :
                               'bg-yellow-100 text-yellow-700'
                             }`}>
-                              {getStatusInfo(report.moderation_status).icon}
-                              {getStatusInfo(report.moderation_status).text}
+                              {moderacao.icon} {moderacao.text}
+                            </span>
+                            <span className={`rounded-full border px-2 py-1 text-[10px] font-bold shadow-sm ${statusDaBronca.className}`}>
+                              {statusDaBronca.text}
                             </span>
                           </div>
 
@@ -511,7 +709,7 @@ const UserDashboardPage = () => {
                              </div>
                              
                             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                <Button 
+                                 <Button
                                   size="icon" 
                                   variant="secondary" 
                                   className="h-7 w-7 rounded-full bg-white/95 text-content-secondary hover:bg-surface-raised hover:text-blue-600" 
@@ -519,7 +717,9 @@ const UserDashboardPage = () => {
                                       e.stopPropagation();
                                       setSelectedReport(report);
                                   }}
-                                  disabled={report.moderation_status !== 'pending_approval'}
+                                   disabled={report.moderation_status !== 'pending_approval'}
+                                   aria-label={`Editar ${report.title}`}
+                                   title="Editar bronca"
                                 >
                                   <Edit className="w-3.5 h-3.5" />
                                 </Button>
@@ -527,10 +727,12 @@ const UserDashboardPage = () => {
                                   size="icon" 
                                   variant="secondary"
                                   className="h-7 w-7 rounded-full bg-white/95 text-content-secondary hover:bg-red-50 hover:text-red-600"
-                                  onClick={(e) => {
+                                   onClick={(e) => {
                                       e.stopPropagation();
                                       openDeleteConfirmation(report);
-                                  }}
+                                   }}
+                                   aria-label={`Excluir ${report.title}`}
+                                   title="Excluir bronca"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
@@ -538,16 +740,16 @@ const UserDashboardPage = () => {
                           </div>
                         </div>
 
-                        <div className="p-4 flex-grow flex flex-col space-y-2">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                             <div className="flex items-center gap-1">
+                        <div className="flex flex-grow flex-col p-4">
+                          <div className="flex items-center justify-between gap-3 text-[11px] text-content-tertiary">
+                             <div className="flex min-w-0 items-center gap-1">
                                 <MapPin className="w-3 h-3" />
-                                <span className="truncate max-w-[150px]">{report.address || 'Endereço não informado'}</span>
+                                <span className="truncate">{report.address || 'Endereço não informado'}</span>
                              </div>
-                             <span className="text-[10px]">{new Date(report.created_at).toLocaleDateString('pt-BR')}</span>
+                             <time className="shrink-0" dateTime={report.created_at}>{new Date(report.created_at).toLocaleDateString('pt-BR')}</time>
                           </div>
 
-                          <h3 className="text-base font-semibold text-content-primary leading-snug line-clamp-2">
+                          <h3 className="mt-2 line-clamp-2 text-base font-extrabold leading-snug text-content-primary">
                             {report.title}
                           </h3>
                           
@@ -555,7 +757,7 @@ const UserDashboardPage = () => {
                             {report.description}
                           </p>
 
-                          <div className="pt-2 mt-auto flex items-center justify-between gap-2 border-t border-edge-subtle">
+                          <div className="mt-4 flex items-center justify-between gap-2 border-t border-edge-subtle pt-3">
                              <div className="flex items-center gap-1.5">
                                 <span className="text-lg">{report.categoryIcon}</span>
                                 <span className="text-xs font-medium text-content-secondary">{report.categoryName}</span>
@@ -569,15 +771,33 @@ const UserDashboardPage = () => {
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </motion.div>
               ) : (
                 <motion.div key="no-reports" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-16 bg-card rounded-lg border border-border">
-                  <p className="text-2xl font-bold text-muted-foreground">Nenhuma bronca registrada.</p>
-                  <p className="text-muted-foreground mt-2">Que tal começar agora e fazer a diferença na sua cidade?</p>
+                  <p className="text-xl font-bold text-muted-foreground">{reports.length ? 'Nenhuma bronca corresponde aos filtros.' : 'Nenhuma bronca registrada.'}</p>
+                  <p className="text-muted-foreground mt-2">{reports.length ? 'Tente remover algum filtro ou buscar outro termo.' : 'Que tal começar agora e fazer a diferença na sua cidade?'}</p>
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {!loading && broncasFiltradas.length > 0 && (
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-edge-subtle bg-surface-raised px-4 py-3">
+                <span className="text-xs text-content-tertiary tabular-nums">
+                  {inicioDaPagina + 1}–{Math.min(inicioDaPagina + BRONCAS_POR_PAGINA, broncasFiltradas.length)} de {broncasFiltradas.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="icon" variant="outline" className="h-9 w-9" disabled={paginaAtualBroncas <= 1} onClick={() => setPaginaBroncas((pagina) => Math.max(1, pagina - 1))} aria-label="Página anterior">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-14 text-center text-xs font-extrabold text-content-secondary tabular-nums">{paginaAtualBroncas} / {totalPaginasBroncas}</span>
+                  <Button type="button" size="icon" variant="outline" className="h-9 w-9" disabled={paginaAtualBroncas >= totalPaginasBroncas} onClick={() => setPaginaBroncas((pagina) => Math.min(totalPaginasBroncas, pagina + 1))} aria-label="Próxima página">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="comments" className="mt-8">
@@ -662,6 +882,7 @@ const UserDashboardPage = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
       </div>
       {selectedReport && <ReportDetails report={selectedReport} onClose={handleCloseReportDetails} onUpdate={handleUpdateReport} onUpvote={handleUpvote} onLink={() => {}} />}
       

@@ -69,7 +69,9 @@ const PularParada = ({ parada, pulosRestantes, enviando, onPular, onCancelar }) 
         />
       )}
 
-      <div className="flex items-center gap-3 mt-3">
+      {/* Quebra entre os dois: com a fonte do sistema ampliada, "Registrando…"
+          e "Voltar" lado a lado estouravam a largura do cartão. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-3">
         <button
           type="button"
           disabled={!motivoId || enviando}

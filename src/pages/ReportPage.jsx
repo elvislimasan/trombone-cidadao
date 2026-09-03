@@ -51,7 +51,6 @@ import {
 import ReportSummary from "@/components/report/ReportSummary";
 import ReportTimeline from "@/components/report/ReportTimeline";
 import ReportOfficialStep from "@/components/report/ReportOfficialStep";
-import ReportCobrancas from "@/components/report/ReportCobrancas";
 import ReportImpactReceipt from "@/components/report/ReportImpactReceipt";
 import ReportBeforeAfter from "@/components/report/ReportBeforeAfter";
 import ReportRevisitPrompt from "@/components/report/ReportRevisitPrompt";
@@ -1189,14 +1188,14 @@ const ReportPage = () => {
       .order("created_at", { ascending: false });
     setReportUpdates(updatesData || []);
 
-    // As etapas que só o órgão conhece (migração 207). Consulta própria, e não
-    // um join no select acima, porque `report_official_steps` é lida por
-    // qualquer visitante enquanto o resto do select depende do usuário — juntar
-    // as duas faria uma tabela nova entrar no caminho crítico da tela inteira.
+    // A pagina publica recebe apenas etapas registradas por uma pessoa. As
+    // linhas de papel `sistema` pertencem ao transporte do e-mail (endereco,
+    // entrega, bounce etc.) e ficam exclusivamente no Canal do orgao.
     const { data: etapasData } = await supabase
       .from("report_official_steps")
       .select("*")
       .eq("report_id", reportId)
+      .or("registrado_por_papel.is.null,registrado_por_papel.neq.sistema")
       .order("ocorreu_em", { ascending: true });
     setOfficialSteps(etapasData || []);
 
@@ -1680,12 +1679,6 @@ const ReportPage = () => {
                       setUpdateMediaViewer({ isOpen: true, media, startIndex })
                     }
                   />
-
-                  {/* A repetição do envio à secretaria, logo abaixo da linha do
-                      tempo: a primeira entrega já é etapa lá em cima; da
-                      segunda em diante é informação, não notícia. Some sozinho
-                      quando não há canal ou nenhum relatório foi entregue. */}
-                  <ReportCobrancas report={report} />
 
                   {/* Só aparece para o autor, e só depois de 28 dias parados. */}
                   <ReportRevisitPrompt report={report} atualizacoes={reportUpdates} />

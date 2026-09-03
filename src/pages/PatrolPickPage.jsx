@@ -232,7 +232,7 @@ export default function PatrolPickPage() {
   const ultimoPasso = !proximo;
 
   return (
-    <div className="container max-w-2xl mx-auto w-full px-4 py-6 pb-40">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-40 lg:max-w-6xl lg:px-8 lg:py-8 lg:pb-32">
       <Helmet>
         <title>Sair em patrulha | Trombone Cidadão</title>
         <meta name="robots" content="noindex" />
@@ -298,7 +298,7 @@ export default function PatrolPickPage() {
         className="pointer-events-none fixed inset-x-0 bottom-0 z-[1000] px-3 pt-3"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
       >
-        <div className="pointer-events-auto mx-auto flex max-w-2xl items-center gap-2.5 rounded-2xl bg-surface-overlay/95 p-2.5 shadow-elevation-3 ring-1 ring-edge-subtle/70 backdrop-blur-xl">
+        <div className="pointer-events-auto mx-auto flex max-w-2xl items-center gap-2.5 rounded-2xl bg-surface-overlay/95 p-2.5 shadow-elevation-3 ring-1 ring-edge-subtle/70 backdrop-blur-xl lg:max-w-6xl">
           {anterior ? (
             <button
               type="button"

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Check, MapPin, SkipForward } from "lucide-react";
 import { formatarDistancia } from "@/lib/patrolAlvo";
-import { estaParado } from "@/lib/rotaDoDia";
+import { haversine } from "@/lib/navGeo";
+import { estaParado, estaPertoDaParada, PILOTO } from "@/lib/rotaDoDia";
 import { rotuloDeCobertura } from "@/lib/recencia";
 import { nomeDaCategoria } from "@/lib/reportCategories";
 import PularParada from "@/components/rota/PularParada";
@@ -27,9 +28,9 @@ import PularParada from "@/components/rota/PularParada";
 // que desaparece parece defeito.
 
 const RESPOSTAS = [
-  { id: "still_here", rotulo: "O problema está aqui" },
-  { id: "being_solved", rotulo: "Estão mexendo nisso" },
-  { id: "solved", rotulo: "Não está mais aqui" },
+  { id: "still_here", rotulo: "O problema está aqui", curto: "Está aqui" },
+  { id: "being_solved", rotulo: "Estão mexendo nisso", curto: "Em reparo" },
+  { id: "solved", rotulo: "Não está mais aqui", curto: "Resolvido" },
 ];
 
 const ParadaCard = ({
@@ -43,10 +44,22 @@ const ParadaCard = ({
   enviando,
   onResponder,
   onPular,
+  perguntaAberta = false,
 }) => {
-  const [aberta, setAberta] = useState(false);
+  const perto = estaPertoDaParada(posicao, parada);
+  const distanciaAtual = posicao ? haversine(posicao, parada) : null;
+  const [aberta, setAberta] = useState(() => Boolean(perguntaAberta && perto));
   const [pulando, setPulando] = useState(false);
   const [revelado, setRevelado] = useState(false);
+
+  // No mapa, a parada ativa já entra como pergunta. Ao avançar para a próxima,
+  // abre a nova pergunta e fecha qualquer estado auxiliar da anterior. Na lista
+  // o comportamento continua compacto, aberto apenas pelo botão "Cheguei".
+  useEffect(() => {
+    setAberta(Boolean(perguntaAberta && perto));
+    setPulando(false);
+    setRevelado(false);
+  }, [parada.id, perguntaAberta, perto]);
 
   const cobertura = rotuloDeCobertura(parada.estado);
   const parado = estaParado(posicao);
@@ -54,7 +67,7 @@ const ParadaCard = ({
 
   return (
     <li
-      className={`rounded-2xl border px-3.5 py-3 ${
+      className={`rounded-2xl border overflow-hidden ${perguntaAberta ? "px-3 py-2.5" : "px-3.5 py-3"} ${
         feito
           ? "border-edge-subtle bg-surface-subtle opacity-70"
           : ativa
@@ -84,12 +97,15 @@ const ParadaCard = ({
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-bold text-content-primary leading-tight">
+          {/* `break-words`: título de bronca vem do que a pessoa digitou, e uma
+              palavra sem espaço (URL colada, nome de rua grudado) esticava o
+              cartão para além da largura da tela. */}
+          <p className="text-[13px] font-bold text-content-primary leading-tight break-words">
             {parada.title || nomeDaCategoria(parada.category_id)}
           </p>
-          <p className="text-2xs text-content-tertiary mt-0.5 flex items-center gap-1">
+          <p className="text-2xs text-content-tertiary mt-0.5 flex items-center gap-1 min-w-0">
             <MapPin className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">
+            <span className="truncate min-w-0">
               {parada.address || "Sem endereço registrado"}
             </span>
             <span className="flex-shrink-0">· {formatarDistancia(parada.distancia)}</span>
@@ -97,45 +113,63 @@ const ParadaCard = ({
 
           {/* Por que esta parada está na rota. É o que transforma a lista numa
               explicação em vez de num roteiro imposto. */}
-          {cobertura && !feito && (
-            <p className="text-2xs text-content-secondary mt-1">{cobertura.texto}</p>
+          {cobertura && !feito && !perguntaAberta && (
+            <p className="text-2xs text-content-secondary mt-1 break-words">
+              {cobertura.texto}
+            </p>
           )}
         </div>
       </div>
 
       {ativa && !feito && (
         <div className="mt-3">
+          {/* AÇÃO EM CIMA, ATALHOS EMBAIXO
+              As três ações cabiam numa linha só no desenho de 390 px. Em 360 px
+              com a fonte do sistema ampliada elas não cabiam — e como nenhuma
+              delas encolhe, o cartão é que passava da largura da tela. Agora o
+              botão principal ocupa a linha inteira (também é o alvo de toque
+              maior, que é o certo para quem está de pé na calçada) e os dois
+              atalhos quebram entre si. */}
           {!aberta && !pulando && (
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setAberta(true)}
-                className="text-2xs font-bold text-content-onBrand bg-brand px-3 py-1.5 rounded-full"
-              >
-                Cheguei — responder
-              </button>
-              {podePular && (
+            <div className="flex flex-col gap-2.5">
+              {perto ? (
                 <button
                   type="button"
-                  onClick={() => setPulando(true)}
+                  onClick={() => setAberta(true)}
+                  className="w-full rounded-full bg-brand px-3 py-2 text-2xs font-bold text-content-onBrand"
+                >
+                  Responder agora
+                </button>
+              ) : (
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-subtleBg px-3 py-2 text-2xs text-brand-subtleFg">
+                  <span className="font-semibold">Aproxime-se a até {PILOTO.RAIO_RESPOSTA_M} m para responder</span>
+                  {distanciaAtual != null && <strong className="shrink-0 tabular-nums">{formatarDistancia(distanciaAtual)}</strong>}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                {podePular && (
+                  <button
+                    type="button"
+                    onClick={() => setPulando(true)}
+                    className="text-2xs font-semibold text-content-tertiary underline underline-offset-2"
+                  >
+                    Pular esta parada
+                  </button>
+                )}
+                <Link
+                  to={`/bronca/${parada.id}`}
                   className="text-2xs font-semibold text-content-tertiary underline underline-offset-2"
                 >
-                  Pular esta parada
-                </button>
-              )}
-              <Link
-                to={`/bronca/${parada.id}`}
-                className="text-2xs font-semibold text-content-tertiary underline underline-offset-2"
-              >
-                Ver a bronca
-              </Link>
+                  Ver a bronca
+                </Link>
+              </div>
             </div>
           )}
 
           {aberta && (
             <div className="rounded-2xl border border-edge-subtle bg-surface-subtle px-3.5 py-3">
               <p className="text-xs font-bold text-content-primary">
-                O que você está vendo agora?
+                O que encontrou?
               </p>
 
               {!parado && (
@@ -145,7 +179,7 @@ const ParadaCard = ({
                 </p>
               )}
 
-              <div className="flex flex-col gap-1.5 mt-2.5">
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
                 {RESPOSTAS.map((r) => (
                   <button
                     key={r.id}
@@ -155,9 +189,10 @@ const ParadaCard = ({
                       const ok = await onResponder({ parada, updateType: r.id });
                       if (ok) setAberta(false);
                     }}
-                    className="text-left text-xs font-semibold px-3 py-2 rounded-xl border border-edge-subtle bg-surface-raised text-content-secondary disabled:opacity-40"
+                    title={r.rotulo}
+                    className="min-h-10 rounded-xl border border-edge-subtle bg-surface-raised px-1.5 py-2 text-center text-[10px] font-bold leading-tight text-content-secondary disabled:opacity-40"
                   >
-                    {r.rotulo}
+                    {r.curto}
                   </button>
                 ))}
               </div>
@@ -190,7 +225,7 @@ const ParadaCard = ({
                 onClick={() => setAberta(false)}
                 className="mt-2.5 text-2xs font-semibold text-content-tertiary underline underline-offset-2"
               >
-                Ainda não cheguei
+                Responder depois
               </button>
             </div>
           )}

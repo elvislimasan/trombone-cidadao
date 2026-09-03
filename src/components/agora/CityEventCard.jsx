@@ -94,7 +94,24 @@ export const CityEventHighlightCard = ({ evento, agora = new Date() }) => {
   );
 };
 
-const CityEventCard = ({ evento, agora = new Date(), resolvido = false }) => {
+// O SELO PODE SER DESLIGADO, E ISSO NÃO É PREFERÊNCIA DE TOM
+//
+// "EM ANDAMENTO" ocupa uns 90px. Numa lista larga isso não custa nada; na
+// coluna de 296px do feed sobram ~120px para o título, e "COMUNICADO DA
+// PREFEITURA" chega ao leitor como "COMUNIC…" — o cartão perde justamente a
+// palavra pela qual a pessoa decide se toca nele.
+//
+// Onde a lista é toda de um estado só, o selo repetido em todas as linhas não
+// informa: o cabeçalho do cartão ("Acontecendo agora") já disse. Aí ele sai e o
+// título fica com a largura inteira. Onde a lista mistura estados — o Radar —
+// ele continua, porque lá é ele que separa uma coisa da outra.
+const CityEventCard = ({
+  evento,
+  agora = new Date(),
+  resolvido = false,
+  compact = false,
+  mostrarSelo = true,
+}) => {
   const tipo = tipoDe(evento.type);
   const previsao = estadoDaPrevisao(evento, agora);
   const onde = rotuloDasAreas(evento.areas);
@@ -102,12 +119,12 @@ const CityEventCard = ({ evento, agora = new Date(), resolvido = false }) => {
   return (
     <Link
       to={`/agora/${evento.id}`}
-      className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface-subtle sm:px-5"
+      className={`flex items-center gap-3 px-4 transition-colors hover:bg-surface-subtle ${compact ? 'py-2.5' : 'py-3.5 sm:px-5'}`}
     >
       {/* Com foto, ela substitui o quadrado do ícone — o ícone volta pequeno
           por cima, para o tipo continuar reconhecível de relance. */}
       {evento.image_url ? (
-        <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl bg-surface-sunken">
+        <span className={`relative shrink-0 overflow-hidden bg-surface-sunken ${compact ? 'h-9 w-9 rounded-xl' : 'h-11 w-11 rounded-2xl'}`}>
           <img src={evento.image_url} alt="" className="block h-full w-full object-cover" />
           <span className="absolute inset-0 bg-black/25" />
           <span className="absolute inset-0 flex items-center justify-center">
@@ -115,7 +132,7 @@ const CityEventCard = ({ evento, agora = new Date(), resolvido = false }) => {
           </span>
         </span>
       ) : (
-        <IconeDoAcontecimento type={evento.type} severity={evento.severity} />
+        <IconeDoAcontecimento type={evento.type} severity={evento.severity} tamanho={compact ? 'sm' : 'md'} />
       )}
 
       <div className="min-w-0 flex-1">
@@ -123,10 +140,15 @@ const CityEventCard = ({ evento, agora = new Date(), resolvido = false }) => {
           <h3 className="min-w-0 flex-1 truncate text-sm font-extrabold uppercase tracking-wide text-content-primary">
             {tipo.rotulo}
           </h3>
-          <SeloDeStatus status={evento.status} />
+          {mostrarSelo && (
+            <SeloDeStatus
+              status={evento.status}
+              className={compact ? '!border-transparent !bg-transparent px-1.5 py-0.5 opacity-75' : ''}
+            />
+          )}
         </div>
 
-        {onde && <p className="mt-1 truncate text-sm text-content-secondary">{onde}</p>}
+        {onde && <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} truncate text-content-secondary`}>{onde}</p>}
 
         {/* Uma linha de tempo, e só uma.
             Resolvido responde "quando acabou"; aberto responde "até quando".
@@ -152,7 +174,7 @@ const CityEventCard = ({ evento, agora = new Date(), resolvido = false }) => {
         )}
       </div>
 
-      <ChevronRight className="h-5 w-5 shrink-0 text-content-tertiary" aria-hidden="true" />
+      <ChevronRight className={`${compact ? 'h-4 w-4 opacity-70' : 'h-5 w-5'} shrink-0 text-content-tertiary`} aria-hidden="true" />
     </Link>
   );
 };
@@ -182,6 +204,9 @@ export const CityEventUpcomingCard = ({ evento, agora = new Date() }) => {
           {previsaoLegivel(evento.started_at, agora)}
           {evento.estimated_end_at && ` às ${horaCurta(evento.estimated_end_at)}`}
         </p>
+        {evento.recurrence === 'weekly' && (
+          <p className="text-xs font-semibold text-brand">Repete semanalmente</p>
+        )}
         {onde && <p className="truncate text-xs text-content-tertiary">{onde}</p>}
       </div>
 

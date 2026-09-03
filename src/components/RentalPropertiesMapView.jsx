@@ -11,6 +11,7 @@ import MapDisplayControls, {
   MAP_LAYER,
   MapBaseLayer,
 } from '@/components/map/MapDisplayControls';
+import { Pencil } from 'lucide-react';
 
 // Casa: nao ha equivalente no design system (os icones de la sao por categoria
 // de bronca), entao fica inline. O traco herda a cor do corpo via currentColor,
@@ -87,7 +88,7 @@ const MapController = ({ mapRef }) => {
   return null;
 };
 
-export default function RentalPropertiesMapView({ properties, onSelectProperty }) {
+export default function RentalPropertiesMapView({ properties, onSelectProperty, canManage = false, onEditProperty }) {
   const { city: activeCity } = useCityView();
   const list = properties || [];
   const mapRef = useRef(null);
@@ -117,13 +118,27 @@ export default function RentalPropertiesMapView({ properties, onSelectProperty }
                       <p className="text-muted-foreground">{formatCurrency(property.monthly_value)}/mês</p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onSelectProperty?.(property)}
-                    className="w-full rounded-md bg-tc-red text-white text-xs font-semibold py-1.5 hover:bg-tc-red/90 transition-colors"
-                  >
-                    Ver detalhes
-                  </button>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onSelectProperty?.(property)}
+                      className="flex-1 rounded-md bg-tc-red px-2 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-tc-red/90"
+                    >
+                      Ver detalhes
+                    </button>
+                    {canManage && onEditProperty && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditProperty(property);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+                      >
+                        <Pencil className="h-3 w-3" /> Editar
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </Marker>
