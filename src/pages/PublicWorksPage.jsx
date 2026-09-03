@@ -529,7 +529,7 @@ const PublicWorksPage = () => {
                 status: atual.status.length === 1 && atual.status[0] === cartao.id ? [] : [cartao.id],
               })),
             }))}
-            rodape="Contagem sobre as obras filtradas, não sobre a cidade inteira."
+            rodape="Os números seguem a busca, o bairro, a área e a construtora — não a situação. Toque num cartão para ver só aquelas obras no mapa."
           />
         }
         filtros={
