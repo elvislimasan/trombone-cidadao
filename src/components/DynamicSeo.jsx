@@ -57,7 +57,7 @@ const DynamicSEO = ({
   const baseUrl = getBaseUrl();
   
   // Imagem padrão (thumbnail) se não houver imagem específica ou em caso de erro
-  const defaultImage = `${baseUrl}/images/thumbnail.jpg`;
+  const defaultImage = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
   
   // IMPORTANTE: Verificar se a imagem recebida não é a thumbnail padrão quando deveria ser a da bronca
   const isDefaultThumbnail = image && typeof image === 'string' && image.includes('thumbnail.jpg');

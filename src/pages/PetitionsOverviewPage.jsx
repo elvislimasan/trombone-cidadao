@@ -273,7 +273,7 @@ const PetitionsOverviewPage = () => {
                     <div className="bg-background rounded-xl overflow-hidden">
                       <div className="aspect-auto">
                         <img
-                          src="/abaixo-assinado.jpg"
+                          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/abaixo-assinado.jpg`}
                           alt="Abaixo-assinado"
                           className="w-full h-full object-cover"
                         />

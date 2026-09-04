@@ -235,7 +235,7 @@ const ReportPage = () => {
   }, [report?.photos]);
 
   const seoData = useMemo(() => {
-    const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
+    const defaultThumbnail = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
     let reportImage = defaultThumbnail;
     if (reportPhotos && reportPhotos.length > 0) {
       const firstPhoto = reportPhotos[0];
@@ -1050,7 +1050,7 @@ const ReportPage = () => {
   ) : null;
 
   useEffect(() => {
-    const imageToUse = seoImage || `${baseUrl}/images/thumbnail.jpg`;
+    const imageToUse = seoImage || `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
     if (!imageToUse) return;
     const updateMetaTags = () => {
       [
@@ -1530,7 +1530,7 @@ const ReportPage = () => {
         key={`report-page-${report?.id || "loading"}`}
         title={seoTitle}
         description={seoDescription}
-        image={seoImage || `${baseUrl}/images/thumbnail.jpg`}
+        image={seoImage || `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`}
         url={seoUrl || `${baseUrl}/bronca/${reportId}`}
         type="article"
       />

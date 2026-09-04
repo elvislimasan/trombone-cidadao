@@ -37,8 +37,8 @@ Deno.serve(async (req) => {
   
   // Imagem padrão baseada no tipo
     const defaultImage = contentType === 'peticao' 
-      ? `${appUrl}/abaixo-assinado.jpg`
-      : `${appUrl}/images/thumbnail.jpg`;
+      ? `${supabaseUrl}/storage/v1/object/public/site-media/shared/abaixo-assinado.jpg`
+      : `${supabaseUrl}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
 
     // Construct the destination URL
     const destinoPorTipo: Record<string, string> = {

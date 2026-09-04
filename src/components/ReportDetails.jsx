@@ -248,7 +248,7 @@ const ReportDetails = ({
   
   // Função para obter a URL da imagem corretamente (calculada diretamente no seoData)
   const seoData = useMemo(() => {
-    const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
+    const defaultThumbnail = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
     
     // Calcular a imagem diretamente aqui para evitar dependências circulares
     let reportImage = defaultThumbnail;
@@ -301,7 +301,7 @@ const ReportDetails = ({
   
   // getReportImage para uso no useEffect (calculado separadamente)
   // Garantir fallback para thumbnail padrão
-  const getReportImage = seoData.image || `${baseUrl}/images/thumbnail.jpg`;
+  const getReportImage = seoData.image || `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
 
   const handleMarkResolvedClick = () => {
     if (!user) {
@@ -411,11 +411,11 @@ const ReportDetails = ({
   const handleShare = async () => {
     // Pega a imagem da bronca (URL completa e absoluta)
     // getReportImage já retorna a thumbnail padrão se não houver imagem
-    let shareImageUrl = getReportImage || `${baseUrl}/images/thumbnail.jpg`;
+    let shareImageUrl = getReportImage || `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
     
     // Garantir que a URL seja absoluta e válida
     if (!shareImageUrl || shareImageUrl.trim() === '') {
-      shareImageUrl = `${baseUrl}/images/thumbnail.jpg`;
+      shareImageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
     }
     
     // Se não começar com http, adicionar baseUrl
@@ -1103,7 +1103,7 @@ const ReportDetails = ({
   useEffect(() => {
     // Sempre atualizar meta tags, mesmo se report ainda não carregou (usará thumbnail padrão)
     // Garantir que sempre há uma imagem (thumbnail padrão se necessário)
-    const reportImage = getReportImage || `${baseUrl}/images/thumbnail.jpg`;
+    const reportImage = getReportImage || `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
     
     if (!reportImage) {
       return;

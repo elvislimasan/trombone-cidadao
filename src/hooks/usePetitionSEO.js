@@ -36,7 +36,7 @@ export const usePetitionSEO = (petition, id) => {
   const baseUrl = useMemo(() => getBaseUrl(), [getBaseUrl]);
 
   const seoData = useMemo(() => {
-    const defaultThumbnail = `${baseUrl}/images/thumbnail.jpg`;
+    const defaultThumbnail = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
     let petitionImage = defaultThumbnail;
 
     if (petition) {

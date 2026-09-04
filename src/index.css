@@ -1168,7 +1168,7 @@ html { scroll-behavior: smooth; }
 }
 
 /* ─── As animações da home ────────────────────────────────────────────────
-   Vindas do protótipo `public/trombone-cidadao.html`. A curva
+   Vindas do protótipo visual original. A curva
    cubic-bezier(0.22, 1, 0.36, 1) é a mesma dele: sai rápido e freia longo, que
    é o que faz o bloco "assentar" em vez de só aparecer.
 

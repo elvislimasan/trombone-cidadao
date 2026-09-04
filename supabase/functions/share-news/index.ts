@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
   const defaultTitle = 'Notícia - Trombone Cidadão'
   const defaultDesc = 'Acompanhe notícias e atualizações no Trombone Cidadão.'
-  const defaultImage = `${appUrl}/images/thumbnail.jpg`
+  const defaultImage = `${supabaseUrl}/storage/v1/object/public/site-media/shared/thumbnail.jpg`
 
   const redirectUrl = newsId ? `${appUrl}/noticias/${newsId}` : appUrl
 

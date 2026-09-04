@@ -21,7 +21,9 @@ const PetitionHero = ({
     : format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   // Fallback image if none provided
-  const displayImage = gallery && gallery.length > 0 ? gallery[0] : (imageUrl || '/abaixo-assinado.jpg');
+  const displayImage = gallery && gallery.length > 0
+    ? gallery[0]
+    : (imageUrl || `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/abaixo-assinado.jpg`);
 
   // Check permissions for editing
   const isAuthor = user && user.id === petition.author_id;

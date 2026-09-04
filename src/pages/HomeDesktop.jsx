@@ -50,6 +50,9 @@ const MODULOS = [
 
 const BRASIL_COORDS = [-14.235, -51.9253];
 
+const HOME_IMAGE_BASE_URL =
+  `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/home-image`;
+
 const SELO_DE_STATUS = {
   pending: 'bg-status-pendingBg text-status-pendingFg',
   'in-progress': 'bg-status-progressBg text-status-progressFg',
@@ -366,7 +369,7 @@ function HomeDesktop() {
           <div className="relative">
             <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-[#7F1220] text-white shadow-elevation-3">
               <img
-                src="/hero-img.webp"
+                src={`${HOME_IMAGE_BASE_URL}/hero-img.webp`}
                 alt="Cidadã usando o Trombone Cidadão em uma rua brasileira"
                 fetchPriority="high"
                 className="absolute inset-0 h-full w-full object-cover object-center saturate-[0.9]"
@@ -431,7 +434,7 @@ function HomeDesktop() {
             a plataforma nacional para a rotina de cada município. */}
         <section className="reveal relative mt-10 min-h-[20rem] overflow-hidden rounded-3xl border border-brand/20 bg-[#390b12] text-white shadow-elevation-2">
           <img
-            src="/embaixador-desktop.webp"
+            src={`${HOME_IMAGE_BASE_URL}/embaixador-desktop.webp`}
             alt="Grupo de embaixadores do Trombone Cidadão"
             loading="lazy"
             className="absolute inset-0 h-full w-full object-cover object-[68%_center] saturate-[0.88]"
@@ -821,7 +824,7 @@ function HomeDesktop() {
             voltar; cadastrar cria o vínculo que guarda contribuições e alertas. */}
         <section className="reveal relative mt-10 min-h-[20rem] overflow-hidden rounded-3xl bg-[#171717] text-white shadow-elevation-2">
           <img
-            src="/banner-aplicativo.webp"
+            src={`${HOME_IMAGE_BASE_URL}/banner-aplicativo.webp`}
             alt="Aplicativo Trombone Cidadão exibido em um celular"
             loading="lazy"
             className="absolute inset-0 h-full w-full object-cover object-[70%_center]"

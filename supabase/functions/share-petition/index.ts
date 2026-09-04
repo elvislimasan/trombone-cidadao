@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     appUrl = 'https://trombonecidadao.com.br';
   }
   
-  const defaultImage = `${appUrl}/images/thumbnail.jpg`
+  const defaultImage = `${supabaseUrl}/storage/v1/object/public/site-media/shared/thumbnail.jpg`
 
   // Construct the destination URL
   const redirectUrl = petitionId 

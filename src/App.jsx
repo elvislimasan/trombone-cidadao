@@ -142,7 +142,7 @@ const SEO = () => {
   };
   
   const baseUrl = getBaseUrl();
-  const defaultImage = `${baseUrl}/images/thumbnail.jpg`;
+  const defaultImage = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/thumbnail.jpg`;
   
   let pageTitle = `${siteName} - Sua bronca tem voz!`;
   let pageDescription = defaultDescription;

@@ -48,6 +48,7 @@ next-env.d.ts
 # IDE
 .vscode/
 .idea/
+/.claude/settings.local.json
 *.swp
 *.swo
 *~
@@ -75,6 +76,18 @@ lerna-debug.log*
 ehthumbs.db
 Thumbs.db
 desktop.ini
+*.lnk
+
+# Imagens temporárias geradas localmente
+ChatGPT Image*.png
+
+# Documentos locais de planejamento e deploy
+/docs/DEPLOY_PRODUCAO_MAIN_IMPROVEMENTS_APP.md
+/docs/deploy-canal-do-orgao.md
+/docs/superpowers/plans/2026-08-27-mapa-de-pavimentacao-e-missoes-infinitas.md
+/docs/superpowers/specs/2026-08-27-mapa-de-pavimentacao-e-missoes-infinitas-design.md
+/plano-gamificacao-trombone-cidadao.md
+/plano-minha-rua-agora-impacto.md
 
 # Temporary files
 *.tmp

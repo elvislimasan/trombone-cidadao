@@ -52,7 +52,28 @@
       "Bash(curl -s -o /dev/null -w \"LocationPickerMap: %{http_code}\\\\n\" \"http://localhost:3002/src/components/LocationPickerMap.jsx\")",
       "Bash(curl -s -o /dev/null -w \"OfflineTileLayer: %{http_code}\\\\n\" \"http://localhost:3002/src/components/map/OfflineTileLayer.jsx\")",
       "Bash(curl -s -o /dev/null -w \"tileCache: %{http_code}\\\\n\" \"http://localhost:3002/src/lib/tileCache.js\")",
-      "Bash(curl -s -o /dev/null -w \"tileSources: %{http_code}\\\\n\" \"http://localhost:3002/src/components/map/tileSources.js\")"
+      "Bash(curl -s -o /dev/null -w \"tileSources: %{http_code}\\\\n\" \"http://localhost:3002/src/components/map/tileSources.js\")",
+      "Read(//c/Users/lairt/.claude/skills/superpowers/skills/subagent-driven-development/**)",
+      "Read(//c/Users/lairt/.claude/skills/superpowers/skills/subagent-driven-development/scripts/**)",
+      "Bash(bash \"C:/Users/lairt/.claude/skills/superpowers/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-08-27-mapa-de-pavimentacao-e-missoes-infinitas.md 1)",
+      "Bash(node --import ./tools/test-alias.mjs --test src/test/missions.test.mjs)",
+      "Bash(cp .superpowers/sdd/snap/t3/MediaViewer.jsx /tmp/MV-orig.jsx)",
+      "Bash(mkdir -p .superpowers/sdd/lintcheck)",
+      "Bash(cp .superpowers/sdd/snap/t3/MediaViewer.jsx .superpowers/sdd/lintcheck/MediaViewer.jsx)",
+      "Bash(node --import ./tools/test-alias.mjs --test src/test/pavementStreetHistory.test.mjs)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git show *)",
+      "Bash(rm -f src/components/__lint_orig.jsx)",
+      "Read(//tmp/**)",
+      "Bash(echo \"EXIT_ORIG=$?\")",
+      "Bash(echo \"EXIT_NEW=$?\")",
+      "Bash(bash \"C:/Users/lairt/.claude/skills/superpowers/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-08-27-mapa-de-pavimentacao-e-missoes-infinitas.md 7)",
+      "Bash(echo \"---EXIT $?\")",
+      "Bash(sed -i 's|novo.slice\\(i, j - 1\\)|novo.slice\\(i, j\\)|' __TRACKED_VAR__/prova.mjs)",
+      "Bash(node __TRACKED_VAR__/prova.mjs)",
+      "Bash(echo \"[exit=$?]\")",
+      "Bash(cd \"c:/dev/horizons-export-eff1a4c5-4884-43cf-92e9-e90f584b8f04\" && git log --oneline -- src/pages/admin/ManagePavementPage.jsx | head -5 *)",
+      "Bash(bash \"C:/Users/lairt/.claude/skills/superpowers/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-08-27-mapa-de-pavimentacao-e-missoes-infinitas.md 9)"
     ]
   }
 }

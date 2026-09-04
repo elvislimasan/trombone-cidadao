@@ -493,7 +493,7 @@ function StoryTemplateLegacy({ petition, qrCodeUrl, coverPhotoUrl, showQRCode = 
         </h1>
 
         <div style={{ marginTop: 56, width: '100%', maxWidth: 960, borderRadius: 40, overflow: 'hidden', position: 'relative', height: 540, boxShadow: '0 30px 60px rgba(0,0,0,0.12)' }}>
-          <img src={coverPhotoUrl || '/abaixo-assinado.jpg'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+          <img src={coverPhotoUrl || `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/shared/abaixo-assinado.jpg`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45), transparent)' }} />
           <div style={{ position: 'absolute', top: 24, right: 24, background: '#fff', padding: '14px 32px', borderRadius: 999, fontSize: 32, fontWeight: 800, color: '#E53935', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
             <span style={{ fontSize: 38 }}>{signatures}</span> 

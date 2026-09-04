@@ -199,7 +199,7 @@ const AcceptInvitePage = () => {
             {/* Destaque da cidade */}
             <div className="relative text-white text-center overflow-hidden min-h-[220px] flex flex-col items-center justify-center px-6 py-8">
               <img
-                src="/embaixador-desktop.png"
+                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/home-image/embaixador-desktop.webp`}
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover object-[25%_center]"
               />

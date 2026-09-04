@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-// As animações da home, tiradas do protótipo `public/trombone-cidadao.html`.
+// As animações da home, tiradas do protótipo visual original.
 //
 // POR QUE ISTO NÃO É UMA BIBLIOTECA
 //

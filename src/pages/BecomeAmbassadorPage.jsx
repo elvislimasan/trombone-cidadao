@@ -208,7 +208,7 @@ const BecomeAmbassadorPage = () => {
       {/* HERO / BANNER */}
       <div className="relative text-white overflow-hidden min-h-[420px] md:min-h-[560px] flex items-center">
         <img
-          src="/embaixador-desktop.png"
+          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-media/home-image/embaixador-desktop.webp`}
           alt="Equipe de embaixadores do Trombone Cidadão"
           className="absolute inset-0 w-full h-full object-cover object-[25%_center] md:object-center"
         />
